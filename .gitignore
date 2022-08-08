@@ -5,6 +5,9 @@ project.lock.json
 *.pyc
 nupkg/
 
+# Visual Studio Code
+.vscode
+
 # Visual Studio 2015
 .vs/
 
