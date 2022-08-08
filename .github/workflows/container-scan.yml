@@ -1,0 +1,29 @@
+name: Storage Scan
+
+on:
+  schedule:
+  - cron: '0 8 * * 1,4'
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'Dockerfile'
+  pull_request:
+    branches: [ main ]
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'src/**'
+      - 'Dockerfile'
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build the Docker image
+      run: docker build . --tag altinn-storage:${{github.sha}}
+
+    - uses: Azure/container-scan@v0.1
+      with:
+        image-name: altinn-storage:${{ github.sha }}
+      env:
+        DOCKLE_HOST: "unix:///var/run/docker.sock"
