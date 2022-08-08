@@ -6,14 +6,12 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'src/Storage**'
-      - 'Dockerfile'
+      - 'src/Storage/**'
   pull_request:
     branches: [ main ]
     types: [opened, synchronize, reopened]
     paths:
-      - 'src/Storage**'
-      - 'Dockerfile'
+      - 'src/Storage/**'
 jobs:
   scan:
     runs-on: ubuntu-latest
