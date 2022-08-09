@@ -81,7 +81,7 @@ async Task SetConfigurationProviders(ConfigurationManager config)
     string basePath = Directory.GetParent(Directory.GetCurrentDirectory()).FullName;
 
     config.SetBasePath(basePath);
-    config.AddJsonFile(basePath + @"altinn-appsettings/altinn-dbsettings-secret.json", true, false);
+    config.AddJsonFile(basePath + @"altinn-appsettings/altinn-dbsettings-secret.json", true, true);
 
     if (basePath == "/")
     {

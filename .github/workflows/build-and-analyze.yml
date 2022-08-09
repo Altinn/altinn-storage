@@ -13,12 +13,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - name: Set inotify watchers
+        run: echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
       - name: Setup .NET
         uses: actions/setup-dotnet@v2
         with:
           dotnet-version: |
             6.0.x
-            3.1.x
       - name: Build & Test
         run: |
            dotnet build Altinn.Platform.Storage.sln -v m
