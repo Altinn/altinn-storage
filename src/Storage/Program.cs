@@ -87,13 +87,13 @@ async Task SetConfigurationProviders(ConfigurationManager config)
     {
         // In a pod/container where the app is located in an app folder on the root of the filesystem.
         string filePath = basePath + @"app/appsettings.json";
-        config.AddJsonFile(filePath, false, false);
+        config.AddJsonFile(filePath, false, true);
     }
     else
     {
         // Running on development machine.
         string filePath = Directory.GetCurrentDirectory() + @"/appsettings.json";
-        config.AddJsonFile(filePath, false, false);
+        config.AddJsonFile(filePath, false, true);
     }
 
     config.AddEnvironmentVariables();
