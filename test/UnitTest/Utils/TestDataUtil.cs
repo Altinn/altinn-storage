@@ -26,7 +26,7 @@ namespace Altinn.Platform.Storage.UnitTest.Utils
 
         public static DataElement GetDataElement(string dataGuid)
         {
-            string dataElementPath = GetDataPath() + "/" + dataGuid + ".json";
+            string dataElementPath = Path.Combine(GetDataPath(), dataGuid + ".json");
 
             string content = File.ReadAllText(dataElementPath);
             DataElement dataElement = (DataElement)JsonConvert.DeserializeObject(content, typeof(DataElement));
@@ -38,7 +38,12 @@ namespace Altinn.Platform.Storage.UnitTest.Utils
             string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(TestDataUtil).Assembly.Location).LocalPath);
             return Path.Combine(
                 unitTestFolder,
-                @"..\..\..\data\cosmoscollections\instances\",
+                "..", 
+                "..", 
+                "..",
+                "data",
+                "cosmoscollections",
+                "instances",
                 instanceOwnerId.ToString(),
                 instanceGuid + @".json");
         }
@@ -46,7 +51,7 @@ namespace Altinn.Platform.Storage.UnitTest.Utils
         private static string GetDataPath()
         {
             string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(TestDataUtil).Assembly.Location).LocalPath);
-            return Path.Combine(unitTestFolder, @"..\..\..\data\cosmoscollections\dataelements");
+            return Path.Combine(unitTestFolder, "..", "..", "..", "data", "cosmoscollections", "dataelements");
         }
     }
 }
