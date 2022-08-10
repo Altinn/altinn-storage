@@ -94,7 +94,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
         private static string GetAppsPath()
         {
             string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(ApplicationRepositoryMock).Assembly.Location).LocalPath);
-            return Path.Combine(unitTestFolder, @"..\..\..\data\apps");
+            return Path.Combine(unitTestFolder, "..", "..", "..", "data", "apps");
         }
     }
 }
