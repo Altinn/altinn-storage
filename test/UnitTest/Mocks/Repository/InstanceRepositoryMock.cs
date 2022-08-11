@@ -174,7 +174,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
         private static string GetInstancesPath()
         {
             string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(InstanceRepositoryMock).Assembly.Location).LocalPath);
-            return Path.Combine(unitTestFolder, @"..\..\..\data\cosmoscollections\instances");
+            return Path.Combine(unitTestFolder, "..", "..", "..", "data", "cosmoscollections", "instances");
         }
 
         /// <summary>
