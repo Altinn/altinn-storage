@@ -7,11 +7,13 @@ on:
     branches: [ main ]
     paths:
       - 'src/Storage/**'
+      - 'Dockerfile'
   pull_request:
     branches: [ main ]
     types: [opened, synchronize, reopened]
     paths:
       - 'src/Storage/**'
+      - 'Dockerfile'
 jobs:
   scan:
     runs-on: ubuntu-latest
