@@ -9,12 +9,12 @@ jobs:
     name: Build and Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-dotnet@v2
       - name: Set inotify watchers
         run: echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
       - name: Set inotify instances
         run: echo fs.inotify.max_user_instances=8192 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
       - name: Setup .NET
+        uses: actions/setup-dotnet@v2
         with:
           dotnet-version: |
             6.0.x
