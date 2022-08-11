@@ -20,7 +20,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build the Docker image
-      run: docker build ./src/Storage --tag altinn-storage:${{github.sha}}
+      run: docker build . --tag altinn-storage:${{github.sha}}
 
     - uses: Azure/container-scan@v0.1
       with:
