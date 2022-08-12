@@ -7,18 +7,20 @@ on:
     branches: [ main ]
     paths:
       - 'src/Storage/**'
+      - 'Dockerfile'
   pull_request:
     branches: [ main ]
     types: [opened, synchronize, reopened]
     paths:
       - 'src/Storage/**'
+      - 'Dockerfile'
 jobs:
   scan:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
     - name: Build the Docker image
-      run: docker build ./src/Storage --tag altinn-storage:${{github.sha}}
+      run: docker build . --tag altinn-storage:${{github.sha}}
 
     - uses: Azure/container-scan@v0.1
       with:
