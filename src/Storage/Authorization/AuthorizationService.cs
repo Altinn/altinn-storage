@@ -201,10 +201,7 @@ namespace Altinn.Platform.Storage.Authorization
 
             if (!string.IsNullOrWhiteSpace(contextScope))
             {
-                foreach (string scope in requiredScope.Where(scope => contextScope.Contains(scope, StringComparison.InvariantCultureIgnoreCase)))
-                {
-                    return true;
-                }
+                return requiredScope.Any(scope => contextScope.Contains(scope, StringComparison.InvariantCultureIgnoreCase));
             }
 
             return false;
