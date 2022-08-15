@@ -69,68 +69,63 @@ namespace Altinn.Platform.Storage.Authorization
             _logger.LogInformation("// AuthorizationHelper // AuthorizeMsgBoxInstances // xacmlJsonRequest: {request}", JsonConvert.SerializeObject(xacmlJsonRequest));
             XacmlJsonResponse response = await _pdp.GetDecisionForRequest(xacmlJsonRequest);
 
-            foreach (XacmlJsonResult result in response.Response)
+            foreach (XacmlJsonResult result in response.Response.Where(result => DecisionHelper.ValidateDecisionResult(result, user)))
             {
-                if (DecisionHelper.ValidateDecisionResult(result, user))
+                string instanceId = string.Empty;
+                string actiontype = string.Empty;
+
+                // Loop through all attributes in Category from the response
+                foreach (var attributes in result.Category.Select(c => c.Attribute))
                 {
-                    string instanceId = string.Empty;
-                    string actiontype = string.Empty;
-
-                    // Loop through all attributes in Category from the response
-                    foreach (XacmlJsonCategory category in result.Category)
+                    foreach (var attribute in attributes)
                     {
-                        var attributes = category.Attribute;
-
-                        foreach (var attribute in attributes)
+                        if (attribute.AttributeId.Equals(XacmlResourceActionId))
                         {
-                            if (attribute.AttributeId.Equals(XacmlResourceActionId))
-                            {
-                                actiontype = attribute.Value;
-                            }
-
-                            if (attribute.AttributeId.Equals(AltinnXacmlUrns.InstanceId))
-                            {
-                                instanceId = attribute.Value;
-                            }
-                        }
-                    }
-
-                    // Find the instance that has been validated to add it to the list of authorized instances.
-                    Instance authorizedInstance = instances.First(i => i.Id == instanceId);
-
-                    // Checks if the instance has already been authorized
-                    if (authorizedInstanceList.Any(i => i.Id.Equals(authorizedInstance.Id.Split("/")[1])))
-                    {
-                        switch (actiontype)
-                        {
-                            case "write":
-                                authorizedInstanceList.Where(i => i.Id.Equals(authorizedInstance.Id.Split("/")[1])).ToList().ForEach(i => i.AuthorizedForWrite = true);
-                                break;
-                            case "delete":
-                                authorizedInstanceList.Where(i => i.Id.Equals(authorizedInstance.Id.Split("/")[1])).ToList().ForEach(i => i.AllowDelete = true);
-                                break;
-                            case "read":
-                                break;
-                        }
-                    }
-                    else
-                    {
-                        MessageBoxInstance messageBoxInstance = InstanceHelper.ConvertToMessageBoxInstance(authorizedInstance);
-
-                        switch (actiontype)
-                        {
-                            case "write":
-                                messageBoxInstance.AuthorizedForWrite = true;
-                                break;
-                            case "delete":
-                                messageBoxInstance.AllowDelete = true;
-                                break;
-                            case "read":
-                                break;
+                            actiontype = attribute.Value;
                         }
 
-                        authorizedInstanceList.Add(messageBoxInstance);
+                        if (attribute.AttributeId.Equals(AltinnXacmlUrns.InstanceId))
+                        {
+                            instanceId = attribute.Value;
+                        }
                     }
+                }
+
+                // Find the instance that has been validated to add it to the list of authorized instances.
+                Instance authorizedInstance = instances.First(i => i.Id == instanceId);
+
+                // Checks if the instance has already been authorized
+                if (authorizedInstanceList.Any(i => i.Id.Equals(authorizedInstance.Id.Split("/")[1])))
+                {
+                    switch (actiontype)
+                    {
+                        case "write":
+                            authorizedInstanceList.Where(i => i.Id.Equals(authorizedInstance.Id.Split("/")[1])).ToList().ForEach(i => i.AuthorizedForWrite = true);
+                            break;
+                        case "delete":
+                            authorizedInstanceList.Where(i => i.Id.Equals(authorizedInstance.Id.Split("/")[1])).ToList().ForEach(i => i.AllowDelete = true);
+                            break;
+                        case "read":
+                            break;
+                    }
+                }
+                else
+                {
+                    MessageBoxInstance messageBoxInstance = InstanceHelper.ConvertToMessageBoxInstance(authorizedInstance);
+
+                    switch (actiontype)
+                    {
+                        case "write":
+                            messageBoxInstance.AuthorizedForWrite = true;
+                            break;
+                        case "delete":
+                            messageBoxInstance.AllowDelete = true;
+                            break;
+                        case "read":
+                            break;
+                    }
+
+                    authorizedInstanceList.Add(messageBoxInstance);
                 }
             }
 
@@ -186,29 +181,26 @@ namespace Altinn.Platform.Storage.Authorization
             XacmlJsonRequestRoot xacmlJsonRequest = CreateMultiDecisionRequest(user, instances, actionTypes);
             XacmlJsonResponse response = await _pdp.GetDecisionForRequest(xacmlJsonRequest);
 
-            foreach (XacmlJsonResult result in response.Response)
+            foreach (XacmlJsonResult result in response.Response.Where(result => DecisionHelper.ValidateDecisionResult(result, user)))
             {
-                if (DecisionHelper.ValidateDecisionResult(result, user))
+                string instanceId = string.Empty;
+
+                // Loop through all attributes in Category from the response
+                foreach (XacmlJsonCategory category in result.Category)
                 {
-                    string instanceId = string.Empty;
+                    var attributes = category.Attribute;
 
-                    // Loop through all attributes in Category from the response
-                    foreach (XacmlJsonCategory category in result.Category)
+                    foreach (var attribute in attributes)
                     {
-                        var attributes = category.Attribute;
-
-                        foreach (var attribute in attributes)
+                        if (attribute.AttributeId.Equals(AltinnXacmlUrns.InstanceId))
                         {
-                            if (attribute.AttributeId.Equals(AltinnXacmlUrns.InstanceId))
-                            {
-                                instanceId = attribute.Value;
-                            }
+                            instanceId = attribute.Value;
                         }
                     }
-
-                    Instance instance = instances.FirstOrDefault(i => i.Id == instanceId);
-                    authorizedInstanceList.Add(instance);
                 }
+
+                Instance instance = instances.FirstOrDefault(i => i.Id == instanceId);
+                authorizedInstanceList.Add(instance);
             }
 
             return authorizedInstanceList;
