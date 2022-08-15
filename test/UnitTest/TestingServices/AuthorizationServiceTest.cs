@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using System.Threading.Tasks;
 
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Interfaces;
@@ -28,13 +29,38 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         private const string UrnUserId = "urn:altinn:userid";
 
         private readonly AuthorizationService _authzService;
+        private readonly IPDP _pdpMockSI;
+        private readonly Mock<IPDP> _pdpSimpleMock;
         private readonly Mock<IInstanceRepository> _instanceRepository = new Mock<IInstanceRepository>();
 
         public AuthorizationServiceTest()
         {
-            IPDP pdp = new PepWithPDPAuthorizationMockSI(_instanceRepository.Object);
+            _pdpSimpleMock = new Mock<IPDP>();
+            _pdpMockSI = new PepWithPDPAuthorizationMockSI(_instanceRepository.Object);
+            _authzService = new AuthorizationService(_pdpMockSI, Mock.Of<ILogger<IAuthorization>>());
+        }
 
-            _authzService = new AuthorizationService(pdp, Mock.Of<ILogger<IAuthorization>>());
+        [Fact]
+        public async Task GetDecisionForRequest_ConfirmPDPCalled()
+        {
+            var res = new XacmlJsonResponse
+            {
+                Response = new List<XacmlJsonResult>()
+                {
+                    new XacmlJsonResult
+                    {
+                        Decision = "Permit"
+                    }
+                }
+            };
+
+            _pdpSimpleMock.Setup(pdp => pdp.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+                .ReturnsAsync(res);
+
+            var sut = new AuthorizationService(_pdpSimpleMock.Object, Mock.Of<ILogger<IAuthorization>>());
+            await sut.GetDecisionForRequest(new XacmlJsonRequestRoot());
+
+            _pdpSimpleMock.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Once());
         }
 
         /// <summary>

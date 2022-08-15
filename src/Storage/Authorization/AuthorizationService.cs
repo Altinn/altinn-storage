@@ -46,14 +46,6 @@ namespace Altinn.Platform.Storage.Authorization
         }
 
         /// <inheritdoc/>>
-        public async Task<XacmlJsonResponse> GetDecisionForRequest(XacmlJsonRequestRoot xacmlJsonRequest)
-        {
-            return await _pdp.GetDecisionForRequest(xacmlJsonRequest);
-        }
-
-        /// <summary>
-        /// Authorize instances, and returns a list of MesseageBoxInstances with information about read and write rights of each instance.
-        /// </summary>
         public async Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(ClaimsPrincipal user, List<Instance> instances)
         {
             if (instances.Count <= 0)
@@ -132,10 +124,7 @@ namespace Altinn.Platform.Storage.Authorization
             return authorizedInstanceList;
         }
 
-        /// <summary>
-        /// Authorizes a given action on an instance.
-        /// </summary>
-        /// <returns>true if the user is authorized.</returns>
+        /// <inheritdoc/>>
         public async Task<bool> AuthorizeInstanceAction(ClaimsPrincipal user, Instance instance, string action, string task = null)
         {
             string org = instance.Org;
@@ -165,9 +154,7 @@ namespace Altinn.Platform.Storage.Authorization
             return authorized;
         }
 
-        /// <summary>
-        /// Authorize instances, and returns a list of instances that the user has the right to read.
-        /// </summary>
+        /// <inheritdoc/>>
         public async Task<List<Instance>> AuthorizeInstances(ClaimsPrincipal user, List<Instance> instances)
         {
             if (instances.Count <= 0)
@@ -199,6 +186,34 @@ namespace Altinn.Platform.Storage.Authorization
             }
 
             return authorizedInstanceList;
+        }
+
+        /// <inheritdoc/>>
+        public bool ContainsRequiredScope(List<string> requiredScope, ClaimsPrincipal user)
+        {
+            string contextScope = user.Identities?
+               .FirstOrDefault(i => i.AuthenticationType != null && i.AuthenticationType.Equals("AuthenticationTypes.Federation"))
+               ?.Claims
+               .Where(c => c.Type.Equals("urn:altinn:scope"))
+               ?.Select(c => c.Value).FirstOrDefault();
+
+            contextScope ??= user.Claims.Where(c => c.Type.Equals("scope")).Select(c => c.Value).FirstOrDefault();
+
+            if (!string.IsNullOrWhiteSpace(contextScope))
+            {
+                foreach (string scope in requiredScope.Where(scope => contextScope.Contains(scope, StringComparison.InvariantCultureIgnoreCase)))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <inheritdoc/>>
+        public async Task<XacmlJsonResponse> GetDecisionForRequest(XacmlJsonRequestRoot xacmlJsonRequest)
+        {
+            return await _pdp.GetDecisionForRequest(xacmlJsonRequest);
         }
 
         /// <summary>
@@ -264,33 +279,6 @@ namespace Altinn.Platform.Storage.Authorization
             {
                 resourceCategory
             };
-        }
-
-        /// <summary>
-        /// Verifies a scope claim based on claimsprincipal.
-        /// </summary>
-        /// <param name="requiredScope">Requiered scope.</param>
-        /// <param name="user">Claim principal from http context.</param>
-        /// <returns>true if the given ClaimsPrincipal or on of its identities have contains the given scope.</returns>
-        public bool ContainsRequiredScope(List<string> requiredScope, ClaimsPrincipal user)
-        {
-            string contextScope = user.Identities?
-               .FirstOrDefault(i => i.AuthenticationType != null && i.AuthenticationType.Equals("AuthenticationTypes.Federation"))
-               ?.Claims
-               .Where(c => c.Type.Equals("urn:altinn:scope"))
-               ?.Select(c => c.Value).FirstOrDefault();
-
-            contextScope ??= user.Claims.Where(c => c.Type.Equals("scope")).Select(c => c.Value).FirstOrDefault();
-
-            if (!string.IsNullOrWhiteSpace(contextScope))
-            {
-                foreach (string scope in requiredScope.Where(scope => contextScope.Contains(scope, StringComparison.InvariantCultureIgnoreCase)))
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         private static XacmlJsonCategory CreateMultipleSubjectCategory(IEnumerable<Claim> claims)
