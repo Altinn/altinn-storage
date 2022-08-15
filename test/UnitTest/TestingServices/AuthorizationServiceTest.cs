@@ -5,6 +5,7 @@ using System.Security.Claims;
 
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Interfaces;
+using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
@@ -16,9 +17,9 @@ using Moq;
 
 using Xunit;
 
-namespace Altinn.Platform.Storage.UnitTest.HelperTests
+namespace Altinn.Platform.Storage.UnitTest.TestingServices
 {
-    public class AuthorizeInstancesHelperTest
+    public class AuthorizationServiceTest
     {
         private const string Org = "tdd";
         private const string App = "test-applikasjon-1";
@@ -26,14 +27,14 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
         private const string UrnAuthLv = "urn:altinn:authlevel";
         private const string UrnUserId = "urn:altinn:userid";
 
-        private readonly AuthorizationHelper _authzHelper;
+        private readonly AuthorizationService _authzService;
         private readonly Mock<IInstanceRepository> _instanceRepository = new Mock<IInstanceRepository>();
 
-        public AuthorizeInstancesHelperTest()
+        public AuthorizationServiceTest()
         {
             IPDP pdp = new PepWithPDPAuthorizationMockSI(_instanceRepository.Object);
 
-            _authzHelper = new AuthorizationHelper(pdp, Mock.Of<ILogger<AuthorizationHelper>>());
+            _authzService = new AuthorizationService(pdp, Mock.Of<ILogger<IAuthorization>>());
         }
 
         /// <summary>
@@ -48,7 +49,7 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
             List<Instance> instances = CreateInstances();
 
             // Act
-            XacmlJsonRequestRoot requestRoot = AuthorizationHelper.CreateMultiDecisionRequest(CreateUserClaims(1), instances, actionTypes);
+            XacmlJsonRequestRoot requestRoot = AuthorizationService.CreateMultiDecisionRequest(CreateUserClaims(1), instances, actionTypes);
 
             // Assert
             // Checks it has the right number of attributes in each category 
@@ -76,7 +77,7 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
             List<Instance> instances = CreateInstances();
 
             // Act & Assert 
-            Assert.Throws<ArgumentNullException>(() => AuthorizationHelper.CreateMultiDecisionRequest(null, instances, actionTypes));
+            Assert.Throws<ArgumentNullException>(() => AuthorizationService.CreateMultiDecisionRequest(null, instances, actionTypes));
         }
 
         /// <summary>
@@ -91,7 +92,7 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
             List<Instance> instances = new List<Instance>();
 
             // Act
-            List<MessageBoxInstance> actual = await _authzHelper.AuthorizeMesseageBoxInstances(CreateUserClaims(3), instances);
+            List<MessageBoxInstance> actual = await _authzService.AuthorizeMesseageBoxInstances(CreateUserClaims(3), instances);
 
             // Assert
             Assert.Equal(expected, actual);

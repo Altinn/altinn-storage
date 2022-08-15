@@ -13,8 +13,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 
-using DataType = Altinn.Platform.Storage.Interface.Models.DataType;
-
 namespace Altinn.Platform.Storage.Controllers
 {
     /// <summary>

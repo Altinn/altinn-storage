@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
@@ -8,17 +8,19 @@ using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Constants;
 using Altinn.Common.PEP.Helpers;
 using Altinn.Common.PEP.Interfaces;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 
 using Microsoft.Extensions.Logging;
+
 using Newtonsoft.Json;
 
-namespace Altinn.Platform.Storage.Helpers
+namespace Altinn.Platform.Storage.Authorization
 {
     /// <summary>
-    /// Custom PEP to create multi decision request.
+    /// Implementation of the Storage Authorization service
     /// </summary>
-    public class AuthorizationHelper
+    public class AuthorizationService : IAuthorization
     {
         private readonly IPDP _pdp;
         private readonly ILogger _logger;
@@ -33,14 +35,20 @@ namespace Altinn.Platform.Storage.Helpers
         private const string ResourceId = "r";
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="AuthorizationHelper"/> class.
+        /// Initializes a new instance of the <see cref="AuthorizationService"/> class.
         /// </summary>
-        /// <param name="pdp">The policy decision point</param>
-        /// <param name="logger">The logger to use by the class.</param>
-        public AuthorizationHelper(IPDP pdp, ILogger<AuthorizationHelper> logger)
+        /// <param name="pdp">Policy decision point</param>
+        /// <param name="logger">The logger</param>      
+        public AuthorizationService(IPDP pdp, ILogger<IAuthorization> logger)
         {
             _pdp = pdp;
             _logger = logger;
+        }
+
+        /// <inheritdoc/>>
+        public async Task<XacmlJsonResponse> GetDecisionForRequest(XacmlJsonRequestRoot xacmlJsonRequest)
+        {
+           return await _pdp.GetDecisionForRequest(xacmlJsonRequest);
         }
 
         /// <summary>
@@ -270,28 +278,6 @@ namespace Altinn.Platform.Storage.Helpers
         }
 
         /// <summary>
-        /// Verifies that org string matches org in user claims.
-        /// </summary>
-        /// <param name="org">Organisation to match in claims.</param>
-        /// <param name="user">Claim principal from http context.</param>
-        /// <returns>true if the given ClaimsPrincipal contains the given org.</returns>
-        public static bool VerifyOrgInClaimPrincipal(string org, ClaimsPrincipal user)
-        {
-            Console.WriteLine($"AuthzHelper // VerifyOrg // Trying to verify org in claims.");
-
-            string orgClaim = user?.Claims.Where(c => c.Type.Equals(AltinnXacmlUrns.OrgId)).Select(c => c.Value).FirstOrDefault();
-
-            Console.WriteLine($"AuthzHelper // VerifyOrg // Org claim: {orgClaim}.");
-
-            if (org.Equals(orgClaim, StringComparison.CurrentCultureIgnoreCase))
-            {
-                return true;
-            }
-
-            return false;
-        }
-
-        /// <summary>
         /// Verifies a scope claim based on claimsprincipal.
         /// </summary>
         /// <param name="requiredScope">Requiered scope.</param>
@@ -308,7 +294,7 @@ namespace Altinn.Platform.Storage.Helpers
             contextScope ??= user.Claims.Where(c => c.Type.Equals("scope")).Select(c => c.Value).FirstOrDefault();
 
             if (!string.IsNullOrWhiteSpace(contextScope))
-            { 
+            {
                 foreach (string scope in requiredScope)
                 {
                     if (contextScope.Contains(scope, StringComparison.InvariantCultureIgnoreCase))
