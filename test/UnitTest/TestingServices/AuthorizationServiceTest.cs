@@ -12,6 +12,8 @@ using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Mocks;
 
+using AltinnCore.Authentication.Constants;
+
 using Microsoft.Extensions.Logging;
 
 using Moq;
@@ -61,6 +63,45 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             await sut.GetDecisionForRequest(new XacmlJsonRequestRoot());
 
             _pdpSimpleMock.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Once());
+        }
+
+        [Fact]
+        public void ContainsRequiredScope_CaseIgnored_ReturnsTrue()
+        {
+            string reqiured = "altinn:serviceowner/instances.read";
+
+            var claims = new List<Claim>();
+            claims.Add(new Claim("urn:altinn:scope", "ALTINN:SERVICEOWNER/INSTANCES.READ", ClaimValueTypes.String, "maskinporten"));
+
+            var identity = new ClaimsIdentity("AuthenticationTypes.Federation");
+            identity.AddClaims(claims);
+            var principal = new ClaimsPrincipal(identity);
+
+            var actual = _authzService.ContainsRequiredScope(new List<string> { reqiured }, principal);
+
+            Assert.True(actual);
+        }
+
+        [Fact]
+        public void ContainsRequiredScope_MissingRequiredScope_ReturnsFalse()
+        {
+            string reqiured = "altinn:serviceowner/instances.read";
+
+            var claims = new List<Claim>();
+            string issuer = "www.altinn.no";
+            claims.Add(new Claim("urn:altinn:org", "nav", ClaimValueTypes.String, issuer));
+            claims.Add(new Claim("urn:altinn:orgNumber", "123456789", ClaimValueTypes.Integer32, issuer));
+            claims.Add(new Claim(AltinnCoreClaimTypes.AuthenticateMethod, "Mock", ClaimValueTypes.String, issuer));
+            claims.Add(new Claim(AltinnCoreClaimTypes.AuthenticationLevel, "3", ClaimValueTypes.Integer32, issuer));
+            claims.Add(new Claim("urn:altinn:scope", "altinn:random.scope", ClaimValueTypes.String, "maskinporten"));
+
+            var identity = new ClaimsIdentity("AuthenticationTypes.Federation");
+            identity.AddClaims(claims);
+            var principal = new ClaimsPrincipal(identity);
+
+            var actual = _authzService.ContainsRequiredScope(new List<string> { reqiured }, principal);
+
+            Assert.False(actual);
         }
 
         /// <summary>
