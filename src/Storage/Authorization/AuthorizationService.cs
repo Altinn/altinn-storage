@@ -186,10 +186,8 @@ namespace Altinn.Platform.Storage.Authorization
                 string instanceId = string.Empty;
 
                 // Loop through all attributes in Category from the response
-                foreach (XacmlJsonCategory category in result.Category)
+                foreach (var attributes in result.Category.Select(category => category.Attribute))
                 {
-                    var attributes = category.Attribute;
-
                     foreach (var attribute in attributes)
                     {
                         if (attribute.AttributeId.Equals(AltinnXacmlUrns.InstanceId))
@@ -289,12 +287,9 @@ namespace Altinn.Platform.Storage.Authorization
 
             if (!string.IsNullOrWhiteSpace(contextScope))
             {
-                foreach (string scope in requiredScope)
+                foreach (string scope in requiredScope.Where(scope => contextScope.Contains(scope, StringComparison.InvariantCultureIgnoreCase)))
                 {
-                    if (contextScope.Contains(scope, StringComparison.InvariantCultureIgnoreCase))
-                    {
-                        return true;
-                    }
+                    return true;
                 }
             }
 
