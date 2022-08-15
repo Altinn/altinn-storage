@@ -69,6 +69,7 @@ namespace Altinn.Platform.Storage.Controllers
             _instanceRepository = instanceRepository;
             _instanceEventRepository = instanceEventRepository;
             _applicationRepository = applicationRepository;
+            _partiesWithInstancesClient = partiesWithInstancesClient;
             _logger = logger;
             _storageBaseAndHost = $"{settings.Value.Hostname}/storage/api/v1/";
             _authorizationService = authorizationService;

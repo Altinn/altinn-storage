@@ -1504,7 +1504,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                     services.AddSingleton(keyVaultWrapper.Object);
                     services.AddSingleton<IPartiesWithInstancesClient, PartiesWithInstancesClientMock>();
                     services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
-                    services.AddTransient<IAuthorization, AuthorizationService>();
+
+                    // services.AddTransient<IAuthorization, AuthorizationService>();
                     services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
                 });
             }).CreateClient();
