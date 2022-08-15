@@ -240,8 +240,8 @@ namespace Altinn.Platform.Storage.Authorization
 
         private static (string InstanceId, string InstanceGuid, string Task, string InstanceOwnerPartyId, string Org, string App) GetInstanceProperties(Instance instance)
         {
-            string instanceId = instance.Id.Contains("/") ? instance.Id : null;
-            string instanceGuid = instance.Id.Contains("/") ? instance.Id.Split("/")[1] : instance.Id;
+            string instanceId = instance.Id.Contains('/') ? instance.Id : null;
+            string instanceGuid = instance.Id.Contains('/') ? instance.Id.Split("/")[1] : instance.Id;
             string task = instance.Process?.CurrentTask?.ElementId;
             string instanceOwnerPartyId = instance.InstanceOwner.PartyId;
             string org = instance.Org;
