@@ -48,7 +48,7 @@ namespace Altinn.Platform.Storage.Authorization
         /// <inheritdoc/>>
         public async Task<XacmlJsonResponse> GetDecisionForRequest(XacmlJsonRequestRoot xacmlJsonRequest)
         {
-           return await _pdp.GetDecisionForRequest(xacmlJsonRequest);
+            return await _pdp.GetDecisionForRequest(xacmlJsonRequest);
         }
 
         /// <summary>
@@ -61,8 +61,8 @@ namespace Altinn.Platform.Storage.Authorization
                 return new List<MessageBoxInstance>();
             }
 
-            List<MessageBoxInstance> authorizedInstanceList = new List<MessageBoxInstance>();
-            List<string> actionTypes = new List<string> { "read", "write", "delete" };
+            List<MessageBoxInstance> authorizedInstanceList = new();
+            List<string> actionTypes = new() { "read", "write", "delete" };
 
             XacmlJsonRequestRoot xacmlJsonRequest = CreateMultiDecisionRequest(user, instances, actionTypes);
 
@@ -180,8 +180,8 @@ namespace Altinn.Platform.Storage.Authorization
                 return instances;
             }
 
-            List<Instance> authorizedInstanceList = new List<Instance>();
-            List<string> actionTypes = new List<string> { "read" };
+            List<Instance> authorizedInstanceList = new();
+            List<string> actionTypes = new() { "read" };
 
             XacmlJsonRequestRoot xacmlJsonRequest = CreateMultiDecisionRequest(user, instances, actionTypes);
             XacmlJsonResponse response = await _pdp.GetDecisionForRequest(xacmlJsonRequest);
@@ -224,7 +224,7 @@ namespace Altinn.Platform.Storage.Authorization
                 throw new ArgumentNullException(nameof(user));
             }
 
-            XacmlJsonRequest request = new XacmlJsonRequest
+            XacmlJsonRequest request = new()
             {
                 AccessSubject = new List<XacmlJsonCategory>()
             };
@@ -234,7 +234,7 @@ namespace Altinn.Platform.Storage.Authorization
             request.Resource = CreateMultipleResourceCategory(instances);
             request.MultiRequests = CreateMultiRequestsCategory(request.AccessSubject, request.Action, request.Resource);
 
-            XacmlJsonRequestRoot jsonRequest = new XacmlJsonRequestRoot() { Request = request };
+            XacmlJsonRequestRoot jsonRequest = new() { Request = request };
 
             return jsonRequest;
         }
@@ -246,7 +246,7 @@ namespace Altinn.Platform.Storage.Authorization
         /// <param name="instance">The instance</param>
         public static void EnrichXacmlJsonRequest(XacmlJsonRequestRoot jsonRequest, Instance instance)
         {
-            XacmlJsonCategory resourceCategory = new XacmlJsonCategory { Attribute = new List<XacmlJsonAttribute>() };
+            XacmlJsonCategory resourceCategory = new() { Attribute = new List<XacmlJsonAttribute>() };
 
             string instanceId = instance.Id;
             string task = instance.Process?.CurrentTask?.ElementId;
@@ -273,8 +273,10 @@ namespace Altinn.Platform.Storage.Authorization
             resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.AppId, app, DefaultType, DefaultIssuer));
 
             // Replaces the current Resource attributes
-            jsonRequest.Request.Resource = new List<XacmlJsonCategory>();
-            jsonRequest.Request.Resource.Add(resourceCategory);
+            jsonRequest.Request.Resource = new List<XacmlJsonCategory>
+            {
+                resourceCategory
+            };
         }
 
         /// <summary>
@@ -317,7 +319,7 @@ namespace Altinn.Platform.Storage.Authorization
 
         private static List<XacmlJsonCategory> CreateMultipleActionCategory(List<string> actionTypes)
         {
-            List<XacmlJsonCategory> actionCategories = new List<XacmlJsonCategory>();
+            List<XacmlJsonCategory> actionCategories = new();
             int counter = 1;
 
             foreach (string actionType in actionTypes)
@@ -334,12 +336,12 @@ namespace Altinn.Platform.Storage.Authorization
 
         private static List<XacmlJsonCategory> CreateMultipleResourceCategory(List<Instance> instances)
         {
-            List<XacmlJsonCategory> resourcesCategories = new List<XacmlJsonCategory>();
+            List<XacmlJsonCategory> resourcesCategories = new();
             int counter = 1;
 
             foreach (Instance instance in instances)
             {
-                XacmlJsonCategory resourceCategory = new XacmlJsonCategory { Attribute = new List<XacmlJsonAttribute>() };
+                XacmlJsonCategory resourceCategory = new() { Attribute = new List<XacmlJsonAttribute>() };
 
                 string instanceId = instance.Id.Split("/")[1];
                 string task = instance.Process?.CurrentTask?.ElementId;
@@ -378,7 +380,7 @@ namespace Altinn.Platform.Storage.Authorization
             List<string> actionIds = actions.Select(a => a.Id).ToList();
             List<string> resourceIds = resources.Select(r => r.Id).ToList();
 
-            XacmlJsonMultiRequests multiRequests = new XacmlJsonMultiRequests
+            XacmlJsonMultiRequests multiRequests = new()
             {
                 RequestReference = CreateRequestReference(subjectIds, actionIds, resourceIds)
             };
@@ -388,7 +390,7 @@ namespace Altinn.Platform.Storage.Authorization
 
         private static List<XacmlJsonRequestReference> CreateRequestReference(List<string> subjectIds, List<string> actionIds, List<string> resourceIds)
         {
-            List<XacmlJsonRequestReference> references = new List<XacmlJsonRequestReference>();
+            List<XacmlJsonRequestReference> references = new();
 
             foreach (string resourceId in resourceIds)
             {
@@ -396,8 +398,8 @@ namespace Altinn.Platform.Storage.Authorization
                 {
                     foreach (string subjectId in subjectIds)
                     {
-                        XacmlJsonRequestReference reference = new XacmlJsonRequestReference();
-                        List<string> referenceId = new List<string>
+                        XacmlJsonRequestReference reference = new();
+                        List<string> referenceId = new()
                         {
                             subjectId,
                             actionId,
