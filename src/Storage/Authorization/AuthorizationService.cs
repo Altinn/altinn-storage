@@ -188,12 +188,9 @@ namespace Altinn.Platform.Storage.Authorization
                 // Loop through all attributes in Category from the response
                 foreach (var attributes in result.Category.Select(category => category.Attribute))
                 {
-                    foreach (var attribute in attributes)
+                    foreach (var attribute in attributes.Where(a => a.AttributeId.Equals(AltinnXacmlUrns.InstanceId)))
                     {
-                        if (attribute.AttributeId.Equals(AltinnXacmlUrns.InstanceId))
-                        {
-                            instanceId = attribute.Value;
-                        }
+                        instanceId = attribute.Value;
                     }
                 }
 
