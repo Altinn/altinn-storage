@@ -238,6 +238,18 @@ namespace Altinn.Platform.Storage.Authorization
             return jsonRequest;
         }
 
+        private static (string InstanceId, string InstanceGuid, string Task, string InstanceOwnerPartyId, string Org, string App) GetInstanceProperties(Instance instance)
+        {
+            string instanceId = instance.Id.Contains("/") ? instance.Id : null;
+            string instanceGuid = instance.Id.Contains("/") ? instance.Id.Split("/")[1] : instance.Id;
+            string task = instance.Process?.CurrentTask?.ElementId;
+            string instanceOwnerPartyId = instance.InstanceOwner.PartyId;
+            string org = instance.Org;
+            string app = instance.AppId.Split("/")[1];
+
+            return (instanceId, instanceGuid, task, instanceOwnerPartyId, org, app);
+        }
+
         /// <summary>
         /// Replaces Resource attributes with data from instance. Add all relevant values so PDP have it all
         /// </summary>
@@ -247,29 +259,25 @@ namespace Altinn.Platform.Storage.Authorization
         {
             XacmlJsonCategory resourceCategory = new() { Attribute = new List<XacmlJsonAttribute>() };
 
-            string instanceId = instance.Id;
-            string task = instance.Process?.CurrentTask?.ElementId;
-            string instanceOwnerPartyId = instance.InstanceOwner.PartyId;
-            string org = instance.Org;
-            string app = instance.AppId.Split("/")[1];
+            var instanceProps = GetInstanceProperties(instance);
 
-            if (task != null)
+            if (instanceProps.Task != null)
             {
-                resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(XacmlResourceTaskId, task, DefaultType, DefaultIssuer));
+                resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(XacmlResourceTaskId, instanceProps.Task, DefaultType, DefaultIssuer));
             }
             else if (instance.Process?.EndEvent != null)
             {
                 resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(XacmlResourceEndId, instance.Process.EndEvent, DefaultType, DefaultIssuer));
             }
 
-            if (!string.IsNullOrWhiteSpace(instanceId))
+            if (!string.IsNullOrWhiteSpace(instanceProps.InstanceId))
             {
-                resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.InstanceId, instanceId, DefaultType, DefaultIssuer, true));
+                resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.InstanceId, instanceProps.InstanceId, DefaultType, DefaultIssuer, true));
             }
 
-            resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.PartyId, instanceOwnerPartyId, DefaultType, DefaultIssuer));
-            resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.OrgId, org, DefaultType, DefaultIssuer));
-            resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.AppId, app, DefaultType, DefaultIssuer));
+            resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.PartyId, instanceProps.InstanceOwnerPartyId, DefaultType, DefaultIssuer));
+            resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.OrgId, instanceProps.Org, DefaultType, DefaultIssuer));
+            resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.AppId, instanceProps.App, DefaultType, DefaultIssuer));
 
             // Replaces the current Resource attributes
             jsonRequest.Request.Resource = new List<XacmlJsonCategory>
@@ -312,29 +320,29 @@ namespace Altinn.Platform.Storage.Authorization
             {
                 XacmlJsonCategory resourceCategory = new() { Attribute = new List<XacmlJsonAttribute>() };
 
-                string instanceId = instance.Id.Split("/")[1];
-                string task = instance.Process?.CurrentTask?.ElementId;
-                string instanceOwnerPartyId = instance.InstanceOwner.PartyId;
-                string org = instance.Org;
-                string app = instance.AppId.Split("/")[1];
+                var instanceProps = GetInstanceProperties(instance);
 
-                if (task != null)
+                if (instanceProps.Task != null)
                 {
-                    resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(XacmlResourceTaskId, task, DefaultType, DefaultIssuer));
+                    resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(XacmlResourceTaskId, instanceProps.Task, DefaultType, DefaultIssuer));
                 }
                 else if (instance.Process?.EndEvent != null)
                 {
                     resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(XacmlResourceEndId, instance.Process.EndEvent, DefaultType, DefaultIssuer));
                 }
 
-                if (!string.IsNullOrWhiteSpace(instanceId))
+                if (!string.IsNullOrWhiteSpace(instanceProps.InstanceId))
                 {
-                    resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.InstanceId, instanceOwnerPartyId + "/" + instanceId, DefaultType, DefaultIssuer, true));
+                    resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.InstanceId, instanceProps.InstanceId, DefaultType, DefaultIssuer, true));
+                }
+                else if (!string.IsNullOrEmpty(instanceProps.InstanceGuid))
+                {
+                    resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.InstanceId, instanceProps.InstanceOwnerPartyId + "/" + instanceProps.InstanceGuid, DefaultType, DefaultIssuer, true));
                 }
 
-                resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.PartyId, instanceOwnerPartyId, DefaultType, DefaultIssuer));
-                resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.OrgId, org, DefaultType, DefaultIssuer));
-                resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.AppId, app, DefaultType, DefaultIssuer));
+                resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.PartyId, instanceProps.InstanceOwnerPartyId, DefaultType, DefaultIssuer));
+                resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.OrgId, instanceProps.Org, DefaultType, DefaultIssuer));
+                resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.AppId, instanceProps.App, DefaultType, DefaultIssuer));
                 resourceCategory.Id = ResourceId + counter.ToString();
                 resourcesCategories.Add(resourceCategory);
                 counter++;
