@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:6.0.400-alpine3.16 AS build
+FROM mcr.microsoft.com/dotnet/sdk:7.0-alpine3.16 AS build
 
 COPY src/Storage ./Storage
 WORKDIR Storage/
