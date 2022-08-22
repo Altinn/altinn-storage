@@ -4,8 +4,8 @@ updates:
   - directory: "src/CosmosBackup"
     package-ecosystem: "nuget"
     schedule:
-      interval: "weekly"
-      day: "thursday"
+      interval: "daily"
+      ##day: "thursday"
       time: "07:00"
       timezone: "Europe/Oslo"
 
@@ -13,8 +13,8 @@ updates:
   - directory: "src/DataCleanup"
     package-ecosystem: "nuget"
     schedule:
-      interval: "weekly"
-      day: "thursday"
+      interval: "daily"
+      ##day: "thursday"
       time: "07:00"
       timezone: "Europe/Oslo"
 
@@ -22,17 +22,17 @@ updates:
   - directory: "src/Storage"
     package-ecosystem: "nuget"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "10:00"
+      interval: "daily"
+      ##day: "thursday"
+      time: "07:00"
       timezone: "Europe/Oslo"
 
   ## Storage.Interface
   - directory: "src/Storage.Interface"
     package-ecosystem: "nuget"
     schedule:
-      interval: "weekly"
-      day: "thursday"
+      interval: "daily"
+      ##day: "thursday"
       time: "07:00"
       timezone: "Europe/Oslo"
 
@@ -40,16 +40,16 @@ updates:
   - directory: "test/Altinn.Platform.Storage.Interface.Tests"
     package-ecosystem: "nuget"
     schedule:
-      interval: "weekly"
-      day: "thursday"
+      interval: "daily"
+      ##day: "thursday"
       time: "07:00"
       timezone: "Europe/Oslo"
   
   - directory: "test/UnitTest"
     package-ecosystem: "nuget"
     schedule:
-      interval: "weekly"
-      day: "thursday"
+      interval: "daily"
+      ##day: "thursday"
       time: "07:00"
       timezone: "Europe/Oslo"
 
@@ -57,8 +57,8 @@ updates:
   - directory: "/"
     package-ecosystem: "docker"
     schedule:
-      interval: "weekly"
-      day: "thursday"
+      interval: "daily"
+      ##day: "thursday"
       time: "07:00"
       timezone: "Europe/Oslo"
 
@@ -66,8 +66,8 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "thursday"
+      interval: "daily"
+      ##day: "thursday"
       time: "07:00"
       timezone: "Europe/Oslo"
     open-pull-requests-limit: 10
