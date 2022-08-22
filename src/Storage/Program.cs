@@ -245,6 +245,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
 
         services.AddApplicationInsightsTelemetryProcessor<HealthTelemetryFilter>();
         services.AddApplicationInsightsTelemetryProcessor<IdentityTelemetryFilter>();
+        services.AddApplicationInsightsTelemetryProcessor<RequestBodyTelemetryFilter>();
         services.AddSingleton<ITelemetryInitializer, CustomTelemetryInitializer>();
     }
 
