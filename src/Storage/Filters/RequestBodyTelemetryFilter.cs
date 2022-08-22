@@ -36,7 +36,7 @@ namespace Altinn.Platform.Storage.Filters
         {
             RequestTelemetry request = item as RequestTelemetry;
 
-            if (request != null && request.Url.ToString().EndsWith("sbl/instances/search") && request.Duration.TotalMilliseconds > 2000)
+            if (request != null && request.Url.ToString().EndsWith("sbl/instances/search") && request.Duration.TotalMilliseconds > 1000)
             {
                 var content = GetContentString(_httpContextAccessor.HttpContext.Request.Body);
                 request.Properties.Add("queryModel", content);
