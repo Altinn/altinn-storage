@@ -576,12 +576,13 @@ namespace Altinn.Platform.Storage.Controllers
 
         private void AddQueryModelToTelemetry(MessageBoxQueryModel queryModel)
         {
-            if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT").Equals("Development", StringComparison.InvariantCultureIgnoreCase))
+            RequestTelemetry requestTelemetry = HttpContext.Features.Get<RequestTelemetry>();
+
+            if (requestTelemetry == null)
             {
                 return;
             }
 
-            RequestTelemetry requestTelemetry = HttpContext.Features.Get<RequestTelemetry>();
             requestTelemetry.Properties.Add("search.queryModel", JsonSerializer.Serialize(queryModel));
         }
     }
