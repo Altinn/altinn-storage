@@ -576,7 +576,7 @@ namespace Altinn.Platform.Storage.Controllers
 
         private void AddQueryModelToTelemetry(MessageBoxQueryModel queryModel)
         {
-            if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
+            if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT").Equals("Development", StringComparison.InvariantCultureIgnoreCase))
             {
                 return;
             }

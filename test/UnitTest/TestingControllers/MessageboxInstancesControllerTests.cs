@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -1600,6 +1601,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Mock<ISasTokenProvider> sasTokenProvider = new Mock<ISasTokenProvider>();
             Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
             Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
+            Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "DEVELOPMENT");
 
             HttpClient client = _factory.WithWebHostBuilder(builder =>
             {
