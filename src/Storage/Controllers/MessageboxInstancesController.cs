@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using Altinn.Common.PEP.Interfaces;
@@ -9,6 +10,7 @@ using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 
+using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
@@ -179,6 +181,8 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesFromQuery(queryParams, null, 100);
+
+            AddQueryModelToTelemetry(queryModel);
 
             if (queryResponse?.Exception != null)
             {
@@ -568,6 +572,18 @@ namespace Altinn.Platform.Storage.Controllers
             InstanceHelper.ReplaceTextKeys(authorizedInstances, texts, languageId);
 
             return Ok(authorizedInstances);
+        }
+
+        private void AddQueryModelToTelemetry(MessageBoxQueryModel queryModel)
+        {
+            RequestTelemetry requestTelemetry = HttpContext.Features.Get<RequestTelemetry>();
+
+            if (requestTelemetry == null)
+            {
+                return;
+            }
+
+            requestTelemetry.Properties.Add("search.queryModel", JsonSerializer.Serialize(queryModel));
         }
     }
 }
