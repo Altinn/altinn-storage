@@ -7,7 +7,7 @@ using System.Web;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Helpers;
 using Altinn.Common.PEP.Interfaces;
-
+using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
@@ -43,8 +43,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IApplicationRepository _applicationRepository;
         private readonly IPartiesWithInstancesClient _partiesWithInstancesClient;
         private readonly ILogger _logger;
-        private readonly IPDP _pdp;
-        private readonly AuthorizationHelper _authzHelper;
+        private readonly IAuthorization _authorizationService;
         private readonly string _storageBaseAndHost;
         private readonly GeneralSettings _generalSettings;
 
@@ -56,8 +55,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="applicationRepository">the application repository handler</param>
         /// <param name="partiesWithInstancesClient">An implementation of <see cref="IPartiesWithInstancesClient"/> that can be used to send information to SBL.</param>
         /// <param name="logger">the logger</param>
-        /// <param name="authzLogger">the logger for the authorization helper</param>
-        /// <param name="pdp">the policy decision point.</param>
+        /// <param name="authorizationService">the authorization service.</param>
         /// <param name="settings">the general settings.</param>
         public InstancesController(
             IInstanceRepository instanceRepository,
@@ -65,18 +63,16 @@ namespace Altinn.Platform.Storage.Controllers
             IApplicationRepository applicationRepository,
             IPartiesWithInstancesClient partiesWithInstancesClient,
             ILogger<InstancesController> logger,
-            ILogger<AuthorizationHelper> authzLogger,
-            IPDP pdp,
+            IAuthorization authorizationService,
             IOptions<GeneralSettings> settings)
         {
             _instanceRepository = instanceRepository;
             _instanceEventRepository = instanceEventRepository;
             _applicationRepository = applicationRepository;
             _partiesWithInstancesClient = partiesWithInstancesClient;
-            _pdp = pdp;
             _logger = logger;
             _storageBaseAndHost = $"{settings.Value.Hostname}/storage/api/v1/";
-            _authzHelper = new AuthorizationHelper(pdp, authzLogger);
+            _authorizationService = authorizationService;
             _generalSettings = settings.Value;
         }
 
@@ -136,7 +132,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (orgClaim != null)
             {
-                if (!_authzHelper.ContainsRequiredScope(_generalSettings.InstanceReadScope, User))
+                if (!_authorizationService.ContainsRequiredScope(_generalSettings.InstanceReadScope, User))
                 {
                     return Forbid();
                 }
@@ -215,7 +211,7 @@ namespace Altinn.Platform.Storage.Controllers
                         FilterOutDeletedDataElements(instance);
                     }
 
-                    result.Instances = await _authzHelper.AuthorizeInstances(User, result.Instances);
+                    result.Instances = await _authorizationService.AuthorizeInstances(User, result.Instances);
                     result.Count = result.Instances.Count;
                 }
 
@@ -333,7 +329,7 @@ namespace Altinn.Platform.Storage.Controllers
             XacmlJsonResponse response;
             try
             {
-                response = await _pdp.GetDecisionForRequest(request);
+                response = await _authorizationService.GetDecisionForRequest(request);
             }
             catch (Exception ex)
             {

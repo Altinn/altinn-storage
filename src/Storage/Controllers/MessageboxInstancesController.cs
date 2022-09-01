@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 
 using Altinn.Common.PEP.Interfaces;
+using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
@@ -30,7 +31,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IInstanceEventRepository _instanceEventRepository;
         private readonly ITextRepository _textRepository;
         private readonly IApplicationRepository _applicationRepository;
-        private readonly AuthorizationHelper _authorizationHelper;
+        private readonly IAuthorization _authorizationService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MessageBoxInstancesController"/> class
@@ -39,21 +40,19 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceEventRepository">the instance event repository handler</param>
         /// <param name="textRepository">the text repository handler</param>
         /// <param name="applicationRepository">the application repository handler</param>
-        /// <param name="pdp">the policy decision point</param>
-        /// <param name="logger">The logger to be used to perform logging from the controller.</param>
+        /// <param name="authorizationService">the authorization service</param>
         public MessageBoxInstancesController(
             IInstanceRepository instanceRepository,
             IInstanceEventRepository instanceEventRepository,
             ITextRepository textRepository,
             IApplicationRepository applicationRepository,
-            IPDP pdp,
-            ILogger<AuthorizationHelper> logger)
+            IAuthorization authorizationService)
         {
             _instanceRepository = instanceRepository;
             _instanceEventRepository = instanceEventRepository;
             _textRepository = textRepository;
             _applicationRepository = applicationRepository;
-            _authorizationHelper = new AuthorizationHelper(pdp, logger);
+            _authorizationService = authorizationService;
         }
 
         /// <summary>
@@ -222,7 +221,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             List<MessageBoxInstance> authorizedInstanceList =
-                await _authorizationHelper.AuthorizeMesseageBoxInstances(
+                await _authorizationService.AuthorizeMesseageBoxInstances(
                     HttpContext.User, new List<Instance> { instance });
             if (authorizedInstanceList.Count <= 0)
             {
@@ -559,7 +558,7 @@ namespace Altinn.Platform.Storage.Controllers
             });
 
             List<MessageBoxInstance> authorizedInstances =
-                    await _authorizationHelper.AuthorizeMesseageBoxInstances(HttpContext.User, allInstances);
+                    await _authorizationService.AuthorizeMesseageBoxInstances(HttpContext.User, allInstances);
 
             if (!authorizedInstances.Any())
             {

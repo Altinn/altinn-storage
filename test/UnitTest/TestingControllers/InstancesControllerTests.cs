@@ -9,7 +9,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 
 using Altinn.Common.PEP.Interfaces;
-
+using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Interface.Models;
@@ -1504,6 +1504,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                     services.AddSingleton(keyVaultWrapper.Object);
                     services.AddSingleton<IPartiesWithInstancesClient, PartiesWithInstancesClientMock>();
                     services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
+
+                    // services.AddTransient<IAuthorization, AuthorizationService>();
                     services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
                 });
             }).CreateClient();

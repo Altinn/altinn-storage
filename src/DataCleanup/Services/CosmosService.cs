@@ -25,8 +25,6 @@ namespace Altinn.Platform.Storage.DataCleanup.Services
 
         private readonly ILogger<ICosmosService> _logger;
 
-        private bool _clientConnectionEstablished = false;
-
         private readonly Container instancesContainer = null;
         private readonly Container instanceEventsContainer = null;
         private readonly Container dataElementsContainer = null;

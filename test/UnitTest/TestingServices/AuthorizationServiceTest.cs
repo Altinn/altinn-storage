@@ -2,13 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using System.Threading.Tasks;
 
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Interfaces;
+using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Mocks;
+
+using AltinnCore.Authentication.Constants;
 
 using Microsoft.Extensions.Logging;
 
@@ -16,9 +20,9 @@ using Moq;
 
 using Xunit;
 
-namespace Altinn.Platform.Storage.UnitTest.HelperTests
+namespace Altinn.Platform.Storage.UnitTest.TestingServices
 {
-    public class AuthorizeInstancesHelperTest
+    public class AuthorizationServiceTest
     {
         private const string Org = "tdd";
         private const string App = "test-applikasjon-1";
@@ -26,14 +30,78 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
         private const string UrnAuthLv = "urn:altinn:authlevel";
         private const string UrnUserId = "urn:altinn:userid";
 
-        private readonly AuthorizationHelper _authzHelper;
+        private readonly AuthorizationService _authzService;
+        private readonly IPDP _pdpMockSI;
+        private readonly Mock<IPDP> _pdpSimpleMock;
         private readonly Mock<IInstanceRepository> _instanceRepository = new Mock<IInstanceRepository>();
 
-        public AuthorizeInstancesHelperTest()
+        public AuthorizationServiceTest()
         {
-            IPDP pdp = new PepWithPDPAuthorizationMockSI(_instanceRepository.Object);
+            _pdpSimpleMock = new Mock<IPDP>();
+            _pdpMockSI = new PepWithPDPAuthorizationMockSI(_instanceRepository.Object);
+            _authzService = new AuthorizationService(_pdpMockSI, Mock.Of<ILogger<IAuthorization>>());
+        }
 
-            _authzHelper = new AuthorizationHelper(pdp, Mock.Of<ILogger<AuthorizationHelper>>());
+        [Fact]
+        public async Task GetDecisionForRequest_ConfirmPDPCalled()
+        {
+            var res = new XacmlJsonResponse
+            {
+                Response = new List<XacmlJsonResult>()
+                {
+                    new XacmlJsonResult
+                    {
+                        Decision = "Permit"
+                    }
+                }
+            };
+
+            _pdpSimpleMock.Setup(pdp => pdp.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+                .ReturnsAsync(res);
+
+            var sut = new AuthorizationService(_pdpSimpleMock.Object, Mock.Of<ILogger<IAuthorization>>());
+            await sut.GetDecisionForRequest(new XacmlJsonRequestRoot());
+
+            _pdpSimpleMock.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Once());
+        }
+
+        [Fact]
+        public void ContainsRequiredScope_CaseIgnored_ReturnsTrue()
+        {
+            string reqiured = "altinn:serviceowner/instances.read";
+
+            var claims = new List<Claim>();
+            claims.Add(new Claim("urn:altinn:scope", "ALTINN:SERVICEOWNER/INSTANCES.READ", ClaimValueTypes.String, "maskinporten"));
+
+            var identity = new ClaimsIdentity("AuthenticationTypes.Federation");
+            identity.AddClaims(claims);
+            var principal = new ClaimsPrincipal(identity);
+
+            var actual = _authzService.ContainsRequiredScope(new List<string> { reqiured }, principal);
+
+            Assert.True(actual);
+        }
+
+        [Fact]
+        public void ContainsRequiredScope_MissingRequiredScope_ReturnsFalse()
+        {
+            string reqiured = "altinn:serviceowner/instances.read";
+
+            var claims = new List<Claim>();
+            string issuer = "www.altinn.no";
+            claims.Add(new Claim("urn:altinn:org", "nav", ClaimValueTypes.String, issuer));
+            claims.Add(new Claim("urn:altinn:orgNumber", "123456789", ClaimValueTypes.Integer32, issuer));
+            claims.Add(new Claim(AltinnCoreClaimTypes.AuthenticateMethod, "Mock", ClaimValueTypes.String, issuer));
+            claims.Add(new Claim(AltinnCoreClaimTypes.AuthenticationLevel, "3", ClaimValueTypes.Integer32, issuer));
+            claims.Add(new Claim("urn:altinn:scope", "altinn:random.scope", ClaimValueTypes.String, "maskinporten"));
+
+            var identity = new ClaimsIdentity("AuthenticationTypes.Federation");
+            identity.AddClaims(claims);
+            var principal = new ClaimsPrincipal(identity);
+
+            var actual = _authzService.ContainsRequiredScope(new List<string> { reqiured }, principal);
+
+            Assert.False(actual);
         }
 
         /// <summary>
@@ -48,7 +116,7 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
             List<Instance> instances = CreateInstances();
 
             // Act
-            XacmlJsonRequestRoot requestRoot = AuthorizationHelper.CreateMultiDecisionRequest(CreateUserClaims(1), instances, actionTypes);
+            XacmlJsonRequestRoot requestRoot = AuthorizationService.CreateMultiDecisionRequest(CreateUserClaims(1), instances, actionTypes);
 
             // Assert
             // Checks it has the right number of attributes in each category 
@@ -76,7 +144,7 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
             List<Instance> instances = CreateInstances();
 
             // Act & Assert 
-            Assert.Throws<ArgumentNullException>(() => AuthorizationHelper.CreateMultiDecisionRequest(null, instances, actionTypes));
+            Assert.Throws<ArgumentNullException>(() => AuthorizationService.CreateMultiDecisionRequest(null, instances, actionTypes));
         }
 
         /// <summary>
@@ -91,7 +159,7 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
             List<Instance> instances = new List<Instance>();
 
             // Act
-            List<MessageBoxInstance> actual = await _authzHelper.AuthorizeMesseageBoxInstances(CreateUserClaims(3), instances);
+            List<MessageBoxInstance> actual = await _authzService.AuthorizeMesseageBoxInstances(CreateUserClaims(3), instances);
 
             // Assert
             Assert.Equal(expected, actual);

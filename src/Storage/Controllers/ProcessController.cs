@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 
 using Altinn.Common.PEP.Interfaces;
+using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
@@ -28,27 +29,25 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IInstanceRepository _instanceRepository;
         private readonly IInstanceEventRepository _instanceEventRepository;
         private readonly string _storageBaseAndHost;
-        private readonly AuthorizationHelper _authorizationHelper;
+        private readonly IAuthorization _authorizationService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ProcessController"/> class
         /// </summary>
         /// <param name="instanceRepository">the instance repository handler</param>
         /// <param name="instanceEventRepository">the instance event repository service</param>
-        /// <param name="pdp">the policy decision point.</param>
         /// <param name="generalsettings">the general settings</param>
-        /// <param name="authzLogger">logger for authorization helper</param>
+        /// <param name="authorizationService">the authorization servcie</param>
         public ProcessController(
             IInstanceRepository instanceRepository,
             IInstanceEventRepository instanceEventRepository,
-            IPDP pdp,
             IOptions<GeneralSettings> generalsettings,
-            ILogger<AuthorizationHelper> authzLogger)
+            IAuthorization authorizationService)
         {
             _instanceRepository = instanceRepository;
             _instanceEventRepository = instanceEventRepository;
             _storageBaseAndHost = $"{generalsettings.Value.Hostname}/storage/api/v1/";
-            _authorizationHelper = new AuthorizationHelper(pdp, authzLogger);
+            _authorizationService = authorizationService;
         }
 
         /// <summary>
@@ -103,7 +102,7 @@ namespace Altinn.Platform.Storage.Controllers
                     break;
             }
 
-            bool authorized = await _authorizationHelper.AuthorizeInstanceAction(HttpContext.User, existingInstance, action, taskId);
+            bool authorized = await _authorizationService.AuthorizeInstanceAction(HttpContext.User, existingInstance, action, taskId);
 
             if (!authorized)
             {

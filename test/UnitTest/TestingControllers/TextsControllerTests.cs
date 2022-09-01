@@ -26,8 +26,6 @@ using Microsoft.Extensions.Options;
 
 using Moq;
 
-using Newtonsoft.Json;
-
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers
