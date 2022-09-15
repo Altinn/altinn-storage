@@ -26,6 +26,12 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// </summary>
         [JsonProperty(PropertyName= "language")]
         public string Language { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the language direction. Should be rtl or ltr.
+        /// </summary>
+        [JsonProperty(PropertyName= "languageDirection")]
+        public string LanguageDirection { get; set; }
 
         /// <summary>
         /// Gets or sets a list of text resource elements
