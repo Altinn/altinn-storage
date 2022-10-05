@@ -115,9 +115,12 @@ async Task ConnectToKeyVaultAndSetApplicationInsights(ConfigurationManager confi
         logger.LogInformation("Program // Configure key vault client // App");
         Environment.SetEnvironmentVariable("AZURE_CLIENT_ID", keyVaultSettings.ClientId);
         Environment.SetEnvironmentVariable("AZURE_CLIENT_SECRET", keyVaultSettings.ClientSecret);
-        Environment.SetEnvironmentVariable("AZURE_TENANT_ID", keyVaultSettings.TenantId); 
+        Environment.SetEnvironmentVariable("AZURE_TENANT_ID", keyVaultSettings.TenantId);
+        var azureCredentials = new DefaultAzureCredential();
 
-        SecretClient client = new SecretClient(new Uri(keyVaultSettings.SecretUri), new DefaultAzureCredential());
+        config.AddAzureKeyVault(new Uri(keyVaultSettings.SecretUri), azureCredentials);
+
+        SecretClient client = new SecretClient(new Uri(keyVaultSettings.SecretUri), azureCredentials);
 
         try
         {
