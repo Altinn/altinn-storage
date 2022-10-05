@@ -14,13 +14,6 @@ namespace Altinn.Platform.Storage.Wrappers
     [ExcludeFromCodeCoverage]
     public class KeyVaultClientWrapper : IKeyVaultClientWrapper
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="KeyVaultClientWrapper"/> class.
-        /// </summary>
-        public KeyVaultClientWrapper()
-        {
-        }
-
         /// <inheritdoc/>
         public async Task<string> GetSecretAsync(string vaultUri, string secretId)
         {
