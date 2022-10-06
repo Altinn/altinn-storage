@@ -124,7 +124,8 @@ async Task ConnectToKeyVaultAndSetApplicationInsights(ConfigurationManager confi
 
         try
         {
-            var keyVaultSecret = await client.GetSecretAsync(vaultApplicationInsightsKey);
+            var keyVaultResponse = await client.GetSecretAsync(vaultApplicationInsightsKey);
+            var keyVaultSecret = keyVaultResponse.Value;
             applicationInsightsConnectionString = string.Format("InstrumentationKey={0}", keyVaultSecret.Value);
         }
         catch (Exception vaultException)
