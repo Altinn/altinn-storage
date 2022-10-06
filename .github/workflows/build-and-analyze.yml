@@ -75,7 +75,7 @@ jobs:
           dotnet test Altinn.Platform.Storage.sln `
           --no-build `
           --results-directory TestResults/ `
-          --collect:"XPlat Code Coverage" /p:Exclude="**/Program.cs" `
+          --collect:"XPlat Code Coverage" `
           -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
 
           .\.sonar\scanner\dotnet-sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
