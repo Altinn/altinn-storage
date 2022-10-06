@@ -21,6 +21,9 @@ using Altinn.Platform.Telemetry;
 using AltinnCore.Authentication.Constants;
 using AltinnCore.Authentication.JwtCookie;
 
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
+
 using Microsoft.ApplicationInsights.AspNetCore.Extensions;
 using Microsoft.ApplicationInsights.Channel;
 using Microsoft.ApplicationInsights.Extensibility;
@@ -29,11 +32,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Azure.KeyVault;
-using Microsoft.Azure.KeyVault.Models;
-using Microsoft.Azure.Services.AppAuthentication;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Configuration.AzureKeyVault;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -62,6 +61,7 @@ var app = builder.Build();
 
 Configure();
 
+logger.LogInformation("// Running...");
 app.Run();
 
 void ConfigureSetupLogging()
@@ -113,22 +113,19 @@ async Task ConnectToKeyVaultAndSetApplicationInsights(ConfigurationManager confi
         !string.IsNullOrEmpty(keyVaultSettings.SecretUri))
     {
         logger.LogInformation("Program // Configure key vault client // App");
+        Environment.SetEnvironmentVariable("AZURE_CLIENT_ID", keyVaultSettings.ClientId);
+        Environment.SetEnvironmentVariable("AZURE_CLIENT_SECRET", keyVaultSettings.ClientSecret);
+        Environment.SetEnvironmentVariable("AZURE_TENANT_ID", keyVaultSettings.TenantId);
+        var azureCredentials = new DefaultAzureCredential();
 
-        string connectionString = $"RunAs=App;AppId={keyVaultSettings.ClientId};" +
-                                  $"TenantId={keyVaultSettings.TenantId};" +
-                                  $"AppKey={keyVaultSettings.ClientSecret}";
-        AzureServiceTokenProvider azureServiceTokenProvider = new AzureServiceTokenProvider(connectionString);
-        KeyVaultClient keyVaultClient = new KeyVaultClient(
-            new KeyVaultClient.AuthenticationCallback(
-                azureServiceTokenProvider.KeyVaultTokenCallback));
-        config.AddAzureKeyVault(
-            keyVaultSettings.SecretUri, keyVaultClient, new DefaultKeyVaultSecretManager());
+        config.AddAzureKeyVault(new Uri(keyVaultSettings.SecretUri), azureCredentials);
+
+        SecretClient client = new SecretClient(new Uri(keyVaultSettings.SecretUri), azureCredentials);
+
         try
         {
-            SecretBundle secretBundle = await keyVaultClient
-                .GetSecretAsync(keyVaultSettings.SecretUri, vaultApplicationInsightsKey);
-
-            applicationInsightsConnectionString = string.Format("InstrumentationKey={0}", secretBundle.Value);
+            var keyVaultSecret = await client.GetSecretAsync(vaultApplicationInsightsKey);
+            applicationInsightsConnectionString = string.Format("InstrumentationKey={0}", keyVaultSecret.Value);
         }
         catch (Exception vaultException)
         {
