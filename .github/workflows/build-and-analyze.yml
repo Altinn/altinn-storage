@@ -6,7 +6,7 @@ on:
     branches: [ main ]
     types: [opened, synchronize, reopened]
   workflow_dispatch:
-jobs:   
+jobs:
   build-and-test:
     name: Build and Test
     if: ((github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false) || github.event_name == 'push') &&  github.repository_owner == 'Altinn' && github.actor != 'dependabot[bot]'
@@ -75,7 +75,7 @@ jobs:
           dotnet test Altinn.Platform.Storage.sln `
           --no-build `
           --results-directory TestResults/ `
-          --collect:"XPlat Code Coverage" `
+          --collect:"XPlat Code Coverage" /p:Exclude="**/Program.cs" `
           -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
 
           .\.sonar\scanner\dotnet-sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
