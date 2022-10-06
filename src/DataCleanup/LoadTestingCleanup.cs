@@ -102,10 +102,10 @@ namespace Altinn.Platform.Storage.DataCleanup
                 catch (Exception e)
                 {
                     log.LogError(
-                        "LoadTestingCleanup // Run // Error occured when deleting instance: {AppId}/{InstanceId} \r Exception {Exception}",
+                        e,
+                        "LoadTestingCleanup // Run // Error occured when deleting instance: {AppId}/{InstanceId}",
                         instance.AppId,
-                        $"{instance.InstanceOwner.PartyId}/{instance.Id}",
-                        e);
+                        $"{instance.InstanceOwner.PartyId}/{instance.Id}");
                 }
             }
 
