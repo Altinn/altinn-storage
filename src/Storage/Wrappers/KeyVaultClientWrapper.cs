@@ -20,9 +20,10 @@ namespace Altinn.Platform.Storage.Wrappers
             // Credentials are set based on environment variables set in Program.cs
             SecretClient secretClient = new(new Uri(vaultUri), new DefaultAzureCredential());
 
-            var secret = await secretClient.GetSecretAsync(secretId);
+            var keyVaultResponse = await secretClient.GetSecretAsync(secretId);
+            var secret = keyVaultResponse.Value;
 
-            return secret.Value.ToString();
+            return secret.Value;
         }
     }
 }
