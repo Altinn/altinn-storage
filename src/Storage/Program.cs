@@ -69,7 +69,7 @@ void ConfigureSetupLogging()
     var logFactory = LoggerFactory.Create(builder =>
     {
         builder
-            .AddFilter("Altinn.Platform.Register.Program", LogLevel.Error)
+            .AddFilter("Altinn.Platform.Register.Program", LogLevel.Debug)
             .AddConsole();
     });
 
@@ -136,6 +136,10 @@ async Task ConnectToKeyVaultAndSetApplicationInsights(ConfigurationManager confi
 
 void ConfigureLogging(ILoggingBuilder logging)
 {
+    // The default ASP.NET Core project templates call CreateDefaultBuilder, which adds the following logging providers:
+    // Console, Debug, EventSource
+    // https://docs.microsoft.com/en-us/aspnet/core/fundamentals/logging/?view=aspnetcore-3.1
+
     // Clear log providers
     logging.ClearProviders();
 
@@ -144,17 +148,17 @@ void ConfigureLogging(ILoggingBuilder logging)
     {
         // Add application insights https://docs.microsoft.com/en-us/azure/azure-monitor/app/ilogger
         logging.AddApplicationInsights(
-             configureTelemetryConfiguration: (config) => config.ConnectionString = applicationInsightsConnectionString,
-             configureApplicationInsightsLoggerOptions: (options) => { });
+                  configureTelemetryConfiguration: (config) => config.ConnectionString = applicationInsightsConnectionString,
+                  configureApplicationInsightsLoggerOptions: (options) => { });
 
         // Optional: Apply filters to control what logs are sent to Application Insights.
         // The following configures LogLevel Information or above to be sent to
         // Application Insights for all categories.
-        logging.AddFilter<Microsoft.Extensions.Logging.ApplicationInsights.ApplicationInsightsLoggerProvider>(string.Empty, LogLevel.Error);
+        logging.AddFilter<Microsoft.Extensions.Logging.ApplicationInsights.ApplicationInsightsLoggerProvider>(string.Empty, LogLevel.Warning);
 
         // Adding the filter below to ensure logs of all severity from Program.cs
         // is sent to ApplicationInsights.
-        logging.AddFilter<Microsoft.Extensions.Logging.ApplicationInsights.ApplicationInsightsLoggerProvider>(typeof(Program).FullName, LogLevel.Error);
+        logging.AddFilter<Microsoft.Extensions.Logging.ApplicationInsights.ApplicationInsightsLoggerProvider>(typeof(Program).FullName, LogLevel.Trace);
     }
     else
     {
