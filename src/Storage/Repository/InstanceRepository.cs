@@ -82,7 +82,8 @@ namespace Altinn.Platform.Storage.Repository
         public async Task<InstanceQueryResponse> GetInstancesFromQuery(
             Dictionary<string, StringValues> queryParams,
             string continuationToken,
-            int size)
+            int size,
+            bool includeDataelements = true)
         {
             InstanceQueryResponse queryResponse = new InstanceQueryResponse
             {
@@ -120,7 +121,7 @@ namespace Altinn.Platform.Storage.Repository
                     }
 
                     List<Instance> instances = feedResponse.ToList();
-                    await PostProcess(instances);
+                    await PostProcess(instances, includeDataelements);
                     queryResponse.Instances.AddRange(instances);
                     queryResponse.Count += instances.Count;
 
@@ -564,13 +565,17 @@ namespace Altinn.Platform.Storage.Repository
         /// - Sets correct LastChanged/LastChangedBy by comparing instance and data elements
         /// </remarks>
         /// <param name="instance">the instance to preprocess</param>
-        private async Task PostProcess(Instance instance)
+        private async Task PostProcess(Instance instance, bool includeDataelements = true)
         {
             Guid instanceGuid = Guid.Parse(instance.Id);
             string instanceId = $"{instance.InstanceOwner.PartyId}/{instance.Id}";
 
             instance.Id = instanceId;
-            instance.Data = await _dataRepository.ReadAll(instanceGuid);
+            if (includeDataelements)
+            {
+                instance.Data = await _dataRepository.ReadAll(instanceGuid);
+            }
+
             if (instance.Data != null && instance.Data.Any())
             {
                 SetReadStatus(instance);
@@ -585,11 +590,11 @@ namespace Altinn.Platform.Storage.Repository
         /// Preprocess a list of instances.
         /// </summary>
         /// <param name="instances">the list of instances</param>
-        private async Task PostProcess(List<Instance> instances)
+        private async Task PostProcess(List<Instance> instances, bool includeDataelements = true)
         {
             foreach (Instance item in instances)
             {
-                await PostProcess(item);
+                await PostProcess(item, includeDataelements);
             }
         }
 
