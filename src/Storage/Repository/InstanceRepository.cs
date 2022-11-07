@@ -82,8 +82,25 @@ namespace Altinn.Platform.Storage.Repository
         public async Task<InstanceQueryResponse> GetInstancesFromQuery(
             Dictionary<string, StringValues> queryParams,
             string continuationToken,
-            int size,
-            bool includeDataelements = true)
+            int size)
+        {
+            return await GetInstancesFromQueryInternal(queryParams, continuationToken, size, true);
+        }
+
+        /// <inheritdoc/>
+        public async Task<InstanceQueryResponse> GetInstancesWithoutDataelementsFromQuery(
+            Dictionary<string, StringValues> queryParams,
+            string continuationToken,
+            int size)
+        {
+            return await GetInstancesFromQueryInternal(queryParams, continuationToken, size, false);
+        }
+
+        private async Task<InstanceQueryResponse> GetInstancesFromQueryInternal(
+        Dictionary<string, StringValues> queryParams,
+        string continuationToken,
+        int size,
+        bool includeDataelements)
         {
             InstanceQueryResponse queryResponse = new InstanceQueryResponse
             {

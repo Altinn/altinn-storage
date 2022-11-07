@@ -39,6 +39,11 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             throw new NotImplementedException();
         }
 
+        public Task<InstanceQueryResponse> GetInstancesWithoutDataelementsFromQuery(Dictionary<string, StringValues> queryParams, string continuationToken, int size)
+        {
+            throw new NotImplementedException();
+        }
+
         public Task<InstanceQueryResponse> GetInstancesFromQuery(Dictionary<string, StringValues> queryParams, string continuationToken, int size)
         {
             List<string> validQueryParams = new List<string>

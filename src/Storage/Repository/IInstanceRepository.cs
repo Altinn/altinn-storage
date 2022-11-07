@@ -17,9 +17,17 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="queryParams">the query params</param>
         /// <param name="continuationToken">a token to get the next page, more performant than using page</param>
         /// <param name="size">The number of items per page</param>
-        /// <param name="includeDataelements">Wheter to include data elements</param>
         /// <returns>The query response including the list of instances</returns>
-        Task<InstanceQueryResponse> GetInstancesFromQuery(Dictionary<string, StringValues> queryParams, string continuationToken, int size, bool includeDataelements = true);
+        Task<InstanceQueryResponse> GetInstancesFromQuery(Dictionary<string, StringValues> queryParams, string continuationToken, int size);
+
+        /// <summary>
+        /// Gets all the instances - without data elements - that satisfy given query parameters
+        /// </summary>
+        /// <param name="queryParams">the query params</param>
+        /// <param name="continuationToken">a token to get the next page, more performant than using page</param>
+        /// <param name="size">The number of items per page</param>
+        /// <returns>The query response including the list of instances</returns>
+        Task<InstanceQueryResponse> GetInstancesWithoutDataelementsFromQuery(Dictionary<string, StringValues> queryParams, string continuationToken, int size);
 
         /// <summary>
         /// Get an instance for a given instance id

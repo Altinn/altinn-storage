@@ -179,7 +179,7 @@ namespace Altinn.Platform.Storage.Controllers
                 queryParams.Remove("searchString");
             }
 
-            InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesFromQuery(queryParams, null, 100, false);
+            InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesWithoutDataelementsFromQuery(queryParams, null, 100);
 
             AddQueryModelToTelemetry(queryModel);
 
