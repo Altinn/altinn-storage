@@ -565,6 +565,7 @@ namespace Altinn.Platform.Storage.Repository
         /// - Sets correct LastChanged/LastChangedBy by comparing instance and data elements
         /// </remarks>
         /// <param name="instance">the instance to preprocess</param>
+        /// <param name="includeDataelements">Whether to include data elements</param>
         private async Task PostProcess(Instance instance, bool includeDataelements = true)
         {
             Guid instanceGuid = Guid.Parse(instance.Id);
@@ -590,6 +591,7 @@ namespace Altinn.Platform.Storage.Repository
         /// Preprocess a list of instances.
         /// </summary>
         /// <param name="instances">the list of instances</param>
+        /// <param name="includeDataelements">Whether to include data elements</param>
         private async Task PostProcess(List<Instance> instances, bool includeDataelements = true)
         {
             foreach (Instance item in instances)
