@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -15,12 +14,19 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
     {
         [Theory]
         [MemberData(nameof(InstanceEventData_ExpectedProps))]
-        public void MapInstanceEventsToProcessHistoryTest(InstanceEvent instanceEvent, string expectedPerformedBy, string expectedEventType)
+        public void MapInstanceEventsToProcessHistoryTest(
+            InstanceEvent instanceEvent, 
+            string expectedPerformedBy, 
+            string expectedEventType, 
+            DateTime? expectedOccured)
         {
             ProcessHistoryItem actual = ProcessHelper.MapInstanceEventsToProcessHistory(new List<InstanceEvent> { instanceEvent }).First();
             Assert.Equal(expectedPerformedBy, actual.PerformedBy);
             Assert.Equal(expectedEventType, actual.EventType);
+            Assert.Equal(expectedOccured, actual.Occured);
         }
+
+        public static readonly DateTime ReferenceTimestamp = new(2022, 1, 15, 10, 14, 15);
 
         public static IEnumerable<object[]> InstanceEventData_ExpectedProps =>
        new List<object[]>
@@ -30,11 +36,11 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
                 new InstanceEvent
                 {
                     EventType = InstanceEventType.process_StartEvent.ToString(),
-                    Created = DateTime.UtcNow,
+                    Created = ReferenceTimestamp,
                     ProcessInfo = new ProcessState
                     {
                         StartEvent = "StartEvent_1",
-                        Started = DateTime.UtcNow,
+                        Started = ReferenceTimestamp.AddSeconds(1),
                     },
                     User = new PlatformUser
                     {
@@ -44,22 +50,23 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
                     }
                 },
                 "16069412345",
-                "process_StartEvent"
+                "process_StartEvent",
+                ReferenceTimestamp.AddSeconds(1)
             },
             new object[]
             {
                 new InstanceEvent
                 {
                     EventType = InstanceEventType.process_StartTask.ToString(),
-                    Created = DateTime.UtcNow,
+                    Created = ReferenceTimestamp,
                     ProcessInfo = new ProcessState
                     {
                         StartEvent = "StartEvent_1",
-                        Started = DateTime.UtcNow.AddDays(-1),
+                        Started = ReferenceTimestamp.AddSeconds(1),
                         CurrentTask = new ProcessElementInfo
                         {
                             Flow = 2,
-                            Started = DateTime.UtcNow,
+                            Started = ReferenceTimestamp.AddSeconds(2),
                             ElementId = "Task_1",
                             Name = "Utfylling"
                         }
@@ -71,22 +78,23 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
                     }
                 },
                 "888472312",
-                "process_StartTask"
+                "process_StartTask",
+                ReferenceTimestamp.AddSeconds(1)
             },
             new object[]
             {
                 new InstanceEvent
                 {
                     EventType = InstanceEventType.process_EndTask.ToString(),
-                    Created = DateTime.UtcNow,
+                    Created = ReferenceTimestamp,
                     ProcessInfo = new ProcessState
                     {
                         StartEvent = "StartEvent_1",
-                        Started = DateTime.UtcNow.AddDays(-1),
+                        Started = ReferenceTimestamp.AddSeconds(1),
                         CurrentTask = new ProcessElementInfo
                         {
-                            Flow = 2,
-                            Started = DateTime.UtcNow,
+                            Flow = 2,                            
+                            Started = ReferenceTimestamp.AddSeconds(2),
                             ElementId = "Task_1",
                             Name = "Utfylling",
                             FlowType = "CompleteCurrentMoveToNext"
@@ -99,19 +107,20 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
                     }
                 },
                 "888472312",
-                "process_EndTask"
+                "process_EndTask",
+                ReferenceTimestamp
             },
             new object[]
             {
                 new InstanceEvent
                 {
                     EventType = InstanceEventType.process_EndEvent.ToString(),
-                    Created = DateTime.UtcNow,
+                    Created = ReferenceTimestamp,
                     ProcessInfo = new ProcessState
                     {
                         StartEvent = "StartEvent_1",
-                        Started = DateTime.UtcNow.AddDays(-1),
-                        Ended = DateTime.UtcNow,
+                        Started = ReferenceTimestamp.AddSeconds(1),
+                        Ended = ReferenceTimestamp.AddSeconds(2),
                         EndEvent = "EndEvent_1"
                     },
                     User = new PlatformUser
@@ -121,8 +130,26 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
                     }
                 },
                 string.Empty,
-                "process_EndEvent"
-            }
+                "process_EndEvent",
+                ReferenceTimestamp.AddSeconds(2)
+            },
+            new object[]
+            {
+                new InstanceEvent
+                {
+                    EventType = InstanceEventType.process_StartEvent.ToString(),
+                    Created = ReferenceTimestamp,                    
+                    User = new PlatformUser
+                    {
+                        AuthenticationLevel = 2,
+                        UserId = 1337,
+                        NationalIdentityNumber = "16069412345"
+                    }
+                },
+                "16069412345",
+                "process_StartEvent",
+                ReferenceTimestamp
+            },
        };
     }
 }
