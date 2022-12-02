@@ -29,9 +29,9 @@ namespace Altinn.Platform.Storage.Helpers
                         history.Add(
                             new ProcessHistoryItem
                             {
-                                Occured = instanceEvent.Created,
+                                Occured = instanceEvent?.ProcessInfo?.Started ?? instanceEvent.Created,
                                 EventType = instanceEvent.EventType,
-                                ElementId = instanceEvent.ProcessInfo.StartEvent,
+                                ElementId = instanceEvent?.ProcessInfo?.StartEvent,
                                 PerformedBy = GetPerformedBy(instanceEvent.User)
                             });
                         break;
@@ -39,9 +39,9 @@ namespace Altinn.Platform.Storage.Helpers
                         history.Add(
                               new ProcessHistoryItem
                               {
-                                  Occured = instanceEvent.Created,
+                                  Occured = instanceEvent.ProcessInfo.Ended,
                                   EventType = instanceEvent.EventType,
-                                  ElementId = instanceEvent.ProcessInfo.EndEvent,
+                                  ElementId = instanceEvent?.ProcessInfo?.EndEvent,
                                   PerformedBy = GetPerformedBy(instanceEvent.User)
                               });
                         break;
@@ -57,8 +57,9 @@ namespace Altinn.Platform.Storage.Helpers
                             history.Add(new ProcessHistoryItem
                             {
                                 EventType = instanceEvent.EventType,
-                                ElementId = instanceEvent.ProcessInfo.CurrentTask.ElementId,
-                                Started = instanceEvent.Created,
+                                ElementId = instanceEvent?.ProcessInfo?.CurrentTask?.ElementId,
+                                Started = instanceEvent?.ProcessInfo?.Started ?? instanceEvent.Created,
+                                Occured = instanceEvent?.ProcessInfo?.Started ?? instanceEvent.Created,
                                 PerformedBy = GetPerformedBy(instanceEvent.User)
                             });
                         }
@@ -75,8 +76,9 @@ namespace Altinn.Platform.Storage.Helpers
                             history.Add(new ProcessHistoryItem
                             {
                                 EventType = instanceEvent.EventType,
-                                ElementId = instanceEvent.ProcessInfo.CurrentTask.ElementId,
-                                Ended = instanceEvent.Created,
+                                ElementId = instanceEvent?.ProcessInfo?.CurrentTask?.ElementId,
+                                Ended = instanceEvent?.ProcessInfo?.Ended ?? instanceEvent.Created,
+                                Occured = instanceEvent?.ProcessInfo?.Ended ?? instanceEvent.Created,
                                 PerformedBy = GetPerformedBy(instanceEvent.User)
                             });
                         }
