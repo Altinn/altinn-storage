@@ -377,16 +377,23 @@ namespace Altinn.Platform.Storage.Controllers
             }
             catch (Exception storageException)
             {
-                _logger.LogError(storageException, "Unable to create {appId} instance for {instance.InstanceOwner.PartyId}", appId, instance.InstanceOwner.PartyId);
+                _logger.LogError(storageException, "Unable to create {appId} instance for {instance.InstanceOwner.PartyId}, will attempt to cleanup.", appId, instance.InstanceOwner.PartyId);
 
-                // compensating action - delete instance
+                // TODO: isolate compensation action to only apply if DispatchEvent fails
+                // compensating action - delete instance if create was successful
                 if (storedInstance != null && !string.IsNullOrEmpty(storedInstance.Id))
                 {
-                    await _instanceRepository.Delete(storedInstance);
-                    _logger.LogError("Deleted instance {storedInstance.Id}", storedInstance?.Id);
+                    try
+                    {
+                        await _instanceRepository.Delete(storedInstance);                    
+                        _logger.LogError("Audit logging failed when creating instance Id {storedInstance.Id}, cleanup successful.", storedInstance.Id);
+                    }
+                    catch (Exception deleteException)
+                    {
+                        _logger.LogError("Error occurred while cleaning up unlogged instance creation. Please remove orphaned instance Id {storedInstance.Id} manually. ", storedInstance.Id);
+                    }
                 }
 
-                _logger.LogError("Deleted instance {storedInstance.Id}", storedInstance?.Id);
                 return StatusCode(500, $"Unable to create {appId} instance for {instance.InstanceOwner?.PartyId} due to {storageException.Message}");
             }
         }
