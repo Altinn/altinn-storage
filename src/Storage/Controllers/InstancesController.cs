@@ -359,43 +359,69 @@ namespace Altinn.Platform.Storage.Controllers
                 return Forbid();
             }
 
-            Instance storedInstance = new Instance();
+            Instance instanceToCreate, storedInstance;
             try
             {
                 DateTime creationTime = DateTime.UtcNow;
                 string userId = GetUserId();
 
-                Instance instanceToCreate = CreateInstanceFromTemplate(appInfo, instance, creationTime, userId);
+                instanceToCreate = CreateInstanceFromTemplate(appInfo, instance, creationTime, userId);
+            }
+            catch (Exception createFromTemplateEx)
+            {
+                _logger.LogError(createFromTemplateEx, "Unable to create {appId} instance from template for {instance.InstanceOwner.PartyId}, no cleanup necessary.", appId, instance.InstanceOwner.PartyId);
+                return StatusCode(500, $"Unable to create {appId} instance for {instance.InstanceOwner?.PartyId} due to {createFromTemplateEx.Message}");
+            }
 
+            try
+            {
                 storedInstance = await _instanceRepository.Create(instanceToCreate);
+            }
+            catch (Exception instanceCreateEx)
+            {
+                _logger.LogError(instanceCreateEx, "Unable to store new {appId} instance for {instance.InstanceOwner.PartyId}, no cleanup necessary.", appId, instance.InstanceOwner.PartyId);
+                return StatusCode(500, $"Unable to create {appId} instance for {instance.InstanceOwner?.PartyId} due to {instanceCreateEx.Message}");
+            }
+
+            try
+            {
+                // TODO: dispatch event in transaction batch instead.
                 await DispatchEvent(InstanceEventType.Created, storedInstance);
                 _logger.LogInformation("Created instance: {storedInstance.Id}", storedInstance.Id);
-                storedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
-
-                await _partiesWithInstancesClient.SetHasAltinn3Instances(instanceOwnerPartyId);
-                return Created(storedInstance.SelfLinks.Platform, storedInstance);
             }
-            catch (Exception storageException)
+            catch (Exception createInstanceEventEx)
             {
-                _logger.LogError(storageException, "Unable to create {appId} instance for {instance.InstanceOwner.PartyId}, will attempt to cleanup.", appId, instance.InstanceOwner.PartyId);
+                _logger.LogError(createInstanceEventEx, "Unable to log instance create event for {appId} instance {instance.InstanceOwner.PartyId}, will attempt to remove instance before returning error.", appId, instance.InstanceOwner.PartyId);
 
-                // TODO: isolate compensation action to only apply if DispatchEvent fails
                 // compensating action - delete instance if create was successful
                 if (storedInstance != null && !string.IsNullOrEmpty(storedInstance.Id))
                 {
                     try
                     {
-                        await _instanceRepository.Delete(storedInstance);                    
-                        _logger.LogError("Audit logging failed when creating instance Id {storedInstance.Id}, cleanup successful.", storedInstance.Id);
+                        await _instanceRepository.Delete(storedInstance);
+                        _logger.LogError("Audit logging failed when creating instance Id {storedInstance.Id}, cleanup was successful.", storedInstance.Id);
                     }
                     catch (Exception deleteException)
                     {
-                        _logger.LogError("Error occurred while cleaning up unlogged instance creation. Please remove orphaned instance Id {storedInstance.Id} manually. ", storedInstance.Id);
+                        _logger.LogError(deleteException, "Error occurred while cleaning up unlogged instance creation. Please remove orphaned instance Id {storedInstance.Id} manually. ", storedInstance.Id);
                     }
                 }
 
-                return StatusCode(500, $"Unable to create {appId} instance for {instance.InstanceOwner?.PartyId} due to {storageException.Message}");
+                return StatusCode(500, $"Unable to create {appId} instance for {instance.InstanceOwner?.PartyId} due to {createInstanceEventEx.Message}");
             }
+
+            storedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+
+            try
+            {
+                await _partiesWithInstancesClient.SetHasAltinn3Instances(instanceOwnerPartyId);
+            }
+            catch (Exception ex) 
+            {
+                _logger.LogError(ex, "SetHasAlltinn3Instances unexpectadely during creation of instance Id {storedInstance.Id}, instance returned to caller.", storedInstance.Id);
+            }
+
+            return Created(storedInstance.SelfLinks.Platform, storedInstance);
         }
 
         /// <summary>
