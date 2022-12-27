@@ -380,9 +380,10 @@ namespace Altinn.Platform.Storage.Controllers
                 _logger.LogError(storageException, "Unable to create {appId} instance for {instance.InstanceOwner.PartyId}", appId, instance.InstanceOwner.PartyId);
 
                 // compensating action - delete instance
-                if (storedInstance != null)
+                if (storedInstance != null && !string.IsNullOrEmpty(storedInstance.Id))
                 {
                     await _instanceRepository.Delete(storedInstance);
+                    _logger.LogError("Deleted instance {storedInstance.Id}", storedInstance?.Id);
                 }
 
                 _logger.LogError("Deleted instance {storedInstance.Id}", storedInstance?.Id);
