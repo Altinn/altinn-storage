@@ -32,12 +32,16 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+
+// Cosmos DB profiler
+// using HibernatingRhinos.Profiler.Appender.CosmosDB;
 
 ILogger logger;
 
@@ -97,6 +101,7 @@ async Task SetConfigurationProviders(ConfigurationManager config)
     }
 
     config.AddEnvironmentVariables();
+    config.AddUserSecrets(Assembly.GetExecutingAssembly(), true);
 
     await ConnectToKeyVaultAndSetApplicationInsights(config);
 
@@ -219,9 +224,22 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
         options.AddPolicy(AuthzConstants.POLICY_STUDIO_DESIGNER, policy => policy.Requirements.Add(new ClaimAccessRequirement("urn:altinn:app", "studio.designer")));
     });
 
-    services.AddRepositories();
-
     services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+
+    // hookup Cosmos DB
+    AzureCosmosSettings cosmosSettings = config.GetSection("AzureCosmosSettings").Get<AzureCosmosSettings>();
+    CosmosClientOptions options = new()
+    {
+        ConnectionMode = ConnectionMode.Direct,
+    };
+    CosmosClient cosmosClient = new CosmosClient(cosmosSettings.EndpointUri, cosmosSettings.PrimaryKey, options);
+
+    // need to instantiate cosmosClient here ^ to give to profiler
+    // services.UseCosmosDBProfiler(cosmosClient);
+    services.AddSingleton(cosmosClient);
+
+    var repositories = services.AddRepositories();
+
     services.AddSingleton<ISasTokenProvider, SasTokenProvider>();
     services.AddSingleton<IKeyVaultClientWrapper, KeyVaultClientWrapper>();
     services.AddSingleton<IPDP, PDPAppSI>();

@@ -25,8 +25,9 @@ namespace Altinn.Platform.Storage.Repository
         /// Initializes a new instance of the <see cref="InstanceEventRepository"/> class
         /// </summary>
         /// <param name="cosmosSettings">The configuration settings for cosmos database</param>
-        public InstanceEventRepository(IOptions<AzureCosmosSettings> cosmosSettings)
-            : base(CollectionId, PartitionKey, cosmosSettings)
+        /// <param name="cosmosClient">CosmosClient singleton</param>
+        public InstanceEventRepository(IOptions<AzureCosmosSettings> cosmosSettings, CosmosClient cosmosClient)
+            : base(CollectionId, PartitionKey, cosmosSettings, cosmosClient)
         {
         }
 

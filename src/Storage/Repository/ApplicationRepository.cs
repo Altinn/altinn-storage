@@ -39,12 +39,14 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="generalSettings">the general settings</param>
         /// <param name="logger">dependency injection of logger</param>
         /// <param name="memoryCache">the memory cache</param>
+        /// <param name="cosmosClient">CosmosClient singleton</param>
         public ApplicationRepository(
             IOptions<AzureCosmosSettings> cosmosSettings,
             IOptions<GeneralSettings> generalSettings,
             ILogger<ApplicationRepository> logger,
-            IMemoryCache memoryCache)
-            : base(CollectionId, PartitionKey, cosmosSettings)
+            IMemoryCache memoryCache,
+            CosmosClient cosmosClient)
+            : base(CollectionId, PartitionKey, cosmosSettings, cosmosClient)
         {
             _logger = logger;
 

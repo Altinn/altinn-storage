@@ -1,6 +1,5 @@
 namespace Altinn.Platform.Storage.Repository
 {
-    using System;
     using System.Threading;
     using System.Threading.Tasks;
 
@@ -20,11 +19,12 @@ namespace Altinn.Platform.Storage.Repository
         private readonly string _collectionId;
         private readonly string _partitionKey;
         private readonly AzureCosmosSettings _cosmosSettings;
+        private readonly CosmosClient _cosmosClient;
 
         /// <summary>
         /// The document collection.
         /// </summary>
-        protected Container Container { get; private set; }
+        protected Container Container { get; set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="BaseRepository"/> class.
@@ -32,12 +32,18 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="collectionId">The ID of the collection.</param>
         /// <param name="partitionKey">The PK of the collection.</param>
         /// <param name="cosmosSettings">The settings object.</param>
-        public BaseRepository(string collectionId, string partitionKey, IOptions<AzureCosmosSettings> cosmosSettings)
+        /// <param name="cosmosClient">CosmosClient singleton</param>
+        public BaseRepository(
+            string collectionId, 
+            string partitionKey, 
+            IOptions<AzureCosmosSettings> cosmosSettings, 
+            CosmosClient cosmosClient)
         {
             _collectionId = collectionId;
             _partitionKey = partitionKey;
             _cosmosSettings = cosmosSettings.Value;
             _databaseId = _cosmosSettings.Database;
+            _cosmosClient = cosmosClient;
         }
 
         /// <inheritdoc/>
@@ -54,14 +60,7 @@ namespace Altinn.Platform.Storage.Repository
 
         private async Task<Container> CreateDatabaseAndCollection(CancellationToken cancellationToken)
         {
-            CosmosClientOptions options = new()
-            {
-                ConnectionMode = ConnectionMode.Gateway,
-            };
-
-            CosmosClient client = new CosmosClient(_cosmosSettings.EndpointUri, _cosmosSettings.PrimaryKey, options);
-
-            Database db = await client.CreateDatabaseIfNotExistsAsync(_databaseId, cancellationToken: cancellationToken);
+            Database db = await _cosmosClient.CreateDatabaseIfNotExistsAsync(_databaseId, cancellationToken: cancellationToken);
 
             Container container = await db.CreateContainerIfNotExistsAsync(_collectionId, _partitionKey, cancellationToken: cancellationToken);
             return container;

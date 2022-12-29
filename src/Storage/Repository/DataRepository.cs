@@ -40,12 +40,14 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="cosmosSettings">the configuration settings for azure cosmos database</param>
         /// <param name="storageConfiguration">the storage configuration for azure blob storage</param>
         /// <param name="logger">The logger to use when writing to logs.</param>
+        /// <param name="cosmosClient">CosmosClient singleton</param>
         public DataRepository(
             ISasTokenProvider sasTokenProvider,
             IOptions<AzureCosmosSettings> cosmosSettings,
             IOptions<AzureStorageConfiguration> storageConfiguration,
-            ILogger<DataRepository> logger)
-            : base(CollectionId, PartitionKey, cosmosSettings)
+            ILogger<DataRepository> logger,
+            CosmosClient cosmosClient)
+            : base(CollectionId, PartitionKey, cosmosSettings, cosmosClient)
         {
             _storageConfiguration = storageConfiguration.Value;
             _sasTokenProvider = sasTokenProvider;
