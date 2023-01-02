@@ -385,7 +385,6 @@ namespace Altinn.Platform.Storage.Controllers
 
             try
             {
-                // TODO: dispatch event in transaction batch instead.
                 await DispatchEvent(InstanceEventType.Created, storedInstance);
                 _logger.LogInformation("Created instance: {storedInstance.Id}", storedInstance.Id);
             }
@@ -418,7 +417,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
             catch (Exception ex) 
             {
-                _logger.LogError(ex, "SetHasAlltinn3Instances unexpectadely during creation of instance Id {storedInstance.Id}, instance returned to caller.", storedInstance.Id);
+                _logger.LogError(ex, "SetHasAlltinn3Instances failed unexpectedly during creation of instance Id {storedInstance.Id}, instance returned to caller.", storedInstance.Id);
             }
 
             return Created(storedInstance.SelfLinks.Platform, storedInstance);
