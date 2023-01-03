@@ -63,7 +63,7 @@ namespace Altinn.Platform.Storage.Repository
             Database db = await _cosmosClient.CreateDatabaseIfNotExistsAsync(_databaseId, cancellationToken: cancellationToken);
 
             Container container = await db.CreateContainerIfNotExistsAsync(_collectionId, _partitionKey, cancellationToken: cancellationToken);
-            var indexUpdated = await this.VerifyIndexPolicy(container);
+            var indexUpdated = await SetIndexPolicy(container);
             return container;
         }
 
@@ -71,7 +71,7 @@ namespace Altinn.Platform.Storage.Repository
         /// Verifies that each container has the correct index policy.
         /// </summary>
         /// <returns>True if container required an index policy update</returns>        
-        protected virtual async Task<bool> VerifyIndexPolicy(Container container)
+        protected virtual async Task<bool> SetIndexPolicy(Container container)
         {
             var containerResponse = await container.ReadContainerAsync();
 
