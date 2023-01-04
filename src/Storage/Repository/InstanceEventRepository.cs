@@ -133,7 +133,6 @@ namespace Altinn.Platform.Storage.Repository
         protected override async Task<bool> SetIndexPolicy(Container container)
         {
             var containerResponse = await container.ReadContainerAsync();
-            var existingPolicy = containerResponse.Resource.IndexingPolicy;
 
             var newPolicy = new IndexingPolicy();
             newPolicy.IndexingMode = IndexingMode.Consistent;

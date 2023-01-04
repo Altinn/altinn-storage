@@ -40,9 +40,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
-// Cosmos DB profiler
-// using HibernatingRhinos.Profiler.Appender.CosmosDB;
-
 ILogger logger;
 
 string vaultApplicationInsightsKey = "ApplicationInsights--InstrumentationKey";
@@ -230,15 +227,12 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     AzureCosmosSettings cosmosSettings = config.GetSection("AzureCosmosSettings").Get<AzureCosmosSettings>();
     CosmosClientOptions options = new()
     {
-        ConnectionMode = ConnectionMode.Direct,
+        ConnectionMode = ConnectionMode.Gateway,
     };
-    CosmosClient cosmosClient = new CosmosClient(cosmosSettings.EndpointUri, cosmosSettings.PrimaryKey, options);
-
-    // need to instantiate cosmosClient here ^ to give to profiler
-    // services.UseCosmosDBProfiler(cosmosClient);
+    CosmosClient cosmosClient = new(cosmosSettings.EndpointUri, cosmosSettings.PrimaryKey, options);
     services.AddSingleton(cosmosClient);
 
-    var repositories = services.AddRepositories();
+    services.AddRepositories();
 
     services.AddSingleton<ISasTokenProvider, SasTokenProvider>();
     services.AddSingleton<IKeyVaultClientWrapper, KeyVaultClientWrapper>();

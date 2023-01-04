@@ -18,7 +18,6 @@ namespace Altinn.Platform.Storage.Repository
         private readonly string _databaseId;
         private readonly string _collectionId;
         private readonly string _partitionKey;
-        private readonly AzureCosmosSettings _cosmosSettings;
         private readonly CosmosClient _cosmosClient;
 
         /// <summary>
@@ -41,8 +40,7 @@ namespace Altinn.Platform.Storage.Repository
         {
             _collectionId = collectionId;
             _partitionKey = partitionKey;
-            _cosmosSettings = cosmosSettings.Value;
-            _databaseId = _cosmosSettings.Database;
+            _databaseId = cosmosSettings.Value.Database;
             _cosmosClient = cosmosClient;
         }
 
@@ -63,7 +61,8 @@ namespace Altinn.Platform.Storage.Repository
             Database db = await _cosmosClient.CreateDatabaseIfNotExistsAsync(_databaseId, cancellationToken: cancellationToken);
 
             Container container = await db.CreateContainerIfNotExistsAsync(_collectionId, _partitionKey, cancellationToken: cancellationToken);
-            var indexUpdated = await SetIndexPolicy(container);
+            await SetIndexPolicy(container);
+
             return container;
         }
 
@@ -71,7 +70,7 @@ namespace Altinn.Platform.Storage.Repository
         /// Verifies that each container has the correct index policy.
         /// </summary>
         /// <returns>True if container required an index policy update</returns>        
-        protected virtual async Task<bool> SetIndexPolicy(Container container)
+        protected virtual async Task SetIndexPolicy(Container container)
         {
             var containerResponse = await container.ReadContainerAsync();
 
@@ -84,8 +83,6 @@ namespace Altinn.Platform.Storage.Repository
 
             var result = await container.ReplaceContainerAsync(containerResponse.Resource);
             Container = result.Container;
-
-            return true;
         }
     }
 }
