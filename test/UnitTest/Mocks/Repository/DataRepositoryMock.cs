@@ -69,6 +69,30 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return await Task.FromResult(dataElements);
         }
 
+        public async Task<Dictionary<string, List<DataElement>>> ReadAllForMultiple(List<string> instanceGuids)
+        {
+            Dictionary<string, List<DataElement>> dataElements = new();
+            foreach (var instanceGuid in instanceGuids)
+            {
+                dataElements[instanceGuid] = new List<DataElement>();
+            }
+
+            string dataElementsPath = GetDataElementsPath();
+
+            string[] dataElementPaths = Directory.GetFiles(dataElementsPath);
+            foreach (string elementPath in dataElementPaths)
+            {
+                string content = File.ReadAllText(elementPath);
+                DataElement dataElement = (DataElement)JsonConvert.DeserializeObject(content, typeof(DataElement));
+                if (instanceGuids.Contains(dataElement.InstanceGuid))
+                {
+                    dataElements[dataElement.InstanceGuid].Add(dataElement);
+                }
+            }
+
+            return await Task.FromResult(dataElements);
+        }
+
         public async Task<Stream> ReadDataFromStorage(string org, string blobStoragePath)
         {
             string dataPath = Path.Combine(GetDataBlobPath(), blobStoragePath);
@@ -99,6 +123,6 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
         {
             string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(DataRepositoryMock).Assembly.Location).LocalPath);
             return Path.Combine(unitTestFolder, "..", "..", "..", "data", "blob");
-        }
+        }        
     }
 }
