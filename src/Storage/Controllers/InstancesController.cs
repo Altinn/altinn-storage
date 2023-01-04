@@ -393,7 +393,7 @@ namespace Altinn.Platform.Storage.Controllers
                 _logger.LogError(createInstanceEventEx, "Unable to log instance create event for {appId} instance {instance.InstanceOwner.PartyId}, will attempt to remove instance before returning error.", appId, instance.InstanceOwner.PartyId);
 
                 // compensating action - delete instance if create was successful
-                if (storedInstance != null && !string.IsNullOrEmpty(storedInstance.Id))
+                if (storedInstance != null)
                 {
                     try
                     {
@@ -411,13 +411,26 @@ namespace Altinn.Platform.Storage.Controllers
 
             storedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
 
-            try
+            int attempts = 3;
+            while (attempts > 0)
             {
-                await _partiesWithInstancesClient.SetHasAltinn3Instances(instanceOwnerPartyId);
-            }
-            catch (Exception ex) 
-            {
-                _logger.LogError(ex, "SetHasAlltinn3Instances failed unexpectedly during creation of instance Id {storedInstance.Id}, instance returned to caller.", storedInstance.Id);
+                try
+                {
+                    await _partiesWithInstancesClient.SetHasAltinn3Instances(instanceOwnerPartyId);
+                    attempts = 0;
+                }
+                catch (Exception ex)
+                {
+                    attempts--;
+                    if (attempts > 0)
+                    {
+                        _logger.LogError(ex, "SetHasAlltinn3Instances failed unexpectedly during creation of instance Id {storedInstance.Id}, retry attempts left {attempts}.", storedInstance.Id, attempts);
+                    } 
+                    else
+                    {
+                        _logger.LogError(ex, "SetHasAlltinn3Instances failed unexpectedly during creation of instance Id {storedInstance.Id}, instance returned to caller.", storedInstance.Id);
+                    }
+                }
             }
 
             return Created(storedInstance.SelfLinks.Platform, storedInstance);
