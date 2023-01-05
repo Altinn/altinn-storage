@@ -184,7 +184,7 @@ namespace Altinn.Platform.Storage.Repository
 
             FeedIterator<DataElement> query = Container
                 .GetItemLinqQueryable<DataElement>(requestOptions: options)
-                .Where(x => instanceGuids.Contains(x.Id))
+                .Where(x => instanceGuids.Contains(x.InstanceGuid))
                 .ToFeedIterator();
 
             while (query.HasMoreResults)

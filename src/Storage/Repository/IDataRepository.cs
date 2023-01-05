@@ -45,7 +45,7 @@ namespace Altinn.Platform.Storage.Repository
         Task<List<DataElement>> ReadAll(Guid instanceGuid);
 
         /// <summary>
-        /// Gets all data elements for a given instance
+        /// Gets all data elements for given instances
         /// </summary>
         /// <param name="instanceGuids">the list of instance guids to return data elements for</param>
         /// <returns>list of data elements</returns>
