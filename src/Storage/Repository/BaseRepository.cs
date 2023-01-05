@@ -67,9 +67,8 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <summary>
-        /// Verifies that each container has the correct index policy.
+        /// Programmatically set index policy.
         /// </summary>
-        /// <returns>True if container required an index policy update</returns>        
         protected virtual async Task SetIndexPolicy(Container container)
         {
             var containerResponse = await container.ReadContainerAsync();
