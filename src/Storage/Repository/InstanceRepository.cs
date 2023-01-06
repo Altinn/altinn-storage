@@ -590,22 +590,18 @@ namespace Altinn.Platform.Storage.Repository
             Dictionary<string, Instance> instanceMap = instances.ToDictionary(key => key.Id, instance => instance);
             var instanceGuids = instances.Select(i => i.Id).ToList();
 
-            // PreProcess all instances
             foreach (Instance instance in instances)
             {
                 instance.Id = $"{instance.InstanceOwner.PartyId}/{instance.Id}";
             }
 
-            // read all data elements for all instances in a single query
             var dataElements = await _dataRepository.ReadAllForMultiple(instanceGuids);
 
-            // map dataElements to correct instance
             foreach (var instanceGuid in instanceGuids)
             {
                 instanceMap[instanceGuid].Data = dataElements[instanceGuid];
             }
 
-            // PostProcess all instances
             foreach (Instance instance in instances)
             {
                 instance.Id = InstanceIdToCosmosId(instance.Id);                
