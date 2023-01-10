@@ -604,8 +604,8 @@ namespace Altinn.Platform.Storage.Repository
 
             foreach (Instance instance in instances)
             {
-                instance.Id = InstanceIdToCosmosId(instance.Id);                
-
+                instance.Id = $"{instance.InstanceOwner.PartyId}/{instance.Id}";
+                
                 if (instance.Data != null && instance.Data.Any())
                 {
                     SetReadStatus(instance);
