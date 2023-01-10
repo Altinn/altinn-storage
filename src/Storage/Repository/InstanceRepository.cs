@@ -587,9 +587,33 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="instances">the list of instances</param>
         private async Task PostProcess(List<Instance> instances)
         {
-            foreach (Instance item in instances)
+            Dictionary<string, Instance> instanceMap = instances.ToDictionary(key => key.Id, instance => instance);
+            var instanceGuids = instances.Select(i => i.Id).ToList();
+
+            foreach (Instance instance in instances)
             {
-                await PostProcess(item);
+                instance.Id = $"{instance.InstanceOwner.PartyId}/{instance.Id}";
+            }
+
+            var dataElements = await _dataRepository.ReadAllForMultiple(instanceGuids);
+
+            foreach (var instanceGuid in instanceGuids)
+            {
+                instanceMap[instanceGuid].Data = dataElements[instanceGuid];
+            }
+
+            foreach (Instance instance in instances)
+            {
+                instance.Id = $"{instance.InstanceOwner.PartyId}/{instance.Id}";
+                
+                if (instance.Data != null && instance.Data.Any())
+                {
+                    SetReadStatus(instance);
+                }
+
+                (string lastChangedBy, DateTime? lastChanged) = InstanceHelper.FindLastChanged(instance);
+                instance.LastChanged = lastChanged;
+                instance.LastChangedBy = lastChangedBy;
             }
         }
 

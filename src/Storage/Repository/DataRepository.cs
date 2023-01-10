@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 
@@ -154,6 +155,45 @@ namespace Altinn.Platform.Storage.Repository
             {
                 FeedResponse<DataElement> response = await query.ReadNextAsync();
                 dataElements.AddRange(response);
+            }
+
+            return dataElements;
+        }
+
+        /// <inheritdoc/>
+        public async Task<Dictionary<string, List<DataElement>>> ReadAllForMultiple(List<string> instanceGuids)
+        {
+            Dictionary<string, List<DataElement>> dataElements = new();
+            if (instanceGuids == null || instanceGuids.Count == 0)
+            {
+                return dataElements;
+            }
+
+            foreach (var guidString in instanceGuids)
+            {
+                dataElements[guidString] = new List<DataElement>();
+            }
+
+            QueryRequestOptions options = new QueryRequestOptions()
+            {
+                MaxBufferedItemCount = 0,
+                MaxConcurrency = -1,
+
+                // Do not set PartitionKey as we are querying across all partitions
+            };
+
+            FeedIterator<DataElement> query = Container
+                .GetItemLinqQueryable<DataElement>(requestOptions: options)
+                .Where(x => instanceGuids.Contains(x.InstanceGuid))
+                .ToFeedIterator();
+
+            while (query.HasMoreResults)
+            {
+                FeedResponse<DataElement> response = await query.ReadNextAsync();
+                foreach (DataElement dataElement in response)
+                {
+                    dataElements[dataElement.InstanceGuid].Add(dataElement);
+                }
             }
 
             return dataElements;
