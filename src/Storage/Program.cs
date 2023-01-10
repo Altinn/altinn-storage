@@ -228,6 +228,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     CosmosClientOptions options = new()
     {
         ConnectionMode = ConnectionMode.Gateway,
+        GatewayModeMaxConnectionLimit = 100
     };
     CosmosClient cosmosClient = new(cosmosSettings.EndpointUri, cosmosSettings.PrimaryKey, options);
     services.AddSingleton(cosmosClient);
