@@ -590,11 +590,6 @@ namespace Altinn.Platform.Storage.Repository
             Dictionary<string, Instance> instanceMap = instances.ToDictionary(key => key.Id, instance => instance);
             var instanceGuids = instances.Select(i => i.Id).ToList();
 
-            foreach (Instance instance in instances)
-            {
-                instance.Id = $"{instance.InstanceOwner.PartyId}/{instance.Id}";
-            }
-
             var dataElements = await _dataRepository.ReadAllForMultiple(instanceGuids);
 
             foreach (var instanceGuid in instanceGuids)
