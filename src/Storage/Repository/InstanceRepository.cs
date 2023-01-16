@@ -582,8 +582,12 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <summary>
-        /// Preprocess a list of instances.
+        /// Recalculate certain attributes after retrieval from Cosmos.
         /// </summary>
+        /// <remarks>
+        ///   Restores id to composite key value [InstanceOwner.PartyId]/[DocumentId]
+        ///   Recalculates Read status, LastChanged, LastChangedBy
+        /// </remarks>
         /// <param name="instances">the list of instances</param>
         private async Task PostProcess(List<Instance> instances)
         {
