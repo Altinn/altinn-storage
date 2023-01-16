@@ -50,7 +50,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 ConfigureSetupLogging();
 
-await SetConfigurationProviders(builder.Configuration);
+await SetConfigurationProviders(builder.Configuration, builder.Environment.IsDevelopment());
 
 ConfigureLogging(builder.Logging);
 
@@ -77,7 +77,7 @@ void ConfigureSetupLogging()
     logger = logFactory.CreateLogger<Program>();
 }
 
-async Task SetConfigurationProviders(ConfigurationManager config)
+async Task SetConfigurationProviders(ConfigurationManager config, bool isDevelopment)
 {
     string basePath = Directory.GetParent(Directory.GetCurrentDirectory()).FullName;
 
@@ -98,7 +98,11 @@ async Task SetConfigurationProviders(ConfigurationManager config)
     }
 
     config.AddEnvironmentVariables();
-    config.AddUserSecrets(Assembly.GetExecutingAssembly(), true);
+    
+    if (isDevelopment)
+    {
+        config.AddUserSecrets(Assembly.GetExecutingAssembly(), true);
+    }
 
     await ConnectToKeyVaultAndSetApplicationInsights(config);
 
