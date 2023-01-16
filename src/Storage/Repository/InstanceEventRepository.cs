@@ -25,8 +25,9 @@ namespace Altinn.Platform.Storage.Repository
         /// Initializes a new instance of the <see cref="InstanceEventRepository"/> class
         /// </summary>
         /// <param name="cosmosSettings">The configuration settings for cosmos database</param>
-        public InstanceEventRepository(IOptions<AzureCosmosSettings> cosmosSettings)
-            : base(CollectionId, PartitionKey, cosmosSettings)
+        /// <param name="cosmosClient">CosmosClient singleton</param>
+        public InstanceEventRepository(IOptions<AzureCosmosSettings> cosmosSettings, CosmosClient cosmosClient)
+            : base(CollectionId, PartitionKey, cosmosSettings, cosmosClient)
         {
         }
 
@@ -126,6 +127,24 @@ namespace Altinn.Platform.Storage.Repository
             }
 
             return deletedEventsCount;
+        }
+
+        /// <inheritdoc/>
+        protected override async Task<bool> SetIndexPolicy(Container container)
+        {
+            var containerResponse = await container.ReadContainerAsync();
+
+            var newPolicy = new IndexingPolicy();
+            newPolicy.IndexingMode = IndexingMode.Consistent;
+            newPolicy.ExcludedPaths.Add(new ExcludedPath { Path = "/*" });
+            newPolicy.IncludedPaths.Add(new IncludedPath { Path = "/instanceId/?" });
+
+            containerResponse.Resource.IndexingPolicy = newPolicy;
+
+            var result = await container.ReplaceContainerAsync(containerResponse.Resource);
+            Container = result.Container;
+
+            return true;
         }
     }
 }

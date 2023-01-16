@@ -32,6 +32,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -49,7 +50,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 ConfigureSetupLogging();
 
-await SetConfigurationProviders(builder.Configuration);
+await SetConfigurationProviders(builder.Configuration, builder.Environment.IsDevelopment());
 
 ConfigureLogging(builder.Logging);
 
@@ -76,7 +77,7 @@ void ConfigureSetupLogging()
     logger = logFactory.CreateLogger<Program>();
 }
 
-async Task SetConfigurationProviders(ConfigurationManager config)
+async Task SetConfigurationProviders(ConfigurationManager config, bool isDevelopment)
 {
     string basePath = Directory.GetParent(Directory.GetCurrentDirectory()).FullName;
 
@@ -97,6 +98,11 @@ async Task SetConfigurationProviders(ConfigurationManager config)
     }
 
     config.AddEnvironmentVariables();
+    
+    if (isDevelopment)
+    {
+        config.AddUserSecrets(Assembly.GetExecutingAssembly(), true);
+    }
 
     await ConnectToKeyVaultAndSetApplicationInsights(config);
 
@@ -219,9 +225,20 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
         options.AddPolicy(AuthzConstants.POLICY_STUDIO_DESIGNER, policy => policy.Requirements.Add(new ClaimAccessRequirement("urn:altinn:app", "studio.designer")));
     });
 
+    services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+
+    // hookup Cosmos DB
+    AzureCosmosSettings cosmosSettings = config.GetSection("AzureCosmosSettings").Get<AzureCosmosSettings>();
+    CosmosClientOptions options = new()
+    {
+        ConnectionMode = ConnectionMode.Gateway,
+        GatewayModeMaxConnectionLimit = 100
+    };
+    CosmosClient cosmosClient = new(cosmosSettings.EndpointUri, cosmosSettings.PrimaryKey, options);
+    services.AddSingleton(cosmosClient);
+
     services.AddRepositories();
 
-    services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
     services.AddSingleton<ISasTokenProvider, SasTokenProvider>();
     services.AddSingleton<IKeyVaultClientWrapper, KeyVaultClientWrapper>();
     services.AddSingleton<IPDP, PDPAppSI>();

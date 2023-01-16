@@ -33,11 +33,13 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="cosmosSettings">the configuration settings for cosmos database</param>
         /// <param name="logger">the logger</param>
         /// <param name="dataRepository">the data repository to fetch data elements from</param>
+        /// <param name="cosmosClient">CosmosClient singleton</param>
         public InstanceRepository(
             IOptions<AzureCosmosSettings> cosmosSettings,
             ILogger<InstanceRepository> logger,
-            IDataRepository dataRepository)
-            : base(CollectionId, PartitionKey, cosmosSettings)
+            IDataRepository dataRepository, 
+            CosmosClient cosmosClient) 
+            : base(CollectionId, PartitionKey, cosmosSettings, cosmosClient)
         {
             _logger = logger;
             _dataRepository = dataRepository;
