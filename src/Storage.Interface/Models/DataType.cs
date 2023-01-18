@@ -93,5 +93,11 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// </summary>
         [JsonProperty(PropertyName = "enablePdfCreation")]
         public bool EnablePdfCreation { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether file uploaded to this data type should be scanned for malware. Default value is <c>false</c>.
+        /// </summary>
+        [JsonProperty(PropertyName = "enableFileScan")]
+        public bool EnableFileScan { get; set; }
     }
 }

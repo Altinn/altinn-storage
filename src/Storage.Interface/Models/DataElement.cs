@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 
+using Altinn.Platform.Storage.Interface.Enums;
+
 using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.Interface.Models
@@ -89,6 +91,12 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// </summary>
         [JsonProperty(PropertyName = "deleteStatus")]
         public DeleteStatus DeleteStatus { get; set; }
+
+        /// <summary>
+        /// Gets or sets the result of a file scan of the blob represented by this data element.
+        /// </summary>
+        [JsonProperty(PropertyName = "fileScanResult")]
+        public FileScanResult FileScanResult { get; set; }
 
         /// <inheritdoc/>
         public override string ToString()
