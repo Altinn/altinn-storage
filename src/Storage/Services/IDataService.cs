@@ -1,0 +1,24 @@
+﻿using System.Threading;
+using System.Threading.Tasks;
+
+using Altinn.Platform.Storage.Interface.Models;
+
+namespace Altinn.Platform.Storage.Services
+{
+    /// <summary>
+    /// This interface describes the required methods and features of a data service implementation.
+    /// </summary>
+    public interface IDataService
+    {
+        /// <summary>
+        /// Trigger malware scan of the blob associated with the given data element.
+        /// </summary>
+        /// <param name="dataType">
+        /// The data type properties document for the data type of the blob to be scanned for malware.
+        /// </param>
+        /// <param name="dataElement">The data element metadata document.</param>
+        /// <param name="ct">A cancellation token should the request be cancelled.</param>
+        /// <returns>A task representing the asynconous call to file scan service.</returns>
+        Task PerformFileScan(DataType dataType, DataElement dataElement, CancellationToken ct);
+    }
+}

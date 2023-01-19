@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 
@@ -11,13 +12,13 @@ using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Services;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Net.Http.Headers;
@@ -39,6 +40,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IInstanceRepository _instanceRepository;
         private readonly IApplicationRepository _applicationRepository;
         private readonly IInstanceEventRepository _instanceEventRepository;
+        private readonly IDataService _dataService;
 
         private readonly string _storageBaseAndHost;
 
@@ -49,18 +51,21 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceRepository">the instance repository</param>
         /// <param name="applicationRepository">the application repository</param>
         /// <param name="instanceEventRepository">the instance event repository</param>
+        /// <param name="dataService">A data service with data element related business logic.</param>
         /// <param name="generalSettings">the general settings.</param>
         public DataController(
             IDataRepository dataRepository,
             IInstanceRepository instanceRepository,
             IApplicationRepository applicationRepository,
             IInstanceEventRepository instanceEventRepository,
+            IDataService dataService,
             IOptions<GeneralSettings> generalSettings)
         {
             _dataRepository = dataRepository;
             _instanceRepository = instanceRepository;
             _applicationRepository = applicationRepository;
             _instanceEventRepository = instanceEventRepository;
+            _dataService = dataService;
             _storageBaseAndHost = $"{generalSettings.Value.Hostname}/storage/api/v1/";
         }
 
@@ -263,7 +268,9 @@ namespace Altinn.Platform.Storage.Controllers
                 return applicationError;
             }
 
-            if (!appInfo.DataTypes.Exists(e => e.Id == dataType))
+            DataType dataTypeDefinition = appInfo.DataTypes.FirstOrDefault(e => e.Id == dataType);
+
+            if (dataTypeDefinition is null)
             {
                 return BadRequest("Requested element type is not declared in application metadata");
             }
@@ -287,6 +294,8 @@ namespace Altinn.Platform.Storage.Controllers
 
             DataElement dataElement = await _dataRepository.Create(newData);
             dataElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
+            
+            await _dataService.PerformFileScan(dataTypeDefinition, dataElement, CancellationToken.None);
 
             await DispatchEvent(InstanceEventType.Created.ToString(), instance, dataElement);
 
