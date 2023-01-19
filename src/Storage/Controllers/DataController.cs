@@ -412,6 +412,35 @@ namespace Altinn.Platform.Storage.Controllers
         }
 
         /// <summary>
+        /// Replaces the existing metadata for a data element with the new data element.
+        /// </summary>
+        /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
+        /// <param name="dataGuid">The id of the data element to update.</param>
+        /// <param name="fileScanStatus">The file scan results for this data element.</param>
+        /// <returns>The updated data element.</returns>
+        [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
+        [HttpPatch("dataelements/{dataGuid}/file-scan-result/{contentHash}")]
+        [Consumes("application/json")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status410Gone)]
+        [Produces("application/json")]
+        public async Task<ActionResult<DataElement>> SetFileScanResult(
+            Guid instanceGuid,
+            Guid dataGuid,
+            [FromBody] FileScanStatus fileScanStatus)
+        {
+            if (!instanceGuid.ToString().Equals(fileScanStatus.InstanceGuid) || !dataGuid.ToString().Equals(dataElement.Id))
+            {
+                return BadRequest("Mismatch between path and dataElement content");
+            }
+
+            DataElement updatedDataElement = await _dataRepository.Update(dataElement);
+
+            return Ok(updatedDataElement);
+        }
+
+        /// <summary>
         /// Creates a data element by reading the first multipart element or body of the request.
         /// </summary>
         private async Task<(Stream Stream, DataElement DataElement)> ReadRequestAndCreateDataElementAsync(HttpRequest request, string elementType, List<Guid> refs, Instance instance)
