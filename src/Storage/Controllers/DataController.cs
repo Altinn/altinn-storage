@@ -418,8 +418,8 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataGuid">The id of the data element to update.</param>
         /// <param name="fileScanStatus">The file scan results for this data element.</param>
         /// <returns>The updated data element.</returns>
-        [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
-        [HttpPut("dataelements/{dataGuid}/filescanstatus")]
+        [Authorize(Policy = "PlatformAccess")]
+        [HttpPut("data/{dataGuid}/filescanstatus")]
         [Consumes("application/json")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -429,13 +429,7 @@ namespace Altinn.Platform.Storage.Controllers
             Guid dataGuid,
             [FromBody] FileScanStatus fileScanStatus)
         {
-            if (!instanceGuid.ToString().Equals(fileScanStatus.InstanceGuid) || 
-                !dataGuid.ToString().Equals(fileScanStatus.DataElementId))
-            {
-                return BadRequest("Mismatch between path and dataElement content");
-            }
-
-            var success = await _dataRepository.SetFileScanStatus(fileScanStatus);
+            var success = await _dataRepository.SetFileScanStatus(instanceGuid.ToString(), dataGuid.ToString(), fileScanStatus);
 
             return success ? Ok() : BadRequest("An error occurred while updating file scan status.");
         }

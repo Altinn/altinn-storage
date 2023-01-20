@@ -83,8 +83,10 @@ namespace Altinn.Platform.Storage.Repository
         /// <summary>
         /// Update data element file scan status properties
         /// </summary>
+        /// <param name="instanceId">ID of instance that data element belongs to</param>
+        /// <param name="dataElementId">ID of data element to update</param>
         /// <param name="status">Status property values</param>
         /// <returns></returns>
-        Task<bool> SetFileScanStatus(FileScanStatus status);
+        Task<bool> SetFileScanStatus(string instanceId, string dataElementId, FileScanStatus status);
     }
 }

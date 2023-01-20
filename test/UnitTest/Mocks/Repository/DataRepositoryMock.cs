@@ -106,7 +106,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return await Task.FromResult(dataElement);
         }
 
-        public async Task<bool> SetFileScanStatus(FileScanStatus status)
+        public async Task<bool> SetFileScanStatus(string instanceId, string dataElementId, FileScanStatus status)
         {
             return await Task.FromResult(true);
         }

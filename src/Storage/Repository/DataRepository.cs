@@ -248,16 +248,16 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<bool> SetFileScanStatus(FileScanStatus status)
+        public async Task<bool> SetFileScanStatus(string instanceId, string dataElementId, FileScanStatus status)
         {
             List<PatchOperation> operations = new()
             {
-                PatchOperation.Add($"/fileScanStatus", status.FileScanResult),
+                PatchOperation.Add("/fileScanResult", status.FileScanResult),
             };
 
             ItemResponse<DataElement> response = await Container.PatchItemAsync<DataElement>(
-                id: status.DataElementId,
-                partitionKey: new PartitionKey(status.InstanceGuid),
+                id: dataElementId,
+                partitionKey: new PartitionKey(instanceId),
                 patchOperations: operations);
 
             return response.StatusCode == HttpStatusCode.OK;
