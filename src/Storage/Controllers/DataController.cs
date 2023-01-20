@@ -279,6 +279,8 @@ namespace Altinn.Platform.Storage.Controllers
             Stream theStream = streamAndDataElement.Stream;
             DataElement newData = streamAndDataElement.DataElement;
 
+            newData.FileScanResult = dataTypeDefinition.EnableFileScan ? FileScanResult.Pending : FileScanResult.NotApplicable;
+
             if (theStream == null)
             {
                 return BadRequest("No data attachments found");
@@ -361,48 +363,50 @@ namespace Altinn.Platform.Storage.Controllers
                 instanceGuid.ToString(),
                 dataGuid.ToString());
 
-            if (string.Equals(dataElement.BlobStoragePath, blobStoragePathName))
+            if (!string.Equals(dataElement.BlobStoragePath, blobStoragePathName))
             {
-                var streamAndDataElement = await ReadRequestAndCreateDataElementAsync(Request, dataElement.DataType, refs, instance);
-                Stream theStream = streamAndDataElement.Stream;
-                DataElement updatedData = streamAndDataElement.DataElement;
-
-                if (theStream == null)
-                {
-                    return BadRequest("No data found in request body");
-                }
-
-                DateTime changedTime = DateTime.UtcNow;
-
-                dataElement.ContentType = updatedData.ContentType;
-                dataElement.Filename = HttpUtility.UrlDecode(updatedData.Filename);
-                dataElement.LastChangedBy = User.GetUserOrOrgId();
-                dataElement.LastChanged = changedTime;
-                dataElement.Refs = updatedData.Refs;
-
-                dataElement.Size = await _dataRepository.WriteDataToStorage(instance.Org, theStream, blobStoragePathName);
-
-                if (User.GetOrg() == instance.Org)
-                {
-                    dataElement.IsRead = false;
-                }
-
-                if (dataElement.Size > 0)
-                {
-                    DataElement updatedElement = await _dataRepository.Update(dataElement);
-                    updatedElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
-
-                    await _dataService.StartFileScan(dataTypeDefinition, dataElement, CancellationToken.None);
-
-                    await DispatchEvent(InstanceEventType.Saved.ToString(), instance, updatedElement);
-
-                    return Ok(updatedElement);
-                }
-
-                return UnprocessableEntity("Could not process attached file");
+                return StatusCode(500, "Storage url does not match with instance metadata");
             }
 
-            return StatusCode(500, "Storage url does not match with instance metadata");
+            var streamAndDataElement = await ReadRequestAndCreateDataElementAsync(Request, dataElement.DataType, refs, instance);
+            Stream theStream = streamAndDataElement.Stream;
+            DataElement updatedData = streamAndDataElement.DataElement;
+
+            if (theStream == null)
+            {
+                return BadRequest("No data found in request body");
+            }
+
+            DateTime changedTime = DateTime.UtcNow;
+
+            dataElement.ContentType = updatedData.ContentType;
+            dataElement.Filename = HttpUtility.UrlDecode(updatedData.Filename);
+            dataElement.LastChangedBy = User.GetUserOrOrgId();
+            dataElement.LastChanged = changedTime;
+            dataElement.Refs = updatedData.Refs;
+
+            dataElement.Size = await _dataRepository.WriteDataToStorage(instance.Org, theStream, blobStoragePathName);
+
+            if (User.GetOrg() == instance.Org)
+            {
+                dataElement.IsRead = false;
+            }
+
+            if (dataElement.Size > 0)
+            {
+                dataElement.FileScanResult = dataTypeDefinition.EnableFileScan ? FileScanResult.Pending : FileScanResult.NotApplicable;
+
+                DataElement updatedElement = await _dataRepository.Update(dataElement);
+                updatedElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
+
+                await _dataService.StartFileScan(dataTypeDefinition, dataElement, CancellationToken.None);
+
+                await DispatchEvent(InstanceEventType.Saved.ToString(), instance, updatedElement);
+
+                return Ok(updatedElement);
+            }
+
+            return UnprocessableEntity("Could not process attached file");
         }
 
         /// <summary>
