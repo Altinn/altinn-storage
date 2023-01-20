@@ -79,5 +79,12 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="dataElement">the element to delete</param>
         /// <returns>true if delete went well.</returns>
         Task<bool> Delete(DataElement dataElement);
+
+        /// <summary>
+        /// Update data element file scan status properties
+        /// </summary>
+        /// <param name="status">Status property values</param>
+        /// <returns></returns>
+        Task<bool> SetFileScanStatus(FileScanStatus status);
     }
 }

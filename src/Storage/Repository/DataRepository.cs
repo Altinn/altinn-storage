@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -244,6 +245,22 @@ namespace Altinn.Platform.Storage.Repository
             var response = await Container.DeleteItemAsync<DataElement>(dataElement.Id, new PartitionKey(dataElement.InstanceGuid));
 
             return response.StatusCode == HttpStatusCode.NoContent;
+        }
+
+        /// <inheritdoc/>
+        public async Task<bool> SetFileScanStatus(FileScanStatus status)
+        {
+            List<PatchOperation> operations = new()
+            {
+                PatchOperation.Add($"/fileScanStatus", status.FileScanResult),
+            };
+
+            ItemResponse<DataElement> response = await Container.PatchItemAsync<DataElement>(
+                id: status.DataElementId,
+                partitionKey: new PartitionKey(status.InstanceGuid),
+                patchOperations: operations);
+
+            return response.StatusCode == HttpStatusCode.OK;
         }
 
         private async Task<long> UploadFromStreamAsync(string org, Stream stream, string fileName)

@@ -106,6 +106,11 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return await Task.FromResult(dataElement);
         }
 
+        public async Task<bool> SetFileScanStatus(FileScanStatus status)
+        {
+            return await Task.FromResult(true);
+        }
+
         public async Task<long> WriteDataToStorage(string org, Stream stream, string blobStoragePath)
         {
             MemoryStream memoryStream = new MemoryStream();
