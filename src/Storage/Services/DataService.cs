@@ -23,7 +23,7 @@ namespace Altinn.Platform.Storage.Services
         }
 
         /// <inheritdoc/>
-        public async Task PerformFileScan(DataType dataType, DataElement dataElement, CancellationToken ct)
+        public async Task StartFileScan(DataType dataType, DataElement dataElement, CancellationToken ct)
         {
             if (dataType.EnableFileScan)
             {

@@ -19,6 +19,6 @@ namespace Altinn.Platform.Storage.Services
         /// <param name="dataElement">The data element metadata document.</param>
         /// <param name="ct">A cancellation token should the request be cancelled.</param>
         /// <returns>A task representing the asynconous call to file scan service.</returns>
-        Task PerformFileScan(DataType dataType, DataElement dataElement, CancellationToken ct);
+        Task StartFileScan(DataType dataType, DataElement dataElement, CancellationToken ct);
     }
 }

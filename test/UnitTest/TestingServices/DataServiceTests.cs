@@ -24,7 +24,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             DataElement dataElement = new DataElement { };
 
             // Act
-            await target.PerformFileScan(dataType, dataElement, CancellationToken.None);
+            await target.StartFileScan(dataType, dataElement, CancellationToken.None);
 
             // Assert
             fileScanMock.Verify(f => f.EnqueueFileScan(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never());
@@ -42,7 +42,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             DataElement dataElement = new DataElement { };
 
             // Act
-            await target.PerformFileScan(dataType, dataElement, CancellationToken.None);
+            await target.StartFileScan(dataType, dataElement, CancellationToken.None);
 
             // Assert
             fileScanMock.Verify(f => f.EnqueueFileScan(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once());

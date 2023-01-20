@@ -160,7 +160,29 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             HttpClient client = GetTestClient();
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
-            HttpResponseMessage response = await client.PutAsync($"{dataPathWithData}?dataType=default", content);
+            HttpResponseMessage response = await client.PutAsync($"{dataPathWithData}", content);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        [Fact]
+        public async void OverwriteData_UpdateDataOnDataTypeWithFileScan_StartsFileScan()
+        {
+            // Arrange
+            string dataPathWithData = $"{_versionPrefix}/instances/1337/649388f0-a2c0-4774-bd11-c870223ed819/data/50c60b30-cb9a-435b-a31e-bbce47c2b936";
+            HttpContent content = new StringContent("This is a blob file with updated data");
+
+            Mock<IFileScanQueueClient> fileScanMock = new Mock<IFileScanQueueClient>();
+
+            HttpClient client = GetTestClient(null, fileScanMock);
+
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
+
+            // Act
+            HttpResponseMessage response = await client.PutAsync($"{dataPathWithData}", content);
+
+            // Assert
+            fileScanMock.Verify(f => f.EnqueueFileScan(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once());
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }

@@ -295,7 +295,7 @@ namespace Altinn.Platform.Storage.Controllers
             DataElement dataElement = await _dataRepository.Create(newData);
             dataElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
             
-            await _dataService.PerformFileScan(dataTypeDefinition, dataElement, CancellationToken.None);
+            await _dataService.StartFileScan(dataTypeDefinition, dataElement, CancellationToken.None);
 
             await DispatchEvent(InstanceEventType.Created.ToString(), instance, dataElement);
 
@@ -332,10 +332,23 @@ namespace Altinn.Platform.Storage.Controllers
                 return instanceError;
             }
 
+            (Application appInfo, ActionResult applicationError) = await GetApplicationAsync(instance.AppId, instance.Org);
+            if (appInfo == null)
+            {
+                return applicationError;
+            }
+
             (DataElement dataElement, ActionResult dataElementError) = await GetDataElementAsync(instanceGuid, dataGuid);
             if (dataElement == null)
             {
                 return dataElementError;
+            }
+
+            DataType dataTypeDefinition = appInfo.DataTypes.FirstOrDefault(e => e.Id == dataElement.DataType);
+
+            if (dataTypeDefinition is null)
+            {
+                return BadRequest("Requested element type is not declared in application metadata");
             }
 
             if (dataElement.Locked)
@@ -378,6 +391,8 @@ namespace Altinn.Platform.Storage.Controllers
                 {
                     DataElement updatedElement = await _dataRepository.Update(dataElement);
                     updatedElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
+
+                    await _dataService.StartFileScan(dataTypeDefinition, dataElement, CancellationToken.None);
 
                     await DispatchEvent(InstanceEventType.Saved.ToString(), instance, updatedElement);
 
