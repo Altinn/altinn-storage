@@ -20,6 +20,17 @@
         "ClassRef": "App.IntegrationTests.Mocks.Apps.tdd.endring_av_navn.Skjema"
       },
       "taskId":  "Task_1"
+    },
+    {
+      "id": "default_with_fileScan",
+      "allowedContentTypes": [ "application/xml" ],
+      "maxCount": 1,
+      "appLogic": {
+        "autoCreate": true,
+        "ClassRef": "App.IntegrationTests.Mocks.Apps.tdd.endring_av_navn.Skjema"
+      },
+      "taskId": "Task_1",
+      "enableFileScan": true
     }
   ]
 }
