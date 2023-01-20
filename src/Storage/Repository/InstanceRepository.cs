@@ -53,8 +53,7 @@ namespace Altinn.Platform.Storage.Repository
             instance.Id ??= Guid.NewGuid().ToString();
 
             Instance instanceStored = await Container.CreateItemAsync<Instance>(instance, new PartitionKey(instance.InstanceOwner.PartyId));
-
-            await PostProcess(instanceStored);
+            instanceStored.Id = $"{instanceStored.InstanceOwner.PartyId}/{instanceStored.Id}";
 
             return instanceStored;
         }
@@ -537,11 +536,13 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<Instance> Update(Instance item)
         {
+            List<DataElement> dataElements = item.Data;
             PreProcess(item);
 
             Instance instance = await Container.UpsertItemAsync<Instance>(item, new PartitionKey(item.InstanceOwner.PartyId));
 
-            await PostProcess(instance);
+            instance.Data = dataElements;
+            instance.Id = $"{instance.InstanceOwner.PartyId}/{instance.Id}";
 
             return instance;
         }
