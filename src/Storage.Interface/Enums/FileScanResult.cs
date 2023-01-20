@@ -6,6 +6,11 @@
     public enum FileScanResult
     {
         /// <summary>
+        /// The file will not be scanned. File scanning is turned off.
+        /// </summary>
+        NotApplicable,
+
+        /// <summary>
         /// The scan status of the file is pending. This is the default value.
         /// </summary>
         Pending,
