@@ -412,7 +412,7 @@ namespace Altinn.Platform.Storage.Controllers
         }
 
         /// <summary>
-        /// Replaces the existing metadata for a data element with the new data element.
+        /// Sets the file scan status for an existing data element.
         /// </summary>
         /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
         /// <param name="dataGuid">The id of the data element to update.</param>
