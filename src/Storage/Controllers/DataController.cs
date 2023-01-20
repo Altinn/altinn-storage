@@ -419,7 +419,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="fileScanStatus">The file scan results for this data element.</param>
         /// <returns>The updated data element.</returns>
         [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
-        [HttpPatch("dataelements/{dataGuid}/file-scan-status")]
+        [HttpPut("dataelements/{dataGuid}/filescanstatus")]
         [Consumes("application/json")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
