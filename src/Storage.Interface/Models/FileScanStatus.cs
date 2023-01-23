@@ -1,5 +1,9 @@
 ﻿using Altinn.Platform.Storage.Interface.Enums;
+
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+
+using TextJson = System.Text.Json.Serialization;
 
 namespace Altinn.Platform.Storage.Interface.Models
 {
@@ -19,6 +23,8 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// Gets or sets the scan result
         /// </summary>
         [JsonProperty(PropertyName = "fileScanResult")]
+        [JsonConverter(typeof(StringEnumConverter))]
+        [TextJson.JsonConverter(typeof(TextJson.JsonStringEnumConverter))]
         public FileScanResult FileScanResult { get; set; }
 
         /// <inheritdoc/>
