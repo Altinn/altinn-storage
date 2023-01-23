@@ -422,7 +422,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataGuid">The id of the data element to update.</param>
         /// <param name="fileScanStatus">The file scan results for this data element.</param>
         /// <returns>The updated data element.</returns>
-        [Authorize(Policy = "PlatformAccess")]
+        //[Authorize(Policy = "PlatformAccess")]
         [HttpPut("dataelements/{dataGuid}/filescanstatus")]
         [Consumes("application/json")]
         [ProducesResponseType(StatusCodes.Status200OK)]

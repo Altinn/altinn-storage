@@ -511,7 +511,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 Content = JsonContent.Create(newFileScanStatus)
             };
             
-            putRequest.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken("ttd"));
+            putRequest.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken());
 
             // Act
             HttpResponseMessage setFileScanStatusResponse = await client.SendAsync(putRequest);
