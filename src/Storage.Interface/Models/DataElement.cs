@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Altinn.Platform.Storage.Interface.Enums;
 
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 
 namespace Altinn.Platform.Storage.Interface.Models
 {
@@ -96,6 +97,7 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// Gets or sets the result of a file scan of the blob represented by this data element.
         /// </summary>
         [JsonProperty(PropertyName = "fileScanResult")]
+        [JsonConverter(typeof(StringEnumConverter))]
         public FileScanResult FileScanResult { get; set; }
 
         /// <inheritdoc/>

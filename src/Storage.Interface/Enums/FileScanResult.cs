@@ -1,8 +1,12 @@
-﻿namespace Altinn.Platform.Storage.Interface.Enums
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+
+namespace Altinn.Platform.Storage.Interface.Enums
 {
     /// <summary>
     /// Represents different scanning results for when files are being scanned for malware.
     /// </summary>
+    [JsonConverter(typeof(StringEnumConverter))]
     public enum FileScanResult
     {
         /// <summary>
