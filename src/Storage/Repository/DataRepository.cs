@@ -255,11 +255,16 @@ namespace Altinn.Platform.Storage.Repository
             {
                 PatchOperation.Add("/fileScanResult", status.FileScanResult.ToString()),
             };
+            PatchItemRequestOptions options = new PatchItemRequestOptions()
+            {
+                FilterPredicate = $"FROM dataElements de WHERE de.contentHash = \"{status.ContentHash}\""
+            };
 
             ItemResponse<DataElement> response = await Container.PatchItemAsync<DataElement>(
                 id: dataElementId,
                 partitionKey: new PartitionKey(instanceId),
-                patchOperations: operations);
+                patchOperations: operations,
+                requestOptions: options);
 
             return response.StatusCode == HttpStatusCode.OK;
         }
