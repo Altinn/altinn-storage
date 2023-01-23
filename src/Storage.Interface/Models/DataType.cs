@@ -99,5 +99,11 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// </summary>
         [JsonProperty(PropertyName = "enableFileScan")]
         public bool EnableFileScan { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating wheter a file scan status of pending should trigger a validation error or not. Default is <c>false</c>.
+        /// </summary>
+        [JsonProperty(PropertyName = "validationErrorOnPendingFileScan")]
+        public bool ValidationErrorOnPendingFileScan { get; set; }
     }
 }
