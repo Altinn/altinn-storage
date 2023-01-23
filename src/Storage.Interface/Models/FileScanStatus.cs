@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using Altinn.Platform.Storage.Interface.Enums;
+using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.Interface.Models
 {
@@ -18,7 +19,7 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// Gets or sets the scan result
         /// </summary>
         [JsonProperty(PropertyName = "fileScanResult")]
-        public string FileScanResult { get; set; }
+        public FileScanResult FileScanResult { get; set; }
 
         /// <inheritdoc/>
         public override string ToString()

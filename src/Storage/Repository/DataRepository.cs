@@ -252,7 +252,7 @@ namespace Altinn.Platform.Storage.Repository
         {
             List<PatchOperation> operations = new()
             {
-                PatchOperation.Add("/fileScanResult", status.FileScanResult),
+                PatchOperation.Add("/fileScanResult", status.FileScanResult.ToString()),
             };
 
             ItemResponse<DataElement> response = await Container.PatchItemAsync<DataElement>(
