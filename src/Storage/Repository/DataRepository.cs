@@ -62,7 +62,7 @@ namespace Altinn.Platform.Storage.Repository
             try
             {
                 var blobProps = await UploadFromStreamAsync(org, stream, blobStoragePath);
-                return (blobProps.ContentLength, System.Text.Encoding.UTF8.GetString(blobProps.ContentHash));
+                return (blobProps.ContentLength, Convert.ToBase64String(blobProps.ContentHash));
             }
             catch (RequestFailedException requestFailedException)
             {

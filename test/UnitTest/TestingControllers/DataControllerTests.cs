@@ -2,6 +2,7 @@ using System;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text.Json;
 
 using Altinn.Common.PEP.Interfaces;
@@ -473,6 +474,83 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             dataRepositoryMock.Verify(dr => dr.Update(It.IsAny<DataElement>()), Times.Never);
+        }
+
+        /// <summary>
+        /// Scenario:
+        ///   Update data element FileScanResult on newly created instance and data element.
+        /// Expected:
+        ///   ContentHash value provided matches value currently stored in Cosmos db
+        /// Success:
+        ///   FileScanResult is set to correct value. 
+        /// </summary>
+        [Fact]
+        public async void PutFileScanStatus_ContentHashMatches_Ok()
+        {
+            // Arrange
+            string dataPathWithData = $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
+            HttpContent content = new StringContent("This is a blob file");
+
+            HttpClient client = GetTestClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
+            HttpResponseMessage createDataElementResponse = await client.PostAsync($"{dataPathWithData}?dataType=default", content);
+
+            Assert.Equal(HttpStatusCode.Created, createDataElementResponse.StatusCode);
+
+            string dataElementContent = await createDataElementResponse.Content.ReadAsStringAsync();
+            DataElement actual = JsonSerializer.Deserialize<DataElement>(dataElementContent, _serializerOptions);
+            var dataElementId = actual.Id;
+
+            var newFileScanStatus = new FileScanStatus 
+            { 
+                ContentHash = "not-yet-set", 
+                FileScanResult = Interface.Enums.FileScanResult.Clean 
+            };
+            HttpRequestMessage putRequest = new HttpRequestMessage(HttpMethod.Put, $"{dataPathWithData}elements/{dataElementId}/filescanstatus")
+            {
+                Content = JsonContent.Create(newFileScanStatus)
+            };
+            
+            putRequest.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken("ttd"));
+
+            // Act
+            HttpResponseMessage setFileScanStatusResponse = await client.SendAsync(putRequest);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, setFileScanStatusResponse.StatusCode);
+        }
+
+        /// <summary>
+        /// Scenario:
+        ///   Update data element FileScanResult on newly created instance and data element.
+        /// Expected:
+        ///   ContentHash value provided matches value currently stored in Cosmos db
+        /// Success:
+        ///   FileScanResult is set to correct value. 
+        /// </summary>
+        [Fact]
+        public async void PutFileScanStatusAsEndUser_ContentHashMatches_Forbidden()
+        {
+            // Arrange
+            string dataPathWithData = $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
+            HttpContent content = new StringContent("This is a blob file");
+
+            HttpClient client = GetTestClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
+            HttpResponseMessage createDataElementResponse = await client.PostAsync($"{dataPathWithData}?dataType=default", content);
+
+            Assert.Equal(HttpStatusCode.Created, createDataElementResponse.StatusCode);
+
+            string dataElementContent = await createDataElementResponse.Content.ReadAsStringAsync();
+            DataElement actual = JsonSerializer.Deserialize<DataElement>(dataElementContent, _serializerOptions);
+            var dataElementId = actual.Id;
+
+            // Act
+            var newFileScanStatus = new FileScanStatus { ContentHash = "not-yet-set", FileScanResult = Interface.Enums.FileScanResult.Clean };
+            HttpResponseMessage setFileScanStatusResponse = await client.PutAsync($"{dataPathWithData}elements/{dataElementId}/filescanstatus", JsonContent.Create(newFileScanStatus));
+
+            // Assert
+            Assert.Equal(HttpStatusCode.Forbidden, setFileScanStatusResponse.StatusCode);
         }
 
         private HttpClient GetTestClient(Mock<IDataRepository> repositoryMock = null)

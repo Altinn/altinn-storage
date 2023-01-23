@@ -116,7 +116,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
         {
             MemoryStream memoryStream = new MemoryStream();
             await stream.CopyToAsync(memoryStream);
-            var contentHash = System.Text.Encoding.UTF8.GetString(MD5.Create().ComputeHash(memoryStream));
+            var contentHash = Convert.ToBase64String(MD5.Create().ComputeHash(memoryStream));
             return (memoryStream.Length, contentHash);
         }
 
