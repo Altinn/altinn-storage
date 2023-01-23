@@ -57,11 +57,12 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<long> WriteDataToStorage(string org, Stream stream, string blobStoragePath)
+        public async Task<(long ContentLength, string ContentHash)> WriteDataToStorage(string org, Stream stream, string blobStoragePath)
         {
             try
             {
-                return await UploadFromStreamAsync(org, stream, blobStoragePath);
+                var blobProps = await UploadFromStreamAsync(org, stream, blobStoragePath);
+                return (blobProps.ContentLength, System.Text.Encoding.UTF8.GetString(blobProps.ContentHash));
             }
             catch (RequestFailedException requestFailedException)
             {
@@ -263,14 +264,14 @@ namespace Altinn.Platform.Storage.Repository
             return response.StatusCode == HttpStatusCode.OK;
         }
 
-        private async Task<long> UploadFromStreamAsync(string org, Stream stream, string fileName)
+        private async Task<BlobProperties> UploadFromStreamAsync(string org, Stream stream, string fileName)
         {
             BlobClient blockBlob = await CreateBlobClient(org, fileName);
 
             await blockBlob.UploadAsync(stream, true);
             BlobProperties properties = await blockBlob.GetPropertiesAsync();
 
-            return properties.ContentLength;
+            return properties;
         }
 
         private async Task<Stream> DownloadBlobAsync(string org, string fileName)

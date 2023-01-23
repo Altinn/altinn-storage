@@ -278,7 +278,9 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             newData.Filename = HttpUtility.UrlDecode(newData.Filename);
-            newData.Size = await _dataRepository.WriteDataToStorage(instance.Org, theStream, newData.BlobStoragePath);
+            var (length, hash) = await _dataRepository.WriteDataToStorage(instance.Org, theStream, newData.BlobStoragePath);
+            newData.Size = length;
+            newData.ContentHash = hash;
 
             if (User.GetOrg() == instance.Org)
             {
@@ -358,7 +360,9 @@ namespace Altinn.Platform.Storage.Controllers
                 dataElement.LastChanged = changedTime;
                 dataElement.Refs = updatedData.Refs;
 
-                dataElement.Size = await _dataRepository.WriteDataToStorage(instance.Org, theStream, blobStoragePathName);
+                var (length, hash) = await _dataRepository.WriteDataToStorage(instance.Org, theStream, blobStoragePathName);
+                dataElement.Size = length;
+                dataElement.ContentHash = hash;
 
                 if (User.GetOrg() == instance.Org)
                 {
