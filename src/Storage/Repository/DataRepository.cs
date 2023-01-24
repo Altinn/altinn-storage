@@ -272,8 +272,11 @@ namespace Altinn.Platform.Storage.Repository
         private async Task<BlobProperties> UploadFromStreamAsync(string org, Stream stream, string fileName)
         {
             BlobClient blockBlob = await CreateBlobClient(org, fileName);
-
-            await blockBlob.UploadAsync(stream, true);
+            BlobUploadOptions options = new BlobUploadOptions
+            {                
+                TransferValidation = new UploadTransferValidationOptions { ChecksumAlgorithm = StorageChecksumAlgorithm.MD5 }                
+            };
+            await blockBlob.UploadAsync(stream, options);
             BlobProperties properties = await blockBlob.GetPropertiesAsync();
 
             return properties;
