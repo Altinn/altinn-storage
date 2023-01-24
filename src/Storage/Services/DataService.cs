@@ -32,8 +32,8 @@ namespace Altinn.Platform.Storage.Services
                 {
                     InstanceId = $"{instance.InstanceOwner.PartyId}/{instance.Id}",
                     DataElementId = dataElement.Id,
-                    BlobStoragePath= dataElement.BlobStoragePath,
-                    Filename= dataElement.Filename,
+                    BlobStoragePath = dataElement.BlobStoragePath,
+                    Filename = dataElement.Filename,
                     Org = instance.Org
                 };
 

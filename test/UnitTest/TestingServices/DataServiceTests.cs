@@ -49,7 +49,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             // Assert
             fileScanMock.Verify(
                 f => f.EnqueueFileScan(
-                    It.Is<string>(c => c.Contains($"\"InstanceId\":\"343243/guid\"")), It.IsAny<CancellationToken>()), 
+                    It.Is<string>(c => c.Contains($"\"instanceId\":\"343243/guid\"")), It.IsAny<CancellationToken>()), 
                 Times.Once());
         }
     }
