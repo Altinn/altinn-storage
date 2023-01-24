@@ -16,14 +16,14 @@ namespace Altinn.Platform.Storage.Clients
     [ExcludeFromCodeCoverage]
     public class FileScanQueueClient : IFileScanQueueClient
     {
-        private readonly FileScanQueueSettings _fileScanQueueSettings;
+        private readonly QueueStorageSettings _fileScanQueueSettings;
 
         private QueueClient _fileScanQueueClient;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FileScanQueueClient"/> class.
         /// </summary>
-        public FileScanQueueClient(IOptions<FileScanQueueSettings> fileScanQueueSettings)
+        public FileScanQueueClient(IOptions<QueueStorageSettings> fileScanQueueSettings)
         {
             _fileScanQueueSettings = fileScanQueueSettings.Value;
         }

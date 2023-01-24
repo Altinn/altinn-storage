@@ -192,7 +192,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.Configure<KeyVaultSettings>(config.GetSection("kvSetting"));
     services.Configure<PepSettings>(config.GetSection("PepSettings"));
     services.Configure<PlatformSettings>(config.GetSection("PlatformSettings"));
-    services.Configure<FileScanQueueSettings>(config.GetSection("FileScanQueueSettings"));
+    services.Configure<QueueStorageSettings>(config.GetSection("QueueStorageSettings"));
 
     GeneralSettings generalSettings = config.GetSection("GeneralSettings").Get<GeneralSettings>();
 

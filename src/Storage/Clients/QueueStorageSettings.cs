@@ -6,7 +6,7 @@ namespace Altinn.Platform.Storage.Clients
     /// Configuration object used to hold settings for the file scan queue.
     /// </summary>
     [ExcludeFromCodeCoverage]
-    public class FileScanQueueSettings
+    public class QueueStorageSettings
     {
         /// <summary>
         /// The connection string for the storage account with the queue.
