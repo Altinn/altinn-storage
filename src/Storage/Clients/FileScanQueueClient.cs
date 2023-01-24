@@ -16,7 +16,7 @@ namespace Altinn.Platform.Storage.Clients
     [ExcludeFromCodeCoverage]
     public class FileScanQueueClient : IFileScanQueueClient
     {
-        private readonly QueueStorageSettings _fileScanQueueSettings;
+        private readonly QueueStorageSettings _queueStorageSettings;
 
         private QueueClient _fileScanQueueClient;
 
@@ -25,7 +25,7 @@ namespace Altinn.Platform.Storage.Clients
         /// </summary>
         public FileScanQueueClient(IOptions<QueueStorageSettings> fileScanQueueSettings)
         {
-            _fileScanQueueSettings = fileScanQueueSettings.Value;
+            _queueStorageSettings = fileScanQueueSettings.Value;
         }
 
         /// <inheritdoc/>
@@ -40,8 +40,8 @@ namespace Altinn.Platform.Storage.Clients
             if (_fileScanQueueClient == null)
             {
                 _fileScanQueueClient = new QueueClient(
-                    _fileScanQueueSettings.ConnectionString, 
-                    _fileScanQueueSettings.FileScanQueueName);
+                    _queueStorageSettings.ConnectionString, 
+                    _queueStorageSettings.FileScanQueueName);
 
                 await _fileScanQueueClient.CreateIfNotExistsAsync();
             }

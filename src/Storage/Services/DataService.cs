@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 
 namespace Altinn.Platform.Storage.Services
 {
@@ -23,13 +24,21 @@ namespace Altinn.Platform.Storage.Services
         }
 
         /// <inheritdoc/>
-        public async Task StartFileScan(DataType dataType, DataElement dataElement, CancellationToken ct)
+        public async Task StartFileScan(Instance instance, DataType dataType, DataElement dataElement, CancellationToken ct)
         {
             if (dataType.EnableFileScan)
             {
-                string serialisedDataElement = JsonSerializer.Serialize(
-                    dataElement, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
-                await _fileScanQueueClient.EnqueueFileScan(serialisedDataElement, ct);
+                FileScanRequest fileScanRequest = new()
+                {
+                    InstanceId = $"{instance.InstanceOwner.PartyId}/{instance.Id}",
+                    DataElementId = dataElement.Id,
+                    BlobStoragePath= dataElement.BlobStoragePath,
+                    Filename= dataElement.Filename,
+                    Org = instance.Org
+                };
+
+                string serialisedRequest = JsonSerializer.Serialize(fileScanRequest);
+                await _fileScanQueueClient.EnqueueFileScan(serialisedRequest, ct);
             }
         }
     }
