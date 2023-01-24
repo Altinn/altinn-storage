@@ -15,7 +15,7 @@ namespace Altinn.Platform.Storage.UnitTest.Utils
         public static string GetToken(int userId, int partyId, int authenticationLevel = 2)
         {
             List<Claim> claims = new List<Claim>();
-            string issuer = "www.altinn.no";
+            string issuer = "UnitTest";
             claims.Add(new Claim(AltinnCoreClaimTypes.UserId, userId.ToString(), ClaimValueTypes.String, issuer));
             claims.Add(new Claim(AltinnCoreClaimTypes.UserName, "UserOne", ClaimValueTypes.String, issuer));
             claims.Add(new Claim(AltinnCoreClaimTypes.PartyID, partyId.ToString(), ClaimValueTypes.Integer32, issuer));
@@ -33,7 +33,7 @@ namespace Altinn.Platform.Storage.UnitTest.Utils
         public static string GetOrgToken(string org, int orgNumber = 111111111, string scope = "altinn:appdeploy")
         {
             List<Claim> claims = new List<Claim>();
-            string issuer = "www.altinn.no";
+            string issuer = "UnitTest";
             claims.Add(new Claim(AltinnCoreClaimTypesOrg, org, ClaimValueTypes.String, issuer));
             claims.Add(new Claim(AltinnCoreClaimTypesOrgNumber, orgNumber.ToString(), ClaimValueTypes.Integer32, issuer));
             claims.Add(new Claim(AltinnCoreClaimTypes.AuthenticateMethod, "Mock", ClaimValueTypes.String, issuer));
@@ -51,7 +51,7 @@ namespace Altinn.Platform.Storage.UnitTest.Utils
         public static string GetAccessToken()
         {
             List<Claim> claims = new List<Claim>();
-            string issuer = "www.altinn.no";
+            string issuer = "platform";
 
             ClaimsIdentity identity = new ClaimsIdentity("mock-org");
             identity.AddClaims(claims);
@@ -64,7 +64,7 @@ namespace Altinn.Platform.Storage.UnitTest.Utils
         public static string GetAccessToken(string appId)
         {
             List<Claim> claims = new List<Claim>();
-            string issuer = "www.altinn.no";
+            string issuer = "UnitTest";
             if (!string.IsNullOrEmpty(appId))
             {
                 claims.Add(new Claim("urn:altinn:app", appId, ClaimValueTypes.String, issuer));
