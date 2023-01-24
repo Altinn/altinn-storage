@@ -62,7 +62,7 @@ namespace Altinn.Platform.Storage.Repository
             try
             {
                 var blobProps = await UploadFromStreamAsync(org, stream, blobStoragePath);
-                return (blobProps.ContentLength, Convert.ToBase64String(blobProps.ContentHash));
+                return (blobProps.ContentLength, string.Empty);
             }
             catch (RequestFailedException requestFailedException)
             {
@@ -255,16 +255,11 @@ namespace Altinn.Platform.Storage.Repository
             {
                 PatchOperation.Add("/fileScanResult", status.FileScanResult.ToString()),
             };
-            PatchItemRequestOptions options = new PatchItemRequestOptions()
-            {
-                FilterPredicate = $"FROM dataElements de WHERE de.contentHash = \"{status.ContentHash}\""
-            };
 
             ItemResponse<DataElement> response = await Container.PatchItemAsync<DataElement>(
                 id: dataElementId,
                 partitionKey: new PartitionKey(instanceId),
-                patchOperations: operations,
-                requestOptions: options);
+                patchOperations: operations);
 
             return response.StatusCode == HttpStatusCode.OK;
         }
