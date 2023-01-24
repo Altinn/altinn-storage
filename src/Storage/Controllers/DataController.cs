@@ -463,7 +463,7 @@ namespace Altinn.Platform.Storage.Controllers
         {
             var success = await _dataRepository.SetFileScanStatus(instanceGuid.ToString(), dataGuid.ToString(), fileScanStatus);
 
-            return success ? Ok() : BadRequest("An error occurred while updating file scan status.");
+            return success ? Ok() : StatusCode(500, "An error occurred while updating file scan status.");
         }
 
         /// <summary>
