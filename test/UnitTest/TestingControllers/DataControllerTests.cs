@@ -3,10 +3,11 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
-
+using System.Threading;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Controllers;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Fixture;
@@ -65,13 +66,34 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
             HttpResponseMessage response = await client.PostAsync($"{dataPathWithData}?dataType=default", content);
 
-            if (response.StatusCode.Equals(HttpStatusCode.InternalServerError))
-            {
-                string serverContent = await response.Content.ReadAsStringAsync();
-                Assert.Equal("Hei", serverContent);
-            }
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        }
+
+        [Fact]
+        public async void Post_NewDataThatRequiresFileScan_Ok()
+        {
+            // Arrange
+            string dataPathWithData = $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
+            HttpContent content = new StringContent("This is a blob file");
+
+            Mock<IFileScanQueueClient> fileScanMock = new Mock<IFileScanQueueClient>();
+
+            HttpClient client = GetTestClient(null, fileScanMock);
+
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
+
+            // Act
+            HttpResponseMessage response = await client.PostAsync($"{dataPathWithData}?dataType=default_with_fileScan", content);
+
+            // Assert
+            fileScanMock.Verify(f => f.EnqueueFileScan(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once());
 
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+            string responseContent = await response.Content.ReadAsStringAsync();
+            DataElement actual = JsonSerializer.Deserialize<DataElement>(responseContent, _serializerOptions);
+
+            Assert.Equal(FileScanResult.Pending, actual.FileScanResult);
         }
 
         /// <summary>
@@ -127,14 +149,50 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         [Fact]
         public async void OverwriteData_UpdateData_Ok()
         {
+            // Arrange
             string dataPathWithData = $"{_versionPrefix}/instances/1337/649388f0-a2c0-4774-bd11-c870223ed819/data/11f7c994-6681-47a1-9626-fcf6c27308a5";
             HttpContent content = new StringContent("This is a blob file with updated data");
 
             HttpClient client = GetTestClient();
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
-            HttpResponseMessage response = await client.PutAsync($"{dataPathWithData}?dataType=default", content);
+
+            // Act
+            HttpResponseMessage response = await client.PutAsync($"{dataPathWithData}", content);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            string responseContent = await response.Content.ReadAsStringAsync();
+            DataElement actual = JsonSerializer.Deserialize<DataElement>(responseContent, _serializerOptions);
+
+            Assert.Equal(FileScanResult.NotApplicable, actual.FileScanResult);
+        }
+
+        [Fact]
+        public async void OverwriteData_UpdateDataOnDataTypeWithFileScan_StartsFileScan()
+        {
+            // Arrange
+            string dataPathWithData = $"{_versionPrefix}/instances/1337/649388f0-a2c0-4774-bd11-c870223ed819/data/50c60b30-cb9a-435b-a31e-bbce47c2b936";
+            HttpContent content = new StringContent("This is a blob file with updated data");
+
+            Mock<IFileScanQueueClient> fileScanMock = new Mock<IFileScanQueueClient>();
+
+            HttpClient client = GetTestClient(null, fileScanMock);
+
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
+
+            // Act
+            HttpResponseMessage response = await client.PutAsync($"{dataPathWithData}", content);
+
+            // Assert
+            fileScanMock.Verify(f => f.EnqueueFileScan(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once());
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            string responseContent = await response.Content.ReadAsStringAsync();
+            DataElement actual = JsonSerializer.Deserialize<DataElement>(responseContent, _serializerOptions);
+
+            Assert.Equal(FileScanResult.Pending, actual.FileScanResult);
         }
 
         [Fact]
@@ -475,7 +533,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             dataRepositoryMock.Verify(dr => dr.Update(It.IsAny<DataElement>()), Times.Never);
         }
 
-        private HttpClient GetTestClient(Mock<IDataRepository> repositoryMock = null)
+        private HttpClient GetTestClient(Mock<IDataRepository> repositoryMock = null, Mock<IFileScanQueueClient> fileScanMock = null)
         {
             // No setup required for these services. They are not in use by the InstanceController
             Mock<ISasTokenProvider> sasTokenProvider = new Mock<ISasTokenProvider>();
@@ -488,9 +546,14 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 {
                     services.AddMockRepositories();
 
-                    if (repositoryMock != null)
+                    if (repositoryMock is not null)
                     {
                         services.AddSingleton(repositoryMock.Object);
+                    }
+
+                    if (fileScanMock is not null)
+                    {
+                        services.AddSingleton(fileScanMock.Object);
                     }
 
                     services.AddSingleton(sasTokenProvider.Object);

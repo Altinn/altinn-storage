@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 
@@ -11,13 +12,13 @@ using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Services;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Net.Http.Headers;
@@ -39,6 +40,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IInstanceRepository _instanceRepository;
         private readonly IApplicationRepository _applicationRepository;
         private readonly IInstanceEventRepository _instanceEventRepository;
+        private readonly IDataService _dataService;
 
         private readonly string _storageBaseAndHost;
 
@@ -49,18 +51,21 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceRepository">the instance repository</param>
         /// <param name="applicationRepository">the application repository</param>
         /// <param name="instanceEventRepository">the instance event repository</param>
+        /// <param name="dataService">A data service with data element related business logic.</param>
         /// <param name="generalSettings">the general settings.</param>
         public DataController(
             IDataRepository dataRepository,
             IInstanceRepository instanceRepository,
             IApplicationRepository applicationRepository,
             IInstanceEventRepository instanceEventRepository,
+            IDataService dataService,
             IOptions<GeneralSettings> generalSettings)
         {
             _dataRepository = dataRepository;
             _instanceRepository = instanceRepository;
             _applicationRepository = applicationRepository;
             _instanceEventRepository = instanceEventRepository;
+            _dataService = dataService;
             _storageBaseAndHost = $"{generalSettings.Value.Hostname}/storage/api/v1/";
         }
 
@@ -263,7 +268,9 @@ namespace Altinn.Platform.Storage.Controllers
                 return applicationError;
             }
 
-            if (!appInfo.DataTypes.Exists(e => e.Id == dataType))
+            DataType dataTypeDefinition = appInfo.DataTypes.FirstOrDefault(e => e.Id == dataType);
+
+            if (dataTypeDefinition is null)
             {
                 return BadRequest("Requested element type is not declared in application metadata");
             }
@@ -271,6 +278,8 @@ namespace Altinn.Platform.Storage.Controllers
             var streamAndDataElement = await ReadRequestAndCreateDataElementAsync(Request, dataType, refs, instance);
             Stream theStream = streamAndDataElement.Stream;
             DataElement newData = streamAndDataElement.DataElement;
+
+            newData.FileScanResult = dataTypeDefinition.EnableFileScan ? FileScanResult.Pending : FileScanResult.NotApplicable;
 
             if (theStream == null)
             {
@@ -287,6 +296,8 @@ namespace Altinn.Platform.Storage.Controllers
 
             DataElement dataElement = await _dataRepository.Create(newData);
             dataElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
+            
+            await _dataService.StartFileScan(dataTypeDefinition, dataElement, CancellationToken.None);
 
             await DispatchEvent(InstanceEventType.Created.ToString(), instance, dataElement);
 
@@ -323,10 +334,23 @@ namespace Altinn.Platform.Storage.Controllers
                 return instanceError;
             }
 
+            (Application appInfo, ActionResult applicationError) = await GetApplicationAsync(instance.AppId, instance.Org);
+            if (appInfo == null)
+            {
+                return applicationError;
+            }
+
             (DataElement dataElement, ActionResult dataElementError) = await GetDataElementAsync(instanceGuid, dataGuid);
             if (dataElement == null)
             {
                 return dataElementError;
+            }
+
+            DataType dataTypeDefinition = appInfo.DataTypes.FirstOrDefault(e => e.Id == dataElement.DataType);
+
+            if (dataTypeDefinition is null)
+            {
+                return BadRequest("Requested element type is not declared in application metadata");
             }
 
             if (dataElement.Locked)
@@ -339,46 +363,50 @@ namespace Altinn.Platform.Storage.Controllers
                 instanceGuid.ToString(),
                 dataGuid.ToString());
 
-            if (string.Equals(dataElement.BlobStoragePath, blobStoragePathName))
+            if (!string.Equals(dataElement.BlobStoragePath, blobStoragePathName))
             {
-                var streamAndDataElement = await ReadRequestAndCreateDataElementAsync(Request, dataElement.DataType, refs, instance);
-                Stream theStream = streamAndDataElement.Stream;
-                DataElement updatedData = streamAndDataElement.DataElement;
-
-                if (theStream == null)
-                {
-                    return BadRequest("No data found in request body");
-                }
-
-                DateTime changedTime = DateTime.UtcNow;
-
-                dataElement.ContentType = updatedData.ContentType;
-                dataElement.Filename = HttpUtility.UrlDecode(updatedData.Filename);
-                dataElement.LastChangedBy = User.GetUserOrOrgId();
-                dataElement.LastChanged = changedTime;
-                dataElement.Refs = updatedData.Refs;
-
-                dataElement.Size = await _dataRepository.WriteDataToStorage(instance.Org, theStream, blobStoragePathName);
-
-                if (User.GetOrg() == instance.Org)
-                {
-                    dataElement.IsRead = false;
-                }
-
-                if (dataElement.Size > 0)
-                {
-                    DataElement updatedElement = await _dataRepository.Update(dataElement);
-                    updatedElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
-
-                    await DispatchEvent(InstanceEventType.Saved.ToString(), instance, updatedElement);
-
-                    return Ok(updatedElement);
-                }
-
-                return UnprocessableEntity("Could not process attached file");
+                return StatusCode(500, "Storage url does not match with instance metadata");
             }
 
-            return StatusCode(500, "Storage url does not match with instance metadata");
+            var streamAndDataElement = await ReadRequestAndCreateDataElementAsync(Request, dataElement.DataType, refs, instance);
+            Stream theStream = streamAndDataElement.Stream;
+            DataElement updatedData = streamAndDataElement.DataElement;
+
+            if (theStream == null)
+            {
+                return BadRequest("No data found in request body");
+            }
+
+            DateTime changedTime = DateTime.UtcNow;
+
+            dataElement.ContentType = updatedData.ContentType;
+            dataElement.Filename = HttpUtility.UrlDecode(updatedData.Filename);
+            dataElement.LastChangedBy = User.GetUserOrOrgId();
+            dataElement.LastChanged = changedTime;
+            dataElement.Refs = updatedData.Refs;
+
+            dataElement.Size = await _dataRepository.WriteDataToStorage(instance.Org, theStream, blobStoragePathName);
+
+            if (User.GetOrg() == instance.Org)
+            {
+                dataElement.IsRead = false;
+            }
+
+            if (dataElement.Size > 0)
+            {
+                dataElement.FileScanResult = dataTypeDefinition.EnableFileScan ? FileScanResult.Pending : FileScanResult.NotApplicable;
+
+                DataElement updatedElement = await _dataRepository.Update(dataElement);
+                updatedElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
+
+                await _dataService.StartFileScan(dataTypeDefinition, dataElement, CancellationToken.None);
+
+                await DispatchEvent(InstanceEventType.Saved.ToString(), instance, updatedElement);
+
+                return Ok(updatedElement);
+            }
+
+            return UnprocessableEntity("Could not process attached file");
         }
 
         /// <summary>
