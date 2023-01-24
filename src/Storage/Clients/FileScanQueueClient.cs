@@ -23,9 +23,9 @@ namespace Altinn.Platform.Storage.Clients
         /// <summary>
         /// Initializes a new instance of the <see cref="FileScanQueueClient"/> class.
         /// </summary>
-        public FileScanQueueClient(IOptions<QueueStorageSettings> fileScanQueueSettings)
+        public FileScanQueueClient(IOptions<QueueStorageSettings> queueStorageSettings)
         {
-            _queueStorageSettings = fileScanQueueSettings.Value;
+            _queueStorageSettings = queueStorageSettings.Value;
         }
 
         /// <inheritdoc/>

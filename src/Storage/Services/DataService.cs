@@ -37,7 +37,9 @@ namespace Altinn.Platform.Storage.Services
                     Org = instance.Org
                 };
 
-                string serialisedRequest = JsonSerializer.Serialize(fileScanRequest);
+                string serialisedRequest = JsonSerializer.Serialize(
+                    fileScanRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+
                 await _fileScanQueueClient.EnqueueFileScan(serialisedRequest, ct);
             }
         }
