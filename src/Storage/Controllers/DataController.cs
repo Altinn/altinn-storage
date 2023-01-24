@@ -287,7 +287,9 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             newData.Filename = HttpUtility.UrlDecode(newData.Filename);
-            newData.Size = await _dataRepository.WriteDataToStorage(instance.Org, theStream, newData.BlobStoragePath);
+            var (length, hash) = await _dataRepository.WriteDataToStorage(instance.Org, theStream, newData.BlobStoragePath);
+            newData.Size = length;
+            newData.ContentHash = hash;
 
             if (User.GetOrg() == instance.Org)
             {
@@ -385,7 +387,9 @@ namespace Altinn.Platform.Storage.Controllers
             dataElement.LastChanged = changedTime;
             dataElement.Refs = updatedData.Refs;
 
-            dataElement.Size = await _dataRepository.WriteDataToStorage(instance.Org, theStream, blobStoragePathName);
+                var (length, hash) = await _dataRepository.WriteDataToStorage(instance.Org, theStream, blobStoragePathName);
+                dataElement.Size = length;
+                dataElement.ContentHash = hash;
 
             if (User.GetOrg() == instance.Org)
             {
@@ -437,6 +441,29 @@ namespace Altinn.Platform.Storage.Controllers
             DataElement updatedDataElement = await _dataRepository.Update(dataElement);
 
             return Ok(updatedDataElement);
+        }
+
+        /// <summary>
+        /// Sets the file scan status for an existing data element.
+        /// </summary>
+        /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
+        /// <param name="dataGuid">The id of the data element to update.</param>
+        /// <param name="fileScanStatus">The file scan results for this data element.</param>
+        /// <returns>The updated data element.</returns>
+        [Authorize(Policy = "PlatformAccess")]
+        [HttpPut("dataelements/{dataGuid}/filescanstatus")]
+        [Consumes("application/json")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [Produces("application/json")]
+        public async Task<ActionResult<DataElement>> SetFileScanStatus(
+            Guid instanceGuid,
+            Guid dataGuid,
+            [FromBody] FileScanStatus fileScanStatus)
+        {
+            var success = await _dataRepository.SetFileScanStatus(instanceGuid.ToString(), dataGuid.ToString(), fileScanStatus);
+
+            return success ? Ok() : StatusCode(500, "An error occurred while updating file scan status.");
         }
 
         /// <summary>

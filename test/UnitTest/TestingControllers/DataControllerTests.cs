@@ -2,29 +2,28 @@ using System;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
+using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Tests.Mocks;
 using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Mocks;
 using Altinn.Platform.Storage.UnitTest.Mocks.Authentication;
 using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
-
 using AltinnCore.Authentication.JwtCookie;
-
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-
 using Moq;
-
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers
@@ -533,6 +532,83 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             dataRepositoryMock.Verify(dr => dr.Update(It.IsAny<DataElement>()), Times.Never);
         }
 
+        /// <summary>
+        /// Scenario:
+        ///   Update data element FileScanResult on newly created instance and data element.
+        /// Expected:
+        ///   ContentHash value provided matches value currently stored in Cosmos db
+        /// Success:
+        ///   FileScanResult is set to correct value. 
+        /// </summary>
+        [Fact]
+        public async void PutFileScanStatus_ContentHashMatches_Ok()
+        {
+            // Arrange
+            string dataPathWithData = $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
+            HttpContent content = new StringContent("This is a blob file");
+
+            HttpClient client = GetTestClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
+            HttpResponseMessage createDataElementResponse = await client.PostAsync($"{dataPathWithData}?dataType=default", content);
+
+            Assert.Equal(HttpStatusCode.Created, createDataElementResponse.StatusCode);
+
+            string dataElementContent = await createDataElementResponse.Content.ReadAsStringAsync();
+            DataElement actual = JsonSerializer.Deserialize<DataElement>(dataElementContent, _serializerOptions);
+            var dataElementId = actual.Id;
+
+            var newFileScanStatus = new FileScanStatus 
+            { 
+                ContentHash = "not-yet-set", 
+                FileScanResult = Interface.Enums.FileScanResult.Clean 
+            };
+            HttpRequestMessage putRequest = new HttpRequestMessage(HttpMethod.Put, $"{dataPathWithData}elements/{dataElementId}/filescanstatus")
+            {
+                Content = JsonContent.Create(newFileScanStatus)
+            };
+            
+            putRequest.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken());
+
+            // Act
+            HttpResponseMessage setFileScanStatusResponse = await client.SendAsync(putRequest);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, setFileScanStatusResponse.StatusCode);
+        }
+
+        /// <summary>
+        /// Scenario:
+        ///   Update data element FileScanResult on newly created instance and data element.
+        /// Expected:
+        ///   ContentHash value provided matches value currently stored in Cosmos db
+        /// Success:
+        ///   FileScanResult is set to correct value. 
+        /// </summary>
+        [Fact]
+        public async void PutFileScanStatusAsEndUser_ContentHashMatches_Forbidden()
+        {
+            // Arrange
+            string dataPathWithData = $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
+            HttpContent content = new StringContent("This is a blob file");
+
+            HttpClient client = GetTestClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
+            HttpResponseMessage createDataElementResponse = await client.PostAsync($"{dataPathWithData}?dataType=default", content);
+
+            Assert.Equal(HttpStatusCode.Created, createDataElementResponse.StatusCode);
+
+            string dataElementContent = await createDataElementResponse.Content.ReadAsStringAsync();
+            DataElement actual = JsonSerializer.Deserialize<DataElement>(dataElementContent, _serializerOptions);
+            var dataElementId = actual.Id;
+
+            // Act
+            var newFileScanStatus = new FileScanStatus { ContentHash = "not-yet-set", FileScanResult = Interface.Enums.FileScanResult.Clean };
+            HttpResponseMessage setFileScanStatusResponse = await client.PutAsync($"{dataPathWithData}elements/{dataElementId}/filescanstatus", JsonContent.Create(newFileScanStatus));
+
+            // Assert
+            Assert.Equal(HttpStatusCode.Forbidden, setFileScanStatusResponse.StatusCode);
+        }
+
         private HttpClient GetTestClient(Mock<IDataRepository> repositoryMock = null, Mock<IFileScanQueueClient> fileScanMock = null)
         {
             // No setup required for these services. They are not in use by the InstanceController
@@ -556,11 +632,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                         services.AddSingleton(fileScanMock.Object);
                     }
 
+                    services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
+                    services.AddSingleton<ISigningKeysResolver, SigningKeyResolverMock>();
+
                     services.AddSingleton(sasTokenProvider.Object);
                     services.AddSingleton(keyVaultWrapper.Object);
                     services.AddSingleton(partiesWrapper.Object);
                     services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
-                    services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
                 });
             }).CreateClient();
 

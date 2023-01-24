@@ -2,7 +2,8 @@ using System;
 using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
-
+using Altinn.Common.AccessToken;
+using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Authorization;
 using Altinn.Common.PEP.Clients;
 using Altinn.Common.PEP.Configuration;
@@ -194,6 +195,9 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.Configure<PlatformSettings>(config.GetSection("PlatformSettings"));
     services.Configure<QueueStorageSettings>(config.GetSection("QueueStorageSettings"));
 
+    services.AddSingleton<IAuthorizationHandler, AccessTokenHandler>();
+    services.AddSingleton<ISigningKeysResolver, SigningKeysResolver>();
+
     GeneralSettings generalSettings = config.GetSection("GeneralSettings").Get<GeneralSettings>();
 
     services.AddAuthentication(JwtCookieDefaults.AuthenticationScheme)
@@ -225,6 +229,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
         options.AddPolicy(AuthzConstants.POLICY_INSTANCE_COMPLETE, policy => policy.Requirements.Add(new AppAccessRequirement("complete")));
         options.AddPolicy(AuthzConstants.POLICY_SCOPE_APPDEPLOY, policy => policy.Requirements.Add(new ScopeAccessRequirement("altinn:appdeploy")));
         options.AddPolicy(AuthzConstants.POLICY_STUDIO_DESIGNER, policy => policy.Requirements.Add(new ClaimAccessRequirement("urn:altinn:app", "studio.designer")));
+        options.AddPolicy("PlatformAccess", policy => policy.Requirements.Add(new AccessTokenRequirement()));
     });
 
     services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();

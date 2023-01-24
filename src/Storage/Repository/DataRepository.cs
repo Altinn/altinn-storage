@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -56,11 +57,12 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<long> WriteDataToStorage(string org, Stream stream, string blobStoragePath)
+        public async Task<(long ContentLength, string ContentHash)> WriteDataToStorage(string org, Stream stream, string blobStoragePath)
         {
             try
             {
-                return await UploadFromStreamAsync(org, stream, blobStoragePath);
+                var blobProps = await UploadFromStreamAsync(org, stream, blobStoragePath);
+                return (blobProps.ContentLength, Convert.ToBase64String(blobProps.ContentHash));
             }
             catch (RequestFailedException requestFailedException)
             {
@@ -246,14 +248,35 @@ namespace Altinn.Platform.Storage.Repository
             return response.StatusCode == HttpStatusCode.NoContent;
         }
 
-        private async Task<long> UploadFromStreamAsync(string org, Stream stream, string fileName)
+        /// <inheritdoc/>
+        public async Task<bool> SetFileScanStatus(string instanceId, string dataElementId, FileScanStatus status)
+        {
+            List<PatchOperation> operations = new()
+            {
+                PatchOperation.Add("/fileScanResult", status.FileScanResult.ToString()),
+            };
+            PatchItemRequestOptions options = new PatchItemRequestOptions()
+            {
+                FilterPredicate = $"FROM dataElements de WHERE de.contentHash = \"{status.ContentHash}\""
+            };
+
+            ItemResponse<DataElement> response = await Container.PatchItemAsync<DataElement>(
+                id: dataElementId,
+                partitionKey: new PartitionKey(instanceId),
+                patchOperations: operations,
+                requestOptions: options);
+
+            return response.StatusCode == HttpStatusCode.OK;
+        }
+
+        private async Task<BlobProperties> UploadFromStreamAsync(string org, Stream stream, string fileName)
         {
             BlobClient blockBlob = await CreateBlobClient(org, fileName);
 
             await blockBlob.UploadAsync(stream, true);
             BlobProperties properties = await blockBlob.GetPropertiesAsync();
 
-            return properties.ContentLength;
+            return properties;
         }
 
         private async Task<Stream> DownloadBlobAsync(string org, string fileName)

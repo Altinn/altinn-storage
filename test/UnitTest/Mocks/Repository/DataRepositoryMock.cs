@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Interface.Models;
@@ -106,11 +107,17 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return await Task.FromResult(dataElement);
         }
 
-        public async Task<long> WriteDataToStorage(string org, Stream stream, string blobStoragePath)
+        public async Task<bool> SetFileScanStatus(string instanceId, string dataElementId, FileScanStatus status)
+        {
+            return await Task.FromResult(true);
+        }
+
+        public async Task<(long ContentLength, string ContentHash)> WriteDataToStorage(string org, Stream stream, string blobStoragePath)
         {
             MemoryStream memoryStream = new MemoryStream();
             await stream.CopyToAsync(memoryStream);
-            return memoryStream.Length;
+            var contentHash = Convert.ToBase64String(MD5.Create().ComputeHash(memoryStream));
+            return (memoryStream.Length, contentHash);
         }
 
         private static string GetDataElementsPath()

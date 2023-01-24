@@ -19,7 +19,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="stream">Data to be written to blob storage.</param>
         /// <param name="blobStoragePath">Path to save the stream to in blob storage.</param>
         /// <returns>The size of the blob.</returns>
-        Task<long> WriteDataToStorage(string org, Stream stream, string blobStoragePath);
+        Task<(long ContentLength, string ContentHash)> WriteDataToStorage(string org, Stream stream, string blobStoragePath);
 
         /// <summary>
         /// Reads a data file from blob storage
@@ -79,5 +79,14 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="dataElement">the element to delete</param>
         /// <returns>true if delete went well.</returns>
         Task<bool> Delete(DataElement dataElement);
+
+        /// <summary>
+        /// Update data element file scan status properties
+        /// </summary>
+        /// <param name="instanceId">ID of instance that data element belongs to</param>
+        /// <param name="dataElementId">ID of data element to update</param>
+        /// <param name="status">Status property values</param>
+        /// <returns></returns>
+        Task<bool> SetFileScanStatus(string instanceId, string dataElementId, FileScanStatus status);
     }
 }
