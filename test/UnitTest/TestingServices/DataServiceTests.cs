@@ -20,11 +20,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
 
             DataService target = new DataService(fileScanMock.Object);
 
+            Instance instance = new Instance();
             DataType dataType = new DataType { EnableFileScan = false };
             DataElement dataElement = new DataElement { };
 
             // Act
-            await target.StartFileScan(dataType, dataElement, CancellationToken.None);
+            await target.StartFileScan(instance, dataType, dataElement, CancellationToken.None);
 
             // Assert
             fileScanMock.Verify(f => f.EnqueueFileScan(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never());
@@ -38,14 +39,18 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
 
             DataService target = new DataService(fileScanMock.Object);
 
+            Instance instance = new Instance { Id = "guid", InstanceOwner = new InstanceOwner { PartyId = "343243" } };
             DataType dataType = new DataType { EnableFileScan = true };
             DataElement dataElement = new DataElement { };
 
             // Act
-            await target.StartFileScan(dataType, dataElement, CancellationToken.None);
+            await target.StartFileScan(instance, dataType, dataElement, CancellationToken.None);
 
             // Assert
-            fileScanMock.Verify(f => f.EnqueueFileScan(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once());
+            fileScanMock.Verify(
+                f => f.EnqueueFileScan(
+                    It.Is<string>(c => c.Contains($"\"instanceId\":\"343243/guid\"")), It.IsAny<CancellationToken>()), 
+                Times.Once());
         }
     }
 }
