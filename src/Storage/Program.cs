@@ -3,6 +3,7 @@ using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
 using Altinn.Common.AccessToken;
+using Altinn.Common.AccessToken.Configuration;
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Authorization;
 using Altinn.Common.PEP.Clients;
@@ -20,7 +21,6 @@ using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.Wrappers;
 using Altinn.Platform.Telemetry;
 
-using AltinnCore.Authentication.Constants;
 using AltinnCore.Authentication.JwtCookie;
 
 using Azure.Identity;
@@ -100,7 +100,7 @@ async Task SetConfigurationProviders(ConfigurationManager config, bool isDevelop
     }
 
     config.AddEnvironmentVariables();
-    
+
     if (isDevelopment)
     {
         config.AddUserSecrets(Assembly.GetExecutingAssembly(), true);
@@ -113,7 +113,7 @@ async Task SetConfigurationProviders(ConfigurationManager config, bool isDevelop
 
 async Task ConnectToKeyVaultAndSetApplicationInsights(ConfigurationManager config)
 {
-    KeyVaultSettings keyVaultSettings = new KeyVaultSettings();
+    KeyVaultSettings keyVaultSettings = new();
     config.GetSection("kvSetting").Bind(keyVaultSettings);
     if (!string.IsNullOrEmpty(keyVaultSettings.ClientId) &&
         !string.IsNullOrEmpty(keyVaultSettings.TenantId) &&
@@ -194,6 +194,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.Configure<PepSettings>(config.GetSection("PepSettings"));
     services.Configure<PlatformSettings>(config.GetSection("PlatformSettings"));
     services.Configure<QueueStorageSettings>(config.GetSection("QueueStorageSettings"));
+    services.Configure<AccessTokenSettings>(config.GetSection("AccessTokenSettings"));
 
     services.AddSingleton<IAuthorizationHandler, AccessTokenHandler>();
     services.AddSingleton<ISigningKeysResolver, SigningKeysResolver>();
