@@ -39,7 +39,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
 
             DataService target = new DataService(fileScanMock.Object);
 
-            Instance instance = new Instance { Id = "guid", InstanceOwner = new InstanceOwner { PartyId = "343243" } };
+            Instance instance = new Instance { Id = "343243/guid" };
             DataType dataType = new DataType { EnableFileScan = true };
             DataElement dataElement = new DataElement { };
 

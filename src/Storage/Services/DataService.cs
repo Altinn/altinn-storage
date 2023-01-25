@@ -30,7 +30,7 @@ namespace Altinn.Platform.Storage.Services
             {
                 FileScanRequest fileScanRequest = new()
                 {
-                    InstanceId = $"{instance.InstanceOwner.PartyId}/{instance.Id}",
+                    InstanceId = instance.Id,
                     DataElementId = dataElement.Id,
                     BlobStoragePath = dataElement.BlobStoragePath,
                     Filename = dataElement.Filename,
