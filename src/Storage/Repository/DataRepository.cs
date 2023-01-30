@@ -57,12 +57,12 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<(long ContentLength, string ContentHash)> WriteDataToStorage(string org, Stream stream, string blobStoragePath)
+        public async Task<(long ContentLength, DateTimeOffset CreatedOn)> WriteDataToStorage(string org, Stream stream, string blobStoragePath)
         {
             try
             {
-                var blobProps = await UploadFromStreamAsync(org, stream, blobStoragePath);
-                return (blobProps.ContentLength, string.Empty);
+                var blobProps = await UploadFromStreamAsync(org, stream, blobStoragePath);                
+                return (blobProps.ContentLength, blobProps.CreatedOn);
             }
             catch (RequestFailedException requestFailedException)
             {
@@ -255,11 +255,16 @@ namespace Altinn.Platform.Storage.Repository
             {
                 PatchOperation.Add("/fileScanResult", status.FileScanResult.ToString()),
             };
+            PatchItemRequestOptions options = new PatchItemRequestOptions()
+            {
+                FilterPredicate = $"FROM dataElements de WHERE de.lastChanged = \"{status.Timestamp.ToString("{0:O}")}\""
+            };
 
             ItemResponse<DataElement> response = await Container.PatchItemAsync<DataElement>(
                 id: dataElementId,
                 partitionKey: new PartitionKey(instanceId),
-                patchOperations: operations);
+                patchOperations: operations,
+                requestOptions: options);
 
             return response.StatusCode == HttpStatusCode.OK;
         }

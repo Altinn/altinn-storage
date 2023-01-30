@@ -66,12 +66,6 @@ namespace Altinn.Platform.Storage.Interface.Models
         public long Size { get; set; }
 
         /// <summary>
-        /// Gets or sets the computed MD5 hash value of the blob. (Base64 encoded string, not the more common hex encoding)
-        /// </summary>
-        [JsonProperty(PropertyName = "contentHash")]
-        public string ContentHash { get; set; }
-
-        /// <summary>
         /// Gets or sets a value indicating whether the element can be updated.
         /// </summary>
         [JsonProperty(PropertyName = "locked")]

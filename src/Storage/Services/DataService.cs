@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -24,7 +25,7 @@ namespace Altinn.Platform.Storage.Services
         }
 
         /// <inheritdoc/>
-        public async Task StartFileScan(Instance instance, DataType dataType, DataElement dataElement, CancellationToken ct)
+        public async Task StartFileScan(Instance instance, DataType dataType, DataElement dataElement, DateTimeOffset blobTimestamp, CancellationToken ct)
         {
             if (dataType.EnableFileScan)
             {
@@ -32,6 +33,7 @@ namespace Altinn.Platform.Storage.Services
                 {
                     InstanceId = instance.Id,
                     DataElementId = dataElement.Id,
+                    Timestamp = blobTimestamp.UtcDateTime,
                     BlobStoragePath = dataElement.BlobStoragePath,
                     Filename = dataElement.Filename,
                     Org = instance.Org
