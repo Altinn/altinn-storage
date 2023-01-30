@@ -33,7 +33,7 @@ namespace Altinn.Platform.Storage.Services
                 {
                     InstanceId = instance.Id,
                     DataElementId = dataElement.Id,
-                    Timestamp = blobTimestamp.UtcDateTime,
+                    Timestamp = blobTimestamp,
                     BlobStoragePath = dataElement.BlobStoragePath,
                     Filename = dataElement.Filename,
                     Org = instance.Org

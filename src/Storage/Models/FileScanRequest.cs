@@ -29,7 +29,7 @@ namespace Altinn.Platform.Storage.Models
         /// <summary>
         /// Gets or sets the time when blob was saved.
         /// </summary>
-        public DateTime Timestamp { get; set; }
+        public DateTimeOffset Timestamp { get; set; }
 
         /// <summary>
         /// Gets or sets the path to blob storage. Might be nullified in export.
