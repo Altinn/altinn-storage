@@ -541,15 +541,17 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   FileScanResult is set to correct value. 
         /// </summary>
         [Fact]
-        public async void PutFileScanStatus_ContentHashMatches_Ok()
+        public async void PutFileScanStatus_TimestampMatches_Ok()
         {
             // Arrange
             string dataPathWithData = $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
             HttpContent content = new StringContent("This is a blob file");
 
             HttpClient client = GetTestClient();
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
-            HttpResponseMessage createDataElementResponse = await client.PostAsync($"{dataPathWithData}?dataType=default", content);
+            HttpRequestMessage postRequest = new HttpRequestMessage(HttpMethod.Post, $"{dataPathWithData}?dataType=default");
+            postRequest.Content = content;
+            postRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
+            HttpResponseMessage createDataElementResponse = await client.SendAsync(postRequest);
 
             Assert.Equal(HttpStatusCode.Created, createDataElementResponse.StatusCode);
 
@@ -559,8 +561,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             var newFileScanStatus = new FileScanStatus 
             { 
-                ContentHash = "not-yet-set", 
-                FileScanResult = Interface.Enums.FileScanResult.Clean 
+                Timestamp = actual.LastChanged.Value, 
+                FileScanResult = FileScanResult.Clean 
             };
             HttpRequestMessage putRequest = new HttpRequestMessage(HttpMethod.Put, $"{dataPathWithData}elements/{dataElementId}/filescanstatus")
             {
@@ -602,7 +604,11 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             var dataElementId = actual.Id;
 
             // Act
-            var newFileScanStatus = new FileScanStatus { ContentHash = "not-yet-set", FileScanResult = Interface.Enums.FileScanResult.Clean };
+            var newFileScanStatus = new FileScanStatus 
+            { 
+                Timestamp = actual.LastChanged.Value, 
+                FileScanResult = FileScanResult.Clean 
+            };
             HttpResponseMessage setFileScanStatusResponse = await client.PutAsync($"{dataPathWithData}elements/{dataElementId}/filescanstatus", JsonContent.Create(newFileScanStatus));
 
             // Assert

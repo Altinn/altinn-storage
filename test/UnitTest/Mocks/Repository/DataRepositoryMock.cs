@@ -1,13 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Security.Cryptography;
 using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
-
 using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
@@ -112,12 +110,11 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return await Task.FromResult(true);
         }
 
-        public async Task<(long ContentLength, string ContentHash)> WriteDataToStorage(string org, Stream stream, string blobStoragePath)
+        public async Task<(long ContentLength, DateTimeOffset CreatedOn)> WriteDataToStorage(string org, Stream stream, string blobStoragePath)
         {
             MemoryStream memoryStream = new MemoryStream();
             await stream.CopyToAsync(memoryStream);
-            var contentHash = Convert.ToBase64String(MD5.Create().ComputeHash(memoryStream));
-            return (memoryStream.Length, contentHash);
+            return (memoryStream.Length, DateTimeOffset.UtcNow);
         }
 
         private static string GetDataElementsPath()
