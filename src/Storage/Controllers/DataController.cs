@@ -287,9 +287,8 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             newData.Filename = HttpUtility.UrlDecode(newData.Filename);
-            var (length, hash) = await _dataRepository.WriteDataToStorage(instance.Org, theStream, newData.BlobStoragePath);
+            (long length, DateTimeOffset blobTimestamp) = await _dataRepository.WriteDataToStorage(instance.Org, theStream, newData.BlobStoragePath);
             newData.Size = length;
-            newData.ContentHash = hash;
 
             if (User.GetOrg() == instance.Org)
             {
@@ -299,7 +298,7 @@ namespace Altinn.Platform.Storage.Controllers
             DataElement dataElement = await _dataRepository.Create(newData);
             dataElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
             
-            await _dataService.StartFileScan(instance, dataTypeDefinition, dataElement, CancellationToken.None);
+            await _dataService.StartFileScan(instance, dataTypeDefinition, dataElement, blobTimestamp, CancellationToken.None);
 
             await DispatchEvent(InstanceEventType.Created.ToString(), instance, dataElement);
 
@@ -387,9 +386,8 @@ namespace Altinn.Platform.Storage.Controllers
             dataElement.LastChanged = changedTime;
             dataElement.Refs = updatedData.Refs;
 
-            var (length, hash) = await _dataRepository.WriteDataToStorage(instance.Org, theStream, blobStoragePathName);
+            (long length, DateTimeOffset blobTimestamp) = await _dataRepository.WriteDataToStorage(instance.Org, theStream, blobStoragePathName);
             dataElement.Size = length;
-            dataElement.ContentHash = hash;
 
             if (User.GetOrg() == instance.Org)
             {
@@ -403,7 +401,7 @@ namespace Altinn.Platform.Storage.Controllers
                 DataElement updatedElement = await _dataRepository.Update(dataElement);
                 updatedElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
 
-                await _dataService.StartFileScan(instance, dataTypeDefinition, dataElement, CancellationToken.None);
+                await _dataService.StartFileScan(instance, dataTypeDefinition, dataElement, blobTimestamp, CancellationToken.None);
 
                 await DispatchEvent(InstanceEventType.Saved.ToString(), instance, updatedElement);
 

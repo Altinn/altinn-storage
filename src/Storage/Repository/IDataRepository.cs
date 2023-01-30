@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Interface.Models;
+using Azure.Storage.Blobs.Models;
 
 namespace Altinn.Platform.Storage.Repository
 {
@@ -19,7 +20,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="stream">Data to be written to blob storage.</param>
         /// <param name="blobStoragePath">Path to save the stream to in blob storage.</param>
         /// <returns>The size of the blob.</returns>
-        Task<(long ContentLength, string ContentHash)> WriteDataToStorage(string org, Stream stream, string blobStoragePath);
+        Task<(long ContentLength, DateTimeOffset LastModified)> WriteDataToStorage(string org, Stream stream, string blobStoragePath);
 
         /// <summary>
         /// Reads a data file from blob storage

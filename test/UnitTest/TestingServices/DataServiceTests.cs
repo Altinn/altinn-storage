@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Interface.Models;
@@ -23,9 +24,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             Instance instance = new Instance();
             DataType dataType = new DataType { EnableFileScan = false };
             DataElement dataElement = new DataElement { };
+            DateTimeOffset blobTimestamp = DateTimeOffset.UtcNow;
 
             // Act
-            await target.StartFileScan(instance, dataType, dataElement, CancellationToken.None);
+            await target.StartFileScan(instance, dataType, dataElement, blobTimestamp, CancellationToken.None);
 
             // Assert
             fileScanMock.Verify(f => f.EnqueueFileScan(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never());
@@ -42,9 +44,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             Instance instance = new Instance { Id = "343243/guid" };
             DataType dataType = new DataType { EnableFileScan = true };
             DataElement dataElement = new DataElement { };
+            DateTimeOffset blobTimestamp = DateTimeOffset.UtcNow;
 
             // Act
-            await target.StartFileScan(instance, dataType, dataElement, CancellationToken.None);
+            await target.StartFileScan(instance, dataType, dataElement, blobTimestamp, CancellationToken.None);
 
             // Assert
             fileScanMock.Verify(
