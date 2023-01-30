@@ -561,7 +561,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             var newFileScanStatus = new FileScanStatus 
             { 
-                Timestamp = actual.LastChanged.Value, 
                 FileScanResult = FileScanResult.Clean 
             };
             HttpRequestMessage putRequest = new HttpRequestMessage(HttpMethod.Put, $"{dataPathWithData}elements/{dataElementId}/filescanstatus")
@@ -606,7 +605,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Act
             var newFileScanStatus = new FileScanStatus 
             { 
-                Timestamp = actual.LastChanged.Value, 
                 FileScanResult = FileScanResult.Clean 
             };
             HttpResponseMessage setFileScanStatusResponse = await client.PutAsync($"{dataPathWithData}elements/{dataElementId}/filescanstatus", JsonContent.Create(newFileScanStatus));

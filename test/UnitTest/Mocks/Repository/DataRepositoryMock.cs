@@ -110,7 +110,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return await Task.FromResult(true);
         }
 
-        public async Task<(long ContentLength, DateTimeOffset CreatedOn)> WriteDataToStorage(string org, Stream stream, string blobStoragePath)
+        public async Task<(long ContentLength, DateTimeOffset LastModified)> WriteDataToStorage(string org, Stream stream, string blobStoragePath)
         {
             MemoryStream memoryStream = new MemoryStream();
             await stream.CopyToAsync(memoryStream);
