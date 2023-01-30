@@ -1,7 +1,8 @@
-﻿using System;
-using Altinn.Platform.Storage.Interface.Enums;
+﻿using Altinn.Platform.Storage.Interface.Enums;
+
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
+
 using TextJson = System.Text.Json.Serialization;
 
 namespace Altinn.Platform.Storage.Interface.Models
@@ -13,13 +14,13 @@ namespace Altinn.Platform.Storage.Interface.Models
     public class FileScanStatus
     {
         /// <summary>
-        /// Gets or sets the blob save timestamp.
+        /// Gets or sets the MD5 content hash computed by Azure Blob Storage
         /// </summary>
-        [JsonProperty(PropertyName = "timestamp")]
-        public DateTime Timestamp { get; set; }
+        [JsonProperty(PropertyName = "contentHash")]
+        public string ContentHash { get; set; }
 
         /// <summary>
-        /// Gets or sets the file scan result.
+        /// Gets or sets the scan result
         /// </summary>
         [JsonProperty(PropertyName = "fileScanResult")]
         [JsonConverter(typeof(StringEnumConverter))]
