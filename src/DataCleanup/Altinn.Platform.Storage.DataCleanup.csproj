@@ -4,6 +4,7 @@
     <AzureFunctionsVersion>v4</AzureFunctionsVersion>
     <!-- SonarCloud needs this -->
     <ProjectGuid>{3F69C9C9-D602-490C-B2BA-A5FB27E363EE}</ProjectGuid>
+	  <_FunctionsSkipCleanOutput>true</_FunctionsSkipCleanOutput>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Altinn.Platform.Storage.Interface" Version="3.15.0" />
