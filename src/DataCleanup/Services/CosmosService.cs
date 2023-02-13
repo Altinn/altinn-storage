@@ -244,15 +244,20 @@ namespace Altinn.Platform.Storage.DataCleanup.Services
                         }
                         else
                         {
-                            IQueryable<Instance> instanceQuery = instancesContainer.GetItemLinqQueryable<Instance>()
+                            IQueryable<Instance> instanceQuery = instancesContainer
+                                .GetItemLinqQueryable<Instance>()
                                 .Where(i => i.Id.Equals(dataElement.InstanceGuid));
 
                             var instanceIterator = instanceQuery.ToFeedIterator();
                             var res = await instanceIterator.ReadNextAsync();
                             Instance instance = res.FirstOrDefault();
 
-                            if (instance != null)
+                            if (instance == null)
                             {
+                                dataElements.Add(dataElement);
+                            } 
+                            else
+                            { 
                                 retrievedInstances.Add(instance.Id, instance);
                                 if (instance.CompleteConfirmations.Any(c => c.StakeholderId.ToLower().Equals(instance.Org) && c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7)))
                                 {
