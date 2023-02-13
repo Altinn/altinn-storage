@@ -251,10 +251,13 @@ namespace Altinn.Platform.Storage.DataCleanup.Services
                             var res = await instanceIterator.ReadNextAsync();
                             Instance instance = res.FirstOrDefault();
 
-                            retrievedInstances.Add(instance.Id, instance);
-                            if (instance.CompleteConfirmations.Any(c => c.StakeholderId.ToLower().Equals(instance.Org) && c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7)))
+                            if (instance != null)
                             {
-                                dataElements.Add(dataElement);
+                                retrievedInstances.Add(instance.Id, instance);
+                                if (instance.CompleteConfirmations.Any(c => c.StakeholderId.ToLower().Equals(instance.Org) && c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7)))
+                                {
+                                    dataElements.Add(dataElement);
+                                }
                             }
                         }
                     }
