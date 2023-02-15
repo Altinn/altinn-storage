@@ -43,7 +43,7 @@ namespace Altinn.Platform.Storage.DataCleanup.Services
         /// <summary>
         /// Deletes the data element document for the given selfLink.
         /// </summary>
-        public Task DeleteDataElementDocument(string instanceGuid, string selfLink);
+        public Task DeleteDataElementDocument(string instanceGuid, string dataElementId);
 
         /// <summary>
         /// Deletes the instance event documents for the the given instance.

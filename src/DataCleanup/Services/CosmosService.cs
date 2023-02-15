@@ -161,7 +161,7 @@ namespace Altinn.Platform.Storage.DataCleanup.Services
         /// <inheritdoc/>
         public async Task<List<Application>> GetApplications(List<string> applicationIds)
         {
-            applicationIds = applicationIds.Select(id => id = AppIdToCosmosId(id)).ToList();
+            applicationIds = applicationIds.Select(id => AppIdToCosmosId(id)).ToList();
 
             List<Application> applications = new List<Application>();
 
@@ -281,11 +281,11 @@ namespace Altinn.Platform.Storage.DataCleanup.Services
             return dataElements;
         }
 
-        private string AppIdToCosmosId(string appId)
+        private static string AppIdToCosmosId(string appId)
         {
             string cosmosId = appId;
 
-            if (appId != null && appId.Contains("/"))
+            if (appId != null && appId.Contains('/'))
             {
                 string[] parts = appId.Split("/");
 
@@ -295,7 +295,7 @@ namespace Altinn.Platform.Storage.DataCleanup.Services
             return cosmosId;
         }
 
-        private string CosmosIdToAppId(string cosmosId)
+        private static string CosmosIdToAppId(string cosmosId)
         {
             string appId = cosmosId;
 
