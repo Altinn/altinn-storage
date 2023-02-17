@@ -256,15 +256,17 @@ namespace Altinn.Platform.Storage.DataCleanup.Services
                             {
                                 _logger.LogError(
                                     "Orphan data element found during cleanup, root cause investigation required.\n" +
-                                    "Instance Guid: {instanceGuid}, blobStoragePath: {blobStoragePath}, dataElementId: {dataElementId}", 
-                                    dataElement.InstanceGuid, 
-                                    dataElement.BlobStoragePath, 
+                                    "Instance Guid: {instanceGuid}, blobStoragePath: {blobStoragePath}, dataElementId: {dataElementId}",
+                                    dataElement.InstanceGuid,
+                                    dataElement.BlobStoragePath,
                                     dataElement.Id);
-                            } 
+                            }
                             else
-                            { 
+                            {
                                 retrievedInstances.Add(instance.Id, instance);
-                                if (instance.CompleteConfirmations.Any(c => c.StakeholderId.ToLower().Equals(instance.Org) && c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7)))
+                                if (instance.CompleteConfirmations != null &&
+                                    instance.CompleteConfirmations.Any(c => c.StakeholderId.ToLower().Equals(instance.Org) &&
+                                    c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7)))
                                 {
                                     dataElements.Add(dataElement);
                                 }
