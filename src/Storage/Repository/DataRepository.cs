@@ -251,7 +251,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<bool> SetFileScanStatus(string instanceGuid, string dataElementId, FileScanStatus status)
         {
-            _logger.LogWarning("SetFileScanStatus instanceId: {instanceGuid}, dataElementId: {dataElementId}, fileScanStatus: {status}", instanceGuid, dataElementId, status);
+            _logger.LogWarning("SetFileScanStatus instanceId: {instanceGuid}, dataElementId: {dataElementId}, fileScanStatus: {status}", instanceGuid, dataElementId, status.FileScanResult.ToString());
             List<PatchOperation> operations = new()
             {
                 PatchOperation.Add("/fileScanResult", status.FileScanResult.ToString()),

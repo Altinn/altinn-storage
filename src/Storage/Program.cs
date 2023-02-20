@@ -174,6 +174,7 @@ void ConfigureLogging(ILoggingBuilder logging)
         logging.AddFilter("Microsoft", LogLevel.Warning);
         logging.AddFilter("System", LogLevel.Warning);
     }
+
     logging.AddConsole();
 }
 
@@ -240,7 +241,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     CosmosClientOptions options = new()
     {
         ConnectionMode = ConnectionMode.Direct,        
-        GatewayModeMaxConnectionLimit = 100,
+        GatewayModeMaxConnectionLimit = 100
     };
     CosmosClient cosmosClient = new(cosmosSettings.EndpointUri, cosmosSettings.PrimaryKey, options);
     services.AddSingleton(cosmosClient);
