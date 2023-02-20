@@ -173,8 +173,9 @@ void ConfigureLogging(ILoggingBuilder logging)
         // If not application insight is available log to console
         logging.AddFilter("Microsoft", LogLevel.Warning);
         logging.AddFilter("System", LogLevel.Warning);
-        logging.AddConsole();
     }
+
+    logging.AddConsole();
 }
 
 void ConfigureServices(IServiceCollection services, IConfiguration config)
