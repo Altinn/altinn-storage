@@ -262,7 +262,7 @@ namespace Altinn.Platform.Storage.Repository
                 partitionKey: new PartitionKey(instanceGuid),
                 patchOperations: operations);
 
-            _logger.LogWarning("SetFileScanStatus response-statuscode: {response} filescanresult: {result}", response.StatusCode.ToString(), response.Resource.FileScanResult.ToString());
+            _logger.LogWarning("SetFileScanStatus dataElementId: {dataElementId}, response-statuscode: {response}, filescanresult: {result} eTag: {etag}", dataElementId, response.StatusCode.ToString(), response.Resource.FileScanResult.ToString(), response.ETag);
             return response.StatusCode == HttpStatusCode.OK;
         }
 
