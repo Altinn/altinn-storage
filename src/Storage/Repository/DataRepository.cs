@@ -242,7 +242,6 @@ namespace Altinn.Platform.Storage.Repository
                 PatchOperation.Add("/filename", dataElement.Filename),
                 PatchOperation.Add("/dataType", dataElement.DataType),
                 PatchOperation.Add("/contentType", dataElement.ContentType),
-                PatchOperation.Add("/selfLinks", dataElement.SelfLinks),
                 PatchOperation.Add("/size", dataElement.Size),
                 PatchOperation.Add("/contentHash", dataElement.ContentHash),
                 PatchOperation.Add("/locked", dataElement.Locked),
