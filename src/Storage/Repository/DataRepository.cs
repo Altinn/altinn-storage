@@ -257,7 +257,7 @@ namespace Altinn.Platform.Storage.Repository
                 partitionKey: new PartitionKey(dataElement.InstanceGuid),
                 patchOperations: operations);
 
-            return response;
+            return response.Resource;
         }
 
         /// <inheritdoc/>
