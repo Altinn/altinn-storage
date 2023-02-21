@@ -237,8 +237,6 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<DataElement> Update(DataElement dataElement)
         {
-            DataElement updatedElement = await Container.UpsertItemAsync(dataElement, new PartitionKey(dataElement.InstanceGuid));
-
             List<PatchOperation> operations = new()
             {
                 PatchOperation.Add("/filename", dataElement.Filename),
@@ -259,8 +257,7 @@ namespace Altinn.Platform.Storage.Repository
                 partitionKey: new PartitionKey(dataElement.InstanceGuid),
                 patchOperations: operations);
 
-
-            return updatedElement;
+            return response;
         }
 
         /// <inheritdoc/>
