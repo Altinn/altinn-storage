@@ -253,18 +253,14 @@ namespace Altinn.Platform.Storage.Repository
         public async Task<bool> SetFileScanStatus(string instanceGuid, string dataElementId, FileScanStatus status)
         {
             _logger.LogWarning("SetFileScanStatus instanceId: {instanceGuid}, dataElementId: {dataElementId}, fileScanStatus: {status}", instanceGuid, dataElementId, status.FileScanResult.ToString());
-            List<PatchOperation> operations = new()
-            {
-                PatchOperation.Add("/fileScanResult", status.FileScanResult.ToString()),
-            };
 
-            ItemResponse<DataElement> response = await Container.PatchItemAsync<DataElement>(
-                id: dataElementId,
-                partitionKey: new PartitionKey(instanceGuid),
-                patchOperations: operations);
+            var de = await Read(Guid.Parse(instanceGuid), Guid.Parse(dataElementId));
 
-            _logger.LogWarning("SetFileScanStatus dataElementId: {dataElementId}, response-statuscode: {response}, filescanresult: {result} eTag: {etag}", dataElementId, response.StatusCode.ToString(), response.Resource.FileScanResult.ToString(), response.ETag);
-            return response.StatusCode == HttpStatusCode.OK;
+            de.FileScanResult = status.FileScanResult;
+
+            await Update(de);
+
+            return true;
         }
 
         private async Task<BlobProperties> UploadFromStreamAsync(string org, Stream stream, string fileName)
