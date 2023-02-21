@@ -61,7 +61,7 @@ namespace Altinn.Platform.Storage.Repository
         {
             try
             {
-                var blobProps = await UploadFromStreamAsync(org, stream, blobStoragePath);                
+                var blobProps = await UploadFromStreamAsync(org, stream, blobStoragePath);
                 return (blobProps.ContentLength, blobProps.LastModified);
             }
             catch (RequestFailedException requestFailedException)
@@ -238,6 +238,28 @@ namespace Altinn.Platform.Storage.Repository
         public async Task<DataElement> Update(DataElement dataElement)
         {
             DataElement updatedElement = await Container.UpsertItemAsync(dataElement, new PartitionKey(dataElement.InstanceGuid));
+
+            List<PatchOperation> operations = new()
+            {
+                PatchOperation.Add("/filename", dataElement.Filename),
+                PatchOperation.Add("/dataType", dataElement.DataType),
+                PatchOperation.Add("/contentType", dataElement.ContentType),
+                PatchOperation.Add("/selfLinks", dataElement.SelfLinks),
+                PatchOperation.Add("/size", dataElement.Size),
+                PatchOperation.Add("/contentHash", dataElement.ContentHash),
+                PatchOperation.Add("/locked", dataElement.Locked),
+                PatchOperation.Add("/refs", dataElement.Refs),
+                PatchOperation.Add("/isRead", dataElement.IsRead),
+                PatchOperation.Add("/tags", dataElement.Tags),
+                PatchOperation.Add("/deleteStatus", dataElement.DeleteStatus)
+            };
+
+            ItemResponse<DataElement> response = await Container.PatchItemAsync<DataElement>(
+                id: dataElement.Id,
+                partitionKey: new PartitionKey(dataElement.InstanceGuid),
+                patchOperations: operations);
+
+
             return updatedElement;
         }
 
@@ -252,23 +274,25 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<bool> SetFileScanStatus(string instanceGuid, string dataElementId, FileScanStatus status)
         {
-            _logger.LogWarning("SetFileScanStatus instanceId: {instanceGuid}, dataElementId: {dataElementId}, fileScanStatus: {status}", instanceGuid, dataElementId, status.FileScanResult.ToString());
+            List<PatchOperation> operations = new()
+            {
+                PatchOperation.Add("/fileScanResult", status.FileScanResult.ToString()),
+            };
 
-            var de = await Read(Guid.Parse(instanceGuid), Guid.Parse(dataElementId));
+            ItemResponse<DataElement> response = await Container.PatchItemAsync<DataElement>(
+                id: dataElementId,
+                partitionKey: new PartitionKey(instanceGuid),
+                patchOperations: operations);
 
-            de.FileScanResult = status.FileScanResult;
-
-            await Update(de);
-
-            return true;
+            return response.StatusCode == HttpStatusCode.OK;
         }
 
         private async Task<BlobProperties> UploadFromStreamAsync(string org, Stream stream, string fileName)
         {
             BlobClient blockBlob = await CreateBlobClient(org, fileName);
             BlobUploadOptions options = new BlobUploadOptions
-            {                
-                TransferValidation = new UploadTransferValidationOptions { ChecksumAlgorithm = StorageChecksumAlgorithm.MD5 }                
+            {
+                TransferValidation = new UploadTransferValidationOptions { ChecksumAlgorithm = StorageChecksumAlgorithm.MD5 }
             };
             await blockBlob.UploadAsync(stream, options);
             BlobProperties properties = await blockBlob.GetPropertiesAsync();
