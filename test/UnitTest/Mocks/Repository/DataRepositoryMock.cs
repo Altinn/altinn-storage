@@ -122,7 +122,10 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             _tempRepository.TryGetValue(dataElementId.ToString(), out string serializedDataElement);
 
             DataElement dataElement = JsonSerializer.Deserialize<DataElement>(serializedDataElement, _options);
-            if (dataElement == null) { return null; }
+            if (dataElement == null)
+            {
+                return null;
+            }
 
             foreach (var entry in propertyList)
             {
