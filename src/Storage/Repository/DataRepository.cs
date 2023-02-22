@@ -144,7 +144,7 @@ namespace Altinn.Platform.Storage.Repository
 
             List<DataElement> dataElements = new();
 
-            QueryRequestOptions options = new QueryRequestOptions()
+            QueryRequestOptions options = new()
             {
                 MaxBufferedItemCount = 0,
                 MaxConcurrency = -1,
@@ -178,7 +178,7 @@ namespace Altinn.Platform.Storage.Repository
                 dataElements[guidString] = new List<DataElement>();
             }
 
-            QueryRequestOptions options = new QueryRequestOptions()
+            QueryRequestOptions options = new()
             {
                 MaxBufferedItemCount = 0,
                 MaxConcurrency = -1,
@@ -268,7 +268,7 @@ namespace Altinn.Platform.Storage.Repository
         private async Task<BlobProperties> UploadFromStreamAsync(string org, Stream stream, string fileName)
         {
             BlobClient blockBlob = await CreateBlobClient(org, fileName);
-            BlobUploadOptions options = new BlobUploadOptions
+            BlobUploadOptions options = new()
             {
                 TransferValidation = new UploadTransferValidationOptions { ChecksumAlgorithm = StorageChecksumAlgorithm.MD5 }
             };
@@ -305,7 +305,7 @@ namespace Altinn.Platform.Storage.Repository
                 string accountName = string.Format(_storageConfiguration.OrgStorageAccount, org);
                 string containerName = string.Format(_storageConfiguration.OrgStorageContainer, org);
 
-                UriBuilder fullUri = new UriBuilder
+                UriBuilder fullUri = new()
                 {
                     Scheme = "https",
                     Host = $"{accountName}.blob.core.windows.net",
@@ -316,9 +316,9 @@ namespace Altinn.Platform.Storage.Repository
                 return new BlobClient(fullUri.Uri);
             }
 
-            StorageSharedKeyCredential storageCredentials = new StorageSharedKeyCredential(_storageConfiguration.AccountName, _storageConfiguration.AccountKey);
-            Uri storageUrl = new Uri(_storageConfiguration.BlobEndPoint);
-            BlobServiceClient commonBlobClient = new BlobServiceClient(storageUrl, storageCredentials);
+            StorageSharedKeyCredential storageCredentials = new(_storageConfiguration.AccountName, _storageConfiguration.AccountKey);
+            Uri storageUrl = new(_storageConfiguration.BlobEndPoint);
+            BlobServiceClient commonBlobClient = new(storageUrl, storageCredentials);
             BlobContainerClient blobContainerClient = commonBlobClient.GetBlobContainerClient(_storageConfiguration.StorageContainer);
 
             return blobContainerClient.GetBlobClient(blobName);
