@@ -235,28 +235,26 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<DataElement> Update(DataElement dataElement)
+        public async Task<DataElement> Update(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertylist)
         {
-            List<PatchOperation> operations = new()
+            if (propertylist.Count > 10)
             {
-                PatchOperation.Add("/filename", dataElement.Filename),
-                PatchOperation.Add("/dataType", dataElement.DataType),
-                PatchOperation.Add("/contentType", dataElement.ContentType),
-                PatchOperation.Add("/size", dataElement.Size),
-                PatchOperation.Add("/contentHash", dataElement.ContentHash),
-                PatchOperation.Add("/locked", dataElement.Locked),
-                PatchOperation.Add("/refs", dataElement.Refs),
-                PatchOperation.Add("/isRead", dataElement.IsRead),
-                PatchOperation.Add("/tags", dataElement.Tags),
-                PatchOperation.Add("/deleteStatus", dataElement.DeleteStatus)
-            };
+                throw new ArgumentOutOfRangeException(nameof(propertylist), "PropertyList can contain at most 10 entries.");
+            }
+
+            List<PatchOperation> operations = new();
+
+            foreach (var entry in propertylist)
+            {
+                operations.Add(PatchOperation.Add(entry.Key, entry.Value));
+            }
 
             ItemResponse<DataElement> response = await Container.PatchItemAsync<DataElement>(
-                id: dataElement.Id,
-                partitionKey: new PartitionKey(dataElement.InstanceGuid),
+                id: dataElementId.ToString(),
+                partitionKey: new PartitionKey(instanceGuid.ToString()),
                 patchOperations: operations);
 
-            return response.Resource;
+            return response;
         }
 
         /// <inheritdoc/>
@@ -265,22 +263,6 @@ namespace Altinn.Platform.Storage.Repository
             var response = await Container.DeleteItemAsync<DataElement>(dataElement.Id, new PartitionKey(dataElement.InstanceGuid));
 
             return response.StatusCode == HttpStatusCode.NoContent;
-        }
-
-        /// <inheritdoc/>
-        public async Task<bool> SetFileScanStatus(string instanceGuid, string dataElementId, FileScanStatus status)
-        {
-            List<PatchOperation> operations = new()
-            {
-                PatchOperation.Add("/fileScanResult", status.FileScanResult.ToString()),
-            };
-
-            ItemResponse<DataElement> response = await Container.PatchItemAsync<DataElement>(
-                id: dataElementId,
-                partitionKey: new PartitionKey(instanceGuid),
-                patchOperations: operations);
-
-            return response.StatusCode == HttpStatusCode.OK;
         }
 
         private async Task<BlobProperties> UploadFromStreamAsync(string org, Stream stream, string fileName)
