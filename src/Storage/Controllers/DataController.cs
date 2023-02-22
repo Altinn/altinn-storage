@@ -385,7 +385,7 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 { "/contentType", updatedData.ContentType },
                 { "/filename", HttpUtility.UrlDecode(updatedData.Filename) },
-                { "/lastChangedBy",User.GetUserOrOrgId() },
+                { "/lastChangedBy", User.GetUserOrOrgId() },
                 { "/lastChanged", changedTime },
                 { "/refs", updatedData.Refs },
                 { "/size", blobSize }
