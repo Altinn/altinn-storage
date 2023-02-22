@@ -30,8 +30,6 @@ using Microsoft.Extensions.Options;
 
 using Moq;
 
-using Newtonsoft.Json.Linq;
-
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers
