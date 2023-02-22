@@ -30,6 +30,22 @@ namespace Altinn.Platform.Storage.UnitTest.Utils
             return token;
         }
 
+        public static ClaimsPrincipal GetPrincipal(int userId, int partyId, int authenticationLevel = 2)
+        {
+            List<Claim> claims = new List<Claim>();
+            string issuer = "UnitTest";
+            claims.Add(new Claim(AltinnCoreClaimTypes.UserId, userId.ToString(), ClaimValueTypes.String, issuer));
+            claims.Add(new Claim(AltinnCoreClaimTypes.UserName, "UserOne", ClaimValueTypes.String, issuer));
+            claims.Add(new Claim(AltinnCoreClaimTypes.PartyID, partyId.ToString(), ClaimValueTypes.Integer32, issuer));
+            claims.Add(new Claim(AltinnCoreClaimTypes.AuthenticateMethod, "Mock", ClaimValueTypes.String, issuer));
+            claims.Add(new Claim(AltinnCoreClaimTypes.AuthenticationLevel, authenticationLevel.ToString(), ClaimValueTypes.Integer32, issuer));
+
+            ClaimsIdentity identity = new ClaimsIdentity("mock");
+            identity.AddClaims(claims);
+            return new ClaimsPrincipal(identity);           
+        }
+
+
         public static string GetOrgToken(string org, int orgNumber = 111111111, string scope = "altinn:appdeploy")
         {
             List<Claim> claims = new List<Claim>();

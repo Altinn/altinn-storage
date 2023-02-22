@@ -458,7 +458,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 .Setup(dr => dr.Update(
                     It.IsAny<Guid>(),
                     It.IsAny<Guid>(),
-                    It.Is<Dictionary<string, object>>(d => VerifyDeleteStatusPresentInDictionary(d))))
+                    It.Is<Dictionary<string, object>>(propertyList => VerifyDeleteStatusPresentInDictionary(propertyList))))
                 .ReturnsAsync(new DataElement());
 
             string dataPathWithData = $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe30?delay=true";
@@ -473,14 +473,20 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             dataRepositoryMock.VerifyAll();
         }
 
-        private static bool VerifyDeleteStatusPresentInDictionary(Dictionary<string, object> d)
+        private static bool VerifyDeleteStatusPresentInDictionary(Dictionary<string, object> propertyList)
         {
-            if (!d.ContainsKey("/deleteStatus"))
+            if (!propertyList.ContainsKey("/deleteStatus"))
             {
                 return false;
             }
 
-            if (!d.TryGetValue("/deleteStatus", out object value))
+            if (propertyList.Count > 1)
+            {
+                // property list should only contain one element when called from this controller method
+                return false;
+            }
+
+            if (!propertyList.TryGetValue("/deleteStatus", out object value))
             {
                 return false;
             }
@@ -566,12 +572,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Scenario:
         ///   Update data element FileScanResult on newly created instance and data element.
         /// Expected:
-        ///   ContentHash value provided matches value currently stored in Cosmos db
+        ///   Requests including platform access token should be granted access to endpoint.
         /// Success:
-        ///   FileScanResult is set to correct value. 
+        ///   Response code is successful.
         /// </summary>
         [Fact]
-        public async void PutFileScanStatus_TimestampMatches_Ok()
+        public async void PutFileScanStatus_PlatformAccessIncluded_Ok()
         {
             // Arrange
             string dataPathWithData = $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
@@ -611,12 +617,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Scenario:
         ///   Update data element FileScanResult on newly created instance and data element.
         /// Expected:
-        ///   ContentHash value provided matches value currently stored in Cosmos db
+        ///   End user should not be able to use this endpoint
         /// Success:
-        ///   FileScanResult is set to correct value. 
+        ///   Response code is Forbidden.
         /// </summary>
         [Fact]
-        public async void PutFileScanStatusAsEndUser_ContentHashMatches_Forbidden()
+        public async void PutFileScanStatusAsEndUser_MissingPlatformAccess_Forbidden()
         {
             // Arrange
             string dataPathWithData = $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
