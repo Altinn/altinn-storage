@@ -1,19 +1,34 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.Json;
 using System.Threading.Tasks;
 
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
-using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
 {
     public class DataRepositoryMock : IDataRepository
     {
+        private readonly Dictionary<string, string> _tempRepository;
+        private readonly JsonSerializerOptions _options;
+
+        public DataRepositoryMock()
+        {
+            _tempRepository = new();
+            _options = new()
+            {
+                PropertyNameCaseInsensitive = true,
+                WriteIndented = true
+            };
+        }
+
         public async Task<DataElement> Create(DataElement dataElement)
         {
+            _tempRepository.Add(dataElement.Id, JsonSerializer.Serialize(dataElement, _options));
             return await Task.FromResult(dataElement);
         }
 
@@ -37,12 +52,14 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
                 if (File.Exists(elementPath))
                 {
                     string content = File.ReadAllText(elementPath);
-                    dataElement = (DataElement)JsonConvert.DeserializeObject(content, typeof(DataElement));
+                    dataElement = JsonSerializer.Deserialize<DataElement>(content, _options);
                 }
             }
 
             if (dataElement != null)
             {
+                _tempRepository[dataElement.Id] = JsonSerializer.Serialize(dataElement, _options);
+
                 return await Task.FromResult(dataElement);
             }
 
@@ -58,7 +75,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             foreach (string elementPath in dataElementPaths)
             {
                 string content = File.ReadAllText(elementPath);
-                DataElement dataElement = (DataElement)JsonConvert.DeserializeObject(content, typeof(DataElement));
+                DataElement dataElement = JsonSerializer.Deserialize<DataElement>(content, _options);
                 if (dataElement.InstanceGuid.Contains(instanceGuid.ToString()))
                 {
                     dataElements.Add(dataElement);
@@ -82,7 +99,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             foreach (string elementPath in dataElementPaths)
             {
                 string content = File.ReadAllText(elementPath);
-                DataElement dataElement = (DataElement)JsonConvert.DeserializeObject(content, typeof(DataElement));
+                DataElement dataElement = JsonSerializer.Deserialize<DataElement>(content, _options);
                 if (instanceGuids.Contains(dataElement.InstanceGuid))
                 {
                     dataElements[dataElement.InstanceGuid].Add(dataElement);
@@ -100,9 +117,24 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return await Task.FromResult(fs);
         }
 
-        public Task<DataElement> Update(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertylist)
+        public async Task<DataElement> Update(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertyList)
         {
-            throw new NotImplementedException();
+            _tempRepository.TryGetValue(dataElementId.ToString(), out string serializedDataElement);
+
+            DataElement dataElement = JsonSerializer.Deserialize<DataElement>(serializedDataElement, _options);
+            if (dataElement == null) { return null; }
+
+            foreach (var entry in propertyList)
+            {
+                if (entry.Key == "/fileScanResult")
+                {
+                    dataElement.FileScanResult = (FileScanResult)entry.Value;
+                }
+            }
+
+            _tempRepository["dataElementId"] = JsonSerializer.Serialize(dataElement, _options);
+
+            return dataElement;
         }
 
         public async Task<(long ContentLength, DateTimeOffset LastModified)> WriteDataToStorage(string org, Stream stream, string blobStoragePath)

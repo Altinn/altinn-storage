@@ -6,6 +6,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
+
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Clients;
@@ -20,11 +21,17 @@ using Altinn.Platform.Storage.UnitTest.Mocks.Authentication;
 using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
+
 using AltinnCore.Authentication.JwtCookie;
+
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+
 using Moq;
+
+using Newtonsoft.Json.Linq;
+
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers
@@ -451,10 +458,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             dataRepositoryMock
                 .Setup(dr => dr.Update(
-                    It.IsAny<Guid>(), 
-                    It.IsAny<Guid>(), 
-                    It.Is<Dictionary<string, object>>(d => d.ContainsKey("/deleteStatus"))))
-                .ReturnsAsync((DataElement input) => { return input; });
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.Is<Dictionary<string, object>>(d => VerifyDeleteStatusPresentInDictionary(d))))
+                .ReturnsAsync(new DataElement());
 
             string dataPathWithData = $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe30?delay=true";
             HttpClient client = GetTestClient(dataRepositoryMock);
@@ -466,6 +473,27 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             dataRepositoryMock.VerifyAll();
+        }
+
+        private static bool VerifyDeleteStatusPresentInDictionary(Dictionary<string, object> d)
+        {
+            if (!d.ContainsKey("/deleteStatus"))
+            {
+                return false;
+            }
+
+            if (!d.TryGetValue("/deleteStatus", out object value))
+            {
+                return false;
+            }
+
+            DeleteStatus actual = (DeleteStatus)value;
+            if (!actual.IsHardDeleted || actual.HardDeleted == null)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         [Fact]
@@ -563,15 +591,15 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             DataElement actual = JsonSerializer.Deserialize<DataElement>(dataElementContent, _serializerOptions);
             var dataElementId = actual.Id;
 
-            var newFileScanStatus = new FileScanStatus 
-            { 
-                FileScanResult = FileScanResult.Clean 
+            var newFileScanStatus = new FileScanStatus
+            {
+                FileScanResult = FileScanResult.Clean
             };
             HttpRequestMessage putRequest = new HttpRequestMessage(HttpMethod.Put, $"{dataPathWithData}elements/{dataElementId}/filescanstatus")
             {
                 Content = JsonContent.Create(newFileScanStatus)
             };
-            
+
             putRequest.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken());
 
             // Act
@@ -607,9 +635,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             var dataElementId = actual.Id;
 
             // Act
-            var newFileScanStatus = new FileScanStatus 
-            { 
-                FileScanResult = FileScanResult.Clean 
+            var newFileScanStatus = new FileScanStatus
+            {
+                FileScanResult = FileScanResult.Clean
             };
             HttpResponseMessage setFileScanStatusResponse = await client.PutAsync($"{dataPathWithData}elements/{dataElementId}/filescanstatus", JsonContent.Create(newFileScanStatus));
 

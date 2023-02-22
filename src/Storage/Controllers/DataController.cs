@@ -398,7 +398,9 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (blobSize > 0)
             {
-                dataElement.FileScanResult = dataTypeDefinition.EnableFileScan ? FileScanResult.Pending : FileScanResult.NotApplicable;
+                FileScanResult scanResult = dataTypeDefinition.EnableFileScan ? FileScanResult.Pending : FileScanResult.NotApplicable;
+
+                updatedProperties.Add("/fileScanResult", scanResult);
 
                 DataElement updatedElement = await _dataRepository.Update(instanceGuid, dataGuid, updatedProperties);
 
@@ -476,7 +478,7 @@ namespace Altinn.Platform.Storage.Controllers
             Guid dataGuid,
             [FromBody] FileScanStatus fileScanStatus)
         {
-            await _dataRepository.Update(instanceGuid, dataGuid, new Dictionary<string, object>() { { "/fileScanResult", fileScanStatus } });
+            await _dataRepository.Update(instanceGuid, dataGuid, new Dictionary<string, object>() { { "/fileScanResult", fileScanStatus.FileScanResult } });
 
             return Ok();
         }
