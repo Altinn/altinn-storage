@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -449,7 +450,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 .ReturnsAsync(de);
 
             dataRepositoryMock
-                .Setup(dr => dr.Update(It.Is<DataElement>(ude => ude.DeleteStatus.IsHardDeleted)))
+                .Setup(dr => dr.Update(
+                    It.IsAny<Guid>(), 
+                    It.IsAny<Guid>(), 
+                    It.Is<Dictionary<string, object>>(d => d.ContainsKey("/deleteStatus"))))
                 .ReturnsAsync((DataElement input) => { return input; });
 
             string dataPathWithData = $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe30?delay=true";
@@ -529,7 +533,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            dataRepositoryMock.Verify(dr => dr.Update(It.IsAny<DataElement>()), Times.Never);
+            dataRepositoryMock.Verify(dr => dr.Update(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Dictionary<string, object>>()), Times.Never);
         }
 
         /// <summary>

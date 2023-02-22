@@ -100,14 +100,9 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return await Task.FromResult(fs);
         }
 
-        public async Task<DataElement> Update(DataElement dataElement)
+        public Task<DataElement> Update(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertylist)
         {
-            return await Task.FromResult(dataElement);
-        }
-
-        public async Task<bool> SetFileScanStatus(string instanceId, string dataElementId, FileScanStatus status)
-        {
-            return await Task.FromResult(true);
+            throw new NotImplementedException();
         }
 
         public async Task<(long ContentLength, DateTimeOffset LastModified)> WriteDataToStorage(string org, Stream stream, string blobStoragePath)
@@ -127,6 +122,6 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
         {
             string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(DataRepositoryMock).Assembly.Location).LocalPath);
             return Path.Combine(unitTestFolder, "..", "..", "..", "data", "blob");
-        }        
+        }
     }
 }
