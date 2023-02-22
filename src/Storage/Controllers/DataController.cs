@@ -34,7 +34,7 @@ namespace Altinn.Platform.Storage.Controllers
     {
         private const long RequestSizeLimit = 2000 * 1024 * 1024;
 
-        private static readonly FormOptions _defaultFormOptions = new FormOptions();
+        private static readonly FormOptions _defaultFormOptions = new();
 
         private readonly IDataRepository _dataRepository;
         private readonly IInstanceRepository _instanceRepository;
@@ -224,7 +224,7 @@ namespace Altinn.Platform.Storage.Controllers
                 dataElements :
                 dataElements.Where(de => de.DeleteStatus == null || !de.DeleteStatus.IsHardDeleted).ToList();
 
-            DataElementList dataElementList = new DataElementList { DataElements = filteredList };
+            DataElementList dataElementList = new() { DataElements = filteredList };
 
             return Ok(dataElementList);
         }
@@ -383,12 +383,12 @@ namespace Altinn.Platform.Storage.Controllers
 
             var updatedProperties = new Dictionary<string, object>()
             {
-                { "/contentType", updatedData.ContentType},
-                {"/filename", HttpUtility.UrlDecode(updatedData.Filename) },
-                {"/lastChangedBy",User.GetUserOrOrgId() },
-                {"/lastChanged", changedTime },
-                { "/refs", updatedData.Refs},
-                {"/size", blobSize }
+                { "/contentType", updatedData.ContentType },
+                { "/filename", HttpUtility.UrlDecode(updatedData.Filename) },
+                { "/lastChangedBy",User.GetUserOrOrgId() },
+                { "/lastChanged", changedTime },
+                {  "/refs", updatedData.Refs },
+                { "/size", blobSize }
             };
 
             if (User.GetOrg() == instance.Org)
@@ -443,16 +443,16 @@ namespace Altinn.Platform.Storage.Controllers
 
             Dictionary<string, object> propertyList = new()
             {
-                {"/filename", dataElement.Filename},
-                {"/dataType", dataElement.DataType},
-                {"/contentType", dataElement.ContentType},
-                {"/size", dataElement.Size},
-                {"/locked", dataElement.Locked},
-                {"/refs", dataElement.Refs},
-                {"/tags", dataElement.Tags},
-                {"/deleteStatus", dataElement.DeleteStatus},
-                {"/lastChanged", dataElement.LastChanged},
-                {"/lastChangedBy", dataElement.LastChangedBy}
+                { "/filename", dataElement.Filename },
+                { "/dataType", dataElement.DataType },
+                { "/contentType", dataElement.ContentType },
+                { "/size", dataElement.Size },
+                { "/locked", dataElement.Locked },
+                { "/refs", dataElement.Refs },
+                { "/tags", dataElement.Tags },
+                { "/deleteStatus", dataElement.DeleteStatus },
+                { "/lastChanged", dataElement.LastChanged },
+                { "/lastChangedBy", dataElement.LastChangedBy }
             };
 
             DataElement updatedDataElement = await _dataRepository.Update(instanceGuid, dataGuid, propertyList);
@@ -501,7 +501,7 @@ namespace Altinn.Platform.Storage.Controllers
                 MediaTypeHeaderValue mediaType = MediaTypeHeaderValue.Parse(request.ContentType);
                 string boundary = MultipartRequestHelper.GetBoundary(mediaType, _defaultFormOptions.MultipartBoundaryLengthLimit);
 
-                MultipartReader reader = new MultipartReader(boundary, request.Body);
+                MultipartReader reader = new(boundary, request.Body);
                 MultipartSection section = await reader.ReadNextSectionAsync();
 
                 theStream = section.Body;
@@ -577,7 +577,7 @@ namespace Altinn.Platform.Storage.Controllers
 
         private async Task DispatchEvent(string eventType, Instance instance, DataElement dataElement)
         {
-            InstanceEvent instanceEvent = new InstanceEvent
+            InstanceEvent instanceEvent = new()
             {
                 EventType = eventType,
                 InstanceId = instance.Id,

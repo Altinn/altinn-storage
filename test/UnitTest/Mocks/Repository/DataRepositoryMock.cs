@@ -117,7 +117,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return await Task.FromResult(fs);
         }
 
-        public async Task<DataElement> Update(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertyList)
+        public Task<DataElement> Update(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertyList)
         {
             _tempRepository.TryGetValue(dataElementId.ToString(), out string serializedDataElement);
 
@@ -134,7 +134,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
 
             _tempRepository["dataElementId"] = JsonSerializer.Serialize(dataElement, _options);
 
-            return dataElement;
+            return Task.FromResult(dataElement);
         }
 
         public async Task<(long ContentLength, DateTimeOffset LastModified)> WriteDataToStorage(string org, Stream stream, string blobStoragePath)
