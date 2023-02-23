@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Security.Claims;
+
 using Altinn.Common.AccessToken.Constants;
 using Altinn.Platform.Storage.UnitTest.Mocks;
+
 using AltinnCore.Authentication.Constants;
 
 namespace Altinn.Platform.Storage.UnitTest.Utils
@@ -42,9 +44,8 @@ namespace Altinn.Platform.Storage.UnitTest.Utils
 
             ClaimsIdentity identity = new ClaimsIdentity("mock");
             identity.AddClaims(claims);
-            return new ClaimsPrincipal(identity);           
+            return new ClaimsPrincipal(identity);
         }
-
 
         public static string GetOrgToken(string org, int orgNumber = 111111111, string scope = "altinn:appdeploy")
         {
