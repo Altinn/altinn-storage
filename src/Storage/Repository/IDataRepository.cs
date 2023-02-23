@@ -68,13 +68,6 @@ namespace Altinn.Platform.Storage.Repository
         Task<DataElement> Read(Guid instanceGuid, Guid dataElementId);
 
         /// <summary>
-        /// Updates a data element. 
-        /// </summary>
-        /// <param name="dataElement">The data element to update. Dataelement must have instanceGuid set!</param>
-        /// <returns>The updated data element</returns>
-        Task<DataElement> Update(DataElement dataElement);
-
-        /// <summary>
         /// Deletes the data element metadata object permanently!
         /// </summary>
         /// <param name="dataElement">the element to delete</param>
@@ -82,12 +75,12 @@ namespace Altinn.Platform.Storage.Repository
         Task<bool> Delete(DataElement dataElement);
 
         /// <summary>
-        /// Update data element file scan status properties
+        /// Updates the data element with the properties provided in the dictionary
         /// </summary>
-        /// <param name="instanceId">ID of instance that data element belongs to</param>
-        /// <param name="dataElementId">ID of data element to update</param>
-        /// <param name="status">Status property values</param>
-        /// <returns></returns>
-        Task<bool> SetFileScanStatus(string instanceId, string dataElementId, FileScanStatus status);
+        /// <param name="instanceGuid">The instance guid</param>
+        /// <param name="dataElementId">The data element id</param>
+        /// <param name="propertylist">A dictionary contaning property id (key) and object (value) to be stored</param>
+        /// <remarks>Dictionary can containt at most 10 entries</remarks>
+        Task<DataElement> Update(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertylist);
     }
 }

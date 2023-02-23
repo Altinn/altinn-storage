@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
+
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Clients;
@@ -19,11 +21,15 @@ using Altinn.Platform.Storage.UnitTest.Mocks.Authentication;
 using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
+
 using AltinnCore.Authentication.JwtCookie;
+
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+
 using Moq;
+
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers
@@ -449,8 +455,11 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 .ReturnsAsync(de);
 
             dataRepositoryMock
-                .Setup(dr => dr.Update(It.Is<DataElement>(ude => ude.DeleteStatus.IsHardDeleted)))
-                .ReturnsAsync((DataElement input) => { return input; });
+                .Setup(dr => dr.Update(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.Is<Dictionary<string, object>>(propertyList => VerifyDeleteStatusPresentInDictionary(propertyList))))
+                .ReturnsAsync(new DataElement());
 
             string dataPathWithData = $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe30?delay=true";
             HttpClient client = GetTestClient(dataRepositoryMock);
@@ -462,6 +471,33 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             dataRepositoryMock.VerifyAll();
+        }
+
+        private static bool VerifyDeleteStatusPresentInDictionary(Dictionary<string, object> propertyList)
+        {
+            if (!propertyList.ContainsKey("/deleteStatus"))
+            {
+                return false;
+            }
+
+            if (propertyList.Count > 1)
+            {
+                // property list should only contain one element when called from this controller method
+                return false;
+            }
+
+            if (!propertyList.TryGetValue("/deleteStatus", out object value))
+            {
+                return false;
+            }
+
+            DeleteStatus actual = (DeleteStatus)value;
+            if (!actual.IsHardDeleted || actual.HardDeleted == null)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         [Fact]
@@ -529,19 +565,19 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            dataRepositoryMock.Verify(dr => dr.Update(It.IsAny<DataElement>()), Times.Never);
+            dataRepositoryMock.Verify(dr => dr.Update(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Dictionary<string, object>>()), Times.Never);
         }
 
         /// <summary>
         /// Scenario:
         ///   Update data element FileScanResult on newly created instance and data element.
         /// Expected:
-        ///   ContentHash value provided matches value currently stored in Cosmos db
+        ///   Requests including platform access token should be granted access to endpoint.
         /// Success:
-        ///   FileScanResult is set to correct value. 
+        ///   Response code is successful.
         /// </summary>
         [Fact]
-        public async void PutFileScanStatus_TimestampMatches_Ok()
+        public async void PutFileScanStatus_PlatformAccessIncluded_Ok()
         {
             // Arrange
             string dataPathWithData = $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
@@ -559,15 +595,15 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             DataElement actual = JsonSerializer.Deserialize<DataElement>(dataElementContent, _serializerOptions);
             var dataElementId = actual.Id;
 
-            var newFileScanStatus = new FileScanStatus 
-            { 
-                FileScanResult = FileScanResult.Clean 
+            var newFileScanStatus = new FileScanStatus
+            {
+                FileScanResult = FileScanResult.Clean
             };
             HttpRequestMessage putRequest = new HttpRequestMessage(HttpMethod.Put, $"{dataPathWithData}elements/{dataElementId}/filescanstatus")
             {
                 Content = JsonContent.Create(newFileScanStatus)
             };
-            
+
             putRequest.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken());
 
             // Act
@@ -581,12 +617,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Scenario:
         ///   Update data element FileScanResult on newly created instance and data element.
         /// Expected:
-        ///   ContentHash value provided matches value currently stored in Cosmos db
+        ///   End user should not be able to use this endpoint
         /// Success:
-        ///   FileScanResult is set to correct value. 
+        ///   Response code is Forbidden.
         /// </summary>
         [Fact]
-        public async void PutFileScanStatusAsEndUser_ContentHashMatches_Forbidden()
+        public async void PutFileScanStatusAsEndUser_MissingPlatformAccess_Forbidden()
         {
             // Arrange
             string dataPathWithData = $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
@@ -603,9 +639,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             var dataElementId = actual.Id;
 
             // Act
-            var newFileScanStatus = new FileScanStatus 
-            { 
-                FileScanResult = FileScanResult.Clean 
+            var newFileScanStatus = new FileScanStatus
+            {
+                FileScanResult = FileScanResult.Clean
             };
             HttpResponseMessage setFileScanStatusResponse = await client.PutAsync($"{dataPathWithData}elements/{dataElementId}/filescanstatus", JsonContent.Create(newFileScanStatus));
 

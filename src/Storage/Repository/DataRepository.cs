@@ -61,7 +61,7 @@ namespace Altinn.Platform.Storage.Repository
         {
             try
             {
-                var blobProps = await UploadFromStreamAsync(org, stream, blobStoragePath);                
+                var blobProps = await UploadFromStreamAsync(org, stream, blobStoragePath);
                 return (blobProps.ContentLength, blobProps.LastModified);
             }
             catch (RequestFailedException requestFailedException)
@@ -144,7 +144,7 @@ namespace Altinn.Platform.Storage.Repository
 
             List<DataElement> dataElements = new();
 
-            QueryRequestOptions options = new QueryRequestOptions()
+            QueryRequestOptions options = new()
             {
                 MaxBufferedItemCount = 0,
                 MaxConcurrency = -1,
@@ -178,7 +178,7 @@ namespace Altinn.Platform.Storage.Repository
                 dataElements[guidString] = new List<DataElement>();
             }
 
-            QueryRequestOptions options = new QueryRequestOptions()
+            QueryRequestOptions options = new()
             {
                 MaxBufferedItemCount = 0,
                 MaxConcurrency = -1,
@@ -235,10 +235,26 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<DataElement> Update(DataElement dataElement)
+        public async Task<DataElement> Update(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertylist)
         {
-            DataElement updatedElement = await Container.UpsertItemAsync(dataElement, new PartitionKey(dataElement.InstanceGuid));
-            return updatedElement;
+            if (propertylist.Count > 10)
+            {
+                throw new ArgumentOutOfRangeException(nameof(propertylist), "PropertyList can contain at most 10 entries.");
+            }
+
+            List<PatchOperation> operations = new();
+
+            foreach (var entry in propertylist)
+            {
+                operations.Add(PatchOperation.Add(entry.Key, entry.Value));
+            }
+
+            ItemResponse<DataElement> response = await Container.PatchItemAsync<DataElement>(
+                id: dataElementId.ToString(),
+                partitionKey: new PartitionKey(instanceGuid.ToString()),
+                patchOperations: operations);
+
+            return response;
         }
 
         /// <inheritdoc/>
@@ -249,30 +265,12 @@ namespace Altinn.Platform.Storage.Repository
             return response.StatusCode == HttpStatusCode.NoContent;
         }
 
-        /// <inheritdoc/>
-        public async Task<bool> SetFileScanStatus(string instanceGuid, string dataElementId, FileScanStatus status)
-        {
-            _logger.LogWarning("SetFileScanStatus instanceId: {instanceGuid}, dataElementId: {dataElementId}, fileScanStatus: {status}", instanceGuid, dataElementId, status.FileScanResult.ToString());
-            List<PatchOperation> operations = new()
-            {
-                PatchOperation.Add("/fileScanResult", status.FileScanResult.ToString()),
-            };
-
-            ItemResponse<DataElement> response = await Container.PatchItemAsync<DataElement>(
-                id: dataElementId,
-                partitionKey: new PartitionKey(instanceGuid),
-                patchOperations: operations);
-
-            _logger.LogWarning("SetFileScanStatus dataElementId: {dataElementId}, response-statuscode: {response}, filescanresult: {result} eTag: {etag}", dataElementId, response.StatusCode.ToString(), response.Resource.FileScanResult.ToString(), response.ETag);
-            return response.StatusCode == HttpStatusCode.OK;
-        }
-
         private async Task<BlobProperties> UploadFromStreamAsync(string org, Stream stream, string fileName)
         {
             BlobClient blockBlob = await CreateBlobClient(org, fileName);
-            BlobUploadOptions options = new BlobUploadOptions
-            {                
-                TransferValidation = new UploadTransferValidationOptions { ChecksumAlgorithm = StorageChecksumAlgorithm.MD5 }                
+            BlobUploadOptions options = new()
+            {
+                TransferValidation = new UploadTransferValidationOptions { ChecksumAlgorithm = StorageChecksumAlgorithm.MD5 }
             };
             await blockBlob.UploadAsync(stream, options);
             BlobProperties properties = await blockBlob.GetPropertiesAsync();
@@ -307,7 +305,7 @@ namespace Altinn.Platform.Storage.Repository
                 string accountName = string.Format(_storageConfiguration.OrgStorageAccount, org);
                 string containerName = string.Format(_storageConfiguration.OrgStorageContainer, org);
 
-                UriBuilder fullUri = new UriBuilder
+                UriBuilder fullUri = new()
                 {
                     Scheme = "https",
                     Host = $"{accountName}.blob.core.windows.net",
@@ -318,9 +316,9 @@ namespace Altinn.Platform.Storage.Repository
                 return new BlobClient(fullUri.Uri);
             }
 
-            StorageSharedKeyCredential storageCredentials = new StorageSharedKeyCredential(_storageConfiguration.AccountName, _storageConfiguration.AccountKey);
-            Uri storageUrl = new Uri(_storageConfiguration.BlobEndPoint);
-            BlobServiceClient commonBlobClient = new BlobServiceClient(storageUrl, storageCredentials);
+            StorageSharedKeyCredential storageCredentials = new(_storageConfiguration.AccountName, _storageConfiguration.AccountKey);
+            Uri storageUrl = new(_storageConfiguration.BlobEndPoint);
+            BlobServiceClient commonBlobClient = new(storageUrl, storageCredentials);
             BlobContainerClient blobContainerClient = commonBlobClient.GetBlobContainerClient(_storageConfiguration.StorageContainer);
 
             return blobContainerClient.GetBlobClient(blobName);

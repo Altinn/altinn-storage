@@ -34,7 +34,7 @@ namespace Altinn.Platform.Storage.Controllers
     {
         private const long RequestSizeLimit = 2000 * 1024 * 1024;
 
-        private static readonly FormOptions _defaultFormOptions = new FormOptions();
+        private static readonly FormOptions _defaultFormOptions = new();
 
         private readonly IDataRepository _dataRepository;
         private readonly IInstanceRepository _instanceRepository;
@@ -172,8 +172,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (!dataElement.IsRead && !appOwnerRequestingElement)
             {
-                dataElement.IsRead = true;
-                await _dataRepository.Update(dataElement);
+                await _dataRepository.Update(instanceGuid, dataGuid, new Dictionary<string, object>() { { "/isRead", true } });
             }
 
             string storageFileName = DataElementHelper.DataFileName(instance.AppId, instanceGuid.ToString(), dataGuid.ToString());
@@ -225,7 +224,7 @@ namespace Altinn.Platform.Storage.Controllers
                 dataElements :
                 dataElements.Where(de => de.DeleteStatus == null || !de.DeleteStatus.IsHardDeleted).ToList();
 
-            DataElementList dataElementList = new DataElementList { DataElements = filteredList };
+            DataElementList dataElementList = new() { DataElements = filteredList };
 
             return Ok(dataElementList);
         }
@@ -297,7 +296,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             DataElement dataElement = await _dataRepository.Create(newData);
             dataElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
-            
+
             await _dataService.StartFileScan(instance, dataTypeDefinition, dataElement, blobTimestamp, CancellationToken.None);
 
             await DispatchEvent(InstanceEventType.Created.ToString(), instance, dataElement);
@@ -306,7 +305,7 @@ namespace Altinn.Platform.Storage.Controllers
         }
 
         /// <summary>
-        /// Replaces an existing data element whit the attached file. The StreamContent.Headers.ContentDisposition.FileName property shall be used to set the filename on client side
+        /// Replaces an existing data element with the attached file. The StreamContent.Headers.ContentDisposition.FileName property shall be used to set the filename on client side
         /// </summary>
         /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
         /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
@@ -380,25 +379,31 @@ namespace Altinn.Platform.Storage.Controllers
 
             DateTime changedTime = DateTime.UtcNow;
 
-            dataElement.ContentType = updatedData.ContentType;
-            dataElement.Filename = HttpUtility.UrlDecode(updatedData.Filename);
-            dataElement.LastChangedBy = User.GetUserOrOrgId();
-            dataElement.LastChanged = changedTime;
-            dataElement.Refs = updatedData.Refs;
+            (long blobSize, DateTimeOffset blobTimestamp) = await _dataRepository.WriteDataToStorage(instance.Org, theStream, blobStoragePathName);
 
-            (long length, DateTimeOffset blobTimestamp) = await _dataRepository.WriteDataToStorage(instance.Org, theStream, blobStoragePathName);
-            dataElement.Size = length;
+            var updatedProperties = new Dictionary<string, object>()
+            {
+                { "/contentType", updatedData.ContentType },
+                { "/filename", HttpUtility.UrlDecode(updatedData.Filename) },
+                { "/lastChangedBy", User.GetUserOrOrgId() },
+                { "/lastChanged", changedTime },
+                { "/refs", updatedData.Refs },
+                { "/size", blobSize }
+            };
 
             if (User.GetOrg() == instance.Org)
             {
-                dataElement.IsRead = false;
+                updatedProperties.Add("/isRead", false);
             }
 
-            if (dataElement.Size > 0)
+            if (blobSize > 0)
             {
-                dataElement.FileScanResult = dataTypeDefinition.EnableFileScan ? FileScanResult.Pending : FileScanResult.NotApplicable;
+                FileScanResult scanResult = dataTypeDefinition.EnableFileScan ? FileScanResult.Pending : FileScanResult.NotApplicable;
 
-                DataElement updatedElement = await _dataRepository.Update(dataElement);
+                updatedProperties.Add("/fileScanResult", scanResult);
+
+                DataElement updatedElement = await _dataRepository.Update(instanceGuid, dataGuid, updatedProperties);
+
                 updatedElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
 
                 await _dataService.StartFileScan(instance, dataTypeDefinition, dataElement, blobTimestamp, CancellationToken.None);
@@ -436,7 +441,17 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest("Mismatch between path and dataElement content");
             }
 
-            DataElement updatedDataElement = await _dataRepository.Update(dataElement);
+            Dictionary<string, object> propertyList = new()
+            {
+                { "/locked", dataElement.Locked },
+                { "/refs", dataElement.Refs },
+                { "/tags", dataElement.Tags },
+                { "/deleteStatus", dataElement.DeleteStatus },
+                { "/lastChanged", dataElement.LastChanged },
+                { "/lastChangedBy", dataElement.LastChangedBy }
+            };
+
+            DataElement updatedDataElement = await _dataRepository.Update(instanceGuid, dataGuid, propertyList);
 
             return Ok(updatedDataElement);
         }
@@ -454,14 +469,14 @@ namespace Altinn.Platform.Storage.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [Produces("application/json")]
-        public async Task<ActionResult<DataElement>> SetFileScanStatus(
+        public async Task<ActionResult> SetFileScanStatus(
             Guid instanceGuid,
             Guid dataGuid,
             [FromBody] FileScanStatus fileScanStatus)
         {
-            var success = await _dataRepository.SetFileScanStatus(instanceGuid.ToString(), dataGuid.ToString(), fileScanStatus);
+            await _dataRepository.Update(instanceGuid, dataGuid, new Dictionary<string, object>() { { "/fileScanResult", fileScanStatus.FileScanResult } });
 
-            return success ? Ok() : StatusCode(500, "An error occurred while updating file scan status.");
+            return Ok();
         }
 
         /// <summary>
@@ -482,7 +497,7 @@ namespace Altinn.Platform.Storage.Controllers
                 MediaTypeHeaderValue mediaType = MediaTypeHeaderValue.Parse(request.ContentType);
                 string boundary = MultipartRequestHelper.GetBoundary(mediaType, _defaultFormOptions.MultipartBoundaryLengthLimit);
 
-                MultipartReader reader = new MultipartReader(boundary, request.Body);
+                MultipartReader reader = new(boundary, request.Body);
                 MultipartSection section = await reader.ReadNextSectionAsync();
 
                 theStream = section.Body;
@@ -558,7 +573,7 @@ namespace Altinn.Platform.Storage.Controllers
 
         private async Task DispatchEvent(string eventType, Instance instance, DataElement dataElement)
         {
-            InstanceEvent instanceEvent = new InstanceEvent
+            InstanceEvent instanceEvent = new()
             {
                 EventType = eventType,
                 InstanceId = instance.Id,
@@ -581,16 +596,16 @@ namespace Altinn.Platform.Storage.Controllers
         {
             DateTime deletedTime = DateTime.UtcNow;
 
-            dataElement.DeleteStatus = new()
+            DeleteStatus deleteStatus = new()
             {
                 IsHardDeleted = true,
                 HardDeleted = deletedTime
             };
 
-            await _dataRepository.Update(dataElement);
+            var updatedDateElement = await _dataRepository.Update(Guid.Parse(dataElement.InstanceGuid), Guid.Parse(dataElement.Id), new Dictionary<string, object>() { { "/deleteStatus", deleteStatus } });
 
             await DispatchEvent(InstanceEventType.Deleted.ToString(), instance, dataElement);
-            return Ok(dataElement);
+            return Ok(updatedDateElement);
         }
 
         private async Task<ActionResult<DataElement>> DeleteImmediately(Instance instance, DataElement dataElement)
