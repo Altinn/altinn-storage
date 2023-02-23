@@ -596,7 +596,7 @@ namespace Altinn.Platform.Storage.Controllers
         {
             DateTime deletedTime = DateTime.UtcNow;
 
-            var deleteStatus = new DeleteStatus()
+            DeleteStatus deleteStatus = new()
             {
                 IsHardDeleted = true,
                 HardDeleted = deletedTime
