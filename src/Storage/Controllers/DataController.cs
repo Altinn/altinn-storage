@@ -443,10 +443,6 @@ namespace Altinn.Platform.Storage.Controllers
 
             Dictionary<string, object> propertyList = new()
             {
-                { "/filename", dataElement.Filename },
-                { "/dataType", dataElement.DataType },
-                { "/contentType", dataElement.ContentType },
-                { "/size", dataElement.Size },
                 { "/locked", dataElement.Locked },
                 { "/refs", dataElement.Refs },
                 { "/tags", dataElement.Tags },
