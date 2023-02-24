@@ -249,8 +249,16 @@ namespace Altinn.Platform.Storage.DataCleanup.Services
                                 .Where(i => i.Id.Equals(dataElement.InstanceGuid));
 
                             var instanceIterator = instanceQuery.ToFeedIterator();
-                            var res = await instanceIterator.ReadNextAsync();
-                            Instance instance = res.FirstOrDefault();
+                            Instance instance = null;
+                            while (instanceIterator.HasMoreResults)
+                            {
+                                var res = await instanceIterator.ReadNextAsync();
+                                instance = res.FirstOrDefault();
+                                if (instance != null)
+                                { 
+                                    break; 
+                                }
+                            }
 
                             if (instance == null)
                             {
