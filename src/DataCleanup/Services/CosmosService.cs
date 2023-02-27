@@ -234,10 +234,11 @@ namespace Altinn.Platform.Storage.DataCleanup.Services
 
                     foreach (DataElement dataElement in response)
                     {
-                        if (retrievedInstances.ContainsKey(dataElement.InstanceGuid))
+                        if (retrievedInstances.TryGetValue(dataElement.InstanceGuid, out Instance instance))
                         {
-                            if (retrievedInstances[dataElement.InstanceGuid].CompleteConfirmations.Any(
-                                c => c.StakeholderId.ToLower().Equals(retrievedInstances[dataElement.InstanceGuid].Org) && c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7)))
+                            if (instance.CompleteConfirmations != null &&
+                                instance.CompleteConfirmations.Any(c => c.StakeholderId.ToLower().Equals(instance.Org) &&
+                                c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7)))
                             {
                                 dataElements.Add(dataElement);
                             }
@@ -249,35 +250,24 @@ namespace Altinn.Platform.Storage.DataCleanup.Services
                                 .Where(i => i.Id.Equals(dataElement.InstanceGuid));
 
                             var instanceIterator = instanceQuery.ToFeedIterator();
-                            Instance instance = null;
+                            instance = null;
                             while (instanceIterator.HasMoreResults)
                             {
                                 var res = await instanceIterator.ReadNextAsync();
                                 instance = res.FirstOrDefault();
                                 if (instance != null)
-                                { 
-                                    break; 
+                                {
+                                    break;
                                 }
                             }
 
-                            if (instance == null)
+                            retrievedInstances.Add(instance.Id, instance);
+
+                            if (instance.CompleteConfirmations != null &&
+                                instance.CompleteConfirmations.Any(c => c.StakeholderId.ToLower().Equals(instance.Org) &&
+                                c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7)))
                             {
-                                _logger.LogError(
-                                    "Orphan data element found during cleanup, root cause investigation required.\n" +
-                                    "Instance Guid: {instanceGuid}, blobStoragePath: {blobStoragePath}, dataElementId: {dataElementId}",
-                                    dataElement.InstanceGuid,
-                                    dataElement.BlobStoragePath,
-                                    dataElement.Id);
-                            }
-                            else
-                            {
-                                retrievedInstances.Add(instance.Id, instance);
-                                if (instance.CompleteConfirmations != null &&
-                                    instance.CompleteConfirmations.Any(c => c.StakeholderId.ToLower().Equals(instance.Org) &&
-                                    c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7)))
-                                {
-                                    dataElements.Add(dataElement);
-                                }
+                                dataElements.Add(dataElement);
                             }
                         }
                     }
