@@ -261,13 +261,25 @@ namespace Altinn.Platform.Storage.DataCleanup.Services
                                 }
                             }
 
-                            retrievedInstances.Add(instance.Id, instance);
-
-                            if (instance.CompleteConfirmations != null &&
-                                instance.CompleteConfirmations.Any(c => c.StakeholderId.ToLower().Equals(instance.Org) &&
-                                c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7)))
+                            if (instance == null)
                             {
-                                dataElements.Add(dataElement);
+                                _logger.LogError(
+                                    "Orphan data element found during cleanup, root cause investigation required.\n" +
+                                    "Instance Guid: {instanceGuid}, blobStoragePath: {blobStoragePath}, dataElementId: {dataElementId}",
+                                    dataElement.InstanceGuid,
+                                    dataElement.BlobStoragePath,
+                                    dataElement.Id);
+                            }
+                            else
+                            {
+                                retrievedInstances.Add(instance.Id, instance);
+
+                                if (instance.CompleteConfirmations != null &&
+                                    instance.CompleteConfirmations.Any(c => c.StakeholderId.ToLower().Equals(instance.Org) &&
+                                    c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7)))
+                                {
+                                    dataElements.Add(dataElement);
+                                }
                             }
                         }
                     }
