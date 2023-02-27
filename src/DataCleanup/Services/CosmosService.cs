@@ -260,7 +260,7 @@ namespace Altinn.Platform.Storage.DataCleanup.Services
                                     break;
                                 }
                             }
-
+                            
                             retrievedInstances.Add(instance.Id, instance);
 
                             if (instance.CompleteConfirmations != null &&
