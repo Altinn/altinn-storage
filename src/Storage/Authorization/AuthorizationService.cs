@@ -2,18 +2,18 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Constants;
 using Altinn.Common.PEP.Helpers;
 using Altinn.Common.PEP.Interfaces;
+
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 
 using Microsoft.Extensions.Logging;
-
-using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.Authorization
 {
@@ -38,7 +38,7 @@ namespace Altinn.Platform.Storage.Authorization
         /// Initializes a new instance of the <see cref="AuthorizationService"/> class.
         /// </summary>
         /// <param name="pdp">Policy decision point</param>
-        /// <param name="logger">The logger</param>      
+        /// <param name="logger">The logger</param>
         public AuthorizationService(IPDP pdp, ILogger<IAuthorization> logger)
         {
             _pdp = pdp;
@@ -55,10 +55,10 @@ namespace Altinn.Platform.Storage.Authorization
 
             List<MessageBoxInstance> authorizedInstanceList = new();
             List<string> actionTypes = new() { "read", "write", "delete" };
-
+            
             XacmlJsonRequestRoot xacmlJsonRequest = CreateMultiDecisionRequest(user, instances, actionTypes);
 
-            _logger.LogInformation("// AuthorizationHelper // AuthorizeMsgBoxInstances // xacmlJsonRequest: {request}", JsonConvert.SerializeObject(xacmlJsonRequest));
+            _logger.LogInformation("// AuthorizationHelper // AuthorizeMsgBoxInstances // xacmlJsonRequest: {request}", JsonSerializer.Serialize(xacmlJsonRequest));
             XacmlJsonResponse response = await _pdp.GetDecisionForRequest(xacmlJsonRequest);
 
             foreach (XacmlJsonResult result in response.Response.Where(result => DecisionHelper.ValidateDecisionResult(result, user)))
@@ -146,7 +146,7 @@ namespace Altinn.Platform.Storage.Authorization
 
             if (response?.Response == null)
             {
-                _logger.LogInformation("// Authorization Helper // Authorize instance action failed for request: {request}.", JsonConvert.SerializeObject(request));
+                _logger.LogInformation("// Authorization Helper // Authorize instance action failed for request: {request}.", JsonSerializer.Serialize(request));
                 return false;
             }
 
@@ -238,18 +238,6 @@ namespace Altinn.Platform.Storage.Authorization
             return jsonRequest;
         }
 
-        private static (string InstanceId, string InstanceGuid, string Task, string InstanceOwnerPartyId, string Org, string App) GetInstanceProperties(Instance instance)
-        {
-            string instanceId = instance.Id.Contains('/') ? instance.Id : null;
-            string instanceGuid = instance.Id.Contains('/') ? instance.Id.Split("/")[1] : instance.Id;
-            string task = instance.Process?.CurrentTask?.ElementId;
-            string instanceOwnerPartyId = instance.InstanceOwner.PartyId;
-            string org = instance.Org;
-            string app = instance.AppId.Split("/")[1];
-
-            return (instanceId, instanceGuid, task, instanceOwnerPartyId, org, app);
-        }
-
         /// <summary>
         /// Replaces Resource attributes with data from instance. Add all relevant values so PDP have it all
         /// </summary>
@@ -284,6 +272,18 @@ namespace Altinn.Platform.Storage.Authorization
             {
                 resourceCategory
             };
+        }
+
+        private static (string InstanceId, string InstanceGuid, string Task, string InstanceOwnerPartyId, string Org, string App) GetInstanceProperties(Instance instance)
+        {
+            string instanceId = instance.Id.Contains('/') ? instance.Id : null;
+            string instanceGuid = instance.Id.Contains('/') ? instance.Id.Split("/")[1] : instance.Id;
+            string task = instance.Process?.CurrentTask?.ElementId;
+            string instanceOwnerPartyId = instance.InstanceOwner.PartyId;
+            string org = instance.Org;
+            string app = instance.AppId.Split("/")[1];
+
+            return (instanceId, instanceGuid, task, instanceOwnerPartyId, org, app);
         }
 
         private static XacmlJsonCategory CreateMultipleSubjectCategory(IEnumerable<Claim> claims)
