@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
+
 using Altinn.Common.AccessToken;
 using Altinn.Common.AccessToken.Configuration;
 using Altinn.Common.AccessToken.Services;
@@ -10,6 +11,7 @@ using Altinn.Common.PEP.Clients;
 using Altinn.Common.PEP.Configuration;
 using Altinn.Common.PEP.Implementation;
 using Altinn.Common.PEP.Interfaces;
+
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
@@ -234,13 +236,14 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
         options.AddPolicy("PlatformAccess", policy => policy.Requirements.Add(new AccessTokenRequirement()));
     });
 
-    services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+    services.AddHttpContextAccessor();
+    services.AddSingleton<IClaimsPrincipalProvider, ClaimsPrincipalProvider>();
 
     // hookup Cosmos DB
     AzureCosmosSettings cosmosSettings = config.GetSection("AzureCosmosSettings").Get<AzureCosmosSettings>();
     CosmosClientOptions options = new()
     {
-        ConnectionMode = ConnectionMode.Direct,        
+        ConnectionMode = ConnectionMode.Direct,
         GatewayModeMaxConnectionLimit = 100
     };
     CosmosClient cosmosClient = new(cosmosSettings.EndpointUri, cosmosSettings.PrimaryKey, options);
