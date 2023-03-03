@@ -221,8 +221,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             List<MessageBoxInstance> authorizedInstanceList =
-                await _authorizationService.AuthorizeMesseageBoxInstances(
-                    HttpContext.User, new List<Instance> { instance });
+                await _authorizationService.AuthorizeMesseageBoxInstances(new List<Instance> { instance });
             if (authorizedInstanceList.Count <= 0)
             {
                 return Forbid();
@@ -557,8 +556,8 @@ namespace Altinn.Platform.Storage.Controllers
                 }
             });
 
-            List<MessageBoxInstance> authorizedInstances =
-                    await _authorizationService.AuthorizeMesseageBoxInstances(HttpContext.User, allInstances);
+            List<MessageBoxInstance> authorizedInstances = 
+                await _authorizationService.AuthorizeMesseageBoxInstances(allInstances);
 
             if (!authorizedInstances.Any())
             {

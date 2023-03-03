@@ -23,6 +23,7 @@ namespace Altinn.Platform.Storage.Authorization
     public class AuthorizationService : IAuthorization
     {
         private readonly IPDP _pdp;
+        private readonly IClaimsPrincipalProvider _claimsPrincipalProvider;
         private readonly ILogger _logger;
 
         private const string XacmlResourceTaskId = "urn:altinn:task";
@@ -38,15 +39,17 @@ namespace Altinn.Platform.Storage.Authorization
         /// Initializes a new instance of the <see cref="AuthorizationService"/> class.
         /// </summary>
         /// <param name="pdp">Policy decision point</param>
+        /// <param name="claimsPrincipalProvider">A service providing access to the current <see cref="ClaimsPrincipal"/>.</param>
         /// <param name="logger">The logger</param>
-        public AuthorizationService(IPDP pdp, ILogger<IAuthorization> logger)
+        public AuthorizationService(IPDP pdp, IClaimsPrincipalProvider claimsPrincipalProvider, ILogger<IAuthorization> logger)
         {
             _pdp = pdp;
+            _claimsPrincipalProvider = claimsPrincipalProvider;
             _logger = logger;
         }
 
         /// <inheritdoc/>>
-        public async Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(ClaimsPrincipal user, List<Instance> instances)
+        public async Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(List<Instance> instances)
         {
             if (instances.Count <= 0)
             {
@@ -55,7 +58,8 @@ namespace Altinn.Platform.Storage.Authorization
 
             List<MessageBoxInstance> authorizedInstanceList = new();
             List<string> actionTypes = new() { "read", "write", "delete" };
-            
+
+            ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
             XacmlJsonRequestRoot xacmlJsonRequest = CreateMultiDecisionRequest(user, instances, actionTypes);
 
             _logger.LogInformation("// AuthorizationHelper // AuthorizeMsgBoxInstances // xacmlJsonRequest: {request}", JsonSerializer.Serialize(xacmlJsonRequest));
@@ -125,13 +129,14 @@ namespace Altinn.Platform.Storage.Authorization
         }
 
         /// <inheritdoc/>>
-        public async Task<bool> AuthorizeInstanceAction(ClaimsPrincipal user, Instance instance, string action, string task = null)
+        public async Task<bool> AuthorizeInstanceAction(Instance instance, string action, string task = null)
         {
             string org = instance.Org;
             string app = instance.AppId.Split('/')[1];
             int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
             XacmlJsonRequestRoot request;
 
+            ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
             if (instance.Id == null)
             {
                 request = DecisionHelper.CreateDecisionRequest(org, app, user, action, instanceOwnerPartyId, null);
@@ -155,7 +160,7 @@ namespace Altinn.Platform.Storage.Authorization
         }
 
         /// <inheritdoc/>>
-        public async Task<List<Instance>> AuthorizeInstances(ClaimsPrincipal user, List<Instance> instances)
+        public async Task<List<Instance>> AuthorizeInstances(List<Instance> instances)
         {
             if (instances.Count <= 0)
             {
@@ -165,6 +170,7 @@ namespace Altinn.Platform.Storage.Authorization
             List<Instance> authorizedInstanceList = new();
             List<string> actionTypes = new() { "read" };
 
+            ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
             XacmlJsonRequestRoot xacmlJsonRequest = CreateMultiDecisionRequest(user, instances, actionTypes);
             XacmlJsonResponse response = await _pdp.GetDecisionForRequest(xacmlJsonRequest);
 
@@ -189,8 +195,9 @@ namespace Altinn.Platform.Storage.Authorization
         }
 
         /// <inheritdoc/>>
-        public bool ContainsRequiredScope(List<string> requiredScope, ClaimsPrincipal user)
+        public bool UserHasRequiredScope(List<string> requiredScope)
         {
+            ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
             string contextScope = user.Identities?
                .FirstOrDefault(i => i.AuthenticationType != null && i.AuthenticationType.Equals("AuthenticationTypes.Federation"))
                ?.Claims

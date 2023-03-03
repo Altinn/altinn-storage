@@ -132,7 +132,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (orgClaim != null)
             {
-                if (!_authorizationService.ContainsRequiredScope(_generalSettings.InstanceReadScope, User))
+                if (!_authorizationService.UserHasRequiredScope(_generalSettings.InstanceReadScope))
                 {
                     return Forbid();
                 }
@@ -211,7 +211,7 @@ namespace Altinn.Platform.Storage.Controllers
                         FilterOutDeletedDataElements(instance);
                     }
 
-                    result.Instances = await _authorizationService.AuthorizeInstances(User, result.Instances);
+                    result.Instances = await _authorizationService.AuthorizeInstances(result.Instances);
                     result.Count = result.Instances.Count;
                 }
 

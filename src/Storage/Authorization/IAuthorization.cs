@@ -16,26 +16,25 @@ namespace Altinn.Platform.Storage.Authorization
         /// <summary>
         /// Authorize instances, and returns a list of MesseageBoxInstances with information about read and write rights of each instance.
         /// </summary>
-        public Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(ClaimsPrincipal user, List<Instance> instances);
+        public Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(List<Instance> instances);
 
         /// <summary>
         /// Authorizes a given action on an instance.
         /// </summary>
         /// <returns>true if the user is authorized.</returns>
-        public Task<bool> AuthorizeInstanceAction(ClaimsPrincipal user, Instance instance, string action, string task = null);
+        public Task<bool> AuthorizeInstanceAction(Instance instance, string action, string task = null);
 
         /// <summary>
         /// Authorize instances, and returns a list of instances that the user has the right to read.
         /// </summary>
-        public Task<List<Instance>> AuthorizeInstances(ClaimsPrincipal user, List<Instance> instances);
+        public Task<List<Instance>> AuthorizeInstances(List<Instance> instances);
 
         /// <summary>
         /// Verifies a scope claim based on claimsprincipal.
         /// </summary>
         /// <param name="requiredScope">Requiered scope.</param>
-        /// <param name="user">Claim principal from http context.</param>
         /// <returns>true if the given ClaimsPrincipal or on of its identities have contains the given scope.</returns>
-        public bool ContainsRequiredScope(List<string> requiredScope, ClaimsPrincipal user);
+        public bool UserHasRequiredScope(List<string> requiredScope);
 
         /// <summary>
         /// Sends in a request and get response with result of the request
