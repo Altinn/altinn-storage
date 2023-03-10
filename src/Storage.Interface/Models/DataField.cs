@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Altinn.Platform.Storage.Interface.Models
 {
     /// <summary>
@@ -8,16 +10,19 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// <summary>
         /// Gets or sets the id of the presentation field
         /// </summary>
+        [JsonPropertyName("id")]
         public string Id { get; set; }
 
         /// <summary>
         /// Gets or sets the path of the presentation field
         /// </summary>
+        [JsonPropertyName("path")]
         public string Path { get; set; }
 
         /// <summary>
         /// Gets or sets the data type where the presentation field is defined.
         /// </summary>
+        [JsonPropertyName("dataTypeId")]
         public string DataTypeId { get; set; }
     }
 }
