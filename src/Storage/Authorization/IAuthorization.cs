@@ -16,7 +16,7 @@ namespace Altinn.Platform.Storage.Authorization
         /// <summary>
         /// Authorize instances, and returns a list of MesseageBoxInstances with information about read and write rights of each instance.
         /// </summary>
-        public Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(List<Instance> instances);
+        public Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(List<Instance> instances, bool includeInstantiate);
 
         /// <summary>
         /// Authorizes a given action on an instance.

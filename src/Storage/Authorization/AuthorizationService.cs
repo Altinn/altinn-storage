@@ -49,7 +49,7 @@ namespace Altinn.Platform.Storage.Authorization
         }
 
         /// <inheritdoc/>>
-        public async Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(List<Instance> instances)
+        public async Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(List<Instance> instances, bool includeInstantiate)
         {
             if (instances.Count <= 0)
             {
@@ -58,6 +58,11 @@ namespace Altinn.Platform.Storage.Authorization
 
             List<MessageBoxInstance> authorizedInstanceList = new();
             List<string> actionTypes = new() { "read", "write", "delete" };
+
+            if (includeInstantiate)
+            {
+                actionTypes.Add("instantiate");
+            }
 
             ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
             XacmlJsonRequestRoot xacmlJsonRequest = CreateMultiDecisionRequest(user, instances, actionTypes);
@@ -87,41 +92,29 @@ namespace Altinn.Platform.Storage.Authorization
                     }
                 }
 
-                // Find the instance that has been validated to add it to the list of authorized instances.
                 Instance authorizedInstance = instances.First(i => i.Id == instanceId);
 
-                // Checks if the instance has already been authorized
-                if (authorizedInstanceList.Any(i => i.Id.Equals(authorizedInstance.Id.Split("/")[1])))
+                MessageBoxInstance authorizedMessageBoxInstance = 
+                    authorizedInstanceList.FirstOrDefault(i => i.Id.Equals(authorizedInstance.Id.Split("/")[1]));
+                if (authorizedMessageBoxInstance is null)
                 {
-                    switch (actiontype)
-                    {
-                        case "write":
-                            authorizedInstanceList.Where(i => i.Id.Equals(authorizedInstance.Id.Split("/")[1])).ToList().ForEach(i => i.AuthorizedForWrite = true);
-                            break;
-                        case "delete":
-                            authorizedInstanceList.Where(i => i.Id.Equals(authorizedInstance.Id.Split("/")[1])).ToList().ForEach(i => i.AllowDelete = true);
-                            break;
-                        case "read":
-                            break;
-                    }
+                    authorizedMessageBoxInstance = InstanceHelper.ConvertToMessageBoxInstance(authorizedInstance);
+                    authorizedInstanceList.Add(authorizedMessageBoxInstance);
                 }
-                else
+
+                switch (actiontype)
                 {
-                    MessageBoxInstance messageBoxInstance = InstanceHelper.ConvertToMessageBoxInstance(authorizedInstance);
-
-                    switch (actiontype)
-                    {
-                        case "write":
-                            messageBoxInstance.AuthorizedForWrite = true;
-                            break;
-                        case "delete":
-                            messageBoxInstance.AllowDelete = true;
-                            break;
-                        case "read":
-                            break;
-                    }
-
-                    authorizedInstanceList.Add(messageBoxInstance);
+                    case "write":
+                        authorizedMessageBoxInstance.AuthorizedForWrite = true;
+                        break;
+                    case "delete":
+                        authorizedMessageBoxInstance.AllowDelete = true;
+                        break;
+                    case "instantiate":
+                        authorizedMessageBoxInstance.AllowNewCopy = true;
+                        break;
+                    case "read":
+                        break;
                 }
             }
 

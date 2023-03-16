@@ -172,7 +172,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             _claimsPrincipalProviderMock.Setup(c => c.GetUser()).Returns(CreateUserClaims(3));
 
             // Act
-            List<MessageBoxInstance> actual = await _authzService.AuthorizeMesseageBoxInstances(instances);
+            List<MessageBoxInstance> actual = await _authzService.AuthorizeMesseageBoxInstances(instances, false);
 
             // Assert
             Assert.Equal(expected, actual);
