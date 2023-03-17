@@ -1,0 +1,32 @@
+{
+  "id": "07274f48-8313-4e2d-9788-bbdacef5a54e",
+  "instanceOwner": {
+    "partyId": "1337",
+    "organisationNumber": "725736800"
+  },
+  "appId": "tdd/endring-av-navn",
+  "org": "tdd",
+  "visibleAfter": "2021-03-07T05:16:23.6793863Z",
+  "process": {
+    "started": "2021-04-07T05:16:23.6793863Z",
+    "startEvent": "StartEvent_1",
+    "ended": "2021-04-07T05:16:47.7911165Z",
+    "endEvent": "EndEvent_1"
+  },
+  "status": {
+    "isArchived": true,
+    "archived": "2021-04-07T05:16:47.7911165Z",
+    "isSoftDeleted": true,
+    "softDeleted": "2021-04-08T05:18:18.9095109Z",
+    "isHardDeleted": true,
+    "hardDeleted": "2021-04-08T05:18:54.6821209Z",
+    "readStatus": "Read"
+  },
+  "appOwner": {},
+  "data": [
+  ],
+  "created": "2021-04-07T05:16:23.6793863Z",
+  "createdBy": "1337",
+  "lastChanged": "2021-04-07T05:16:47.7911165Z",
+  "lastChangedBy": "1337"
+}
