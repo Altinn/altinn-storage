@@ -6,7 +6,7 @@
   },
   "appId": "tdd/endring-av-navn",
   "org": "tdd",
-  "visibleAfter": "2021-03-07T05:16:23.6793863Z",
+  "visibleAfter": "2021-04-06T05:16:23.6793863Z",
   "process": {
     "started": "2021-04-07T05:16:23.6793863Z",
     "startEvent": "StartEvent_1",
@@ -16,10 +16,8 @@
   "status": {
     "isArchived": true,
     "archived": "2021-04-07T05:16:47.7911165Z",
-    "isSoftDeleted": true,
-    "softDeleted": "2021-04-08T05:18:18.9095109Z",
-    "isHardDeleted": true,
-    "hardDeleted": "2021-04-08T05:18:54.6821209Z",
+    "isSoftDeleted": false,
+    "isHardDeleted": false,
     "readStatus": "Read"
   },
   "appOwner": {},
