@@ -2,18 +2,18 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Constants;
 using Altinn.Common.PEP.Helpers;
 using Altinn.Common.PEP.Interfaces;
+
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 
 using Microsoft.Extensions.Logging;
-
-using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.Authorization
 {
@@ -23,6 +23,7 @@ namespace Altinn.Platform.Storage.Authorization
     public class AuthorizationService : IAuthorization
     {
         private readonly IPDP _pdp;
+        private readonly IClaimsPrincipalProvider _claimsPrincipalProvider;
         private readonly ILogger _logger;
 
         private const string XacmlResourceTaskId = "urn:altinn:task";
@@ -38,15 +39,17 @@ namespace Altinn.Platform.Storage.Authorization
         /// Initializes a new instance of the <see cref="AuthorizationService"/> class.
         /// </summary>
         /// <param name="pdp">Policy decision point</param>
-        /// <param name="logger">The logger</param>      
-        public AuthorizationService(IPDP pdp, ILogger<IAuthorization> logger)
+        /// <param name="claimsPrincipalProvider">A service providing access to the current <see cref="ClaimsPrincipal"/>.</param>
+        /// <param name="logger">The logger</param>
+        public AuthorizationService(IPDP pdp, IClaimsPrincipalProvider claimsPrincipalProvider, ILogger<IAuthorization> logger)
         {
             _pdp = pdp;
+            _claimsPrincipalProvider = claimsPrincipalProvider;
             _logger = logger;
         }
 
         /// <inheritdoc/>>
-        public async Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(ClaimsPrincipal user, List<Instance> instances)
+        public async Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(List<Instance> instances, bool includeInstantiate)
         {
             if (instances.Count <= 0)
             {
@@ -56,9 +59,15 @@ namespace Altinn.Platform.Storage.Authorization
             List<MessageBoxInstance> authorizedInstanceList = new();
             List<string> actionTypes = new() { "read", "write", "delete" };
 
+            if (includeInstantiate)
+            {
+                actionTypes.Add("instantiate");
+            }
+
+            ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
             XacmlJsonRequestRoot xacmlJsonRequest = CreateMultiDecisionRequest(user, instances, actionTypes);
 
-            _logger.LogInformation("// AuthorizationHelper // AuthorizeMsgBoxInstances // xacmlJsonRequest: {request}", JsonConvert.SerializeObject(xacmlJsonRequest));
+            _logger.LogInformation("// AuthorizationHelper // AuthorizeMsgBoxInstances // xacmlJsonRequest: {request}", JsonSerializer.Serialize(xacmlJsonRequest));
             XacmlJsonResponse response = await _pdp.GetDecisionForRequest(xacmlJsonRequest);
 
             foreach (XacmlJsonResult result in response.Response.Where(result => DecisionHelper.ValidateDecisionResult(result, user)))
@@ -83,41 +92,29 @@ namespace Altinn.Platform.Storage.Authorization
                     }
                 }
 
-                // Find the instance that has been validated to add it to the list of authorized instances.
                 Instance authorizedInstance = instances.First(i => i.Id == instanceId);
 
-                // Checks if the instance has already been authorized
-                if (authorizedInstanceList.Any(i => i.Id.Equals(authorizedInstance.Id.Split("/")[1])))
+                MessageBoxInstance authorizedMessageBoxInstance = 
+                    authorizedInstanceList.FirstOrDefault(i => i.Id.Equals(authorizedInstance.Id.Split("/")[1]));
+                if (authorizedMessageBoxInstance is null)
                 {
-                    switch (actiontype)
-                    {
-                        case "write":
-                            authorizedInstanceList.Where(i => i.Id.Equals(authorizedInstance.Id.Split("/")[1])).ToList().ForEach(i => i.AuthorizedForWrite = true);
-                            break;
-                        case "delete":
-                            authorizedInstanceList.Where(i => i.Id.Equals(authorizedInstance.Id.Split("/")[1])).ToList().ForEach(i => i.AllowDelete = true);
-                            break;
-                        case "read":
-                            break;
-                    }
+                    authorizedMessageBoxInstance = InstanceHelper.ConvertToMessageBoxInstance(authorizedInstance);
+                    authorizedInstanceList.Add(authorizedMessageBoxInstance);
                 }
-                else
+
+                switch (actiontype)
                 {
-                    MessageBoxInstance messageBoxInstance = InstanceHelper.ConvertToMessageBoxInstance(authorizedInstance);
-
-                    switch (actiontype)
-                    {
-                        case "write":
-                            messageBoxInstance.AuthorizedForWrite = true;
-                            break;
-                        case "delete":
-                            messageBoxInstance.AllowDelete = true;
-                            break;
-                        case "read":
-                            break;
-                    }
-
-                    authorizedInstanceList.Add(messageBoxInstance);
+                    case "write":
+                        authorizedMessageBoxInstance.AuthorizedForWrite = true;
+                        break;
+                    case "delete":
+                        authorizedMessageBoxInstance.AllowDelete = true;
+                        break;
+                    case "instantiate":
+                        authorizedMessageBoxInstance.AllowNewCopy = true;
+                        break;
+                    case "read":
+                        break;
                 }
             }
 
@@ -125,13 +122,14 @@ namespace Altinn.Platform.Storage.Authorization
         }
 
         /// <inheritdoc/>>
-        public async Task<bool> AuthorizeInstanceAction(ClaimsPrincipal user, Instance instance, string action, string task = null)
+        public async Task<bool> AuthorizeInstanceAction(Instance instance, string action, string task = null)
         {
             string org = instance.Org;
             string app = instance.AppId.Split('/')[1];
             int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
             XacmlJsonRequestRoot request;
 
+            ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
             if (instance.Id == null)
             {
                 request = DecisionHelper.CreateDecisionRequest(org, app, user, action, instanceOwnerPartyId, null);
@@ -146,7 +144,7 @@ namespace Altinn.Platform.Storage.Authorization
 
             if (response?.Response == null)
             {
-                _logger.LogInformation("// Authorization Helper // Authorize instance action failed for request: {request}.", JsonConvert.SerializeObject(request));
+                _logger.LogInformation("// Authorization Helper // Authorize instance action failed for request: {request}.", JsonSerializer.Serialize(request));
                 return false;
             }
 
@@ -155,7 +153,7 @@ namespace Altinn.Platform.Storage.Authorization
         }
 
         /// <inheritdoc/>>
-        public async Task<List<Instance>> AuthorizeInstances(ClaimsPrincipal user, List<Instance> instances)
+        public async Task<List<Instance>> AuthorizeInstances(List<Instance> instances)
         {
             if (instances.Count <= 0)
             {
@@ -165,6 +163,7 @@ namespace Altinn.Platform.Storage.Authorization
             List<Instance> authorizedInstanceList = new();
             List<string> actionTypes = new() { "read" };
 
+            ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
             XacmlJsonRequestRoot xacmlJsonRequest = CreateMultiDecisionRequest(user, instances, actionTypes);
             XacmlJsonResponse response = await _pdp.GetDecisionForRequest(xacmlJsonRequest);
 
@@ -189,8 +188,9 @@ namespace Altinn.Platform.Storage.Authorization
         }
 
         /// <inheritdoc/>>
-        public bool ContainsRequiredScope(List<string> requiredScope, ClaimsPrincipal user)
+        public bool UserHasRequiredScope(List<string> requiredScope)
         {
+            ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
             string contextScope = user.Identities?
                .FirstOrDefault(i => i.AuthenticationType != null && i.AuthenticationType.Equals("AuthenticationTypes.Federation"))
                ?.Claims
@@ -238,18 +238,6 @@ namespace Altinn.Platform.Storage.Authorization
             return jsonRequest;
         }
 
-        private static (string InstanceId, string InstanceGuid, string Task, string InstanceOwnerPartyId, string Org, string App) GetInstanceProperties(Instance instance)
-        {
-            string instanceId = instance.Id.Contains('/') ? instance.Id : null;
-            string instanceGuid = instance.Id.Contains('/') ? instance.Id.Split("/")[1] : instance.Id;
-            string task = instance.Process?.CurrentTask?.ElementId;
-            string instanceOwnerPartyId = instance.InstanceOwner.PartyId;
-            string org = instance.Org;
-            string app = instance.AppId.Split("/")[1];
-
-            return (instanceId, instanceGuid, task, instanceOwnerPartyId, org, app);
-        }
-
         /// <summary>
         /// Replaces Resource attributes with data from instance. Add all relevant values so PDP have it all
         /// </summary>
@@ -284,6 +272,18 @@ namespace Altinn.Platform.Storage.Authorization
             {
                 resourceCategory
             };
+        }
+
+        private static (string InstanceId, string InstanceGuid, string Task, string InstanceOwnerPartyId, string Org, string App) GetInstanceProperties(Instance instance)
+        {
+            string instanceId = instance.Id.Contains('/') ? instance.Id : null;
+            string instanceGuid = instance.Id.Contains('/') ? instance.Id.Split("/")[1] : instance.Id;
+            string task = instance.Process?.CurrentTask?.ElementId;
+            string instanceOwnerPartyId = instance.InstanceOwner.PartyId;
+            string org = instance.Org;
+            string app = instance.AppId.Split("/")[1];
+
+            return (instanceId, instanceGuid, task, instanceOwnerPartyId, org, app);
         }
 
         private static XacmlJsonCategory CreateMultipleSubjectCategory(IEnumerable<Claim> claims)

@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
@@ -15,7 +14,6 @@ using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 
 namespace Altinn.Platform.Storage.Controllers
@@ -220,9 +218,15 @@ namespace Altinn.Platform.Storage.Controllers
                 return NotFound($"Could not find instance {instanceOwnerPartyId}/{instanceGuid}");
             }
 
+            bool includeInstantiate = false;
+            if (instance.Status.IsArchived) 
+            {
+                var application = await _applicationRepository.FindOne(instance.AppId, instance.AppId.Split("/")[0]);
+                includeInstantiate = application?.CopyInstanceSettings?.Enabled == true;
+            }
+
             List<MessageBoxInstance> authorizedInstanceList =
-                await _authorizationService.AuthorizeMesseageBoxInstances(
-                    HttpContext.User, new List<Instance> { instance });
+                await _authorizationService.AuthorizeMesseageBoxInstances(new List<Instance> { instance }, includeInstantiate);
             if (authorizedInstanceList.Count <= 0)
             {
                 return Forbid();
@@ -557,8 +561,8 @@ namespace Altinn.Platform.Storage.Controllers
                 }
             });
 
-            List<MessageBoxInstance> authorizedInstances =
-                    await _authorizationService.AuthorizeMesseageBoxInstances(HttpContext.User, allInstances);
+            List<MessageBoxInstance> authorizedInstances = 
+                await _authorizationService.AuthorizeMesseageBoxInstances(allInstances, false);
 
             if (!authorizedInstances.Any())
             {

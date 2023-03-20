@@ -34,12 +34,14 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         private readonly IPDP _pdpMockSI;
         private readonly Mock<IPDP> _pdpSimpleMock;
         private readonly Mock<IInstanceRepository> _instanceRepository = new Mock<IInstanceRepository>();
+        private readonly Mock<IClaimsPrincipalProvider> _claimsPrincipalProviderMock = new Mock<IClaimsPrincipalProvider>();
 
         public AuthorizationServiceTest()
         {
             _pdpSimpleMock = new Mock<IPDP>();
             _pdpMockSI = new PepWithPDPAuthorizationMockSI(_instanceRepository.Object);
-            _authzService = new AuthorizationService(_pdpMockSI, Mock.Of<ILogger<IAuthorization>>());
+            _authzService = new AuthorizationService(
+                _pdpMockSI, _claimsPrincipalProviderMock.Object, Mock.Of<ILogger<IAuthorization>>());
         }
 
         [Fact]
@@ -59,15 +61,17 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             _pdpSimpleMock.Setup(pdp => pdp.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
                 .ReturnsAsync(res);
 
-            var sut = new AuthorizationService(_pdpSimpleMock.Object, Mock.Of<ILogger<IAuthorization>>());
+            var sut = new AuthorizationService(
+                _pdpSimpleMock.Object, _claimsPrincipalProviderMock.Object, Mock.Of<ILogger<IAuthorization>>());
             await sut.GetDecisionForRequest(new XacmlJsonRequestRoot());
 
             _pdpSimpleMock.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Once());
         }
 
         [Fact]
-        public void ContainsRequiredScope_CaseIgnored_ReturnsTrue()
+        public void UserHasRequiredScope_CaseIgnored_ReturnsTrue()
         {
+            // Arrange
             string reqiured = "altinn:serviceowner/instances.read";
 
             var claims = new List<Claim>();
@@ -76,15 +80,19 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             var identity = new ClaimsIdentity("AuthenticationTypes.Federation");
             identity.AddClaims(claims);
             var principal = new ClaimsPrincipal(identity);
+            _claimsPrincipalProviderMock.Setup(c => c.GetUser()).Returns(principal);
+            
+            // Act
+            var actual = _authzService.UserHasRequiredScope(new List<string> { reqiured });
 
-            var actual = _authzService.ContainsRequiredScope(new List<string> { reqiured }, principal);
-
+            // Assert
             Assert.True(actual);
         }
 
         [Fact]
-        public void ContainsRequiredScope_MissingRequiredScope_ReturnsFalse()
+        public void UserHasRequiredScope_MissingRequiredScope_ReturnsFalse()
         {
+            // Arrange
             string reqiured = "altinn:serviceowner/instances.read";
 
             var claims = new List<Claim>();
@@ -99,8 +107,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             identity.AddClaims(claims);
             var principal = new ClaimsPrincipal(identity);
 
-            var actual = _authzService.ContainsRequiredScope(new List<string> { reqiured }, principal);
+            _claimsPrincipalProviderMock.Setup(c => c.GetUser()).Returns(principal);
 
+            // Act
+            var actual = _authzService.UserHasRequiredScope(new List<string> { reqiured });
+
+            // Assert
             Assert.False(actual);
         }
 
@@ -157,9 +169,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             // Arrange
             List<MessageBoxInstance> expected = new List<MessageBoxInstance>();
             List<Instance> instances = new List<Instance>();
+            _claimsPrincipalProviderMock.Setup(c => c.GetUser()).Returns(CreateUserClaims(3));
 
             // Act
-            List<MessageBoxInstance> actual = await _authzService.AuthorizeMesseageBoxInstances(CreateUserClaims(3), instances);
+            List<MessageBoxInstance> actual = await _authzService.AuthorizeMesseageBoxInstances(instances, false);
 
             // Assert
             Assert.Equal(expected, actual);

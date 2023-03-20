@@ -137,6 +137,29 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal(HttpStatusCode.Forbidden, responseMessage.StatusCode);
         }
 
+        [Fact]
+        public async void GetMessageBoxInstance_ArchivedInstanceCanBeCopied_UserHaveRights_InstanceIsSuccessfullyMappedAndReturned()
+        {
+            // Arrange
+            string instanceId = "1337/07274f48-8313-4e2d-9788-bbdacef5a54e";
+
+            HttpClient client = GetTestClient();
+            client.DefaultRequestHeaders.Authorization = 
+                new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1337, 3));
+
+            // Act
+            HttpResponseMessage responseMessage = 
+                await client.GetAsync($"{BasePath}/sbl/instances/{instanceId}?language=en");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
+
+            string responseContent = await responseMessage.Content.ReadAsStringAsync();
+            MessageBoxInstance actual = JsonConvert.DeserializeObject<MessageBoxInstance>(responseContent);
+
+            Assert.True(actual.AllowNewCopy);
+        }
+
         /// <summary>
         /// Scenario:
         ///   Restore a soft deleted instance in storage.
