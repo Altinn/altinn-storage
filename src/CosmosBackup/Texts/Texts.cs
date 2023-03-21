@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Microsoft.Azure.Documents;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -24,11 +23,11 @@ namespace Altinn.Platform.Storage.CosmosBackup
         public static async Task TextsCollectionBackup(
             [CosmosDBTrigger(
             databaseName: "Storage",
-            collectionName: "texts",
-            ConnectionStringSetting = "DBConnection",
-            LeaseCollectionName = "leases",
-            LeaseCollectionPrefix = "texts",
-            CreateLeaseCollectionIfNotExists = true)]IReadOnlyList<Document> input,
+            containerName: "texts",
+            Connection = "DBConnection",
+            LeaseContainerName = "leases",
+            LeaseContainerPrefix = "texts",
+            CreateLeaseContainerIfNotExists = true)]IReadOnlyList<JObject> input,
             ExecutionContext context,
             ILogger log)
         {
@@ -37,13 +36,12 @@ namespace Altinn.Platform.Storage.CosmosBackup
                 IConfiguration config = ConfigHelper.LoadConfig(context);
                 string blobName = string.Empty;
 
-                foreach (Document item in input)
+                foreach (JObject item in input)
                 {
                     try
                     {
-                        dynamic data = JObject.Parse(item.ToString());
-                        string id = item.Id;
-                        string partitionKey = data.org;
+                        string id = (string)item["id"];
+                        string partitionKey = (string)item["org"];
                         blobName = $"{partitionKey}/{id}";
 
                         await BlobService.SaveBlob(config, $"texts/{blobName}", item.ToString());

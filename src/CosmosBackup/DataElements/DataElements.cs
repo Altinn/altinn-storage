@@ -24,11 +24,11 @@ namespace Altinn.Platform.Storage.CosmosBackup
         public static async Task DataElementsCollectionBackup(
             [CosmosDBTrigger(
             databaseName: "Storage",
-            collectionName: "dataElements",
-            ConnectionStringSetting = "DBConnection",
-            LeaseCollectionName = "leases",
-            LeaseCollectionPrefix = "dataElements",
-            CreateLeaseCollectionIfNotExists = true)]IReadOnlyList<Document> input,
+            containerName: "dataElements",
+            Connection = "DBConnection",
+            LeaseContainerName = "leases",
+            LeaseContainerPrefix = "dataElements",
+            CreateLeaseContainerIfNotExists = true)]IReadOnlyList<JObject> input,
             ExecutionContext context,
             ILogger log)
         {
@@ -37,13 +37,12 @@ namespace Altinn.Platform.Storage.CosmosBackup
                 IConfiguration config = ConfigHelper.LoadConfig(context);
                 string blobName = string.Empty;
 
-                foreach (Document item in input)
+                foreach (JObject item in input)
                 {
                     try
                     {
-                        dynamic data = JObject.Parse(item.ToString());
-                        string id = item.Id;
-                        string partitionKey = data.instanceGuid;
+                        string id = (string)item["id"];
+                        string partitionKey = (string)item["instanceGuid"];
                         blobName = $"{partitionKey}/{id}";
 
                         await BlobService.SaveBlob(config, $"dataElements/{blobName}", item.ToString());
