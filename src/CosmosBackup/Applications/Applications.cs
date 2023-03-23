@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Threading.Tasks;
-using Microsoft.Azure.Documents;
+
 using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+
 using Newtonsoft.Json.Linq;
 
 namespace Altinn.Platform.Storage.CosmosBackup
@@ -22,28 +24,27 @@ namespace Altinn.Platform.Storage.CosmosBackup
         /// <param name="log">Logger.</param>
         [FunctionName("ApplicationsCollectionBackup")]
         public static async Task ApplicationsCollectionBackup(
-            [CosmosDBTrigger(
-            databaseName: "Storage",
-            collectionName: "applications",
-            ConnectionStringSetting = "DBConnection",
-            LeaseCollectionName = "leases",
-            LeaseCollectionPrefix = "applications",
-            CreateLeaseCollectionIfNotExists = true)]IReadOnlyList<Document> input,
-            ExecutionContext context,
-            ILogger log)
+                [CosmosDBTrigger(
+                databaseName: "Storage",
+                containerName: "applications",
+                Connection = "DBConnection",
+                LeaseContainerName = "leases",
+                LeaseContainerPrefix = "applications",
+                CreateLeaseContainerIfNotExists = true)]IReadOnlyList<JObject> input,
+                ExecutionContext context,
+                ILogger log)
         {
             if (input != null && input.Count > 0)
             {
                 IConfiguration config = ConfigHelper.LoadConfig(context);
                 string blobName = string.Empty;
 
-                foreach (Document item in input)
+                foreach (JObject item in input)
                 {
                     try
                     {
-                        dynamic data = JObject.Parse(item.ToString());
-                        string id = item.Id;
-                        string partitionKey = data.org;
+                        string id = (string)item["id"];
+                        string partitionKey = (string)item["org"];
                         blobName = $"{partitionKey}/{id}";
 
                         await BlobService.SaveBlob(config, $"applications/{blobName}", item.ToString());
