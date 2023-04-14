@@ -244,7 +244,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     CosmosClientOptions options = new()
     {
         ////ConnectionMode = ConnectionMode.Direct,
-        ////ConsistencyLevel = ConsistencyLevel.Strong      
+        ConsistencyLevel = ConsistencyLevel.Strong,
         ConnectionMode = ConnectionMode.Gateway
         ////GatewayModeMaxConnectionLimit = 100
     };
