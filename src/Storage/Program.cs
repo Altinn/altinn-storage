@@ -243,8 +243,10 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     AzureCosmosSettings cosmosSettings = config.GetSection("AzureCosmosSettings").Get<AzureCosmosSettings>();
     CosmosClientOptions options = new()
     {
-        ConnectionMode = ConnectionMode.Direct,
-        GatewayModeMaxConnectionLimit = 100
+        ////ConnectionMode = ConnectionMode.Direct,
+        ////ConsistencyLevel = ConsistencyLevel.Strong      
+        ConnectionMode = ConnectionMode.Gateway
+        ////GatewayModeMaxConnectionLimit = 100
     };
     CosmosClient cosmosClient = new(cosmosSettings.EndpointUri, cosmosSettings.PrimaryKey, options);
     services.AddSingleton(cosmosClient);
