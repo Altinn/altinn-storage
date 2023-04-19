@@ -105,5 +105,17 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// </summary>
         [JsonProperty(PropertyName = "validationErrorOnPendingFileScan")]
         public bool ValidationErrorOnPendingFileScan { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether file uploaded to this data type should be analyzed for to extract metadata about the file
+        /// which in turn can be used to validate against. Examples are is the mime type what the extensions claims the file to be? Are the with/height
+        /// of an image good/high enough to provide the intended quality? Is the PDF file of the correct version with reagards to security etc. This setting
+        /// only enables registered file scanners to run. This is not on by default since it comes with a cost of actually reading the binary data. Also any
+        /// scanners needs to be registed in the apps service container to be known.
+        /// Default is <c>false</c>.
+        /// </summary>
+        [JsonProperty(PropertyName = "enableFileAnalyze")]
+        public bool EnableFileAnalyze { get; set; }
+
     }
 }
