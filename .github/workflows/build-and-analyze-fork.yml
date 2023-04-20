@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [ main ]
     types: [opened, synchronize, reopened, ready_for_review]
-jobs:  
+jobs:
   test:
     if: github.actor == 'dependabot[bot]' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true)
     name: Build and Test
@@ -17,6 +17,7 @@ jobs:
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: |
+            7.0.x
             6.0.x
       - uses: actions/checkout@v3
         with:
