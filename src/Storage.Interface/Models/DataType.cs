@@ -116,6 +116,5 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// </summary>
         [JsonProperty(PropertyName = "enableFileAnalysis")]
         public bool EnableFileAnalyze { get; set; }
-
     }
 }
