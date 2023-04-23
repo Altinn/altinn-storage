@@ -107,14 +107,11 @@ namespace Altinn.Platform.Storage.Interface.Models
         public bool ValidationErrorOnPendingFileScan { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether file uploaded to this data type should be analyzed for to extract metadata about the file
-        /// which in turn can be used to validate against. Examples are is the mime type what the extensions claims the file to be? Are the with/height
-        /// of an image good/high enough to provide the intended quality? Is the PDF file of the correct version with reagards to security etc. This setting
-        /// only enables registered file scanners to run. This is not on by default since it comes with a cost of actually reading the binary data. Also any
-        /// scanners needs to be registed in the apps service container to be known.
-        /// Default is <c>false</c>.
+        /// Gets or sets a list of enabled file analysers this data type should be analysed against to extract metadata about the file.
+        /// This metadata can in turn either be used to validate against or simply to extract metadata to add to the datamodel.
+        /// The id's provided should match the id's registered with IFileAnalyser implementations registered in the application.
         /// </summary>
-        [JsonProperty(PropertyName = "enableFileAnalysis")]
-        public bool EnableFileAnalyze { get; set; }
+        [JsonProperty(PropertyName = "enabledFileAnalysers")]
+        public List<string> EnabledFileAnalysers { get; set; }
     }
 }
