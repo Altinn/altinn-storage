@@ -112,6 +112,6 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// The id's provided should match the id's registered with IFileAnalyser implementations registered in the application.
         /// </summary>
         [JsonProperty(PropertyName = "enabledFileAnalysers")]
-        public List<string> EnabledFileAnalysers { get; set; }
+        public List<string> EnabledFileAnalysers { get; set; } = new List<string>();
     }
 }
