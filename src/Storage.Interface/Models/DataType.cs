@@ -113,5 +113,11 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// </summary>
         [JsonProperty(PropertyName = "enabledFileAnalysers")]
         public List<string> EnabledFileAnalysers { get; set; } = new List<string>();
+
+        /// <summary>
+        /// Gets or sets a list of enabled file validators this data type should be validated against.
+        /// </summary>
+        [JsonProperty(PropertyName = "enabledFileValidators")]
+        public List<string> EnabledFileValidators { get; set; } = new List<string>();
     }
 }
