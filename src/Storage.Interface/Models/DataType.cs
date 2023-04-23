@@ -114,7 +114,7 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// scanners needs to be registed in the apps service container to be known.
         /// Default is <c>false</c>.
         /// </summary>
-        [JsonProperty(PropertyName = "enableFileAnalyze")]
+        [JsonProperty(PropertyName = "enableFileAnalysis")]
         public bool EnableFileAnalyze { get; set; }
 
     }
