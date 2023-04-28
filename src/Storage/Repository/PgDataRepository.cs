@@ -25,7 +25,7 @@ namespace Altinn.Platform.Storage.Repository
     /// </summary>
     public class PgDataRepository : IDataRepository, IHostedService
     {
-        private readonly string _insertDataElementSql = "insert into storage.dataelements(instance, alternateId, element) VALUES ($1, $2, $3);";
+        private readonly string _insertSql = "insert into storage.dataelements(instance, alternateId, element) VALUES ($1, $2, $3);";
         private readonly string _readAllSql = "select instance, element from storage.dataelements where instance = $1;";
         private readonly string _readAllForMultipleSql = "select instance, element from storage.dataelements where instance = any ($1);";
         private readonly string _readSql = "select instance, element from storage.dataelements where alternateId = $1;";
@@ -60,11 +60,11 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<DataElement> Create(DataElement dataElement)
         {
-            dataElement.Id = Guid.NewGuid().ToString();
+            dataElement.Id ??= Guid.NewGuid().ToString();
             await using NpgsqlConnection conn = new(_connectionString);
             await conn.OpenAsync();
 
-            await using NpgsqlCommand pgcom = new(_insertDataElementSql, conn)
+            await using NpgsqlCommand pgcom = new(_insertSql, conn)
             {
                 Parameters =
                 {
@@ -244,6 +244,7 @@ namespace Altinn.Platform.Storage.Repository
             return Task.CompletedTask;
         }
 
+        /// <inheritdoc/>
         Task IHostedService.StopAsync(CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
