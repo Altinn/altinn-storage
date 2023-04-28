@@ -1,19 +1,17 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Data;
 using System.Linq;
-using System.Net;
-using System;
+using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Models;
-using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using NpgsqlTypes;
-using System.Text.Json;
-using System.Data;
-using System.Threading;
 
 namespace Altinn.Platform.Storage.Repository
 {
@@ -52,6 +50,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<InstanceEvent> InsertInstanceEvent(InstanceEvent instanceEvent)
         {
+            Console.WriteLine("Postgres ie create");
             instanceEvent.Id ??= Guid.NewGuid();
             await using NpgsqlConnection conn = new(_connectionString);
             await conn.OpenAsync();

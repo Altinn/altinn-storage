@@ -60,6 +60,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<DataElement> Create(DataElement dataElement)
         {
+            Console.WriteLine("Postgres create");
             dataElement.Id ??= Guid.NewGuid().ToString();
             await using NpgsqlConnection conn = new(_connectionString);
             await conn.OpenAsync();
