@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
@@ -17,18 +18,16 @@ namespace Altinn.Platform.Storage.Repository
 {
     public class PgInstanceEventRepository: IInstanceEventRepository, IHostedService
     {
-        private readonly string _insertSql = "insert into storage.instanceEvents(instance, alternateId, event) VALUES ($1, $2, $3);";
-        private readonly string _readAllSql = "select instance, event from storage.instanceEvents where instance = $1;";
-        private readonly string _filterSql = "select instance, event from storage.instanceEvents" +
-            " where instance = $1 and (event->>'Created')::timestamp >= $2 and (event->>'Created')::timestamp <= $3 and ($4 is null or event->>'EventType' ilike any ($4));";
-
         private readonly string _readSql = "select instance, event from storage.instanceEvents where alternateId = $1;";
         private readonly string _deleteSql = "delete from storage.instanceEvents where instance = $1;";
-        private readonly string _updateSql = "update storage.instanceEvents set event = $2 where alternateId = $1;";
+        private readonly string _insertSql = "insert into storage.instanceEvents(instance, alternateId, event) VALUES ($1, $2, $3);";
+        private readonly string _filterSql = "select instance, event from storage.instanceEvents" +
+            " where instance = $1 and (event->>'Created')::timestamp >= $2 and (event->>'Created')::timestamp <= $3 and ($4 is null or event->>'EventType' ilike any ($4));";
 
         private readonly string _connectionString;
         private readonly AzureStorageConfiguration _storageConfiguration;
         private readonly ILogger<PgDataRepository> _logger;
+        private readonly JsonSerializerOptions _options = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PgInstanceEventRepository"/> class.
@@ -50,7 +49,6 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<InstanceEvent> InsertInstanceEvent(InstanceEvent instanceEvent)
         {
-            Console.WriteLine("Postgres ie create");
             instanceEvent.Id ??= Guid.NewGuid();
             await using NpgsqlConnection conn = new(_connectionString);
             await conn.OpenAsync();
@@ -61,7 +59,7 @@ namespace Altinn.Platform.Storage.Repository
                 {
                     new() { Value = new Guid(instanceEvent.InstanceId.Split('/').Last()), NpgsqlDbType = NpgsqlDbType.Uuid },
                     new() { Value = instanceEvent.Id, NpgsqlDbType = NpgsqlDbType.Uuid },
-                    new() { Value = JsonSerializer.Serialize(instanceEvent), NpgsqlDbType = NpgsqlDbType.Jsonb },
+                    new() { Value = JsonSerializer.Serialize(instanceEvent, _options), NpgsqlDbType = NpgsqlDbType.Jsonb },
                 },
             };
             await pgcom.ExecuteNonQueryAsync();

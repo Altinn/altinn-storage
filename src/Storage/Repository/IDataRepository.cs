@@ -56,8 +56,9 @@ namespace Altinn.Platform.Storage.Repository
         /// Creates a dataElement into the repository
         /// </summary>
         /// <param name="dataElement">the data element to insert</param>
+        /// <param name="instanceInternalId">the internal id of the parent instance</param>
         /// <returns>the data element with updated id</returns>
-        Task<DataElement> Create(DataElement dataElement);
+        Task<DataElement> Create(DataElement dataElement, long instanceInternalId = 0);
 
         /// <summary>
         /// Reads a data element metadata object. Not the actual data.

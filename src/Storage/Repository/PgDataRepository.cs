@@ -4,6 +4,7 @@ using System.Data;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
@@ -25,10 +26,10 @@ namespace Altinn.Platform.Storage.Repository
     /// </summary>
     public class PgDataRepository : IDataRepository, IHostedService
     {
-        private readonly string _insertSql = "insert into storage.dataelements(instance, alternateId, element) VALUES ($1, $2, $3);";
-        private readonly string _readAllSql = "select instance, element from storage.dataelements where instance = $1;";
-        private readonly string _readAllForMultipleSql = "select instance, element from storage.dataelements where instance = any ($1);";
-        private readonly string _readSql = "select instance, element from storage.dataelements where alternateId = $1;";
+        private readonly string _insertSql = "insert into storage.dataelements(instanceInternalId, instanceGuid, alternateId, element) VALUES ($1, $2, $3, $4);";
+        private readonly string _readAllSql = "select element from storage.dataelements where instanceGuid = $1;";
+        private readonly string _readAllForMultipleSql = "select element from storage.dataelements where instanceGuid = any ($1);";
+        private readonly string _readSql = "select element from storage.dataelements where alternateId = $1;";
         private readonly string _deleteSql = "delete from storage.dataelements where alternateId = $1;";
         private readonly string _updateSql = "update storage.dataelements set element = $2 where alternateId = $1;";
 
@@ -36,6 +37,7 @@ namespace Altinn.Platform.Storage.Repository
         private readonly AzureStorageConfiguration _storageConfiguration;
         private readonly ISasTokenProvider _sasTokenProvider;
         private readonly ILogger<PgDataRepository> _logger;
+        private readonly JsonSerializerOptions _options = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PgDataRepository"/> class.
@@ -58,9 +60,8 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<DataElement> Create(DataElement dataElement)
+        public async Task<DataElement> Create(DataElement dataElement, long instanceInternalId)
         {
-            Console.WriteLine("Postgres create");
             dataElement.Id ??= Guid.NewGuid().ToString();
             await using NpgsqlConnection conn = new(_connectionString);
             await conn.OpenAsync();
@@ -69,9 +70,10 @@ namespace Altinn.Platform.Storage.Repository
             {
                 Parameters =
                 {
+                    new() { Value = instanceInternalId, NpgsqlDbType = NpgsqlDbType.Bigint },
                     new() { Value = new Guid(dataElement.InstanceGuid), NpgsqlDbType = NpgsqlDbType.Uuid },
                     new() { Value = new Guid(dataElement.Id), NpgsqlDbType = NpgsqlDbType.Uuid },
-                    new() { Value = JsonSerializer.Serialize(dataElement), NpgsqlDbType = NpgsqlDbType.Jsonb },
+                    new() { Value = JsonSerializer.Serialize(dataElement, _options), NpgsqlDbType = NpgsqlDbType.Jsonb },
                 },
             };
             await pgcom.ExecuteNonQueryAsync();
@@ -224,7 +226,7 @@ namespace Altinn.Platform.Storage.Repository
                 return element;
             }
 
-            string elementString = JsonSerializer.Serialize(elementDict);
+            string elementString = JsonSerializer.Serialize(elementDict, _options);
             NpgsqlCommand pgcom = new(_updateSql, conn)
             {
                 Parameters =

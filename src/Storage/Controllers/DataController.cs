@@ -85,7 +85,7 @@ namespace Altinn.Platform.Storage.Controllers
         [Produces("application/json")]
         public async Task<ActionResult<DataElement>> Delete(int instanceOwnerPartyId, Guid instanceGuid, Guid dataGuid, [FromQuery] bool delay)
         {
-            (Instance instance, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
+            (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
             if (instance == null)
             {
                 return instanceError;
@@ -151,7 +151,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest("Missing parameter value: instanceOwnerPartyId can not be empty");
             }
 
-            (Instance instance, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
+            (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
             if (instance == null)
             {
                 return instanceError;
@@ -210,7 +210,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest("Missing parameter value: instanceOwnerPartyId can not be empty");
             }
 
-            (Instance instance, ActionResult errorResult) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
+            (Instance instance, _, ActionResult errorResult) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
             if (instance == null)
             {
                 return errorResult;
@@ -255,7 +255,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest("Missing parameter values: instanceId, elementType or attached file content cannot be null");
             }
 
-            (Instance instance, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
+            (Instance instance, long internalId, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
             if (instance == null)
             {
                 return instanceError;
@@ -294,7 +294,7 @@ namespace Altinn.Platform.Storage.Controllers
                 newData.IsRead = false;
             }
 
-            DataElement dataElement = await _dataRepository.Create(newData);
+            DataElement dataElement = await _dataRepository.Create(newData, internalId);
             dataElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
 
             await _dataService.StartFileScan(instance, dataTypeDefinition, dataElement, blobTimestamp, CancellationToken.None);
@@ -328,7 +328,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest("Missing parameter values: instanceId, datafile or attached file content cannot be empty");
             }
 
-            (Instance instance, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
+            (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
             if (instance == null)
             {
                 return instanceError;
@@ -547,16 +547,16 @@ namespace Altinn.Platform.Storage.Controllers
             return (application, null);
         }
 
-        private async Task<(Instance Instance, ActionResult ErrorMessage)> GetInstanceAsync(Guid instanceGuid, int instanceOwnerPartyId)
+        private async Task<(Instance Instance, long InternalId, ActionResult ErrorMessage)> GetInstanceAsync(Guid instanceGuid, int instanceOwnerPartyId)
         {
-            Instance instance = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, long internalId) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
 
             if (instance == null)
             {
-                return (null, NotFound($"Unable to find any instance with id: {instanceOwnerPartyId}/{instanceGuid}."));
+                return (null, 0, NotFound($"Unable to find any instance with id: {instanceOwnerPartyId}/{instanceGuid}."));
             }
 
-            return (instance, null);
+            return (instance, internalId, null);
         }
 
         private async Task<(DataElement DataElement, ActionResult ErrorMessage)> GetDataElementAsync(Guid instanceGuid, Guid dataGuid)

@@ -4,6 +4,7 @@ using System.Data;
 using System.Linq;
 using System.Net;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
@@ -20,21 +21,18 @@ namespace Altinn.Platform.Storage.Repository
 {
     public class PgInstanceRepository: IInstanceRepository, IHostedService
     {
+        private static readonly string _deleteSql = "delete from storage.instances where alternateId = $1;";
         private static readonly string _insertSql = "insert into storage.instances(partyId, alternateId, instance) VALUES ($1, $2, $3)";
         private static readonly string _upsertSql = _insertSql + " on conflict(alternateId) do update set instance = $3";
-        private static readonly string _readAllSql = "select instance, element from storage.instances where instance = $1;";
-        private static readonly string _readAllForMultipleSql = "select instance, element from storage.instances where instance = any ($1);";
-        private static readonly string _readSql = $"select i.instance, d.element " +
-            $"from storage.instances i left join storage.dataelements d on i.alternateId = d.instance " +
+        private static readonly string _readSql = $"select i.id, i.instance, d.element " +
+            $"from storage.instances i left join storage.dataelements d on i.id = d.instanceInternalId " +
             $"where i.alternateId = $1 " +
             $"order by d.id";
-
-        private static readonly string _deleteSql = "delete from storage.instances where alternateId = $1;";
-        private static readonly string _updateSql = "update storage.instances set element = $2 where alternateId = $1;";
 
         private readonly string _connectionString;
         private readonly AzureStorageConfiguration _storageConfiguration;
         private readonly ILogger<PgDataRepository> _logger;
+        private readonly JsonSerializerOptions _options = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PgInstanceRepository"/> class.
@@ -146,11 +144,12 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<Instance> GetOne(int instanceOwnerPartyId, Guid instanceGuid)
+        public async Task<(Instance Instance, long InternalId)> GetOne(int instanceOwnerPartyId, Guid instanceGuid)
         {
             Instance instance = null;
             await using NpgsqlConnection conn = new(_connectionString);
             await conn.OpenAsync();
+            long internalId = 0;
 
             await using NpgsqlCommand pgcom = new(_readSql, conn)
             {
@@ -168,6 +167,7 @@ namespace Altinn.Platform.Storage.Repository
                     {
                         instanceCreated = true;
                         instance = JsonSerializer.Deserialize<Instance>(reader.GetFieldValue<string>("instance"));
+                        internalId = reader.GetFieldValue<long>("id");
                         instance.Data = new();
                     }
 
@@ -184,7 +184,7 @@ namespace Altinn.Platform.Storage.Repository
                 instance.LastChangedBy = lastChangedBy;
             }
 
-            return ToExternal(instance);
+            return (ToExternal(instance), internalId);
         }
 
         /// <inheritdoc/>
@@ -222,9 +222,9 @@ namespace Altinn.Platform.Storage.Repository
 
         private async Task<Instance> Upsert(Instance instance, bool insertOnly)
         {
-            Console.WriteLine("Postgres i create");
             instance.Id ??= Guid.NewGuid().ToString();
             ToInternal(instance);
+            instance.Data = null;
             await using NpgsqlConnection conn = new(_connectionString);
             await conn.OpenAsync();
 
@@ -234,7 +234,7 @@ namespace Altinn.Platform.Storage.Repository
                 {
                     new() { Value = long.Parse(instance.InstanceOwner.PartyId), NpgsqlDbType = NpgsqlDbType.Bigint },
                     new() { Value = new Guid(instance.Id), NpgsqlDbType = NpgsqlDbType.Uuid },
-                    new() { Value = JsonSerializer.Serialize(instance), NpgsqlDbType = NpgsqlDbType.Jsonb },
+                    new() { Value = JsonSerializer.Serialize(instance, _options), NpgsqlDbType = NpgsqlDbType.Jsonb },
                 },
             };
             await pgcom.ExecuteNonQueryAsync();

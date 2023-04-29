@@ -513,20 +513,20 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<Instance> GetOne(int instanceOwnerPartyId, Guid instanceGuid)
+        public async Task<(Instance Instance, long InternalId)> GetOne(int instanceOwnerPartyId, Guid instanceGuid)
         {
             try
             {
                 Instance instance = await Container.ReadItemAsync<Instance>(instanceGuid.ToString(), new PartitionKey(instanceOwnerPartyId.ToString()));
 
                 await PostProcess(instance);
-                return instance;
+                return (instance, 0);
             }
             catch (CosmosException e)
             {
                 if (e.StatusCode == HttpStatusCode.NotFound)
                 {
-                    return null;
+                    return (null, 0);
                 }
 
                 throw;

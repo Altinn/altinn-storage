@@ -13,14 +13,29 @@ namespace Altinn.Platform.Storage.Repository
         /// </summary>
         /// <param name="services">service collection.</param>
         /// <returns></returns>
-        public static IServiceCollection AddRepositories(this IServiceCollection services)
+        public static IServiceCollection AddRepositoriesCosmos(this IServiceCollection services)
         {
             return services
                 .AddRepository<IDataRepository, DataRepository>()
+                .AddRepository<IInstanceEventRepository, InstanceEventRepository>()
                 .AddRepository<IInstanceRepository, InstanceRepository>()
                 .AddRepository<IApplicationRepository, ApplicationRepository>()
-                .AddRepository<IInstanceEventRepository, InstanceEventRepository>()
                 .AddRepository<ITextRepository, TextRepository>();
+        }
+
+        /// <summary>
+        /// Adds repositories to DI container.
+        /// </summary>
+        /// <param name="services">service collection.</param>
+        /// <returns></returns>
+        public static IServiceCollection AddRepositoriesPostgreSQL(this IServiceCollection services)
+        {
+            return services
+                .AddRepository<IApplicationRepository, ApplicationRepository>()
+                .AddRepository<ITextRepository, TextRepository>()
+                .AddRepository<IDataRepository, PgDataRepository>()
+                .AddRepository<IInstanceEventRepository, PgInstanceEventRepository>()
+                .AddRepository<IInstanceRepository, PgInstanceRepository>();
         }
 
         private static IServiceCollection AddRepository<TIRepo, TRepo>(this IServiceCollection services)
