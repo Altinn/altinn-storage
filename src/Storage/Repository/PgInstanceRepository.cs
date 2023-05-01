@@ -21,13 +21,14 @@ namespace Altinn.Platform.Storage.Repository
 {
     public class PgInstanceRepository: IInstanceRepository, IHostedService
     {
-        private static readonly string _deleteSql = "delete from storage.instances where alternateId = $1;";
-        private static readonly string _insertSql = "insert into storage.instances(partyId, alternateId, instance) VALUES ($1, $2, $3)";
-        private static readonly string _upsertSql = _insertSql + " on conflict(alternateId) do update set instance = $3";
-        private static readonly string _readSql = $"select i.id, i.instance, d.element " +
-            $"from storage.instances i left join storage.dataelements d on i.id = d.instanceInternalId " +
-            $"where i.alternateId = $1 " +
-            $"order by d.id";
+        private static readonly string _deleteSql = "call storage.deleteInstance ($1)"; // "delete from storage.instances where alternateId = $1;";
+        private static readonly string _insertSql = "call storage.insertInstance ($1, $2, $3)"; // "insert into storage.instances(partyId, alternateId, instance) VALUES ($1, $2, $3)";
+        private static readonly string _upsertSql = "call storage.upsertInstance ($1, $2, $3)"; //_insertSql + " on conflict(alternateId) do update set instance = $3";
+        private static readonly string _readSql = "select * from storage.readInstance ($1)";
+        //private static readonly string _readSql = $"select i.id, i.instance, d.element " +
+        //    $"from storage.instances i left join storage.dataelements d on i.id = d.instanceInternalId " +
+        //    $"where i.alternateId = $1 " +
+        //    $"order by d.id";
 
         private readonly string _connectionString;
         private readonly AzureStorageConfiguration _storageConfiguration;

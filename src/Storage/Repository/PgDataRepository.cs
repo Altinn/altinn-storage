@@ -26,12 +26,12 @@ namespace Altinn.Platform.Storage.Repository
     /// </summary>
     public class PgDataRepository : IDataRepository, IHostedService
     {
-        private readonly string _insertSql = "insert into storage.dataelements(instanceInternalId, instanceGuid, alternateId, element) VALUES ($1, $2, $3, $4);";
-        private readonly string _readAllSql = "select element from storage.dataelements where instanceGuid = $1;";
-        private readonly string _readAllForMultipleSql = "select element from storage.dataelements where instanceGuid = any ($1);";
-        private readonly string _readSql = "select element from storage.dataelements where alternateId = $1;";
-        private readonly string _deleteSql = "delete from storage.dataelements where alternateId = $1;";
-        private readonly string _updateSql = "update storage.dataelements set element = $2 where alternateId = $1;";
+        private readonly string _insertSql = "call storage.insertDataelement ($1, $2, $3, $4)"; //"insert into storage.dataelements(instanceInternalId, instanceGuid, alternateId, element) VALUES ($1, $2, $3, $4);";
+        private readonly string _readAllSql = "select * from storage.readAllDataelement($1)"; //"select element from storage.dataelements where instanceGuid = $1;";
+        private readonly string _readAllForMultipleSql = "select * from storage.readAllForMultipleDataelement($1)"; //"select element from storage.dataelements where instanceGuid = any ($1);";
+        private readonly string _readSql = "select * from storage.readDataelement($1)"; //"select element from storage.dataelements where alternateId = $1;";
+        private readonly string _deleteSql = "call storage.deleteDataelement ($1)"; //"delete from storage.dataelements where alternateId = $1;";
+        private readonly string _updateSql = "call storage.updateDataelement ($1, $2)"; //"update storage.dataelements set element = $2 where alternateId = $1;";
 
         private readonly string _connectionString;
         private readonly AzureStorageConfiguration _storageConfiguration;

@@ -29,3 +29,4 @@ CREATE TABLE IF NOT EXISTS storage.instanceEvents
 )
 TABLESPACE pg_default;
 
+CREATE INDEX dataElements_instanceInternalId ON storage.dataElements(instanceInternalId);
