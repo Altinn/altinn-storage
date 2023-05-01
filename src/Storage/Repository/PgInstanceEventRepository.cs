@@ -122,9 +122,9 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<int> DeleteAllInstanceEvents(string instanceId)
         {
-            NpgsqlConnection conn = new(_connectionString);
+            await using NpgsqlConnection conn = new(_connectionString);
             await conn.OpenAsync();
-            NpgsqlCommand pgcom = new(_deleteSql, conn)
+            await using NpgsqlCommand pgcom = new(_deleteSql, conn)
             {
                 Parameters =
                 {

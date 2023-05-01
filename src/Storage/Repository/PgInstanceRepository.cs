@@ -63,9 +63,9 @@ namespace Altinn.Platform.Storage.Repository
         public async Task<bool> Delete(Instance item)
         {
             ToInternal(item);
-            NpgsqlConnection conn = new(_connectionString);
+            await using NpgsqlConnection conn = new(_connectionString);
             await conn.OpenAsync();
-            NpgsqlCommand pgcom = new(_deleteSql, conn)
+            await using NpgsqlCommand pgcom = new(_deleteSql, conn)
             {
                 Parameters =
                 {

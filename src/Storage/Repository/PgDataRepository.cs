@@ -84,9 +84,9 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<bool> Delete(DataElement dataElement)
         {
-            NpgsqlConnection conn = new(_connectionString);
+            await using NpgsqlConnection conn = new(_connectionString);
             await conn.OpenAsync();
-            NpgsqlCommand pgcom = new(_deleteSql, conn)
+            await using NpgsqlCommand pgcom = new(_deleteSql, conn)
             {
                 Parameters =
                 {
@@ -200,9 +200,9 @@ namespace Altinn.Platform.Storage.Repository
                 throw new ArgumentOutOfRangeException(nameof(propertylist), "PropertyList can contain at most 10 entries.");
             }
 
-            NpgsqlConnection conn = new(_connectionString);
+            await using NpgsqlConnection conn = new(_connectionString);
             await conn.OpenAsync();
-            var transaction = await conn.BeginTransactionAsync();
+            await using var transaction = await conn.BeginTransactionAsync();
             DataElement element = await Read(Guid.Empty, dataElementId);
             if (element == null)
             {
@@ -227,7 +227,7 @@ namespace Altinn.Platform.Storage.Repository
             }
 
             string elementString = JsonSerializer.Serialize(elementDict, _options);
-            NpgsqlCommand pgcom = new(_updateSql, conn)
+            await using NpgsqlCommand pgcom = new(_updateSql, conn)
             {
                 Parameters =
                 {
