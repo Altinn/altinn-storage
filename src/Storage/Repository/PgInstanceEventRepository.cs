@@ -62,6 +62,7 @@ namespace Altinn.Platform.Storage.Repository
                     new() { Value = JsonSerializer.Serialize(instanceEvent, _options), NpgsqlDbType = NpgsqlDbType.Jsonb },
                 },
             };
+            await pgcom.PrepareAsync();
             await pgcom.ExecuteNonQueryAsync();
 
             return instanceEvent;
@@ -80,6 +81,7 @@ namespace Altinn.Platform.Storage.Repository
                     new() { Value = eventGuid, NpgsqlDbType = NpgsqlDbType.Uuid },
                 },
             };
+            await pgcom.PrepareAsync();
             await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
             {
                 await reader.ReadAsync();
@@ -108,6 +110,7 @@ namespace Altinn.Platform.Storage.Repository
                     new() { Value = eventTypes ?? (object)DBNull.Value, NpgsqlDbType = NpgsqlDbType.Array | NpgsqlDbType.Text },
                 },
             };
+            await pgcom.PrepareAsync();
             await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
             {
                 while (await reader.ReadAsync())
@@ -131,6 +134,7 @@ namespace Altinn.Platform.Storage.Repository
                     new() { Value = new Guid(instanceId.Split('/').Last()), NpgsqlDbType = NpgsqlDbType.Uuid },
                 },
             };
+            await pgcom.PrepareAsync();
             return await pgcom.ExecuteNonQueryAsync();
         }
 

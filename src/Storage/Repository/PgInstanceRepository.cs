@@ -72,6 +72,7 @@ namespace Altinn.Platform.Storage.Repository
                     new() { Value = new Guid(item.Id), NpgsqlDbType = NpgsqlDbType.Uuid },
                 },
             };
+            await pgcom.PrepareAsync();
             return await pgcom.ExecuteNonQueryAsync() == 1;
         }
 
@@ -158,6 +159,7 @@ namespace Altinn.Platform.Storage.Repository
                     new() { Value = instanceGuid, NpgsqlDbType = NpgsqlDbType.Uuid },
                 },
             };
+            await pgcom.PrepareAsync();
             await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
             {
                 bool instanceCreated = false;
@@ -237,6 +239,7 @@ namespace Altinn.Platform.Storage.Repository
                     new() { Value = JsonSerializer.Serialize(instance, _options), NpgsqlDbType = NpgsqlDbType.Jsonb },
                 },
             };
+            await pgcom.PrepareAsync();
             await pgcom.ExecuteNonQueryAsync();
 
             return ToExternal(instance);
