@@ -207,7 +207,7 @@ namespace Altinn.Platform.Storage.Repository
 
             await using NpgsqlConnection conn = new(_connectionString);
             await conn.OpenAsync();
-            await using var transaction = await conn.BeginTransactionAsync();
+            await using var transaction = await conn.BeginTransactionAsync(isolationLevel: IsolationLevel.RepeatableRead); //ensure that the read element is locked until updated
             DataElement element = await Read(Guid.Empty, dataElementId);
             if (element == null)
             {
