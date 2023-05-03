@@ -74,66 +74,8 @@ namespace Altinn.Platform.Storage.Repository
             string continuationToken,
             int size)
         {
+            // Postponed some days because the parameter handling is complicated and not very important to the PoC
             throw new NotImplementedException();
-
-            //InstanceQueryResponse queryResponse = new InstanceQueryResponse
-            //{
-            //    Count = 0,
-            //    Instances = new List<Instance>()
-            //};
-
-            //while (queryResponse.Count < size)
-            //{
-            //    QueryRequestOptions options = new QueryRequestOptions() { MaxBufferedItemCount = 0, MaxConcurrency = -1, MaxItemCount = size - queryResponse.Count, ResponseContinuationTokenLimitInKb = 7 };
-
-            //    string tokenValue = string.IsNullOrEmpty(continuationToken) ? null : continuationToken;
-            //    IQueryable<Instance> queryBuilder = Container.GetItemLinqQueryable<Instance>(requestOptions: options, continuationToken: tokenValue);
-
-            //    try
-            //    {
-            //        queryBuilder = BuildQueryFromParameters(queryParams, queryBuilder, options);
-            //    }
-            //    catch (Exception e)
-            //    {
-            //        queryResponse.Exception = e.Message;
-            //        return queryResponse;
-            //    }
-
-            //    try
-            //    {
-            //        var iterator = queryBuilder.ToFeedIterator();
-
-            //        FeedResponse<Instance> feedResponse = await iterator.ReadNextAsync();
-
-            //        if (feedResponse.Count == 0 && !iterator.HasMoreResults)
-            //        {
-            //            queryResponse.ContinuationToken = string.Empty;
-            //            break;
-            //        }
-
-            //        List<Instance> instances = feedResponse.ToList();
-            //        await PostProcess(instances);
-            //        queryResponse.Instances.AddRange(instances);
-            //        queryResponse.Count += instances.Count;
-
-            //        if (string.IsNullOrEmpty(feedResponse.ContinuationToken))
-            //        {
-            //            queryResponse.ContinuationToken = string.Empty;
-            //            break;
-            //        }
-
-            //        queryResponse.ContinuationToken = feedResponse.ContinuationToken;
-            //        continuationToken = feedResponse.ContinuationToken;
-            //    }
-            //    catch (Exception e)
-            //    {
-            //        _logger.LogError(e, "Exception querying CosmosDB for instances");
-            //        queryResponse.Exception = e.Message;
-            //        break;
-            //    }
-            //}
-
-            //return queryResponse;
         }
 
         /// <inheritdoc/>
@@ -162,6 +104,11 @@ namespace Altinn.Platform.Storage.Repository
                     {
                         instance.Data.Add(JsonSerializer.Deserialize<DataElement>(reader.GetFieldValue<string>("element")));
                     }
+                }
+
+                if (instance == null)
+                {
+                    return (null, 0);
                 }
 
                 SetReadStatus(instance);
