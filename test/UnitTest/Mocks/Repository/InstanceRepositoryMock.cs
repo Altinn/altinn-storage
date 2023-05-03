@@ -140,7 +140,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return Task.FromResult(response);
         }
 
-        public Task<Instance> GetOne(int instanceOwnerPartyId, Guid instanceGuid)
+        public Task<(Instance Instance, long InternalId)> GetOne(int instanceOwnerPartyId, Guid instanceGuid)
         {
             string instancePath = GetInstancePath(instanceOwnerPartyId.ToString(), instanceGuid);
             if (File.Exists(instancePath))
@@ -148,10 +148,10 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
                 string content = File.ReadAllText(instancePath);
                 Instance instance = (Instance)JsonConvert.DeserializeObject(content, typeof(Instance));
                 PostProcess(instance);
-                return Task.FromResult(instance);
+                return Task.FromResult<(Instance, long)>((instance, 0));
             }
 
-            return null;
+            return Task.FromResult<(Instance, long)>((null, 0));
         }
 
         public Task<Instance> Update(Instance instance)
