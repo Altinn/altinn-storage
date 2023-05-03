@@ -33,50 +33,41 @@ namespace Altinn.Platform.Storage.Repository
         private readonly string _deleteSql = "call storage.deleteDataelement ($1)"; //"delete from storage.dataelements where alternateId = $1;";
         private readonly string _updateSql = "call storage.updateDataelement ($1, $2)"; //"update storage.dataelements set element = $2 where alternateId = $1;";
 
-        private readonly string _connectionString;
         private readonly AzureStorageConfiguration _storageConfiguration;
         private readonly ISasTokenProvider _sasTokenProvider;
         private readonly ILogger<PgDataRepository> _logger;
         private readonly JsonSerializerOptions _options = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+        private readonly NpgsqlDataSource _dataSource;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PgDataRepository"/> class.
         /// </summary>
-        /// <param name="postgresSettings">DB params.</param>
         /// <param name="sasTokenProvider">A provider that can be asked for SAS tokens.</param>
         /// <param name="storageConfiguration">the storage configuration for azure blob storage.</param>
         /// <param name="logger">The logger to use when writing to logs.</param>
+        /// <param name="dataSource">The npgsql data source.</param>
         public PgDataRepository(
-            IOptions<PostgreSqlSettings> postgresSettings,
             ISasTokenProvider sasTokenProvider,
             IOptions<AzureStorageConfiguration> storageConfiguration,
-            ILogger<PgDataRepository> logger)
+            ILogger<PgDataRepository> logger,
+            NpgsqlDataSource dataSource)
         {
-            _connectionString =
-                string.Format(postgresSettings.Value.ConnectionString, postgresSettings.Value.StorageDbPwd);
             _storageConfiguration = storageConfiguration.Value;
             _sasTokenProvider = sasTokenProvider;
             _logger = logger;
+            _dataSource = dataSource;
         }
 
         /// <inheritdoc/>
         public async Task<DataElement> Create(DataElement dataElement, long instanceInternalId)
         {
             dataElement.Id ??= Guid.NewGuid().ToString();
-            await using NpgsqlConnection conn = new(_connectionString);
-            await conn.OpenAsync();
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Bigint, instanceInternalId);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.InstanceGuid));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, JsonSerializer.Serialize(dataElement, _options));
 
-            await using NpgsqlCommand pgcom = new(_insertSql, conn)
-            {
-                Parameters =
-                {
-                    new() { Value = instanceInternalId, NpgsqlDbType = NpgsqlDbType.Bigint },
-                    new() { Value = new Guid(dataElement.InstanceGuid), NpgsqlDbType = NpgsqlDbType.Uuid },
-                    new() { Value = new Guid(dataElement.Id), NpgsqlDbType = NpgsqlDbType.Uuid },
-                    new() { Value = JsonSerializer.Serialize(dataElement, _options), NpgsqlDbType = NpgsqlDbType.Jsonb },
-                },
-            };
-            await pgcom.PrepareAsync();
             await pgcom.ExecuteNonQueryAsync();
 
             return dataElement;
@@ -85,16 +76,9 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<bool> Delete(DataElement dataElement)
         {
-            await using NpgsqlConnection conn = new(_connectionString);
-            await conn.OpenAsync();
-            await using NpgsqlCommand pgcom = new(_deleteSql, conn)
-            {
-                Parameters =
-                {
-                    new() { Value = new Guid(dataElement.Id), NpgsqlDbType = NpgsqlDbType.Uuid },
-                },
-            };
-            await pgcom.PrepareAsync();
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
+
             return await pgcom.ExecuteNonQueryAsync() == 1;
         }
 
@@ -102,39 +86,21 @@ namespace Altinn.Platform.Storage.Repository
         public async Task<DataElement> Read(Guid instanceGuid, Guid dataElementGuid)
         {
             List<DataElement> elements = new();
-            await using NpgsqlConnection conn = new(_connectionString);
-            await conn.OpenAsync();
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSql);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementGuid);
 
-            await using NpgsqlCommand pgcom = new(_readSql, conn)
-            {
-                Parameters =
-                {
-                    new() { Value = dataElementGuid, NpgsqlDbType = NpgsqlDbType.Uuid },
-                },
-            };
-            await pgcom.PrepareAsync();
-            await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
-            {
-                await reader.ReadAsync();
-                return JsonSerializer.Deserialize<DataElement>(reader.GetFieldValue<string>("element"));
-            }
+            await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
+            await reader.ReadAsync();
+            return JsonSerializer.Deserialize<DataElement>(reader.GetFieldValue<string>("element"));
         }
 
         /// <inheritdoc/>
         public async Task<List<DataElement>> ReadAll(Guid instanceGuid)
         {
             List<DataElement> elements = new();
-            await using NpgsqlConnection conn = new(_connectionString);
-            await conn.OpenAsync();
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readAllSql);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
 
-            await using NpgsqlCommand pgcom = new(_readAllSql, conn)
-            {
-                Parameters =
-                {
-                    new() { Value = instanceGuid, NpgsqlDbType = NpgsqlDbType.Uuid },
-                },
-            };
-            await pgcom.PrepareAsync();
             await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
             {
                 while (await reader.ReadAsync())
@@ -169,17 +135,9 @@ namespace Altinn.Platform.Storage.Repository
             }
 
             List<DataElement> elements = new();
-            await using NpgsqlConnection conn = new(_connectionString);
-            await conn.OpenAsync();
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readAllForMultipleSql);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Array | NpgsqlDbType.Uuid, instanceGuidsAsGuids ?? (object)DBNull.Value);
 
-            await using NpgsqlCommand pgcom = new(_readAllForMultipleSql, conn)
-            {
-                Parameters =
-                {
-                    new() { Value = instanceGuidsAsGuids ?? (object)DBNull.Value, NpgsqlDbType = NpgsqlDbType.Array | NpgsqlDbType.Uuid },
-                },
-            };
-            await pgcom.PrepareAsync();
             await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
             {
                 while (await reader.ReadAsync())
@@ -205,14 +163,10 @@ namespace Altinn.Platform.Storage.Repository
                 throw new ArgumentOutOfRangeException(nameof(propertylist), "PropertyList can contain at most 10 entries.");
             }
 
-            await using NpgsqlConnection conn = new(_connectionString);
-            await conn.OpenAsync();
-            await using var transaction = await conn.BeginTransactionAsync(isolationLevel: IsolationLevel.RepeatableRead); //ensure that the read element is locked until updated
-            DataElement element = await Read(Guid.Empty, dataElementId);
-            if (element == null)
-            {
-                throw new ArgumentException(nameof(dataElementId), "Element not found");
-            }
+            await using var transConnection = _dataSource.CreateConnection();
+            await transConnection.OpenAsync();
+            await using var transaction = await transConnection.BeginTransactionAsync(isolationLevel: IsolationLevel.RepeatableRead); //ensure that the read element is locked until updated
+            DataElement element = await Read(Guid.Empty, dataElementId) ?? throw new ArgumentException("Element not found for id " + dataElementId, nameof(dataElementId));
 
             ////TODO Find a more elegant way to patch the json
             var elementDict = JsonSerializer.Deserialize<Dictionary<string, object>>(JsonSerializer.Serialize(element));
@@ -232,7 +186,7 @@ namespace Altinn.Platform.Storage.Repository
             }
 
             string elementString = JsonSerializer.Serialize(elementDict, _options);
-            await using NpgsqlCommand pgcom = new(_updateSql, conn)
+            await using NpgsqlCommand pgcom = new(_updateSql, transConnection)
             {
                 Parameters =
                 {

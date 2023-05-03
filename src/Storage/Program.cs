@@ -132,7 +132,7 @@ async Task ConnectToKeyVaultAndSetApplicationInsights(ConfigurationManager confi
 
         config.AddAzureKeyVault(new Uri(keyVaultSettings.SecretUri), azureCredentials);
 
-        SecretClient client = new SecretClient(new Uri(keyVaultSettings.SecretUri), azureCredentials);
+        SecretClient client = new(new Uri(keyVaultSettings.SecretUri), azureCredentials);
 
         try
         {
@@ -254,7 +254,8 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
 
     if (generalSettings.UsePostgreSQL)
     {
-        services.AddRepositoriesPostgreSQL();
+        PostgreSqlSettings postgresSettings = config.GetSection("PostgreSQLSettings").Get<PostgreSqlSettings>();
+        services.AddRepositoriesPostgreSQL(string.Format(postgresSettings.ConnectionString, postgresSettings.StorageDbPwd), postgresSettings.LogParameters);
     }
     else
     {
@@ -349,7 +350,7 @@ void Configure(IConfiguration config)
 
     if (config.GetValue<bool>("PostgreSQLSettings:EnableDBConnection"))
     {
-        ConsoleTraceService traceService = new ConsoleTraceService { IsDebugEnabled = true };
+        ConsoleTraceService traceService = new() { IsDebugEnabled = true };
 
         string connectionString = string.Format(
             config.GetValue<string>("PostgreSQLSettings:AdminConnectionString"),

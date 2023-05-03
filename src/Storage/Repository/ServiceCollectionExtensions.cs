@@ -27,15 +27,18 @@ namespace Altinn.Platform.Storage.Repository
         /// Adds repositories to DI container.
         /// </summary>
         /// <param name="services">service collection.</param>
+        /// <param name="connectionString">PostgreSQL connection string.</param>
+        /// <param name="logParameters">Whether to log parameters.</param>
         /// <returns></returns>
-        public static IServiceCollection AddRepositoriesPostgreSQL(this IServiceCollection services)
+        public static IServiceCollection AddRepositoriesPostgreSQL(this IServiceCollection services, string connectionString, bool logParameters)
         {
             return services
                 .AddRepository<IApplicationRepository, ApplicationRepository>()
                 .AddRepository<ITextRepository, TextRepository>()
                 .AddRepository<IDataRepository, PgDataRepository>()
                 .AddRepository<IInstanceEventRepository, PgInstanceEventRepository>()
-                .AddRepository<IInstanceRepository, PgInstanceRepository>();
+                .AddRepository<IInstanceRepository, PgInstanceRepository>()
+                .AddNpgsqlDataSource(connectionString, builder => builder.EnableParameterLogging(logParameters));
         }
 
         private static IServiceCollection AddRepository<TIRepo, TRepo>(this IServiceCollection services)

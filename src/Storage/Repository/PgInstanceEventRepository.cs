@@ -16,54 +16,44 @@ using NpgsqlTypes;
 
 namespace Altinn.Platform.Storage.Repository
 {
+    /// <summary>
+    /// Represents an implementation of <see cref="IInstanceEventRepository"/>.
+    /// </summary>
     public class PgInstanceEventRepository: IInstanceEventRepository, IHostedService
     {
         private readonly string _readSql = "select * from storage.readInstanceEvent($1)"; //"select event from storage.instanceEvents where alternateId = $1;";
         private readonly string _deleteSql = "call storage.deleteInstanceEvent($1)"; //"delete from storage.instanceEvents where instance = $1;";
         private readonly string _insertSql = "call storage.insertInstanceEvent($1, $2, $3)"; // "insert into storage.instanceEvents(instance, alternateId, event) VALUES ($1, $2, $3);";
         private readonly string _filterSql = "select * from storage.filterInstanceEvent($1, $2, $3, $4)";
-        //private readonly string _filterSql = "select event from storage.instanceEvents" +
-        //    " where instance = $1 and (event->>'Created')::timestamp >= $2 and (event->>'Created')::timestamp <= $3 and ($4 is null or event->>'EventType' ilike any ($4));";
+        ////private readonly string _filterSql = "select event from storage.instanceEvents" +
+        ////    " where instance = $1 and (event->>'Created')::timestamp >= $2 and (event->>'Created')::timestamp <= $3 and ($4 is null or event->>'EventType' ilike any ($4));";
 
-        private readonly string _connectionString;
-        private readonly AzureStorageConfiguration _storageConfiguration;
-        private readonly ILogger<PgDataRepository> _logger;
+        private readonly ILogger<PgInstanceEventRepository> _logger;
         private readonly JsonSerializerOptions _options = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+        private readonly NpgsqlDataSource _dataSource;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PgInstanceEventRepository"/> class.
         /// </summary>
-        /// <param name="postgresSettings">DB params.</param>
-        /// <param name="storageConfiguration">the storage configuration for azure blob storage.</param>
         /// <param name="logger">The logger to use when writing to logs.</param>
+        /// <param name="dataSource">The npgsql data source.</param>
         public PgInstanceEventRepository(
-            IOptions<PostgreSqlSettings> postgresSettings,
-            IOptions<AzureStorageConfiguration> storageConfiguration,
-            ILogger<PgDataRepository> logger)
+            ILogger<PgInstanceEventRepository> logger,
+            NpgsqlDataSource dataSource)
         {
-            _connectionString =
-                string.Format(postgresSettings.Value.ConnectionString, postgresSettings.Value.StorageDbPwd);
-            _storageConfiguration = storageConfiguration.Value;
             _logger = logger;
+            _dataSource = dataSource;
         }
 
         /// <inheritdoc/>
         public async Task<InstanceEvent> InsertInstanceEvent(InstanceEvent instanceEvent)
         {
             instanceEvent.Id ??= Guid.NewGuid();
-            await using NpgsqlConnection conn = new(_connectionString);
-            await conn.OpenAsync();
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceEvent.InstanceId.Split('/').Last()));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceEvent.Id);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, JsonSerializer.Serialize(instanceEvent, _options));
 
-            await using NpgsqlCommand pgcom = new(_insertSql, conn)
-            {
-                Parameters =
-                {
-                    new() { Value = new Guid(instanceEvent.InstanceId.Split('/').Last()), NpgsqlDbType = NpgsqlDbType.Uuid },
-                    new() { Value = instanceEvent.Id, NpgsqlDbType = NpgsqlDbType.Uuid },
-                    new() { Value = JsonSerializer.Serialize(instanceEvent, _options), NpgsqlDbType = NpgsqlDbType.Jsonb },
-                },
-            };
-            await pgcom.PrepareAsync();
             await pgcom.ExecuteNonQueryAsync();
 
             return instanceEvent;
@@ -72,17 +62,9 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<InstanceEvent> GetOneEvent(string instanceId, Guid eventGuid)
         {
-            await using NpgsqlConnection conn = new(_connectionString);
-            await conn.OpenAsync();
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSql);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, eventGuid);
 
-            await using NpgsqlCommand pgcom = new(_readSql, conn)
-            {
-                Parameters =
-                {
-                    new() { Value = eventGuid, NpgsqlDbType = NpgsqlDbType.Uuid },
-                },
-            };
-            await pgcom.PrepareAsync();
             await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
             {
                 await reader.ReadAsync();
@@ -98,20 +80,12 @@ namespace Altinn.Platform.Storage.Repository
             DateTime? toDateTime)
         {
             List<InstanceEvent> events = new();
-            await using NpgsqlConnection conn = new(_connectionString);
-            await conn.OpenAsync();
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_filterSql);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceId.Split('/').Last()));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Timestamp, fromDateTime ?? DateTime.MinValue);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Timestamp, toDateTime ?? DateTime.MaxValue);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Array | NpgsqlDbType.Text, eventTypes ?? (object)DBNull.Value);
 
-            await using NpgsqlCommand pgcom = new(_filterSql, conn)
-            {
-                Parameters =
-                {
-                    new() { Value = new Guid(instanceId.Split('/').Last()), NpgsqlDbType = NpgsqlDbType.Uuid },
-                    new() { Value = fromDateTime ?? DateTime.MinValue, NpgsqlDbType = NpgsqlDbType.Timestamp },
-                    new() { Value = toDateTime ?? DateTime.MaxValue, NpgsqlDbType = NpgsqlDbType.Timestamp },
-                    new() { Value = eventTypes ?? (object)DBNull.Value, NpgsqlDbType = NpgsqlDbType.Array | NpgsqlDbType.Text },
-                },
-            };
-            await pgcom.PrepareAsync();
             await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
             {
                 while (await reader.ReadAsync())
@@ -126,16 +100,9 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<int> DeleteAllInstanceEvents(string instanceId)
         {
-            await using NpgsqlConnection conn = new(_connectionString);
-            await conn.OpenAsync();
-            await using NpgsqlCommand pgcom = new(_deleteSql, conn)
-            {
-                Parameters =
-                {
-                    new() { Value = new Guid(instanceId.Split('/').Last()), NpgsqlDbType = NpgsqlDbType.Uuid },
-                },
-            };
-            await pgcom.PrepareAsync();
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceId.Split('/').Last()));
+
             return await pgcom.ExecuteNonQueryAsync();
         }
 
