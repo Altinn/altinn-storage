@@ -74,8 +74,137 @@ namespace Altinn.Platform.Storage.Repository
             string continuationToken,
             int size)
         {
-            // Postponed some days because the parameter handling is complicated and not very important to the PoC
-            throw new NotImplementedException();
+            InstanceQueryResponse queryResponse = new() { Count = 0, Instances = new() };
+            long continueIdx = string.IsNullOrEmpty(continuationToken) ? -1 : long.Parse(continuationToken);
+            int maxIterations = 100_000;
+            int currentIteration = 0;
+            while (queryResponse.Count < size)
+            {
+                if (++currentIteration > maxIterations)
+                {
+                    queryResponse.Exception = "Please narrow the seach parameters. The current search is too slow.";
+                    return queryResponse;
+                }
+
+                (IQueryable<Instance> queryBuilder, continueIdx) = await GetInstances(size - (int)queryResponse.Count, continueIdx, queryParams);
+                try
+                {
+                    if (queryBuilder.Count() > 0)
+                    {
+                        queryBuilder = InstanceQueryHelper.BuildQueryFromParameters(queryParams, queryBuilder, new());
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                catch (Exception e)
+                {
+                    queryResponse.Exception = e.Message;
+                    return queryResponse;
+                }
+
+                try
+                {
+                    var instancesThisIteration = queryBuilder.ToList();
+                    if (instancesThisIteration.Count > 0)
+                    {
+                        queryResponse.Instances.AddRange(instancesThisIteration);
+                        queryResponse.Count += instancesThisIteration.Count;
+                    }
+
+                    if (queryResponse.Count == size || continueIdx < 0)
+                    {
+                        if (continueIdx >= 0)
+                        {
+                            queryResponse.ContinuationToken = continueIdx.ToString();
+                        }
+
+                        break;
+                    }
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError(e, "Exception querying PostgreSQL for instances");
+                    queryResponse.Exception = e.Message;
+                    break;
+                }
+            }
+
+            return queryResponse;
+        }
+
+        private async Task<(IQueryable<Instance>, long)> GetInstances(int size, long continueIdx, Dictionary<string, StringValues> queryParams)
+        {
+            // TODO: Add more db predicates. Currently only partyId (and continueation) is supported in the db query. Other predicates are left to InstanceQueryHelper
+
+            Instance instance = null;
+            List<Instance> instances = new List<Instance>();
+            long id = -1;
+            string partyPredicate = null;
+            int partyId = 0;
+            int[] partyIdArray = null;
+
+            StringValues partyIdStringValues = queryParams.ContainsKey("instanceOwner.partyId") ? queryParams["instanceOwner.partyId"] : default(StringValues);
+            if (partyIdStringValues.Count == 1)
+            {
+                partyId = int.Parse(partyIdStringValues.First());
+                partyPredicate = $" AND partyId = $3 ";
+            }
+            else if (partyIdStringValues.Count > 1)
+            {
+                partyIdArray = partyIdStringValues.Select(p => int.Parse(p)).ToArray();
+                partyPredicate = $" AND partyId = ANY ($3) ";
+            }
+
+            string readManySql =
+                $"WITH instances AS " +
+                $"( " +
+                $"    SELECT id, instance FROM storage.instances " +
+                $"    WHERE id > $1 " + partyPredicate +
+                $"    ORDER BY id " +
+                $"    FETCH FIRST $2 ROWS ONLY " +
+                $") " +
+                $"    SELECT instances.id, instances.instance, element FROM instances LEFT JOIN storage.dataelements d ON instances.id = d.instanceInternalId " +
+                $"    ORDER BY instances.id ";
+
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(readManySql);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Bigint, continueIdx);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Integer, size);
+            if (partyIdStringValues.Count == 1)
+            {
+                pgcom.Parameters.AddWithValue(NpgsqlDbType.Integer, partyId);
+            }
+            else if (partyIdStringValues.Count > 1)
+            {
+                pgcom.Parameters.AddWithValue(NpgsqlDbType.Array | NpgsqlDbType.Integer, partyIdArray);
+            }
+
+            await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
+            {
+                long previousId = -1;
+                while (await reader.ReadAsync())
+                {
+                    id = reader.GetFieldValue<long>("id");
+                    if (id != previousId)
+                    {
+                        SetStatuses(instance);
+                        instance = JsonSerializer.Deserialize<Instance>(reader.GetFieldValue<string>("instance"));
+                        instances.Add(instance);
+                        instance.Data = new();
+                        previousId = id;
+                    }
+
+                    if (reader["element"] is string elementJson)
+                    {
+                        instance.Data.Add(JsonSerializer.Deserialize<DataElement>(reader.GetFieldValue<string>("element")));
+                    }
+                }
+
+                SetStatuses(instance);
+            }
+
+            return (instances.AsQueryable(), instances.Count == size ? id : -1);
         }
 
         /// <inheritdoc/>
@@ -111,13 +240,10 @@ namespace Altinn.Platform.Storage.Repository
                     return (null, 0);
                 }
 
-                SetReadStatus(instance);
-                (string lastChangedBy, DateTime? lastChanged) = InstanceHelper.FindLastChanged(instance);
-                instance.LastChanged = lastChanged;
-                instance.LastChangedBy = lastChangedBy;
+                SetStatuses(instance);
             }
 
-            return (ToExternal(instance), internalId);
+            return (instance, internalId);
         }
 
         /// <inheritdoc/>
@@ -141,8 +267,13 @@ namespace Altinn.Platform.Storage.Repository
             return Task.CompletedTask;
         }
 
-        private static void SetReadStatus(Instance instance)
+        private static void SetStatuses(Instance instance)
         {
+            if (instance == null)
+            {
+                return;
+            }
+
             if (instance.Status.ReadStatus == ReadStatus.Read && instance.Data.Any(d => !d.IsRead))
             {
                 instance.Status.ReadStatus = ReadStatus.UpdatedSinceLastReview;
@@ -151,6 +282,12 @@ namespace Altinn.Platform.Storage.Repository
             {
                 instance.Status.ReadStatus = ReadStatus.Unread;
             }
+
+            (string lastChangedBy, DateTime? lastChanged) = InstanceHelper.FindLastChanged(instance);
+            instance.LastChanged = lastChanged;
+            instance.LastChangedBy = lastChangedBy;
+
+            ToExternal(instance);
         }
 
         private async Task<Instance> Upsert(Instance instance, bool insertOnly)
