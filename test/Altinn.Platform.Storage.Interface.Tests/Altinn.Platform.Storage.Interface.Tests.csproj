@@ -10,6 +10,8 @@
   <ItemGroup>
     <None Remove="AllowAnonymousOnStateless\applicationMetadata_afterChange.json" />
     <None Remove="AllowAnonymousOnStateless\applicationMetadata_beforeChange.json" />
+    <None Remove="ShadowFields\applicationMetadata_afterChange.json" />
+    <None Remove="ShadowFields\applicationMetadata_beforeChange.json" />
   </ItemGroup>
 
   <ItemGroup>
@@ -18,6 +20,14 @@
 
   <ItemGroup>
     <EmbeddedResource Include="AllowAnonymousOnStateless\applicationMetadata_afterChange.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="ShadowFields\applicationMetadata_beforeChange.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="ShadowFields\applicationMetadata_afterChange.json" />
   </ItemGroup>
 
   <ItemGroup>

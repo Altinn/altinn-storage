@@ -39,5 +39,11 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// </summary>
         [JsonProperty(PropertyName = "autoDeleteOnProcessEnd")]
         public bool AutoDeleteOnProcessEnd { get; set; }
+
+        /// <summary>
+        /// Gets or sets a property containing configuration for shadow fields for the data type.
+        /// </summary>
+        [JsonProperty(PropertyName = "shadowFields")]
+        public ShadowFields ShadowFields { get; set; }
     }
 }
