@@ -1,4 +1,4 @@
- using Newtonsoft.Json;
+using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.Interface.Models
 {
@@ -20,6 +20,5 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// </summary>
         [JsonProperty(PropertyName = "saveToDataType")]
         public string SaveToDataType { get; set; }
-
     }
 }
