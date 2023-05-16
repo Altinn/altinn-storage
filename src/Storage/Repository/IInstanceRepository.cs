@@ -25,8 +25,9 @@ namespace Altinn.Platform.Storage.Repository
         /// </summary>
         /// <param name="instanceOwnerPartyId">the instance owner id</param>
         /// <param name="instanceGuid">the instance guid</param>
+        /// <param name="includeElements">whether to include data elements</param>
         /// <returns>The instance for the given parameters</returns>
-        Task<(Instance Instance, long InternalId)> GetOne(int instanceOwnerPartyId, Guid instanceGuid);
+        Task<(Instance Instance, long InternalId)> GetOne(int instanceOwnerPartyId, Guid instanceGuid, bool includeElements = true);
 
         /// <summary>
         /// insert new instance into collection

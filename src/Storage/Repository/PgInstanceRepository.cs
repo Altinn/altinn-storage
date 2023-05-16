@@ -28,6 +28,7 @@ namespace Altinn.Platform.Storage.Repository
         private static readonly string _insertSql = "call storage.insertInstance ($1, $2, $3)"; // "insert into storage.instances(partyId, alternateId, instance) VALUES ($1, $2, $3)";
         private static readonly string _upsertSql = "call storage.upsertInstance ($1, $2, $3)"; // _insertSql + " on conflict(alternateId) do update set instance = $3";
         private static readonly string _readSql = "select * from storage.readInstance ($1)";
+        private static readonly string _readSqlNoElements = "select * from storage.readInstanceNoElements ($1)";
         ////private static readonly string _readSql = $"select i.id, i.instance, d.element " +
         ////    $"from storage.instances i left join storage.dataelements d on i.id = d.instanceInternalId " +
         ////    $"where i.alternateId = $1 " +
@@ -208,12 +209,12 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<(Instance Instance, long InternalId)> GetOne(int instanceOwnerPartyId, Guid instanceGuid)
+        public async Task<(Instance Instance, long InternalId)> GetOne(int instanceOwnerPartyId, Guid instanceGuid, bool includeElements = true)
         {
             Instance instance = null;
             long internalId = 0;
 
-            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSql);
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(includeElements ? _readSql : _readSqlNoElements);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
 
             await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
@@ -229,7 +230,7 @@ namespace Altinn.Platform.Storage.Repository
                         instance.Data = new();
                     }
 
-                    if (reader["element"] is string elementJson)
+                    if (includeElements && reader["element"] is string elementJson)
                     {
                         instance.Data.Add(JsonSerializer.Deserialize<DataElement>(reader.GetFieldValue<string>("element")));
                     }

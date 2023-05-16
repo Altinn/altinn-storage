@@ -276,6 +276,35 @@ namespace Altinn.Platform.Storage.Controllers
         }
 
         /// <summary>
+        /// Gets process info relevant to authorization
+        /// </summary>
+        /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
+        /// <param name="instanceGuid">The id of the instance to retrieve.</param>
+        /// <returns>Authorization info.</returns>
+        [HttpGet("AuthInfo/{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [Produces("application/json")]
+        [ApiExplorerSettings(IgnoreApi = true)]
+        public async Task<ActionResult<(ProcessState Process, string AppId)>> GetForAuth(int instanceOwnerPartyId, Guid instanceGuid)
+        {
+            try
+            {
+                (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid, false);
+                if (instance.InstanceOwner.PartyId != instanceOwnerPartyId.ToString())
+                {
+                    throw new Exception("Party id not found");
+                }
+
+                return Ok((instance.Process, instance.AppId));
+            }
+            catch (Exception e)
+            {
+                return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}: {e}");
+            }
+        }
+
+        /// <summary>
         /// Inserts new instance into the instance collection.
         /// </summary>
         /// <param name="appId">the application id</param>

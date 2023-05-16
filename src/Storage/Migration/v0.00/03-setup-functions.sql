@@ -15,6 +15,18 @@ RETURN QUERY
 END;
 $BODY$;
 
+CREATE OR REPLACE FUNCTION storage.readInstanceNoElements(_alternateId UUID)
+    RETURNS TABLE (id BIGINT, instance JSONB)
+    LANGUAGE 'plpgsql'
+    
+AS $BODY$
+BEGIN
+RETURN QUERY 
+	SELECT i.id, i.instance FROM storage.instances i
+		WHERE i.alternateId = _alternateId;
+END;
+$BODY$;
+
 CREATE OR REPLACE PROCEDURE storage.insertInstance(_partyId BIGINT, _alternateId UUID, _instance JSONB)
     LANGUAGE 'plpgsql'	
 AS $BODY$
