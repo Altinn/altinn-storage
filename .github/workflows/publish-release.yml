@@ -21,11 +21,14 @@ jobs:
             7.0.x
       - name: Install deps
         run: |
+          cd src/Storage.Interface
           dotnet restore
       - name: Build
         run: |
+          cd src/Storage.Interface
           dotnet build --configuration Release --no-restore -p:Deterministic=true -p:BuildNumber=${{ github.run_number }}
       - name: Pack and publish Storage.Interface
         run: |
-          dotnet pack src/Storage.Interface/Altinn.Platform.Storage.Interface.csproj --configuration Release --no-restore --no-build -p:BuildNumber=${{ github.run_number }} -p:Deterministic=true
+          cd src/Storage.Interface
+          dotnet pack --configuration Release --no-restore --no-build -p:BuildNumber=${{ github.run_number }} -p:Deterministic=true
         #  dotnet nuget push src/Storage.Interface/Altinn.Platform.Storage.Interface.csproj/bin/Release/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }}
