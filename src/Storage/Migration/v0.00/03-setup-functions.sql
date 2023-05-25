@@ -60,6 +60,15 @@ BEGIN
 END;
 $BODY$;
 
+CREATE OR REPLACE PROCEDURE storage.upsertDataelement(_instanceInternalId BIGINT, _instanceGuid UUID, _alternateId UUID, _element JSONB)
+    LANGUAGE 'plpgsql'	
+AS $BODY$
+BEGIN
+	INSERT INTO storage.dataElements(instanceInternalId, instanceGuid, alternateId, element) VALUES (_instanceInternalId, _instanceGuid, _alternateId, _element)
+    ON CONFLICT(alternateId) DO UPDATE SET element = _element;
+END;
+$BODY$;
+
 CREATE OR REPLACE PROCEDURE storage.deleteDataelement(_alternateId UUID)
     LANGUAGE 'plpgsql'	
 AS $BODY$
