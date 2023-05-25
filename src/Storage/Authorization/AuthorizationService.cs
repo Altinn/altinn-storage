@@ -4,15 +4,12 @@ using System.Linq;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Threading.Tasks;
-
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Constants;
 using Altinn.Common.PEP.Helpers;
 using Altinn.Common.PEP.Interfaces;
-
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
-
 using Microsoft.Extensions.Logging;
 
 namespace Altinn.Platform.Storage.Authorization
@@ -142,6 +139,48 @@ namespace Altinn.Platform.Storage.Authorization
 
             XacmlJsonResponse response = await _pdp.GetDecisionForRequest(request);
 
+            if (response?.Response == null)
+            {
+                _logger.LogInformation("// Authorization Helper // Authorize instance action failed for request: {request}.", JsonSerializer.Serialize(request));
+                return false;
+            }
+
+            bool authorized = DecisionHelper.ValidatePdpDecision(response.Response, user);
+            return authorized;
+        }
+
+        /// <inheritdoc/>>
+        public async Task<bool> AuthorizeAnyOfInstanceActions(Instance instance, List<string> actions, string task = null)
+        {
+            string org = instance.Org;
+            string app = instance.AppId.Split('/')[1];
+            int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
+            XacmlJsonRequestRoot request;
+            if (actions.Count == 0)
+            {
+                return false;
+            }
+
+            ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
+            if (instance.Id == null)
+            {
+                request = DecisionHelper.CreateDecisionRequest(org, app, user, actions[0], instanceOwnerPartyId, null);
+            }
+            else
+            {
+                Guid instanceGuid = Guid.Parse(instance.Id.Split('/')[1]);
+                request = DecisionHelper.CreateDecisionRequest(org, app, user, actions[0], instanceOwnerPartyId, instanceGuid, task);
+            }
+
+            for (int i = 1; i < actions.Count; i++)
+            {
+                request.Request.Action.Add(DecisionHelper.CreateActionCategory(actions[i]));
+            }
+            
+            _logger.LogDebug("// Authorization Helper // AuthorizeAnyOfInstanceActions // request: {Request}", JsonSerializer.Serialize(request));
+            XacmlJsonResponse response = await _pdp.GetDecisionForRequest(request);
+            
+            _logger.LogDebug("// Authorization Helper // AuthorizeAnyOfInstanceActions // response: {Response}", JsonSerializer.Serialize(response));
             if (response?.Response == null)
             {
                 _logger.LogInformation("// Authorization Helper // Authorize instance action failed for request: {request}.", JsonSerializer.Serialize(request));
