@@ -8,6 +8,7 @@ using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Azure.Cosmos;
 
 namespace Altinn.Platform.Storage.Controllers;
 
@@ -16,7 +17,7 @@ namespace Altinn.Platform.Storage.Controllers;
 /// </summary>
 [Route("storage/api/v1/instances/{instanceOwnerPartyId:int}/{instanceGuid:guid}/data/{dataGuid:guid}/lock")]
 [ApiController]
-public class DataLockController: ControllerBase
+public class DataLockController : ControllerBase
 {
     private readonly IInstanceRepository _instanceRepository;
     private readonly IDataRepository _dataRepository;
@@ -29,8 +30,8 @@ public class DataLockController: ControllerBase
     /// <param name="dataRepository">the data repository handler</param>
     /// <param name="authorizationService">the authorization service.</param>
     public DataLockController(
-        IInstanceRepository instanceRepository, 
-        IDataRepository dataRepository, 
+        IInstanceRepository instanceRepository,
+        IDataRepository dataRepository,
         IAuthorization authorizationService)
     {
         _instanceRepository = instanceRepository;
@@ -59,26 +60,22 @@ public class DataLockController: ControllerBase
             return instanceError;
         }
 
-        (DataElement dataElement, ActionResult dataElementError) = await GetDataElementAsync(instanceGuid, dataGuid);
-        if (dataElement == null)
-        {
-            return dataElementError;
-        }
-        
-        if (dataElement.Locked)
-        {
-            return Ok(dataElement);
-        }
-        
         Dictionary<string, object> propertyList = new()
         {
             { "/locked", true }
         };
         
-        DataElement updatedDataElement = await _dataRepository.Update(instanceGuid, dataGuid, propertyList);
-        return Ok(updatedDataElement);
+        try
+        {
+            DataElement updatedDataElement = await _dataRepository.Update(instanceGuid, dataGuid, propertyList);
+            return Ok(updatedDataElement);
+        }
+        catch (CosmosException e)
+        {
+            return StatusCode((int)e.StatusCode);
+        }
     }
-    
+
     /// <summary>
     /// Unlocks a data element
     /// </summary>
@@ -95,7 +92,7 @@ public class DataLockController: ControllerBase
     [Produces("application/json")]
     public async Task<ActionResult<DataElement>> Unlock(int instanceOwnerPartyId, Guid instanceGuid, Guid dataGuid)
     {
-        (Instance instance, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
+        (Instance instance, _) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
         if (instance == null)
         {
             return Forbid();
@@ -107,26 +104,21 @@ public class DataLockController: ControllerBase
             return Forbid();
         }
 
-        (DataElement dataElement, ActionResult dataElementError) = await GetDataElementAsync(instanceGuid, dataGuid);
-        if (dataElement == null)
-        {
-            return dataElementError;
-        }
-
-        if (!dataElement.Locked)
-        {
-            return Ok(dataElement);
-        }
-        
         Dictionary<string, object> propertyList = new()
         {
             { "/locked", false }
         };
-        
-        DataElement updatedDataElement = await _dataRepository.Update(instanceGuid, dataGuid, propertyList);
-        return Ok(updatedDataElement);
+        try
+        {
+            DataElement updatedDataElement = await _dataRepository.Update(instanceGuid, dataGuid, propertyList);
+            return Ok(updatedDataElement);
+        }
+        catch (CosmosException e)
+        {
+            return StatusCode((int)e.StatusCode);
+        }
     }
-    
+
     private async Task<(Instance Instance, ActionResult ErrorMessage)> GetInstanceAsync(Guid instanceGuid, int instanceOwnerPartyId)
     {
         Instance instance = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
@@ -137,17 +129,5 @@ public class DataLockController: ControllerBase
         }
 
         return (instance, null);
-    }
-
-    private async Task<(DataElement DataElement, ActionResult ErrorMessage)> GetDataElementAsync(Guid instanceGuid, Guid dataGuid)
-    {
-        DataElement dataElement = await _dataRepository.Read(instanceGuid, dataGuid);
-
-        if (dataElement == null)
-        {
-            return (null, NotFound($"Unable to find any data element with id: {dataGuid}."));
-        }
-
-        return (dataElement, null);
     }
 }
