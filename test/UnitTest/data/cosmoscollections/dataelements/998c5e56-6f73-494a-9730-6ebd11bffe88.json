@@ -1,0 +1,21 @@
+{
+  "id": "998c5e56-6f73-494a-9730-6ebd11bffe88",
+  "instanceGuid": "4c67392f-36c6-42dc-998f-c367e771dcdd",
+  "dataType": "default",
+  "filename": null,
+  "contentType": "application/xml",
+  "blobStoragePath": "tdd/read-write-unlock/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bffe88",
+  "selfLinks": {
+    "apps": null,
+    "platform": null
+  },
+  "size": 563,
+  "locked": false,
+  "refs": [],
+  "isRead": true,
+  "tags": [],
+  "created": "2022-03-21T14:37:08.6095258Z",
+  "createdBy": "20000000",
+  "lastChanged": "2022-03-21T14:42:14.2692641Z",
+  "lastChangedBy": "20000000"
+}
