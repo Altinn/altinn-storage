@@ -1,17 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
-using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
-using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
-using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -26,10 +20,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         private static List<string> _forbiddenUpdateProps = new List<string>()
             { "/created", "/createdBy", "/id", "/instanceGuid", "/blobStoragePath", "/dataType", "/contentType", "/filename", "/lastChangedBy", "/lastChanged", "/refs", "/size", "/fileScanResult", "/tags", "/deleteStatus", };
 
-        private int _instanceOwnerPartyId = 1337;
         private string _org = "ttd";
         private string _appId = "ttd/apps-test";
-        private string _dataType = "attachment";
 
         [Fact]
         public async Task Lock_patches_locked_property_when_not_locked()
@@ -69,6 +61,25 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             instanceRepoMock.Verify(i => i.GetOne(12345, instanceGuid), Times.Once);
             instanceRepoMock.VerifyNoOtherCalls();
             dataRepositoryMock.Verify(d => d.Update(instanceGuid, dataElementId, It.Is<Dictionary<string, object>>(p => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p))), Times.Once);
+            dataRepositoryMock.VerifyNoOtherCalls();
+        }
+        
+        [Fact]
+        public async Task Lock_returns_NotFound_if_Instance_not_found()
+        {
+            // Arrange
+            List<string> expectedPropertiesForPatch = new() { "/locked" };
+            (DataLockController testController, Mock<IDataRepository> dataRepositoryMock, Mock<IInstanceRepository> instanceRepoMock) = GetTestController(expectedPropertiesForPatch, true, new CosmosException("NotFound", System.Net.HttpStatusCode.NotFound, 0, string.Empty, 0), false);
+
+            // Act
+            var instanceGuid = Guid.NewGuid();
+            var dataElementId = Guid.NewGuid();
+            var result = await testController.Lock(12345, instanceGuid, dataElementId);
+            
+            // Assert
+            Assert.IsType<NotFoundObjectResult>(result.Result);
+            instanceRepoMock.Verify(i => i.GetOne(12345, instanceGuid), Times.Once);
+            instanceRepoMock.VerifyNoOtherCalls();
             dataRepositoryMock.VerifyNoOtherCalls();
         }
 
@@ -131,6 +142,25 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             instanceRepoMock.VerifyNoOtherCalls();
             dataRepositoryMock.VerifyNoOtherCalls();
         }
+        
+        [Fact]
+        public async Task UnLock_returns_Forbidden_if_Instance_not_found()
+        {
+            // Arrange
+            List<string> expectedPropertiesForPatch = new() { "/locked" };
+            (DataLockController testController, Mock<IDataRepository> dataRepositoryMock, Mock<IInstanceRepository> instanceRepoMock) = GetTestController(expectedPropertiesForPatch, true, new CosmosException("NotFound", System.Net.HttpStatusCode.NotFound, 0, string.Empty, 0), false);
+
+            // Act
+            var instanceGuid = Guid.NewGuid();
+            var dataElementId = Guid.NewGuid();
+            var result = await testController.Unlock(12345, instanceGuid, dataElementId);
+            
+            // Assert
+            Assert.IsType<ForbidResult>(result.Result);
+            instanceRepoMock.Verify(i => i.GetOne(12345, instanceGuid), Times.Once);
+            instanceRepoMock.VerifyNoOtherCalls();
+            dataRepositoryMock.VerifyNoOtherCalls();
+        }
 
         private static bool VerifyPropertyListInput(int expectedPropCount, List<string> expectedProperties, Dictionary<string, object> propertyList)
         {
@@ -155,7 +185,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             return true;
         }
 
-        private (DataLockController TestController, Mock<IDataRepository> DataRepositoryMock, Mock<IInstanceRepository>) GetTestController(List<string> expectedPropertiesForPatch, bool authorized, CosmosException exception = null)
+        private (DataLockController TestController, Mock<IDataRepository> DataRepositoryMock, Mock<IInstanceRepository> InstanceRepositoryMock) GetTestController(List<string> expectedPropertiesForPatch, bool authorized, CosmosException exception = null, bool instanceFound = true)
         {
             Mock<IDataRepository> dataRepositoryMock = new();
             Mock<IInstanceRepository> instanceRepositoryMock = new();
@@ -185,29 +215,37 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             authorizationMock
                 .Setup(a => a.AuthorizeAnyOfInstanceActions(It.IsAny<Instance>(), It.IsAny<List<string>>(), It.IsAny<string>()))
                 .ReturnsAsync(authorized);
-
-            instanceRepositoryMock
-                .Setup(ir => ir.GetOne(It.IsAny<int>(), It.IsAny<Guid>()))
-                .ReturnsAsync((int partyId, Guid instanceGuid) =>
-                {
-                    return new Instance
+            if (instanceFound)
+            {
+                instanceRepositoryMock
+                    .Setup(ir => ir.GetOne(It.IsAny<int>(), It.IsAny<Guid>()))
+                    .ReturnsAsync((int partyId, Guid instanceGuid) =>
                     {
-                        Id = $"{partyId}/{instanceGuid}",
-                        InstanceOwner = new()
+                        return new Instance
                         {
-                            PartyId = partyId.ToString()
-                        },
-                        Process = new()
-                        {
-                            CurrentTask = new()
+                            Id = $"{partyId}/{instanceGuid}",
+                            InstanceOwner = new()
                             {
-                                ElementId = "Task_1"
-                            }
-                        },
-                        Org = _org,
-                        AppId = _appId
-                    };
-                });
+                                PartyId = partyId.ToString()
+                            },
+                            Process = new()
+                            {
+                                CurrentTask = new()
+                                {
+                                    ElementId = "Task_1"
+                                }
+                            },
+                            Org = _org,
+                            AppId = _appId
+                        };
+                    });
+            }
+            else
+            {
+                instanceRepositoryMock
+                    .Setup(ir => ir.GetOne(It.IsAny<int>(), It.IsAny<Guid>()))
+                    .ReturnsAsync((int partyId, Guid instanceGuid) => null);
+            }
 
             Mock<HttpContext> httpContextMock = new();
             httpContextMock
