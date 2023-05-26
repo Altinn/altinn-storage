@@ -133,6 +133,11 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
                 {
                     dataElement.FileScanResult = (FileScanResult)entry.Value;
                 }
+
+                if (entry.Key == "/locked")
+                {
+                    dataElement.Locked = (bool)entry.Value;
+                }
             }
 
             _tempRepository["dataElementId"] = JsonSerializer.Serialize(dataElement, _options);
