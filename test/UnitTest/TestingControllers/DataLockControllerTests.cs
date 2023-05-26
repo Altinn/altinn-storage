@@ -40,7 +40,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
     /// 1 (REGNA): unlock
     /// 3 (A0212): read
     /// 10016 (SIGNE): read, write, unlock
-    /// Instance: 500004/4c67392f-36c6-42dc-998f-c367e771dcdd
+    /// Instances:
+    /// 500004/4c67392f-36c6-42dc-998f-c367e771dcdd CurrentTask is Task_1
+    /// 500004/4c67392f-36c6-42dc-998f-c367e771dcde CurrentTask is Task_2 (No users have any rights in this Task)
     /// DataElements and their locked status:
     /// 998c5e56-6f73-494a-9730-6ebd11bffe88: false (unlocked)
     /// 998c5e56-6f73-494a-9730-6ebd11bfff99: true (locked)
@@ -92,6 +94,19 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
         
         [Fact]
+        public async void PUT_lock_return_NotFound_when_datalement_not_present()
+        {
+            string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff00/lock";
+            HttpContent content = new StringContent("This is a blob file");
+
+            HttpClient client = GetTestClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 500004, 3));
+            HttpResponseMessage response = await client.PutAsync($"{dataPathWithData}", null);
+
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+        
+        [Fact]
         public async void User_with_read_write_unlock_is_allowed_to_lock()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
@@ -127,6 +142,19 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             HttpClient client = GetTestClient();
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1, 500004, 3));
+            HttpResponseMessage response = await client.PutAsync($"{dataPathWithData}", null);
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+        
+        [Fact]
+        public async void User_with_write_on_Task_1_is_not_allowed_to_lock_data_if_current_task_is_Task_2()
+        {
+            string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcde/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
+            HttpContent content = new StringContent("This is a blob file");
+
+            HttpClient client = GetTestClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 500004, 3));
             HttpResponseMessage response = await client.PutAsync($"{dataPathWithData}", null);
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -178,6 +206,32 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
         
         [Fact]
+        public async void Users_not_allowed_to_lock_when_partyId_not_same_as_instance_partyId()
+        {
+            string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcde/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
+            HttpContent content = new StringContent("This is a blob file");
+
+            HttpClient client = GetTestClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
+            HttpResponseMessage response = await client.PutAsync($"{dataPathWithData}", null);
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+        
+        [Fact]
+        public async void DELETE_lock_return_NotFound_when_datalement_not_present()
+        {
+            string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff00/lock";
+            HttpContent content = new StringContent("This is a blob file");
+
+            HttpClient client = GetTestClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 500004, 3));
+            HttpResponseMessage response = await client.DeleteAsync($"{dataPathWithData}");
+
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+        
+        [Fact]
         public async void User_with_read_is_not_allowed_to_unlock()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
@@ -202,6 +256,32 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             AssertDataLockHasCorrectStatus(await response.Content.ReadFromJsonAsync<DataElement>(), false);
+        }
+        
+        [Fact]
+        public async void Users_not_allowed_to_unlock_when_user_has_no_allowed_actions_on_current_task()
+        {
+            string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcde/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
+            HttpContent content = new StringContent("This is a blob file");
+
+            HttpClient client = GetTestClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1, 500004, 3));
+            HttpResponseMessage response = await client.DeleteAsync($"{dataPathWithData}");
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+        
+        [Fact]
+        public async void Users_not_allowed_to_unlock_when_partyId_not_same_as_instance_partyId()
+        {
+            string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcde/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
+            HttpContent content = new StringContent("This is a blob file");
+
+            HttpClient client = GetTestClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
+            HttpResponseMessage response = await client.DeleteAsync($"{dataPathWithData}");
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
         
         private static void AssertDataLockHasCorrectStatus(DataElement dataElement, bool expectedLockStatus)
