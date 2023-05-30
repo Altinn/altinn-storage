@@ -1,0 +1,224 @@
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.Common;
+using System.Drawing;
+using System.Linq;
+using System.Net;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
+using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Interface.Models;
+using Microsoft.Azure.Cosmos;
+using Microsoft.Azure.Cosmos.Linq;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Newtonsoft.Json;
+using Npgsql;
+using NpgsqlTypes;
+////using static System.Net.Mime.MediaTypeNames;
+////using static Microsoft.Azure.KeyVault.WebKey.JsonWebKeyVerifier;
+
+namespace Altinn.Platform.Storage.Repository
+{
+    /// <summary>
+    /// Handles applicationMetadata repository. Notice that the all methods should modify the Id attribute of the
+    /// Application, since cosmosDb fails if Id contains slashes '/'.
+    /// </summary>
+    public class PgApplicationRepository : IApplicationRepository, IHostedService
+    {
+        private static readonly string _readSql = "select application from storage.applications";
+        private static readonly string _readByOrgSql = "select application from storage.applications where org = $1";
+        private static readonly string _readByIdSql = "select application from storage.applications where alternateId = $1";
+        private static readonly string _deleteSql = "delete from storage.applications where alternateId = $1";
+        private static readonly string _updateSql = "update storage.applications set application = $2 where alternateId = $1";
+        private static readonly string _createSql = "insert into storage.applications (alternateId, org, application) values ($1, $2, $3)";
+
+        private readonly ILogger _logger;
+        private readonly IMemoryCache _memoryCache;
+        private readonly MemoryCacheEntryOptions _cacheEntryOptionsTitles;
+        private readonly MemoryCacheEntryOptions _cacheEntryOptionsMetadata;
+        private readonly string _cacheKey = "allAppTitles";
+        private readonly NpgsqlDataSource _dataSource;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PgApplicationRepository"/> class.
+        /// </summary>
+        /// <param name="generalSettings">the general settings</param>
+        /// <param name="logger">dependency injection of logger</param>
+        /// <param name="memoryCache">the memory cache</param>
+        /// <param name="dataSource">The npgsql data source.</param>
+        public PgApplicationRepository(
+            IOptions<GeneralSettings> generalSettings,
+            ILogger<PgApplicationRepository> logger,
+            IMemoryCache memoryCache,
+            NpgsqlDataSource dataSource)
+        {
+            _logger = logger;
+            _dataSource = dataSource;
+            _memoryCache = memoryCache;
+            _cacheEntryOptionsTitles = new MemoryCacheEntryOptions()
+                .SetPriority(CacheItemPriority.High)
+                .SetAbsoluteExpiration(new TimeSpan(0, 0, generalSettings.Value.AppTitleCacheLifeTimeInSeconds));
+            _cacheEntryOptionsMetadata = new MemoryCacheEntryOptions()
+              .SetPriority(CacheItemPriority.High)
+              .SetAbsoluteExpiration(new TimeSpan(0, 0, generalSettings.Value.AppMetadataCacheLifeTimeInSeconds));
+        }
+
+        /// <inheritdoc/>
+        public async Task<List<Application>> FindAll()
+        {
+            List<Application> applications = new();
+
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSql);
+            await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                applications.Add(SetLegacyId(JsonConvert.DeserializeObject<Application>(reader.GetFieldValue<string>("application"))));
+            }
+
+            return applications;
+        }
+
+        /// <inheritdoc/>
+        public async Task<List<Application>> FindByOrg(string org)
+        {
+            List<Application> applications = new();
+
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readByOrgSql);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, org);
+            await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                applications.Add(SetLegacyId(JsonConvert.DeserializeObject<Application>(reader.GetFieldValue<string>("application"))));
+            }
+
+            return applications;
+        }
+
+        /// <inheritdoc/>
+        public async Task<Application> FindOne(string appId, string org)
+        {
+            if (!_memoryCache.TryGetValue(appId, out Application application))
+            {
+                await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readByIdSql);
+                pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, appId.Replace('/', '-'));
+                await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
+                if (await reader.ReadAsync())
+                {
+                    application = SetLegacyId(JsonConvert.DeserializeObject<Application>(reader.GetFieldValue<string>("application")));
+                    _memoryCache.Set(appId, application, _cacheEntryOptionsMetadata);
+                }
+                else
+                {
+                    application = null;
+                }
+            }
+
+            return application;
+        }
+
+        /// <inheritdoc/>
+        public async Task<Application> Create(Application item)
+        {
+            SetInternalId(item);
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_createSql);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, item.Id);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, item.Org);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, JsonConvert.SerializeObject(item));
+
+            await pgcom.ExecuteNonQueryAsync();
+
+            return SetLegacyId(item);
+        }
+
+        /// <inheritdoc/>
+        public async Task<Application> Update(Application application)
+        {
+            // TODO: understand why cosmos code does deep clone
+            SetInternalId(application);
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateSql);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, application.Id);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, JsonConvert.SerializeObject(application));
+            await pgcom.ExecuteNonQueryAsync();
+
+            SetLegacyId(application);
+            _memoryCache.Set(application.Id, application, _cacheEntryOptionsMetadata);
+            return application;
+        }
+
+        /// <inheritdoc/>
+        public async Task<bool> Delete(string appId, string org)
+        {
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, appId.Replace('/', '-'));
+
+            return await pgcom.ExecuteNonQueryAsync() == 1;
+        }
+
+        /// <inheritdoc/>
+        public async Task<Dictionary<string, string>> GetAllAppTitles()
+        {
+            if (!_memoryCache.TryGetValue(_cacheKey, out Dictionary<string, string> appTitles))
+            {
+                appTitles = new Dictionary<string, string>();
+                foreach (Application item in await FindAll())
+                {
+                    StringBuilder titles = new();
+                    if (item.Title != null)
+                    {
+                        foreach (string title in item?.Title?.Values)
+                        {
+                            titles.Append(title + ";");
+                        }
+                    }
+
+                    appTitles.Add(item.Id, titles.ToString());
+                }
+
+                _memoryCache.Set(_cacheKey, appTitles, _cacheEntryOptionsTitles);
+            }
+
+            return appTitles;
+        }
+
+        private Application SetLegacyId(Application app)
+        {
+            if (app.Id.StartsWith(app.Org + '-', StringComparison.OrdinalIgnoreCase))
+            {
+                string appIdWithoutOrg = app.Id.Substring(app.Org.Length + 1);
+                app.Id = $"{app.Org}/{appIdWithoutOrg}";
+            }
+
+            return app;
+        }
+
+        private Application SetInternalId(Application app)
+        {
+            if (app.Id.StartsWith(app.Org + '/', StringComparison.OrdinalIgnoreCase))
+            {
+                string appIdWithoutOrg = app.Id.Substring(app.Org.Length + 1);
+                app.Id = $"{app.Org}-{appIdWithoutOrg}";
+            }
+
+            return app;
+        }
+
+        /// <inheritdoc/>
+        Task IHostedService.StartAsync(CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
+
+        /// <inheritdoc/>
+        Task IHostedService.StopAsync(CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
+    }
+}

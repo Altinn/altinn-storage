@@ -33,7 +33,7 @@ namespace Altinn.Platform.Storage.Repository
         public static IServiceCollection AddRepositoriesPostgreSQL(this IServiceCollection services, string connectionString, bool logParameters)
         {
             return services
-                .AddRepository<IApplicationRepository, ApplicationRepository>()
+                .AddRepository<IApplicationRepository, PgApplicationRepository>()
                 .AddRepository<ITextRepository, TextRepository>()
                 .AddRepository<IDataRepository, PgDataRepository>()
                 .AddRepository<IInstanceEventRepository, PgInstanceEventRepository>()
