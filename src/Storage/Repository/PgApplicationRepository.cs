@@ -21,8 +21,6 @@ using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Npgsql;
 using NpgsqlTypes;
-////using static System.Net.Mime.MediaTypeNames;
-////using static Microsoft.Azure.KeyVault.WebKey.JsonWebKeyVerifier;
 
 namespace Altinn.Platform.Storage.Repository
 {
