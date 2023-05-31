@@ -33,7 +33,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
     /// 3 (A0212): read
     /// 10016 (SIGNE): read, write, unlock
     /// Instances:
-    /// 500004/4c67392f-36c6-42dc-998f-c367e771dcdd CurrentTask is Task_1
+    /// 500004/4c67392f-36c6-42dc-998f-c367e771dccc CurrentTask is Task_1 data unlocked
+    /// 500004/4c67392f-36c6-42dc-998f-c367e771dcdd CurrentTask is Task_1 data locked
     /// 500004/4c67392f-36c6-42dc-998f-c367e771dcde CurrentTask is Task_2 (No users have any rights in this Task)
     /// DataElements and their locked status:
     /// 998c5e56-6f73-494a-9730-6ebd11bffe88: false (unlocked)
@@ -56,13 +57,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         [Fact]
         public async void User_with_write_is_allowed_to_lock()
         {
-            string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
+            string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dccc/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
 
             HttpClient client = GetTestClient();
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 500004, 3));
             HttpResponseMessage response = await client.PutAsync($"{dataPathWithData}", null);
 
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
             var stream = await response.Content.ReadFromJsonAsync<DataElement>();
             AssertDataLockHasCorrectStatus(stream, true);
         }
@@ -96,13 +97,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         [Fact]
         public async void User_with_read_write_unlock_is_allowed_to_lock()
         {
-            string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
+            string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dccc/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
 
             HttpClient client = GetTestClient();
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(10016, 500004, 3));
             HttpResponseMessage response = await client.PutAsync($"{dataPathWithData}", null);
 
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
             var stream = await response.Content.ReadFromJsonAsync<DataElement>();
             AssertDataLockHasCorrectStatus(stream, true);
         }
@@ -110,7 +111,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         [Fact]
         public async void User_with_read_is_not_allowed_to_lock()
         {
-            string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
+            string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dccc/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
 
             HttpClient client = GetTestClient();
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 500004, 3));
@@ -122,7 +123,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         [Fact]
         public async void User_with_unlock_is_not_allowed_to_lock()
         {
-            string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
+            string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dccc/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
 
             HttpClient client = GetTestClient();
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1, 500004, 3));

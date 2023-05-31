@@ -25,7 +25,7 @@
   "appOwner": {},
   "data": [
     {
-      "id": "998c5e56-6f73-494a-9730-6ebd11bfff99",
+      "id": "998c5e56-6f73-494a-9730-6ebd11bffe88",
       "instanceGuid": "4c67392f-36c6-42dc-998f-c367e771dcdd",
       "dataType": "schema_4222_160523_forms_212_20160523",
       "contentType": "application/xml",
@@ -34,7 +34,7 @@
         "platform": "https://platform.yt01.altinn.cloud/storage/api/v1/instances/58621971/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bffe88"
       },
       "size": 1993,
-      "locked": true,
+      "locked": false,
       "refs": [],
       "created": "2020-04-29T13:53:03.0388998Z",
       "lastChanged": "2020-04-29T13:53:05.7829624Z",

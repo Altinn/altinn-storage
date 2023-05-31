@@ -7,7 +7,7 @@
   "blobStoragePath": "tdd/read-write-unlock/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff99",
   "selfLinks": {
     "apps": null,
-    "platform": null
+    "platform": "https://platform.yt01.altinn.cloud/storage/api/v1/instances/58621971/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bffe99"
   },
   "size": 563,
   "locked": true,

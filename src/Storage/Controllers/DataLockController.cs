@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Helpers;
@@ -49,6 +50,7 @@ public class DataLockController : ControllerBase
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
     [HttpPut]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
@@ -59,6 +61,13 @@ public class DataLockController : ControllerBase
         {
             return instanceError;
         }
+        
+        DataElement? dataElement = instance.Data.Find(d => d.Id == dataGuid.ToString());
+        
+        if (dataElement?.Locked is true)
+        {
+            return Ok(dataElement);
+        }
 
         Dictionary<string, object> propertyList = new()
         {
@@ -68,7 +77,7 @@ public class DataLockController : ControllerBase
         try
         {
             DataElement updatedDataElement = await _dataRepository.Update(instanceGuid, dataGuid, propertyList);
-            return Ok(updatedDataElement);
+            return Created(updatedDataElement.Id, updatedDataElement);
         }
         catch (CosmosException e)
         {
