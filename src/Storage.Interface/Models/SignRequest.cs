@@ -8,11 +8,14 @@ namespace Altinn.Platform.Storage.Interface.Models
     /// </summary>
     public class SignRequest
     {
+        /// <summary>
+        /// List of dataElementSignatures
+        /// </summary>
         [JsonProperty(PropertyName = "dataElementSignatures")]
         public List<DataElementSignature> DataElementSignatures { get; set; }
         
         /// <summary>
-        /// The SignRequestElement
+        /// The DataElementSignature
         /// </summary>
         public class DataElementSignature
         {
