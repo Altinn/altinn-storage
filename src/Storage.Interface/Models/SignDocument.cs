@@ -28,6 +28,12 @@ namespace Altinn.Platform.Storage.Interface.Models
         public DateTime SignedTime { get; set; }
         
         /// <summary>
+        /// Information about the signee
+        /// </summary>
+        [JsonProperty(PropertyName = "signeeInfo")]
+        public Signee SigneeInfo { get; set; }
+
+        /// <summary>
         /// List of dataElementSignatures
         /// </summary>
         [JsonProperty(PropertyName = "dataElementSignatures")]
