@@ -1,6 +1,6 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Helpers;
@@ -56,10 +56,10 @@ public class DataLockController : ControllerBase
     [Produces("application/json")]
     public async Task<ActionResult<DataElement>> Lock(int instanceOwnerPartyId, Guid instanceGuid, Guid dataGuid)
     {
-        (Instance instance, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
+        (Instance? instance, ActionResult? instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
         if (instance == null)
         {
-            return instanceError;
+            return instanceError!;
         }
         
         DataElement? dataElement = instance.Data.Find(d => d.Id == dataGuid.ToString());
@@ -101,7 +101,7 @@ public class DataLockController : ControllerBase
     [Produces("application/json")]
     public async Task<ActionResult<DataElement>> Unlock(int instanceOwnerPartyId, Guid instanceGuid, Guid dataGuid)
     {
-        (Instance instance, _) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
+        (Instance? instance, _) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
         if (instance == null)
         {
             return Forbid();
@@ -128,7 +128,7 @@ public class DataLockController : ControllerBase
         }
     }
 
-    private async Task<(Instance Instance, ActionResult ErrorMessage)> GetInstanceAsync(Guid instanceGuid, int instanceOwnerPartyId)
+    private async Task<(Instance? Instance, ActionResult? ErrorMessage)> GetInstanceAsync(Guid instanceGuid, int instanceOwnerPartyId)
     {
         Instance instance = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
 
