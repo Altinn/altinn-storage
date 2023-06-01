@@ -49,7 +49,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             var instanceGuid = Guid.NewGuid();
             var dataElementId = Guid.NewGuid();
             List<string> expectedPropertiesForPatch = new() { "/locked" };
-            (DataLockController testController, Mock<IDataRepository> dataRepositoryMock, Mock<IInstanceRepository> instanceRepoMock) = GetTestController(expectedPropertiesForPatch, dataElementId, true, new CosmosException("NotFound", System.Net.HttpStatusCode.NotFound, 0, string.Empty, 0));
+            (DataLockController testController, Mock<IDataRepository> dataRepositoryMock, Mock<IInstanceRepository> instanceRepoMock) = GetTestController(expectedPropertiesForPatch, dataElementId, true, new RepositoryException("NotFound", System.Net.HttpStatusCode.NotFound));
 
             // Act
             var result = await testController.Lock(12345, instanceGuid, dataElementId);
@@ -70,7 +70,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             var instanceGuid = Guid.NewGuid();
             var dataElementId = Guid.NewGuid();
             List<string> expectedPropertiesForPatch = new() { "/locked" };
-            (DataLockController testController, Mock<IDataRepository> dataRepositoryMock, Mock<IInstanceRepository> instanceRepoMock) = GetTestController(expectedPropertiesForPatch, dataElementId, true, new CosmosException("NotFound", System.Net.HttpStatusCode.NotFound, 0, string.Empty, 0), false);
+            (DataLockController testController, Mock<IDataRepository> dataRepositoryMock, Mock<IInstanceRepository> instanceRepoMock) = GetTestController(expectedPropertiesForPatch, dataElementId, true, new RepositoryException("NotFound", System.Net.HttpStatusCode.NotFound), false);
 
             // Act
             var result = await testController.Lock(12345, instanceGuid, dataElementId);
@@ -109,7 +109,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             var instanceGuid = Guid.NewGuid();
             var dataElementId = Guid.NewGuid();
             List<string> expectedPropertiesForPatch = new() { "/locked" };
-            (DataLockController testController, Mock<IDataRepository> dataRepositoryMock, Mock<IInstanceRepository> instanceRepoMock) = GetTestController(expectedPropertiesForPatch, dataElementId, true, new CosmosException("NotFound", System.Net.HttpStatusCode.NotFound, 0, string.Empty, 0));
+            (DataLockController testController, Mock<IDataRepository> dataRepositoryMock, Mock<IInstanceRepository> instanceRepoMock) = GetTestController(expectedPropertiesForPatch, dataElementId, true, new RepositoryException("NotFound", System.Net.HttpStatusCode.NotFound));
 
             // Act
             var result = await testController.Unlock(12345, instanceGuid, dataElementId);
@@ -149,7 +149,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             var instanceGuid = Guid.NewGuid();
             var dataElementId = Guid.NewGuid();
             List<string> expectedPropertiesForPatch = new() { "/locked" };
-            (DataLockController testController, Mock<IDataRepository> dataRepositoryMock, Mock<IInstanceRepository> instanceRepoMock) = GetTestController(expectedPropertiesForPatch, dataElementId, true, new CosmosException("NotFound", System.Net.HttpStatusCode.NotFound, 0, string.Empty, 0), false);
+            (DataLockController testController, Mock<IDataRepository> dataRepositoryMock, Mock<IInstanceRepository> instanceRepoMock) = GetTestController(expectedPropertiesForPatch, dataElementId, true, new RepositoryException("NotFound", System.Net.HttpStatusCode.NotFound), false);
 
             // Act
             var result = await testController.Unlock(12345, instanceGuid, dataElementId);
@@ -184,7 +184,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             return true;
         }
 
-        private (DataLockController TestController, Mock<IDataRepository> DataRepositoryMock, Mock<IInstanceRepository> InstanceRepositoryMock) GetTestController(List<string> expectedPropertiesForPatch, Guid dataGuid, bool authorized, CosmosException exception = null, bool instanceFound = true, bool dataLocked = false)
+        private (DataLockController TestController, Mock<IDataRepository> DataRepositoryMock, Mock<IInstanceRepository> InstanceRepositoryMock) GetTestController(List<string> expectedPropertiesForPatch, Guid dataGuid, bool authorized, RepositoryException exception = null, bool instanceFound = true, bool dataLocked = false)
         {
             Mock<IDataRepository> dataRepositoryMock = new();
             Mock<IInstanceRepository> instanceRepositoryMock = new();
@@ -212,7 +212,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             }
 
             authorizationMock
-                .Setup(a => a.AuthorizeAnyOfInstanceActions(It.IsAny<Instance>(), It.IsAny<List<string>>(), It.IsAny<string>()))
+                .Setup(a => a.AuthorizeAnyOfInstanceActions(It.IsAny<Instance>(), It.IsAny<List<string>>()))
                 .ReturnsAsync(authorized);
             if (instanceFound)
             {

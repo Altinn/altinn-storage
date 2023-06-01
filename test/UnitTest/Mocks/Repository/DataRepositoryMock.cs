@@ -132,7 +132,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             
             if (dataElement == null)
             {
-                throw new CosmosException("Data element not found", System.Net.HttpStatusCode.NotFound, 0, string.Empty, 1);
+                throw new RepositoryException("Data element not found", System.Net.HttpStatusCode.NotFound);
             }
 
             foreach (var entry in propertyList)

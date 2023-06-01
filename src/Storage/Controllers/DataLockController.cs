@@ -107,7 +107,7 @@ public class DataLockController : ControllerBase
             return Forbid();
         }
 
-        bool authorized = await _authorizationService.AuthorizeAnyOfInstanceActions(instance, new List<string>() { "write", "unlock" }, instance.Process.CurrentTask.ElementId);
+        bool authorized = await _authorizationService.AuthorizeAnyOfInstanceActions(instance, new List<string>() { "write", "unlock" });
         if (!authorized)
         {
             return Forbid();
