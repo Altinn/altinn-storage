@@ -46,7 +46,7 @@ public class DataLockController : ControllerBase
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
     /// <param name="dataGuid">The id of the data element to delete.</param>
-    /// <returns></returns>
+    /// <returns>DataElement that was locked</returns>
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
     [HttpPut]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -91,7 +91,7 @@ public class DataLockController : ControllerBase
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
     /// <param name="dataGuid">The id of the data element to delete.</param>
-    /// <returns></returns>
+    /// <returns>DataElement that was unlocked</returns>
     [Authorize]
     [HttpDelete]
     [ProducesResponseType(StatusCodes.Status200OK)]
