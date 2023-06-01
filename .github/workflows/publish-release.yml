@@ -31,4 +31,4 @@ jobs:
         run: |
           cd src/Storage.Interface
           dotnet pack --configuration Release --no-restore --no-build -p:BuildNumber=${{ github.run_number }} -p:Deterministic=true
-          dotnet nuget push Altinn.Platform.Storage.Interface.csproj/bin/Release/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }}
+          dotnet nuget push Altinn.Platform.Storage.Interface/bin/Release/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }}
