@@ -79,9 +79,9 @@ public class DataLockController : ControllerBase
             DataElement updatedDataElement = await _dataRepository.Update(instanceGuid, dataGuid, propertyList);
             return Created(updatedDataElement.Id, updatedDataElement);
         }
-        catch (CosmosException e)
+        catch (RepositoryException e)
         {
-            return StatusCode((int)e.StatusCode);
+            return e.StatusCodeSuggestion != null ? StatusCode((int)e.StatusCodeSuggestion) : StatusCode(500);
         }
     }
 
@@ -122,9 +122,9 @@ public class DataLockController : ControllerBase
             DataElement updatedDataElement = await _dataRepository.Update(instanceGuid, dataGuid, propertyList);
             return Ok(updatedDataElement);
         }
-        catch (CosmosException e)
+        catch (RepositoryException e)
         {
-            return StatusCode((int)e.StatusCode);
+            return e.StatusCodeSuggestion != null ? StatusCode((int)e.StatusCodeSuggestion) : StatusCode(500);
         }
     }
 
