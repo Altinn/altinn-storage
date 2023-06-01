@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
+#nullable enable
 namespace Altinn.Platform.Storage.Interface.Models
 {
     /// <summary>
@@ -10,16 +11,16 @@ namespace Altinn.Platform.Storage.Interface.Models
     public class SignDocument
     {
         /// <summary>
-        /// Unique id of the SignDocument (DataElementId).
+        /// Unique id of the SignDocument (identical to dataElementId for this document).
         /// </summary>
         [JsonProperty(PropertyName = "id")]
-        public string Id { get; set; }
+        public string Id { get; set; } = "";
 
         /// <summary>
         /// Instance Id
         /// </summary>
         [JsonProperty(PropertyName = "instanceGuid")]
-        public string InstanceGuid { get; set; }  
+        public string InstanceGuid { get; set; } = "";  
 
         /// <summary>
         /// Timestamp for when the document was signed
@@ -31,13 +32,13 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// Information about the signee
         /// </summary>
         [JsonProperty(PropertyName = "signeeInfo")]
-        public Signee SigneeInfo { get; set; }
+        public Signee SigneeInfo { get; set; } = new Signee();
 
         /// <summary>
         /// List of dataElementSignatures
         /// </summary>
         [JsonProperty(PropertyName = "dataElementSignatures")]
-        public List<DataElementSignature> DataElementSignatures { get; set; }
+        public List<DataElementSignature> DataElementSignatures { get; set; } = new List<DataElementSignature>();
         
         /// <summary>
         /// The DataElementSignature
@@ -48,13 +49,13 @@ namespace Altinn.Platform.Storage.Interface.Models
             /// Id of the dataElement.
             /// </summary>
             [JsonProperty(PropertyName = "dataElementId")]
-            public string DataElementId { get; set; }
+            public string DataElementId { get; set; } = "";
 
             /// <summary>
             /// Md5 hash of the dataelement
             /// </summary>
             [JsonProperty(PropertyName = "md5Hash")]
-            public string Md5Hash { get; set; }
+            public string Md5Hash { get; set; } = "";
 
             /// <summary>
             /// Signing status for dataElement.
@@ -69,25 +70,25 @@ namespace Altinn.Platform.Storage.Interface.Models
         public class Signee
         {
             /// <summary>
-            /// UserId
+            /// The userId representing the signee
             /// </summary>
             [JsonProperty(PropertyName = "userId")]
-            public string UserId { get; set; }
+            public string UserId { get; set; } = "";
 
             /// <summary>
-            /// PartyId
+            /// The partyId representing the signee
             /// </summary>
             [JsonProperty(PropertyName = "partyId")]
-            public string PartyId { get; set; }
+            public string PartyId { get; set; } = "";
 
             /// <summary>
-            /// PersonNumber
+            /// The personNumber representing the signee
             /// </summary>
             [JsonProperty(PropertyName = "personNumber")]
             public string? PersonNumber { get; set; }
 
             /// <summary>
-            /// OrganisationNumber
+            /// The organisationNumber representing the signee
             /// </summary>
             [JsonProperty(PropertyName = "organisationNumber")]
             public string? OrganisationNumber { get; set; }
