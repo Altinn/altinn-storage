@@ -53,7 +53,6 @@ namespace Altinn.Platform.Storage.Controllers
             _authorizationService = authorizationService;
         }
 
-
         /// <summary>
         /// Search through instances to find match based on query params.
         /// </summary>

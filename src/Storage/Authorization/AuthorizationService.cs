@@ -66,7 +66,6 @@ namespace Altinn.Platform.Storage.Authorization
 
             if (instances.Any(i => "Signing".Equals(i.Process?.CurrentTask?.AltinnTaskType.ToString(), StringComparison.InvariantCultureIgnoreCase)))
             {
-
                 actionTypes.Add("sign");
             }
 
