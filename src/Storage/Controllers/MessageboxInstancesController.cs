@@ -53,85 +53,6 @@ namespace Altinn.Platform.Storage.Controllers
             _authorizationService = authorizationService;
         }
 
-        /// <summary>
-        /// Search through instances to find match based on query params.
-        /// </summary>
-        /// <param name="instanceOwnerPartyId">The instance owner party id</param>
-        /// <param name="appId">The application id</param>
-        /// <param name="includeActive">Boolean indicating whether to include active instances.</param>
-        /// <param name="includeArchived">Boolean indicating whether to include archived instances.</param>
-        /// <param name="includeDeleted">Boolean indicating whether to include deleted instances.</param>
-        /// <param name="lastChanged">Last changed date.</param>
-        /// <param name="created">Created time.</param>
-        /// <param name="searchString">Search string.</param>
-        /// <param name="archiveReference">The archive reference.</param>
-        /// <param name="language">Language nb, en, nn</param>
-        /// <returns>list of instances</returns>
-        [Obsolete("Replaced with post-endpoint")]
-        [Authorize]
-        [HttpGet("search")]
-        public async Task<ActionResult> SearchMessageBoxInstances(
-            [FromQuery(Name = "instanceOwner.partyId")] int instanceOwnerPartyId,
-            [FromQuery] string appId,
-            [FromQuery] bool includeActive,
-            [FromQuery] bool includeArchived,
-            [FromQuery] bool includeDeleted,
-            [FromQuery] string lastChanged,
-            [FromQuery] string created,
-            [FromQuery] string searchString,
-            [FromQuery] string archiveReference,
-            [FromQuery] string language)
-        {
-            Dictionary<string, StringValues> queryParams = QueryHelpers.ParseQuery(Request.QueryString.Value);
-
-            if (!string.IsNullOrEmpty(archiveReference))
-            {
-                if ((includeActive == includeArchived) && (includeActive == includeDeleted))
-                {
-                    includeDeleted = true;
-                    includeArchived = true;
-                }
-                else if (includeActive && !includeArchived && !includeDeleted)
-                {
-                    return Ok(new List<MessageBoxInstance>());
-                }
-
-                includeActive = false;
-            }
-
-            GetStatusFromQueryParams(includeActive, includeArchived, includeDeleted, queryParams);
-            queryParams.Add("sortBy", "desc:lastChanged");
-            queryParams.Add("status.isHardDeleted", "false");
-
-            if (!string.IsNullOrEmpty(searchString))
-            {
-                StringValues applicationIds = await MatchStringToAppTitle(searchString);
-                if (!applicationIds.Any() || (!string.IsNullOrEmpty(appId) && !applicationIds.Contains(appId)))
-                {
-                    return Ok(new List<MessageBoxInstance>());
-                }
-                else if (string.IsNullOrEmpty(appId))
-                {
-                    queryParams.Add("appId", applicationIds);
-                }
-
-                queryParams.Remove(nameof(searchString));
-            }
-
-            InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesFromQuery(queryParams, null, 100);
-
-            if (queryResponse?.Exception != null)
-            {
-                if (queryResponse.Exception.StartsWith("Unknown query parameter"))
-                {
-                    return BadRequest(queryResponse.Exception);
-                }
-
-                return StatusCode(500, queryResponse.Exception);
-            }
-
-            return await ProcessQueryResponse(queryResponse, language);
-        }
 
         /// <summary>
         /// Search through instances to find match based on query params.
@@ -219,7 +140,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             bool includeInstantiate = false;
-            if (instance.Status.IsArchived) 
+            if (instance.Status.IsArchived)
             {
                 var application = await _applicationRepository.FindOne(instance.AppId, instance.AppId.Split("/")[0]);
                 includeInstantiate = application?.CopyInstanceSettings?.Enabled == true;
@@ -561,7 +482,7 @@ namespace Altinn.Platform.Storage.Controllers
                 }
             });
 
-            List<MessageBoxInstance> authorizedInstances = 
+            List<MessageBoxInstance> authorizedInstances =
                 await _authorizationService.AuthorizeMesseageBoxInstances(allInstances, false);
 
             if (!authorizedInstances.Any())
