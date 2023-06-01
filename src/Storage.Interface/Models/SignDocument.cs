@@ -14,13 +14,13 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// Unique id of the SignDocument (identical to dataElementId for this document).
         /// </summary>
         [JsonProperty(PropertyName = "id")]
-        public string Id { get; set; } = "";
+        public string Id { get; set; } = string.Empty;
 
         /// <summary>
         /// Instance Id
         /// </summary>
         [JsonProperty(PropertyName = "instanceGuid")]
-        public string InstanceGuid { get; set; } = "";  
+        public string InstanceGuid { get; set; } = string.Empty;  
 
         /// <summary>
         /// Timestamp for when the document was signed
@@ -49,13 +49,13 @@ namespace Altinn.Platform.Storage.Interface.Models
             /// Id of the dataElement.
             /// </summary>
             [JsonProperty(PropertyName = "dataElementId")]
-            public string DataElementId { get; set; } = "";
+            public string DataElementId { get; set; } = string.Empty;
 
             /// <summary>
             /// Md5 hash of the dataelement
             /// </summary>
             [JsonProperty(PropertyName = "md5Hash")]
-            public string Md5Hash { get; set; } = "";
+            public string Md5Hash { get; set; } = string.Empty;
 
             /// <summary>
             /// Signing status for dataElement.
@@ -73,13 +73,13 @@ namespace Altinn.Platform.Storage.Interface.Models
             /// The userId representing the signee
             /// </summary>
             [JsonProperty(PropertyName = "userId")]
-            public string UserId { get; set; } = "";
+            public string UserId { get; set; } = string.Empty;
 
             /// <summary>
             /// The partyId representing the signee
             /// </summary>
             [JsonProperty(PropertyName = "partyId")]
-            public string PartyId { get; set; } = "";
+            public string PartyId { get; set; } = string.Empty;
 
             /// <summary>
             /// The personNumber representing the signee
