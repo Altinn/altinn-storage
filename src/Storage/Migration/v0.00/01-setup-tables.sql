@@ -38,6 +38,18 @@ CREATE TABLE IF NOT EXISTS storage.applications
 )
 TABLESPACE pg_default;
 
+CREATE TABLE IF NOT EXISTS storage.texts
+(
+	id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+	org TEXT NOT NULL,
+	app TEXT NOT NULL,
+	language TEXT NOT NULL,
+	applicationInternalId BIGINT REFERENCES storage.applications(id) ON DELETE CASCADE,
+	textResource JSONB NOT NULL,
+	CONSTRAINT textAlternateId UNIQUE (org, app, language)
+)
+TABLESPACE pg_default;
+
 CREATE TABLE IF NOT EXISTS storage.convertionStatus
 (
 	instanceTs BIGINT NOT NULL,

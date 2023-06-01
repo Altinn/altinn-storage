@@ -34,7 +34,7 @@ namespace Altinn.Platform.Storage.Repository
         {
             return services
                 .AddRepository<IApplicationRepository, PgApplicationRepository>()
-                .AddRepository<ITextRepository, TextRepository>()
+                .AddRepository<ITextRepository, PgTextRepository>()
                 .AddRepository<IDataRepository, PgDataRepository>()
                 .AddRepository<IInstanceEventRepository, PgInstanceEventRepository>()
                 .AddRepository<IInstanceRepository, PgInstanceRepository>()
