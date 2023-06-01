@@ -13,7 +13,6 @@ using Altinn.Platform.Storage.Repository;
 using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Primitives;
 
 namespace Altinn.Platform.Storage.Controllers
@@ -181,7 +180,9 @@ namespace Altinn.Platform.Storage.Controllers
                 InstanceEventType.Saved.ToString(),
                 InstanceEventType.Submited.ToString(),
                 InstanceEventType.Undeleted.ToString(),
-                InstanceEventType.SubstatusUpdated.ToString()
+                InstanceEventType.SubstatusUpdated.ToString(),
+                InstanceEventType.Signed.ToString(),
+                InstanceEventType.SentToSign.ToString(),
             };
 
             if (string.IsNullOrEmpty(instanceId))
