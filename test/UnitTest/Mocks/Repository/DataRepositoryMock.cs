@@ -8,7 +8,6 @@ using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
-using Microsoft.Azure.Cosmos;
 
 namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
 {
