@@ -4,15 +4,12 @@ using System.Linq;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Threading.Tasks;
-
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Constants;
 using Altinn.Common.PEP.Helpers;
 using Altinn.Common.PEP.Interfaces;
-
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
-
 using Microsoft.Extensions.Logging;
 
 namespace Altinn.Platform.Storage.Authorization
@@ -69,7 +66,7 @@ namespace Altinn.Platform.Storage.Authorization
 
             _logger.LogInformation("// AuthorizationHelper // AuthorizeMsgBoxInstances // xacmlJsonRequest: {request}", JsonSerializer.Serialize(xacmlJsonRequest));
             XacmlJsonResponse response = await _pdp.GetDecisionForRequest(xacmlJsonRequest);
-
+            _logger.LogInformation("// AuthorizationHelper // AuthorizeMsgBoxInstances // xacmlJsonResponse: {response}", JsonSerializer.Serialize(response));
             foreach (XacmlJsonResult result in response.Response.Where(result => DecisionHelper.ValidateDecisionResult(result, user)))
             {
                 string instanceId = string.Empty;
@@ -150,6 +147,30 @@ namespace Altinn.Platform.Storage.Authorization
 
             bool authorized = DecisionHelper.ValidatePdpDecision(response.Response, user);
             return authorized;
+        }
+
+        /// <inheritdoc/>>
+        public async Task<bool> AuthorizeAnyOfInstanceActions(Instance instance, List<string> actions)
+        {
+            if (actions.Count == 0)
+            {
+                return false;
+            }
+
+            ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
+            XacmlJsonRequestRoot request = CreateMultiDecisionRequest(user, new List<Instance>() { instance }, actions);
+
+            _logger.LogDebug("// Authorization Helper // AuthorizeAnyOfInstanceActions // request: {Request}", JsonSerializer.Serialize(request));
+            XacmlJsonResponse response = await _pdp.GetDecisionForRequest(request);
+            
+            _logger.LogDebug("// Authorization Helper // AuthorizeAnyOfInstanceActions // response: {Response}", JsonSerializer.Serialize(response));
+            if (response?.Response != null)
+            {
+                return response.Response.Any(result => DecisionHelper.ValidateDecisionResult(result, user));
+            }
+
+            _logger.LogInformation("// Authorization Helper // Authorize instance action failed for request: {request}.", JsonSerializer.Serialize(request));
+            return false;
         }
 
         /// <inheritdoc/>>
