@@ -526,7 +526,7 @@ namespace Altinn.Platform.Storage.UnitTest
                         UserId = 1337
                     },
                     EventType = "test.event",
-                    Created= DateTime.Now
+                    Created = DateTime.Now
                 }
             };
 

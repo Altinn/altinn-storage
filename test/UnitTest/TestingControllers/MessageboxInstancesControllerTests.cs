@@ -1074,6 +1074,37 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Single(actual);
         }
 
+        /// <summary>
+        /// Scenario:
+        ///  Search instances for a given partyId and appId
+        /// Expected:
+        ///  There is a single match on an instanced in the signing task
+        /// Success:
+        ///  Messagebox instance contains authorizedForSign true.
+        /// </summary>
+        [Fact]
+        public async void Post_Search_InstanceInSigningStage_UserAuthorizedToSign()
+        {
+            // Arrange
+            HttpClient client = GetTestClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1, 1600, 3));
+            MessageBoxQueryModel queryModel = GetMessageBoxQueryModel(1600);
+            queryModel.AppId = "ttd/signing-app";
+
+            // Act
+            HttpResponseMessage responseMessage = await client.PostAsync(
+                $"{BasePath}/sbl/instances/search",
+                JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json")));
+
+            string content = await responseMessage.Content.ReadAsStringAsync();
+            List<MessageBoxInstance> actualResult = JsonConvert.DeserializeObject<List<MessageBoxInstance>>(content);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
+            Assert.Single(actualResult);
+            Assert.True(actualResult.First().AuthorizedForSign);
+        }
+
         [Fact]
         public async void GetMessageBoxInstanceEvents_AllEventTypesIncludedInSearch()
         {
