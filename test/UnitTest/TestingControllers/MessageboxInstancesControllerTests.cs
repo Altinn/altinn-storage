@@ -1098,6 +1098,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             repoMock.VerifyAll();
         }
 
+        /// <summary>
+        /// If simmilar events lie in the sorted list the most recent event should be persisted.
+        /// Events close in time from different users are not considered duplicates.
+        /// </summary>
         [Fact]
         public async void GetMessageBoxInstanceEvents_DuplicateEventsRemoved()
         {
@@ -1118,11 +1122,21 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 EventType = "Saved",
                 User = new()
                 {
+                    UserId = 1337
+                }
+            };
+
+            var eventC = new InstanceEvent
+            {
+                Created = DateTime.Parse("1994-06-16T11:08:02.0851832Z"),
+                EventType = "Saved",
+                User = new()
+                {
                     UserId = 2008
                 }
             };
 
-            List<InstanceEvent> eventList = new() { eventA, eventB, eventA };
+            List<InstanceEvent> eventList = new() { eventA, eventB, eventC };
 
             Mock<IInstanceEventRepository> repoMock = new();
             repoMock
@@ -1141,6 +1155,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert            
             Assert.Equal(2, actual.Count);
+            Assert.Single(actual.Where(e => e.User.UserId == 1337));
+            Assert.NotEmpty(actual.Where(e => e.CreatedDateTime == DateTime.Parse("1994-06-16T11:07:59.0851832Z")));
             repoMock.VerifyAll();
         }
 
