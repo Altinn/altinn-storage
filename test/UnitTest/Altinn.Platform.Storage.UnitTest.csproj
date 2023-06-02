@@ -171,4 +171,8 @@
 		</None>
 	</ItemGroup>
 
+	<ItemGroup>
+	  <_ContentIncludedByDefault Remove="data\roles\user_5\party_1337\roles.json" />
+	</ItemGroup>
+
 </Project>

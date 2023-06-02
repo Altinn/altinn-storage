@@ -31,6 +31,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
     /// 1337 (DAGL): write
     /// 1 (REGNA): unlock
     /// 3 (A0212): read
+    /// 5 (A0236): reject
     /// 10016 (SIGNE): read, write, unlock
     /// Instances:
     /// 500004/4c67392f-36c6-42dc-998f-c367e771dccc CurrentTask is Task_1 data unlocked
@@ -229,6 +230,19 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             HttpClient client = GetTestClient();
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1, 500004, 3));
+            HttpResponseMessage response = await client.DeleteAsync($"{dataPathWithData}");
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            AssertDataLockHasCorrectStatus(await response.Content.ReadFromJsonAsync<DataElement>(), false);
+        }
+        
+        [Fact]
+        public async void User_with_reject_is_allowed_to_unlock()
+        {
+            string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
+
+            HttpClient client = GetTestClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(5, 500004, 3));
             HttpResponseMessage response = await client.DeleteAsync($"{dataPathWithData}");
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
