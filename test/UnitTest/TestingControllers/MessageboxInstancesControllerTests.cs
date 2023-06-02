@@ -5,12 +5,14 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+
 using Altinn.Common.PEP.Interfaces;
 
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Mocks;
@@ -21,6 +23,7 @@ using Altinn.Platform.Storage.Wrappers;
 
 using AltinnCore.Authentication.JwtCookie;
 
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
@@ -144,11 +147,11 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             string instanceId = "1337/07274f48-8313-4e2d-9788-bbdacef5a54e";
 
             HttpClient client = GetTestClient();
-            client.DefaultRequestHeaders.Authorization = 
+            client.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1337, 3));
 
             // Act
-            HttpResponseMessage responseMessage = 
+            HttpResponseMessage responseMessage =
                 await client.GetAsync($"{BasePath}/sbl/instances/{instanceId}?language=en");
 
             // Assert
@@ -479,7 +482,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Assert
             Assert.Equal(HttpStatusCode.Forbidden, actualStatusCode);
         }
-       
+
         /// <summary>
         /// Scenario:
         ///   Search instances for an instance owner without token
@@ -1069,6 +1072,76 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Single(actual);
+        }
+
+        [Fact]
+        public async void GetMessageBoxInstanceEvents_AllEventTypesIncludedInSearch()
+        {
+            // Arrange            
+            string[] extepctedEventTypes = { "Created", "Deleted", "Undeleted", "Saved", "Submited", "SubstatusUpdated", "Signed", "SentToSign" };
+
+            Mock<IInstanceEventRepository> repoMock = new();
+            repoMock
+                .Setup(rm => rm.ListInstanceEvents(
+                    It.IsAny<string>(),
+                    It.Is<string[]>(eventTypes => !extepctedEventTypes.Except(eventTypes).Any()),
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<DateTime?>()))
+                .ReturnsAsync(new List<InstanceEvent>());
+
+            var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null);
+
+            // Act
+            await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid());
+
+            // Assert
+            repoMock.VerifyAll();
+        }
+
+        [Fact]
+        public async void GetMessageBoxInstanceEvents_DuplicateEventsRemoved()
+        {
+            // Arrange
+            var eventA = new InstanceEvent
+            {
+                Created = DateTime.Parse("1994-06-16T11:06:59.0851832Z"),
+                EventType = "Saved",
+                User = new()
+                {
+                    UserId = 1337
+                }
+            };
+
+            var eventB = new InstanceEvent
+            {
+                Created = DateTime.Parse("1994-06-16T11:07:59.0851832Z"),
+                EventType = "Saved",
+                User = new()
+                {
+                    UserId = 2008
+                }
+            };
+
+            List<InstanceEvent> eventList = new() { eventA, eventB, eventA };
+
+            Mock<IInstanceEventRepository> repoMock = new();
+            repoMock
+                .Setup(rm => rm.ListInstanceEvents(
+                    It.IsAny<string>(),
+                    It.IsAny<string[]>(),
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<DateTime?>()))
+                .ReturnsAsync(eventList);
+
+            var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null);
+
+            // Act
+            var response = await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid()) as OkObjectResult;
+            var actual = response.Value as List<SblInstanceEvent>;
+
+            // Assert            
+            Assert.Equal(2, actual.Count);
+            repoMock.VerifyAll();
         }
 
         private static MessageBoxQueryModel GetMessageBoxQueryModel(int instanceOwnerPartyId)

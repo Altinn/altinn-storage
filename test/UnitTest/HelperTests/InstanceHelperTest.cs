@@ -216,7 +216,7 @@ namespace Altinn.Platform.Storage.UnitTest
                         Flow = 3,
                         Started = DateTime.Parse("2021-01-18T16:41:24.6560293Z"),
                         ElementId = "Task_2",
-                        Name= "Signering",
+                        Name = "Signering",
                         AltinnTaskType = "signing"
                     }
                 }

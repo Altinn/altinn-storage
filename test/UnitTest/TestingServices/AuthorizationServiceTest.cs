@@ -181,12 +181,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         private static ClaimsPrincipal CreateUserClaims(int userId)
         {
             // Create the user
-            List<Claim> claims = new List<Claim>();
-
-            // type, value, valuetype, issuer
-            claims.Add(new Claim(UrnName, "Ola", "string", "org"));
-            claims.Add(new Claim(UrnAuthLv, "2", "string", "org"));
-            claims.Add(new Claim(UrnUserId, $"{userId}", "string", "org"));
+            List<Claim> claims = new()
+            {
+                // type, value, valuetype, issuer
+                new Claim(UrnName, "Ola", "string", "org"),
+                new Claim(UrnAuthLv, "2", "string", "org"),
+                new Claim(UrnUserId, $"{userId}", "string", "org")
+            };
 
             ClaimsPrincipal user = new ClaimsPrincipal(new ClaimsIdentity(claims));
 
