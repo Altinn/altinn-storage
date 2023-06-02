@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
@@ -29,7 +27,6 @@ namespace Altinn.Platform.Storage.Repository
         ////    " where instance = $1 and (event->>'Created')::timestamp >= $2 and (event->>'Created')::timestamp <= $3 and ($4 is null or event->>'EventType' ilike any ($4));";
 
         private readonly ILogger<PgInstanceEventRepository> _logger;
-        private readonly JsonSerializerOptions _options = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
         private readonly NpgsqlDataSource _dataSource;
 
         /// <summary>
@@ -52,7 +49,7 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceEvent.InstanceId.Split('/').Last()));
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceEvent.Id);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, JsonSerializer.Serialize(instanceEvent, _options));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, instanceEvent);
 
             await pgcom.ExecuteNonQueryAsync();
 
@@ -68,7 +65,7 @@ namespace Altinn.Platform.Storage.Repository
             await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
             {
                 await reader.ReadAsync();
-                return JsonSerializer.Deserialize<InstanceEvent>(reader.GetFieldValue<string>("event"));
+                return reader.GetFieldValue<InstanceEvent>("event");
             }
         }
 
@@ -90,7 +87,7 @@ namespace Altinn.Platform.Storage.Repository
             {
                 while (await reader.ReadAsync())
                 {
-                    events.Add(JsonSerializer.Deserialize<InstanceEvent>(reader.GetFieldValue<string>("event")));
+                    events.Add(reader.GetFieldValue<InstanceEvent>("event"));
                 }
             }
 

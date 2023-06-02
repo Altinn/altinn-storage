@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Net;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
@@ -35,7 +33,6 @@ namespace Altinn.Platform.Storage.Repository
         ////    $"order by d.id";
 
         private readonly ILogger<PgInstanceRepository> _logger;
-        private readonly JsonSerializerOptions _options = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
         private readonly NpgsqlDataSource _dataSource;
 
         /// <summary>
@@ -190,15 +187,15 @@ namespace Altinn.Platform.Storage.Repository
                     if (id != previousId)
                     {
                         SetStatuses(instance);
-                        instance = JsonSerializer.Deserialize<Instance>(reader.GetFieldValue<string>("instance"));
+                        instance = reader.GetFieldValue<Instance>("instance");
                         instances.Add(instance);
                         instance.Data = new();
                         previousId = id;
                     }
 
-                    if (reader["element"] is string elementJson)
+                    if (!reader.IsDBNull("element"))
                     {
-                        instance.Data.Add(JsonSerializer.Deserialize<DataElement>(reader.GetFieldValue<string>("element")));
+                        instance.Data.Add(reader.GetFieldValue<DataElement>("element"));
                     }
                 }
 
@@ -225,14 +222,14 @@ namespace Altinn.Platform.Storage.Repository
                     if (!instanceCreated)
                     {
                         instanceCreated = true;
-                        instance = JsonSerializer.Deserialize<Instance>(reader.GetFieldValue<string>("instance"));
+                        instance = reader.GetFieldValue<Instance>("instance");
                         internalId = reader.GetFieldValue<long>("id");
                         instance.Data = new();
                     }
 
-                    if (includeElements && reader["element"] is string elementJson)
+                    if (includeElements && !reader.IsDBNull("element"))
                     {
-                        instance.Data.Add(JsonSerializer.Deserialize<DataElement>(reader.GetFieldValue<string>("element")));
+                        instance.Data.Add(reader.GetFieldValue<DataElement>("element"));
                     }
                 }
 
@@ -299,7 +296,7 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(insertOnly ? _insertSql : _upsertSql);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Bigint, long.Parse(instance.InstanceOwner.PartyId));
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instance.Id));
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, JsonSerializer.Serialize(instance, _options));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, instance);
 
             await pgcom.ExecuteNonQueryAsync();
 

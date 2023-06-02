@@ -6,19 +6,14 @@ using System.Drawing;
 using System.Linq;
 using System.Net;
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Models;
-using Microsoft.Azure.Cosmos;
-using Microsoft.Azure.Cosmos.Linq;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Newtonsoft.Json;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -77,7 +72,7 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
-                applications.Add(SetLegacyId(JsonConvert.DeserializeObject<Application>(reader.GetFieldValue<string>("application"))));
+                applications.Add(SetLegacyId(reader.GetFieldValue<Application>("application")));
             }
 
             return applications;
@@ -93,7 +88,7 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
-                applications.Add(SetLegacyId(JsonConvert.DeserializeObject<Application>(reader.GetFieldValue<string>("application"))));
+                applications.Add(SetLegacyId(reader.GetFieldValue<Application>("application")));
             }
 
             return applications;
@@ -109,7 +104,7 @@ namespace Altinn.Platform.Storage.Repository
                 await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
                 if (await reader.ReadAsync())
                 {
-                    application = SetLegacyId(JsonConvert.DeserializeObject<Application>(reader.GetFieldValue<string>("application")));
+                    application = SetLegacyId(reader.GetFieldValue<Application>("application"));
                     _memoryCache.Set(appId, application, _cacheEntryOptionsMetadata);
                 }
                 else
@@ -128,7 +123,7 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_createSql);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, item.Id);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, item.Org);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, JsonConvert.SerializeObject(item));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, item);
 
             await pgcom.ExecuteNonQueryAsync();
 
@@ -142,7 +137,7 @@ namespace Altinn.Platform.Storage.Repository
             SetInternalId(application);
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateSql);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, application.Id);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, JsonConvert.SerializeObject(application));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, application);
             await pgcom.ExecuteNonQueryAsync();
 
             SetLegacyId(application);

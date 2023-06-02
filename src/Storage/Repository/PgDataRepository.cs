@@ -2,9 +2,6 @@
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
-using System.Runtime.CompilerServices;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
@@ -36,7 +33,6 @@ namespace Altinn.Platform.Storage.Repository
         private readonly AzureStorageConfiguration _storageConfiguration;
         private readonly ISasTokenProvider _sasTokenProvider;
         private readonly ILogger<PgDataRepository> _logger;
-        private readonly JsonSerializerOptions _options = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
         private readonly NpgsqlDataSource _dataSource;
 
         /// <summary>
@@ -66,7 +62,7 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Bigint, instanceInternalId);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.InstanceGuid));
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, JsonSerializer.Serialize(dataElement, _options));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, dataElement);
 
             await pgcom.ExecuteNonQueryAsync();
 
@@ -91,7 +87,7 @@ namespace Altinn.Platform.Storage.Repository
 
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             await reader.ReadAsync();
-            return JsonSerializer.Deserialize<DataElement>(reader.GetFieldValue<string>("element"));
+            return reader.GetFieldValue<DataElement>("element");
         }
 
         /// <inheritdoc/>
@@ -105,7 +101,7 @@ namespace Altinn.Platform.Storage.Repository
             {
                 while (await reader.ReadAsync())
                 {
-                    elements.Add(JsonSerializer.Deserialize<DataElement>(reader.GetFieldValue<string>("element")));
+                    elements.Add(reader.GetFieldValue<DataElement>("element"));
                 }
             }
 
@@ -142,7 +138,7 @@ namespace Altinn.Platform.Storage.Repository
             {
                 while (await reader.ReadAsync())
                 {
-                    DataElement element = JsonSerializer.Deserialize<DataElement>(reader.GetFieldValue<string>("element"));
+                    DataElement element = reader.GetFieldValue<DataElement>("element");
                     if (!dataElements.ContainsKey(element.InstanceGuid))
                     {
                         dataElements.Add(element.InstanceGuid, new List<DataElement>());
@@ -168,36 +164,32 @@ namespace Altinn.Platform.Storage.Repository
             await using var transaction = await transConnection.BeginTransactionAsync(isolationLevel: IsolationLevel.RepeatableRead); //ensure that the read element is locked until updated
             DataElement element = await Read(Guid.Empty, dataElementId) ?? throw new ArgumentException("Element not found for id " + dataElementId, nameof(dataElementId));
 
-            ////TODO Find a more elegant way to patch the json
-            var elementDict = JsonSerializer.Deserialize<Dictionary<string, object>>(JsonSerializer.Serialize(element));
-            bool propsToUpdate = false;
-            foreach (var entry in propertylist)
+            foreach (var kvp in propertylist)
             {
-                if (elementDict.ContainsKey(entry.Key))
+                switch (kvp.Key)
                 {
-                    propsToUpdate = true;
-                    elementDict[entry.Key] = entry.Value;
+                    case "/locked": element.Locked = (bool)kvp.Value; break;
+                    case "/refs": element.Refs = (List<Guid>)kvp.Value; break;
+                    case "/tags": element.Tags = (List<string>)kvp.Value; break;
+                    case "/deleteStatus": element.DeleteStatus = (DeleteStatus)kvp.Value; break;
+                    case "/lastChanged": element.LastChanged = (DateTime?)kvp.Value; break;
+                    case "/lastChangedBy": element.LastChangedBy = (string)kvp.Value; break;
+                    default: throw new Exception("Unexpected key " + kvp.Key);
                 }
             }
 
-            if (!propsToUpdate)
-            {
-                return element;
-            }
-
-            string elementString = JsonSerializer.Serialize(elementDict, _options);
             await using NpgsqlCommand pgcom = new(_updateSql, transConnection)
             {
                 Parameters =
                 {
-                    new() { Value = new Guid(element.Id), NpgsqlDbType = NpgsqlDbType.Uuid },
-                    new() { Value = elementString, NpgsqlDbType = NpgsqlDbType.Jsonb },
+                    new() { Value = dataElementId, NpgsqlDbType = NpgsqlDbType.Uuid },
+                    new() { Value = element, NpgsqlDbType = NpgsqlDbType.Jsonb },
                 },
             };
             await pgcom.ExecuteNonQueryAsync();
             await transaction.CommitAsync();
 
-            return JsonSerializer.Deserialize<DataElement>(elementString);
+            return element;
         }
 
         /// <inheritdoc/>
