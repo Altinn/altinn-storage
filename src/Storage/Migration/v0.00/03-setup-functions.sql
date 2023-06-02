@@ -31,7 +31,7 @@ CREATE OR REPLACE PROCEDURE storage.insertInstance(_partyId BIGINT, _alternateId
     LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
-	INSERT INTO storage.instances(partyId, alternateId, instance) VALUES (_partyId, _alternateId, _instance);
+	INSERT INTO storage.instances(partyId, alternateId, instance) VALUES (_partyId, _alternateId, jsonb_strip_nulls(_instance));
 END;
 $BODY$;
 
@@ -39,7 +39,7 @@ CREATE OR REPLACE PROCEDURE storage.upsertInstance(_partyId BIGINT, _alternateId
     LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
-	INSERT INTO storage.instances(partyId, alternateId, instance) VALUES (_partyId, _alternateId, _instance) ON CONFLICT(alternateId) DO UPDATE SET instance = _instance;
+	INSERT INTO storage.instances(partyId, alternateId, instance) VALUES (_partyId, _alternateId, jsonb_strip_nulls(_instance)) ON CONFLICT(alternateId) DO UPDATE SET instance = jsonb_strip_nulls(_instance);
 END;
 $BODY$;
 
@@ -56,7 +56,7 @@ CREATE OR REPLACE PROCEDURE storage.insertDataelement(_instanceInternalId BIGINT
     LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
-	INSERT INTO storage.dataElements(instanceInternalId, instanceGuid, alternateId, element) VALUES (_instanceInternalId, _instanceGuid, _alternateId, _element);
+	INSERT INTO storage.dataElements(instanceInternalId, instanceGuid, alternateId, element) VALUES (_instanceInternalId, _instanceGuid, _alternateId, jsonb_strip_nulls(_element));
 END;
 $BODY$;
 
@@ -64,8 +64,8 @@ CREATE OR REPLACE PROCEDURE storage.upsertDataelement(_instanceInternalId BIGINT
     LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
-	INSERT INTO storage.dataElements(instanceInternalId, instanceGuid, alternateId, element) VALUES (_instanceInternalId, _instanceGuid, _alternateId, _element)
-    ON CONFLICT(alternateId) DO UPDATE SET element = _element;
+	INSERT INTO storage.dataElements(instanceInternalId, instanceGuid, alternateId, element) VALUES (_instanceInternalId, _instanceGuid, _alternateId, jsonb_strip_nulls(_element))
+    ON CONFLICT(alternateId) DO UPDATE SET element = jsonb_strip_nulls(_element);
 END;
 $BODY$;
 
@@ -81,7 +81,7 @@ CREATE OR REPLACE PROCEDURE storage.updateDataelement(_alternateId UUID, _elemen
     LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
-	UPDATE storage.dataelements SET element = _element WHERE alternateId = _alternateId;
+	UPDATE storage.dataelements SET element = jsonb_strip_nulls(_element) WHERE alternateId = _alternateId;
 END;
 $BODY$;
 
@@ -126,7 +126,7 @@ CREATE OR REPLACE PROCEDURE storage.insertInstanceEvent(_instance UUID, _alterna
     LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
-	INSERT INTO storage.instanceEvents(instance, alternateId, event) VALUES (_instance, _alternateId, _event);
+	INSERT INTO storage.instanceEvents(instance, alternateId, event) VALUES (_instance, _alternateId, jsonb_strip_nulls(_event));
 END;
 $BODY$;
 
