@@ -61,6 +61,11 @@ namespace Altinn.Platform.Storage.Authorization
                 actionTypes.Add("instantiate");
             }
 
+            if (instances.Exists(i => "Signing".Equals(i.Process?.CurrentTask?.AltinnTaskType.ToString(), StringComparison.InvariantCultureIgnoreCase)))
+            {
+                actionTypes.Add("sign");
+            }
+
             ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
             XacmlJsonRequestRoot xacmlJsonRequest = CreateMultiDecisionRequest(user, instances, actionTypes);
 
@@ -91,7 +96,7 @@ namespace Altinn.Platform.Storage.Authorization
 
                 Instance authorizedInstance = instances.First(i => i.Id == instanceId);
 
-                MessageBoxInstance authorizedMessageBoxInstance = 
+                MessageBoxInstance authorizedMessageBoxInstance =
                     authorizedInstanceList.FirstOrDefault(i => i.Id.Equals(authorizedInstance.Id.Split("/")[1]));
                 if (authorizedMessageBoxInstance is null)
                 {
@@ -109,6 +114,9 @@ namespace Altinn.Platform.Storage.Authorization
                         break;
                     case "instantiate":
                         authorizedMessageBoxInstance.AllowNewCopy = true;
+                        break;
+                    case "sign":
+                        authorizedMessageBoxInstance.AuthorizedForSign = true;
                         break;
                     case "read":
                         break;
