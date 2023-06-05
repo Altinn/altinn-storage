@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS storage.instances
 	id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 	alternateId UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(),
 	partyId BIGINT NOT NULL,
+	created TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	lastChanged TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	instance JSONB NOT NULL
 )
 TABLESPACE pg_default;
@@ -61,5 +63,7 @@ CREATE TABLE IF NOT EXISTS storage.convertionStatus
 TABLESPACE pg_default;
 
 CREATE INDEX IF NOT EXISTS dataElements_instanceInternalId ON storage.dataElements(instanceInternalId);
+CREATE INDEX IF NOT EXISTS dataElements_instanceGuid ON storage.dataElements(instanceGuid);
 CREATE INDEX IF NOT EXISTS instanceEvents_instance ON storage.instanceEvents(instance);
 CREATE INDEX IF NOT EXISTS instances_partyId ON storage.instances(partyId);
+CREATE INDEX IF NOT EXISTS applications_org ON storage.applications(org);

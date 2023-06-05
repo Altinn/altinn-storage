@@ -27,19 +27,19 @@ RETURN QUERY
 END;
 $BODY$;
 
-CREATE OR REPLACE PROCEDURE storage.insertInstance(_partyId BIGINT, _alternateId UUID, _instance JSONB)
+CREATE OR REPLACE PROCEDURE storage.insertInstance(_partyId BIGINT, _alternateId UUID, _instance JSONB, created TIMESTAMPTZ, lastChanged TIMESTAMPTZ)
     LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
-	INSERT INTO storage.instances(partyId, alternateId, instance) VALUES (_partyId, _alternateId, jsonb_strip_nulls(_instance));
+	INSERT INTO storage.instances(partyId, alternateId, instance, created, lastChanged) VALUES (_partyId, _alternateId, jsonb_strip_nulls(_instance), _created, _lastChanged);
 END;
 $BODY$;
 
-CREATE OR REPLACE PROCEDURE storage.upsertInstance(_partyId BIGINT, _alternateId UUID, _instance JSONB)
+CREATE OR REPLACE PROCEDURE storage.upsertInstance(_partyId BIGINT, _alternateId UUID, _instance JSONB, created TIMESTAMPTZ, lastChanged TIMESTAMPTZ)
     LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
-	INSERT INTO storage.instances(partyId, alternateId, instance) VALUES (_partyId, _alternateId, jsonb_strip_nulls(_instance)) ON CONFLICT(alternateId) DO UPDATE SET instance = jsonb_strip_nulls(_instance);
+	INSERT INTO storage.instances(partyId, alternateId, instance, created, lastChanged) VALUES (_partyId, _alternateId, jsonb_strip_nulls(_instance), _created, _lastChanged) ON CONFLICT(alternateId) DO UPDATE SET instance = jsonb_strip_nulls(_instance), lastChanged = _lastChanged;
 END;
 $BODY$;
 
