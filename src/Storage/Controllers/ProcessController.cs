@@ -133,7 +133,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             updatedInstance = await _instanceRepository.Update(existingInstance);
 
-            if (processState.CurrentTask?.AltinnTaskType == "signing")
+            if (processState?.CurrentTask?.AltinnTaskType == "signing")
             {
                 await _instanceEventService.DispatchEvent(InstanceEventType.SentToSign, updatedInstance);
             }
