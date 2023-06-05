@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Altinn.Platform.Storage.Controllers
 {
     /// <summary>
-    /// Handles operations for signing all of or part of dataelements for an instance
+    /// Handles operations for signing all or a subset of dataelements for an instance
     /// </summary>
     [Route("storage/api/v1/instances")]
     [ApiController]
