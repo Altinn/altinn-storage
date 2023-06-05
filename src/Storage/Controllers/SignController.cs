@@ -25,7 +25,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// Create signature document from listed data elements
         /// </summary>
         /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
-        /// <param name="instanceGuid">The id of the instance</param>
+        /// <param name="instanceGuid">The guid of the instance</param>
         /// <param name="signRequest">Signrequest containing data element ids and sign status</param>
         [Authorize(Policy = "Sign")]
         [HttpPost("{instanceOwnerPartyId:int}/{instanceGuid:guid}/sign")]
