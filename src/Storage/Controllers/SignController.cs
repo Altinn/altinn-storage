@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -27,7 +28,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
         /// <param name="instanceGuid">The id of the instance</param>
         /// <param name="signRequest">Signrequest containing data element ids and sign status</param>
-        [Authorize(Policy = "Sign")]
+        [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_SIGN)]
         [HttpPost("{instanceOwnerPartyId:int}/{instanceGuid:guid}/sign")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
