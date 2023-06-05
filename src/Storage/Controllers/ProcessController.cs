@@ -102,6 +102,9 @@ namespace Altinn.Platform.Storage.Controllers
                 case "confirmation":
                     action = "confirm";
                     break;
+                case "signing":
+                    action = "sign";
+                    break;
                 default:
                     action = altinnTaskType;
                     break;
@@ -130,7 +133,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             updatedInstance = await _instanceRepository.Update(existingInstance);
 
-            if (altinnTaskType == "signing")
+            if (processState.CurrentTask?.AltinnTaskType == "signing")
             {
                 await _instanceEventService.DispatchEvent(InstanceEventType.SentToSign, updatedInstance);
             }
