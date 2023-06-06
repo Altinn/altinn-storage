@@ -51,7 +51,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         public async Task OverwriteData_VerifyDataRepositoryUpdateInput()
         {
             // Arrange
-            List<string> expectedPropertiesForPatch = new() { "/contentType", "/filename", "/lastChangedBy", "/lastChanged", "/refs", "/size", "/fileScanResult" };
+            List<string> expectedPropertiesForPatch = new() { "/contentType", "/filename", "/lastChangedBy", "/lastChanged", "/refs", "/size", "/fileScanResult", "/references" };
 
             (DataController testController, Mock<IDataRepository> dataRepositoryMock) = GetTestController(expectedPropertiesForPatch, true);
 
@@ -66,7 +66,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         public async Task Update_VerifyDataRepositoryUpdateInput()
         {
             // Arrange
-            List<string> expectedPropertiesForPatch = new() { "/locked", "/refs", "/tags", "/deleteStatus", "/lastChanged", "/lastChangedBy" };
+            List<string> expectedPropertiesForPatch = new() { "/locked", "/refs", "/references", "/tags", "/deleteStatus", "/lastChanged", "/lastChangedBy" };
 
             (DataController testController, Mock<IDataRepository> dataRepositoryMock) = GetTestController(expectedPropertiesForPatch, true);
 
