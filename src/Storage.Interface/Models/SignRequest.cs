@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+
 using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.Interface.Models
@@ -9,11 +10,17 @@ namespace Altinn.Platform.Storage.Interface.Models
     public class SignRequest
     {
         /// <summary>
+        /// The data type to use of the generated signature document
+        /// </summary>
+        [JsonProperty(PropertyName = "signatureDocumentDataType")]
+        public string SignatureDocumentDataType { get; set; }
+
+        /// <summary>
         /// List of dataElementSignatures
         /// </summary>
         [JsonProperty(PropertyName = "dataElementSignatures")]
         public List<DataElementSignature> DataElementSignatures { get; set; }
-        
+
         /// <summary>
         /// The DataElementSignature
         /// </summary>

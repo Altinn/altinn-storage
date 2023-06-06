@@ -11,10 +11,10 @@ namespace Altinn.Platform.Storage.Interface.Models;
 public class Reference
 {
     /// <summary>
-    /// Id of the connected object
+    /// Value of the connected reference
     /// </summary>
     [JsonProperty(PropertyName = "id")]
-    public string Id { get; set; }
+    public string Value { get; set; }
     
     /// <summary>
     /// The type of relation to the connected object see <see cref="RelationType"/>
@@ -25,10 +25,10 @@ public class Reference
     public RelationType? Relation { get; set; }
     
     /// <summary>
-    /// The type of the connected object see <see cref="ReferenceType"/>
+    /// The value type of the connected object see <see cref="ReferenceType"/>
     /// </summary>
     [JsonProperty(PropertyName = "objectType")]
     [JsonConverter(typeof(StringEnumConverter))]
     [TextJson.JsonConverter(typeof(TextJson.JsonStringEnumConverter))]
-    public ReferenceType? ObjectType { get; set; }
+    public ReferenceType? ValueType { get; set; }
 }
