@@ -269,8 +269,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         /// <summary>
-        /// Test case: Uses want to go back to a earlier state
-        /// Expected: Returns status ok. 
+        /// Test case: User pushes process to signing step.
+        /// Expected: An instance event of type "sentToSign" is registered.
         /// </summary>
         [Fact]
         public async void PutProcess_MoveToSigning_SentToSignEventGenerated()
