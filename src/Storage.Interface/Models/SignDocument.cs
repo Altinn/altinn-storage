@@ -6,7 +6,7 @@ using Newtonsoft.Json;
 namespace Altinn.Platform.Storage.Interface.Models
 {
     /// <summary>
-    /// Signature document with list of signed/unsigned dataElements
+    /// Signature document with list of signed/unsigned dataElements.
     /// </summary>
     public class SignDocument
     {
@@ -17,31 +17,31 @@ namespace Altinn.Platform.Storage.Interface.Models
         public string Id { get; set; } = string.Empty;
 
         /// <summary>
-        /// Instance Id
+        /// Instance guid.
         /// </summary>
         [JsonProperty(PropertyName = "instanceGuid")]
         public string InstanceGuid { get; set; } = string.Empty;  
 
         /// <summary>
-        /// Timestamp for when the document was signed
+        /// Timestamp for when the document was signed.
         /// </summary>
         [JsonProperty(PropertyName = "signedTime")]
         public DateTime SignedTime { get; set; }
         
         /// <summary>
-        /// Information about the signee
+        /// Information about the signee.
         /// </summary>
         [JsonProperty(PropertyName = "signeeInfo")]
         public Signee SigneeInfo { get; set; } = new Signee();
 
         /// <summary>
-        /// List of dataElementSignatures
+        /// List of dataElementSignatures.
         /// </summary>
         [JsonProperty(PropertyName = "dataElementSignatures")]
         public List<DataElementSignature> DataElementSignatures { get; set; } = new List<DataElementSignature>();
         
         /// <summary>
-        /// The DataElementSignature
+        /// The DataElementSignature.
         /// </summary>
         public class DataElementSignature
         {
@@ -52,10 +52,10 @@ namespace Altinn.Platform.Storage.Interface.Models
             public string DataElementId { get; set; } = string.Empty;
 
             /// <summary>
-            /// Md5 hash of the dataelement
+            /// Sha256 hash of the dataelement.
             /// </summary>
-            [JsonProperty(PropertyName = "md5Hash")]
-            public string Md5Hash { get; set; } = string.Empty;
+            [JsonProperty(PropertyName = "sha256Hash")]
+            public string Sha256Hash { get; set; } = string.Empty;
 
             /// <summary>
             /// Signing status for dataElement.
@@ -70,25 +70,25 @@ namespace Altinn.Platform.Storage.Interface.Models
         public class Signee
         {
             /// <summary>
-            /// The userId representing the signee
+            /// The userId representing the signee.
             /// </summary>
             [JsonProperty(PropertyName = "userId")]
             public string UserId { get; set; } = string.Empty;
 
             /// <summary>
-            /// The partyId representing the signee
+            /// The partyId representing the signee.
             /// </summary>
             [JsonProperty(PropertyName = "partyId")]
             public string PartyId { get; set; } = string.Empty;
 
             /// <summary>
-            /// The personNumber representing the signee
+            /// The personNumber representing the signee.
             /// </summary>
             [JsonProperty(PropertyName = "personNumber")]
             public string? PersonNumber { get; set; }
 
             /// <summary>
-            /// The organisationNumber representing the signee
+            /// The organisationNumber representing the signee.
             /// </summary>
             [JsonProperty(PropertyName = "organisationNumber")]
             public string? OrganisationNumber { get; set; }
