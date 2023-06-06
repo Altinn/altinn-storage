@@ -8,7 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Altinn.Platform.Storage.Tests.Mocks
 {
-    public class SigningKeyResolverMock : ISigningKeysResolver
+    public class PublicSigningKeyProviderMock : IPublicSigningKeyProvider
     {
         public SigningCredentials GetSigningCredentials()
         {
