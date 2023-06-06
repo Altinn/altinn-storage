@@ -1,17 +1,16 @@
 using System;
-using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Text;
 
 using Altinn.Common.PEP.Interfaces;
-
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Controllers;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Mocks;
 using Altinn.Platform.Storage.UnitTest.Mocks.Authentication;
@@ -269,13 +268,55 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.True(actual.Status.IsArchived);
         }
 
-        private HttpClient GetTestClient(IInstanceRepository instanceRepository = null)
+        /// <summary>
+        /// Test case: User pushes process to signing step.
+        /// Expected: An instance event of type "sentToSign" is registered.
+        /// </summary>
+        [Fact]
+        public async void PutProcess_MoveToSigning_SentToSignEventGenerated()
+        {
+            // Arrange 
+            string requestUri = $"storage/api/v1/instances/1337/20a1353e-91cf-44d6-8ff7-f68993638ffe/process/";
+            ProcessState state = new()
+            {
+                CurrentTask = new()
+                {
+                    ElementId = "Task_2",
+                    AltinnTaskType = "signing",
+                    FlowType = "CompleteCurrentMoveToNext"
+                }
+            };
+
+            JsonContent jsonString = JsonContent.Create(state, new MediaTypeHeaderValue("application/json"));
+
+            var serviceMock = new Mock<IInstanceEventService>();
+            serviceMock.Setup(m => m.DispatchEvent(It.Is<InstanceEventType>(t => t == InstanceEventType.SentToSign), It.IsAny<Instance>()));
+
+            HttpClient client = GetTestClient(instanceEventService: serviceMock.Object);
+            string token = PrincipalUtil.GetToken(3, 1337, 3);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // Act
+            HttpResponseMessage response = await client.PutAsync(requestUri, jsonString);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            serviceMock.VerifyAll();
+        }
+
+        private HttpClient GetTestClient(IInstanceRepository instanceRepository = null, IInstanceEventService instanceEventService = null)
         {
             // No setup required for these services. They are not in use by the ApplicationController
             Mock<ISasTokenProvider> sasTokenProvider = new Mock<ISasTokenProvider>();
             Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
             Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
-            
+
+            if (instanceEventService == null)
+            {
+                var mock = new Mock<IInstanceEventService>();
+                instanceEventService = mock.Object;
+            }
+
             HttpClient client = _factory.WithWebHostBuilder(builder =>
             {
                 builder.ConfigureTestServices(services =>
@@ -287,6 +328,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                     services.AddSingleton(partiesWrapper.Object);
                     services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
                     services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
+                    services.AddSingleton(instanceEventService);
 
                     if (instanceRepository != null)
                     {

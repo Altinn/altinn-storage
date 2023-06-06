@@ -39,9 +39,8 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IDataRepository _dataRepository;
         private readonly IInstanceRepository _instanceRepository;
         private readonly IApplicationRepository _applicationRepository;
-        private readonly IInstanceEventRepository _instanceEventRepository;
         private readonly IDataService _dataService;
-
+        private readonly IInstanceEventService _instanceEventService;
         private readonly string _storageBaseAndHost;
 
         /// <summary>
@@ -50,22 +49,22 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataRepository">the data repository handler</param>
         /// <param name="instanceRepository">the instance repository</param>
         /// <param name="applicationRepository">the application repository</param>
-        /// <param name="instanceEventRepository">the instance event repository</param>
         /// <param name="dataService">A data service with data element related business logic.</param>
+        /// <param name="instanceEventService">An instance event service with event related business logic.</param>
         /// <param name="generalSettings">the general settings.</param>
         public DataController(
             IDataRepository dataRepository,
             IInstanceRepository instanceRepository,
             IApplicationRepository applicationRepository,
-            IInstanceEventRepository instanceEventRepository,
             IDataService dataService,
+            IInstanceEventService instanceEventService,
             IOptions<GeneralSettings> generalSettings)
         {
             _dataRepository = dataRepository;
             _instanceRepository = instanceRepository;
             _applicationRepository = applicationRepository;
-            _instanceEventRepository = instanceEventRepository;
             _dataService = dataService;
+            _instanceEventService = instanceEventService;
             _storageBaseAndHost = $"{generalSettings.Value.Hostname}/storage/api/v1/";
         }
 
@@ -299,7 +298,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             await _dataService.StartFileScan(instance, dataTypeDefinition, dataElement, blobTimestamp, CancellationToken.None);
 
-            await DispatchEvent(InstanceEventType.Created.ToString(), instance, dataElement);
+            await _instanceEventService.DispatchEvent(InstanceEventType.Created, instance, dataElement);
 
             return Created(dataElement.SelfLinks.Platform, dataElement);
         }
@@ -408,7 +407,7 @@ namespace Altinn.Platform.Storage.Controllers
 
                 await _dataService.StartFileScan(instance, dataTypeDefinition, dataElement, blobTimestamp, CancellationToken.None);
 
-                await DispatchEvent(InstanceEventType.Saved.ToString(), instance, updatedElement);
+                await _instanceEventService.DispatchEvent(InstanceEventType.Saved, instance, updatedElement);
 
                 return Ok(updatedElement);
             }
@@ -571,27 +570,6 @@ namespace Altinn.Platform.Storage.Controllers
             return (dataElement, null);
         }
 
-        private async Task DispatchEvent(string eventType, Instance instance, DataElement dataElement)
-        {
-            InstanceEvent instanceEvent = new()
-            {
-                EventType = eventType,
-                InstanceId = instance.Id,
-                DataId = dataElement.Id,
-                InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
-                User = new PlatformUser
-                {
-                    UserId = User.GetUserIdAsInt(),
-                    AuthenticationLevel = User.GetAuthenticationLevel(),
-                    OrgId = User.GetOrg(),
-                },
-                ProcessInfo = instance.Process,
-                Created = DateTime.UtcNow,
-            };
-
-            await _instanceEventRepository.InsertInstanceEvent(instanceEvent);
-        }
-
         private async Task<ActionResult<DataElement>> InitiateDelayedDelete(Instance instance, DataElement dataElement)
         {
             DateTime deletedTime = DateTime.UtcNow;
@@ -604,7 +582,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             var updatedDateElement = await _dataRepository.Update(Guid.Parse(dataElement.InstanceGuid), Guid.Parse(dataElement.Id), new Dictionary<string, object>() { { "/deleteStatus", deleteStatus } });
 
-            await DispatchEvent(InstanceEventType.Deleted.ToString(), instance, dataElement);
+            await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, instance, dataElement);
             return Ok(updatedDateElement);
         }
 
@@ -616,7 +594,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             await _dataRepository.Delete(dataElement);
 
-            await DispatchEvent(InstanceEventType.Deleted.ToString(), instance, dataElement);
+            await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, instance, dataElement);
 
             return Ok(dataElement);
         }

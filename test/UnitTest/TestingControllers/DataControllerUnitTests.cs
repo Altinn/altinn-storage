@@ -137,7 +137,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Mock<IDataRepository> dataRepositoryMock = new();
             Mock<IInstanceRepository> instanceRepositoryMock = new();
             Mock<IApplicationRepository> applicationRepositoryMock = new();
-            Mock<IInstanceEventRepository> instanceEventRepositoryMock = new();
+            Mock<IInstanceEventService> instanceEventServiceMock = new();
             Mock<IDataService> dataServiceMock = new();
 
             dataRepositoryMock
@@ -204,8 +204,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                     }
                 });
 
-            instanceEventRepositoryMock
-                .Setup(ier => ier.InsertInstanceEvent(It.IsAny<InstanceEvent>()));
+            instanceEventServiceMock
+                .Setup(ier => ier.DispatchEvent(It.IsAny<InstanceEventType>(), It.IsAny<Instance>(), It.IsAny<DataElement>()));
 
             dataServiceMock
                 .Setup(d => d.StartFileScan(It.IsAny<Instance>(), It.IsAny<DataType>(), It.IsAny<DataElement>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()));
@@ -239,8 +239,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                      dataRepositoryMock.Object,
                      instanceRepositoryMock.Object,
                      applicationRepositoryMock.Object,
-                     instanceEventRepositoryMock.Object,
                      dataServiceMock.Object,
+                     instanceEventServiceMock.Object,
                      generalSettings)
             {
                 ControllerContext = controllerContext
