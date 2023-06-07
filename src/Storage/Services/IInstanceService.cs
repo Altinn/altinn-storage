@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 
 namespace Altinn.Platform.Storage.Services
 {
@@ -15,6 +16,7 @@ namespace Altinn.Platform.Storage.Services
         /// <param name="instanceOwnerPartyId">The instance owner partyId</param>
         /// <param name="instanceGuid">The instance guid</param>
         /// <param name="signRequest">Signrequest containing data element ids and sign status</param>
-        Task<SignDocument> CreateSignDocument(int instanceOwnerPartyId, Guid instanceGuid, SignRequest signRequest); 
+        /// <param name="userContext">UserContext containing information about the signee</param>
+        Task CreateSignDocument(int instanceOwnerPartyId, Guid instanceGuid, SignRequest signRequest, UserContext userContext); 
     }
 }

@@ -8,7 +8,6 @@ using Altinn.Common.AccessToken.Configuration;
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Authorization;
 using Altinn.Common.PEP.Clients;
-using Altinn.Common.PEP.Configuration;
 using Altinn.Common.PEP.Implementation;
 using Altinn.Common.PEP.Interfaces;
 
@@ -194,7 +193,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.Configure<AzureStorageConfiguration>(config.GetSection("AzureStorageConfiguration"));
     services.Configure<GeneralSettings>(config.GetSection("GeneralSettings"));
     services.Configure<KeyVaultSettings>(config.GetSection("kvSetting"));
-    services.Configure<PepSettings>(config.GetSection("PepSettings"));
+    services.Configure<Altinn.Common.PEP.Configuration.PepSettings>(config.GetSection("PepSettings"));
     services.Configure<PlatformSettings>(config.GetSection("PlatformSettings"));
     services.Configure<QueueStorageSettings>(config.GetSection("QueueStorageSettings"));
     services.Configure<AccessTokenSettings>(config.GetSection("AccessTokenSettings"));
@@ -263,6 +262,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddTransient<IAuthorization, AuthorizationService>();
     services.AddTransient<IDataService, DataService>();
     services.AddTransient<IInstanceService, InstanceService>();
+    services.AddTransient<IProfileService, ProfileService>();
 
     services.AddHttpClient<IPartiesWithInstancesClient, PartiesWithInstancesClient>();
 

@@ -23,5 +23,13 @@ namespace Altinn.Platform.Storage.Services
         /// <param name="ct">A cancellation token should the request be cancelled.</param>
         /// <returns>A task representing the asynconous call to file scan service.</returns>
         Task StartFileScan(Instance instance, DataType dataType, DataElement dataElement, DateTimeOffset blobTimestamp, CancellationToken ct);
+
+        /// <summary>
+        /// Create SHA-256 hash of the blob associated with the given data element.
+        /// </summary>
+        /// <param name="org">The application owner id.</param>
+        /// <param name="instanceGuid">the instance guid.</param>
+        /// <param name="dataElementId">The data element guid.</param>
+        Task<string> GenerateSha256Hash(string org, Guid instanceGuid, Guid dataElementId);
     }
 }
