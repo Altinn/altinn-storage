@@ -23,6 +23,12 @@ namespace Altinn.Platform.Storage.Authorization
         /// </summary>
         /// <returns>true if the user is authorized.</returns>
         public Task<bool> AuthorizeInstanceAction(Instance instance, string action, string task = null);
+        
+        /// <summary>
+        /// Authorizes that the user has one or more of the actions on an instance.
+        /// </summary>
+        /// <returns>true if the user is authorized.</returns>
+        public Task<bool> AuthorizeAnyOfInstanceActions(Instance instance, List<string> actions);
 
         /// <summary>
         /// Authorize instances, and returns a list of instances that the user has the right to read.

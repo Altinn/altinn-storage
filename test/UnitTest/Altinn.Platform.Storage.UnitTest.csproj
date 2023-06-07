@@ -124,6 +124,9 @@
     <None Update="data\apps\tests\sailor\config\authorization\policy.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="data\apps\ttd\signing-app\config\authorization\policy.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="data\apps\ttd\complete-test\config\authorization\policy.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -169,6 +172,10 @@
 		<None Update="platform-org.pfx">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <_ContentIncludedByDefault Remove="data\roles\user_5\party_1337\roles.json" />
 	</ItemGroup>
 
 </Project>

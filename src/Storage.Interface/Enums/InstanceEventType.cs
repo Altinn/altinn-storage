@@ -77,7 +77,17 @@ namespace Altinn.Platform.Storage.Interface.Enums
         /// Instance process task abandon event.
         /// </summary>
 #pragma warning disable SA1300 // Element should begin with upper-case letter
-        process_AbandonTask
+        process_AbandonTask,
 #pragma warning restore SA1300 // Element should begin with upper-case letter
+
+        /// <summary>
+        /// Instance signed event.
+        /// </summary>
+        Signed,
+
+        /// <summary>
+        /// Instance sent to sign event.
+        /// </summary>
+        SentToSign
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
@@ -89,7 +90,7 @@ namespace Altinn.Platform.Storage.UnitTest
         /// Success: SBL status is as expected
         /// </summary>
         [Fact]
-        public void GetSBLStatusForCurrentTask_TC01()
+        public void GetSBLStatusForCurrentTask_data_IsConvertedToFormFilling()
         {
             Instance instance = TestData.Instance_1_Status_1;
             string sblStatus = InstanceHelper.GetSBLStatusForCurrentTask(instance);
@@ -103,7 +104,7 @@ namespace Altinn.Platform.Storage.UnitTest
         /// Success: SBL status is as expected
         /// </summary>
         [Fact]
-        public void GetSBLStatusForCurrentTask_TC02()
+        public void GetSBLStatusForCurrentTask_EndedNotArchived_IsConvertedToSubmit()
         {
             Instance instance = TestData.Instance_1_Status_2;
             string sblStatus = InstanceHelper.GetSBLStatusForCurrentTask(instance);
@@ -117,7 +118,7 @@ namespace Altinn.Platform.Storage.UnitTest
         /// Success: SBL status is as expected
         /// </summary>
         [Fact]
-        public void GetSBLStatusForCurrentTask_TC03()
+        public void GetSBLStatusForCurrentTask_EndedAndArchived_IsConvertedToArchived()
         {
             Instance instance = TestData.Instance_1_Status_3;
             string sblStatus = InstanceHelper.GetSBLStatusForCurrentTask(instance);
@@ -131,7 +132,7 @@ namespace Altinn.Platform.Storage.UnitTest
         /// Success: SBL status is as expected
         /// </summary>
         [Fact]
-        public void GetSBLStatusForCurrentTask_TC04()
+        public void GetSBLStatusForCurrentTask_MissingProcessState_IsConvertedToDefault()
         {
             Instance instance = TestData.Instance_1_Status_4;
             string sblStatus = InstanceHelper.GetSBLStatusForCurrentTask(instance);
@@ -194,6 +195,35 @@ namespace Altinn.Platform.Storage.UnitTest
 
             string sblStatus = InstanceHelper.GetSBLStatusForCurrentTask(instance);
             Assert.Equal("Feedback", sblStatus);
+        }
+
+        /// <summary>
+        /// Scenario: Getting sbl status for an instance in a signing step
+        /// Expected: The SBL status "Signing" is returned
+        /// Success: SBL status is as expected
+        /// </summary>
+        [Fact]
+        public void GetSBLStatusForCurrentTask_Signing()
+        {
+            Instance instance = new Instance
+            {
+                Process = new ProcessState
+                {
+                    Started = DateTime.Parse("2021-01-18T16:38:28.3776631Z"),
+                    StartEvent = "StartEvent_1",
+                    CurrentTask = new ProcessElementInfo
+                    {
+                        Flow = 3,
+                        Started = DateTime.Parse("2021-01-18T16:41:24.6560293Z"),
+                        ElementId = "Task_2",
+                        Name = "Signering",
+                        AltinnTaskType = "signing"
+                    }
+                }
+            };
+
+            string sblStatus = InstanceHelper.GetSBLStatusForCurrentTask(instance);
+            Assert.Equal("Signing", sblStatus);
         }
 
         /// <summary>
@@ -412,7 +442,7 @@ namespace Altinn.Platform.Storage.UnitTest
         /// </summary>
         [Fact]
         public void ReplaceTextKeys_AppNameAvailable_AppNameKeyUsedAsTitle()
-        {   
+        {
             // Arrange
             List<MessageBoxInstance> instances = new();
             instances.Add(new MessageBoxInstance
@@ -480,6 +510,34 @@ namespace Altinn.Platform.Storage.UnitTest
 
             // Assert
             Assert.Equal("ValueFromServiceNameKey", instances[0].Title);
+        }
+
+        [Fact]
+        public void ConvertToSBLInstanceEvent_SingleEvent_AllPropertiesMapped()
+        {
+            // Arrange
+            List<InstanceEvent> input = new()
+            {
+                new InstanceEvent
+                {
+                    Id = Guid.Parse("64f6d272-3700-4616-beea-931361d10fc8"),
+                    User = new()
+                    {
+                        UserId = 1337
+                    },
+                    EventType = "test.event",
+                    Created = DateTime.Now
+                }
+            };
+
+            // Act
+            var actual = InstanceHelper.ConvertToSBLInstanceEvent(input).First();
+
+            // Assert
+            Assert.NotNull(actual);
+            Assert.Equal("64f6d272-3700-4616-beea-931361d10fc8", actual.Id.ToString());
+            Assert.Equal(1337, actual.User.UserId);
+            Assert.Equal("test.event", actual.EventType);
         }
     }
 }
