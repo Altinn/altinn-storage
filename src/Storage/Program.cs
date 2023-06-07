@@ -262,7 +262,6 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddTransient<IAuthorization, AuthorizationService>();
     services.AddTransient<IDataService, DataService>();
     services.AddTransient<IInstanceService, InstanceService>();
-    services.AddTransient<IProfileService, ProfileService>();
 
     services.AddHttpClient<IPartiesWithInstancesClient, PartiesWithInstancesClient>();
 
@@ -350,9 +349,6 @@ void Configure()
     app.UseRouting();
     app.UseAuthentication();
     app.UseAuthorization();
-    app.UseEndpoints(endpoints =>
-    {
-        endpoints.MapControllers();
-        endpoints.MapHealthChecks("/health");
-    });
+    app.MapControllers();
+    app.MapHealthChecks("/health");
 }

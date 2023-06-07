@@ -1,9 +1,11 @@
 using System;
+using System.IO;
 using System.Threading.Tasks;
-using Altinn.Platform.Profile.Models;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
+using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.Services
 {
@@ -14,61 +16,84 @@ namespace Altinn.Platform.Storage.Services
     {
         private readonly IInstanceRepository _instanceRepository;
         private readonly IDataService _dataService;
-        private readonly IProfileService _profileService;
+        private readonly IApplicationService _applicationService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="InstanceService"/> class.
         /// </summary>
-        public InstanceService(IInstanceRepository instanceRepository, IDataService dataService, IProfileService profileService)
+        public InstanceService(IInstanceRepository instanceRepository, IDataService dataService, IApplicationService applicationService)
         {
             _instanceRepository = instanceRepository;
             _dataService = dataService;
-            _profileService = profileService;
+            _applicationService = applicationService;
         }
 
         /// <inheritdoc/>
-        public async Task CreateSignDocument(int instanceOwnerPartyId, Guid instanceGuid, SignRequest signRequest, UserContext userContext)
+        public async Task<(bool Bool, ServiceError ServiceError)> CreateSignDocument(int instanceOwnerPartyId, Guid instanceGuid, SignRequest signRequest)
         {
             Instance instance = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
             if (instance == null) 
             {
-                // TODO: Return some shit.. ActionResult out from controller
+                return (false, new ServiceError(404, "Instance not found"));
             }
 
-            SignDocument signDocument = await GetSignDocument(instanceGuid, userContext);
+            (bool validDataType, ServiceError serviceError) = await _applicationService.ValidateDataTypeForApp(instance.Org, instance.AppId, signRequest.SignatureDocumentDataType);
+            if (!validDataType)
+            {
+                return (false, serviceError);
+            }
+
+            SignDocument signDocument = GetSignDocument(instanceGuid, signRequest);
 
             foreach (SignRequest.DataElementSignature dataElementSignature in signRequest.DataElementSignatures)
             {
-                string bas64Sha256Hash = await _dataService.GenerateSha256Hash(instance.Org, instanceGuid, Guid.Parse(dataElementSignature.DataElementId));
+                (string base64Sha256Hash, serviceError) = await _dataService.GenerateSha256Hash(instance.Org, instanceGuid, Guid.Parse(dataElementSignature.DataElementId));
+                if (string.IsNullOrEmpty(base64Sha256Hash))
+                {
+                    return (false, serviceError);
+                }
+
                 signDocument.DataElementSignatures.Add(new SignDocument.DataElementSignature
                 {
                     DataElementId = dataElementSignature.DataElementId,
-                    Sha256Hash = bas64Sha256Hash,
+                    Sha256Hash = base64Sha256Hash,
                     Signed = dataElementSignature.Signed
                 });
             }
-            // create dataelement
-            // save signdocument blob
+
+            DataElement dataElement = DataElementHelper.CreateDataElement(
+                signRequest.SignatureDocumentDataType, 
+                null, 
+                instance, 
+                signDocument.SignedTime, 
+                "application/json", 
+                $"{signRequest.SignatureDocumentDataType}.json", 
+                0, 
+                signRequest.Signee.UserId);
+
+            signDocument.Id = dataElement.Id;
+        
+            using (MemoryStream fileStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(signDocument))))
+            {
+                await _dataService.UploadDataAndCreateDataElement(instance.Org, fileStream, dataElement);    
+            }
+
+            return (true, null);
         }
 
-        private async Task<SignDocument> GetSignDocument(Guid instanceGuid, UserContext userContext)
+        private SignDocument GetSignDocument(Guid instanceGuid, SignRequest signRequest)
         {
             SignDocument signDocument = new SignDocument
             {
                 InstanceGuid = instanceGuid.ToString(),
-                SigneeInfo = new SignDocument.Signee
+                SignedTime = DateTime.Now,
+                SigneeInfo = new Signee
                 {
-                    UserId = userContext.UserId.ToString(),
-                    PartyId = userContext.PartyId,
-                    OrganisationNumber = userContext.Orgnr.ToString()
+                    UserId = signRequest.Signee.UserId,
+                    PersonNumber = signRequest.Signee.PersonNumber,
+                    OrganisationNumber = signRequest.Signee.OrganisationNumber
                 }
             };
-
-            if (userContext.Orgnr == null)
-            {
-                UserProfile userProfile = await _profileService.GetUserProfile(userContext.UserId.Value);
-                signDocument.SigneeInfo.PersonNumber = userProfile.Party.SSN;
-            }
 
             return signDocument;
         }
