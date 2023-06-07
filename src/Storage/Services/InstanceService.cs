@@ -69,7 +69,8 @@ namespace Altinn.Platform.Storage.Services
                 "application/json", 
                 $"{signRequest.SignatureDocumentDataType}.json", 
                 0, 
-                signRequest.Signee.UserId);
+                signRequest.Signee.UserId,
+                null);
 
             signDocument.Id = dataElement.Id;
         
