@@ -22,6 +22,12 @@ namespace Altinn.Platform.Storage.Interface.Models
         public List<DataElementSignature> DataElementSignatures { get; set; }
 
         /// <summary>
+        /// Information about the signee.
+        /// </summary>
+        [JsonProperty(PropertyName = "signee")]
+        public Signee Signee { get; set; } = new Signee();
+
+        /// <summary>
         /// The DataElementSignature
         /// </summary>
         public class DataElementSignature
