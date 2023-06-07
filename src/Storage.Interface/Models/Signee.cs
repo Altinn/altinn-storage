@@ -2,7 +2,6 @@
 
 namespace Altinn.Platform.Storage.Interface.Models
 {
-
     /// <summary>
     /// Information about the signee
     /// </summary>
