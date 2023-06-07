@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 
 using Moq;
@@ -18,8 +19,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         {
             // Arrange
             Mock<IFileScanQueueClient> fileScanMock = new Mock<IFileScanQueueClient>();
+            Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
 
-            DataService target = new DataService(fileScanMock.Object);
+            DataService target = new DataService(fileScanMock.Object, dataRepositoryMock.Object);
 
             Instance instance = new Instance();
             DataType dataType = new DataType { EnableFileScan = false };
@@ -38,8 +40,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         {
             // Arrange
             Mock<IFileScanQueueClient> fileScanMock = new Mock<IFileScanQueueClient>();
-
-            DataService target = new DataService(fileScanMock.Object);
+            Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
+            
+            DataService target = new DataService(fileScanMock.Object, dataRepositoryMock.Object);
 
             Instance instance = new Instance { Id = "343243/guid" };
             DataType dataType = new DataType { EnableFileScan = true };

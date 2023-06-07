@@ -94,23 +94,6 @@ namespace Altinn.Platform.Storage.Helpers
             }
 
             return 0;
-        }
-
-        /// <summary>
-        /// Returns the party id of an org user or null if claim does not exist.
-        /// </summary>
-        public static string GetPartyId(this ClaimsPrincipal user)
-        {
-            if (user.HasClaim(c => c.Type == AltinnCoreClaimTypes.PartyID))
-            {
-                Claim orgClaim = user.FindFirst(c => c.Type == AltinnCoreClaimTypes.PartyID);
-                if (orgClaim != null && !string.IsNullOrEmpty(orgClaim.Value))
-                {
-                    return orgClaim.Value;
-                }
-            }
-
-            return null;
-        }        
+        }     
     }
 }

@@ -28,7 +28,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             var eventServiceMock = new Mock<IInstanceEventService>();
             eventServiceMock.Setup(esm => esm.DispatchEvent(It.Is<InstanceEventType>(ies => ies == InstanceEventType.Signed), It.IsAny<Instance>()));
 
-            var service = new InstanceService(repoMock.Object, eventServiceMock.Object);
+            var dataServiceMock = new Mock<IDataService>();
+            var applicationServiceMock = new Mock<IApplicationService>();
+            
+            var service = new InstanceService(repoMock.Object, dataServiceMock.Object, applicationServiceMock.Object, eventServiceMock.Object);
 
             // Act
             await service.CreateSignDocument(1337, Guid.NewGuid(), new SignRequest());

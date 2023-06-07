@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Helpers;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
@@ -17,15 +18,17 @@ namespace Altinn.Platform.Storage.Services
         private readonly IInstanceRepository _instanceRepository;
         private readonly IDataService _dataService;
         private readonly IApplicationService _applicationService;
+        private readonly IInstanceEventService _instanceEventService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="InstanceService"/> class.
         /// </summary>
-        public InstanceService(IInstanceRepository instanceRepository, IDataService dataService, IApplicationService applicationService)
+        public InstanceService(IInstanceRepository instanceRepository, IDataService dataService, IApplicationService applicationService, IInstanceEventService instanceEventService)
         {
             _instanceRepository = instanceRepository;
             _dataService = dataService;
             _applicationService = applicationService;
+            _instanceEventService = instanceEventService;
         }
 
         /// <inheritdoc/>
@@ -78,7 +81,8 @@ namespace Altinn.Platform.Storage.Services
             {
                 await _dataService.UploadDataAndCreateDataElement(instance.Org, fileStream, dataElement);    
             }
-
+            
+            await _instanceEventService.DispatchEvent(InstanceEventType.Signed, instance);
             return (true, null);
         }
 
