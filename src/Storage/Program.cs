@@ -262,6 +262,8 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddTransient<IAuthorizationHandler, ClaimAccessHandler>();
     services.AddTransient<IAuthorization, AuthorizationService>();
     services.AddTransient<IDataService, DataService>();
+    services.AddTransient<IInstanceEventService, InstanceEventService>();
+    services.AddTransient<IInstanceService, InstanceService>();
 
     services.AddHttpClient<IPartiesWithInstancesClient, PartiesWithInstancesClient>();
 
