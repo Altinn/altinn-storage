@@ -1,5 +1,5 @@
 /*
-    Test script for the 7data endpoint in the Storage API
+    Test script for the data endpoint in the Storage API
     Command:
     docker-compose run k6 run /src/tests/data.js `
     -e env=*** `
