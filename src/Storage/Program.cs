@@ -8,6 +8,7 @@ using Altinn.Common.AccessToken.Configuration;
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Authorization;
 using Altinn.Common.PEP.Clients;
+using Altinn.Common.PEP.Configuration;
 using Altinn.Common.PEP.Implementation;
 using Altinn.Common.PEP.Interfaces;
 
@@ -34,7 +35,6 @@ using Microsoft.ApplicationInsights.WindowsServer.TelemetryChannel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -193,8 +193,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.Configure<AzureStorageConfiguration>(config.GetSection("AzureStorageConfiguration"));
     services.Configure<GeneralSettings>(config.GetSection("GeneralSettings"));
     services.Configure<KeyVaultSettings>(config.GetSection("kvSetting"));
-    services.Configure<Altinn.Common.PEP.Configuration.PepSettings>(config.GetSection("PepSettings"));
-    services.Configure<PlatformSettings>(config.GetSection("PlatformSettings"));
+    services.Configure<PepSettings>(config.GetSection("PepSettings"));
     services.Configure<QueueStorageSettings>(config.GetSection("QueueStorageSettings"));
     services.Configure<AccessTokenSettings>(config.GetSection("AccessTokenSettings"));
 
@@ -263,7 +262,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddTransient<IDataService, DataService>();
     services.AddTransient<IInstanceService, InstanceService>();
     services.AddTransient<IInstanceEventService, InstanceEventService>();
-    services.AddTransient<IApplicationService, ApplicationService>();
+    services.AddSingleton<IApplicationService, ApplicationService>();
 
     services.AddHttpClient<IPartiesWithInstancesClient, PartiesWithInstancesClient>();
 
