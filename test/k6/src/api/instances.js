@@ -25,14 +25,6 @@ export function postInstance(token, partyId, org, app, serializedInstance) {
   return http.post(endpoint, requestbody, params);
 }
 
-//Function to build input json for creation of instance with app, instanceOwner details and returns a JSON object
-function buildInstanceInputJson(instanceJson, appId, partyId) {
-  instanceJson = JSON.parse(instanceJson);
-  instanceJson.instanceOwner.partyId = partyId;
-  instanceJson.appId = appId;
-  return instanceJson;
-}
-
 //Api call to Storage:Instances to get an instance by id and return response
 export function getInstanceById(
   altinnStudioRuntimeCookie,
@@ -47,60 +39,28 @@ export function getInstanceById(
   return http.get(endpoint, params);
 }
 
-//Api call to Storage:Instances to get all instances under a party id and return response
-export function getAllinstancesWithFilters(altinnStudioRuntimeCookie, filters) {
-  var endpoint = config.platformStorage["instances"];
-  endpoint +=
-    filters != null ? apiHelper.buildQueryParametersForEndpoint(filters) : "";
-  var params = apiHelper.buildHeaderWithBearer(
-    altinnStudioRuntimeCookie,
-    "platform"
-  );
-  return http.get(endpoint, params);
-}
-
-//Api call to Storage:Instances to get all archived instances under an app created after a specific date and return response
-export function getArchivedInstancesByOrgAndApp(
-  altinnStudioRuntimeCookie,
-  appOwner,
-  appName,
-  isArchived,
-  createdDateTime
-) {
-  //If createdDateTime is not sent update the value to today's date
-  if (!createdDateTime) {
-    createdDateTime = support.todayDateInISO();
-  }
-  var filters = {
-    created: `gt:${createdDateTime}`,
-    org: appOwner,
-    appId: `${appOwner}/${appName}`,
-    "process.isComplete": isArchived,
-  };
-
-  //find archived instances of the app that has created date > createdDateTime
-  var endpoint =
-    config.platformStorage["instances"] +
-    support.buildQueryParametersForEndpoint(filters);
-  var params = apiHelper.buildHeaderWithBearer(
-    altinnStudioRuntimeCookie,
-    "platform"
-  );
-  return http.get(endpoint, params);
-}
-
 //Api call to Storage:Instances to soft/hard delete an instance by id and return response
-export function deleteInstanceById(
-  token,
-  instanceId,
-  hardDelete
-) {
+export function deleteInstanceById(token, instanceId, hardDelete) {
   var endpoint =
     config.buildStorageUrls(instanceId, "", "instanceid") +
     "?hard=" +
     hardDelete;
-  var params = apiHelper.buildHeaderWithBearer(
-    token,
-  );
+  var params = apiHelper.buildHeaderWithBearer(token);
   return http.del(endpoint, null, params);
+}
+
+//Api call to Storage:Instances to sign data elements on an instance and return response
+export function signInstance(token, instanceId, signRequest) {
+  var endpoint =
+    config.buildStorageUrls(instanceId, "", "instanceid") + "/sign";
+  var params = apiHelper.buildHeaderWithBearer(token);
+  return http.post(endpoint, JSON.stringify(signRequest), params);
+}
+
+//Function to build input json for creation of instance with app, instanceOwner details and returns a JSON object
+function buildInstanceInputJson(instanceJson, appId, partyId) {
+  instanceJson = JSON.parse(instanceJson);
+  instanceJson.instanceOwner.partyId = partyId;
+  instanceJson.appId = appId;
+  return instanceJson;
 }
