@@ -200,7 +200,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.Configure<AccessTokenSettings>(config.GetSection("AccessTokenSettings"));
 
     services.AddSingleton<IAuthorizationHandler, AccessTokenHandler>();
-    services.AddSingleton<ISigningKeysResolver, SigningKeysResolver>();
+    services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProvider>();
 
     GeneralSettings generalSettings = config.GetSection("GeneralSettings").Get<GeneralSettings>();
 
