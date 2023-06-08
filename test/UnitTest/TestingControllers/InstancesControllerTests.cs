@@ -8,12 +8,14 @@ using System.Net.Http.Json;
 using System.Reflection;
 using System.Threading.Tasks;
 
+using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Tests.Mocks;
 using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Mocks;
 using Altinn.Platform.Storage.UnitTest.Mocks.Authentication;
@@ -1504,9 +1506,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                     services.AddSingleton(keyVaultWrapper.Object);
                     services.AddSingleton<IPartiesWithInstancesClient, PartiesWithInstancesClientMock>();
                     services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
-
-                    // services.AddTransient<IAuthorization, AuthorizationService>();
                     services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
+                    services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
+
                 });
             }).CreateClient();
 
