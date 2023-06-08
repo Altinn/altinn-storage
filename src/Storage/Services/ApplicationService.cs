@@ -22,7 +22,7 @@ namespace Altinn.Platform.Storage.Services
         }
         
         /// <inheritdoc/>
-        public async Task<(bool Bool, ServiceError ServiceError)> ValidateDataTypeForApp(string org, string appId, string dataType)
+        public async Task<(bool IsValid, ServiceError ServiceError)> ValidateDataTypeForApp(string org, string appId, string dataType)
         {
             Application application = await _applicationRepository.FindOne(appId, org);
 

@@ -32,7 +32,7 @@ namespace Altinn.Platform.Storage.Services
         /// <param name="org">The application owner id.</param>
         /// <param name="instanceGuid">the instance guid.</param>
         /// <param name="dataElementId">The data element guid.</param>
-        Task<(string String, ServiceError ServiceError)> GenerateSha256Hash(string org, Guid instanceGuid, Guid dataElementId);
+        Task<(string FileHash, ServiceError ServiceError)> GenerateSha256Hash(string org, Guid instanceGuid, Guid dataElementId);
 
         /// <summary>
         /// Upload file and save dataElement

@@ -16,6 +16,6 @@ namespace Altinn.Platform.Storage.Services
         /// <param name="instanceOwnerPartyId">The instance owner partyId</param>
         /// <param name="instanceGuid">The instance guid</param>
         /// <param name="signRequest">Signrequest containing data element ids and sign status</param>
-        Task<(bool Bool, ServiceError ServiceError)> CreateSignDocument(int instanceOwnerPartyId, Guid instanceGuid, SignRequest signRequest); 
+        Task<(bool Created, ServiceError ServiceError)> CreateSignDocument(int instanceOwnerPartyId, Guid instanceGuid, SignRequest signRequest); 
     }
 }

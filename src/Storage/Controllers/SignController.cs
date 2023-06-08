@@ -52,7 +52,7 @@ namespace Altinn.Platform.Storage.Controllers
             } 
             catch (Exception e)
             {
-                return StatusCode(500, e.Message);
+                return Problem(e.Message, null, 500);
             }
         }
     }
