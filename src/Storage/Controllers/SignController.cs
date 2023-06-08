@@ -44,7 +44,7 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 if (string.IsNullOrEmpty(signRequest.Signee.UserId))
                 {
-                    return Problem("The 'UserId' parameter must be defined in context.", null, 400);
+                    return Problem("The 'UserId' parameter must be defined for signee.", null, 400);
                 }
 
                 await _instanceService.CreateSignDocument(instanceOwnerPartyId, instanceGuid, signRequest);
