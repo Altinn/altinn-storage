@@ -91,7 +91,7 @@ namespace Altinn.Platform.Storage.Services
             SignDocument signDocument = new SignDocument
             {
                 InstanceGuid = instanceGuid.ToString(),
-                SignedTime = DateTime.Now,
+                SignedTime = DateTime.UtcNow,
                 SigneeInfo = new Signee
                 {
                     UserId = signRequest.Signee.UserId,

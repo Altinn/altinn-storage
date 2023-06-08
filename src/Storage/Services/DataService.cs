@@ -61,7 +61,7 @@ namespace Altinn.Platform.Storage.Services
             }
 
             Stream filestream = await _dataRepository.ReadDataFromStorage(org, dataElement.BlobStoragePath);
-            if (filestream == null || filestream.Length == 0)
+            if (filestream == null)
             {
                 return (null, new ServiceError(404, $"Failed reading file, dataElementId: {dataElementId}"));
             }
