@@ -47,7 +47,7 @@ namespace Altinn.Platform.Storage.Controllers
                     return Problem("The 'UserId' parameter must be defined for signee.", null, 400);
                 }
 
-                await _instanceService.CreateSignDocument(instanceOwnerPartyId, instanceGuid, signRequest);
+                await _instanceService.CreateSignDocument(instanceOwnerPartyId, instanceGuid, signRequest, User.GetUserIdAsInt().Value);
                 return StatusCode(201, "SignDocument is created");
             } 
             catch (Exception e)
