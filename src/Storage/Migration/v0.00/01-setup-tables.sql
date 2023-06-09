@@ -8,6 +8,9 @@ CREATE TABLE IF NOT EXISTS storage.instances
 	partyId BIGINT NOT NULL,
 	created TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	lastChanged TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	org TEXT NOT NULL,
+	appId TEXT NOT NULL,
+	taskId TEXT NULL,
 	instance JSONB NOT NULL
 )
 TABLESPACE pg_default;
@@ -64,6 +67,14 @@ TABLESPACE pg_default;
 
 CREATE INDEX IF NOT EXISTS dataElements_instanceInternalId ON storage.dataElements(instanceInternalId);
 CREATE INDEX IF NOT EXISTS dataElements_instanceGuid ON storage.dataElements(instanceGuid);
+
 CREATE INDEX IF NOT EXISTS instanceEvents_instance ON storage.instanceEvents(instance);
+
 CREATE INDEX IF NOT EXISTS instances_partyId ON storage.instances(partyId);
+CREATE INDEX IF NOT EXISTS instances_appId ON storage.instances(appId);
+CREATE INDEX IF NOT EXISTS instances_appId_taskId ON storage.instances(appId, taskId);
+CREATE INDEX IF NOT EXISTS instances_appId_lastChanged ON storage.instances(appId, lastChanged);
+CREATE INDEX IF NOT EXISTS instances_lastChanged ON storage.instances(lastChanged);
+CREATE INDEX IF NOT EXISTS instances_org ON storage.instances(org);
+
 CREATE INDEX IF NOT EXISTS applications_org ON storage.applications(org);

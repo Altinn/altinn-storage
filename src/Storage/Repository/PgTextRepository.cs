@@ -29,7 +29,6 @@ namespace Altinn.Platform.Storage.Repository
         private static readonly string _updateSql = "update storage.texts set textResource = $4 where org = $1 and app = $2 and language = $3";
         private static readonly string _createSql = "insert into storage.texts (org, app, language, textResource, applicationInternalId) values ($1, $2, $3, $4, $5)";
 
-        private readonly ILogger<ITextRepository> _logger;
         private readonly IMemoryCache _memoryCache;
         private readonly MemoryCacheEntryOptions _cacheEntryOptions;
         private readonly NpgsqlDataSource _dataSource;
@@ -81,7 +80,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<List<TextResource>> Get(List<string> appIds, string language)
         {
-            List<TextResource> result = new List<TextResource>();
+            List<TextResource> result = new();
 
             foreach (string appId in appIds)
             {
@@ -97,9 +96,8 @@ namespace Altinn.Platform.Storage.Repository
                         result.Add(resource);
                     }
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
-                    _logger.LogError(e, "Error occured when retrieving text resources for {org}-{app} in language {language}.", org, app, language);
                 }
             }
 

@@ -23,8 +23,8 @@ namespace Altinn.Platform.Storage.Repository
     public class PgInstanceRepository: IInstanceRepository, IHostedService
     {
         private static readonly string _deleteSql = "call storage.deleteInstance ($1)"; // "delete from storage.instances where alternateId = $1;";
-        private static readonly string _insertSql = "call storage.insertInstance ($1, $2, $3)"; // "insert into storage.instances(partyId, alternateId, instance) VALUES ($1, $2, $3)";
-        private static readonly string _upsertSql = "call storage.upsertInstance ($1, $2, $3)"; // _insertSql + " on conflict(alternateId) do update set instance = $3";
+        private static readonly string _insertSql = "call storage.insertInstance ($1, $2, $3, $4, $5, $6, $7, $8)"; // "insert into storage.instances(partyId, alternateId, instance) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)";
+        private static readonly string _upsertSql = "call storage.upsertInstance ($1, $2, $3, $4, $5, $6, $7, $8)"; // _insertSql + " on conflict(alternateId) do update set instance = $3";
         private static readonly string _readSql = "select * from storage.readInstance ($1)";
         private static readonly string _readSqlNoElements = "select * from storage.readInstanceNoElements ($1)";
         ////private static readonly string _readSql = $"select i.id, i.instance, d.element " +
@@ -87,7 +87,7 @@ namespace Altinn.Platform.Storage.Repository
                 (IQueryable<Instance> queryBuilder, continueIdx) = await GetInstances(size - (int)queryResponse.Count, continueIdx, queryParams);
                 try
                 {
-                    if (queryBuilder.Count() > 0)
+                    if (queryBuilder.Any())
                     {
                         queryBuilder = InstanceQueryHelper.BuildQueryFromParameters(queryParams, queryBuilder, new());
                     }
@@ -137,13 +137,13 @@ namespace Altinn.Platform.Storage.Repository
             // TODO: Add more db predicates. Currently only partyId (and continueation) is supported in the db query. Other predicates are left to InstanceQueryHelper
 
             Instance instance = null;
-            List<Instance> instances = new List<Instance>();
+            List<Instance> instances = new();
             long id = -1;
             string partyPredicate = null;
             int partyId = 0;
             int[] partyIdArray = null;
 
-            StringValues partyIdStringValues = queryParams.ContainsKey("instanceOwner.partyId") ? queryParams["instanceOwner.partyId"] : default(StringValues);
+            StringValues partyIdStringValues = queryParams.ContainsKey("instanceOwner.partyId") ? queryParams["instanceOwner.partyId"] : default;
             if (partyIdStringValues.Count == 1)
             {
                 partyId = int.Parse(partyIdStringValues.First());
@@ -155,11 +155,17 @@ namespace Altinn.Platform.Storage.Repository
                 partyPredicate = $" AND partyId = ANY ($3) ";
             }
 
+            string taskPredicate = queryParams.ContainsKey("process.currentTask") ? " AND taskId ILIKE $4" : null;
+            string appIdPredicate = queryParams.ContainsKey("appId") ? " AND appId ILIKE $6" : null;
+            string orgPredicate = appIdPredicate == null && queryParams.ContainsKey("org") ? " AND org ILIKE $5" : null;
+            (string lastChangedPredicate, DateTime lastChanged) = InstanceQueryHelper.ConvertTimestampParameter("lastChanged", queryParams, 7);
+            (string createdPredicate, DateTime created) = InstanceQueryHelper.ConvertTimestampParameter("created", queryParams, 8);
+
             string readManySql =
                 $"WITH instances AS " +
                 $"( " +
                 $"    SELECT id, instance FROM storage.instances " +
-                $"    WHERE id > $1 " + partyPredicate +
+                $"    WHERE id > $1 " + partyPredicate + taskPredicate + orgPredicate + appIdPredicate + lastChangedPredicate + createdPredicate +
                 $"    ORDER BY id " +
                 $"    FETCH FIRST $2 ROWS ONLY " +
                 $") " +
@@ -177,6 +183,16 @@ namespace Altinn.Platform.Storage.Repository
             {
                 pgcom.Parameters.AddWithValue(NpgsqlDbType.Array | NpgsqlDbType.Integer, partyIdArray);
             }
+            else
+            {
+                pgcom.Parameters.AddWithValue(NpgsqlDbType.Integer, 0);
+            }
+
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, taskPredicate != null ? queryParams["process.currentTask"].First() : DBNull.Value);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, orgPredicate != null ? queryParams["org"].First() : DBNull.Value);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, appIdPredicate != null ? queryParams["appId"].First() : DBNull.Value);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, lastChanged);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, created);
 
             await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
             {
@@ -299,6 +315,9 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, instance);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, instance.Created ?? DateTime.Now);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, instance.LastChanged ?? DateTime.Now);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, instance.Org);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, instance.AppId);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, instance?.Process?.CurrentTask?.ElementId ?? (object)DBNull.Value);
 
             await pgcom.ExecuteNonQueryAsync();
 

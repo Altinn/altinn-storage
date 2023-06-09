@@ -180,22 +180,22 @@ namespace Altinn.Platform.Storage.Repository
             return appTitles;
         }
 
-        private Application SetLegacyId(Application app)
+        private static Application SetLegacyId(Application app)
         {
             if (app.Id.StartsWith(app.Org + '-', StringComparison.OrdinalIgnoreCase))
             {
-                string appIdWithoutOrg = app.Id.Substring(app.Org.Length + 1);
+                string appIdWithoutOrg = app.Id[(app.Org.Length + 1)..];
                 app.Id = $"{app.Org}/{appIdWithoutOrg}";
             }
 
             return app;
         }
 
-        private Application SetInternalId(Application app)
+        private static Application SetInternalId(Application app)
         {
             if (app.Id.StartsWith(app.Org + '/', StringComparison.OrdinalIgnoreCase))
             {
-                string appIdWithoutOrg = app.Id.Substring(app.Org.Length + 1);
+                string appIdWithoutOrg = app.Id[(app.Org.Length + 1)..];
                 app.Id = $"{app.Org}-{appIdWithoutOrg}";
             }
 

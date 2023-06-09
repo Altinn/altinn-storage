@@ -81,7 +81,6 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<DataElement> Read(Guid instanceGuid, Guid dataElementGuid)
         {
-            List<DataElement> elements = new();
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSql);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementGuid);
 
@@ -130,7 +129,6 @@ namespace Altinn.Platform.Storage.Repository
                 instanceGuidsAsGuids.Add(new Guid(instance));
             }
 
-            List<DataElement> elements = new();
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readAllForMultipleSql);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Array | NpgsqlDbType.Uuid, instanceGuidsAsGuids ?? (object)DBNull.Value);
 
