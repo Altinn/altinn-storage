@@ -57,7 +57,6 @@ export function signInstance(token, instanceId, signRequest) {
     "application/json"
   );
 
-  console.log(endpoint);
   return http.post(endpoint, JSON.stringify(signRequest), params);
 }
 

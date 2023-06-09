@@ -62,7 +62,7 @@ export function setup() {
       },
     ],
     signee: {
-      userId: tokenClaims["userid"],
+      userId: tokenClaims["userId"],
     },
   };
 
@@ -70,10 +70,9 @@ export function setup() {
     runFullTestSet: runFullTestSet,
     token: token,
     partyId: tokenClaims["partyId"],
+    userId: tokenClaims["userId"],
     instanceId: instanceId,
     attachmentId: dataElementId,
-    org: org,
-    app: app,
     signRequest: signRequest,
   };
 
@@ -86,27 +85,48 @@ function Test_Instance_Sign(data) {
     data.instanceId,
     data.signRequest
   );
+
   var success = check(res, {
-    "Test_Instance_Sign: Sign instance. Status is 201": (r) =>
-      r.status === 201,
+    "Test_Instance_Sign: Sign instance. Status is 201": (r) => r.status === 201,
   });
   addErrorCount(success);
-
-  var res = instancesApi.getInstanceById(
-    data.token,
-    data.instanceId
+  stopIterationOnFail(
+    "// Setup // Test_Instance_Sign: Sign instance. Failed",
+    success,
+    res
   );
 
-  console.log(res);
+  res = instancesApi.getInstanceById(data.token, data.instanceId);
+
   var dataElements = JSON.parse(res.body)["data"];
-  console.log(JSON.stringify(dataElements));
-  var success = check([res, dataElemens], {
+  success = check([res, dataElements], {
     "Test_Instance_Sign: Get instance. Status is 200": (r) =>
       r[0].status === 200,
+    "Test_Instance_Sign: Get instance. Data list contains sign document": (r) =>
+      r[1].some((e) => e.dataType === "signature"),
   });
   addErrorCount(success);
+  stopIterationOnFail(
+    "// Setup // Test_Instance_Sign: Get instance. Failed",
+    success,
+    res
+  );
 
+  var dataElement = dataElements.find((obj) => {
+    return obj.dataType === "signature";
+  });
 
+  res = dataApi.getDataFromSelfLink(data.token, dataElement.selfLinks.platform);
+  var retrievedSignDocument = JSON.parse(res.body);
+  success = check([res, retrievedSignDocument], {
+    "Test_Instance_Sign: Get signature document. Status is 200": (r) =>
+      r[0].status === 200,
+    "Test_Instance_Sign: Get signature document. Validate properties": (r) =>
+      r[1].dataElementSignatures.length == 1 &&
+      r[1].dataElementSignatures[0].dataElementId == data.attachmentId &&
+      r[1].signeeInfo.userId == data.userId,
+  });
+  addErrorCount(success);
 }
 
 export default function (data) {

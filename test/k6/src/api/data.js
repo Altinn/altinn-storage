@@ -45,6 +45,12 @@ export function putData(
   return http.put(endpoint, attachmentContent, params);
 }
 
+//Api call to Platform:Storage following a platform self link and returns the response
+export function getDataFromSelfLink(token, platformSelfLink){
+  var params = apiHelper.buildHeaderWithBearer(token);
+  return http.get(platformSelfLink, params);
+}
+
 //Api call to Platform:Storage to lock a data element and returns the response
 export function lockData(token, instanceId, dataId) {
   var endpoint =
