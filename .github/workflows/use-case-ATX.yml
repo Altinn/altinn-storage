@@ -25,6 +25,17 @@ jobs:
               -e org=${{ secrets.ORG }} `
               -e app=${{ secrets.APP }} `
               -e apimSubsKey=${{ secrets.APIM_SUBSKEY }}
+    - name: Run use case tests for data endpoint
+      if: always()
+      run:  |
+              cd test/k6
+              docker-compose run k6 run /src/tests/sign.js `
+              -e env=${{ vars.ENV }} `
+              -e username=${{ secrets.USER_NAME }} `
+              -e userpwd=${{ secrets.USER_PASSWORD }} `
+              -e org=${{ secrets.ORG }} `
+              -e app=${{ secrets.APP }} `
+              -e apimSubsKey=${{ secrets.APIM_SUBSKEY }}
     - name: Build failure report
       if: failure()
       run: |

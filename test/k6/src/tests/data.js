@@ -172,9 +172,7 @@ export default function (data) {
 export function teardown(data) {
   var res = instancesApi.deleteInstanceById(data.token, data.instanceId, true);
 
-  if (res.status == 200) {
-    console.log("teardown succeed");
-  } else {
+  if (res.status != 200) {
     console.log("teardown failed");
   }
 }

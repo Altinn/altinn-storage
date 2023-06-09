@@ -1,7 +1,7 @@
 /*
     Test script for the data endpoint in the Storage API
     Command:
-    docker-compose run k6 run /src/tests/data.js `
+    docker-compose run k6 run /src/tests/sign.js `
     -e env=*** `
     -e username=*** `
     -e userpwd=*** `
@@ -13,11 +13,11 @@
 
 import { check } from "k6";
 import * as setupToken from "../setup.js";
-import { uuidv4 } from "https://jslib.k6.io/k6-utils/1.4.0/index.js";
 
 import { generateJUnitXML, reportPath } from "../report.js";
 import * as dataApi from "../api/data.js";
 import * as instancesApi from "../api/instances.js";
+import * as processApi from "../api/process.js";
 import { addErrorCount, stopIterationOnFail } from "../errorhandler.js";
 let serializedInstance = open("../data/instance.json");
 let pdfAttachment = open("../data/apps-test.pdf", "b");
@@ -51,6 +51,7 @@ export function setup() {
   );
 
   const dataElementId = setupAttachmentsForTest(token, instanceId);
+  pushInstanceToNextStep(token, instanceId);
 
   var signRequest = {
     signatureDocumentDataType: "signature",
@@ -73,38 +74,52 @@ export function setup() {
     attachmentId: dataElementId,
     org: org,
     app: app,
-    signRequest: signRequest
+    signRequest: signRequest,
   };
 
   return data;
 }
 
-function Test_Sign_PostSignature(data) {
-var res = instancesApi.signInstance(data.token, data.instanceId,data.signRequest);
-console.log(res);
+function Test_Instance_Sign(data) {
+  var res = instancesApi.signInstance(
+    data.token,
+    data.instanceId,
+    data.signRequest
+  );
+  var success = check(res, {
+    "Test_Instance_Sign: Sign instance. Status is 201": (r) =>
+      r.status === 201,
+  });
+  addErrorCount(success);
+
+  var res = instancesApi.getInstanceById(
+    data.token,
+    data.instanceId
+  );
+
+  console.log(res);
+  var dataElements = JSON.parse(res.body)["data"];
+  console.log(JSON.stringify(dataElements));
+  var success = check([res, dataElemens], {
+    "Test_Instance_Sign: Get instance. Status is 200": (r) =>
+      r[0].status === 200,
+  });
+  addErrorCount(success);
+
+
 }
 
 export default function (data) {
   try {
     if (data.runFullTestSet) {
-      Test_Sign_PostSignature(data);
+      Test_Instance_Sign(data);
     } else {
       // Limited test set for use case tests
-      Test_Sign_PostSignature(data);
+      Test_Instance_Sign(data);
     }
   } catch (error) {
     addErrorCount(false);
     throw error;
-  }
-}
-
-export function teardown(data) {
-  var res = instancesApi.deleteInstanceById(data.token, data.instanceId, true);
-
-  if (res.status == 200) {
-    console.log("teardown succeed");
-  } else {
-    console.log("teardown failed");
   }
 }
 
@@ -157,6 +172,44 @@ function setupAttachmentsForTest(token, instanceId) {
 
   return JSON.parse(res.body)["id"];
 }
+
+function pushInstanceToNextStep(token, instanceId) {
+  var process = {
+    started: "2023-06-09T10:59:42.653Z",
+    startEvent: "string",
+    currentTask: {
+      flow: 2,
+      started: "2023-06-10T10:59:42.653Z",
+      elementId: "Task_2",
+      name: "Signering",
+      altinnTaskType: "signing",
+      flowType: "CompleteCurrentMoveToNext",
+    },
+  };
+
+  var res = processApi.putProcess(token, instanceId, JSON.stringify(process));
+
+  var success = check(res, {
+    "// Setup // Push process to next task. Status is 200": (r) =>
+      r.status === 200,
+  });
+
+  addErrorCount(success);
+  stopIterationOnFail(
+    "// Setup // Push process to next task. Failed",
+    success,
+    res
+  );
+}
+
+export function teardown(data) {
+  var res = instancesApi.deleteInstanceById(data.token, data.instanceId, true);
+
+  check(res, {
+    "// Teardown // Delete instance. Status is 200": (r) => r.status === 200,
+  });
+}
+
 /*
 export function handleSummary(data) {
   let result = {};

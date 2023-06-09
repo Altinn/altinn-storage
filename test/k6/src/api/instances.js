@@ -27,13 +27,12 @@ export function postInstance(token, partyId, org, app, serializedInstance) {
 
 //Api call to Storage:Instances to get an instance by id and return response
 export function getInstanceById(
-  altinnStudioRuntimeCookie,
-  partyId,
+  token,
   instanceId
 ) {
-  var endpoint = config.buildStorageUrls(partyId, instanceId, "", "instanceid");
+  var endpoint = config.buildStorageUrls(instanceId, "", "instanceid");
   var params = apiHelper.buildHeaderWithBearer(
-    altinnStudioRuntimeCookie,
+    token,
     "platform"
   );
   return http.get(endpoint, params);
@@ -52,8 +51,13 @@ export function deleteInstanceById(token, instanceId, hardDelete) {
 //Api call to Storage:Instances to sign data elements on an instance and return response
 export function signInstance(token, instanceId, signRequest) {
   var endpoint =
-    config.buildStorageUrls(instanceId, "", "instanceid") + "/sign";
-  var params = apiHelper.buildHeaderWithBearer(token);
+    config.buildStorageUrls(instanceId, "", "sign");
+  var params = apiHelper.buildHeaderWithBearerAndContentType(
+    token,
+    "application/json"
+  );
+
+  console.log(endpoint);
   return http.post(endpoint, JSON.stringify(signRequest), params);
 }
 
