@@ -200,7 +200,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.Configure<PlatformSettings>(config.GetSection("PlatformSettings"));
     services.Configure<QueueStorageSettings>(config.GetSection("QueueStorageSettings"));
     services.Configure<AccessTokenSettings>(config.GetSection("AccessTokenSettings"));
-    services.Configure<PostgreSqlSettings>(config.GetSection("PostgreSQLSettings"));
+    services.Configure<PostgreSQLSettings>(config.GetSection("PostgreSQLSettings"));
 
     services.AddSingleton<IAuthorizationHandler, AccessTokenHandler>();
     services.AddSingleton<ISigningKeysResolver, SigningKeysResolver>();
@@ -254,7 +254,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
 
     if (generalSettings.UsePostgreSQL)
     {
-        PostgreSqlSettings postgresSettings = config.GetSection("PostgreSQLSettings").Get<PostgreSqlSettings>();
+        PostgreSQLSettings postgresSettings = config.GetSection("PostgreSQLSettings").Get<PostgreSQLSettings>();
         services.AddRepositoriesPostgreSQL(string.Format(postgresSettings.ConnectionString, postgresSettings.StorageDbPwd), postgresSettings.LogParameters);
     }
     else
@@ -348,7 +348,7 @@ void Configure(IConfiguration config)
         app.UseExceptionHandler("/storage/api/v1/error");
     }
 
-    if (config.GetValue<bool>("PostgreSQLSettings:EnableDBConnection"))
+    if (config.GetValue<bool>("PostgreSQLSettings:EnableDbConnection") && config.GetValue<bool>("generalSettings.UsePostgreSQL"))
     {
         ConsoleTraceService traceService = new() { IsDebugEnabled = true };
 
