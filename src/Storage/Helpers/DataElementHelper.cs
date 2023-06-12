@@ -1,8 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-
 using Altinn.Platform.Storage.Interface.Models;
+using Microsoft.IdentityModel.Tokens;
 
 namespace Altinn.Platform.Storage.Helpers
 {
@@ -15,7 +14,7 @@ namespace Altinn.Platform.Storage.Helpers
         /// Creates a data element based on element type, instance id, content type, content file name and file size. 
         /// </summary>
         /// <returns>DataElement</returns>
-        public static DataElement CreateDataElement(string dataType, List<Guid> refs, Instance instance, DateTime creationTime, string contentType, string contentFileName, long fileSize, string user, List<Guid> generatedFromId)
+        public static DataElement CreateDataElement(string dataType, List<Guid> refs, Instance instance, DateTime creationTime, string contentType, string contentFileName, long fileSize, string user, string generatedFromTask)
         {
             string dataId = Guid.NewGuid().ToString();
 
@@ -42,21 +41,17 @@ namespace Altinn.Platform.Storage.Helpers
                 Refs = refs,
             };
 
-            if (generatedFromId != null && generatedFromId.Any())
+            if (!generatedFromTask.IsNullOrEmpty())
             {
-                var references = new List<Reference>();
-                foreach (Guid id in generatedFromId)
+                newData.References = new List<Reference>
                 {
-                    references.Add(
-                        new Reference
-                        {
-                            Relation = Interface.Enums.RelationType.GeneratedFrom,
-                            Value = id.ToString(),
-                            ValueType = Interface.Enums.ReferenceType.DataElement
-                        });
-                }
-
-                newData.References = references;
+                    new Reference
+                    {
+                        Relation = Interface.Enums.RelationType.GeneratedFrom,
+                        Value = generatedFromTask,
+                        ValueType = Interface.Enums.ReferenceType.Task
+                    }
+                };
             }
 
             string filePath = DataFileName(instance.AppId, guidFromInstanceId, newData.Id);
