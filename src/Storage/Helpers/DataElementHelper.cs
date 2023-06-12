@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Altinn.Platform.Storage.Interface.Models;
-using Microsoft.IdentityModel.Tokens;
 
 namespace Altinn.Platform.Storage.Helpers
 {
@@ -41,7 +40,7 @@ namespace Altinn.Platform.Storage.Helpers
                 Refs = refs,
             };
 
-            if (!generatedFromTask.IsNullOrEmpty())
+            if (!string.IsNullOrEmpty(generatedFromTask))
             {
                 newData.References = new List<Reference>
                 {
