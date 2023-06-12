@@ -23,7 +23,7 @@ namespace Altinn.Platform.Storage.Repository
     /// Handles applicationMetadata repository. Notice that the all methods should modify the Id attribute of the
     /// Application, since cosmosDb fails if Id contains slashes '/'.
     /// </summary>
-    public class PgApplicationRepository : IApplicationRepository, IHostedService
+    public class PgApplicationRepository : IApplicationRepository
     {
         private static readonly string _readSql = "select application from storage.applications";
         private static readonly string _readByOrgSql = "select application from storage.applications where org = $1";
@@ -200,18 +200,6 @@ namespace Altinn.Platform.Storage.Repository
             }
 
             return app;
-        }
-
-        /// <inheritdoc/>
-        Task IHostedService.StartAsync(CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
-        }
-
-        /// <inheritdoc/>
-        Task IHostedService.StopAsync(CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
         }
     }
 }

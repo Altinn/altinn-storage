@@ -21,7 +21,7 @@ namespace Altinn.Platform.Storage.Repository
     /// <summary>
     /// Represents an implementation of <see cref="IDataRepository"/>.
     /// </summary>
-    public class PgDataRepository : IDataRepository, IHostedService
+    public class PgDataRepository : IDataRepository
     {
         private readonly string _insertSql = "call storage.insertDataelement ($1, $2, $3, $4)"; //"insert into storage.dataelements(instanceInternalId, instanceGuid, alternateId, element) VALUES ($1, $2, $3, $4);";
         private readonly string _readAllSql = "select * from storage.readAllDataelement($1)"; //"select element from storage.dataelements where instanceGuid = $1;";
@@ -188,18 +188,6 @@ namespace Altinn.Platform.Storage.Repository
             await transaction.CommitAsync();
 
             return element;
-        }
-
-        /// <inheritdoc/>
-        Task IHostedService.StartAsync(CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
-        }
-
-        /// <inheritdoc/>
-        Task IHostedService.StopAsync(CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
         }
 
         // Blob stuff below ---------------------------------------------------------------------------------------------------

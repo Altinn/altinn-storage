@@ -20,7 +20,7 @@ namespace Altinn.Platform.Storage.Repository
     /// <summary>
     /// Represents an implementation of <see cref="IInstanceRepository"/>.
     /// </summary>
-    public class PgInstanceRepository: IInstanceRepository, IHostedService
+    public class PgInstanceRepository: IInstanceRepository
     {
         private static readonly string _deleteSql = "call storage.deleteInstance ($1)"; // "delete from storage.instances where alternateId = $1;";
         private static readonly string _insertSql = "call storage.insertInstance ($1, $2, $3, $4, $5, $6, $7, $8)"; // "insert into storage.instances(partyId, alternateId, instance) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)";
@@ -267,18 +267,6 @@ namespace Altinn.Platform.Storage.Repository
             Instance updatedInstance = await Upsert(item, false);
             updatedInstance.Data = dataElements;
             return updatedInstance;
-        }
-
-        /// <inheritdoc/>
-        Task IHostedService.StartAsync(CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
-        }
-
-        /// <inheritdoc/>
-        Task IHostedService.StopAsync(CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
         }
 
         private static void SetStatuses(Instance instance)

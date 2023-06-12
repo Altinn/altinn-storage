@@ -17,7 +17,7 @@ namespace Altinn.Platform.Storage.Repository
     /// <summary>
     /// Represents an implementation of <see cref="IInstanceEventRepository"/>.
     /// </summary>
-    public class PgInstanceEventRepository: IInstanceEventRepository, IHostedService
+    public class PgInstanceEventRepository: IInstanceEventRepository
     {
         private readonly string _readSql = "select * from storage.readInstanceEvent($1)"; //"select event from storage.instanceEvents where alternateId = $1;";
         private readonly string _deleteSql = "call storage.deleteInstanceEvent($1)"; //"delete from storage.instanceEvents where instance = $1;";
@@ -99,18 +99,6 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceId.Split('/').Last()));
 
             return await pgcom.ExecuteNonQueryAsync();
-        }
-
-        /// <inheritdoc/>
-        Task IHostedService.StartAsync(CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
-        }
-
-        /// <inheritdoc/>
-        Task IHostedService.StopAsync(CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
         }
     }
 }

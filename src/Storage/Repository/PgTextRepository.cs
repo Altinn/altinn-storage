@@ -21,7 +21,7 @@ namespace Altinn.Platform.Storage.Repository
     /// <summary>
     /// Handles text repository.
     /// </summary>
-    public class PgTextRepository : ITextRepository, IHostedService
+    public class PgTextRepository : ITextRepository
     {
         private static readonly string _readSql = "select textResource from storage.texts where org = $1 and app = $2 and language = $3";
         private static readonly string _readAppSql = "select id from storage.applications where alternateId = $1";
@@ -198,18 +198,6 @@ namespace Altinn.Platform.Storage.Repository
             {
                 throw new ArgumentException("Language must be a two letter ISO name");
             }
-        }
-
-        /// <inheritdoc/>
-        Task IHostedService.StartAsync(CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
-        }
-
-        /// <inheritdoc/>
-        Task IHostedService.StopAsync(CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
         }
     }
 }
