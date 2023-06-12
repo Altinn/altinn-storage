@@ -132,10 +132,8 @@ namespace Altinn.Platform.Storage.Repository
             return queryResponse;
         }
 
-        private async Task<(IQueryable<Instance>, long)> GetInstances(int size, long continueIdx, Dictionary<string, StringValues> queryParams)
+        private async Task<(IQueryable<Instance> InstancesAsQueriable, long Count)> GetInstances(int size, long continueIdx, Dictionary<string, StringValues> queryParams)
         {
-            // TODO: Add more db predicates. Currently only partyId (and continueation) is supported in the db query. Other predicates are left to InstanceQueryHelper
-
             Instance instance = null;
             List<Instance> instances = new();
             long id = -1;

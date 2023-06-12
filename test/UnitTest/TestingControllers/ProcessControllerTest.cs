@@ -253,7 +253,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             JsonContent jsonString = JsonContent.Create(state, new MediaTypeHeaderValue("application/json"));
 
             Mock<IInstanceRepository> repositoryMock = new Mock<IInstanceRepository>();
-            repositoryMock.Setup(ir => ir.GetOne(It.IsAny<int>(), It.IsAny<Guid>())).ReturnsAsync((testInstance, 0));
+            repositoryMock.Setup(ir => ir.GetOne(It.IsAny<int>(), It.IsAny<Guid>(), true)).ReturnsAsync((testInstance, 0));
             repositoryMock.Setup(ir => ir.Update(It.IsAny<Instance>())).ReturnsAsync((Instance i) => i);
 
             HttpClient client = GetTestClient(repositoryMock.Object);

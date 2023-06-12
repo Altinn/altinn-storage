@@ -140,7 +140,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return Task.FromResult(response);
         }
 
-        public Task<(Instance Instance, long InternalId)> GetOne(int instanceOwnerPartyId, Guid instanceGuid)
+        public Task<(Instance Instance, long InternalId)> GetOne(int instanceOwnerPartyId, Guid instanceGuid, bool includeElements = true)
         {
             string instancePath = GetInstancePath(instanceOwnerPartyId.ToString(), instanceGuid);
             if (File.Exists(instancePath))

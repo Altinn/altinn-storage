@@ -172,7 +172,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                .ReturnsAsync((123145864564, DateTimeOffset.Now));
 
             instanceRepositoryMock
-               .Setup(ir => ir.GetOne(It.IsAny<int>(), It.IsAny<Guid>()))
+               .Setup(ir => ir.GetOne(It.IsAny<int>(), It.IsAny<Guid>(), true))
                .ReturnsAsync((int partyId, Guid instanceGuid) =>
                {
                    return (new Instance { Id = $"{partyId}/{instanceGuid}", InstanceOwner = new() { PartyId = partyId.ToString() }, Org = _org, AppId = _appId }, 0);
