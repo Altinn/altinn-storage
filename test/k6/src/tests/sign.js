@@ -13,7 +13,6 @@
 
 import { check } from "k6";
 import * as setupToken from "../setup.js";
-
 import { generateJUnitXML, reportPath } from "../report.js";
 import * as dataApi from "../api/data.js";
 import * as instancesApi from "../api/instances.js";
@@ -124,6 +123,8 @@ function Test_Instance_Sign(data) {
     "Test_Instance_Sign: Get signature document. Validate properties": (r) =>
       r[1].dataElementSignatures.length == 1 &&
       r[1].dataElementSignatures[0].dataElementId == data.attachmentId &&
+      r[1].dataElementSignatures[0].sha256Hash ==
+        "6f117268b5175eae239ba68d3cc3651280cde60f3d2ab49386a15e353660e2d3" &&
       r[1].signeeInfo.userId == data.userId,
   });
   addErrorCount(success);
