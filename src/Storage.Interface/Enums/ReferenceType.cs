@@ -20,5 +20,10 @@ public enum ReferenceType
     /// <summary>
     /// The connected object is a task
     /// </summary>
-    Task
+    Task,
+    
+    /// <summary>
+    /// The connected object is a data type
+    /// </summary>
+    DataType
 }
