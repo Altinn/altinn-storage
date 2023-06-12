@@ -15,5 +15,10 @@ public enum ReferenceType
     /// <summary>
     /// The connected object is a data element
     /// </summary>
-    DataElement
+    DataElement,
+    
+    /// <summary>
+    /// The connected object is a task
+    /// </summary>
+    Task
 }
