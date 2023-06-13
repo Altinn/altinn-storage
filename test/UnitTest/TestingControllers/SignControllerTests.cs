@@ -52,16 +52,17 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async Task SignRequest_UserHasRequiredRole_Ok()
+        public async Task SignRequest_UserHasRequiredRole_Created()
         {
             // Arrange
             int instanceOwnerPartyId = 1600;
             string instanceGuid = "1916cd18-3b8e-46f8-aeaf-4bc3397ddd55";
             string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/sign";
 
-            HttpClient client = GetTestClient();
+            Mock<IInstanceService> instanceServiceMock = new Mock<IInstanceService>();
+            HttpClient client = GetTestClient(instanceServiceMock);
             string token = PrincipalUtil.GetToken(10016, 1600, 2);
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);    
 
             SignRequest signRequest = new SignRequest
             {
@@ -77,7 +78,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             HttpResponseMessage response = await client.PostAsync(requestUri, JsonContent.Create(signRequest, new MediaTypeHeaderValue("application/json")));
 
             // Assert
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         }
 
         [Fact]
@@ -99,6 +100,27 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task SignRequest_UserHasRequiredRole_InvalidUserId_BadRequest()
+        {
+            // Arrange
+            int instanceOwnerPartyId = 1600;
+            string instanceGuid = "1916cd18-3b8e-46f8-aeaf-4bc3397ddd55";
+            string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/sign";
+
+            HttpClient client = GetTestClient();
+            string token = PrincipalUtil.GetToken(10016, 1600, 2);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);    
+
+            SignRequest signRequest = new SignRequest();
+
+            // Act
+            HttpResponseMessage response = await client.PostAsync(requestUri, JsonContent.Create(signRequest, new MediaTypeHeaderValue("application/json")));
+
+            // Assert
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
         private HttpClient GetTestClient(Mock<IInstanceService> instanceServiceMock = null)
