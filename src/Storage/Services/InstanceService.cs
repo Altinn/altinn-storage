@@ -79,7 +79,7 @@ namespace Altinn.Platform.Storage.Services
         
             using (MemoryStream fileStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(signDocument, Formatting.Indented))))
             {
-                await _dataService.UploadDataAndCreateDataElement(instance.Org, fileStream, dataElement);    
+                await _dataService.UploadDataAndCreateDataElement(instance.Org, fileStream, dataElement);
             }
             
             await _instanceEventService.DispatchEvent(InstanceEventType.Signed, instance);
