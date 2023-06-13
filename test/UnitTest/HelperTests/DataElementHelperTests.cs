@@ -13,15 +13,15 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
     public class DataElementHelperTests
     {
         [Fact]
-        public void CreateDataElement_GeneratedFromIdsProvided_DataElementReferencesPopulated()
+        public void CreateDataElement_GeneratedFromTaskProvided_DataElementReferencesPopulated()
         {
             // AAct
-            var actual = DataElementHelper.CreateDataElement("dataType", null, new Instance { AppId = "ttd/app-test", Id = $"1337/{Guid.NewGuid()}" }, DateTime.UtcNow, "application/json", "file-name.json", 1234, "12345", new List<Guid> { Guid.NewGuid(), Guid.NewGuid() });
+            var actual = DataElementHelper.CreateDataElement("dataType", null, new Instance { AppId = "ttd/app-test", Id = $"1337/{Guid.NewGuid()}" }, DateTime.UtcNow, "application/json", "file-name.json", 1234, "12345", "Task_1");
 
             // Assert
             Assert.NotEmpty(actual.References);
             Assert.Equal(RelationType.GeneratedFrom, actual.References.First().Relation);
-            Assert.Equal(ReferenceType.DataElement, actual.References.First().ValueType);
+            Assert.Equal(ReferenceType.Task, actual.References.First().ValueType);
         }
 
         [Fact]
