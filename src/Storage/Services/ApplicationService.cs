@@ -22,7 +22,7 @@ namespace Altinn.Platform.Storage.Services
         }
         
         /// <inheritdoc/>
-        public async Task<(bool IsValid, ServiceError ServiceError)> ValidateDataTypeForApp(string org, string appId, string dataType)
+        public async Task<(bool IsValid, ServiceError ServiceError)> ValidateDataTypeForApp(string org, string appId, string dataType, string currentTask)
         {
             Application application = await _applicationRepository.FindOne(appId, org);
 
@@ -31,14 +31,12 @@ namespace Altinn.Platform.Storage.Services
                 return (false, new ServiceError(404, $"Cannot find application {appId} in storage"));
             }
 
-            DataType dataTypeDefinition = application.DataTypes.Find(e => e.Id == dataType);
-
-            if (dataTypeDefinition is null)
+            if (application.DataTypes.Any(e => e.Id == dataType && (string.IsNullOrEmpty(e.TaskId) || e.TaskId == currentTask)))
             {
-                return (false, new ServiceError(405, $"DataType {dataType} is not declared in application metadata for app {appId}"));
+                return (true, null);
             }
 
-            return (true, null);
+            return (false, new ServiceError(405, $"DataType {dataType} is not declared in application metadata for app {appId}"));
         }
     }
 }

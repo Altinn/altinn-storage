@@ -39,8 +39,8 @@ namespace Altinn.Platform.Storage.Services
             {
                 return (false, new ServiceError(404, "Instance not found"));
             }
-
-            (bool validDataType, ServiceError serviceError) = await _applicationService.ValidateDataTypeForApp(instance.Org, instance.AppId, signRequest.SignatureDocumentDataType);
+            
+            (bool validDataType, ServiceError serviceError) = await _applicationService.ValidateDataTypeForApp(instance.Org, instance.AppId, signRequest.SignatureDocumentDataType, instance.Process.CurrentTask.AltinnTaskType);
             if (!validDataType)
             {
                 return (false, serviceError);

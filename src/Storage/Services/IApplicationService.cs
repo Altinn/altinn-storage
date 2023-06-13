@@ -14,7 +14,8 @@ namespace Altinn.Platform.Storage.Services
         /// <param name="org">The application owner id.</param>
         /// <param name="appId">The id of the application.</param>
         /// <param name="dataType">The data type identifier for the data being uploaded.</param>
+        /// <param name="currentTask">The task info of the currentTask of an ongoing process.</param>
         /// <returns>Result of validation. If the result (IsValid) is false, it will be described in ServiceError</returns>
-         Task<(bool IsValid, ServiceError ServiceError)> ValidateDataTypeForApp(string org, string appId, string dataType);
+         Task<(bool IsValid, ServiceError ServiceError)> ValidateDataTypeForApp(string org, string appId, string dataType, string currentTask);
     }
 }

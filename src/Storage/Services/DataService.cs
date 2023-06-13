@@ -66,7 +66,8 @@ namespace Altinn.Platform.Storage.Services
                 return (null, new ServiceError(404, $"Failed reading file, dataElementId: {dataElementId}"));
             }
 
-            return (CalculateSha256Hash(filestream), null);
+            using SHA256 sha256 = SHA256.Create();
+            return (BitConverter.ToString(sha256.ComputeHash(filestream)).Replace("-", string.Empty).ToLowerInvariant(), null);   
         }
 
         /// <inheritdoc/>
@@ -76,14 +77,6 @@ namespace Altinn.Platform.Storage.Services
             dataElement.Size = length;
             
             await _dataRepository.Create(dataElement);
-        }
-
-        private static string CalculateSha256Hash(Stream fileStream)
-        {
-            using (SHA256 sha256 = SHA256.Create())
-            {
-                return BitConverter.ToString(sha256.ComputeHash(fileStream)).Replace("-", string.Empty).ToLowerInvariant();   
-            }
         }
     }
 }

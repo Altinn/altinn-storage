@@ -26,12 +26,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<int>(), It.IsAny<Guid>())).ReturnsAsync(new Instance()
             {
                 InstanceOwner = new(),
-                Process = new()
+                Process = new ProcessState {CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" }}
             });
 
             var applicationServiceMock = new Mock<IApplicationService>();
             applicationServiceMock.Setup(
-                asm => asm.ValidateDataTypeForApp(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                asm => asm.ValidateDataTypeForApp(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync((true, null));
 
             var dataServiceMock = new Mock<IDataService>();
@@ -108,12 +108,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<int>(), It.IsAny<Guid>())).ReturnsAsync(new Instance()
             {
                 InstanceOwner = new(),
-                Process = new()
+                Process = new ProcessState {CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" }}
             });
 
             var applicationServiceMock = new Mock<IApplicationService>();
             applicationServiceMock.Setup(
-                asm => asm.ValidateDataTypeForApp(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                asm => asm.ValidateDataTypeForApp(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync((false, new ServiceError(404, $"Cannot find application in storage")));
 
             var dataServiceMock = new Mock<IDataService>();
@@ -143,12 +143,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<int>(), It.IsAny<Guid>())).ReturnsAsync(new Instance()
             {
                 InstanceOwner = new(),
-                Process = new()
+                Process = new ProcessState { CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" } }
             });
 
             var applicationServiceMock = new Mock<IApplicationService>();
             applicationServiceMock.Setup(
-                asm => asm.ValidateDataTypeForApp(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                asm => asm.ValidateDataTypeForApp(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync((true, null));
 
             var dataServiceMock = new Mock<IDataService>();

@@ -23,7 +23,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             ApplicationService applicationService = new ApplicationService(applicationRepositoryMock.Object); 
 
             // Act
-            (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp("ttd", "test-app", "sign-datatype");
+            (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp("ttd", "test-app", "sign-datatype", "currentTask");
 
             // Assert
             Assert.True(isValid);
@@ -40,7 +40,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             ApplicationService applicationService = new ApplicationService(applicationRepositoryMock.Object); 
 
             // Act
-            (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp("ttd", "test-app", "sign-datatype");
+            (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp("ttd", "test-app", "sign-datatype", "currentTask");
 
             // Assert
             Assert.False(isValid);
@@ -59,7 +59,27 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             ApplicationService applicationService = new ApplicationService(applicationRepositoryMock.Object); 
 
             // Act
-            (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp("ttd", "test-app", "invalid-datatype");
+            (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp("ttd", "test-app", "invalid-datatype", "currentTask");
+
+            // Assert
+            Assert.False(isValid);
+            Assert.Equal(405, serviceError.ErrorCode);
+            applicationRepositoryMock.VerifyAll();
+        }
+
+        [Fact]
+        public async Task ValidateDataTypeForApp_Failed_InvalidTask()
+        {
+            // Arrange
+            Application application = CreateApplication("ttd", "test-app");
+            
+            Mock<IApplicationRepository> applicationRepositoryMock = new Mock<IApplicationRepository>();
+            applicationRepositoryMock.Setup(arm => arm.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(application);
+
+            ApplicationService applicationService = new ApplicationService(applicationRepositoryMock.Object); 
+
+            // Act
+            (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp("ttd", "test-app", "sign-datatype", "invalidTask");
 
             // Assert
             Assert.False(isValid);
@@ -75,7 +95,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 VersionId = "rocket",
                 Title = new Dictionary<string, string>(),
                 Org = org,
-                DataTypes = new List<DataType> { new DataType { Id = "sign-datatype" } }
+                DataTypes = new List<DataType> { new DataType { Id = "sign-datatype", TaskId = "currentTask" } }
             };
 
             appInfo.Title.Add("nb", "Tittel");
