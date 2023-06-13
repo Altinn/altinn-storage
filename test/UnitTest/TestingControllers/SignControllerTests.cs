@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
+
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Clients;
@@ -20,12 +21,17 @@ using Altinn.Platform.Storage.UnitTest.Mocks.Clients;
 using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
+
 using AltinnCore.Authentication.JwtCookie;
+
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+
 using Moq;
+
 using Xunit;
+
 using static Altinn.Platform.Storage.Interface.Models.SignRequest;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers
@@ -34,34 +40,34 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
     {
         private const string BasePath = "storage/api/v1/instances";
 
-        private readonly TestApplicationFactory<InstancesController> _factory;
+        private readonly TestApplicationFactory<SignController> _factory;
 
         /// <summary>
         /// Constructor.
         /// </summary>
         /// <param name="factory">The web application factory.</param>
-        public SignControllerTests(TestApplicationFactory<InstancesController> factory)
+        public SignControllerTests(TestApplicationFactory<SignController> factory)
         {
             _factory = factory;
         }
 
-        [Fact]  
-        public async Task SignRequest_Ok()
+        [Fact]
+        public async Task SignRequest_UserHasRequiredRole_Ok()
         {
             // Arrange
-            int instanceOwnerPartyId = 1337;
-            string instanceGuid = "46133fb5-a9f2-45d4-90b1-f6d93ad40713";
+            int instanceOwnerPartyId = 1600;
+            string instanceGuid = "1916cd18-3b8e-46f8-aeaf-4bc3397ddd55";
             string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/sign";
 
             HttpClient client = GetTestClient();
-            string token = PrincipalUtil.GetToken(1337, 1606, 3);
+            string token = PrincipalUtil.GetToken(10016, 1600, 2);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             SignRequest signRequest = new SignRequest
             {
                 SignatureDocumentDataType = "sign-data-type",
-                DataElementSignatures = new List<DataElementSignature> 
-                { 
+                DataElementSignatures = new List<DataElementSignature>
+                {
                     new DataElementSignature { DataElementId = Guid.NewGuid().ToString(), Signed = true }
                 },
                 Signee = new Signee { UserId = "1337", PersonNumber = "22117612345" }
@@ -72,6 +78,27 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task SignRequest_UserDoesNotHaveRequiredRole_Forbidden()
+        {
+            // Arrange
+            int instanceOwnerPartyId = 1600;
+            string instanceGuid = "1916cd18-3b8e-46f8-aeaf-4bc3397ddd55";
+            string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/sign";
+
+            HttpClient client = GetTestClient();
+            string token = PrincipalUtil.GetToken(43, 12800, 2);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            SignRequest signRequest = new SignRequest();
+
+            // Act
+            HttpResponseMessage response = await client.PostAsync(requestUri, JsonContent.Create(signRequest, new MediaTypeHeaderValue("application/json")));
+
+            // Assert
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
 
         private HttpClient GetTestClient(Mock<IInstanceService> instanceServiceMock = null)
@@ -89,6 +116,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                         services.AddSingleton(instanceServiceMock.Object);
                     }
 
+                    services.AddMockRepositories();
                     services.AddSingleton(sasTokenProvider.Object);
                     services.AddSingleton(keyVaultWrapper.Object);
                     services.AddSingleton<IPartiesWithInstancesClient, PartiesWithInstancesClientMock>();
