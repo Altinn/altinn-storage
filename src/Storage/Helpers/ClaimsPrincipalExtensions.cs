@@ -94,6 +94,6 @@ namespace Altinn.Platform.Storage.Helpers
             }
 
             return 0;
-        }
+        }     
     }
 }
