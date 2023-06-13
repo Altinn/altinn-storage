@@ -31,7 +31,7 @@ namespace Altinn.Platform.Storage.Services
                 return (false, new ServiceError(404, $"Cannot find application {appId} in storage"));
             }
 
-            DataType dataTypeDefinition = application.DataTypes.FirstOrDefault(e => e.Id == dataType);
+            DataType dataTypeDefinition = application.DataTypes.Find(e => e.Id == dataType);
 
             if (dataTypeDefinition is null)
             {
