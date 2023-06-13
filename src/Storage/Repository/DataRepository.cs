@@ -249,12 +249,19 @@ namespace Altinn.Platform.Storage.Repository
                 operations.Add(PatchOperation.Add(entry.Key, entry.Value));
             }
 
-            ItemResponse<DataElement> response = await Container.PatchItemAsync<DataElement>(
-                id: dataElementId.ToString(),
-                partitionKey: new PartitionKey(instanceGuid.ToString()),
-                patchOperations: operations);
+            try
+            {
+                ItemResponse<DataElement> response = await Container.PatchItemAsync<DataElement>(
+                    id: dataElementId.ToString(),
+                    partitionKey: new PartitionKey(instanceGuid.ToString()),
+                    patchOperations: operations);
 
-            return response;
+                return response;
+            }
+            catch (CosmosException e)
+            {
+                throw new RepositoryException(e.Message, e, e.StatusCode);
+            }
         }
 
         /// <inheritdoc/>

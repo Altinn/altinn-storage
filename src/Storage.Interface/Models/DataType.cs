@@ -105,5 +105,19 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// </summary>
         [JsonProperty(PropertyName = "validationErrorOnPendingFileScan")]
         public bool ValidationErrorOnPendingFileScan { get; set; }
+
+        /// <summary>
+        /// Gets or sets a list of enabled file analysers this data type should be analysed against to extract metadata about the file.
+        /// This metadata can in turn either be used to validate against or simply to extract metadata to add to the datamodel.
+        /// The id's provided should match the id's registered with IFileAnalyser implementations registered in the application.
+        /// </summary>
+        [JsonProperty(PropertyName = "enabledFileAnalysers")]
+        public List<string> EnabledFileAnalysers { get; set; } = new List<string>();
+
+        /// <summary>
+        /// Gets or sets a list of enabled file validators this data type should be validated against.
+        /// </summary>
+        [JsonProperty(PropertyName = "enabledFileValidators")]
+        public List<string> EnabledFileValidators { get; set; } = new List<string>();
     }
 }

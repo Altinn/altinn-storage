@@ -10,6 +10,7 @@ using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Services;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -30,6 +31,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IInstanceEventRepository _instanceEventRepository;
         private readonly string _storageBaseAndHost;
         private readonly IAuthorization _authorizationService;
+        private readonly IInstanceEventService _instanceEventService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ProcessController"/> class
@@ -37,17 +39,20 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceRepository">the instance repository handler</param>
         /// <param name="instanceEventRepository">the instance event repository service</param>
         /// <param name="generalsettings">the general settings</param>
-        /// <param name="authorizationService">the authorization servcie</param>
+        /// <param name="authorizationService">the authorization service</param>
+        /// <param name="instanceEventService">the instance event service</param>
         public ProcessController(
             IInstanceRepository instanceRepository,
             IInstanceEventRepository instanceEventRepository,
             IOptions<GeneralSettings> generalsettings,
-            IAuthorization authorizationService)
+            IAuthorization authorizationService,
+            IInstanceEventService instanceEventService)
         {
             _instanceRepository = instanceRepository;
             _instanceEventRepository = instanceEventRepository;
             _storageBaseAndHost = $"{generalsettings.Value.Hostname}/storage/api/v1/";
             _authorizationService = authorizationService;
+            _instanceEventService = instanceEventService;
         }
 
         /// <summary>
@@ -95,6 +100,9 @@ namespace Altinn.Platform.Storage.Controllers
                 case "confirmation":
                     action = "confirm";
                     break;
+                case "signing":
+                    action = "sign";
+                    break;
                 default:
                     action = altinnTaskType;
                     break;
@@ -122,8 +130,13 @@ namespace Altinn.Platform.Storage.Controllers
             Instance updatedInstance;
 
             updatedInstance = await _instanceRepository.Update(existingInstance);
-            updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
 
+            if (processState?.CurrentTask?.AltinnTaskType == "signing")
+            {
+                await _instanceEventService.DispatchEvent(InstanceEventType.SentToSign, updatedInstance);
+            }
+
+            updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
             return Ok(updatedInstance);
         }
 

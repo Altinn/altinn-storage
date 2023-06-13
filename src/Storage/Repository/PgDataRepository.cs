@@ -168,6 +168,7 @@ namespace Altinn.Platform.Storage.Repository
                 {
                     case "/locked": element.Locked = (bool)kvp.Value; break;
                     case "/refs": element.Refs = (List<Guid>)kvp.Value; break;
+                    case "/references": element.References = (List<Reference>)kvp.Value; break;
                     case "/tags": element.Tags = (List<string>)kvp.Value; break;
                     case "/deleteStatus": element.DeleteStatus = (DeleteStatus)kvp.Value; break;
                     case "/lastChanged": element.LastChanged = (DateTime?)kvp.Value; break;

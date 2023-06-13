@@ -117,14 +117,21 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return await Task.FromResult(fs);
         }
 
-        public Task<DataElement> Update(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertyList)
+        public async Task<DataElement> Update(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertyList)
         {
-            _tempRepository.TryGetValue(dataElementId.ToString(), out string serializedDataElement);
-
-            DataElement dataElement = JsonSerializer.Deserialize<DataElement>(serializedDataElement, _options);
+            DataElement dataElement = null;
+            if (_tempRepository.TryGetValue(dataElementId.ToString(), out string serializedDataElement))
+            {
+                dataElement = JsonSerializer.Deserialize<DataElement>(serializedDataElement, _options);
+            } 
+            else
+            {
+                dataElement = await Read(instanceGuid, dataElementId);   
+            }
+            
             if (dataElement == null)
             {
-                return null;
+                throw new RepositoryException("Data element not found", System.Net.HttpStatusCode.NotFound);
             }
 
             foreach (var entry in propertyList)
@@ -133,11 +140,16 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
                 {
                     dataElement.FileScanResult = (FileScanResult)entry.Value;
                 }
+
+                if (entry.Key == "/locked")
+                {
+                    dataElement.Locked = (bool)entry.Value;
+                }
             }
 
             _tempRepository["dataElementId"] = JsonSerializer.Serialize(dataElement, _options);
 
-            return Task.FromResult(dataElement);
+            return dataElement;
         }
 
         public async Task<(long ContentLength, DateTimeOffset LastModified)> WriteDataToStorage(string org, Stream stream, string blobStoragePath)

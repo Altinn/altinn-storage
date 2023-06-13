@@ -87,6 +87,11 @@ namespace Altinn.Platform.Storage.Helpers
         public bool AuthorizedForWrite { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether user is authorized to sign the data elements on instance.
+        /// </summary>
+        public bool AuthorizedForSign { get; set; }
+
+        /// <summary>
         /// DateTime the instance was archived 
         /// </summary>
         public DateTime? ArchivedDateTime { get; set; }

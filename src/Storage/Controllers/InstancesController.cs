@@ -14,6 +14,7 @@ using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Services;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -39,11 +40,11 @@ namespace Altinn.Platform.Storage.Controllers
     public class InstancesController : ControllerBase
     {
         private readonly IInstanceRepository _instanceRepository;
-        private readonly IInstanceEventRepository _instanceEventRepository;
         private readonly IApplicationRepository _applicationRepository;
         private readonly IPartiesWithInstancesClient _partiesWithInstancesClient;
         private readonly ILogger _logger;
         private readonly IAuthorization _authorizationService;
+        private readonly IInstanceEventService _instanceEventService;
         private readonly string _storageBaseAndHost;
         private readonly GeneralSettings _generalSettings;
 
@@ -51,28 +52,28 @@ namespace Altinn.Platform.Storage.Controllers
         /// Initializes a new instance of the <see cref="InstancesController"/> class
         /// </summary>
         /// <param name="instanceRepository">the instance repository handler</param>
-        /// <param name="instanceEventRepository">the instance event repository service</param>
         /// <param name="applicationRepository">the application repository handler</param>
         /// <param name="partiesWithInstancesClient">An implementation of <see cref="IPartiesWithInstancesClient"/> that can be used to send information to SBL.</param>
         /// <param name="logger">the logger</param>
         /// <param name="authorizationService">the authorization service.</param>
+        /// <param name="instanceEventService">the instance event service.</param>
         /// <param name="settings">the general settings.</param>
         public InstancesController(
             IInstanceRepository instanceRepository,
-            IInstanceEventRepository instanceEventRepository,
             IApplicationRepository applicationRepository,
             IPartiesWithInstancesClient partiesWithInstancesClient,
             ILogger<InstancesController> logger,
             IAuthorization authorizationService,
+            IInstanceEventService instanceEventService,
             IOptions<GeneralSettings> settings)
         {
             _instanceRepository = instanceRepository;
-            _instanceEventRepository = instanceEventRepository;
             _applicationRepository = applicationRepository;
             _partiesWithInstancesClient = partiesWithInstancesClient;
             _logger = logger;
             _storageBaseAndHost = $"{settings.Value.Hostname}/storage/api/v1/";
             _authorizationService = authorizationService;
+            _instanceEventService = instanceEventService;
             _generalSettings = settings.Value;
         }
 
@@ -397,7 +398,7 @@ namespace Altinn.Platform.Storage.Controllers
                 Instance instanceToCreate = CreateInstanceFromTemplate(appInfo, instance, creationTime, userId);
 
                 storedInstance = await _instanceRepository.Create(instanceToCreate);
-                await DispatchEvent(InstanceEventType.Created, storedInstance);
+                await _instanceEventService.DispatchEvent(InstanceEventType.Created, storedInstance);
                 _logger.LogInformation("Created instance: {storedInstance.Id}", storedInstance.Id);
                 storedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
 
@@ -526,7 +527,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError);
             }
 
-            await DispatchEvent(InstanceEventType.ConfirmedComplete, updatedInstance);
+            await _instanceEventService.DispatchEvent(InstanceEventType.ConfirmedComplete, updatedInstance);
 
             return Ok(updatedInstance);
         }
@@ -630,7 +631,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError);
             }
 
-            await DispatchEvent(InstanceEventType.SubstatusUpdated, updatedInstance);
+            await _instanceEventService.DispatchEvent(InstanceEventType.SubstatusUpdated, updatedInstance);
             return Ok(updatedInstance);
         }
 
@@ -766,27 +767,6 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             return (appInfo, errorResult);
-        }
-
-        private async Task DispatchEvent(InstanceEventType eventType, Instance instance)
-        {
-            InstanceEvent instanceEvent = new InstanceEvent
-            {
-                EventType = eventType.ToString(),
-                InstanceId = instance.Id,
-                InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
-                User = new PlatformUser
-                {
-                    UserId = User.GetUserIdAsInt(),
-                    AuthenticationLevel = User.GetAuthenticationLevel(),
-                    OrgId = User.GetOrg(),
-                },
-
-                ProcessInfo = instance.Process,
-                Created = DateTime.UtcNow,
-            };
-
-            await _instanceEventRepository.InsertInstanceEvent(instanceEvent);
         }
 
         private static string BuildQueryStringWithOneReplacedParameter(Dictionary<string, StringValues> q, string queryParamName, string newParamValue)

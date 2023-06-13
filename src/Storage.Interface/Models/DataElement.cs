@@ -108,6 +108,12 @@ namespace Altinn.Platform.Storage.Interface.Models
         [JsonConverter(typeof(StringEnumConverter))]
         [TextJson.JsonConverter(typeof(TextJson.JsonStringEnumConverter))]
         public FileScanResult FileScanResult { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the list of references to other objects.
+        /// </summary>
+        [JsonProperty(PropertyName = "references")]
+        public List<Reference> References { get; set; }
 
         /// <inheritdoc/>
         public override string ToString()
