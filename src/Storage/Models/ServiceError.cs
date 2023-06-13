@@ -24,13 +24,5 @@ namespace Altinn.Platform.Storage.Models
             ErrorCode = errorCode;
             ErrorMessage = errorMessage;
         }
-
-        /// <summary>
-        /// Create a new instance of a service error
-        /// </summary>
-        public ServiceError(int errorCode)
-        {
-            ErrorCode = errorCode;
-        }
     }
 }
