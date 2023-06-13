@@ -86,7 +86,7 @@ namespace Altinn.Platform.Storage.Services
             return (true, null);
         }
 
-        private SignDocument GetSignDocument(Guid instanceGuid, SignRequest signRequest)
+        private static SignDocument GetSignDocument(Guid instanceGuid, SignRequest signRequest)
         {
             SignDocument signDocument = new SignDocument
             {

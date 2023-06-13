@@ -72,13 +72,13 @@ namespace Altinn.Platform.Storage.Services
         /// <inheritdoc/>
         public async Task UploadDataAndCreateDataElement(string org, Stream stream, DataElement dataElement)
         {
-            (long length, DateTimeOffset blobTimestamp) = await _dataRepository.WriteDataToStorage(org, stream, dataElement.BlobStoragePath);
+            (long length, _) = await _dataRepository.WriteDataToStorage(org, stream, dataElement.BlobStoragePath);
             dataElement.Size = length;
             
             await _dataRepository.Create(dataElement);
         }
 
-        private string CalculateSha256Hash(Stream fileStream)
+        private static string CalculateSha256Hash(Stream fileStream)
         {
             using (SHA256 sha256 = SHA256.Create())
             {
