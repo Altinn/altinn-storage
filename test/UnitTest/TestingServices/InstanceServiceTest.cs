@@ -26,7 +26,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<int>(), It.IsAny<Guid>())).ReturnsAsync(new Instance()
             {
                 InstanceOwner = new(),
-                Process = new ProcessState {CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" }}
+                Process = new ProcessState { CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" } }
             });
 
             var applicationServiceMock = new Mock<IApplicationService>();
@@ -108,7 +108,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<int>(), It.IsAny<Guid>())).ReturnsAsync(new Instance()
             {
                 InstanceOwner = new(),
-                Process = new ProcessState {CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" }}
+                Process = new ProcessState { CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" } }
             });
 
             var applicationServiceMock = new Mock<IApplicationService>();
