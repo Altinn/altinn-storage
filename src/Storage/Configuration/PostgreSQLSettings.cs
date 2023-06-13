@@ -3,7 +3,7 @@ namespace Altinn.Platform.Storage.Configuration
     /// <summary>
     /// Settings for Postgres database
     /// </summary>
-    public class PostgreSQLSettings
+    public class PostgreSqlSettings
     {
         /// <summary>
         /// Connection string for the postgres db

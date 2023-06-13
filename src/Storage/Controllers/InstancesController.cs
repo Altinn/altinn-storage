@@ -287,7 +287,7 @@ namespace Altinn.Platform.Storage.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [Produces("application/json")]
         [ApiExplorerSettings(IgnoreApi = true)]
-        public async Task<ActionResult<(ProcessState Process, string AppId)>> GetForAuth(int instanceOwnerPartyId, Guid instanceGuid)
+        public async Task<ActionResult<AuthInfo>> GetForAuth(int instanceOwnerPartyId, Guid instanceGuid)
         {
             try
             {
@@ -297,7 +297,7 @@ namespace Altinn.Platform.Storage.Controllers
                     throw new Exception("Party id not found");
                 }
 
-                return Ok((instance.Process, instance.AppId));
+                return Ok(new AuthInfo() { Process = instance.Process, AppId = instance.AppId });
             }
             catch (Exception e)
             {

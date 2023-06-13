@@ -200,7 +200,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.Configure<PlatformSettings>(config.GetSection("PlatformSettings"));
     services.Configure<QueueStorageSettings>(config.GetSection("QueueStorageSettings"));
     services.Configure<AccessTokenSettings>(config.GetSection("AccessTokenSettings"));
-    services.Configure<PostgreSQLSettings>(config.GetSection("PostgreSQLSettings"));
+    services.Configure<PostgreSqlSettings>(config.GetSection("PostgreSqlSettings"));
 
     services.AddSingleton<IAuthorizationHandler, AccessTokenHandler>();
     services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProvider>();
@@ -255,7 +255,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
 
     if (generalSettings.UsePostgreSQL)
     {
-        PostgreSQLSettings postgresSettings = config.GetSection("PostgreSQLSettings").Get<PostgreSQLSettings>();
+        PostgreSqlSettings postgresSettings = config.GetSection("PostgreSqlSettings").Get<PostgreSqlSettings>();
         services.AddRepositoriesPostgreSQL(string.Format(postgresSettings.ConnectionString, postgresSettings.StorageDbPwd), postgresSettings.LogParameters);
     }
     else
@@ -351,13 +351,13 @@ void Configure(IConfiguration config)
         app.UseExceptionHandler("/storage/api/v1/error");
     }
 
-    if (config.GetValue<bool>("PostgreSQLSettings:EnableDbConnection") && config.GetValue<bool>("generalSettings.UsePostgreSQL"))
+    if (config.GetValue<bool>("generalSettings.UsePostgreSQL"))
     {
         ConsoleTraceService traceService = new() { IsDebugEnabled = true };
 
         string connectionString = string.Format(
-            config.GetValue<string>("PostgreSQLSettings:AdminConnectionString"),
-            config.GetValue<string>("PostgreSQLSettings:StorageDbAdminPwd"));
+            config.GetValue<string>("PostgreSqlSettings:AdminConnectionString"),
+            config.GetValue<string>("PostgreSqlSettings:StorageDbAdminPwd"));
 
         app.UseYuniql(
             new PostgreSqlDataService(traceService),
