@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -45,8 +46,14 @@ namespace Altinn.Platform.Storage.Controllers
                 return Problem("The 'UserId' parameter must be defined for signee.", null, 400);
             }
 
-            await _instanceService.CreateSignDocument(instanceOwnerPartyId, instanceGuid, signRequest, User.GetUserIdAsInt().Value);
-            return StatusCode(201, "SignDocument is created");
+            (bool created, ServiceError serviceError) = await _instanceService.CreateSignDocument(instanceOwnerPartyId, instanceGuid, signRequest, User.GetUserIdAsInt().Value);
+            
+            if (created)
+            {
+                return StatusCode(201, "SignDocument is created");
+            }
+            
+            return StatusCode(serviceError.ErrorCode, serviceError.ErrorMessage);
         }
     }
 }

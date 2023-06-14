@@ -11,6 +11,7 @@ using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.Tests.Mocks;
@@ -60,6 +61,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/sign";
 
             Mock<IInstanceService> instanceServiceMock = new Mock<IInstanceService>();
+            instanceServiceMock.Setup(ism => 
+            ism.CreateSignDocument(It.IsAny<int>(), It.IsAny<Guid>(), It.IsAny<SignRequest>(), It.IsAny<int>()))
+            .ReturnsAsync((true, null));
+
             HttpClient client = GetTestClient(instanceServiceMock);
             string token = PrincipalUtil.GetToken(10016, 1600, 2);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);    
@@ -121,6 +126,40 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task SignRequest_UserHasRequiredRole_InstanceServiceFail_NotFound()
+        {
+            // Arrange
+            int instanceOwnerPartyId = 1600;
+            string instanceGuid = "1916cd18-3b8e-46f8-aeaf-4bc3397ddd55";
+            string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/sign";
+
+            Mock<IInstanceService> instanceServiceMock = new Mock<IInstanceService>();
+            instanceServiceMock.Setup(ism => 
+            ism.CreateSignDocument(It.IsAny<int>(), It.IsAny<Guid>(), It.IsAny<SignRequest>(), It.IsAny<int>()))
+            .ReturnsAsync((false, new ServiceError(404, "Instance not found" )));
+            
+            HttpClient client = GetTestClient(instanceServiceMock);
+            string token = PrincipalUtil.GetToken(10016, 1600, 2);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);    
+
+            SignRequest signRequest = new SignRequest
+            {
+                SignatureDocumentDataType = "sign-data-type",
+                DataElementSignatures = new List<DataElementSignature>
+                {
+                    new DataElementSignature { DataElementId = Guid.NewGuid().ToString(), Signed = true }
+                },
+                Signee = new Signee { UserId = "1337", PersonNumber = "22117612345" }
+            };
+
+            // Act
+            HttpResponseMessage response = await client.PostAsync(requestUri, JsonContent.Create(signRequest, new MediaTypeHeaderValue("application/json")));
+
+            // Assert
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         }
 
         private HttpClient GetTestClient(Mock<IInstanceService> instanceServiceMock = null)
