@@ -3,6 +3,10 @@ on:
   pull_request:
     branches: [ main ]
     types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'src/**'
+      - 'test/Altinn.Platform.Storage.Interface.Tests/**'
+      - 'test/UnitTest/**'
 jobs:
   test:
     if: github.actor == 'dependabot[bot]' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true)

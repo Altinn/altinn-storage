@@ -21,6 +21,14 @@ export var authentication = {
     "https://yt01.ai.basefarm.net/api/authentication/authenticatewithpassword",
 };
 
+//AltinnTestTools
+export var tokenGenerator = {
+  getEnterpriseToken:
+    "https://altinn-testtools-token-generator.azurewebsites.net/api/GetEnterpriseToken",
+  getPersonalToken:
+    "https://altinn-testtools-token-generator.azurewebsites.net/api/GetPersonalToken",
+};
+
 //Platform APIs
 //Authentication
 export var platformAuthentication = {
