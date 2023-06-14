@@ -52,8 +52,8 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 return StatusCode(201, "SignDocument is created");
             }
-            
-            return StatusCode(serviceError.ErrorCode, serviceError.ErrorMessage);
+
+            return Problem(serviceError.ErrorMessage, null, serviceError.ErrorCode);
         }
     }
 }
