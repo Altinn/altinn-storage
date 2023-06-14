@@ -35,7 +35,6 @@ using Microsoft.ApplicationInsights.WindowsServer.TelemetryChannel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -273,8 +272,9 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddTransient<IAuthorizationHandler, ClaimAccessHandler>();
     services.AddTransient<IAuthorization, AuthorizationService>();
     services.AddTransient<IDataService, DataService>();
-    services.AddTransient<IInstanceEventService, InstanceEventService>();
     services.AddTransient<IInstanceService, InstanceService>();
+    services.AddTransient<IInstanceEventService, InstanceEventService>();
+    services.AddSingleton<IApplicationService, ApplicationService>();
 
     services.AddHttpClient<IPartiesWithInstancesClient, PartiesWithInstancesClient>();
 
@@ -383,9 +383,6 @@ void Configure(IConfiguration config)
     app.UseRouting();
     app.UseAuthentication();
     app.UseAuthorization();
-    app.UseEndpoints(endpoints =>
-    {
-        endpoints.MapControllers();
-        endpoints.MapHealthChecks("/health");
-    });
+    app.MapControllers();
+    app.MapHealthChecks("/health");
 }
