@@ -5,13 +5,13 @@ on:
     paths:
       - 'src/**'
       - 'test/Altinn.Platform.Storage.Interface.Tests/**'
-      - 'test/UnitTest/*'
+      - 'test/UnitTest/**'
   pull_request:
     branches: [ main ]
     types: [opened, synchronize, reopened]
     paths:
       - 'src/**'
-      - 'test/Altinn.Platform.Storage.Interface.Tests/***'
+      - 'test/Altinn.Platform.Storage.Interface.Tests/**'
       - 'test/UnitTest/**'
   workflow_dispatch:
 jobs:
