@@ -3,12 +3,18 @@
     Command:
     docker-compose run k6 run /src/tests/sign.js `
     -e env=*** `
+    -e userId=*** `
+    -e partyId=*** `
+    -e pid=*** `
     -e username=*** `
     -e userpwd=*** `
     -e org=ttd `
     -e app=*** `
     -e apimSubsKey=*** `
-    -e runFullTestSet=true
+    -e tokenGeneratorUserName=*** `
+    -e tokenGeneratorUserPwd=*** `
+    -e runFullTestSet=true `
+    -e useTestTokenGenerator=true/false
 */
 
 import { check } from "k6";
@@ -32,13 +38,16 @@ export function setup() {
     ? __ENV.runFullTestSet.toLowerCase().includes("true")
     : false;
 
-  const userName = __ENV.username;
-  const userPassword = __ENV.userpwd;
+  const userId = __ENV.userId;
+  const partyId = __ENV.partyId;
+  const pid = __ENV.pid;
+  const username = __ENV.username;
+  const userpassword = __ENV.userpwd;
+
   const org = __ENV.org;
   const app = __ENV.app;
 
-  var aspxauthCookie = setupToken.authenticateUser(userName, userPassword);
-  var token = setupToken.getAltinnStudioRuntimeToken(aspxauthCookie);
+  var token = setupToken.getAltinnTokenForUser(userId, partyId, pid, username, userpassword);
 
   var tokenClaims = setupToken.getTokenClaims(token);
 
@@ -90,13 +99,12 @@ function Test_Instance_Sign(data) {
   });
   addErrorCount(success);
   stopIterationOnFail(
-    "// Setup // Test_Instance_Sign: Sign instance. Failed",
+    "Test_Instance_Sign: Sign instance. Failed",
     success,
     res
   );
 
   res = instancesApi.getInstanceById(data.token, data.instanceId);
-
   var dataElements = JSON.parse(res.body)["data"];
   success = check([res, dataElements], {
     "Test_Instance_Sign: Get instance. Status is 200": (r) =>
@@ -106,7 +114,7 @@ function Test_Instance_Sign(data) {
   });
   addErrorCount(success);
   stopIterationOnFail(
-    "// Setup // Test_Instance_Sign: Get instance. Failed",
+    "Test_Instance_Sign: Get instance and validate signature data element. Failed",
     success,
     res
   );
