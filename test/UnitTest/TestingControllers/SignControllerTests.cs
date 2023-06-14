@@ -139,7 +139,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Mock<IInstanceService> instanceServiceMock = new Mock<IInstanceService>();
             instanceServiceMock.Setup(ism => 
             ism.CreateSignDocument(It.IsAny<int>(), It.IsAny<Guid>(), It.IsAny<SignRequest>(), It.IsAny<int>()))
-            .ReturnsAsync((false, new ServiceError(404, "Instance not found" )));
+            .ReturnsAsync((false, new ServiceError(404, "Instance not found")));
             
             HttpClient client = GetTestClient(instanceServiceMock);
             string token = PrincipalUtil.GetToken(10016, 1600, 2);
