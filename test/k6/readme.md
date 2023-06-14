@@ -42,11 +42,24 @@ The command consists of three sections
 
 `k6 run {path to test file}` pointing to the test file you want to run e.g. /src/tests/data.js
 
-`-e env=*** -e username=*** -e userpwd=*** -e org=ttd -e app=*** -e apimSubsKey=***` all environment variables that should be included in the request.
+`-e env=*** -e org=ttd -e app=*** -e apimSubsKey=*** -e userId=*** -e partyId=*** -e pid=*** -e useTestTokenGenerator=true -e tokenGeneratorUserName=*** -e tokenGeneratorUserPwd=*** -e runFullTestSet=true`  all environment variables that should be included in the request.
+
 
 
 ## Variables
+- `env` the Altinn environmen to run tests toards; AT2x, TT02, YT01, prod
+- `org` the app owner of the application used for testing
+- `app` the name of the application used for testing
+- `apimSubsKey` subscription key for a subscription of the product `AppsAccess` (for signing and data)
+- `userId`\* the user id for the test user
+- `pid`\* the person number (SSN) for the test user
+- `partyId`\* the party id for the test user
+- `tokenGeneratorUserName`\* username for Altinn Test Tools token generator (Check AltinnPedia for details)
+- `tokenGeneratorUserPwd`\* password for Altinn Test Tools token generator (Check AltinnPedia for details)
+- `useTestTokenGenerator` \* variable to enable use of test tools, set to true if required
+- `username` username of test user
+- `userpwd` password for test user
 
-- `apimSubsKey` should be a subscription key for the product apps access
-- `username` and `userpwd` are only required for username and password authentication towards Altinn 2
-- `userId`, `pid`, `partyId`, `tokenGeneratorUserName`, `tokenGeneratorUserPwd`, `useTestTokenGenerator=true` are only required if using Altinn Test tools for authentication.
+\* required when using Altinn Test Tools login, available for all environments except prod
+\** required for username/password authentication via Altinn 2, available for all environments, but AI-DEV network is required for AT and YT
+
