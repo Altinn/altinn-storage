@@ -218,7 +218,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             {
                 instanceRepositoryMock
                     .Setup(ir => ir.GetOne(It.IsAny<int>(), It.IsAny<Guid>(), true))
-                    .ReturnsAsync((int partyId, Guid instanceGuid) =>
+                    .ReturnsAsync((int partyId, Guid instanceGuid, bool dummy) =>
                     {
                         return (new Instance
                         {
@@ -251,7 +251,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             {
                 instanceRepositoryMock
                     .Setup(ir => ir.GetOne(It.IsAny<int>(), It.IsAny<Guid>(), true))
-                    .ReturnsAsync((int partyId, Guid instanceGuid) => (null, 0));
+                    .ReturnsAsync((int partyId, Guid instanceGuid, bool dummy) => (null, 0));
             }
 
             Mock<HttpContext> httpContextMock = new();
