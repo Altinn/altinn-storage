@@ -163,9 +163,9 @@ namespace Altinn.Platform.Storage.Repository
                 foreach (Application item in await FindAll())
                 {
                     StringBuilder titles = new();
-                    if (item.Title != null)
+                    if (item?.Title?.Values != null)
                     {
-                        foreach (string title in item?.Title?.Values)
+                        foreach (string title in item.Title.Values)
                         {
                             titles.Append(title + ";");
                         }
