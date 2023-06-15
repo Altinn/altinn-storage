@@ -71,7 +71,7 @@ export function setup() {
 function Test_Data_References(data) {
   var queryParams = {
     dataType: "attachment",
-    generatedFrom: [uuidv4(), uuidv4()],
+    generatedFromTask: ["Task_1"],
   };
 
   var res = dataApi.postData(
@@ -88,7 +88,7 @@ function Test_Data_References(data) {
       r
     ) => r[0].status === 201,
     "Test_Data_References: Post data with generated from refs. Verify number of references":
-      (r) => r[1].length === 2,
+      (r) => r[1].length === 1,
   });
   addErrorCount(success);
 
