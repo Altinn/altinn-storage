@@ -55,7 +55,7 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<DataElement> Create(DataElement dataElement, long instanceInternalId)
+        public async Task<DataElement> Create(DataElement dataElement, long instanceInternalId = 0)
         {
             dataElement.Id ??= Guid.NewGuid().ToString();
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
@@ -79,10 +79,10 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<DataElement> Read(Guid instanceGuid, Guid dataElementGuid)
+        public async Task<DataElement> Read(Guid instanceGuid, Guid dataElementId)
         {
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSql);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementGuid);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
 
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             await reader.ReadAsync();
@@ -159,7 +159,7 @@ namespace Altinn.Platform.Storage.Repository
 
             await using var transConnection = _dataSource.CreateConnection();
             await transConnection.OpenAsync();
-            await using var transaction = await transConnection.BeginTransactionAsync(isolationLevel: IsolationLevel.RepeatableRead); //ensure that the read element is locked until updated
+            await using var transaction = await transConnection.BeginTransactionAsync(isolationLevel: IsolationLevel.RepeatableRead); // Ensure that the read element is locked until updated
             DataElement element = await Read(Guid.Empty, dataElementId) ?? throw new ArgumentException("Element not found for id " + dataElementId, nameof(dataElementId));
 
             foreach (var kvp in propertylist)
@@ -173,7 +173,7 @@ namespace Altinn.Platform.Storage.Repository
                     case "/deleteStatus": element.DeleteStatus = (DeleteStatus)kvp.Value; break;
                     case "/lastChanged": element.LastChanged = (DateTime?)kvp.Value; break;
                     case "/lastChangedBy": element.LastChangedBy = (string)kvp.Value; break;
-                    default: throw new Exception("Unexpected key " + kvp.Key);
+                    default: throw new ArgumentException("Unexpected key " + kvp.Key);
                 }
             }
 

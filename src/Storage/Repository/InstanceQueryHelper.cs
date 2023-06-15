@@ -11,7 +11,7 @@ namespace Altinn.Platform.Storage.Repository
     /// <summary>
     /// Helper methods for instance query
     /// </summary>
-    public class InstanceQueryHelper
+    public static class InstanceQueryHelper
     {
         /// <summary>
         /// Build query from parameters

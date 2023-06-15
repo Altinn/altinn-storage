@@ -87,7 +87,6 @@ namespace Altinn.Platform.Storage.Repository
                 string org = appId.Split("/")[0];
                 string app = appId.Split("/")[1];
 
-                // Swallowing exceptions, only adding valid text resources as this is used by messagebox
                 try
                 {
                     TextResource resource = await Get(org, app, language);
@@ -98,6 +97,7 @@ namespace Altinn.Platform.Storage.Repository
                 }
                 catch (Exception)
                 {
+                    // Swallowing exceptions, only adding valid text resources as this is used by messagebox
                 }
             }
 
@@ -147,7 +147,6 @@ namespace Altinn.Platform.Storage.Repository
 
             var statusCode = await pgcom.ExecuteNonQueryAsync();
 
-            // TODO: Should we throw an exception rather than returning null when "not found"
             return statusCode == 0 ? null : PostProcess(org, app, textResource.Language, textResource);
         }
 

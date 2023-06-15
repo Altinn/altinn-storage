@@ -32,7 +32,6 @@ namespace Altinn.Platform.Storage.Repository
         private static readonly string _updateSql = "update storage.applications set application = $2 where alternateId = $1";
         private static readonly string _createSql = "insert into storage.applications (alternateId, org, application) values ($1, $2, $3)";
 
-        private readonly ILogger _logger;
         private readonly IMemoryCache _memoryCache;
         private readonly MemoryCacheEntryOptions _cacheEntryOptionsTitles;
         private readonly MemoryCacheEntryOptions _cacheEntryOptionsMetadata;
@@ -43,16 +42,13 @@ namespace Altinn.Platform.Storage.Repository
         /// Initializes a new instance of the <see cref="PgApplicationRepository"/> class.
         /// </summary>
         /// <param name="generalSettings">the general settings</param>
-        /// <param name="logger">dependency injection of logger</param>
         /// <param name="memoryCache">the memory cache</param>
         /// <param name="dataSource">The npgsql data source.</param>
         public PgApplicationRepository(
             IOptions<GeneralSettings> generalSettings,
-            ILogger<PgApplicationRepository> logger,
             IMemoryCache memoryCache,
             NpgsqlDataSource dataSource)
         {
-            _logger = logger;
             _dataSource = dataSource;
             _memoryCache = memoryCache;
             _cacheEntryOptionsTitles = new MemoryCacheEntryOptions()
@@ -131,18 +127,17 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<Application> Update(Application application)
+        public async Task<Application> Update(Application item)
         {
-            // TODO: understand why cosmos code does deep clone
-            SetInternalId(application);
+            SetInternalId(item);
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateSql);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, application.Id);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, application);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, item.Id);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, item);
             await pgcom.ExecuteNonQueryAsync();
 
-            SetLegacyId(application);
-            _memoryCache.Set(application.Id, application, _cacheEntryOptionsMetadata);
-            return application;
+            SetLegacyId(item);
+            _memoryCache.Set(item.Id, item, _cacheEntryOptionsMetadata);
+            return item;
         }
 
         /// <inheritdoc/>
@@ -191,15 +186,13 @@ namespace Altinn.Platform.Storage.Repository
             return app;
         }
 
-        private static Application SetInternalId(Application app)
+        private static void SetInternalId(Application app)
         {
             if (app.Id.StartsWith(app.Org + '/', StringComparison.OrdinalIgnoreCase))
             {
                 string appIdWithoutOrg = app.Id[(app.Org.Length + 1)..];
                 app.Id = $"{app.Org}-{appIdWithoutOrg}";
             }
-
-            return app;
         }
     }
 }

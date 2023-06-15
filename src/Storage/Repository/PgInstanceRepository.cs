@@ -49,9 +49,9 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<Instance> Create(Instance instance)
+        public async Task<Instance> Create(Instance item)
         {
-            Instance updatedInstance = await Upsert(instance, true);
+            Instance updatedInstance = await Upsert(item, true);
             updatedInstance.Data = new List<DataElement>();
             return updatedInstance;
         }
@@ -141,16 +141,18 @@ namespace Altinn.Platform.Storage.Repository
             int partyId = 0;
             int[] partyIdArray = null;
 
-            StringValues partyIdStringValues = queryParams.ContainsKey("instanceOwner.partyId") ? queryParams["instanceOwner.partyId"] : default;
-            if (partyIdStringValues.Count == 1)
+            if (queryParams.TryGetValue("instanceOwner.partyId", out StringValues partyIdStringValues))
             {
-                partyId = int.Parse(partyIdStringValues.First());
-                partyPredicate = $" AND partyId = $3 ";
-            }
-            else if (partyIdStringValues.Count > 1)
-            {
-                partyIdArray = partyIdStringValues.Select(p => int.Parse(p)).ToArray();
-                partyPredicate = $" AND partyId = ANY ($3) ";
+                if (partyIdStringValues.Count == 1)
+                {
+                    partyId = int.Parse(partyIdStringValues.First());
+                    partyPredicate = $" AND partyId = $3 ";
+                }
+                else if (partyIdStringValues.Count > 1)
+                {
+                    partyIdArray = partyIdStringValues.Select(p => int.Parse(p)).ToArray();
+                    partyPredicate = $" AND partyId = ANY ($3) ";
+                }
             }
 
             string taskPredicate = queryParams.ContainsKey("process.currentTask") ? " AND taskId ILIKE $4" : null;
@@ -173,13 +175,16 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(readManySql);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Bigint, continueIdx);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Integer, size);
-            if (partyIdStringValues.Count == 1)
+            if (partyIdStringValues != default(StringValues))
             {
-                pgcom.Parameters.AddWithValue(NpgsqlDbType.Integer, partyId);
-            }
-            else if (partyIdStringValues.Count > 1)
-            {
-                pgcom.Parameters.AddWithValue(NpgsqlDbType.Array | NpgsqlDbType.Integer, partyIdArray);
+                if (partyIdStringValues.Count == 1)
+                {
+                    pgcom.Parameters.AddWithValue(NpgsqlDbType.Integer, partyId);
+                }
+                else if (partyIdStringValues.Count > 1)
+                {
+                    pgcom.Parameters.AddWithValue(NpgsqlDbType.Array | NpgsqlDbType.Integer, partyIdArray);
+                }
             }
             else
             {
@@ -274,11 +279,11 @@ namespace Altinn.Platform.Storage.Repository
                 return;
             }
 
-            if (instance.Status.ReadStatus == ReadStatus.Read && instance.Data.Any(d => !d.IsRead))
+            if (instance.Status.ReadStatus == ReadStatus.Read && instance.Data.Exists(d => !d.IsRead))
             {
                 instance.Status.ReadStatus = ReadStatus.UpdatedSinceLastReview;
             }
-            else if (instance.Status.ReadStatus == ReadStatus.Read && !instance.Data.Any(d => d.IsRead))
+            else if (instance.Status.ReadStatus == ReadStatus.Read && !instance.Data.Exists(d => d.IsRead))
             {
                 instance.Status.ReadStatus = ReadStatus.Unread;
             }
@@ -310,14 +315,12 @@ namespace Altinn.Platform.Storage.Repository
             return ToExternal(instance);
         }
 
-        private static Instance ToInternal(Instance instance)
+        private static void ToInternal(Instance instance)
         {
             if (instance.Id.Contains('/', StringComparison.Ordinal))
             {
                 instance.Id = instance.Id.Split('/')[1];
             }
-
-            return instance;
         }
 
         private static Instance ToExternal(Instance instance)
