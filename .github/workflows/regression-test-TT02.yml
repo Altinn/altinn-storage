@@ -23,7 +23,7 @@ jobs:
       if: failure()
       run: |
 
-          report=":warning: Storage use case test failure in TT02 :warning: \n"
+          report=":warning: Storage regression test failure in TT02 :warning: \n"
           report+="\n Workflow available here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           echo "stepreport="$report >> $GITHUB_ENV
     - name: Report failure to Slack
