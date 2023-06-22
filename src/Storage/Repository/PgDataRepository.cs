@@ -23,12 +23,12 @@ namespace Altinn.Platform.Storage.Repository
     /// </summary>
     public class PgDataRepository : IDataRepository
     {
-        private readonly string _insertSql = "call storage.insertDataelement ($1, $2, $3, $4)"; //"insert into storage.dataelements(instanceInternalId, instanceGuid, alternateId, element) VALUES ($1, $2, $3, $4);";
-        private readonly string _readAllSql = "select * from storage.readAllDataelement($1)"; //"select element from storage.dataelements where instanceGuid = $1;";
-        private readonly string _readAllForMultipleSql = "select * from storage.readAllForMultipleDataelement($1)"; //"select element from storage.dataelements where instanceGuid = any ($1);";
-        private readonly string _readSql = "select * from storage.readDataelement($1)"; //"select element from storage.dataelements where alternateId = $1;";
-        private readonly string _deleteSql = "call storage.deleteDataelement ($1)"; //"delete from storage.dataelements where alternateId = $1;";
-        private readonly string _updateSql = "call storage.updateDataelement ($1, $2)"; //"update storage.dataelements set element = $2 where alternateId = $1;";
+        private readonly string _insertSql = "call storage.insertdataelement ($1, $2, $3, $4)";
+        private readonly string _readAllSql = "select * from storage.readalldataelement($1)";
+        private readonly string _readAllForMultipleSql = "select * from storage.readallformultipledataelement($1)";
+        private readonly string _readSql = "select * from storage.readdataelement($1)";
+        private readonly string _deleteSql = "call storage.deletedataelement ($1)";
+        private readonly string _updateSql = "call storage.updatedataelement ($1, $2)";
 
         private readonly AzureStorageConfiguration _storageConfiguration;
         private readonly ISasTokenProvider _sasTokenProvider;

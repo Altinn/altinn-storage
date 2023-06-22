@@ -22,15 +22,11 @@ namespace Altinn.Platform.Storage.Repository
     /// </summary>
     public class PgInstanceRepository: IInstanceRepository
     {
-        private static readonly string _deleteSql = "call storage.deleteInstance ($1)"; // "delete from storage.instances where alternateId = $1;";
-        private static readonly string _insertSql = "call storage.insertInstance ($1, $2, $3, $4, $5, $6, $7, $8)"; // "insert into storage.instances(partyId, alternateId, instance) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)";
-        private static readonly string _upsertSql = "call storage.upsertInstance ($1, $2, $3, $4, $5, $6, $7, $8)"; // _insertSql + " on conflict(alternateId) do update set instance = $3";
-        private static readonly string _readSql = "select * from storage.readInstance ($1)";
-        private static readonly string _readSqlNoElements = "select * from storage.readInstanceNoElements ($1)";
-        ////private static readonly string _readSql = $"select i.id, i.instance, d.element " +
-        ////    $"from storage.instances i left join storage.dataelements d on i.id = d.instanceInternalId " +
-        ////    $"where i.alternateId = $1 " +
-        ////    $"order by d.id";
+        private static readonly string _deleteSql = "call storage.deleteinstance ($1)";
+        private static readonly string _insertSql = "call storage.insertinstance ($1, $2, $3, $4, $5, $6, $7, $8)";
+        private static readonly string _upsertSql = "call storage.upsertinstance ($1, $2, $3, $4, $5, $6, $7, $8)";
+        private static readonly string _readSql = "select * from storage.readinstance ($1)";
+        private static readonly string _readSqlNoElements = "select * from storage.readinstancenoelements ($1)";
 
         private readonly ILogger<PgInstanceRepository> _logger;
         private readonly NpgsqlDataSource _dataSource;

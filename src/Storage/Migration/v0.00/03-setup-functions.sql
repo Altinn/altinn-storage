@@ -1,6 +1,6 @@
 -- instances ---------------------------------------------------
 
-CREATE OR REPLACE FUNCTION storage.readInstance(_alternateId UUID)
+CREATE OR REPLACE FUNCTION storage.readinstance(_alternateid UUID)
     RETURNS TABLE (id BIGINT, instance JSONB, element JSONB)
     LANGUAGE 'plpgsql'
     
@@ -8,14 +8,14 @@ AS $BODY$
 BEGIN
 RETURN QUERY 
 	SELECT i.id, i.instance, d.element FROM storage.instances i
-		LEFT JOIN storage.dataelements d ON i.id = d.instanceInternalId
-		WHERE i.alternateId = _alternateId
+		LEFT JOIN storage.dataelements d ON i.id = d.instanceinternalid
+		WHERE i.alternateid = _alternateid
 		ORDER BY d.id;
 
 END;
 $BODY$;
 
-CREATE OR REPLACE FUNCTION storage.readInstanceNoElements(_alternateId UUID)
+CREATE OR REPLACE FUNCTION storage.readinstancenoelements(_alternateid UUID)
     RETURNS TABLE (id BIGINT, instance JSONB)
     LANGUAGE 'plpgsql'
     
@@ -23,82 +23,82 @@ AS $BODY$
 BEGIN
 RETURN QUERY 
 	SELECT i.id, i.instance FROM storage.instances i
-		WHERE i.alternateId = _alternateId;
+		WHERE i.alternateid = _alternateid;
 END;
 $BODY$;
 
-CREATE OR REPLACE PROCEDURE storage.insertInstance(_partyId BIGINT, _alternateId UUID, _instance JSONB, _created TIMESTAMPTZ, _lastChanged TIMESTAMPTZ, _org TEXT, _appId TEXT, _taskId TEXT)
+CREATE OR REPLACE PROCEDURE storage.insertinstance(_partyid BIGINT, _alternateid UUID, _instance JSONB, _created TIMESTAMPTZ, _lastchanged TIMESTAMPTZ, _org TEXT, _appid TEXT, _taskid TEXT)
     LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
-	INSERT INTO storage.instances(partyId, alternateId, instance, created, lastChanged, org, appId, taskId) VALUES (_partyId, _alternateId, jsonb_strip_nulls(_instance), _created, _lastChanged, _org, _appId, _taskId);
+	INSERT INTO storage.instances(partyid, alternateid, instance, created, lastchanged, org, appid, taskid) VALUES (_partyid, _alternateid, jsonb_strip_nulls(_instance), _created, _lastchanged, _org, _appid, _taskid);
 END;
 $BODY$;
 
-CREATE OR REPLACE PROCEDURE storage.upsertInstance(_partyId BIGINT, _alternateId UUID, _instance JSONB, _created TIMESTAMPTZ, _lastChanged TIMESTAMPTZ, _org TEXT, _appId TEXT, _taskId TEXT)
+CREATE OR REPLACE PROCEDURE storage.upsertinstance(_partyid BIGINT, _alternateid UUID, _instance JSONB, _created TIMESTAMPTZ, _lastchanged TIMESTAMPTZ, _org TEXT, _appid TEXT, _taskid TEXT)
     LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
-	INSERT INTO storage.instances(partyId, alternateId, instance, created, lastChanged, org, appId, taskId) VALUES (_partyId, _alternateId, jsonb_strip_nulls(_instance), _created, _lastChanged, _org, _appId, _taskId)
-    ON CONFLICT(alternateId) DO UPDATE SET instance = jsonb_strip_nulls(_instance), lastChanged = _lastChanged, taskId = _taskId;
+	INSERT INTO storage.instances(partyid, alternateid, instance, created, lastchanged, org, appid, taskid) VALUES (_partyid, _alternateid, jsonb_strip_nulls(_instance), _created, _lastchanged, _org, _appid, _taskid)
+    ON CONFLICT(alternateid) DO UPDATE SET instance = jsonb_strip_nulls(_instance), lastchanged = _lastchanged, taskid = _taskid;
 END;
 $BODY$;
 
-CREATE OR REPLACE PROCEDURE storage.deleteInstance(_alternateId UUID)
+CREATE OR REPLACE PROCEDURE storage.deleteinstance(_alternateid UUID)
     LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
-	DELETE FROM storage.instances WHERE alternateId = _alternateId;
+	DELETE FROM storage.instances WHERE alternateid = _alternateid;
 END;
 $BODY$;
 
--- dataElements --------------------------------------------------
-CREATE OR REPLACE PROCEDURE storage.insertDataelement(_instanceInternalId BIGINT, _instanceGuid UUID, _alternateId UUID, _element JSONB)
+-- dataelements --------------------------------------------------
+CREATE OR REPLACE PROCEDURE storage.insertdataelement(_instanceinternalid BIGINT, _instanceGuid UUID, _alternateid UUID, _element JSONB)
     LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
-	INSERT INTO storage.dataElements(instanceInternalId, instanceGuid, alternateId, element) VALUES (_instanceInternalId, _instanceGuid, _alternateId, jsonb_strip_nulls(_element));
+	INSERT INTO storage.dataelements(instanceinternalid, instanceGuid, alternateid, element) VALUES (_instanceinternalid, _instanceGuid, _alternateid, jsonb_strip_nulls(_element));
 END;
 $BODY$;
 
-CREATE OR REPLACE PROCEDURE storage.upsertDataelement(_instanceInternalId BIGINT, _instanceGuid UUID, _alternateId UUID, _element JSONB)
+CREATE OR REPLACE PROCEDURE storage.upsertdataelement(_instanceinternalid BIGINT, _instanceGuid UUID, _alternateid UUID, _element JSONB)
     LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
-	INSERT INTO storage.dataElements(instanceInternalId, instanceGuid, alternateId, element) VALUES (_instanceInternalId, _instanceGuid, _alternateId, jsonb_strip_nulls(_element))
-    ON CONFLICT(alternateId) DO UPDATE SET element = jsonb_strip_nulls(_element);
+	INSERT INTO storage.dataelements(instanceinternalid, instanceGuid, alternateid, element) VALUES (_instanceinternalid, _instanceGuid, _alternateid, jsonb_strip_nulls(_element))
+    ON CONFLICT(alternateid) DO UPDATE SET element = jsonb_strip_nulls(_element);
 END;
 $BODY$;
 
-CREATE OR REPLACE PROCEDURE storage.deleteDataelement(_alternateId UUID)
+CREATE OR REPLACE PROCEDURE storage.deletedataelement(_alternateid UUID)
     LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
-	DELETE FROM storage.dataElements WHERE alternateId = _alternateId;
+	DELETE FROM storage.dataelements WHERE alternateid = _alternateid;
 END;
 $BODY$;
 
-CREATE OR REPLACE PROCEDURE storage.updateDataelement(_alternateId UUID, _element JSONB)
+CREATE OR REPLACE PROCEDURE storage.updatedataelement(_alternateid UUID, _element JSONB)
     LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
-	UPDATE storage.dataelements SET element = jsonb_strip_nulls(_element) WHERE alternateId = _alternateId;
+	UPDATE storage.dataelements SET element = jsonb_strip_nulls(_element) WHERE alternateid = _alternateid;
 END;
 $BODY$;
 
-CREATE OR REPLACE FUNCTION storage.readDataelement(_alternateId UUID)
+CREATE OR REPLACE FUNCTION storage.readdataelement(_alternateid UUID)
     RETURNS TABLE (element JSONB)
     LANGUAGE 'plpgsql'
     
 AS $BODY$
 BEGIN
 RETURN QUERY 
-	SELECT d.element FROM storage.dataElements d WHERE alternateId = _alternateId;
+	SELECT d.element FROM storage.dataelements d WHERE alternateid = _alternateid;
 
 END;
 $BODY$;
 
-CREATE OR REPLACE FUNCTION storage.readAllDataelement(_instanceGuid UUID)
+CREATE OR REPLACE FUNCTION storage.readalldataelement(_instanceGuid UUID)
     RETURNS TABLE (element JSONB)
     LANGUAGE 'plpgsql'
     
@@ -110,48 +110,48 @@ RETURN QUERY
 END;
 $BODY$;
 
-CREATE OR REPLACE FUNCTION storage.readAllForMultipleDataelement(_instanceGuid UUID)
+CREATE OR REPLACE FUNCTION storage.readallformultipledataelement(_instanceGuid UUID)
     RETURNS TABLE (element JSONB)
     LANGUAGE 'plpgsql'
     
 AS $BODY$
 BEGIN
 RETURN QUERY 
-	SELECT d.element FROM storage.dataElements d WHERE instanceGuid = ANY (_instanceGuid);
+	SELECT d.element FROM storage.dataelements d WHERE instanceGuid = ANY (_instanceGuid);
 
 END;
 $BODY$;
 
--- instanceEvents ----------------------------------------------------------------
-CREATE OR REPLACE PROCEDURE storage.insertInstanceEvent(_instance UUID, _alternateId UUID, _event JSONB)
+-- instanceevents ----------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE storage.insertinstanceevent(_instance UUID, _alternateid UUID, _event JSONB)
     LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
-	INSERT INTO storage.instanceEvents(instance, alternateId, event) VALUES (_instance, _alternateId, jsonb_strip_nulls(_event));
+	INSERT INTO storage.instanceevents(instance, alternateid, event) VALUES (_instance, _alternateid, jsonb_strip_nulls(_event));
 END;
 $BODY$;
 
-CREATE OR REPLACE PROCEDURE storage.deleteInstanceEvent(_instance UUID)
+CREATE OR REPLACE PROCEDURE storage.deleteinstanceevent(_instance UUID)
     LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
-	DELETE FROM storage.instanceEvents WHERE instance = _instance;
+	DELETE FROM storage.instanceevents WHERE instance = _instance;
 END;
 $BODY$;
 
-CREATE OR REPLACE FUNCTION storage.readInstanceEvent(_alternateId UUID)
+CREATE OR REPLACE FUNCTION storage.readinstanceevent(_alternateid UUID)
     RETURNS TABLE (event JSONB)
     LANGUAGE 'plpgsql'
     
 AS $BODY$
 BEGIN
 RETURN QUERY 
-	SELECT event FROM storage.instanceEvents WHERE alternateId = _alternateId;
+	SELECT event FROM storage.instanceevents WHERE alternateid = _alternateid;
 
 END;
 $BODY$;
 
-CREATE OR REPLACE FUNCTION storage.filterInstanceEvent(_instance UUID, _from TIMESTAMP, _to TIMESTAMP, _eventType TEXT[])
+CREATE OR REPLACE FUNCTION storage.filterinstanceevent(_instance UUID, _from TIMESTAMP, _to TIMESTAMP, _eventtype TEXT[])
     RETURNS TABLE (event JSONB)
     LANGUAGE 'plpgsql'
     
@@ -159,11 +159,11 @@ AS $BODY$
 BEGIN
 RETURN QUERY 
 	SELECT instance, event
-	FROM storage.instanceEvents
+	FROM storage.instanceevents
 	WHERE instance = _instance
 		AND (event->>'Created')::TIMESTAMP >= _from
 		AND (event->>'Created')::TIMESTAMP <= _to
-		AND (_eventType IS NULL OR event->>'EventType' ILIKE ANY (_eventType));
+		AND (_eventtype IS NULL OR event->>'eventtype' ILIKE ANY (_eventtype));
 
 END;
 $BODY$;

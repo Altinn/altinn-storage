@@ -20,17 +20,16 @@ using NpgsqlTypes;
 namespace Altinn.Platform.Storage.Repository
 {
     /// <summary>
-    /// Handles applicationMetadata repository. Notice that the all methods should modify the Id attribute of the
-    /// Application, since cosmosDb fails if Id contains slashes '/'.
+    /// Handles applicationMetadata repository.
     /// </summary>
     public class PgApplicationRepository : IApplicationRepository
     {
         private static readonly string _readSql = "select application from storage.applications";
         private static readonly string _readByOrgSql = "select application from storage.applications where org = $1";
-        private static readonly string _readByIdSql = "select application from storage.applications where alternateId = $1";
-        private static readonly string _deleteSql = "delete from storage.applications where alternateId = $1";
-        private static readonly string _updateSql = "update storage.applications set application = $2 where alternateId = $1";
-        private static readonly string _createSql = "insert into storage.applications (alternateId, org, application) values ($1, $2, $3)";
+        private static readonly string _readByIdSql = "select application from storage.applications where alternateid = $1";
+        private static readonly string _deleteSql = "delete from storage.applications where alternateid = $1";
+        private static readonly string _updateSql = "update storage.applications set application = $2 where alternateid = $1";
+        private static readonly string _createSql = "insert into storage.applications (alternateid, org, application) values ($1, $2, $3)";
 
         private readonly IMemoryCache _memoryCache;
         private readonly MemoryCacheEntryOptions _cacheEntryOptionsTitles;
