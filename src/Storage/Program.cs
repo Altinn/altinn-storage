@@ -351,7 +351,7 @@ void Configure(IConfiguration config)
         app.UseExceptionHandler("/storage/api/v1/error");
     }
 
-    if (config.GetValue<bool>("generalSettings.UsePostgreSQL"))
+    if (config.GetSection("GeneralSettings").Get<GeneralSettings>().UsePostgreSQL)
     {
         ConsoleTraceService traceService = new() { IsDebugEnabled = true };
 
