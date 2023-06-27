@@ -156,7 +156,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="parameterNr">Positional parameter nr i postqres query</param>
         /// <param name="timestampColumn">Postgres column name if different from timestampkey</param>
         /// <returns>Postgres predicate and datetime object to use in postgres api</returns>
-        internal static (string, DateTime) ConvertTimestampParameter(string timestampKey, Dictionary<string, StringValues> queryParams, int parameterNr, string timestampColumn = null)
+        internal static (string Predicate, DateTime TimeStamp) ConvertTimestampParameter(string timestampKey, Dictionary<string, StringValues> queryParams, int parameterNr, string timestampColumn = null)
         {
             if (!queryParams.ContainsKey(timestampKey))
             {
@@ -174,7 +174,7 @@ namespace Altinn.Platform.Storage.Repository
                 "eq" => "=",
                 _ => throw new Exception("Unexpeted parameter " + timestampValue),
             };
-            return ($" AND {timestampColumn} {@operator} ${parameterNr}", ParseDateTimeIntoUtc(timestampValue[(timestampValue.Split(':')[0].Length+1)..]));
+            return ($" AND {timestampColumn} {@operator} ${parameterNr}", ParseDateTimeIntoUtc(timestampValue[(timestampValue.Split(':')[0].Length + 1)..]));
         }
 
         // Limitations in queryBuilder.Where interface forces me to duplicate the datetime methods
