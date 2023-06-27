@@ -365,7 +365,7 @@ void Configure(IConfiguration config)
             traceService,
             new Yuniql.AspNetCore.Configuration
             {
-                Workspace = Path.Combine(Environment.CurrentDirectory, config.GetValue<string>("PostgreSQLSettings:WorkspacePath")),
+                Workspace = Path.Combine(Environment.CurrentDirectory, config.GetValue<string>("PostgreSqlSettings:WorkspacePath")),
                 ConnectionString = connectionString,
                 IsAutoCreateDatabase = false,
                 IsDebug = true
