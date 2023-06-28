@@ -258,7 +258,7 @@ namespace Altinn.Platform.Storage.Controllers
         {
             try
             {
-                Instance result = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+                (Instance result, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
 
                 bool appOwnerRequestingElement = User.GetOrg() == result.Org;
                 if (!appOwnerRequestingElement)
@@ -409,7 +409,7 @@ namespace Altinn.Platform.Storage.Controllers
         {
             Instance instance;
 
-            instance = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
 
             if (instance == null)
             {
@@ -471,7 +471,7 @@ namespace Altinn.Platform.Storage.Controllers
             [FromRoute] int instanceOwnerPartyId,
             [FromRoute] Guid instanceGuid)
         {
-            Instance instance = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
 
             string org = User.GetOrg();
 
@@ -525,7 +525,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest($"Invalid read status: {status}. Accepted types include: {string.Join(", ", Enum.GetNames(typeof(ReadStatus)))}");
             }
 
-            Instance instance = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
 
             Instance updatedInstance;
             try
@@ -573,7 +573,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest($"Invalid sub status: {JsonConvert.SerializeObject(substatus)}. Substatus must be defined and include a label.");
             }
 
-            Instance instance = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
 
             string org = User.GetOrg();
             if (!instance.Org.Equals(org))
@@ -628,7 +628,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest($"Missing parameter value: presentationTexts is misformed or empty");
             }
 
-            Instance instance = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
 
             if (instance.PresentationTexts == null)
             {
@@ -674,7 +674,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest($"Missing parameter value: dataValues is misformed or empty");
             }
 
-            Instance instance = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
 
             instance.DataValues ??= new Dictionary<string, string>();
 

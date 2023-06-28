@@ -42,6 +42,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Yuniql.AspNetCore;
+using Yuniql.PostgreSql;
 
 ILogger logger;
 
@@ -63,7 +65,7 @@ logger.LogInformation("// Checking CosmosDB and Azure Storage connection.");
 
 var app = builder.Build();
 
-Configure();
+Configure(builder.Configuration);
 
 logger.LogInformation("// Running...");
 app.Run();
@@ -129,7 +131,7 @@ async Task ConnectToKeyVaultAndSetApplicationInsights(ConfigurationManager confi
 
         config.AddAzureKeyVault(new Uri(keyVaultSettings.SecretUri), azureCredentials);
 
-        SecretClient client = new SecretClient(new Uri(keyVaultSettings.SecretUri), azureCredentials);
+        SecretClient client = new(new Uri(keyVaultSettings.SecretUri), azureCredentials);
 
         try
         {
@@ -197,6 +199,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.Configure<PlatformSettings>(config.GetSection("PlatformSettings"));
     services.Configure<QueueStorageSettings>(config.GetSection("QueueStorageSettings"));
     services.Configure<AccessTokenSettings>(config.GetSection("AccessTokenSettings"));
+    services.Configure<PostgreSqlSettings>(config.GetSection("PostgreSqlSettings"));
 
     services.AddSingleton<IAuthorizationHandler, AccessTokenHandler>();
     services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProvider>();
@@ -249,7 +252,15 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     CosmosClient cosmosClient = new(cosmosSettings.EndpointUri, cosmosSettings.PrimaryKey, options);
     services.AddSingleton(cosmosClient);
 
-    services.AddRepositories();
+    if (generalSettings.UsePostgreSQL)
+    {
+        PostgreSqlSettings postgresSettings = config.GetSection("PostgreSqlSettings").Get<PostgreSqlSettings>();
+        services.AddRepositoriesPostgreSQL(string.Format(postgresSettings.ConnectionString, postgresSettings.StorageDbPwd), postgresSettings.LogParameters);
+    }
+    else
+    {
+        services.AddRepositoriesCosmos();
+    }
 
     services.AddSingleton<ISasTokenProvider, SasTokenProvider>();
     services.AddSingleton<IKeyVaultClientWrapper, KeyVaultClientWrapper>();
@@ -329,7 +340,7 @@ static string GetXmlCommentsPathForControllers()
     return xmlPath;
 }
 
-void Configure()
+void Configure(IConfiguration config)
 {
     if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
     {
@@ -338,6 +349,27 @@ void Configure()
     else
     {
         app.UseExceptionHandler("/storage/api/v1/error");
+    }
+
+    if (config.GetSection("GeneralSettings").Get<GeneralSettings>().UsePostgreSQL)
+    {
+        ConsoleTraceService traceService = new() { IsDebugEnabled = true };
+
+        string connectionString = string.Format(
+            config.GetValue<string>("PostgreSqlSettings:AdminConnectionString"),
+            config.GetValue<string>("PostgreSqlSettings:StorageDbAdminPwd"));
+
+        app.UseYuniql(
+            new PostgreSqlDataService(traceService),
+            new PostgreSqlBulkImportService(traceService),
+            traceService,
+            new Yuniql.AspNetCore.Configuration
+            {
+                Workspace = Path.Combine(Environment.CurrentDirectory, config.GetValue<string>("PostgreSqlSettings:WorkspacePath")),
+                ConnectionString = connectionString,
+                IsAutoCreateDatabase = false,
+                IsDebug = true
+            });
     }
 
     app.UseSwagger(o => o.RouteTemplate = "storage/swagger/{documentName}/swagger.json");

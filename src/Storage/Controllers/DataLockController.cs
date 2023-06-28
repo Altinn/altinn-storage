@@ -130,7 +130,7 @@ public class DataLockController : ControllerBase
 
     private async Task<(Instance? Instance, ActionResult? ErrorMessage)> GetInstanceAsync(Guid instanceGuid, int instanceOwnerPartyId)
     {
-        Instance instance = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+        (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
 
         if (instance == null)
         {

@@ -26,7 +26,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             };
         }
 
-        public async Task<DataElement> Create(DataElement dataElement)
+        public async Task<DataElement> Create(DataElement dataElement, long id)
         {
             _tempRepository.Add(dataElement.Id, JsonSerializer.Serialize(dataElement, _options));
             return await Task.FromResult(dataElement);
