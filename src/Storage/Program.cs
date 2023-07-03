@@ -255,6 +255,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     if (generalSettings.UsePostgreSQL)
     {
         PostgreSqlSettings postgresSettings = config.GetSection("PostgreSqlSettings").Get<PostgreSqlSettings>();
+        Console.WriteLine("Connection string debug: " + string.Format(postgresSettings.ConnectionString, postgresSettings.StorageDbPwd));
         services.AddRepositoriesPostgreSQL(string.Format(postgresSettings.ConnectionString, postgresSettings.StorageDbPwd), postgresSettings.LogParameters);
     }
     else
