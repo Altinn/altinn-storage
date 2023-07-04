@@ -69,9 +69,10 @@ namespace Altinn.Platform.Storage.Authorization
             ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
             XacmlJsonRequestRoot xacmlJsonRequest = CreateMultiDecisionRequest(user, instances, actionTypes);
 
-            _logger.LogInformation("// AuthorizationHelper // AuthorizeMsgBoxInstances // xacmlJsonRequest: {request}", JsonSerializer.Serialize(xacmlJsonRequest));
+            // The logging below is expensive because the serialization is executed regardless of the log level
+            // _logger.LogInformation("// AuthorizationHelper // AuthorizeMsgBoxInstances // xacmlJsonRequest: {request}", JsonSerializer.Serialize(xacmlJsonRequest));
             XacmlJsonResponse response = await _pdp.GetDecisionForRequest(xacmlJsonRequest);
-            _logger.LogInformation("// AuthorizationHelper // AuthorizeMsgBoxInstances // xacmlJsonResponse: {response}", JsonSerializer.Serialize(response));
+            //// _logger.LogInformation("// AuthorizationHelper // AuthorizeMsgBoxInstances // xacmlJsonResponse: {response}", JsonSerializer.Serialize(response));
             foreach (XacmlJsonResult result in response.Response.Where(result => DecisionHelper.ValidateDecisionResult(result, user)))
             {
                 string instanceId = string.Empty;

@@ -23,11 +23,15 @@ namespace Altinn.Platform.Storage.Repository
     /// </summary>
     public class PgTextRepository : ITextRepository
     {
+        private const string _missingResourceId = "MissingResource";
+
         private static readonly string _readSql = "select textresource from storage.texts where org = $1 and app = $2 and language = $3";
         private static readonly string _readAppSql = "select id from storage.applications where alternateId = $1";
         private static readonly string _deleteSql = "delete from storage.texts where org = $1 and app = $2 and language = $3";
         private static readonly string _updateSql = "update storage.texts set textresource = $4 where org = $1 and app = $2 and language = $3";
         private static readonly string _createSql = "insert into storage.texts (org, app, language, textresource, applicationinternalid) values ($1, $2, $3, $4, $5)";
+
+        private static TextResource _missingResourcePlaceholder = new() { Id = _missingResourceId };
 
         private readonly IMemoryCache _memoryCache;
         private readonly MemoryCacheEntryOptions _cacheEntryOptions;
@@ -66,15 +70,16 @@ namespace Altinn.Platform.Storage.Repository
                     if (await reader.ReadAsync())
                     {
                         textResource = PostProcess(org, app, language, reader.GetFieldValue<TextResource>("textResource"));
-                        _memoryCache.Set(id, textResource, _cacheEntryOptions);
                     }
                     else
                     {
-                        textResource = null;
+                        textResource = _missingResourcePlaceholder;
                     }
+
+                    _memoryCache.Set(id, textResource, _cacheEntryOptions);
             }
 
-            return textResource;
+            return textResource.Id == _missingResourceId ? null : textResource;
         }
 
         /// <inheritdoc/>
