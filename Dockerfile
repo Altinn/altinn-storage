@@ -11,6 +11,9 @@ FROM mcr.microsoft.com/dotnet/aspnet:7.0.8-alpine3.18 AS final
 EXPOSE 5010
 WORKDIR /app
 COPY --from=build /app_output .
+
+COPY src/Storage/Migration ./Migration
+
 # setup the user and group
 # the user will have no password, using shell /bin/false and using the group dotnet
 RUN addgroup -g 3000 dotnet && adduser -u 1000 -G dotnet -D -s /bin/false dotnet

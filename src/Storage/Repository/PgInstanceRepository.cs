@@ -154,6 +154,9 @@ namespace Altinn.Platform.Storage.Repository
             string taskPredicate = queryParams.ContainsKey("process.currentTask") ? " AND taskId ILIKE $4" : null;
             string appIdPredicate = queryParams.ContainsKey("appId") ? " AND appId ILIKE $6" : null;
             string orgPredicate = appIdPredicate == null && queryParams.ContainsKey("org") ? " AND org ILIKE $5" : null;
+            string hardDeletedPredicate = queryParams.ContainsKey("status.isHardDeleted") ? " AND instance->'Status'->>'IsHardDeleted' = $9" : null;
+            string softDeletedPredicate = queryParams.ContainsKey("status.isSoftDeleted") ? " AND instance->'Status'->>'IsSoftDeleted' = $10" : null;
+            string archivedPredicate = queryParams.ContainsKey("status.isArchived") ? " AND instance->'Status'->>'IsArchived' = $11" : null;
             (string lastChangedPredicate, DateTime lastChanged) = InstanceQueryHelper.ConvertTimestampParameter("lastChanged", queryParams, 7);
             (string createdPredicate, DateTime created) = InstanceQueryHelper.ConvertTimestampParameter("created", queryParams, 8);
 
@@ -161,7 +164,8 @@ namespace Altinn.Platform.Storage.Repository
                 $"WITH instances AS " +
                 $"( " +
                 $"    SELECT id, instance FROM storage.instances " +
-                $"    WHERE id > $1 " + partyPredicate + taskPredicate + orgPredicate + appIdPredicate + lastChangedPredicate + createdPredicate +
+                $"    WHERE id > $1 " + partyPredicate + taskPredicate + orgPredicate + appIdPredicate + lastChangedPredicate +
+                        createdPredicate + hardDeletedPredicate + softDeletedPredicate + archivedPredicate +
                 $"    ORDER BY id " +
                 $"    FETCH FIRST $2 ROWS ONLY " +
                 $") " +
@@ -192,6 +196,9 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, appIdPredicate != null ? queryParams["appId"].First() : DBNull.Value);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, lastChanged);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, created);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, hardDeletedPredicate != null ? queryParams["status.isHardDeleted"].First() : DBNull.Value);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, softDeletedPredicate != null ? queryParams["status.isSoftDeleted"].First() : DBNull.Value);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, archivedPredicate != null ? queryParams["status.isArchived"].First() : DBNull.Value);
 
             await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
             {
