@@ -76,5 +76,7 @@ CREATE INDEX IF NOT EXISTS instances_appid_taskId ON storage.instances(appId, ta
 CREATE INDEX IF NOT EXISTS instances_appid_lastchanged ON storage.instances(appId, lastChanged);
 CREATE INDEX IF NOT EXISTS instances_lastchanged ON storage.instances(lastChanged);
 CREATE INDEX IF NOT EXISTS instances_org ON storage.instances(org);
+CREATE INDEX IF NOT EXISTS instances_created ON storage.instances (created);
+--CREATE INDEX IF NOT EXISTS instances_created ON storage.instances ((instance ->> 'Created'));
 
 CREATE INDEX IF NOT EXISTS applications_org ON storage.applications(org);

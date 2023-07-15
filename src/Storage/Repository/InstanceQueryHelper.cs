@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Primitives;
+using Npgsql;
+using NpgsqlTypes;
 
 namespace Altinn.Platform.Storage.Repository
 {
@@ -13,6 +16,98 @@ namespace Altinn.Platform.Storage.Repository
     /// </summary>
     public static class InstanceQueryHelper
     {
+        /// <summary>
+        /// Add postgres parameters from query parameters
+        /// </summary>
+        /// <param name="queryParams">queryParams</param>
+        /// <param name="postgresParams">Postgres params</param>
+        /// <returns>Part of sql string that reflects the parameters added</returns>
+        internal static string AddParametersFromQueryParams(Dictionary<string, StringValues> queryParams, NpgsqlParameterCollection postgresParams)
+        {
+            string sql = null;
+            foreach (KeyValuePair<string, StringValues> param in queryParams)
+            {
+                string queryParameter = param.Key;
+                StringValues queryValues = param.Value;
+
+                switch (queryParameter)
+                {
+                    case "instanceOwner.partyId":
+                        if (queryValues.Count == 1)
+                        {
+                            postgresParams.AddWithValue($"_{queryParameter}", NpgsqlDbType.Integer, queryValues[0]);
+                            sql += $"@{GetPgParamName(queryParameter)}, ";
+                        }
+                        else
+                        {
+                            postgresParams.AddWithValue($"_{queryParameter}s", NpgsqlDbType.Array | NpgsqlDbType.Integer, queryValues.Select(p => int.Parse(p)).ToArray());
+                            sql += $"@{GetPgParamName(queryParameter)}s, ";
+                        }
+
+                        break;
+                    case "size":
+                    case "continuationToken":
+                        // handled outside this method
+                        break;
+                    case "appId":
+                    case "org":
+                    case "excludeConfirmedBy":
+                    case "process.currentTask":
+                    case "archiveReference":
+                        postgresParams.AddWithValue(GetPgParamName(queryParameter), NpgsqlDbType.Text, queryValues[0]);
+                        sql += $"@{GetPgParamName(queryParameter)}, ";
+                        break;
+                    case "process.isComplete":
+                    case "status.isArchived":
+                    case "status.isSoftDeleted":
+                    case "status.isHardDeleted":
+                    case "status.isArchivedOrSoftDeleted":
+                    case "status.isActiveOrSoftDeleted":
+                        postgresParams.AddWithValue(GetPgParamName(queryParameter), NpgsqlDbType.Boolean, bool.Parse(queryValues[0]));
+                        sql += $"@{GetPgParamName(queryParameter)}, ";
+                        break;
+                    case "sortBy":
+                        postgresParams.AddWithValue(GetPgParamName(queryParameter), NpgsqlDbType.Boolean, true);
+                        sql += $"@{GetPgParamName(queryParameter)}, ";
+                        break;
+                    case "process.endEvent":
+                    case "language":
+                        break;
+                    case "lastChanged":
+                    case "created":
+                    case "visibleAfter":
+                    case "dueBefore":
+                    case "process.ended":
+                        sql += AddDateParam(queryParameter, queryValues, postgresParams, sql);
+                        break;
+
+                    default:
+                        throw new ArgumentException($"Unknown query parameter: {queryParameter}");
+                }
+            }
+
+            return sql;
+        }
+
+        private static string GetPgParamName(string queryParameter)
+        {
+            return "_" + queryParameter.Replace(".", "_");
+        }
+
+        private static string AddDateParam(string dateParam, StringValues queryValues, NpgsqlParameterCollection postgresParams, string sql)
+        {
+            foreach (string value in queryValues)
+            {
+                string @operator = value.Split(':')[0];
+                string dateValue = value.Substring(@operator.Length + 1);
+                string postgresParamName = GetPgParamName($"{value}_{@operator}");
+                postgresParams.AddWithValue(postgresParamName, NpgsqlDbType.TimestampTz, dateValue);
+                sql += $"@{postgresParamName}, ";
+            }
+
+            return sql;
+        }
+
         /// <summary>
         /// Build query from parameters
         /// </summary>

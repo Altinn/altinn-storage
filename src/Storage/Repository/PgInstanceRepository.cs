@@ -26,10 +26,21 @@ namespace Altinn.Platform.Storage.Repository
         private static readonly string _insertSql = "call storage.insertinstance ($1, $2, $3, $4, $5, $6, $7, $8)";
         private static readonly string _upsertSql = "call storage.upsertinstance ($1, $2, $3, $4, $5, $6, $7, $8)";
         private static readonly string _readSql = "select * from storage.readinstance ($1)";
+        private static readonly string _readSqlFiltered = "select * from storage.readinstancefromquery (";
         private static readonly string _readSqlNoElements = "select * from storage.readinstancenoelements ($1)";
 
         private readonly ILogger<PgInstanceRepository> _logger;
         private readonly NpgsqlDataSource _dataSource;
+
+        static PgInstanceRepository()
+        {
+            for (int i = 1; i <= _paramTypes.Count(); i++)
+            {
+                _readSqlFiltered += $"${i}, ";
+            }
+
+            _readSqlFiltered = _readSqlFiltered[..^2] + ")";
+        }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PgInstanceRepository"/> class.
@@ -68,137 +79,35 @@ namespace Altinn.Platform.Storage.Repository
             string continuationToken,
             int size)
         {
-            InstanceQueryResponse queryResponse = new() { Count = 0, Instances = new() };
-            long continueIdx = string.IsNullOrEmpty(continuationToken) ? -1 : long.Parse(continuationToken);
-            int maxIterations = 100_000;
-            int currentIteration = 0;
-            while (queryResponse.Count < size)
+            try
             {
-                if (++currentIteration > maxIterations)
-                {
-                    queryResponse.Exception = "Please narrow the seach parameters. The current search is too slow.";
-                    return queryResponse;
-                }
-
-                (IQueryable<Instance> queryBuilder, continueIdx) = await GetInstances(size - (int)queryResponse.Count, continueIdx, queryParams);
-                try
-                {
-                    if (queryBuilder.Any())
-                    {
-                        queryBuilder = InstanceQueryHelper.BuildQueryFromParameters(queryParams, queryBuilder, new());
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-                catch (Exception e)
-                {
-                    queryResponse.Exception = e.Message;
-                    return queryResponse;
-                }
-
-                try
-                {
-                    var instancesThisIteration = queryBuilder.ToList();
-                    if (instancesThisIteration.Count > 0)
-                    {
-                        queryResponse.Instances.AddRange(instancesThisIteration);
-                        queryResponse.Count += instancesThisIteration.Count;
-                    }
-
-                    if (queryResponse.Count == size || continueIdx < 0)
-                    {
-                        if (continueIdx >= 0)
-                        {
-                            queryResponse.ContinuationToken = continueIdx.ToString();
-                        }
-
-                        break;
-                    }
-                }
-                catch (Exception e)
-                {
-                    _logger.LogError(e, "Exception querying PostgreSQL for instances");
-                    queryResponse.Exception = e.Message;
-                    break;
-                }
+                return await GetInstancesInternal(queryParams, continuationToken, size);
             }
-
-            return queryResponse;
+            catch (Exception e)
+            {
+                return new() { Count = 0, Instances = new(), Exception = e.Message };
+            }
         }
 
-        private async Task<(IQueryable<Instance> InstancesAsQueriable, long Count)> GetInstances(int size, long continueIdx, Dictionary<string, StringValues> queryParams)
+        private async Task<InstanceQueryResponse> GetInstancesInternal(
+            Dictionary<string, StringValues> queryParams,
+            string continuationToken,
+            int size)
         {
             Instance instance = null;
-            List<Instance> instances = new();
             long id = -1;
-            string partyPredicate = null;
-            int partyId = 0;
-            int[] partyIdArray = null;
+            InstanceQueryResponse queryResponse = new() { Count = 0, Instances = new() };
+            long continueIdx = string.IsNullOrEmpty(continuationToken) ? -1 : long.Parse(continuationToken);
 
-            if (queryParams.TryGetValue("instanceOwner.partyId", out StringValues partyIdStringValues))
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSqlFiltered);
+
+            Dictionary<string, object> postgresParams = AddParametersFromQueryParams(queryParams);
+            postgresParams.Add("_continue_idx", continueIdx);
+            postgresParams.Add("_size", size);
+            foreach (string name in _paramTypes.Keys)
             {
-                if (partyIdStringValues.Count == 1)
-                {
-                    partyId = int.Parse(partyIdStringValues.First());
-                    partyPredicate = $" AND partyId = $3 ";
-                }
-                else if (partyIdStringValues.Count > 1)
-                {
-                    partyIdArray = partyIdStringValues.Select(p => int.Parse(p)).ToArray();
-                    partyPredicate = $" AND partyId = ANY ($3) ";
-                }
+                pgcom.Parameters.AddWithValue(_paramTypes[name], postgresParams.ContainsKey(name) ? postgresParams[name] : DBNull.Value);
             }
-
-            string taskPredicate = queryParams.ContainsKey("process.currentTask") ? " AND taskId ILIKE $4" : null;
-            string appIdPredicate = queryParams.ContainsKey("appId") ? " AND appId ILIKE $6" : null;
-            string orgPredicate = appIdPredicate == null && queryParams.ContainsKey("org") ? " AND org ILIKE $5" : null;
-            string hardDeletedPredicate = queryParams.ContainsKey("status.isHardDeleted") ? " AND instance->'Status'->>'IsHardDeleted' = $9" : null;
-            string softDeletedPredicate = queryParams.ContainsKey("status.isSoftDeleted") ? " AND instance->'Status'->>'IsSoftDeleted' = $10" : null;
-            string archivedPredicate = queryParams.ContainsKey("status.isArchived") ? " AND instance->'Status'->>'IsArchived' = $11" : null;
-            (string lastChangedPredicate, DateTime lastChanged) = InstanceQueryHelper.ConvertTimestampParameter("lastChanged", queryParams, 7);
-            (string createdPredicate, DateTime created) = InstanceQueryHelper.ConvertTimestampParameter("created", queryParams, 8);
-
-            string readManySql =
-                $"WITH instances AS " +
-                $"( " +
-                $"    SELECT id, instance FROM storage.instances " +
-                $"    WHERE id > $1 " + partyPredicate + taskPredicate + orgPredicate + appIdPredicate + lastChangedPredicate +
-                        createdPredicate + hardDeletedPredicate + softDeletedPredicate + archivedPredicate +
-                $"    ORDER BY id " +
-                $"    FETCH FIRST $2 ROWS ONLY " +
-                $") " +
-                $"    SELECT instances.id, instances.instance, element FROM instances LEFT JOIN storage.dataelements d ON instances.id = d.instanceInternalId " +
-                $"    ORDER BY instances.id ";
-
-            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(readManySql);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Bigint, continueIdx);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Integer, size);
-            if (partyIdStringValues != default(StringValues))
-            {
-                if (partyIdStringValues.Count == 1)
-                {
-                    pgcom.Parameters.AddWithValue(NpgsqlDbType.Integer, partyId);
-                }
-                else if (partyIdStringValues.Count > 1)
-                {
-                    pgcom.Parameters.AddWithValue(NpgsqlDbType.Array | NpgsqlDbType.Integer, partyIdArray);
-                }
-            }
-            else
-            {
-                pgcom.Parameters.AddWithValue(NpgsqlDbType.Integer, 0);
-            }
-
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, taskPredicate != null ? queryParams["process.currentTask"].First() : DBNull.Value);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, orgPredicate != null ? queryParams["org"].First() : DBNull.Value);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, appIdPredicate != null ? queryParams["appId"].First() : DBNull.Value);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, lastChanged);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, created);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, hardDeletedPredicate != null ? queryParams["status.isHardDeleted"].First() : DBNull.Value);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, softDeletedPredicate != null ? queryParams["status.isSoftDeleted"].First() : DBNull.Value);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, archivedPredicate != null ? queryParams["status.isArchived"].First() : DBNull.Value);
 
             await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
             {
@@ -210,7 +119,7 @@ namespace Altinn.Platform.Storage.Repository
                     {
                         SetStatuses(instance);
                         instance = reader.GetFieldValue<Instance>("instance");
-                        instances.Add(instance);
+                        queryResponse.Instances.Add(instance);
                         instance.Data = new();
                         previousId = id;
                     }
@@ -222,9 +131,11 @@ namespace Altinn.Platform.Storage.Repository
                 }
 
                 SetStatuses(instance);
+                queryResponse.ContinuationToken = queryResponse.Instances.Count == size ? id.ToString() : null;
             }
 
-            return (instances.AsQueryable(), instances.Count == size ? id : -1);
+            queryResponse.Count = queryResponse.Instances.Count;
+            return queryResponse;
         }
 
         /// <inheritdoc/>
@@ -335,5 +246,150 @@ namespace Altinn.Platform.Storage.Repository
 
             return instance;
         }
+
+        /// <summary>
+        /// Add postgres parameters from query parameters
+        /// </summary>
+        /// <param name="queryParams">queryParams</param>
+        /// <returns>Dictionary with postgres parameters</returns>
+        private static Dictionary<string, object> AddParametersFromQueryParams(Dictionary<string, StringValues> queryParams)
+        {
+            Dictionary<string, object> postgresParams = new();
+            foreach (KeyValuePair<string, StringValues> param in queryParams)
+            {
+                string queryParameter = param.Key;
+                StringValues queryValues = param.Value;
+
+                switch (queryParameter)
+                {
+                    case "instanceOwner.partyId":
+                        if (queryValues.Count == 1)
+                        {
+                            postgresParams.Add($"{GetPgParamName(queryParameter)}", int.Parse(queryValues[0]));
+                        }
+                        else
+                        {
+                            postgresParams.Add($"{GetPgParamName(queryParameter)}s", queryValues.Select(p => int.Parse(p)).ToArray());
+                        }
+
+                        break;
+                    case "size":
+                    case "continuationToken":
+                        // handled outside this method
+                        break;
+                    case "appId":
+                        if (queryValues.Count == 1)
+                        {
+                            postgresParams.Add($"{GetPgParamName(queryParameter)}", queryValues[0]);
+                        }
+                        else
+                        {
+                            postgresParams.Add($"{GetPgParamName(queryParameter)}s", queryValues.ToArray());
+                        }
+
+                        break;
+                    case "org":
+                    case "excludeConfirmedBy":
+                        postgresParams.Add(GetPgParamName(queryParameter), queryValues.ToArray());
+                        break;
+                    case "process.currentTask":
+                        postgresParams.Add(GetPgParamName(queryParameter), queryValues[0]);
+                        break;
+                    case "archiveReference":
+                        postgresParams.Add(GetPgParamName(queryParameter), queryValues[0].ToLower());
+                        break;
+                    case "status.isArchived":
+                    case "status.isSoftDeleted":
+                    case "status.isHardDeleted":
+                    case "process.isComplete":
+                    case "status.isArchivedOrSoftDeleted":
+                    case "status.isActiveOrSoftDeleted":
+                        postgresParams.Add(GetPgParamName(queryParameter), bool.Parse(queryValues[0]));
+                        break;
+                    case "sortBy":
+                        postgresParams.Add(GetPgParamName(queryParameter), true);
+                        break;
+                    case "process.endEvent":
+                    case "language":
+                        break;
+                    case "lastChanged":
+                    case "created":
+                        AddDateParam(queryParameter, queryValues, postgresParams, false);
+                        break;
+                    case "visibleAfter":
+                    case "dueBefore":
+                    case "process.ended":
+                        AddDateParam(queryParameter, queryValues, postgresParams, true);
+                        break;
+                    default:
+                        throw new ArgumentException($"Unknown query parameter: {queryParameter}");
+                }
+            }
+
+            return postgresParams;
+        }
+
+        private static void AddDateParam(string dateParam, StringValues queryValues, Dictionary<string, object> postgresParams, bool valueAsString)
+        {
+            foreach (string value in queryValues)
+            {
+                string @operator = value.Split(':')[0];
+                string dateValue = value.Substring(@operator.Length + 1);
+                string postgresParamName = GetPgParamName($"{dateParam}_{@operator}");
+                postgresParams.Add(postgresParamName, valueAsString ? dateValue : DateTimeHelper.ParseAndConvertToUniversalTime(dateValue));
+            }
+        }
+
+        private static string GetPgParamName(string queryParameter)
+        {
+            return "_" + queryParameter.Replace(".", "_");
+        }
+
+        private static Dictionary<string, NpgsqlDbType> _paramTypes = new()
+        {
+            // This dictionary should be sorted alphabetically by key to match the sorted parameter list to the db function
+            { "_appId", NpgsqlDbType.Text },
+            { "_appIds", NpgsqlDbType.Text | NpgsqlDbType.Array },
+            { "_archiveReference", NpgsqlDbType.Text },
+            { "_continue_idx", NpgsqlDbType.Bigint },
+            { "_created_eq", NpgsqlDbType.TimestampTz },
+            { "_created_gt", NpgsqlDbType.TimestampTz },
+            { "_created_gte", NpgsqlDbType.TimestampTz },
+            { "_created_lt", NpgsqlDbType.TimestampTz },
+            { "_created_lte", NpgsqlDbType.TimestampTz },
+            { "_dueBefore_eq", NpgsqlDbType.Text },
+            { "_dueBefore_gt", NpgsqlDbType.Text },
+            { "_dueBefore_gte", NpgsqlDbType.Text },
+            { "_dueBefore_lt", NpgsqlDbType.Text },
+            { "_dueBefore_lte", NpgsqlDbType.Text },
+            { "_excludeConfirmedBy", NpgsqlDbType.Text | NpgsqlDbType.Array },
+            { "_instanceOwner_partyId", NpgsqlDbType.Integer },
+            { "_instanceOwner_partyIds", NpgsqlDbType.Integer | NpgsqlDbType.Array },
+            { "_lastChanged_eq", NpgsqlDbType.TimestampTz },
+            { "_lastChanged_gt", NpgsqlDbType.TimestampTz },
+            { "_lastChanged_gte", NpgsqlDbType.TimestampTz },
+            { "_lastChanged_lt", NpgsqlDbType.TimestampTz },
+            { "_lastChanged_lte", NpgsqlDbType.TimestampTz },
+            { "_org", NpgsqlDbType.Text },
+            { "_process_currentTask", NpgsqlDbType.Text },
+            { "_process_ended_eq", NpgsqlDbType.Text },
+            { "_process_ended_gt", NpgsqlDbType.Text },
+            { "_process_ended_gte", NpgsqlDbType.Text },
+            { "_process_ended_lt", NpgsqlDbType.Text },
+            { "_process_ended_lte", NpgsqlDbType.Text },
+            { "_process_isComplete", NpgsqlDbType.Boolean },
+            { "_size", NpgsqlDbType.Integer },
+            { "_sortBy", NpgsqlDbType.Boolean },
+            { "_status_isActiveOrSoftDeleted", NpgsqlDbType.Boolean },
+            { "_status_isArchived", NpgsqlDbType.Boolean },
+            { "_status_isArchivedOrSoftDeleted", NpgsqlDbType.Boolean },
+            { "_status_isHardDeleted", NpgsqlDbType.Boolean },
+            { "_status_isSoftDeleted", NpgsqlDbType.Boolean },
+            { "_visibleAfter_eq", NpgsqlDbType.Text },
+            { "_visibleAfter_gt", NpgsqlDbType.Text },
+            { "_visibleAfter_gte", NpgsqlDbType.Text },
+            { "_visibleAfter_lt", NpgsqlDbType.Text },
+            { "_visibleAfter_lte", NpgsqlDbType.Text },
+        };
     }
 }
