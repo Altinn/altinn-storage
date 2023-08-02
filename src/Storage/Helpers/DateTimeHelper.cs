@@ -56,18 +56,6 @@ namespace Altinn.Platform.Storage.Helpers
         /// <returns>The parsed DateTime value.</returns>
         public static DateTime ParseAndConvertToUniversalTime(string serializedDateTime)
         {
-            if (serializedDateTime.IndexOf('T', StringComparison.OrdinalIgnoreCase) > -1)
-            {
-                string[] dateParts = serializedDateTime.Split('T');
-                string timePart = dateParts[1];
-                if (timePart.Length >= 8)
-                {
-                    // Ensure that there are colons between hour, minute and seconds
-                    serializedDateTime = $"{dateParts[0]}T{timePart[0..2]}:{timePart[3..5]}:{timePart[6..8]}" +
-                        $"{(timePart.Length > 8 ? $".{timePart[9..]}" : null)}";
-                }
-            }
-
             return DateTime.Parse(serializedDateTime, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
         }
 
