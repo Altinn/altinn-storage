@@ -74,6 +74,7 @@ CREATE INDEX IF NOT EXISTS instances_partyid ON storage.instances(partyId);
 CREATE INDEX IF NOT EXISTS instances_appid ON storage.instances(appId);
 CREATE INDEX IF NOT EXISTS instances_appid_taskId ON storage.instances(appId, taskId);
 CREATE INDEX IF NOT EXISTS instances_appid_lastchanged ON storage.instances(appId, lastChanged);
+CREATE INDEX IF NOT EXISTS instances_partyid_lastchanged ON storage.instances(partyId, lastChanged);
 CREATE INDEX IF NOT EXISTS instances_lastchanged ON storage.instances(lastChanged);
 CREATE INDEX IF NOT EXISTS instances_org ON storage.instances(org);
 CREATE INDEX IF NOT EXISTS instances_created ON storage.instances (created);

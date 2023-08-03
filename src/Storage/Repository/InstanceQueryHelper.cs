@@ -17,98 +17,6 @@ namespace Altinn.Platform.Storage.Repository
     public static class InstanceQueryHelper
     {
         /// <summary>
-        /// Add postgres parameters from query parameters
-        /// </summary>
-        /// <param name="queryParams">queryParams</param>
-        /// <param name="postgresParams">Postgres params</param>
-        /// <returns>Part of sql string that reflects the parameters added</returns>
-        internal static string AddParametersFromQueryParams(Dictionary<string, StringValues> queryParams, NpgsqlParameterCollection postgresParams)
-        {
-            string sql = null;
-            foreach (KeyValuePair<string, StringValues> param in queryParams)
-            {
-                string queryParameter = param.Key;
-                StringValues queryValues = param.Value;
-
-                switch (queryParameter)
-                {
-                    case "instanceOwner.partyId":
-                        if (queryValues.Count == 1)
-                        {
-                            postgresParams.AddWithValue($"_{queryParameter}", NpgsqlDbType.Integer, queryValues[0]);
-                            sql += $"@{GetPgParamName(queryParameter)}, ";
-                        }
-                        else
-                        {
-                            postgresParams.AddWithValue($"_{queryParameter}s", NpgsqlDbType.Array | NpgsqlDbType.Integer, queryValues.Select(p => int.Parse(p)).ToArray());
-                            sql += $"@{GetPgParamName(queryParameter)}s, ";
-                        }
-
-                        break;
-                    case "size":
-                    case "continuationToken":
-                        // handled outside this method
-                        break;
-                    case "appId":
-                    case "org":
-                    case "excludeConfirmedBy":
-                    case "process.currentTask":
-                    case "archiveReference":
-                        postgresParams.AddWithValue(GetPgParamName(queryParameter), NpgsqlDbType.Text, queryValues[0]);
-                        sql += $"@{GetPgParamName(queryParameter)}, ";
-                        break;
-                    case "process.isComplete":
-                    case "status.isArchived":
-                    case "status.isSoftDeleted":
-                    case "status.isHardDeleted":
-                    case "status.isArchivedOrSoftDeleted":
-                    case "status.isActiveOrSoftDeleted":
-                        postgresParams.AddWithValue(GetPgParamName(queryParameter), NpgsqlDbType.Boolean, bool.Parse(queryValues[0]));
-                        sql += $"@{GetPgParamName(queryParameter)}, ";
-                        break;
-                    case "sortBy":
-                        postgresParams.AddWithValue(GetPgParamName(queryParameter), NpgsqlDbType.Boolean, true);
-                        sql += $"@{GetPgParamName(queryParameter)}, ";
-                        break;
-                    case "process.endEvent":
-                    case "language":
-                        break;
-                    case "lastChanged":
-                    case "created":
-                    case "visibleAfter":
-                    case "dueBefore":
-                    case "process.ended":
-                        sql += AddDateParam(queryParameter, queryValues, postgresParams, sql);
-                        break;
-
-                    default:
-                        throw new ArgumentException($"Unknown query parameter: {queryParameter}");
-                }
-            }
-
-            return sql;
-        }
-
-        private static string GetPgParamName(string queryParameter)
-        {
-            return "_" + queryParameter.Replace(".", "_");
-        }
-
-        private static string AddDateParam(string dateParam, StringValues queryValues, NpgsqlParameterCollection postgresParams, string sql)
-        {
-            foreach (string value in queryValues)
-            {
-                string @operator = value.Split(':')[0];
-                string dateValue = value.Substring(@operator.Length + 1);
-                string postgresParamName = GetPgParamName($"{value}_{@operator}");
-                postgresParams.AddWithValue(postgresParamName, NpgsqlDbType.TimestampTz, dateValue);
-                sql += $"@{postgresParamName}, ";
-            }
-
-            return sql;
-        }
-
-        /// <summary>
         /// Build query from parameters
         /// </summary>
         /// <param name="queryParams">queryParams</param>
@@ -241,35 +149,6 @@ namespace Altinn.Platform.Storage.Repository
             }
 
             return queryBuilder;
-        }
-
-        /// <summary>
-        /// Convert timestamp based query params predicate to postgres predicate
-        /// </summary>
-        /// <param name="timestampKey">Key from query</param>
-        /// <param name="queryParams">The query params</param>
-        /// <param name="parameterNr">Positional parameter nr i postqres query</param>
-        /// <param name="timestampColumn">Postgres column name if different from timestampkey</param>
-        /// <returns>Postgres predicate and datetime object to use in postgres api</returns>
-        internal static (string Predicate, DateTime TimeStamp) ConvertTimestampParameter(string timestampKey, Dictionary<string, StringValues> queryParams, int parameterNr, string timestampColumn = null)
-        {
-            if (!queryParams.ContainsKey(timestampKey))
-            {
-                return (null, DateTime.MinValue);
-            }
-
-            timestampColumn ??= timestampKey;
-            string timestampValue = queryParams[timestampKey].First();
-            string @operator = timestampValue.Split(':')[0] switch
-            {
-                "gt" => ">",
-                "gte" => ">=",
-                "lt" => "<",
-                "lte" => "<=",
-                "eq" => "=",
-                _ => throw new Exception("Unexpeted parameter " + timestampValue),
-            };
-            return ($" AND {timestampColumn} {@operator} ${parameterNr}", ParseDateTimeIntoUtc(timestampValue[(timestampValue.Split(':')[0].Length + 1)..]));
         }
 
         // Limitations in queryBuilder.Where interface forces me to duplicate the datetime methods

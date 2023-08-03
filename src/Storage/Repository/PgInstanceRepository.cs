@@ -96,13 +96,16 @@ namespace Altinn.Platform.Storage.Repository
         {
             Instance instance = null;
             long id = -1;
+            DateTime lastChanged = DateTime.MinValue;
             InstanceQueryResponse queryResponse = new() { Count = 0, Instances = new() };
-            long continueIdx = string.IsNullOrEmpty(continuationToken) ? -1 : long.Parse(continuationToken);
+            long continueIdx = string.IsNullOrEmpty(continuationToken) ? -1 : long.Parse(continuationToken.Split(';')[1]);
+            DateTime lastChangeIdx = string.IsNullOrEmpty(continuationToken) ? DateTime.MinValue : new DateTime(long.Parse(continuationToken.Split(';')[0]), DateTimeKind.Utc);
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSqlFiltered);
 
             Dictionary<string, object> postgresParams = AddParametersFromQueryParams(queryParams);
             postgresParams.Add("_continue_idx", continueIdx);
+            postgresParams.Add("_lastChanged_idx", lastChangeIdx);
             postgresParams.Add("_size", size);
             foreach (string name in _paramTypes.Keys)
             {
@@ -119,6 +122,7 @@ namespace Altinn.Platform.Storage.Repository
                     {
                         SetStatuses(instance);
                         instance = reader.GetFieldValue<Instance>("instance");
+                        lastChanged = instance.LastChanged ?? DateTime.MinValue;
                         queryResponse.Instances.Add(instance);
                         instance.Data = new();
                         previousId = id;
@@ -131,7 +135,7 @@ namespace Altinn.Platform.Storage.Repository
                 }
 
                 SetStatuses(instance);
-                queryResponse.ContinuationToken = queryResponse.Instances.Count == size ? id.ToString() : null;
+                queryResponse.ContinuationToken = queryResponse.Instances.Count == size ? $"{lastChanged.Ticks};{id}" : null;
             }
 
             queryResponse.Count = queryResponse.Instances.Count;
@@ -197,7 +201,7 @@ namespace Altinn.Platform.Storage.Repository
             {
                 instance.Status.ReadStatus = ReadStatus.UpdatedSinceLastReview;
             }
-            else if (instance.Status.ReadStatus == ReadStatus.Read && !instance.Data.Exists(d => d.IsRead))
+            else if (instance.Status.ReadStatus == ReadStatus.Read && instance.Data.Count > 0 && !instance.Data.Exists(d => d.IsRead))
             {
                 instance.Status.ReadStatus = ReadStatus.Unread;
             }
@@ -288,10 +292,10 @@ namespace Altinn.Platform.Storage.Repository
                         }
 
                         break;
-                    case "org":
                     case "excludeConfirmedBy":
                         postgresParams.Add(GetPgParamName(queryParameter), queryValues.ToArray());
                         break;
+                    case "org":
                     case "process.currentTask":
                         postgresParams.Add(GetPgParamName(queryParameter), queryValues[0]);
                         break;
@@ -307,7 +311,7 @@ namespace Altinn.Platform.Storage.Repository
                         postgresParams.Add(GetPgParamName(queryParameter), bool.Parse(queryValues[0]));
                         break;
                     case "sortBy":
-                        postgresParams.Add(GetPgParamName(queryParameter), true);
+                        postgresParams.Add("_sort_ascending", !queryValues[0].StartsWith("desc:", StringComparison.OrdinalIgnoreCase));
                         break;
                     case "process.endEvent":
                     case "language":
@@ -368,6 +372,7 @@ namespace Altinn.Platform.Storage.Repository
             { "_lastChanged_eq", NpgsqlDbType.TimestampTz },
             { "_lastChanged_gt", NpgsqlDbType.TimestampTz },
             { "_lastChanged_gte", NpgsqlDbType.TimestampTz },
+            { "_lastChanged_idx", NpgsqlDbType.TimestampTz },
             { "_lastChanged_lt", NpgsqlDbType.TimestampTz },
             { "_lastChanged_lte", NpgsqlDbType.TimestampTz },
             { "_org", NpgsqlDbType.Text },
@@ -379,7 +384,7 @@ namespace Altinn.Platform.Storage.Repository
             { "_process_ended_lte", NpgsqlDbType.Text },
             { "_process_isComplete", NpgsqlDbType.Boolean },
             { "_size", NpgsqlDbType.Integer },
-            { "_sortBy", NpgsqlDbType.Boolean },
+            { "_sort_ascending", NpgsqlDbType.Boolean },
             { "_status_isActiveOrSoftDeleted", NpgsqlDbType.Boolean },
             { "_status_isArchived", NpgsqlDbType.Boolean },
             { "_status_isArchivedOrSoftDeleted", NpgsqlDbType.Boolean },
