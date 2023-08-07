@@ -14,7 +14,7 @@ CREATE OR REPLACE FUNCTION storage.readinstancefromquery(
     _dueBefore_gte TEXT DEFAULT NULL,
     _dueBefore_lt TEXT DEFAULT NULL,
     _dueBefore_lte TEXT DEFAULT NULL,
-    _excludeConfirmedBy TEXT[] DEFAULT NULL,
+    _excludeConfirmedBy JSONB[] DEFAULT NULL,
     _instanceOwner_partyId INTEGER DEFAULT NULL,
     _instanceOwner_partyIds INTEGER[] DEFAULT NULL,
     _lastChanged_eq TIMESTAMPTZ DEFAULT NULL,
@@ -70,7 +70,7 @@ RETURN QUERY
             AND (_dueBefore_lte IS NULL OR i.instance ->> 'DueBefore' <= _dueBefore_lte)
             AND (_dueBefore_lt  IS NULL OR i.instance ->> 'DueBefore' <  _dueBefore_lt)
             AND (_dueBefore_eq   IS NULL OR i.instance ->> 'DueBefore' =  _dueBefore_eq)
-			AND (_excludeConfirmedBy IS NULL OR NOT i.instance -> 'CompleteConfirmations' -> 'StakeholderId' ?| _excludeConfirmedBy) --TODO this doesn't work
+			AND (_excludeConfirmedBy IS NULL OR i.instance -> 'CompleteConfirmations' IS NULL OR NOT i.instance -> 'CompleteConfirmations' @> ANY (_excludeConfirmedBy))
 			AND (_instanceOwner_partyId IS NULL OR partyId = _instanceOwner_partyId)
 			AND (_instanceOwner_partyIds IS NULL OR partyId = ANY(_instanceOwner_partyIds))
             AND (_lastChanged_gte IS NULL OR i.lastchanged >= _lastChanged_gte)
@@ -102,7 +102,11 @@ RETURN QUERY
             i.id
         FETCH FIRST _size ROWS ONLY
     )
-        SELECT filteredInstances.id, filteredInstances.instance, d.element FROM filteredInstances LEFT JOIN storage.dataelements d ON filteredInstances.id = d.instanceInternalId;
+        SELECT filteredInstances.id, filteredInstances.instance, d.element FROM filteredInstances LEFT JOIN storage.dataelements d ON filteredInstances.id = d.instanceInternalId
+        ORDER BY
+            (CASE WHEN _sort_ascending IS NOT NULL AND _sort_ascending = true THEN filteredInstances.lastChanged END) ASC,
+		    (CASE WHEN _sort_ascending IS NULL OR _sort_ascending = false THEN filteredInstances.lastChanged END) DESC,
+            filteredInstances.id;
 END;
 $BODY$;
 

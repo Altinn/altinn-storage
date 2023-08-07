@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -8,9 +9,7 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Npgsql;
 using NpgsqlTypes;
@@ -89,6 +88,67 @@ namespace Altinn.Platform.Storage.Repository
             }
         }
 
+        private static string FormatManualFunctionCall(Dictionary<string, object> postgresParams)
+        {
+            string command = "select * from storage.readinstancefromquery (";
+            foreach (string name in _paramTypes.Keys)
+            {
+                command += $"{name} => ";
+                string value = "NULL";
+                if (postgresParams.ContainsKey(name))
+                {
+                    value = _paramTypes[name] switch
+                    {
+                        NpgsqlDbType.Text => $"'{postgresParams[name]}'",
+                        NpgsqlDbType.Bigint => $"{postgresParams[name].ToString()}",
+                        NpgsqlDbType.TimestampTz => $"{((DateTime)postgresParams[name] != DateTime.MinValue ? "'" + ((DateTime)postgresParams[name]).ToString(DateTimeHelper.Iso8601UtcFormat, CultureInfo.InvariantCulture) + "'" : "NULL")}",
+                        NpgsqlDbType.Integer => $"{postgresParams[name]}",
+                        NpgsqlDbType.Boolean => $"{postgresParams[name].ToString()}",
+                        NpgsqlDbType.Text | NpgsqlDbType.Array => ArrayVariableFromText((string[])postgresParams[name]),
+                        NpgsqlDbType.Jsonb | NpgsqlDbType.Array => ArrayVariableFromJsonText((string[])postgresParams[name]),
+                        NpgsqlDbType.Integer | NpgsqlDbType.Array => ArrayVariableFromInteger((int[])postgresParams[name])
+                    };
+                }
+
+                command += value + ", ";
+            }
+
+            return command[..^2] + ");";
+        }
+
+        private static string ArrayVariableFromText(string[] arr)
+        {
+            string value = "'{";
+            foreach (string param in arr)
+            {
+                value += $"\"{param}\", ";
+            }
+
+            return value[..^2] + "}'";
+        }
+
+        private static string ArrayVariableFromJsonText(string[] arr)
+        {
+            string value = "ARRAY [";
+            foreach (string param in arr)
+            {
+                value += $"'{param}', ";
+            }
+
+            return value[..^2] + "]::jsonb[]";
+        }
+
+        private static string ArrayVariableFromInteger(int[] arr)
+        {
+            string value = "'{";
+            foreach (int param in arr)
+            {
+                value += $"{param}, ";
+            }
+
+            return value[..^2] + "}'";
+        }
+
         private async Task<InstanceQueryResponse> GetInstancesInternal(
             Dictionary<string, StringValues> queryParams,
             string continuationToken,
@@ -110,6 +170,11 @@ namespace Altinn.Platform.Storage.Repository
             foreach (string name in _paramTypes.Keys)
             {
                 pgcom.Parameters.AddWithValue(_paramTypes[name], postgresParams.ContainsKey(name) ? postgresParams[name] : DBNull.Value);
+            }
+
+            if (_logger.IsEnabled(LogLevel.Debug))
+            {
+                _logger.LogDebug(FormatManualFunctionCall(postgresParams));
             }
 
             await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
@@ -293,7 +358,7 @@ namespace Altinn.Platform.Storage.Repository
 
                         break;
                     case "excludeConfirmedBy":
-                        postgresParams.Add(GetPgParamName(queryParameter), queryValues.ToArray());
+                        postgresParams.Add(GetPgParamName(queryParameter), GetExcludeConfirmedBy(queryValues));
                         break;
                     case "org":
                     case "process.currentTask":
@@ -333,6 +398,18 @@ namespace Altinn.Platform.Storage.Repository
             return postgresParams;
         }
 
+        private static string[] GetExcludeConfirmedBy(StringValues queryValues)
+        {
+            List<string> confirmations = new();
+
+            foreach (var queryParameter in queryValues)
+            {
+                confirmations.Add($"[{{\"StakeholderId\":\"{queryParameter}\"}}]");
+            }
+
+            return confirmations.ToArray();
+        }
+
         private static void AddDateParam(string dateParam, StringValues queryValues, Dictionary<string, object> postgresParams, bool valueAsString)
         {
             foreach (string value in queryValues)
@@ -366,7 +443,7 @@ namespace Altinn.Platform.Storage.Repository
             { "_dueBefore_gte", NpgsqlDbType.Text },
             { "_dueBefore_lt", NpgsqlDbType.Text },
             { "_dueBefore_lte", NpgsqlDbType.Text },
-            { "_excludeConfirmedBy", NpgsqlDbType.Text | NpgsqlDbType.Array },
+            { "_excludeConfirmedBy", NpgsqlDbType.Jsonb | NpgsqlDbType.Array },
             { "_instanceOwner_partyId", NpgsqlDbType.Integer },
             { "_instanceOwner_partyIds", NpgsqlDbType.Integer | NpgsqlDbType.Array },
             { "_lastChanged_eq", NpgsqlDbType.TimestampTz },
