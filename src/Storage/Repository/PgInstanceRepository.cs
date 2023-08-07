@@ -172,6 +172,7 @@ namespace Altinn.Platform.Storage.Repository
                 pgcom.Parameters.AddWithValue(_paramTypes[name], postgresParams.ContainsKey(name) ? postgresParams[name] : DBNull.Value);
             }
 
+            // System.IO.File.WriteAllText(@"c:\temp\FormatManualFunctionCall.sql", FormatManualFunctionCall(postgresParams));
             if (_logger.IsEnabled(LogLevel.Debug))
             {
                 _logger.LogDebug(FormatManualFunctionCall(postgresParams));

@@ -252,7 +252,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     CosmosClient cosmosClient = new(cosmosSettings.EndpointUri, cosmosSettings.PrimaryKey, options);
     services.AddSingleton(cosmosClient);
 
-    if (generalSettings.UsePostgreSQL)
+    if (generalSettings.UsePostgreSQL && false)
     {
         PostgreSqlSettings postgresSettings = config.GetSection("PostgreSqlSettings").Get<PostgreSqlSettings>();
         services.AddRepositoriesPostgreSQL(string.Format(postgresSettings.ConnectionString, postgresSettings.StorageDbPwd), postgresSettings.LogParameters);
@@ -260,6 +260,9 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     else
     {
         services.AddRepositoriesCosmos();
+
+        PostgreSqlSettings postgresSettings = config.GetSection("PostgreSqlSettings").Get<PostgreSqlSettings>();
+        services.AddTestRepositories(string.Format(postgresSettings.ConnectionString, postgresSettings.StorageDbPwd), postgresSettings.LogParameters);
     }
 
     services.AddSingleton<ISasTokenProvider, SasTokenProvider>();

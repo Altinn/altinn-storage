@@ -30,7 +30,7 @@ namespace Altinn.Platform.Storage.Authorization
     /// </summary>
     public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
     {
-        private readonly IInstanceRepository _instanceRepository;
+        private readonly ITestInstanceRepository _instanceRepository;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IPDP _pdp;
         private readonly ILogger _logger;
@@ -51,7 +51,7 @@ namespace Altinn.Platform.Storage.Authorization
             IPDP pdp,
             IOptions<PepSettings> pepSettings,
             ILogger<StorageAccessHandler> logger,
-            IInstanceRepository instanceRepository,
+            ITestInstanceRepository instanceRepository,
             IMemoryCache memoryCache)
         {
             _httpContextAccessor = httpContextAccessor;

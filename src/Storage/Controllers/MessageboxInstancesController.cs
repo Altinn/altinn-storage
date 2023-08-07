@@ -24,7 +24,7 @@ namespace Altinn.Platform.Storage.Controllers
     [ApiController]
     public class MessageBoxInstancesController : ControllerBase
     {
-        private readonly IInstanceRepository _instanceRepository;
+        private readonly ITestInstanceRepository _instanceRepository;
         private readonly IInstanceEventRepository _instanceEventRepository;
         private readonly ITextRepository _textRepository;
         private readonly IApplicationRepository _applicationRepository;
@@ -39,7 +39,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="applicationRepository">the application repository handler</param>
         /// <param name="authorizationService">the authorization service</param>
         public MessageBoxInstancesController(
-            IInstanceRepository instanceRepository,
+            ITestInstanceRepository instanceRepository,
             IInstanceEventRepository instanceEventRepository,
             ITextRepository textRepository,
             IApplicationRepository applicationRepository,

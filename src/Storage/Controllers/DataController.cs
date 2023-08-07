@@ -37,7 +37,7 @@ namespace Altinn.Platform.Storage.Controllers
         private static readonly FormOptions _defaultFormOptions = new();
 
         private readonly IDataRepository _dataRepository;
-        private readonly IInstanceRepository _instanceRepository;
+        private readonly ITestInstanceRepository _instanceRepository;
         private readonly IApplicationRepository _applicationRepository;
         private readonly IDataService _dataService;
         private readonly IInstanceEventService _instanceEventService;
@@ -54,7 +54,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="generalSettings">the general settings.</param>
         public DataController(
             IDataRepository dataRepository,
-            IInstanceRepository instanceRepository,
+            ITestInstanceRepository instanceRepository,
             IApplicationRepository applicationRepository,
             IDataService dataService,
             IInstanceEventService instanceEventService,

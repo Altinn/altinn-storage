@@ -20,7 +20,7 @@ namespace Altinn.Platform.Storage.Controllers;
 [ApiController]
 public class DataLockController : ControllerBase
 {
-    private readonly IInstanceRepository _instanceRepository;
+    private readonly ITestInstanceRepository _instanceRepository;
     private readonly IDataRepository _dataRepository;
     private readonly IAuthorization _authorizationService;
 
@@ -31,7 +31,7 @@ public class DataLockController : ControllerBase
     /// <param name="dataRepository">the data repository handler</param>
     /// <param name="authorizationService">the authorization service.</param>
     public DataLockController(
-        IInstanceRepository instanceRepository,
+        ITestInstanceRepository instanceRepository,
         IDataRepository dataRepository,
         IAuthorization authorizationService)
     {

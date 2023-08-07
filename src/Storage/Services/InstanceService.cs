@@ -15,7 +15,7 @@ namespace Altinn.Platform.Storage.Services
     /// </summary>
     public class InstanceService : IInstanceService
     {
-        private readonly IInstanceRepository _instanceRepository;
+        private readonly ITestInstanceRepository _instanceRepository;
         private readonly IDataService _dataService;
         private readonly IApplicationService _applicationService;
         private readonly IInstanceEventService _instanceEventService;
@@ -23,7 +23,7 @@ namespace Altinn.Platform.Storage.Services
         /// <summary>
         /// Initializes a new instance of the <see cref="InstanceService"/> class.
         /// </summary>
-        public InstanceService(IInstanceRepository instanceRepository, IDataService dataService, IApplicationService applicationService, IInstanceEventService instanceEventService)
+        public InstanceService(ITestInstanceRepository instanceRepository, IDataService dataService, IApplicationService applicationService, IInstanceEventService instanceEventService)
         {
             _instanceRepository = instanceRepository;
             _dataService = dataService;

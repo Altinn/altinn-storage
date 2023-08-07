@@ -24,6 +24,20 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <summary>
+        /// Adds test repositories to DI container.
+        /// </summary>
+        /// <param name="services">service collection.</param>
+        /// <param name="connectionString">PostgreSQL connection string.</param>
+        /// <param name="logParameters">Whether to log parameters.</param>
+        /// <returns></returns>
+        public static IServiceCollection AddTestRepositories(this IServiceCollection services, string connectionString, bool logParameters)
+        {
+            return services
+                .AddSingleton<ITestInstanceRepository, TestInstanceRepository>()
+                .AddNpgsqlDataSource(connectionString, builder => builder.EnableParameterLogging(logParameters));
+        }
+
+        /// <summary>
         /// Adds repositories to DI container.
         /// </summary>
         /// <param name="services">service collection.</param>

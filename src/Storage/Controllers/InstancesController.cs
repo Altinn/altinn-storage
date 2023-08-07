@@ -39,7 +39,7 @@ namespace Altinn.Platform.Storage.Controllers
     [ApiController]
     public class InstancesController : ControllerBase
     {
-        private readonly IInstanceRepository _instanceRepository;
+        private readonly ITestInstanceRepository _instanceRepository;
         private readonly IApplicationRepository _applicationRepository;
         private readonly IPartiesWithInstancesClient _partiesWithInstancesClient;
         private readonly ILogger _logger;
@@ -59,7 +59,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceEventService">the instance event service.</param>
         /// <param name="settings">the general settings.</param>
         public InstancesController(
-            IInstanceRepository instanceRepository,
+            ITestInstanceRepository instanceRepository,
             IApplicationRepository applicationRepository,
             IPartiesWithInstancesClient partiesWithInstancesClient,
             ILogger<InstancesController> logger,
