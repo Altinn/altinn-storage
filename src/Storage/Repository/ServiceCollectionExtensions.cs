@@ -34,6 +34,10 @@ namespace Altinn.Platform.Storage.Repository
         {
             return services
                 .AddSingleton<ITestInstanceRepository, TestInstanceRepository>()
+                .AddSingleton<ITestDataRepository, TestDataRepository>()
+                .AddSingleton<ITestInstanceEventRepository, TestInstanceEventRepository>()
+                .AddSingleton<ITestApplicationRepository, TestApplicationRepository>()
+                .AddSingleton<ITestTextRepository, TestTextRepository>()
                 .AddNpgsqlDataSource(connectionString, builder => builder.EnableParameterLogging(logParameters));
         }
 

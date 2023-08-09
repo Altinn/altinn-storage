@@ -40,7 +40,7 @@ namespace Altinn.Platform.Storage.Controllers
     public class InstancesController : ControllerBase
     {
         private readonly ITestInstanceRepository _instanceRepository;
-        private readonly IApplicationRepository _applicationRepository;
+        private readonly ITestApplicationRepository _applicationRepository;
         private readonly IPartiesWithInstancesClient _partiesWithInstancesClient;
         private readonly ILogger _logger;
         private readonly IAuthorization _authorizationService;
@@ -60,7 +60,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="settings">the general settings.</param>
         public InstancesController(
             ITestInstanceRepository instanceRepository,
-            IApplicationRepository applicationRepository,
+            ITestApplicationRepository applicationRepository,
             IPartiesWithInstancesClient partiesWithInstancesClient,
             ILogger<InstancesController> logger,
             IAuthorization authorizationService,

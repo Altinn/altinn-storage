@@ -15,13 +15,13 @@ namespace Altinn.Platform.Storage.Services
     /// </summary>
     public class InstanceEventService : IInstanceEventService
     {
-        private readonly IInstanceEventRepository _repository;
+        private readonly ITestInstanceEventRepository _repository;
         private readonly IHttpContextAccessor _contextAccessor;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="InstanceEventService"/> class.
         /// </summary>
-        public InstanceEventService(IInstanceEventRepository repository, IHttpContextAccessor contextAccessor)
+        public InstanceEventService(ITestInstanceEventRepository repository, IHttpContextAccessor contextAccessor)
         {
             _repository = repository;
             _contextAccessor = contextAccessor;

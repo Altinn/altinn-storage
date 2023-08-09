@@ -28,7 +28,7 @@ namespace Altinn.Platform.Storage.Controllers
     public class ProcessController : ControllerBase
     {
         private readonly ITestInstanceRepository _instanceRepository;
-        private readonly IInstanceEventRepository _instanceEventRepository;
+        private readonly ITestInstanceEventRepository _instanceEventRepository;
         private readonly string _storageBaseAndHost;
         private readonly IAuthorization _authorizationService;
         private readonly IInstanceEventService _instanceEventService;
@@ -43,7 +43,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceEventService">the instance event service</param>
         public ProcessController(
             ITestInstanceRepository instanceRepository,
-            IInstanceEventRepository instanceEventRepository,
+            ITestInstanceEventRepository instanceEventRepository,
             IOptions<GeneralSettings> generalsettings,
             IAuthorization authorizationService,
             IInstanceEventService instanceEventService)

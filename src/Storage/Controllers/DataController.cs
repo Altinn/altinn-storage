@@ -36,9 +36,9 @@ namespace Altinn.Platform.Storage.Controllers
 
         private static readonly FormOptions _defaultFormOptions = new();
 
-        private readonly IDataRepository _dataRepository;
+        private readonly ITestDataRepository _dataRepository;
         private readonly ITestInstanceRepository _instanceRepository;
-        private readonly IApplicationRepository _applicationRepository;
+        private readonly ITestApplicationRepository _applicationRepository;
         private readonly IDataService _dataService;
         private readonly IInstanceEventService _instanceEventService;
         private readonly string _storageBaseAndHost;
@@ -53,9 +53,9 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceEventService">An instance event service with event related business logic.</param>
         /// <param name="generalSettings">the general settings.</param>
         public DataController(
-            IDataRepository dataRepository,
+            ITestDataRepository dataRepository,
             ITestInstanceRepository instanceRepository,
-            IApplicationRepository applicationRepository,
+            ITestApplicationRepository applicationRepository,
             IDataService dataService,
             IInstanceEventService instanceEventService,
             IOptions<GeneralSettings> generalSettings)

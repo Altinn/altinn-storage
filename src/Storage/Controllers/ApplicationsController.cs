@@ -22,7 +22,7 @@ namespace Altinn.Platform.Storage.Controllers
     [ApiController]
     public class ApplicationsController : ControllerBase
     {
-        private readonly IApplicationRepository repository;
+        private readonly ITestApplicationRepository repository;
         private readonly ILogger logger;
 
         /// <summary>
@@ -30,7 +30,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// </summary>
         /// <param name="repository">the application repository handler</param>
         /// <param name="logger">dependency injection of logger</param>
-        public ApplicationsController(IApplicationRepository repository, ILogger<ApplicationsController> logger)
+        public ApplicationsController(ITestApplicationRepository repository, ILogger<ApplicationsController> logger)
         {
             this.logger = logger;
             this.repository = repository;

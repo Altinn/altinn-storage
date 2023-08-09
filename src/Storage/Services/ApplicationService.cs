@@ -11,12 +11,12 @@ namespace Altinn.Platform.Storage.Services
     /// </summary>
     public class ApplicationService : IApplicationService
     {
-        private readonly IApplicationRepository _applicationRepository;
+        private readonly ITestApplicationRepository _applicationRepository;
         
         /// <summary>
         /// Initializes a new instance of the <see cref="ApplicationService"/> class.
         /// </summary>
-        public ApplicationService(IApplicationRepository applicationRepository)
+        public ApplicationService(ITestApplicationRepository applicationRepository)
         {
             _applicationRepository = applicationRepository;
         }

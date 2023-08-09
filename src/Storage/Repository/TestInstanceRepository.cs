@@ -26,6 +26,7 @@ namespace Altinn.Platform.Storage.Repository
         /// </summary>
         /// <param name="logger">The logger to use when writing to logs.</param>
         /// <param name="dataSource">The npgsql data source.</param>
+        /// <param name="cosmosRepository">The cosmos repository.</param>
         public TestInstanceRepository(
             ILogger<PgInstanceRepository> logger,
             NpgsqlDataSource dataSource,
@@ -89,6 +90,9 @@ namespace Altinn.Platform.Storage.Repository
                 Console.WriteLine(cosmosResponse.Count);
                 if (!CompareInstanceResponses(postgresResponse, cosmosResponse))
                 {
+                    _logger.LogError($"TestPgInstance: Diff in GetInstancesFromQuery postgres data: {JsonSerializer.Serialize(postgresResponse, new JsonSerializerOptions() { WriteIndented = true })}");
+                    _logger.LogError($"TestPgInstance: Diff in GetInstancesFromQuery cosmos data: {JsonSerializer.Serialize(cosmosResponse, new JsonSerializerOptions() { WriteIndented = true })}");
+
                     _logger.LogError("TestPgInstance: Diff in GetInstancesFromQuery " + JsonSerializer.Serialize(queryParams));
                     throw new Exception("Diff in GetInstancesFromQuery");
                 }
@@ -103,12 +107,42 @@ namespace Altinn.Platform.Storage.Repository
             (Instance cosmosInstance, long cosmosInternalId) = await _cosmosRepository.GetOne(instanceOwnerPartyId, instanceGuid, includeElements);
             (Instance postgresInstance, long postgresInternalId) = await _postgresRepository.GetOne(instanceOwnerPartyId, instanceGuid, includeElements);
 
-            string cosmosJson = JsonSerializer.Serialize(cosmosInstance);
             string postgresJson = JsonSerializer.Serialize(postgresInstance);
+            string cosmosJson = JsonSerializer.Serialize(cosmosInstance);
+            Instance cosmosInstancePatched = cosmosInstance;
+            if (!includeElements && cosmosInstance.Data != null)
+            {
+                cosmosInstancePatched = JsonSerializer.Deserialize<Instance>(cosmosJson);
+                cosmosInstancePatched.Data = new();
+                cosmosJson = JsonSerializer.Serialize(cosmosInstancePatched);
+            }
+
             if (cosmosJson != postgresJson)
             {
-                _logger.LogError($"TestPgInstance: Diff in GetOne for {instanceOwnerPartyId} {instanceGuid}");
-                throw new Exception($"Diff in GetOne for {instanceOwnerPartyId} {instanceGuid}");
+                Instance patchedCosmos = JsonSerializer.Deserialize<Instance>(cosmosJson);
+                Instance patchedPostgres = JsonSerializer.Deserialize<Instance>(postgresJson);
+                SyncLastChanged(patchedCosmos, patchedPostgres);
+                foreach (var data in patchedCosmos.Data)
+                {
+                    data.FileScanResult = FileScanResult.Clean;
+                }
+
+                foreach (var data in patchedPostgres.Data)
+                {
+                    data.FileScanResult = FileScanResult.Clean;
+                }
+
+                postgresJson = JsonSerializer.Serialize(patchedPostgres);
+                cosmosJson = JsonSerializer.Serialize(patchedCosmos);
+
+                if (cosmosJson != postgresJson)
+                {
+                    _logger.LogError($"TestPgInstance: Diff in GetOne postgres data: {JsonSerializer.Serialize(postgresInstance, new JsonSerializerOptions() { WriteIndented = true })}");
+                    _logger.LogError($"TestPgInstance: Diff in GetOne cosmos data: {JsonSerializer.Serialize(cosmosInstancePatched, new JsonSerializerOptions() { WriteIndented = true })}");
+
+                    _logger.LogError($"TestPgInstance: Diff in GetOne for {instanceOwnerPartyId} {instanceGuid}");
+                    throw new Exception($"Diff in GetOne for {instanceOwnerPartyId} {instanceGuid}");
+                }
             }
 
             return (postgresInstance, postgresInternalId);
@@ -117,18 +151,49 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<Instance> Update(Instance item)
         {
+            Instance itemKopi = JsonSerializer.Deserialize<Instance>(JsonSerializer.Serialize(item));
             Instance cosmosItem = await _cosmosRepository.Update(item);
-            Instance postgresItem = await _postgresRepository.Update(item);
+            Instance postgresItem = await _postgresRepository.Update(itemKopi);
 
             string cosmosJson = JsonSerializer.Serialize(cosmosItem);
             string postgresJson = JsonSerializer.Serialize(postgresItem);
             if (cosmosJson != postgresJson)
             {
-                _logger.LogError($"TestPgInstance: Diff in Update for {item.InstanceOwner.PartyId} {item.Id}");
-                throw new Exception("Diff in Update");
+                Instance patchedCosmos = JsonSerializer.Deserialize<Instance>(cosmosJson);
+                Instance patchedPostgres = JsonSerializer.Deserialize<Instance>(postgresJson);
+                SyncLastChanged(patchedCosmos, patchedPostgres);
+                foreach (var data in patchedCosmos.Data)
+                {
+                    data.FileScanResult = FileScanResult.Clean;
+                }
+
+                foreach (var data in patchedPostgres.Data)
+                {
+                    data.FileScanResult = FileScanResult.Clean;
+                }
+
+                postgresJson = JsonSerializer.Serialize(patchedPostgres);
+                cosmosJson = JsonSerializer.Serialize(patchedCosmos);
+
+                if (cosmosJson != postgresJson)
+                {
+                    _logger.LogError($"TestPgInstance: Diff in Update postgres data: {JsonSerializer.Serialize(postgresItem, new JsonSerializerOptions() { WriteIndented = true })}");
+                    _logger.LogError($"TestPgInstance: Diff in Update cosmos data: {JsonSerializer.Serialize(cosmosItem, new JsonSerializerOptions() { WriteIndented = true })}");
+
+                    _logger.LogError($"TestPgInstance: Diff in Update for {item.InstanceOwner.PartyId} {item.Id}");
+                    throw new Exception("Diff in Update");
+                }
             }
 
             return cosmosItem;
+        }
+
+        private void SyncLastChanged (Instance cosmosInstance, Instance postgresInstance)
+        {
+            if (Math.Abs(((DateTime)cosmosInstance.LastChanged).Subtract((DateTime)postgresInstance.LastChanged).TotalSeconds) < 5)
+            {
+                cosmosInstance.LastChanged = postgresInstance.LastChanged;
+            }
         }
 
         private bool CompareInstanceResponses(InstanceQueryResponse p_inst, InstanceQueryResponse c_inst)
@@ -163,6 +228,7 @@ namespace Altinn.Platform.Storage.Repository
                 isEqueal = true;
                 for (int x = 0; x < p_inst.Count; x++)
                 {
+                    SyncLastChanged(c_inst.Instances[x], p_inst.Instances[x]);
                     p_inst.Instances[x].Data = p_inst.Instances[x].Data.OrderBy(d => d.Id).ToList();
                     c_inst.Instances[x].Data = c_inst.Instances[x].Data.OrderBy(d => d.Id).ToList();
 
@@ -170,21 +236,21 @@ namespace Altinn.Platform.Storage.Repository
                     string cx = JsonSerializer.Serialize(c_inst.Instances[x]);
                     if (!px.Equals(cx))
                     {
-                        //string pxi = JsonSerializer.Serialize(p_inst.Instances[x], new JsonSerializerOptions() { WriteIndented = true });
-                        //string cxi = JsonSerializer.Serialize(c_inst.Instances[x], new JsonSerializerOptions() { WriteIndented = true });
-                        //Console.WriteLine("Diff in item " + x);
-                        //Console.WriteLine(pxi);
-                        //System.IO.File.WriteAllText(@"c:\temp\p.json", pxi);
-                        //Console.WriteLine();
-                        //Console.WriteLine(cxi);
-                        //System.IO.File.WriteAllText(@"c:\temp\c.json", cxi);
+                        ////string pxi = JsonSerializer.Serialize(p_inst.Instances[x], new JsonSerializerOptions() { WriteIndented = true });
+                        ////string cxi = JsonSerializer.Serialize(c_inst.Instances[x], new JsonSerializerOptions() { WriteIndented = true });
+                        ////Console.WriteLine("Diff in item " + x);
+                        ////Console.WriteLine(pxi);
+                        ////System.IO.File.WriteAllText(@"c:\temp\p.json", pxi);
+                        ////Console.WriteLine();
+                        ////Console.WriteLine(cxi);
+                        ////System.IO.File.WriteAllText(@"c:\temp\c.json", cxi);
+
                         isEqueal = false;
                         break;
                     }
                 }             
             }
 
-            //Console.WriteLine("CompareInstanceResponses " + isEqueal);
             return isEqueal;
         }
     }

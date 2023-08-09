@@ -25,9 +25,9 @@ namespace Altinn.Platform.Storage.Controllers
     public class MessageBoxInstancesController : ControllerBase
     {
         private readonly ITestInstanceRepository _instanceRepository;
-        private readonly IInstanceEventRepository _instanceEventRepository;
-        private readonly ITextRepository _textRepository;
-        private readonly IApplicationRepository _applicationRepository;
+        private readonly ITestInstanceEventRepository _instanceEventRepository;
+        private readonly ITestTextRepository _textRepository;
+        private readonly ITestApplicationRepository _applicationRepository;
         private readonly IAuthorization _authorizationService;
 
         /// <summary>
@@ -40,9 +40,9 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="authorizationService">the authorization service</param>
         public MessageBoxInstancesController(
             ITestInstanceRepository instanceRepository,
-            IInstanceEventRepository instanceEventRepository,
-            ITextRepository textRepository,
-            IApplicationRepository applicationRepository,
+            ITestInstanceEventRepository instanceEventRepository,
+            ITestTextRepository textRepository,
+            ITestApplicationRepository applicationRepository,
             IAuthorization authorizationService)
         {
             _instanceRepository = instanceRepository;

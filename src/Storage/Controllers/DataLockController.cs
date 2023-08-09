@@ -21,7 +21,7 @@ namespace Altinn.Platform.Storage.Controllers;
 public class DataLockController : ControllerBase
 {
     private readonly ITestInstanceRepository _instanceRepository;
-    private readonly IDataRepository _dataRepository;
+    private readonly ITestDataRepository _dataRepository;
     private readonly IAuthorization _authorizationService;
 
     /// <summary>
@@ -32,7 +32,7 @@ public class DataLockController : ControllerBase
     /// <param name="authorizationService">the authorization service.</param>
     public DataLockController(
         ITestInstanceRepository instanceRepository,
-        IDataRepository dataRepository,
+        ITestDataRepository dataRepository,
         IAuthorization authorizationService)
     {
         _instanceRepository = instanceRepository;

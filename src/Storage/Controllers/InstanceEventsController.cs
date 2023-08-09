@@ -19,13 +19,13 @@ namespace Altinn.Platform.Storage.Controllers
     [ApiController]
     public class InstanceEventsController : ControllerBase
     {
-        private readonly IInstanceEventRepository _repository;
+        private readonly ITestInstanceEventRepository _repository;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="InstanceEventsController"/> class
         /// </summary>
         /// <param name="instanceEventRepository">the instance repository handler</param>
-        public InstanceEventsController(IInstanceEventRepository instanceEventRepository)
+        public InstanceEventsController(ITestInstanceEventRepository instanceEventRepository)
         {
             _repository = instanceEventRepository;
         }

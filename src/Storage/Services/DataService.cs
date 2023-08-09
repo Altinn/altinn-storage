@@ -18,12 +18,12 @@ namespace Altinn.Platform.Storage.Services
     public class DataService : IDataService
     {
         private readonly IFileScanQueueClient _fileScanQueueClient;
-        private readonly IDataRepository _dataRepository;
+        private readonly ITestDataRepository _dataRepository;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DataService"/> class.
         /// </summary>
-        public DataService(IFileScanQueueClient fileScanQueueClient, IDataRepository dataRepository)
+        public DataService(IFileScanQueueClient fileScanQueueClient, ITestDataRepository dataRepository)
         {
             _fileScanQueueClient = fileScanQueueClient;
             _dataRepository = dataRepository;
