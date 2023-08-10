@@ -24,7 +24,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <summary>
         /// Whether to ignore diffs in filescanresult
         /// </summary>
-        public static bool IgnoreFileScan { get; set; }
+        public static bool IgnoreFileScan { get; set; } = true;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="TestInstanceRepository"/> class.
