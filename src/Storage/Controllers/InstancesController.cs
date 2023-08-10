@@ -196,6 +196,11 @@ namespace Altinn.Platform.Storage.Controllers
                 }
             }
 
+            if (!queryParams.ContainsKey("sortBy"))
+            {
+                queryParams.Add("sortBy", "desc:lastChanged");
+            }
+
             try
             {
                 InstanceQueryResponse result = await _instanceRepository.GetInstancesFromQuery(queryParams, continuationToken, pageSize);
