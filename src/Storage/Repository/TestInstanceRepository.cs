@@ -138,7 +138,7 @@ namespace Altinn.Platform.Storage.Repository
                 if (cosmosJson != postgresJson)
                 {
                     _logger.LogError($"TestPgInstance: Diff in GetOne postgres data: {JsonSerializer.Serialize(postgresInstance, new JsonSerializerOptions() { WriteIndented = true })}");
-                    _logger.LogError($"TestPgInstance: Diff in GetOne cosmos data: {JsonSerializer.Serialize(cosmosInstancePatched, new JsonSerializerOptions() { WriteIndented = true })}");
+                    _logger.LogError($"TestPgInstance: Diff in GetOne cosmos data: {JsonSerializer.Serialize(cosmosInstance, new JsonSerializerOptions() { WriteIndented = true })}");
 
                     _logger.LogError($"TestPgInstance: Diff in GetOne for {instanceOwnerPartyId} {instanceGuid}");
                     throw new Exception($"Diff in GetOne for {instanceOwnerPartyId} {instanceGuid}");
@@ -170,6 +170,11 @@ namespace Altinn.Platform.Storage.Repository
                 foreach (var data in patchedPostgres.Data)
                 {
                     data.FileScanResult = FileScanResult.Clean;
+                }
+
+                if (patchedCosmos.Process.CurrentTask.Started != patchedPostgres.Process.CurrentTask.Started && Math.Abs(((DateTime)patchedCosmos.Process.CurrentTask.Started).Subtract((DateTime)patchedPostgres.Process.CurrentTask.Started).TotalSeconds) < 5)
+                {
+                    patchedPostgres.Process.CurrentTask = patchedCosmos.Process.CurrentTask;
                 }
 
                 postgresJson = JsonSerializer.Serialize(patchedPostgres);
