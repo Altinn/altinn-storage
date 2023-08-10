@@ -22,6 +22,11 @@ namespace Altinn.Platform.Storage.Repository
         private readonly ILogger<PgInstanceRepository> _logger;
 
         /// <summary>
+        /// Whether to ignore diffs in filescanresult
+        /// </summary>
+        public static bool IgnoreFileScan { get; set; }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="TestInstanceRepository"/> class.
         /// </summary>
         /// <param name="logger">The logger to use when writing to logs.</param>
@@ -122,14 +127,17 @@ namespace Altinn.Platform.Storage.Repository
                 Instance patchedCosmos = JsonSerializer.Deserialize<Instance>(cosmosJson);
                 Instance patchedPostgres = JsonSerializer.Deserialize<Instance>(postgresJson);
                 SyncLastChanged(patchedCosmos, patchedPostgres);
-                foreach (var data in patchedCosmos.Data)
+                if (IgnoreFileScan)
                 {
-                    data.FileScanResult = FileScanResult.Clean;
-                }
+                    foreach (var data in patchedCosmos.Data)
+                    {
+                        data.FileScanResult = FileScanResult.Clean;
+                    }
 
-                foreach (var data in patchedPostgres.Data)
-                {
-                    data.FileScanResult = FileScanResult.Clean;
+                    foreach (var data in patchedPostgres.Data)
+                    {
+                        data.FileScanResult = FileScanResult.Clean;
+                    }
                 }
 
                 postgresJson = JsonSerializer.Serialize(patchedPostgres);
@@ -162,14 +170,17 @@ namespace Altinn.Platform.Storage.Repository
                 Instance patchedCosmos = JsonSerializer.Deserialize<Instance>(cosmosJson);
                 Instance patchedPostgres = JsonSerializer.Deserialize<Instance>(postgresJson);
                 SyncLastChanged(patchedCosmos, patchedPostgres);
-                foreach (var data in patchedCosmos.Data)
+                if (IgnoreFileScan)
                 {
-                    data.FileScanResult = FileScanResult.Clean;
-                }
+                    foreach (var data in patchedCosmos.Data)
+                    {
+                        data.FileScanResult = FileScanResult.Clean;
+                    }
 
-                foreach (var data in patchedPostgres.Data)
-                {
-                    data.FileScanResult = FileScanResult.Clean;
+                    foreach (var data in patchedPostgres.Data)
+                    {
+                        data.FileScanResult = FileScanResult.Clean;
+                    }
                 }
 
                 if (patchedCosmos.Process.CurrentTask.Started != patchedPostgres.Process.CurrentTask.Started && Math.Abs(((DateTime)patchedCosmos.Process.CurrentTask.Started).Subtract((DateTime)patchedPostgres.Process.CurrentTask.Started).TotalSeconds) < 5)

@@ -183,12 +183,16 @@ namespace Altinn.Platform.Storage.Repository
             string cosmosJson = JsonSerializer.Serialize(cosmosElement);
             if (cosmosJson != postgresJson)
             {
-                DataElement patchedCosmos = JsonSerializer.Deserialize<DataElement>(cosmosJson);
-                DataElement patchedPostgres = JsonSerializer.Deserialize<DataElement>(postgresJson);
-                patchedCosmos.FileScanResult = FileScanResult.Clean;
-                patchedPostgres.FileScanResult = FileScanResult.Clean;
-                postgresJson = JsonSerializer.Serialize(patchedPostgres);
-                cosmosJson = JsonSerializer.Serialize(patchedCosmos);
+                if (TestInstanceRepository.IgnoreFileScan)
+                {
+                    DataElement patchedCosmos = JsonSerializer.Deserialize<DataElement>(cosmosJson);
+                    DataElement patchedPostgres = JsonSerializer.Deserialize<DataElement>(postgresJson);
+                    patchedCosmos.FileScanResult = FileScanResult.Clean;
+                    patchedPostgres.FileScanResult = FileScanResult.Clean;
+                    postgresJson = JsonSerializer.Serialize(patchedPostgres);
+                    cosmosJson = JsonSerializer.Serialize(patchedCosmos);
+                }
+
                 if (cosmosJson != postgresJson)
                 {
                     return false;
