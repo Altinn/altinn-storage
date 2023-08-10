@@ -175,6 +175,9 @@ namespace Altinn.Platform.Storage.Repository
                     case "/lastChanged": element.LastChanged = (DateTime?)kvp.Value; break;
                     case "/lastChangedBy": element.LastChangedBy = (string)kvp.Value; break;
                     case "/fileScanResult": element.FileScanResult = (FileScanResult)kvp.Value; break;
+                    case "/contentType": element.ContentType = (string)kvp.Value; break;
+                    case "/filename": element.Filename = (string)kvp.Value; break;
+                    case "/size": element.Size = (long)kvp.Value; break;
                     default: throw new ArgumentException("Unexpected key " + kvp.Key);
                 }
             }
