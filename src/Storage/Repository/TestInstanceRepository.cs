@@ -95,6 +95,8 @@ namespace Altinn.Platform.Storage.Repository
                 Console.WriteLine(cosmosResponse.Count);
                 if (!CompareInstanceResponses(postgresResponse, cosmosResponse))
                 {
+                    ////System.IO.File.WriteAllText(@"c:\temp\c.json", JsonSerializer.Serialize(cosmosResponse, new JsonSerializerOptions() { WriteIndented = true }));
+                    ////System.IO.File.WriteAllText(@"c:\temp\p.json", JsonSerializer.Serialize(postgresResponse, new JsonSerializerOptions() { WriteIndented = true }));
                     _logger.LogError($"TestPgInstance: Diff in GetInstancesFromQuery postgres data: {JsonSerializer.Serialize(postgresResponse, new JsonSerializerOptions() { WriteIndented = true })}");
                     _logger.LogError($"TestPgInstance: Diff in GetInstancesFromQuery cosmos data: {JsonSerializer.Serialize(cosmosResponse, new JsonSerializerOptions() { WriteIndented = true })}");
 
@@ -119,6 +121,8 @@ namespace Altinn.Platform.Storage.Repository
             {
                 cosmosInstancePatched = JsonSerializer.Deserialize<Instance>(cosmosJson);
                 cosmosInstancePatched.Data = new();
+                cosmosInstancePatched.LastChanged = postgresInstance.LastChanged;
+                cosmosInstancePatched.LastChangedBy = postgresInstance.LastChangedBy;
                 cosmosJson = JsonSerializer.Serialize(cosmosInstancePatched);
             }
 
