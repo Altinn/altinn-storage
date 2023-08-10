@@ -5,6 +5,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Azure;
 using Azure.Storage;
@@ -173,6 +174,7 @@ namespace Altinn.Platform.Storage.Repository
                     case "/deleteStatus": element.DeleteStatus = (DeleteStatus)kvp.Value; break;
                     case "/lastChanged": element.LastChanged = (DateTime?)kvp.Value; break;
                     case "/lastChangedBy": element.LastChangedBy = (string)kvp.Value; break;
+                    case "/fileScanResult": element.FileScanResult = (FileScanResult)kvp.Value; break;
                     default: throw new ArgumentException("Unexpected key " + kvp.Key);
                 }
             }

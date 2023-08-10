@@ -110,6 +110,33 @@ RETURN QUERY
 END;
 $BODY$;
 
+CREATE OR REPLACE FUNCTION storage.readinstance(_alternateid UUID)
+    RETURNS TABLE (id BIGINT, instance JSONB, element JSONB)
+    LANGUAGE 'plpgsql'
+    
+AS $BODY$
+BEGIN
+RETURN QUERY 
+	SELECT i.id, i.instance, d.element FROM storage.instances i
+		LEFT JOIN storage.dataelements d ON i.id = d.instanceinternalid
+		WHERE i.alternateid = _alternateid
+		ORDER BY d.id;
+
+END;
+$BODY$;
+
+CREATE OR REPLACE FUNCTION storage.readinstancenoelements(_alternateid UUID)
+    RETURNS TABLE (id BIGINT, instance JSONB)
+    LANGUAGE 'plpgsql'
+    
+AS $BODY$
+BEGIN
+RETURN QUERY 
+	SELECT i.id, i.instance FROM storage.instances i
+		WHERE i.alternateid = _alternateid;
+END;
+$BODY$;
+
 CREATE OR REPLACE PROCEDURE storage.insertinstance(_partyid BIGINT, _alternateid UUID, _instance JSONB, _created TIMESTAMPTZ, _lastchanged TIMESTAMPTZ, _org TEXT, _appid TEXT, _taskid TEXT)
     LANGUAGE 'plpgsql'	
 AS $BODY$
