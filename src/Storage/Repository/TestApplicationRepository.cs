@@ -60,12 +60,24 @@ namespace Altinn.Platform.Storage.Repository
 
             if (cosmosJson != postgresJson)
             {
-                postgresJson = JsonSerializer.Serialize(postgresApps.OrderBy(a => a.Id));
-                cosmosJson = JsonSerializer.Serialize(cosmosApps.OrderBy(a => a.Id));
+                var postgresTemp = JsonSerializer.Deserialize<List<Application>>(JsonSerializer.Serialize(postgresApps.OrderBy(a => a.Id)));
+                var cosmosTemp = JsonSerializer.Deserialize<List<Application>>(JsonSerializer.Serialize(cosmosApps.OrderBy(a => a.Id)));
+                foreach (var app in cosmosTemp)
+                {
+                    app.Title = app.Title.OrderBy(t => t.Key).ToDictionary(t => t.Key, t => t.Value);
+                }
+
+                foreach (var app in postgresTemp)
+                {
+                    app.Title = app.Title.OrderBy(t => t.Key).ToDictionary(t => t.Key, t => t.Value);
+                }
+
+                cosmosJson = JsonSerializer.Serialize(cosmosTemp);
+                postgresJson = JsonSerializer.Serialize(postgresTemp);
                 if (cosmosJson != postgresJson)
                 {
-                    _logger.LogError($"TestPgApplication: Diff in FindAll postgres data: {JsonSerializer.Serialize(postgresApps.OrderBy(a => a.Id), new JsonSerializerOptions() { WriteIndented = true })}");
-                    _logger.LogError($"TestPgApplication: Diff in FindAll cosmos data: {JsonSerializer.Serialize(cosmosApps.OrderBy(a => a.Id), new JsonSerializerOptions() { WriteIndented = true })}");
+                    _logger.LogError($"TestPgApplication: Diff in FindAll postgres data: {JsonSerializer.Serialize(postgresTemp, new JsonSerializerOptions() { WriteIndented = true })}");
+                    _logger.LogError($"TestPgApplication: Diff in FindAll cosmos data: {JsonSerializer.Serialize(cosmosTemp, new JsonSerializerOptions() { WriteIndented = true })}");
 
                     _logger.LogError($"TestPgApplication: Diff in FindAll");
                     if (TestInstanceRepository.AbortOnError)
