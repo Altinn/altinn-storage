@@ -5,7 +5,7 @@ networks:
 
 services:
   k6:
-    image: loadimpact/k6:0.45.0
+    image: loadimpact/k6:0.46.0
     networks:
       - k6
     ports:
