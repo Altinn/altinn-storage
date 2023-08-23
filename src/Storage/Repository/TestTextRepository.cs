@@ -63,7 +63,10 @@ namespace Altinn.Platform.Storage.Repository
                 _logger.LogError($"TestPgText: Diff in Get cosmos data: {JsonSerializer.Serialize(cosmosText, new JsonSerializerOptions() { WriteIndented = true })}");
 
                 _logger.LogError($"TestPgText: Diff in Get {org} {app} {language}");
-                throw new Exception($"Diff in Get {org} {app} {language}");
+                if (TestInstanceRepository.AbortOnError)
+                {
+                    throw new Exception($"Diff in Get {org} {app} {language}");
+                }
             }
 
             return cosmosText;
@@ -84,7 +87,10 @@ namespace Altinn.Platform.Storage.Repository
                 _logger.LogError($"TestPgText: Diff in Get(list) cosmos data: {JsonSerializer.Serialize(cosmosTexts, new JsonSerializerOptions() { WriteIndented = true })}");
 
                 _logger.LogError($"TestPgText: Diff in Get(list) {appIds.Count} {language}");
-                throw new Exception($"Diff in Get(list) {appIds.Count} {language}");
+                if (TestInstanceRepository.AbortOnError)
+                {
+                    throw new Exception($"Diff in Get(list) {appIds.Count} {language}");
+                }
             }
 
             return cosmosTexts;
@@ -114,7 +120,10 @@ namespace Altinn.Platform.Storage.Repository
 
                 _logger.LogError($"TestPgText: Diff in Update {textResource.Id} {org} {app}");
                 _logger.LogError($"TestPgText: Diff in Update {textResource.Id} {org} {app}");
-                throw new Exception($"Diff in Update for {textResource.Id} {org} {app}");
+                if (TestInstanceRepository.AbortOnError)
+                {
+                    throw new Exception($"Diff in Update for {textResource.Id} {org} {app}");
+                }
             }
 
             return cosmosItem;
@@ -128,7 +137,10 @@ namespace Altinn.Platform.Storage.Repository
             if (cosmosDelete != postgresDelete)
             {
                 _logger.LogError($"TestPgText: Diff in Delete {org} {app} {language}");
-                throw new Exception($"Diff in Delete for item {org} {app} {language}");
+                if (TestInstanceRepository.AbortOnError)
+                {
+                    throw new Exception($"Diff in Delete for item {org} {app} {language}");
+                }
             }
 
             return cosmosDelete;

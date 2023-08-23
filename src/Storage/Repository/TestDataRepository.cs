@@ -65,7 +65,10 @@ namespace Altinn.Platform.Storage.Repository
             if (cosmosDelete != postgresDelete)
             {
                 _logger.LogError("TestPgData: Diff in Delete for item " + dataElement.Id);
-                throw new Exception("Diff in Delete for item " + dataElement.Id);
+                if (TestInstanceRepository.AbortOnError)
+                {
+                    throw new Exception("Diff in Delete for item " + dataElement.Id);
+                }
             }
 
             return cosmosDelete;
@@ -83,7 +86,10 @@ namespace Altinn.Platform.Storage.Repository
                 _logger.LogError($"TestPgData: Diff in Read cosmos data: {JsonSerializer.Serialize(cosmosRead, new JsonSerializerOptions() { WriteIndented = true })}");
 
                 _logger.LogError($"TestPgData: Diff in Read for {instanceGuid} {dataElementId}");
-                throw new Exception($"Diff in Read for {instanceGuid} {dataElementId}");
+                if (TestInstanceRepository.AbortOnError)
+                {
+                    throw new Exception($"Diff in Read for {instanceGuid} {dataElementId}");
+                }
             }
 
             return cosmosRead;
@@ -103,7 +109,10 @@ namespace Altinn.Platform.Storage.Repository
                 _logger.LogError($"TestPgData: Diff in ReadAll cosmos data: {JsonSerializer.Serialize(cosmosRead, new JsonSerializerOptions() { WriteIndented = true })}");
 
                 _logger.LogError($"TestPgData: Diff in ReadAll for {instanceGuid}");
-                throw new Exception($"Diff in ReadAll for {instanceGuid}");
+                if (TestInstanceRepository.AbortOnError)
+                {
+                    throw new Exception($"Diff in ReadAll for {instanceGuid}");
+                }
             }
 
             return cosmosRead;
@@ -129,7 +138,10 @@ namespace Altinn.Platform.Storage.Repository
                 _logger.LogError($"TestPgData: Diff in ReadAllForMultiple cosmos data: {JsonSerializer.Serialize(cosmosRead, new JsonSerializerOptions() { WriteIndented = true })}");
 
                 _logger.LogError($"TestPgData: Diff in ReadAllForMultiple for {guids}");
-                throw new Exception($"Diff in ReadAllForMultiple for {guids}");
+                if (TestInstanceRepository.AbortOnError)
+                {
+                    throw new Exception($"Diff in ReadAllForMultiple for {guids}");
+                }
             }
 
             return cosmosRead;
@@ -153,7 +165,10 @@ namespace Altinn.Platform.Storage.Repository
                 _logger.LogError($"TestPgData: Diff in Update cosmos data: {JsonSerializer.Serialize(cosmosUpdate, new JsonSerializerOptions() { WriteIndented = true })}");
 
                 _logger.LogError($"TestPgData: Diff in Update for {instanceGuid} {dataElementId} {props}");
-                throw new Exception($"Diff in Update for {instanceGuid} {dataElementId} {props}");
+                if (TestInstanceRepository.AbortOnError)
+                {
+                    throw new Exception($"Diff in Update for {instanceGuid} {dataElementId} {props}");
+                }
             }
 
             return cosmosUpdate;

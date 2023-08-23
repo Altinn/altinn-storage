@@ -64,7 +64,10 @@ namespace Altinn.Platform.Storage.Repository
                 _logger.LogError($"TestPgApplication: Diff in FindAll cosmos data: {JsonSerializer.Serialize(cosmosApps, new JsonSerializerOptions() { WriteIndented = true })}");
 
                 _logger.LogError($"TestPgApplication: Diff in FindAll");
-                throw new Exception($"Diff in FindAll");
+                if (TestInstanceRepository.AbortOnError)
+                {
+                    throw new Exception($"Diff in FindAll");
+                }
             }
 
             return cosmosApps;
@@ -85,7 +88,10 @@ namespace Altinn.Platform.Storage.Repository
                 _logger.LogError($"TestPgApplication: Diff in FindByOrg cosmos data: {JsonSerializer.Serialize(cosmosApps, new JsonSerializerOptions() { WriteIndented = true })}");
 
                 _logger.LogError($"TestPgApplication: Diff in FindByOrg  {org}");
-                throw new Exception($"Diff in FindByOrg {org}");
+                if (TestInstanceRepository.AbortOnError)
+                {
+                    throw new Exception($"Diff in FindByOrg {org}");
+                }
             }
 
             return cosmosApps;
@@ -106,7 +112,10 @@ namespace Altinn.Platform.Storage.Repository
                 _logger.LogError($"TestPgApplication: Diff in FindOne cosmos data: {JsonSerializer.Serialize(cosmosApp, new JsonSerializerOptions() { WriteIndented = true })}");
 
                 _logger.LogError($"TestPgApplication: Diff in FindOne {appId} {org}");
-                throw new Exception($"Diff in FindOne {appId} {org}");
+                if (TestInstanceRepository.AbortOnError)
+                {
+                    throw new Exception($"Diff in FindOne {appId} {org}");
+                }
             }
 
             return cosmosApp;
@@ -135,7 +144,10 @@ namespace Altinn.Platform.Storage.Repository
                 _logger.LogError($"TestPgApplication: Diff in Update cosmos data: {JsonSerializer.Serialize(cosmosItem, new JsonSerializerOptions() { WriteIndented = true })}");
 
                 _logger.LogError($"TestPgApplication: Diff in Update for {item.Id}");
-                throw new Exception($"Diff in Update for {item.Id}");
+                if (TestInstanceRepository.AbortOnError)
+                {
+                    throw new Exception($"Diff in Update for {item.Id}");
+                }
             }
 
             return cosmosItem;
@@ -149,7 +161,10 @@ namespace Altinn.Platform.Storage.Repository
             if (cosmosDelete != postgresDelete)
             {
                 _logger.LogError($"TestPgApplication: Diff in Delete {appId} {org}");
-                throw new Exception($"Diff in Delete for item {appId} {org}");
+                if (TestInstanceRepository.AbortOnError)
+                {
+                    throw new Exception($"Diff in Delete for item {appId} {org}");
+                }
             }
 
             return cosmosDelete;
@@ -170,7 +185,10 @@ namespace Altinn.Platform.Storage.Repository
                 _logger.LogError($"TestPgApplication: Diff in GetAllAppTitles cosmos data: {JsonSerializer.Serialize(cosmosTitles, new JsonSerializerOptions() { WriteIndented = true })}");
 
                 _logger.LogError($"TestPgApplication: Diff in GetAllAppTitles");
-                throw new Exception($"Diff in GetAllAppTitles");
+                if (TestInstanceRepository.AbortOnError)
+                {
+                    throw new Exception($"Diff in GetAllAppTitles");
+                }
             }
 
             return cosmosTitles;

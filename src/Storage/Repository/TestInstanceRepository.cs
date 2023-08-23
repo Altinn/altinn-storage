@@ -27,6 +27,11 @@ namespace Altinn.Platform.Storage.Repository
         public static bool IgnoreFileScan { get; set; } = true;
 
         /// <summary>
+        /// Whether to abort on error
+        /// </summary>
+        public static bool AbortOnError { get; set; } = false;
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="TestInstanceRepository"/> class.
         /// </summary>
         /// <param name="logger">The logger to use when writing to logs.</param>
@@ -58,7 +63,10 @@ namespace Altinn.Platform.Storage.Repository
             if (cosmosDelete != postgresDelete)
             {
                 _logger.LogError("TestPgInstance: Diff in Delete for item " + item.Id);
-                throw new Exception("Diff in Delete for item " + item.Id);
+                if (AbortOnError)
+                {
+                    throw new Exception("Diff in Delete for item " + item.Id);
+                }
             }
 
             return cosmosDelete;
@@ -101,7 +109,10 @@ namespace Altinn.Platform.Storage.Repository
                     _logger.LogError($"TestPgInstance: Diff in GetInstancesFromQuery cosmos data: {JsonSerializer.Serialize(cosmosResponse, new JsonSerializerOptions() { WriteIndented = true })}");
 
                     _logger.LogError("TestPgInstance: Diff in GetInstancesFromQuery " + JsonSerializer.Serialize(queryParams));
-                    throw new Exception("Diff in GetInstancesFromQuery");
+                    if (AbortOnError)
+                    {
+                        throw new Exception("Diff in GetInstancesFromQuery");
+                    }
                 }
             }
 
@@ -149,11 +160,16 @@ namespace Altinn.Platform.Storage.Repository
 
                 if (cosmosJson != postgresJson)
                 {
+                    ////System.IO.File.WriteAllText(@"c:\temp\p.json", JsonSerializer.Serialize(postgresInstance, new JsonSerializerOptions() { WriteIndented = true }));
+                    ////System.IO.File.WriteAllText(@"c:\temp\c.json", JsonSerializer.Serialize(cosmosInstance, new JsonSerializerOptions() { WriteIndented = true }));
                     _logger.LogError($"TestPgInstance: Diff in GetOne postgres data: {JsonSerializer.Serialize(postgresInstance, new JsonSerializerOptions() { WriteIndented = true })}");
                     _logger.LogError($"TestPgInstance: Diff in GetOne cosmos data: {JsonSerializer.Serialize(cosmosInstance, new JsonSerializerOptions() { WriteIndented = true })}");
 
                     _logger.LogError($"TestPgInstance: Diff in GetOne for {instanceOwnerPartyId} {instanceGuid}");
-                    throw new Exception($"Diff in GetOne for {instanceOwnerPartyId} {instanceGuid}");
+                    if (AbortOnError)
+                    {
+                        throw new Exception($"Diff in GetOne for {instanceOwnerPartyId} {instanceGuid}");
+                    }
                 }
             }
 
@@ -201,7 +217,10 @@ namespace Altinn.Platform.Storage.Repository
                     _logger.LogError($"TestPgInstance: Diff in Update cosmos data: {JsonSerializer.Serialize(cosmosItem, new JsonSerializerOptions() { WriteIndented = true })}");
 
                     _logger.LogError($"TestPgInstance: Diff in Update for {item.InstanceOwner.PartyId} {item.Id}");
-                    throw new Exception("Diff in Update");
+                    if (AbortOnError)
+                    {
+                        throw new Exception("Diff in Update");
+                    }
                 }
             }
 

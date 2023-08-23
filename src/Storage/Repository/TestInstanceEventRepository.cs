@@ -10,6 +10,7 @@ using Altinn.Platform.Storage.Interface.Models;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Identity.Client;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -63,7 +64,10 @@ namespace Altinn.Platform.Storage.Repository
                 _logger.LogError($"TestPgInstanceEvent: Diff in GetOneEvent cosmos data: {JsonSerializer.Serialize(cosmosEvent, new JsonSerializerOptions() { WriteIndented = true })}");
 
                 _logger.LogError($"TestPgInstanceEvent: Diff in GetOneEvent for {instanceId} {eventGuid}");
-                throw new Exception($"Diff in GetOne for {instanceId} {eventGuid}");
+                if (TestInstanceRepository.AbortOnError)
+                {
+                    throw new Exception($"Diff in GetOne for {instanceId} {eventGuid}");
+                }
             }
 
             return cosmosEvent;
@@ -88,7 +92,10 @@ namespace Altinn.Platform.Storage.Repository
                 _logger.LogError($"TestPgInstanceEvent: Diff in ListInstanceEvents cosmos data: {JsonSerializer.Serialize(cosmosEvents, new JsonSerializerOptions() { WriteIndented = true })}");
 
                 _logger.LogError($"TestPgInstanceEvent: Diff in ListInstanceEvents for {instanceId}");
-                throw new Exception($"Diff in ListInstanceEvents for {instanceId}");
+                if (TestInstanceRepository.AbortOnError)
+                {
+                    throw new Exception($"Diff in ListInstanceEvents for {instanceId}");
+                }
             }
 
             return cosmosEvents;
@@ -102,7 +109,10 @@ namespace Altinn.Platform.Storage.Repository
             if (cosmosDelete != postgresDelete)
             {
                 _logger.LogError("TestPgInstanceEvent: Diff in DeleteAllInstanceEvents for id " + instanceId);
-                throw new Exception("Diff in DeleteAllInstanceEvents for id " + instanceId);
+                if (TestInstanceRepository.AbortOnError)
+                {
+                    throw new Exception("Diff in DeleteAllInstanceEvents for id " + instanceId);
+                }
             }
 
             return cosmosDelete;
