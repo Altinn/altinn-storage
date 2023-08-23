@@ -108,10 +108,10 @@ namespace Altinn.Platform.Storage.Repository
             int postgresDelete = await _postgresRepository.DeleteAllInstanceEvents(instanceId);
             if (cosmosDelete != postgresDelete)
             {
-                _logger.LogError("TestPgInstanceEvent: Diff in DeleteAllInstanceEvents for id " + instanceId);
+                _logger.LogError($"TestPgInstanceEvent: Diff in DeleteAllInstanceEvents for id {instanceId} c:{cosmosDelete} p:{postgresDelete}");
                 if (TestInstanceRepository.AbortOnError)
                 {
-                    throw new Exception("Diff in DeleteAllInstanceEvents for id " + instanceId);
+                    throw new Exception($"TestPgInstanceEvent: Diff in DeleteAllInstanceEvents for id {instanceId} c:{cosmosDelete} p:{postgresDelete}");
                 }
             }
 

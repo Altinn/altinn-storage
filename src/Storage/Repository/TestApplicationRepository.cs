@@ -60,13 +60,18 @@ namespace Altinn.Platform.Storage.Repository
 
             if (cosmosJson != postgresJson)
             {
-                _logger.LogError($"TestPgApplication: Diff in FindAll postgres data: {JsonSerializer.Serialize(postgresApps, new JsonSerializerOptions() { WriteIndented = true })}");
-                _logger.LogError($"TestPgApplication: Diff in FindAll cosmos data: {JsonSerializer.Serialize(cosmosApps, new JsonSerializerOptions() { WriteIndented = true })}");
-
-                _logger.LogError($"TestPgApplication: Diff in FindAll");
-                if (TestInstanceRepository.AbortOnError)
+                postgresJson = JsonSerializer.Serialize(postgresApps.OrderBy(a => a.Id));
+                cosmosJson = JsonSerializer.Serialize(cosmosApps.OrderBy(a => a.Id));
+                if (cosmosJson != postgresJson)
                 {
-                    throw new Exception($"Diff in FindAll");
+                    _logger.LogError($"TestPgApplication: Diff in FindAll postgres data: {JsonSerializer.Serialize(postgresApps.OrderBy(a => a.Id), new JsonSerializerOptions() { WriteIndented = true })}");
+                    _logger.LogError($"TestPgApplication: Diff in FindAll cosmos data: {JsonSerializer.Serialize(cosmosApps.OrderBy(a => a.Id), new JsonSerializerOptions() { WriteIndented = true })}");
+
+                    _logger.LogError($"TestPgApplication: Diff in FindAll");
+                    if (TestInstanceRepository.AbortOnError)
+                    {
+                        throw new Exception($"Diff in FindAll");
+                    }
                 }
             }
 
