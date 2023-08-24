@@ -212,7 +212,7 @@ namespace Altinn.Platform.Storage.Repository
             _logger.LogWarning("Create dateElement Id: {dataElementId}, eTag: {etag}", createdDataElement.Resource.Id, createdDataElement.ETag);
             if (dataElement.DataType == "signature")
             {
-                _logger.LogError("DebugPg2 " + dataElement.Id + " " + stackTrace);
+                _logger.LogError("DebugPg2Cosmos " + dataElement.Id);
             }
 
             return createdDataElement;

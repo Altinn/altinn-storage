@@ -58,6 +58,11 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<DataElement> Create(DataElement dataElement, long instanceInternalId = 0)
         {
+            if (dataElement.DataType == "signature")
+            {
+                _logger.LogError("DebugPg2Postgres0 " + dataElement.Id);
+            }
+
             dataElement.Id ??= Guid.NewGuid().ToString();
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Bigint, instanceInternalId);
@@ -66,6 +71,11 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, dataElement);
 
             await pgcom.ExecuteNonQueryAsync();
+
+            if (dataElement.DataType == "signature")
+            {
+                _logger.LogError("DebugPg2Postgres1 " + dataElement.Id);
+            }
 
             return dataElement;
         }
