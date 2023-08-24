@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Tasks;
 
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
@@ -647,6 +649,42 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.Forbidden, setFileScanStatusResponse.StatusCode);
+        }
+
+        /// <summary>
+        /// Scenario:
+        ///   Post data but stream is empty and empty blob attempted persisted.
+        /// Expected:
+        ///   Blob should be deleted from blob storage.
+        /// Success:
+        ///   Response code is BadRequest.
+        /// </summary>
+        [Fact]
+        public async Task CreateAndUploadBlob_StreamIsEmpty_BadRequest()
+        {
+            // Arrange
+            string dataPathWithData = $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
+            HttpContent content = new StringContent("This is a blob file");
+
+            Mock<IDataRepository> repoMock = new();
+            repoMock.
+                Setup(r => r.WriteDataToStorage(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>()))
+                .ReturnsAsync((0, DateTime.UtcNow));
+
+            repoMock
+                .Setup(r => r.DeleteDataInStorage(It.IsAny<string>(), It.IsAny<string>()))
+                .ReturnsAsync(true);
+
+            HttpClient client = GetTestClient(repoMock, null);
+
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
+
+            // Act
+            HttpResponseMessage response = await client.PostAsync($"{dataPathWithData}?dataType=default", content);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            repoMock.VerifyAll();
         }
 
         private HttpClient GetTestClient(Mock<IDataRepository> repositoryMock = null, Mock<IFileScanQueueClient> fileScanMock = null)
