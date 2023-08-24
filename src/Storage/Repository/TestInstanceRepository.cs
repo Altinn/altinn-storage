@@ -122,19 +122,32 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<(Instance Instance, long InternalId)> GetOne(int instanceOwnerPartyId, Guid instanceGuid, bool includeElements = true)
         {
-            (Instance cosmosInstance, long cosmosInternalId) = await _cosmosRepository.GetOne(instanceOwnerPartyId, instanceGuid, includeElements);
+            Instance cosmosInstance = null;
+            long cosmosInternalId = 0;
             (Instance postgresInstance, long postgresInternalId) = await _postgresRepository.GetOne(instanceOwnerPartyId, instanceGuid, includeElements);
 
             string postgresJson = JsonSerializer.Serialize(postgresInstance);
-            string cosmosJson = JsonSerializer.Serialize(cosmosInstance);
-            Instance cosmosInstancePatched = cosmosInstance;
-            if (!includeElements && cosmosInstance.Data != null)
+            string cosmosJson = null;
+            for (int i = 0; i < 4; i++)
             {
-                cosmosInstancePatched = JsonSerializer.Deserialize<Instance>(cosmosJson);
-                cosmosInstancePatched.Data = new();
-                cosmosInstancePatched.LastChanged = postgresInstance.LastChanged;
-                cosmosInstancePatched.LastChangedBy = postgresInstance.LastChangedBy;
-                cosmosJson = JsonSerializer.Serialize(cosmosInstancePatched);
+                (cosmosInstance, cosmosInternalId) = await _cosmosRepository.GetOne(instanceOwnerPartyId, instanceGuid, includeElements);
+                cosmosJson = JsonSerializer.Serialize(cosmosInstance);
+                Instance cosmosInstancePatched = cosmosInstance;
+                if (!includeElements && cosmosInstance.Data != null)
+                {
+                    cosmosInstancePatched = JsonSerializer.Deserialize<Instance>(cosmosJson);
+                    cosmosInstancePatched.Data = new();
+                    cosmosInstancePatched.LastChanged = postgresInstance.LastChanged;
+                    cosmosInstancePatched.LastChangedBy = postgresInstance.LastChangedBy;
+                    cosmosJson = JsonSerializer.Serialize(cosmosInstancePatched);
+                }
+
+                if (cosmosJson == postgresJson)
+                {
+                    break;
+                }
+
+                await Task.Delay(50);
             }
 
             if (cosmosJson != postgresJson)
