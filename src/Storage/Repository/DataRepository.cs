@@ -209,6 +209,11 @@ namespace Altinn.Platform.Storage.Repository
             dataElement.Id ??= Guid.NewGuid().ToString();
             ItemResponse<DataElement> createdDataElement = await Container.CreateItemAsync(dataElement, new PartitionKey(dataElement.InstanceGuid));
             _logger.LogWarning("Create dateElement Id: {dataElementId}, eTag: {etag}", createdDataElement.Resource.Id, createdDataElement.ETag);
+            if (dataElement.DataType == "signature")
+            {
+                _logger.LogError("DebugPg " + dataElement.Id + " " + System.Environment.StackTrace);
+            }
+
             return createdDataElement;
         }
 
