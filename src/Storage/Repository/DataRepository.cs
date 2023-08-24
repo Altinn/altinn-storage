@@ -206,12 +206,13 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<DataElement> Create(DataElement dataElement, long instanceInternalId = 0)
         {
+            string stackTrace = System.Environment.StackTrace;
             dataElement.Id ??= Guid.NewGuid().ToString();
             ItemResponse<DataElement> createdDataElement = await Container.CreateItemAsync(dataElement, new PartitionKey(dataElement.InstanceGuid));
             _logger.LogWarning("Create dateElement Id: {dataElementId}, eTag: {etag}", createdDataElement.Resource.Id, createdDataElement.ETag);
             if (dataElement.DataType == "signature")
             {
-                _logger.LogError("DebugPg " + dataElement.Id + " " + System.Environment.StackTrace);
+                _logger.LogError("DebugPg2 " + dataElement.Id + " " + stackTrace);
             }
 
             return createdDataElement;
