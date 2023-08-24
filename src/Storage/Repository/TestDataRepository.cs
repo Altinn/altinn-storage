@@ -54,6 +54,7 @@ namespace Altinn.Platform.Storage.Repository
         {
             DataElement cosmosElement = await _cosmosRepository.Create(dataElement, instanceInternalId);
             DataElement postgresElement = await _postgresRepository.Create(dataElement, instanceInternalId);
+            _logger.LogError($"TracePgData: Created {dataElement.Id}");
             return cosmosElement;
         }
 
@@ -71,6 +72,7 @@ namespace Altinn.Platform.Storage.Repository
                 }
             }
 
+            _logger.LogError($"TracePgData: Deleted {dataElement.Id}");
             return cosmosDelete;
         }
 
@@ -171,6 +173,7 @@ namespace Altinn.Platform.Storage.Repository
                 }
             }
 
+            _logger.LogError($"TracePgData: Updated {dataElementId}");
             return cosmosUpdate;
         }
 
