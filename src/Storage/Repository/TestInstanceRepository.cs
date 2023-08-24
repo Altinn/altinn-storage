@@ -124,14 +124,17 @@ namespace Altinn.Platform.Storage.Repository
         {
             Instance cosmosInstance = null;
             long cosmosInternalId = 0;
-            (Instance postgresInstance, long postgresInternalId) = await _postgresRepository.GetOne(instanceOwnerPartyId, instanceGuid, includeElements);
+            Instance postgresInstance = null;
+            long postgresInternalId = 0;
 
-            string postgresJson = JsonSerializer.Serialize(postgresInstance);
+            string postgresJson = null;
             string cosmosJson = null;
             for (int i = 0; i < 4; i++)
             {
                 (cosmosInstance, cosmosInternalId) = await _cosmosRepository.GetOne(instanceOwnerPartyId, instanceGuid, includeElements);
+                (postgresInstance, postgresInternalId) = await _postgresRepository.GetOne(instanceOwnerPartyId, instanceGuid, includeElements);
                 cosmosJson = JsonSerializer.Serialize(cosmosInstance);
+                postgresJson = JsonSerializer.Serialize(postgresInstance);
                 Instance cosmosInstancePatched = cosmosInstance;
                 if (!includeElements && cosmosInstance.Data != null)
                 {
