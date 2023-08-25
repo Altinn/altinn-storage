@@ -34,7 +34,7 @@ namespace Altinn.Platform.Storage.Services
         /// <inheritdoc/>
         public async Task<(bool Created, ServiceError ServiceError)> CreateSignDocument(int instanceOwnerPartyId, Guid instanceGuid, SignRequest signRequest, int userId)
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, long internalId) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
             if (instance == null) 
             {
                 return (false, new ServiceError(404, "Instance not found"));
@@ -79,7 +79,7 @@ namespace Altinn.Platform.Storage.Services
         
             using (MemoryStream fileStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(signDocument, Formatting.Indented))))
             {
-                await _dataService.UploadDataAndCreateDataElement(instance.Org, fileStream, dataElement);
+                await _dataService.UploadDataAndCreateDataElement(instance.Org, fileStream, dataElement, internalId);
             }
             
             await _instanceEventService.DispatchEvent(InstanceEventType.Signed, instance);

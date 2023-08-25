@@ -40,6 +40,7 @@ namespace Altinn.Platform.Storage.Services
         /// <param name="org">The application owner id.</param>
         /// <param name="stream">Data to be written to blob storage.</param>
         /// <param name="dataElement">The data element to insert.</param>
-        Task UploadDataAndCreateDataElement(string org, Stream stream, DataElement dataElement);
+        /// <param name="internalId">The internal id of the data element to insert.</param>
+        Task UploadDataAndCreateDataElement(string org, Stream stream, DataElement dataElement, long internalId);
     }
 }

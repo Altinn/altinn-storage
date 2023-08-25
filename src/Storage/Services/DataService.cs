@@ -71,12 +71,12 @@ namespace Altinn.Platform.Storage.Services
         }
 
         /// <inheritdoc/>
-        public async Task UploadDataAndCreateDataElement(string org, Stream stream, DataElement dataElement)
+        public async Task UploadDataAndCreateDataElement(string org, Stream stream, DataElement dataElement, long internalId)
         {
             (long length, _) = await _dataRepository.WriteDataToStorage(org, stream, dataElement.BlobStoragePath);
             dataElement.Size = length;
             
-            await _dataRepository.Create(dataElement);
+            await _dataRepository.Create(dataElement, internalId);
         }
     }
 }

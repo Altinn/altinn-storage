@@ -106,7 +106,8 @@ namespace Altinn.Platform.Storage.Repository
                         NpgsqlDbType.Boolean => $"{postgresParams[name].ToString()}",
                         NpgsqlDbType.Text | NpgsqlDbType.Array => ArrayVariableFromText((string[])postgresParams[name]),
                         NpgsqlDbType.Jsonb | NpgsqlDbType.Array => ArrayVariableFromJsonText((string[])postgresParams[name]),
-                        NpgsqlDbType.Integer | NpgsqlDbType.Array => ArrayVariableFromInteger((int[])postgresParams[name])
+                        NpgsqlDbType.Integer | NpgsqlDbType.Array => ArrayVariableFromInteger((int[])postgresParams[name]),
+                        _ => throw new NotImplementedException()
                     };
                 }
 
