@@ -63,14 +63,22 @@ namespace Altinn.Platform.Storage.Repository
                 _logger.LogError("DebugPg2Postgres0 " + dataElement.Id);
             }
 
-            dataElement.Id ??= Guid.NewGuid().ToString();
-            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Bigint, instanceInternalId);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.InstanceGuid));
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, dataElement);
+            try
+            {
+                dataElement.Id ??= Guid.NewGuid().ToString();
+                await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
+                pgcom.Parameters.AddWithValue(NpgsqlDbType.Bigint, instanceInternalId);
+                pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.InstanceGuid));
+                pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
+                pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, dataElement);
 
-            await pgcom.ExecuteNonQueryAsync();
+                await pgcom.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("DebugPg2Postgres-e " + dataElement.Id + " " + ex.Message);
+                throw;
+            }
 
             if (dataElement.DataType == "signature")
             {
