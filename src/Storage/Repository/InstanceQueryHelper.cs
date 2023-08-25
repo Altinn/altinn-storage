@@ -389,6 +389,5 @@ namespace Altinn.Platform.Storage.Repository
         {
             return DateTimeHelper.ParseAndConvertToUniversalTime(queryValue);
         }
-
     }
 }
