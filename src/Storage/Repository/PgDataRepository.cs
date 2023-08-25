@@ -91,7 +91,8 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<bool> Delete(DataElement dataElement)
         {
-            _logger.LogError("DebugPg2PostgresDelete " + dataElement.Id);
+            var dummy = await Read(Guid.Empty, new Guid(dataElement.Id));
+            _logger.LogError("DebugPg2PostgresDeleteRead " + dataElement.Id + " " + dummy == null ? "null" : dummy.Id);
             try
             {
                 await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
