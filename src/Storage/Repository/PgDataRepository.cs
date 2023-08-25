@@ -91,10 +91,19 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<bool> Delete(DataElement dataElement)
         {
-            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
+            _logger.LogError("DebugPg2PostgresDelete " + dataElement.Id);
+            try
+            {
+                await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
+                pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
 
-            return await pgcom.ExecuteNonQueryAsync() == 1;
+                return await pgcom.ExecuteNonQueryAsync() == 1;
+            }
+            catch (Exception e)
+            {
+                _logger.LogError("DebugPg2PostgresDeleteEx " + dataElement.Id + " " + e.Message);
+                throw;
+            }
         }
 
         /// <inheritdoc/>
