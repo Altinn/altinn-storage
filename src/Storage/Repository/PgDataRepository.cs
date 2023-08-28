@@ -106,7 +106,7 @@ namespace Altinn.Platform.Storage.Repository
                     throw;
                 }
 
-                _logger.LogError("DebugPg2PostgresDeleteRead1 " + dataElement.Id + " " + dummy == null ? "null" : dummy.Id);
+                _logger.LogError("DebugPg2PostgresDeleteRead1 " + id + " " + dummy == null ? "null" : dummy?.Id);
 
                 await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
                 pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
@@ -123,12 +123,19 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<DataElement> Read(Guid instanceGuid, Guid dataElementId)
         {
+            _logger.LogError("DebugPg2PostgresRead00 " + dataElementId);
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSql);
+            _logger.LogError("DebugPg2PostgresRead01 " + dataElementId);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
+            _logger.LogError("DebugPg2PostgresRead02 " + dataElementId);
 
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
+            _logger.LogError("DebugPg2PostgresRead04 " + dataElementId);
             await reader.ReadAsync();
-            return reader.GetFieldValue<DataElement>("element");
+            _logger.LogError("DebugPg2PostgresRead06 " + dataElementId);
+            var x = reader.GetFieldValue<DataElement>("element");
+            _logger.LogError("DebugPg2PostgresRead07 " + dataElementId);
+            return x;
         }
 
         /// <inheritdoc/>
