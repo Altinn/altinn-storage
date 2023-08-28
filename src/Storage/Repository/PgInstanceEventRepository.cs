@@ -57,7 +57,7 @@ namespace Altinn.Platform.Storage.Repository
 
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             await reader.ReadAsync();
-            return reader.GetFieldValue<InstanceEvent>("event");
+            return reader.GetFieldValue<InstanceEvent>("instanceevent");
         }
 
         /// <inheritdoc/>
@@ -78,7 +78,7 @@ namespace Altinn.Platform.Storage.Repository
             {
                 while (await reader.ReadAsync())
                 {
-                    events.Add(reader.GetFieldValue<InstanceEvent>("event"));
+                    events.Add(reader.GetFieldValue<InstanceEvent>("instanceevent"));
                 }
             }
 
