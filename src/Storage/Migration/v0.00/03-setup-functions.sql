@@ -256,7 +256,7 @@ CREATE OR REPLACE FUNCTION storage.readinstanceevent(_alternateid UUID)
 AS $BODY$
 BEGIN
 RETURN QUERY 
-	SELECT ie.event AS instanceevent FROM storage.instanceevents ie WHERE alternateid = _alternateid;
+	SELECT ie.event FROM storage.instanceevents ie WHERE alternateid = _alternateid;
 
 END;
 $BODY$;
@@ -268,7 +268,7 @@ CREATE OR REPLACE FUNCTION storage.filterinstanceevent(_instance UUID, _from TIM
 AS $BODY$
 BEGIN
 RETURN QUERY 
-	SELECT ie.event AS instanceevent
+	SELECT ie.event
 	FROM storage.instanceevents ie
 	WHERE instance = _instance
 		AND (ie.event->>'Created')::TIMESTAMP >= _from
