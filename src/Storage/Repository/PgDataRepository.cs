@@ -93,8 +93,19 @@ namespace Altinn.Platform.Storage.Repository
         {
             try
             {
+                string id = dataElement.Id;
+                DataElement dummy = null;
                 _logger.LogError("DebugPg2PostgresDeleteRead0 " + dataElement.Id);
-                var dummy = await Read(Guid.Empty, new Guid(dataElement.Id));
+                try
+                {
+                    dummy = await Read(Guid.Empty, new Guid(dataElement.Id));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError("DebugPg2PostgresDeleteEx0 " + id + " " + ex.Message);
+                    throw;
+                }
+
                 _logger.LogError("DebugPg2PostgresDeleteRead1 " + dataElement.Id + " " + dummy == null ? "null" : dummy.Id);
 
                 await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
