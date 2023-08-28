@@ -28,7 +28,7 @@ namespace Altinn.Platform.Storage.Repository
         private readonly string _readAllSql = "select * from storage.readalldataelement($1)";
         private readonly string _readAllForMultipleSql = "select * from storage.readallformultipledataelement($1)";
         private readonly string _readSql = "select * from storage.readdataelement($1)";
-        private readonly string _deleteSql = "call storage.deletedataelement ($1)";
+        private readonly string _deleteSql = "select * from storage.deletedataelement ($1)";
         private readonly string _updateSql = "call storage.updatedataelement ($1, $2)";
 
         private readonly AzureStorageConfiguration _storageConfiguration;
@@ -76,7 +76,7 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
 
-            return await pgcom.ExecuteNonQueryAsync() == 1;
+            return (int)await pgcom.ExecuteScalarAsync() == 1;
         }
 
         /// <inheritdoc/>
@@ -86,8 +86,12 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
 
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
-            await reader.ReadAsync();
-            return reader.GetFieldValue<DataElement>("element");
+            if (await reader.ReadAsync())
+            {
+                return reader.GetFieldValue<DataElement>("element");
+            }
+
+            return null;
         }
 
         /// <inheritdoc/>
