@@ -28,7 +28,7 @@ namespace Altinn.Platform.Storage.Repository
         private readonly string _readAllSql = "select * from storage.readalldataelement($1)";
         private readonly string _readAllForMultipleSql = "select * from storage.readallformultipledataelement($1)";
         private readonly string _readSql = "select * from storage.readdataelement($1)";
-        private readonly string _deleteSql = "call storage.deletedataelement ($1)";
+        private readonly string _deleteSql = "select * from storage.deletedataelement ($1)";
         private readonly string _updateSql = "call storage.updatedataelement ($1, $2)";
 
         private readonly AzureStorageConfiguration _storageConfiguration;
@@ -58,32 +58,14 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<DataElement> Create(DataElement dataElement, long instanceInternalId = 0)
         {
-            if (dataElement.DataType == "signature")
-            {
-                _logger.LogError("DebugPg2Postgres0 " + dataElement.Id);
-            }
+            dataElement.Id ??= Guid.NewGuid().ToString();
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Bigint, instanceInternalId);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.InstanceGuid));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, dataElement);
 
-            try
-            {
-                dataElement.Id ??= Guid.NewGuid().ToString();
-                await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
-                pgcom.Parameters.AddWithValue(NpgsqlDbType.Bigint, instanceInternalId);
-                pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.InstanceGuid));
-                pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
-                pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, dataElement);
-
-                await pgcom.ExecuteNonQueryAsync();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError("DebugPg2Postgres-e " + dataElement.Id + " " + ex.Message);
-                throw;
-            }
-
-            if (dataElement.DataType == "signature")
-            {
-                _logger.LogError("DebugPg2Postgres1 " + dataElement.Id);
-            }
+            await pgcom.ExecuteNonQueryAsync();
 
             return dataElement;
         }
@@ -91,51 +73,25 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<bool> Delete(DataElement dataElement)
         {
-            try
-            {
-                string id = dataElement.Id;
-                DataElement dummy = null;
-                _logger.LogError("DebugPg2PostgresDeleteRead0 " + dataElement.Id);
-                try
-                {
-                    dummy = await Read(Guid.Empty, new Guid(dataElement.Id));
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError("DebugPg2PostgresDeleteEx0 " + id + " " + ex.Message);
-                    throw;
-                }
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
 
-                _logger.LogError("DebugPg2PostgresDeleteRead1 " + id + " " + dummy == null ? "null" : dummy?.Id);
-
-                await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
-                pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
-
-                return await pgcom.ExecuteNonQueryAsync() == 1;
-            }
-            catch (Exception e)
-            {
-                _logger.LogError("DebugPg2PostgresDeleteEx " + dataElement.Id + " " + e.Message);
-                throw;
-            }
+            return (int)await pgcom.ExecuteScalarAsync() == 1;
         }
 
         /// <inheritdoc/>
         public async Task<DataElement> Read(Guid instanceGuid, Guid dataElementId)
         {
-            _logger.LogError("DebugPg2PostgresRead00 " + dataElementId);
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSql);
-            _logger.LogError("DebugPg2PostgresRead01 " + dataElementId);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
-            _logger.LogError("DebugPg2PostgresRead02 " + dataElementId);
 
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
-            _logger.LogError("DebugPg2PostgresRead04 " + dataElementId);
-            await reader.ReadAsync();
-            _logger.LogError("DebugPg2PostgresRead06 " + dataElementId);
-            var x = reader.GetFieldValue<DataElement>("element");
-            _logger.LogError("DebugPg2PostgresRead07 " + dataElementId);
-            return x;
+            if (await reader.ReadAsync())
+            {
+                return reader.GetFieldValue<DataElement>("element");
+            }
+
+            return null;
         }
 
         /// <inheritdoc/>

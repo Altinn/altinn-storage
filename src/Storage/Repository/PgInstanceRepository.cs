@@ -21,7 +21,7 @@ namespace Altinn.Platform.Storage.Repository
     /// </summary>
     public class PgInstanceRepository: IInstanceRepository
     {
-        private static readonly string _deleteSql = "call storage.deleteinstance ($1)";
+        private static readonly string _deleteSql = "select * from storage.deleteinstance ($1)";
         private static readonly string _insertSql = "call storage.insertinstance ($1, $2, $3, $4, $5, $6, $7, $8)";
         private static readonly string _upsertSql = "call storage.upsertinstance ($1, $2, $3, $4, $5, $6, $7, $8)";
         private static readonly string _readSql = "select * from storage.readinstance ($1)";
@@ -69,7 +69,7 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(item.Id));
 
-            return await pgcom.ExecuteNonQueryAsync() == 1;
+            return (int)await pgcom.ExecuteScalarAsync() == 1;
         }
 
         /// <inheritdoc/>
