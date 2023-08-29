@@ -80,15 +80,29 @@ namespace Altinn.Platform.Storage.Repository
             DateTime? fromDateTime,
             DateTime? toDateTime)
         {
-            List<InstanceEvent> cosmosEvents = await _cosmosRepository.ListInstanceEvents(instanceId, eventTypes, fromDateTime, toDateTime);
-            List<InstanceEvent> postgresEvents = await _postgresRepository.ListInstanceEvents(instanceId, eventTypes, fromDateTime, toDateTime);
+            List<InstanceEvent> cosmosEvents = null;
+            List<InstanceEvent> postgresEvents = null;
 
-            string postgresJson = JsonSerializer.Serialize(postgresEvents);
-            string cosmosJson = JsonSerializer.Serialize(cosmosEvents);
+            string postgresJson = null;
+            string cosmosJson = null;
+            for (int i = 0; i < 4; i++)
+            {
+                cosmosEvents = await _cosmosRepository.ListInstanceEvents(instanceId, eventTypes, fromDateTime, toDateTime);
+                postgresEvents = await _postgresRepository.ListInstanceEvents(instanceId, eventTypes, fromDateTime, toDateTime);
+                postgresJson = JsonSerializer.Serialize(postgresEvents);
+                cosmosJson = JsonSerializer.Serialize(cosmosEvents);
+
+                if (cosmosJson == postgresJson)
+                {
+                    break;
+                }
+
+                await Task.Delay(50);
+            }
 
             if (cosmosJson != postgresJson)
             {
-                _logger.LogError($"TestPgInstanceEvent: Diff in GetOListInstanceEventsneEvent postgres data: {JsonSerializer.Serialize(postgresEvents, new JsonSerializerOptions() { WriteIndented = true })}");
+                _logger.LogError($"TestPgInstanceEvent: Diff in ListInstanceEvents postgres data: {JsonSerializer.Serialize(postgresEvents, new JsonSerializerOptions() { WriteIndented = true })}");
                 _logger.LogError($"TestPgInstanceEvent: Diff in ListInstanceEvents cosmos data: {JsonSerializer.Serialize(cosmosEvents, new JsonSerializerOptions() { WriteIndented = true })}");
 
                 _logger.LogError($"TestPgInstanceEvent: Diff in ListInstanceEvents for {instanceId}");
