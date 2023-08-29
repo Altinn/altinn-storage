@@ -56,7 +56,6 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, eventGuid);
 
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
-            await reader.ReadAsync();
             if (await reader.ReadAsync())
             {
                 return reader.GetFieldValue<InstanceEvent>("event");
