@@ -85,7 +85,7 @@ namespace Altinn.Platform.Storage.Repository
 
             string postgresJson = null;
             string cosmosJson = null;
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 10; i++)
             {
                 cosmosEvents = await _cosmosRepository.ListInstanceEvents(instanceId, eventTypes, fromDateTime, toDateTime);
                 postgresEvents = await _postgresRepository.ListInstanceEvents(instanceId, eventTypes, fromDateTime, toDateTime);
@@ -96,6 +96,8 @@ namespace Altinn.Platform.Storage.Repository
                 {
                     break;
                 }
+
+                _logger.LogError($"TracePgListInstanceEvents: {instanceId} c:{cosmosEvents.Count} p:{postgresEvents.Count}");
 
                 await Task.Delay(50);
             }
