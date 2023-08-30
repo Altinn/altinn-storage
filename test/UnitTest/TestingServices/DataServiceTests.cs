@@ -153,7 +153,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object);
 
             // Act
-            await dataService.UploadDataAndCreateDataElement("ttd", new MemoryStream(Encoding.UTF8.GetBytes("whatever")), dataElement);
+            await dataService.UploadDataAndCreateDataElement("ttd", new MemoryStream(Encoding.UTF8.GetBytes("whatever")), dataElement, 0);
 
             // Assert
             dataRepositoryMock.VerifyAll();

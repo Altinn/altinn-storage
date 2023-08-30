@@ -288,6 +288,13 @@ namespace Altinn.Platform.Storage.Controllers
 
             newData.Filename = HttpUtility.UrlDecode(newData.Filename);
             (long length, DateTimeOffset blobTimestamp) = await _dataRepository.WriteDataToStorage(instance.Org, theStream, newData.BlobStoragePath);
+
+            if (length == 0L)
+            {
+                await _dataRepository.DeleteDataInStorage(instance.Org, newData.BlobStoragePath);
+                return BadRequest("Empty stream provided. Cannot persist data.");
+            }
+
             newData.Size = length;
 
             if (User.GetOrg() == instance.Org)
