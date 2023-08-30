@@ -155,7 +155,7 @@ namespace Altinn.Platform.Storage.Repository
             string continuationToken,
             int size)
         {
-            Instance instance = null;
+            Instance instance = new(); // make sonarcloud happy
             long id = -1;
             DateTime lastChanged = DateTime.MinValue;
             InstanceQueryResponse queryResponse = new() { Count = 0, Instances = new() };
