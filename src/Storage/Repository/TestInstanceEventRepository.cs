@@ -46,6 +46,7 @@ namespace Altinn.Platform.Storage.Repository
         {
             InstanceEvent cosmosItem = await _cosmosRepository.InsertInstanceEvent(instanceEvent);
             InstanceEvent postgresItem = await _postgresRepository.InsertInstanceEvent(instanceEvent);
+            _logger.LogError($"TracePgInsertInstanceEvent: {instanceEvent.InstanceId} {instanceEvent.Id}");
             return cosmosItem;
         }
 
@@ -131,6 +132,7 @@ namespace Altinn.Platform.Storage.Repository
                 }
             }
 
+            _logger.LogError($"TracePgDeleteAllInstanceEvents: {instanceId}");
             return cosmosDelete;
         }
     }
