@@ -72,12 +72,31 @@ namespace Altinn.Platform.Storage.Repository
             return cosmosDelete;
         }
 
+        private void PatchQueryParams(Dictionary<string, StringValues> queryParams)
+        {
+            foreach (var param in queryParams)
+            {
+                if (
+                    param.Key.Contains("created", StringComparison.OrdinalIgnoreCase) ||
+                    param.Key.Contains("lastChanged", StringComparison.OrdinalIgnoreCase))
+                {
+                    foreach (var value in param.Value)
+                    {
+                        string[] parts = value.Split(':');
+                        string newValue = $"{parts[0]}:{parts[1].Substring(0, 10)}T00:00:00.000Z";
+                        queryParams[param.Key] = newValue;
+                    }
+                }
+            }
+        }
+
         /// <inheritdoc/>
         public async Task<InstanceQueryResponse> GetInstancesFromQuery(
             Dictionary<string, StringValues> queryParams,
             string continuationToken,
             int size)
         {
+            PatchQueryParams(queryParams);
             bool returnCosmos = true;
             if (!string.IsNullOrEmpty(continuationToken) && continuationToken.IndexOf("usePostgresToken", StringComparison.OrdinalIgnoreCase) != -1)
             {
@@ -107,6 +126,7 @@ namespace Altinn.Platform.Storage.Repository
                 {
                     if (!CompareInstanceResponses(postgresResponse, cosmosResponse))
                     {
+                        _logger.LogError("TracePgGetInstancesFromQuery: Diff, iteration " + i);
                         await Task.Delay(500);
 
                         postgresResponse = cosmosOnly ? null : await _postgresRepository.GetInstancesFromQuery(queryParams, continuationToken, size);
@@ -114,6 +134,7 @@ namespace Altinn.Platform.Storage.Repository
                     }
                     else
                     {
+                        _logger.LogError("TracePgGetInstancesFromQuery: Ok, iteration " + i);
                         responsesEqual = true;
                         break;
                     }
