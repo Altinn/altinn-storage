@@ -101,7 +101,25 @@ namespace Altinn.Platform.Storage.Repository
             {
                 Console.WriteLine(postgresResponse.Count);
                 Console.WriteLine(cosmosResponse.Count);
-                if (!CompareInstanceResponses(postgresResponse, cosmosResponse))
+
+                bool responsesEqual = false;
+                for (int i = 0; i < 10; i++)
+                {
+                    if (!CompareInstanceResponses(postgresResponse, cosmosResponse))
+                    {
+                        await Task.Delay(500);
+
+                        postgresResponse = cosmosOnly ? null : await _postgresRepository.GetInstancesFromQuery(queryParams, continuationToken, size);
+                        cosmosResponse = postgresOnly ? null : await _cosmosRepository.GetInstancesFromQuery(queryParams, continuationToken, size);
+                    }
+                    else
+                    {
+                        responsesEqual = true;
+                        break;
+                    }
+                }
+
+                if (!responsesEqual || !CompareInstanceResponses(postgresResponse, cosmosResponse))
                 {
                     ////System.IO.File.WriteAllText(@"c:\temp\c.json", JsonSerializer.Serialize(cosmosResponse, new JsonSerializerOptions() { WriteIndented = true }));
                     ////System.IO.File.WriteAllText(@"c:\temp\p.json", JsonSerializer.Serialize(postgresResponse, new JsonSerializerOptions() { WriteIndented = true }));
