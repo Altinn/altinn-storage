@@ -188,7 +188,11 @@ namespace Altinn.Platform.Storage.Repository
                     id = reader.GetFieldValue<long>("id");
                     if (id != previousId)
                     {
-                        SetStatuses(instance);
+                        if (previousId != -1)
+                        {
+                            SetStatuses(instance);
+                        }
+
                         instance = reader.GetFieldValue<Instance>("instance");
                         lastChanged = instance.LastChanged ?? DateTime.MinValue;
                         queryResponse.Instances.Add(instance);
