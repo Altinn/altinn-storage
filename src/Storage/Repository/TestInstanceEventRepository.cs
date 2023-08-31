@@ -82,12 +82,22 @@ namespace Altinn.Platform.Storage.Repository
             DateTime? fromDateTime,
             DateTime? toDateTime)
         {
-            string log = $"From {(fromDateTime != null ? DateTimeHelper.RepresentAsIso8601Utc((DateTime)fromDateTime) : null)}, " +
+            string types = null;
+            if (eventTypes != null)
+            {
+                foreach (string type in eventTypes)
+                {
+                    types += type + ":";
+                }
+            }
+
+            string log = $"IEParams: {instanceId}, types: {types}, " +
+                $"from {(fromDateTime != null ? DateTimeHelper.RepresentAsIso8601Utc((DateTime)fromDateTime) : null)}, " +
                 $"to {(toDateTime != null ? DateTimeHelper.RepresentAsIso8601Utc((DateTime)toDateTime) : null)}, " +
                 $"fromt2 {fromDateTime ?? DateTime.MinValue}, " +
                 $"to2 {toDateTime ?? DateTime.MinValue}, " +
                 $"from3 {DateTimeHelper.RepresentAsIso8601Utc(fromDateTime ?? DateTime.MinValue)}, " +
-                $"to3 {DateTimeHelper.RepresentAsIso8601Utc(toDateTime ?? DateTime.MinValue)}";
+                $"to3 {DateTimeHelper.RepresentAsIso8601Utc(toDateTime ?? DateTime.MaxValue)}";
             _logger.LogError($"TracePgListInstanceEvents: dates: {log}");
 
             if (fromDateTime != null)
