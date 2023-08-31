@@ -81,6 +81,16 @@ namespace Altinn.Platform.Storage.Repository
             DateTime? fromDateTime,
             DateTime? toDateTime)
         {
+            if (fromDateTime != null)
+            {
+                ((DateTime)fromDateTime).AddTicks(-((DateTime)fromDateTime).Ticks % TimeSpan.TicksPerSecond);
+            }
+
+            if (toDateTime != null)
+            {
+                ((DateTime)toDateTime).AddTicks(-((DateTime)toDateTime).Ticks % TimeSpan.TicksPerSecond);
+            }
+
             List<InstanceEvent> cosmosEvents = null;
             List<InstanceEvent> postgresEvents = null;
 
