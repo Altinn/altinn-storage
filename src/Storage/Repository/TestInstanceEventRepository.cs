@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -81,6 +82,14 @@ namespace Altinn.Platform.Storage.Repository
             DateTime? fromDateTime,
             DateTime? toDateTime)
         {
+            string log = $"From {(fromDateTime != null ? DateTimeHelper.RepresentAsIso8601Utc((DateTime)fromDateTime) : null)}, " +
+                $"to {(toDateTime != null ? DateTimeHelper.RepresentAsIso8601Utc((DateTime)toDateTime) : null)}, " +
+                $"fromt2 {fromDateTime ?? DateTime.MinValue}, " +
+                $"to2 {toDateTime ?? DateTime.MinValue}, " +
+                $"from3 {DateTimeHelper.RepresentAsIso8601Utc(fromDateTime ?? DateTime.MinValue)}, " +
+                $"to3 {DateTimeHelper.RepresentAsIso8601Utc(toDateTime ?? DateTime.MinValue)}";
+            _logger.LogError($"TracePgListInstanceEvents: dates: {log}");
+
             if (fromDateTime != null)
             {
                 ((DateTime)fromDateTime).AddTicks(-((DateTime)fromDateTime).Ticks % TimeSpan.TicksPerSecond);
