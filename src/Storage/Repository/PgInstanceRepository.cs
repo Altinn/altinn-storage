@@ -174,6 +174,7 @@ namespace Altinn.Platform.Storage.Repository
             }
 
             // System.IO.File.WriteAllText(@"c:\temp\FormatManualFunctionCall.sql", FormatManualFunctionCall(postgresParams));
+            _logger.LogError("SearchSqlPg: " + FormatManualFunctionCall(postgresParams));
             if (_logger.IsEnabled(LogLevel.Debug))
             {
                 _logger.LogDebug(FormatManualFunctionCall(postgresParams));
