@@ -189,6 +189,7 @@ namespace Altinn.Platform.Storage.Repository
                     break;
                 }
 
+                _logger.LogError("TracePgGetOneInstance delay iteration " + i);
                 await Task.Delay(50);
             }
 
