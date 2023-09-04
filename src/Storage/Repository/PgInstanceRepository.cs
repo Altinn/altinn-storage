@@ -216,7 +216,7 @@ namespace Altinn.Platform.Storage.Repository
         public async Task<(Instance Instance, long InternalId)> GetOne(int instanceOwnerPartyId, Guid instanceGuid, bool includeElements = true)
         {
             Instance instance = null;
-            long internalId = 0;
+            long instanceInternalId = 0;
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(includeElements ? _readSql : _readSqlNoElements);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
@@ -230,7 +230,7 @@ namespace Altinn.Platform.Storage.Repository
                     {
                         instanceCreated = true;
                         instance = reader.GetFieldValue<Instance>("instance");
-                        internalId = reader.GetFieldValue<long>("id");
+                        instanceInternalId = reader.GetFieldValue<long>("id");
                         instance.Data = new();
                     }
 
@@ -248,7 +248,7 @@ namespace Altinn.Platform.Storage.Repository
                 SetStatuses(instance);
             }
 
-            return (instance, internalId);
+            return (instance, instanceInternalId);
         }
 
         /// <inheritdoc/>
