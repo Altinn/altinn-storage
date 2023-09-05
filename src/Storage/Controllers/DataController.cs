@@ -256,7 +256,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest("Missing parameter values: instanceId, elementType or attached file content cannot be null");
             }
 
-            (Instance instance, long internalId, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
+            (Instance instance, long instanceInternalId, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
             if (instance == null)
             {
                 return instanceError;
@@ -302,7 +302,7 @@ namespace Altinn.Platform.Storage.Controllers
                 newData.IsRead = false;
             }
 
-            DataElement dataElement = await _dataRepository.Create(newData, internalId);
+            DataElement dataElement = await _dataRepository.Create(newData, instanceInternalId);
             dataElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
 
             await _dataService.StartFileScan(instance, dataTypeDefinition, dataElement, blobTimestamp, CancellationToken.None);
@@ -565,14 +565,14 @@ namespace Altinn.Platform.Storage.Controllers
 
         private async Task<(Instance Instance, long InternalId, ActionResult ErrorMessage)> GetInstanceAsync(Guid instanceGuid, int instanceOwnerPartyId)
         {
-            (Instance instance, long internalId) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
 
             if (instance == null)
             {
                 return (null, 0, NotFound($"Unable to find any instance with id: {instanceOwnerPartyId}/{instanceGuid}."));
             }
 
-            return (instance, internalId, null);
+            return (instance, instanceInternalId, null);
         }
 
         private async Task<(DataElement DataElement, ActionResult ErrorMessage)> GetDataElementAsync(Guid instanceGuid, Guid dataGuid)
