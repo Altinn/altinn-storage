@@ -14,31 +14,6 @@ namespace Altinn.Platform.Storage.Repository
     public interface IDataRepository
     {
         /// <summary>
-        /// Create a new file in blob storage.
-        /// </summary>
-        /// <param name="org">The application owner id.</param>
-        /// <param name="stream">Data to be written to blob storage.</param>
-        /// <param name="blobStoragePath">Path to save the stream to in blob storage.</param>
-        /// <returns>The size of the blob.</returns>
-        Task<(long ContentLength, DateTimeOffset LastModified)> WriteDataToStorage(string org, Stream stream, string blobStoragePath);
-
-        /// <summary>
-        /// Reads a data file from blob storage
-        /// </summary>
-        /// <param name="org">The application owner id.</param>
-        /// <param name="blobStoragePath">Path to be file to read blob storage.</param>
-        /// <returns>The stream with the file</returns>
-        Task<Stream> ReadDataFromStorage(string org, string blobStoragePath);
-
-        /// <summary>
-        /// Deletes the data element permanently
-        /// </summary>
-        /// <param name="org">The application owner id.</param>
-        /// <param name="blobStoragePath">Path to the file to delete.</param>
-        /// <returns>A value indicating whether the delete was successful.</returns>
-        Task<bool> DeleteDataInStorage(string org, string blobStoragePath);
-
-        /// <summary>
         /// Gets all data elements for a given instance
         /// </summary>
         /// <param name="instanceGuid">the guid of the instance</param>

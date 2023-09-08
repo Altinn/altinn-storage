@@ -37,6 +37,7 @@ namespace Altinn.Platform.Storage.Controllers
         private static readonly FormOptions _defaultFormOptions = new();
 
         private readonly IDataRepository _dataRepository;
+        private readonly IBlobRepository _blobRepository;
         private readonly IInstanceRepository _instanceRepository;
         private readonly IApplicationRepository _applicationRepository;
         private readonly IDataService _dataService;
@@ -47,6 +48,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// Initializes a new instance of the <see cref="DataController"/> class
         /// </summary>
         /// <param name="dataRepository">the data repository handler</param>
+        /// <param name="blobRepository">the blob repository handler</param>
         /// <param name="instanceRepository">the instance repository</param>
         /// <param name="applicationRepository">the application repository</param>
         /// <param name="dataService">A data service with data element related business logic.</param>
@@ -54,6 +56,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="generalSettings">the general settings.</param>
         public DataController(
             IDataRepository dataRepository,
+            IBlobRepository blobRepository,
             IInstanceRepository instanceRepository,
             IApplicationRepository applicationRepository,
             IDataService dataService,
@@ -61,6 +64,7 @@ namespace Altinn.Platform.Storage.Controllers
             IOptions<GeneralSettings> generalSettings)
         {
             _dataRepository = dataRepository;
+            _blobRepository = blobRepository;
             _instanceRepository = instanceRepository;
             _applicationRepository = applicationRepository;
             _dataService = dataService;
@@ -178,7 +182,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (string.Equals(dataElement.BlobStoragePath, storageFileName))
             {
-                Stream dataStream = await _dataRepository.ReadDataFromStorage(instance.Org, storageFileName);
+                Stream dataStream = await _blobRepository.ReadBlob(instance.Org, storageFileName);
 
                 if (dataStream == null)
                 {
@@ -287,11 +291,11 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             newData.Filename = HttpUtility.UrlDecode(newData.Filename);
-            (long length, DateTimeOffset blobTimestamp) = await _dataRepository.WriteDataToStorage(instance.Org, theStream, newData.BlobStoragePath);
+            (long length, DateTimeOffset blobTimestamp) = await _blobRepository.WriteBlob(instance.Org, theStream, newData.BlobStoragePath);
 
             if (length == 0L)
             {
-                await _dataRepository.DeleteDataInStorage(instance.Org, newData.BlobStoragePath);
+                await _blobRepository.DeleteBlob(instance.Org, newData.BlobStoragePath);
                 return BadRequest("Empty stream provided. Cannot persist data.");
             }
 
@@ -393,7 +397,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             DateTime changedTime = DateTime.UtcNow;
 
-            (long blobSize, DateTimeOffset blobTimestamp) = await _dataRepository.WriteDataToStorage(instance.Org, theStream, blobStoragePathName);
+            (long blobSize, DateTimeOffset blobTimestamp) = await _blobRepository.WriteBlob(instance.Org, theStream, blobStoragePathName);
 
             var updatedProperties = new Dictionary<string, object>()
             {
@@ -607,7 +611,7 @@ namespace Altinn.Platform.Storage.Controllers
         {
             string storageFileName = DataElementHelper.DataFileName(instance.AppId, dataElement.InstanceGuid, dataElement.Id);
 
-            await _dataRepository.DeleteDataInStorage(instance.Org, storageFileName);
+            await _blobRepository.DeleteBlob(instance.Org, storageFileName);
 
             await _dataRepository.Delete(dataElement);
 

@@ -31,26 +31,18 @@ namespace Altinn.Platform.Storage.Repository
         private readonly string _deleteSql = "select * from storage.deletedataelement ($1)";
         private readonly string _updateSql = "call storage.updatedataelement ($1, $2)";
 
-        private readonly AzureStorageConfiguration _storageConfiguration;
-        private readonly ISasTokenProvider _sasTokenProvider;
         private readonly ILogger<PgDataRepository> _logger;
         private readonly NpgsqlDataSource _dataSource;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PgDataRepository"/> class.
         /// </summary>
-        /// <param name="sasTokenProvider">A provider that can be asked for SAS tokens.</param>
-        /// <param name="storageConfiguration">the storage configuration for azure blob storage.</param>
         /// <param name="logger">The logger to use when writing to logs.</param>
         /// <param name="dataSource">The npgsql data source.</param>
         public PgDataRepository(
-            ISasTokenProvider sasTokenProvider,
-            IOptions<AzureStorageConfiguration> storageConfiguration,
             ILogger<PgDataRepository> logger,
             NpgsqlDataSource dataSource)
         {
-            _storageConfiguration = storageConfiguration.Value;
-            _sasTokenProvider = sasTokenProvider;
             _logger = logger;
             _dataSource = dataSource;
         }
@@ -199,147 +191,5 @@ namespace Altinn.Platform.Storage.Repository
 
             return element;
         }
-
-        // Blob stuff below ---------------------------------------------------------------------------------------------------
-
-        /// <inheritdoc/>
-        public async Task<Stream> ReadDataFromStorage(string org, string blobStoragePath)
-        {
-            try
-            {
-                return await DownloadBlobAsync(org, blobStoragePath);
-            }
-            catch (RequestFailedException requestFailedException)
-            {
-                switch (requestFailedException.ErrorCode)
-                {
-                    case "AuthenticationFailed":
-                        _logger.LogWarning("Authentication failed. Invalidating SAS token and retrying download operation.");
-
-                        _sasTokenProvider.InvalidateSasToken(org);
-
-                        return await DownloadBlobAsync(org, blobStoragePath);
-                    case "BlobNotFound":
-                        _logger.LogWarning("Unable to find a blob based on the given information - {org}: {blobStoragePath}", org, blobStoragePath);
-
-                        // Returning null because the blob does not exist.
-                        return null;
-                    case "InvalidRange":
-                        _logger.LogWarning("Found possibly empty blob in storage for {org}: {blobStoragePath}", org, blobStoragePath);
-
-                        // Returning empty stream because the blob does exist, but it is empty.
-                        return new MemoryStream();
-                    default:
-                        throw;
-                }
-            }
-        }
-
-        /// <inheritdoc/>
-        public async Task<(long ContentLength, DateTimeOffset LastModified)> WriteDataToStorage(string org, Stream stream, string blobStoragePath)
-        {
-            try
-            {
-                var blobProps = await UploadFromStreamAsync(org, stream, blobStoragePath);
-                return (blobProps.ContentLength, blobProps.LastModified);
-            }
-            catch (RequestFailedException requestFailedException)
-            {
-                switch (requestFailedException.ErrorCode)
-                {
-                    case "AuthenticationFailed":
-                        _logger.LogWarning("Authentication failed. Invalidating SAS token.");
-
-                        _sasTokenProvider.InvalidateSasToken(org);
-
-                        // No use retrying upload as the original stream can't be reset back to start.
-                        throw;
-                    default:
-                        throw;
-                }
-            }
-        }
-
-        /// <inheritdoc/>
-        public async Task<bool> DeleteDataInStorage(string org, string blobStoragePath)
-        {
-            try
-            {
-                return await DeleteIfExistsAsync(org, blobStoragePath);
-            }
-            catch (RequestFailedException requestFailedException)
-            {
-                switch (requestFailedException.ErrorCode)
-                {
-                    case "AuthenticationFailed":
-                        _logger.LogWarning("Authentication failed. Invalidating SAS token and retrying delete operation.");
-
-                        _sasTokenProvider.InvalidateSasToken(org);
-
-                        return await DeleteIfExistsAsync(org, blobStoragePath);
-                    default:
-                        throw;
-                }
-            }
-        }
-
-        private async Task<BlobProperties> UploadFromStreamAsync(string org, Stream stream, string fileName)
-        {
-            BlobClient blockBlob = await CreateBlobClient(org, fileName);
-            BlobUploadOptions options = new()
-            {
-                TransferValidation = new UploadTransferValidationOptions { ChecksumAlgorithm = StorageChecksumAlgorithm.MD5 }
-            };
-            await blockBlob.UploadAsync(stream, options);
-            BlobProperties properties = await blockBlob.GetPropertiesAsync();
-
-            return properties;
-        }
-
-        private async Task<Stream> DownloadBlobAsync(string org, string fileName)
-        {
-            BlobClient blockBlob = await CreateBlobClient(org, fileName);
-
-            Azure.Response<BlobDownloadInfo> response = await blockBlob.DownloadAsync();
-
-            return response.Value.Content;
-        }
-
-        private async Task<bool> DeleteIfExistsAsync(string org, string fileName)
-        {
-            BlobClient blockBlob = await CreateBlobClient(org, fileName);
-
-            bool result = await blockBlob.DeleteIfExistsAsync();
-
-            return result;
-        }
-
-        private async Task<BlobClient> CreateBlobClient(string org, string blobName)
-        {
-            if (!_storageConfiguration.AccountName.StartsWith("devstoreaccount1"))
-            {
-                string sasToken = await _sasTokenProvider.GetSasToken(org);
-
-                string accountName = string.Format(_storageConfiguration.OrgStorageAccount, org);
-                string containerName = string.Format(_storageConfiguration.OrgStorageContainer, org);
-
-                UriBuilder fullUri = new()
-                {
-                    Scheme = "https",
-                    Host = $"{accountName}.blob.core.windows.net",
-                    Path = $"{containerName}/{blobName}",
-                    Query = sasToken
-                };
-
-                return new BlobClient(fullUri.Uri);
-            }
-
-            StorageSharedKeyCredential storageCredentials = new(_storageConfiguration.AccountName, _storageConfiguration.AccountKey);
-            Uri storageUrl = new(_storageConfiguration.BlobEndPoint);
-            BlobServiceClient commonBlobClient = new(storageUrl, storageCredentials);
-            BlobContainerClient blobContainerClient = commonBlobClient.GetBlobContainerClient(_storageConfiguration.StorageContainer);
-
-            return blobContainerClient.GetBlobClient(blobName);
-        }
-    }
+     }
 }

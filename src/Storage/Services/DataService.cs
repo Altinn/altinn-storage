@@ -19,14 +19,16 @@ namespace Altinn.Platform.Storage.Services
     {
         private readonly IFileScanQueueClient _fileScanQueueClient;
         private readonly IDataRepository _dataRepository;
+        private readonly IBlobRepository _blobRepository;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DataService"/> class.
         /// </summary>
-        public DataService(IFileScanQueueClient fileScanQueueClient, IDataRepository dataRepository)
+        public DataService(IFileScanQueueClient fileScanQueueClient, IDataRepository dataRepository, IBlobRepository blobRepository)
         {
             _fileScanQueueClient = fileScanQueueClient;
             _dataRepository = dataRepository;
+            _blobRepository = blobRepository;
         }
 
         /// <inheritdoc/>
@@ -60,7 +62,7 @@ namespace Altinn.Platform.Storage.Services
                 return (null, new ServiceError(404, $"DataElement not found, dataElementId: {dataElementId}"));
             }
 
-            Stream filestream = await _dataRepository.ReadDataFromStorage(org, dataElement.BlobStoragePath);
+            Stream filestream = await _blobRepository.ReadBlob(org, dataElement.BlobStoragePath);
             if (filestream == null || !filestream.CanRead)
             {
                 return (null, new ServiceError(404, $"Failed reading file, dataElementId: {dataElementId}"));
@@ -73,7 +75,7 @@ namespace Altinn.Platform.Storage.Services
         /// <inheritdoc/>
         public async Task UploadDataAndCreateDataElement(string org, Stream stream, DataElement dataElement, long instanceInternalId)
         {
-            (long length, _) = await _dataRepository.WriteDataToStorage(org, stream, dataElement.BlobStoragePath);
+            (long length, _) = await _blobRepository.WriteBlob(org, stream, dataElement.BlobStoragePath);
             dataElement.Size = length;
             
             await _dataRepository.Create(dataElement, instanceInternalId);

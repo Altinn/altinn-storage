@@ -135,6 +135,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         private (DataController TestController, Mock<IDataRepository> DataRepositoryMock) GetTestController(List<string> expectedPropertiesForPatch, bool includeRequestBody = false)
         {
             Mock<IDataRepository> dataRepositoryMock = new();
+            Mock<IBlobRepository> blobRepositoryMock = new();
             Mock<IInstanceRepository> instanceRepositoryMock = new();
             Mock<IApplicationRepository> applicationRepositoryMock = new();
             Mock<IInstanceEventService> instanceEventServiceMock = new();
@@ -163,12 +164,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 };
             });
 
-            dataRepositoryMock
-                .Setup(d => d.ReadDataFromStorage(It.IsAny<string>(), It.IsAny<string>()))
+            blobRepositoryMock
+                .Setup(d => d.ReadBlob(It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync(new MemoryStream(Encoding.UTF8.GetBytes("whatever")));
 
-            dataRepositoryMock
-               .Setup(d => d.WriteDataToStorage(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>()))
+            blobRepositoryMock
+               .Setup(d => d.WriteBlob(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>()))
                .ReturnsAsync((123145864564, DateTimeOffset.Now));
 
             instanceRepositoryMock
@@ -237,6 +238,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             var sut = new DataController(
                      dataRepositoryMock.Object,
+                     blobRepositoryMock.Object,
                      instanceRepositoryMock.Object,
                      applicationRepositoryMock.Object,
                      dataServiceMock.Object,
