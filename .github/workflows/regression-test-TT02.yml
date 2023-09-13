@@ -8,7 +8,7 @@ jobs:
     environment: TT02
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Run use case tests for data endpoint
       run:  |
               cd test/k6
