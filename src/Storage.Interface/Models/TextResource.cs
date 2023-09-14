@@ -74,5 +74,11 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// </summary>
         [JsonProperty(PropertyName = "dataSource")]
         public string DataSource { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the defaultValue
+        /// </summary>
+        [JsonProperty(PropertyName = "defaultValue")]
+        public string DefaultValue { get; set; }
     }
 }
