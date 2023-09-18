@@ -37,11 +37,6 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return await Task.FromResult(true);
         }
 
-        public async Task<bool> DeleteBlob(string org, string blobStoragePath)
-        {
-            return await Task.FromResult(true);
-        }
-
         public async Task<DataElement> Read(Guid instanceGuid, Guid dataElementId)
         {
             DataElement dataElement = null;
@@ -109,14 +104,6 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return await Task.FromResult(dataElements);
         }
 
-        public async Task<Stream> ReadBlob(string org, string blobStoragePath)
-        {
-            string dataPath = Path.Combine(GetDataBlobPath(), blobStoragePath);
-            Stream fs = File.OpenRead(dataPath);
-
-            return await Task.FromResult(fs);
-        }
-
         public async Task<DataElement> Update(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertyList)
         {
             DataElement dataElement = null;
@@ -152,13 +139,6 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return dataElement;
         }
 
-        public async Task<(long ContentLength, DateTimeOffset LastModified)> WriteBlob(string org, Stream stream, string blobStoragePath)
-        {
-            MemoryStream memoryStream = new MemoryStream();
-            await stream.CopyToAsync(memoryStream);
-            return (memoryStream.Length, DateTimeOffset.UtcNow);
-        }
-
         public Task<bool> DeleteForInstance(string instanceId)
         {
             throw new NotImplementedException();
@@ -168,12 +148,6 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
         {
             string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(DataRepositoryMock).Assembly.Location).LocalPath);
             return Path.Combine(unitTestFolder, "..", "..", "..", "data", "cosmoscollections", "dataelements");
-        }
-
-        private static string GetDataBlobPath()
-        {
-            string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(DataRepositoryMock).Assembly.Location).LocalPath);
-            return Path.Combine(unitTestFolder, "..", "..", "..", "data", "blob");
         }
     }
 }
