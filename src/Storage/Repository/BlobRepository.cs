@@ -123,6 +123,34 @@ namespace Altinn.Platform.Storage.Repository
             }
         }
 
+        /// <inheritdoc/>
+        public async Task<bool> DeleteDataBlobs(Instance instance)
+        {
+            BlobContainerClient container = await CreateBlobClient(instance.Org);
+
+            if (container == null)
+            {
+                _logger.LogError($"BlobService // DeleteDataBlobs // Could not connect to blob container.");
+                return false;
+            }
+
+            try
+            {
+                await foreach (BlobItem item in container.GetBlobsAsync(BlobTraits.None, BlobStates.None, $"{instance.AppId}/{instance.Id}", CancellationToken.None))
+                {
+                    container.DeleteBlobIfExists(item.Name, DeleteSnapshotsOption.IncludeSnapshots);
+                }
+            }
+            catch (Exception e)
+            {
+                _sasTokenProvider.InvalidateSasToken(instance.Org);
+                _logger.LogError(e, $"BlobService // DeleteDataBlobs // Org: {instance.Org} // Exeption: {e.Message}");
+                return false;
+            }
+
+            return true;
+        }
+
         private async Task<BlobProperties> UploadFromStreamAsync(string org, Stream stream, string fileName)
         {
             BlobClient blockBlob = await CreateBlobClient(org, fileName);
@@ -180,6 +208,33 @@ namespace Altinn.Platform.Storage.Repository
             BlobContainerClient blobContainerClient = commonBlobClient.GetBlobContainerClient(_storageConfiguration.StorageContainer);
 
             return blobContainerClient.GetBlobClient(blobName);
+        }
+
+        private async Task<BlobContainerClient> CreateBlobClient(string org)
+        {
+            if (!_storageConfiguration.AccountName.Equals("devstoreaccount1"))
+            {
+                string sasToken = await _sasTokenProvider.GetSasToken(org);
+
+                string accountName = string.Format(_storageConfiguration.OrgStorageAccount, org);
+                string containerName = string.Format(_storageConfiguration.OrgStorageContainer, org);
+
+                UriBuilder fullUri = new()
+                {
+                    Scheme = "https",
+                    Host = $"{accountName}.blob.core.windows.net",
+                    Path = $"{containerName}",
+                    Query = sasToken,
+                };
+
+                return new BlobContainerClient(fullUri.Uri, null);
+            }
+
+            StorageSharedKeyCredential storageCredentials = new(_storageConfiguration.OrgStorageAccount, _storageConfiguration.AccountKey);
+            Uri storageUrl = new(_storageConfiguration.BlobEndPoint);
+            BlobServiceClient commonBlobClient = new(storageUrl, storageCredentials);
+            BlobContainerClient blobContainerClient = commonBlobClient.GetBlobContainerClient(string.Format(_storageConfiguration.OrgStorageContainer, org));
+            return blobContainerClient;
         }
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.Platform.Storage.Repository
 {
@@ -33,5 +34,10 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="blobStoragePath">Path to the file to delete.</param>
         /// <returns>A value indicating whether the delete was successful.</returns>
         Task<bool> DeleteBlob(string org, string blobStoragePath);
+
+        /// <summary>
+        /// Deletes the blob elements for an instance permanently
+        /// </summary>
+        Task<bool> DeleteDataBlobs(Instance instance);
     }
 }

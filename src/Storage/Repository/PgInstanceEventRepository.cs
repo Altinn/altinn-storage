@@ -20,19 +20,22 @@ namespace Altinn.Platform.Storage.Repository
     public class PgInstanceEventRepository: IInstanceEventRepository
     {
         private readonly string _readSql = "select * from storage.readinstanceevent($1)";
-        private readonly string _deleteSql = "call storage.deleteInstanceevent($1)";
+        private readonly string _deleteSql = "select * from storage.deleteInstanceevent($1)";
         private readonly string _insertSql = "call storage.insertInstanceevent($1, $2, $3)";
         private readonly string _filterSql = "select * from storage.filterinstanceevent($1, $2, $3, $4)";
 
         private readonly NpgsqlDataSource _dataSource;
+        private readonly ILogger<PgInstanceEventRepository> _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PgInstanceEventRepository"/> class.
         /// </summary>
         /// <param name="dataSource">The npgsql data source.</param>
-        public PgInstanceEventRepository(NpgsqlDataSource dataSource)
+        /// <param name="logger">The logger to use when writing to logs.</param>
+        public PgInstanceEventRepository(NpgsqlDataSource dataSource, ILogger<PgInstanceEventRepository> logger)
         {
             _dataSource = dataSource;
+            _logger = logger;
         }
 
         /// <inheritdoc/>

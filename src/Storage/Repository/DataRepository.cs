@@ -175,5 +175,11 @@ namespace Altinn.Platform.Storage.Repository
 
             return response.StatusCode == HttpStatusCode.NoContent;
         }
+
+        /// <inheritdoc/>
+        public Task<bool> DeleteForInstance(string instanceId)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

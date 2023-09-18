@@ -1,19 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
-using System.IO;
-using System.Threading;
 using System.Threading.Tasks;
-using Altinn.Platform.Storage.Configuration;
+
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
-using Azure;
-using Azure.Storage;
-using Azure.Storage.Blobs;
-using Azure.Storage.Blobs.Models;
-using Microsoft.Extensions.Hosting;
+
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
+
 using Npgsql;
 using NpgsqlTypes;
 
@@ -29,6 +23,7 @@ namespace Altinn.Platform.Storage.Repository
         private readonly string _readAllForMultipleSql = "select * from storage.readallformultipledataelement($1)";
         private readonly string _readSql = "select * from storage.readdataelement($1)";
         private readonly string _deleteSql = "select * from storage.deletedataelement ($1)";
+        private readonly string _deleteForInstanceSql = "select * from storage.deletedataelements ($1)";
         private readonly string _updateSql = "call storage.updatedataelement ($1, $2)";
 
         private readonly ILogger<PgDataRepository> _logger;
@@ -69,6 +64,24 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
 
             return (int)await pgcom.ExecuteScalarAsync() == 1;
+        }
+
+        /// <inheritdoc/>
+        public async Task<bool> DeleteForInstance(string instanceId)
+        {
+            try
+            {
+                await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteForInstanceSql);
+                pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceId));
+
+                await pgcom.ExecuteScalarAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error deleting instances for {instanceId}, {ex.Message}");
+                return false;
+            }
         }
 
         /// <inheritdoc/>

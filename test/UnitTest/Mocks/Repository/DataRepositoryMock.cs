@@ -159,6 +159,11 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return (memoryStream.Length, DateTimeOffset.UtcNow);
         }
 
+        public Task<bool> DeleteForInstance(string instanceId)
+        {
+            throw new NotImplementedException();
+        }
+
         private static string GetDataElementsPath()
         {
             string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(DataRepositoryMock).Assembly.Location).LocalPath);

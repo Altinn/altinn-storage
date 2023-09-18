@@ -26,6 +26,8 @@ namespace Altinn.Platform.Storage.Repository
         private static readonly string _upsertSql = "call storage.upsertinstance ($1, $2, $3, $4, $5, $6, $7, $8)";
         private static readonly string _readSql = "select * from storage.readinstance ($1)";
         private static readonly string _readSqlFiltered = "select * from storage.readinstancefromquery (";
+        private static readonly string _readDeletedSql = "select * from storage.readdeletedinstances ()";
+        private static readonly string _readDeletedElementsSql = "select * from storage.readdeletedelements ()";
         private static readonly string _readSqlNoElements = "select * from storage.readinstancenoelements ($1)";
 
         private readonly ILogger<PgInstanceRepository> _logger;
@@ -33,7 +35,7 @@ namespace Altinn.Platform.Storage.Repository
 
         static PgInstanceRepository()
         {
-            for (int i = 1; i <= _paramTypes.Count(); i++)
+            for (int i = 1; i <= _paramTypes.Count; i++)
             {
                 _readSqlFiltered += $"${i}, ";
             }
@@ -88,6 +90,70 @@ namespace Altinn.Platform.Storage.Repository
             }
         }
 
+        /// <inheritdoc/>
+        public async Task<List<Instance>> GetHardDeletedInstances()
+        {
+            List<Instance> instances = new();
+
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readDeletedSql);
+            await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    Instance i = reader.GetFieldValue<Instance>("instance");
+
+                    // TODO move filter to db function
+                    if (i.CompleteConfirmations != null && (i.CompleteConfirmations.Any(c => c.StakeholderId.ToLower().Equals(i.Org) && c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7))
+                        || !i.Status.IsArchived))
+                    {
+                        instances.Add(i);
+                    }
+                }
+            }
+
+            return instances;
+        }
+
+        /// <inheritdoc/>
+        public async Task<List<DataElement>> GetHardDeletedElements()
+        {
+            List<DataElement> elements = new();
+            try
+            {
+                await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readDeletedElementsSql);
+                await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
+                long previousId = -1;
+                long id = -1;
+                bool currentInstanceAllowsDelete = false;
+                while (await reader.ReadAsync())
+                {
+                    id = reader.GetFieldValue<long>("id");
+                    if (id != previousId)
+                    {
+                        Instance instance = reader.GetFieldValue<Instance>("instance");
+
+                        // TODO move filter to db function
+                        currentInstanceAllowsDelete =
+                            instance.CompleteConfirmations != null &&
+                            instance.CompleteConfirmations.Any(c => c.StakeholderId.ToLower().Equals(instance.Org) &&
+                            c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7));
+                        previousId = id;
+                    }
+
+                    if (currentInstanceAllowsDelete)
+                    {
+                        elements.Add(reader.GetFieldValue<DataElement>("element"));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error deleting data elements {ex.Message}");
+            }
+
+            return elements;
+        }
+
         private static string FormatManualFunctionCall(Dictionary<string, object> postgresParams)
         {
             string command = "select * from storage.readinstancefromquery (";
@@ -100,10 +166,10 @@ namespace Altinn.Platform.Storage.Repository
                     value = _paramTypes[name] switch
                     {
                         NpgsqlDbType.Text => $"'{postgresParams[name]}'",
-                        NpgsqlDbType.Bigint => $"{postgresParams[name].ToString()}",
+                        NpgsqlDbType.Bigint => $"{postgresParams[name]}",
                         NpgsqlDbType.TimestampTz => $"{((DateTime)postgresParams[name] != DateTime.MinValue ? "'" + ((DateTime)postgresParams[name]).ToString(DateTimeHelper.Iso8601UtcFormat, CultureInfo.InvariantCulture) + "'" : "NULL")}",
                         NpgsqlDbType.Integer => $"{postgresParams[name]}",
-                        NpgsqlDbType.Boolean => $"{postgresParams[name].ToString()}",
+                        NpgsqlDbType.Boolean => $"{postgresParams[name]}",
                         NpgsqlDbType.Text | NpgsqlDbType.Array => ArrayVariableFromText((string[])postgresParams[name]),
                         NpgsqlDbType.Jsonb | NpgsqlDbType.Array => ArrayVariableFromJsonText((string[])postgresParams[name]),
                         NpgsqlDbType.Integer | NpgsqlDbType.Array => ArrayVariableFromInteger((int[])postgresParams[name]),
@@ -420,7 +486,7 @@ namespace Altinn.Platform.Storage.Repository
             foreach (string value in queryValues)
             {
                 string @operator = value.Split(':')[0];
-                string dateValue = value.Substring(@operator.Length + 1);
+                string dateValue = value[(@operator.Length + 1)..];
                 string postgresParamName = GetPgParamName($"{dateParam}_{@operator}");
                 postgresParams.Add(postgresParamName, valueAsString ? dateValue : DateTimeHelper.ParseAndConvertToUniversalTime(dateValue));
             }
@@ -431,7 +497,7 @@ namespace Altinn.Platform.Storage.Repository
             return "_" + queryParameter.Replace(".", "_");
         }
 
-        private static Dictionary<string, NpgsqlDbType> _paramTypes = new()
+        private static readonly Dictionary<string, NpgsqlDbType> _paramTypes = new()
         {
             // This dictionary should be sorted alphabetically by key to match the sorted parameter list to the db function
             { "_appId", NpgsqlDbType.Text },

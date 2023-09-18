@@ -51,6 +51,13 @@ namespace Altinn.Platform.Storage.Repository
         Task<bool> Delete(DataElement dataElement);
 
         /// <summary>
+        /// Deletes the data elements metadata for an instance permanently!
+        /// </summary>
+        /// <param name="instanceId">the parent instance id of the data elements to delete</param>
+        /// <returns>true if delete went well.</returns>
+        Task<bool> DeleteForInstance(string instanceId);
+
+        /// <summary>
         /// Updates the data element with the properties provided in the dictionary
         /// </summary>
         /// <param name="instanceGuid">The instance guid</param>

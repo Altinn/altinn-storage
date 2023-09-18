@@ -110,6 +110,39 @@ RETURN QUERY
 END;
 $BODY$;
 
+CREATE OR REPLACE FUNCTION storage.readdeletedinstances()
+    RETURNS TABLE (instance JSONB)
+    LANGUAGE 'plpgsql'
+    
+AS $BODY$
+BEGIN
+RETURN QUERY
+    -- Make sure that part of the where clause is exactly as in filtered index instances_isharddeleted_confirmed
+    SELECT i.instance FROM storage.instances i
+    WHERE (i.instance -> 'Status' -> 'IsHardDeleted')::BOOLEAN
+        AND (i.instance -> 'CompleteConfirmations') IS NOT NULL
+        AND (i.instance -> 'Status' ->> 'HardDeleted')::TIMESTAMPTZ <= (NOW() - (7 ||' days')::INTERVAL);
+END;
+$BODY$;
+
+CREATE OR REPLACE FUNCTION storage.readdeletedelements()
+    RETURNS TABLE (id BIGINT, instance JSONB, element JSONB)
+    LANGUAGE 'plpgsql'  
+AS $BODY$
+BEGIN
+RETURN QUERY
+    -- Use materialized cte to force join order
+    -- Target index dataelements_deletestatus_harddeleted. This index has a where clause that must match
+    -- the where clause in the data_elements query
+    WITH data_elements AS MATERIALIZED
+        (SELECT d.instanceinternalid, d.element FROM storage.dataelements d
+            WHERE (d.element -> 'DeleteStatus' -> 'IsHardDeleted')::BOOLEAN
+                AND (d.element -> 'DeleteStatus' ->> 'HardDeleted')::TIMESTAMPTZ <= NOW() - (7 ||' days')::interval
+        )
+    SELECT i.id, i.instance, data_elements.element FROM  data_elements JOIN storage.instances i ON i.id = data_elements.instanceinternalid; 
+    END;
+$BODY$;
+
 CREATE OR REPLACE FUNCTION storage.readinstance(_alternateid UUID)
     RETURNS TABLE (id BIGINT, instance JSONB, element JSONB)
     LANGUAGE 'plpgsql'
@@ -192,7 +225,22 @@ AS $BODY$
 DECLARE
     _deleteCount INTEGER;
 BEGIN
-	DELETE FROM storage.dataelements WHERE alternateid = _alternateid;
+	DELETE FROM storage.dataelements WHERE d.alternateid = _alternateid;
+    GET DIAGNOSTICS _deleteCount = ROW_COUNT;
+    RETURN _deleteCount;
+END;
+$BODY$;
+
+CREATE OR REPLACE FUNCTION storage.deletedataelements(_instanceguid UUID)
+    RETURNS INT
+    LANGUAGE 'plpgsql'	
+AS $BODY$
+DECLARE
+    _deleteCount INTEGER;
+BEGIN
+	DELETE FROM storage.dataelements d
+        USING storage.instances i
+        WHERE i.alternateid = d.instanceguid AND i.alternateid = _instanceguid;
     GET DIAGNOSTICS _deleteCount = ROW_COUNT;
     RETURN _deleteCount;
 END;
@@ -251,11 +299,16 @@ BEGIN
 END;
 $BODY$;
 
-CREATE OR REPLACE PROCEDURE storage.deleteinstanceevent(_instance UUID)
+CREATE OR REPLACE FUNCTION storage.deleteinstanceevent(_instance UUID)
+    RETURNS INT
     LANGUAGE 'plpgsql'	
 AS $BODY$
+DECLARE
+    _deleteCount INTEGER;
 BEGIN
 	DELETE FROM storage.instanceevents WHERE instance = _instance;
+    GET DIAGNOSTICS _deleteCount = ROW_COUNT;
+    RETURN _deleteCount;
 END;
 $BODY$;
 

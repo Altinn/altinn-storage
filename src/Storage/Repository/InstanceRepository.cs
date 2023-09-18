@@ -85,7 +85,7 @@ namespace Altinn.Platform.Storage.Repository
             string continuationToken,
             int size)
         {
-            InstanceQueryResponse queryResponse = new InstanceQueryResponse
+            InstanceQueryResponse queryResponse = new()
             {
                 Count = 0,
                 Instances = new List<Instance>()
@@ -178,6 +178,18 @@ namespace Altinn.Platform.Storage.Repository
             instance.Id = $"{instance.InstanceOwner.PartyId}/{instance.Id}";
 
             return instance;
+        }
+
+        /// <inheritdoc/>
+        public Task<List<Instance>> GetHardDeletedInstances()
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public Task<List<DataElement>> GetHardDeletedElements()
+        {
+            throw new NotImplementedException();
         }
 
         /// <summary>

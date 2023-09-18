@@ -3,11 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
-using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Primitives;
-using Npgsql;
-using NpgsqlTypes;
 
 namespace Altinn.Platform.Storage.Repository
 {
