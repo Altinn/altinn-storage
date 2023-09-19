@@ -115,7 +115,7 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<List<DataElement>> GetHardDeletedElements()
+        public async Task<List<DataElement>> GetHardDeletedDataElements()
         {
             List<DataElement> elements = new();
             try

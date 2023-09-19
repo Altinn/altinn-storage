@@ -60,6 +60,6 @@ namespace Altinn.Platform.Storage.Repository
         /// Gets hard deleted data elements for cleanup
         /// </summary>
         /// <returns>Hard deleted data elements</returns>
-        Task<List<DataElement>> GetHardDeletedElements();
+        Task<List<DataElement>> GetHardDeletedDataElements();
     }
 }

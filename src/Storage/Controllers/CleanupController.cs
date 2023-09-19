@@ -56,7 +56,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// Invoke periodic cleanup of instances
         /// </summary>
         /// <returns>?</returns>
-        [HttpGet("cleanupinstances")]
+        [HttpDelete("cleanupinstances")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [Produces("application/json")]
         [ApiExplorerSettings(IgnoreApi = true)]
@@ -134,13 +134,13 @@ namespace Altinn.Platform.Storage.Controllers
         /// Invoke periodic cleanup of data elements
         /// </summary>
         /// <returns>?</returns>
-        [HttpGet("cleanupdataelements")]
+        [HttpDelete("cleanupdataelements")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [Produces("application/json")]
         [ApiExplorerSettings(IgnoreApi = true)]
         public async Task<ActionResult> CleanupDataelements()
         {
-            List<DataElement> dataElements = await _instanceRepository.GetHardDeletedElements();
+            List<DataElement> dataElements = await _instanceRepository.GetHardDeletedDataElements();
 
             int successfullyDeleted = 0;
 

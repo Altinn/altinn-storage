@@ -171,7 +171,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             throw new NotImplementedException();
         }
 
-        public Task<List<DataElement>> GetHardDeletedElements()
+        public Task<List<DataElement>> GetHardDeletedDataElements()
         {
             throw new NotImplementedException();
         }

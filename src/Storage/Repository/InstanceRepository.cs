@@ -187,7 +187,7 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public Task<List<DataElement>> GetHardDeletedElements()
+        public Task<List<DataElement>> GetHardDeletedDataElements()
         {
             throw new NotImplementedException();
         }
