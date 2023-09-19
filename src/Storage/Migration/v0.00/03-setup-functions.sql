@@ -49,14 +49,18 @@ CREATE OR REPLACE FUNCTION storage.readinstancefromquery(
     
 AS $BODY$
 BEGIN
-RETURN QUERY
+    IF _sort_ascending IS NULL THEN
+        _sort_ascending := false;
+    END IF;
+
+    RETURN QUERY
     WITH filteredInstances AS
     (
         SELECT i.id, i.instance, i.lastchanged FROM storage.instances i
         WHERE 1 = 1
             AND (_continue_idx <= 0 OR
                 (_continue_idx > 0 AND _sort_ascending = true  AND (i.lastchanged > _lastChanged_idx OR (i.lastchanged = _lastChanged_idx AND i.id > _continue_idx))) OR
-                (_continue_idx > 0 AND _sort_ascending = false AND (i.lastchanged < _lastChanged_idx OR (i.lastchanged = _lastChanged_idx AND i.id > _continue_idx))))
+                (_continue_idx > 0 AND _sort_ascending = false AND (i.lastchanged < _lastChanged_idx OR (i.lastchanged = _lastChanged_idx AND i.id < _continue_idx))))
 			AND (_appId IS NULL OR i.appid = _appId)
             AND (_appIds IS NULL OR i.appid = ANY(_appIds))
 			AND (_archiveReference IS NULL OR i.instance ->> 'Id' like '%' || _archiveReference)		
@@ -97,15 +101,15 @@ RETURN QUERY
             AND (_visibleAfter_lt  IS NULL OR i.instance ->> 'VisibleAfter' <  _visibleAfter_lt)
             AND (_visibleAfter_eq  IS NULL OR i.instance ->> 'VisibleAfter' =  _visibleAfter_eq)
         ORDER BY
-            (CASE WHEN _sort_ascending IS NOT NULL AND _sort_ascending = true THEN i.lastChanged END) ASC,
-		    (CASE WHEN _sort_ascending IS NULL OR _sort_ascending = false THEN i.lastChanged END) DESC,
+            (CASE WHEN _sort_ascending = true  THEN i.lastChanged END) ASC,
+		    (CASE WHEN _sort_ascending = false THEN i.lastChanged END) DESC,
             i.id
         FETCH FIRST _size ROWS ONLY
     )
         SELECT filteredInstances.id, filteredInstances.instance, d.element FROM filteredInstances LEFT JOIN storage.dataelements d ON filteredInstances.id = d.instanceInternalId
         ORDER BY
-            (CASE WHEN _sort_ascending IS NOT NULL AND _sort_ascending = true THEN filteredInstances.lastChanged END) ASC,
-		    (CASE WHEN _sort_ascending IS NULL OR _sort_ascending = false THEN filteredInstances.lastChanged END) DESC,
+            (CASE WHEN _sort_ascending = true  THEN filteredInstances.lastChanged END) ASC,
+		    (CASE WHEN _sort_ascending = false THEN filteredInstances.lastChanged END) DESC,
             filteredInstances.id;
 END;
 $BODY$;
