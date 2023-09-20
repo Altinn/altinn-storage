@@ -3,12 +3,10 @@ using System.Collections.Generic;
 using System.Data;
 using System.Globalization;
 using System.Linq;
-using System.Net;
-using System.Threading;
 using System.Threading.Tasks;
-using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Microsoft.ApplicationInsights;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Npgsql;
@@ -32,6 +30,7 @@ namespace Altinn.Platform.Storage.Repository
 
         private readonly ILogger<PgInstanceRepository> _logger;
         private readonly NpgsqlDataSource _dataSource;
+        private readonly TelemetryClient _telemetryClient;
 
         static PgInstanceRepository()
         {
@@ -48,12 +47,15 @@ namespace Altinn.Platform.Storage.Repository
         /// </summary>
         /// <param name="logger">The logger to use when writing to logs.</param>
         /// <param name="dataSource">The npgsql data source.</param>
+        /// <param name="telemetryClient">Telemetry client</param>
         public PgInstanceRepository(
             ILogger<PgInstanceRepository> logger,
-            NpgsqlDataSource dataSource)
+            NpgsqlDataSource dataSource,
+            TelemetryClient telemetryClient)
         {
             _logger = logger;
             _dataSource = dataSource;
+            _telemetryClient = telemetryClient;
         }
 
         /// <inheritdoc/>
@@ -69,9 +71,12 @@ namespace Altinn.Platform.Storage.Repository
         {
             ToInternal(item);
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
+            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(item.Id));
 
-            return (int)await pgcom.ExecuteScalarAsync() == 1;
+            int rc = (int)await pgcom.ExecuteScalarAsync();
+            tracker.Track();
+            return rc == 1;
         }
 
         /// <inheritdoc/>
@@ -96,6 +101,7 @@ namespace Altinn.Platform.Storage.Repository
             List<Instance> instances = new();
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readDeletedSql);
+            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
             await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
             {
                 while (await reader.ReadAsync())
@@ -111,6 +117,7 @@ namespace Altinn.Platform.Storage.Repository
                 }
             }
 
+            tracker.Track();
             return instances;
         }
 
@@ -121,6 +128,7 @@ namespace Altinn.Platform.Storage.Repository
             try
             {
                 await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readDeletedElementsSql);
+                using TelemetryTracker tracker = new(_telemetryClient, pgcom);
                 await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
                 long previousId = -1;
                 long id = -1;
@@ -145,6 +153,8 @@ namespace Altinn.Platform.Storage.Repository
                         elements.Add(reader.GetFieldValue<DataElement>("element"));
                     }
                 }
+
+                tracker.Track();
             }
             catch (Exception ex)
             {
@@ -229,6 +239,7 @@ namespace Altinn.Platform.Storage.Repository
             DateTime lastChangeIdx = string.IsNullOrEmpty(continuationToken) ? DateTime.MinValue : new DateTime(long.Parse(continuationToken.Split(';')[0]), DateTimeKind.Utc);
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSqlFiltered);
+            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
             Dictionary<string, object> postgresParams = AddParametersFromQueryParams(queryParams);
             postgresParams.Add("_continue_idx", continueIdx);
@@ -275,6 +286,7 @@ namespace Altinn.Platform.Storage.Repository
             }
 
             queryResponse.Count = queryResponse.Instances.Count;
+            tracker.Track();
             return queryResponse;
         }
 
@@ -285,6 +297,7 @@ namespace Altinn.Platform.Storage.Repository
             long instanceInternalId = 0;
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(includeElements ? _readSql : _readSqlNoElements);
+            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
 
             await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
@@ -308,12 +321,14 @@ namespace Altinn.Platform.Storage.Repository
 
                 if (instance == null)
                 {
+                    tracker.Track();
                     return (null, 0);
                 }
 
                 SetStatuses(instance);
             }
 
+            tracker.Track();
             return (instance, instanceInternalId);
         }
 
@@ -355,6 +370,7 @@ namespace Altinn.Platform.Storage.Repository
             ToInternal(instance);
             instance.Data = null;
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(insertOnly ? _insertSql : _upsertSql);
+            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Bigint, long.Parse(instance.InstanceOwner.PartyId));
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instance.Id));
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, instance);
@@ -365,6 +381,7 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, instance?.Process?.CurrentTask?.ElementId ?? (object)DBNull.Value);
 
             await pgcom.ExecuteNonQueryAsync();
+            tracker.Track();
 
             return ToExternal(instance);
         }
