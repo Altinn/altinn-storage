@@ -22,8 +22,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             // Arrange
             Mock<IFileScanQueueClient> fileScanMock = new Mock<IFileScanQueueClient>();
             Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
+            Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
 
-            DataService target = new DataService(fileScanMock.Object, dataRepositoryMock.Object);
+            DataService target = new DataService(fileScanMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object);
 
             Instance instance = new Instance();
             DataType dataType = new DataType { EnableFileScan = false };
@@ -43,8 +44,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             // Arrange
             Mock<IFileScanQueueClient> fileScanMock = new Mock<IFileScanQueueClient>();
             Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
-            
-            DataService target = new DataService(fileScanMock.Object, dataRepositoryMock.Object);
+            Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+
+            DataService target = new DataService(fileScanMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object);
 
             Instance instance = new Instance { Id = "343243/guid" };
             DataType dataType = new DataType { EnableFileScan = true };
@@ -67,7 +69,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             // Arrange
             Mock<IFileScanQueueClient> fileScanQueueClientMock = new Mock<IFileScanQueueClient>();
             Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
-            
+            Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+
             Guid id = Guid.NewGuid();
             string blobStoragePath = "/ttd/some-app";
             DataElement dataElement = new DataElement
@@ -77,11 +80,11 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             };
             
             dataRepositoryMock.Setup(drm => drm.Read(It.IsAny<Guid>(), It.IsAny<Guid>())).ReturnsAsync(dataElement);
-            dataRepositoryMock.Setup(
-                drm => drm.ReadDataFromStorage(It.IsAny<string>(), blobStoragePath))
+            blobRepositoryMock.Setup(
+                drm => drm.ReadBlob(It.IsAny<string>(), blobStoragePath))
                 .ReturnsAsync(new MemoryStream(Encoding.UTF8.GetBytes("whatever")));
 
-            DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object);
+            DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object);
             
             // Act
             (string fileHash, ServiceError serviceError) = await dataService.GenerateSha256Hash("ttd", Guid.NewGuid(), id);
@@ -98,8 +101,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             // Arrange
             Mock<IFileScanQueueClient> fileScanQueueClientMock = new Mock<IFileScanQueueClient>();
             Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
+            Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
 
-            DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object);
+            DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object);
 
             // Act
             (string fileHash, ServiceError serviceError) = await dataService.GenerateSha256Hash("ttd", Guid.NewGuid(), Guid.NewGuid());
@@ -115,6 +119,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             // Arrange
             Mock<IFileScanQueueClient> fileScanQueueClientMock = new Mock<IFileScanQueueClient>();
             Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
+            Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
 
             DataElement dataElement = new DataElement
             {
@@ -124,7 +129,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             
             dataRepositoryMock.Setup(drm => drm.Read(It.IsAny<Guid>(), It.IsAny<Guid>())).ReturnsAsync(dataElement);
 
-            DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object);
+            DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object);
 
             // Act
             (string fileHash, ServiceError serviceError) = await dataService.GenerateSha256Hash("ttd", Guid.NewGuid(), Guid.NewGuid());
@@ -140,8 +145,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             // Arrange
             Mock<IFileScanQueueClient> fileScanQueueClientMock = new Mock<IFileScanQueueClient>();
             Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
-            dataRepositoryMock.Setup(
-                drm => drm.WriteDataToStorage(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>()))
+            Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+            blobRepositoryMock.Setup(
+                drm => drm.WriteBlob(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>()))
                 .ReturnsAsync((666, DateTimeOffset.Now));
 
             DataElement dataElement = new DataElement
@@ -150,7 +156,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 BlobStoragePath = "/ttd/some-app"
             };
 
-            DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object);
+            DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object);
 
             // Act
             await dataService.UploadDataAndCreateDataElement("ttd", new MemoryStream(Encoding.UTF8.GetBytes("whatever")), dataElement, 0);

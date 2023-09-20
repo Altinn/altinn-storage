@@ -49,14 +49,18 @@ CREATE OR REPLACE FUNCTION storage.readinstancefromquery(
     
 AS $BODY$
 BEGIN
-RETURN QUERY
+    IF _sort_ascending IS NULL THEN
+        _sort_ascending := false;
+    END IF;
+
+    RETURN QUERY
     WITH filteredInstances AS
     (
         SELECT i.id, i.instance, i.lastchanged FROM storage.instances i
         WHERE 1 = 1
             AND (_continue_idx <= 0 OR
                 (_continue_idx > 0 AND _sort_ascending = true  AND (i.lastchanged > _lastChanged_idx OR (i.lastchanged = _lastChanged_idx AND i.id > _continue_idx))) OR
-                (_continue_idx > 0 AND _sort_ascending = false AND (i.lastchanged < _lastChanged_idx OR (i.lastchanged = _lastChanged_idx AND i.id > _continue_idx))))
+                (_continue_idx > 0 AND _sort_ascending = false AND (i.lastchanged < _lastChanged_idx OR (i.lastchanged = _lastChanged_idx AND i.id < _continue_idx))))
 			AND (_appId IS NULL OR i.appid = _appId)
             AND (_appIds IS NULL OR i.appid = ANY(_appIds))
 			AND (_archiveReference IS NULL OR i.instance ->> 'Id' like '%' || _archiveReference)		
@@ -97,17 +101,50 @@ RETURN QUERY
             AND (_visibleAfter_lt  IS NULL OR i.instance ->> 'VisibleAfter' <  _visibleAfter_lt)
             AND (_visibleAfter_eq  IS NULL OR i.instance ->> 'VisibleAfter' =  _visibleAfter_eq)
         ORDER BY
-            (CASE WHEN _sort_ascending IS NOT NULL AND _sort_ascending = true THEN i.lastChanged END) ASC,
-		    (CASE WHEN _sort_ascending IS NULL OR _sort_ascending = false THEN i.lastChanged END) DESC,
+            (CASE WHEN _sort_ascending = true  THEN i.lastChanged END) ASC,
+		    (CASE WHEN _sort_ascending = false THEN i.lastChanged END) DESC,
             i.id
         FETCH FIRST _size ROWS ONLY
     )
         SELECT filteredInstances.id, filteredInstances.instance, d.element FROM filteredInstances LEFT JOIN storage.dataelements d ON filteredInstances.id = d.instanceInternalId
         ORDER BY
-            (CASE WHEN _sort_ascending IS NOT NULL AND _sort_ascending = true THEN filteredInstances.lastChanged END) ASC,
-		    (CASE WHEN _sort_ascending IS NULL OR _sort_ascending = false THEN filteredInstances.lastChanged END) DESC,
+            (CASE WHEN _sort_ascending = true  THEN filteredInstances.lastChanged END) ASC,
+		    (CASE WHEN _sort_ascending = false THEN filteredInstances.lastChanged END) DESC,
             filteredInstances.id;
 END;
+$BODY$;
+
+CREATE OR REPLACE FUNCTION storage.readdeletedinstances()
+    RETURNS TABLE (instance JSONB)
+    LANGUAGE 'plpgsql'
+    
+AS $BODY$
+BEGIN
+RETURN QUERY
+    -- Make sure that part of the where clause is exactly as in filtered index instances_isharddeleted_confirmed
+    SELECT i.instance FROM storage.instances i
+    WHERE (i.instance -> 'Status' -> 'IsHardDeleted')::BOOLEAN
+        AND (i.instance -> 'CompleteConfirmations') IS NOT NULL
+        AND (i.instance -> 'Status' ->> 'HardDeleted')::TIMESTAMPTZ <= (NOW() - (7 ||' days')::INTERVAL);
+END;
+$BODY$;
+
+CREATE OR REPLACE FUNCTION storage.readdeletedelements()
+    RETURNS TABLE (id BIGINT, instance JSONB, element JSONB)
+    LANGUAGE 'plpgsql'  
+AS $BODY$
+BEGIN
+RETURN QUERY
+    -- Use materialized cte to force join order
+    -- Target index dataelements_deletestatus_harddeleted. This index has a where clause that must match
+    -- the where clause in the data_elements query
+    WITH data_elements AS MATERIALIZED
+        (SELECT d.instanceinternalid, d.element FROM storage.dataelements d
+            WHERE (d.element -> 'DeleteStatus' -> 'IsHardDeleted')::BOOLEAN
+                AND (d.element -> 'DeleteStatus' ->> 'HardDeleted')::TIMESTAMPTZ <= NOW() - (7 ||' days')::interval
+        )
+    SELECT i.id, i.instance, data_elements.element FROM  data_elements JOIN storage.instances i ON i.id = data_elements.instanceinternalid; 
+    END;
 $BODY$;
 
 CREATE OR REPLACE FUNCTION storage.readinstance(_alternateid UUID)
@@ -192,7 +229,22 @@ AS $BODY$
 DECLARE
     _deleteCount INTEGER;
 BEGIN
-	DELETE FROM storage.dataelements WHERE alternateid = _alternateid;
+	DELETE FROM storage.dataelements WHERE d.alternateid = _alternateid;
+    GET DIAGNOSTICS _deleteCount = ROW_COUNT;
+    RETURN _deleteCount;
+END;
+$BODY$;
+
+CREATE OR REPLACE FUNCTION storage.deletedataelements(_instanceguid UUID)
+    RETURNS INT
+    LANGUAGE 'plpgsql'	
+AS $BODY$
+DECLARE
+    _deleteCount INTEGER;
+BEGIN
+	DELETE FROM storage.dataelements d
+        USING storage.instances i
+        WHERE i.alternateid = d.instanceguid AND i.alternateid = _instanceguid;
     GET DIAGNOSTICS _deleteCount = ROW_COUNT;
     RETURN _deleteCount;
 END;
@@ -251,11 +303,16 @@ BEGIN
 END;
 $BODY$;
 
-CREATE OR REPLACE PROCEDURE storage.deleteinstanceevent(_instance UUID)
+CREATE OR REPLACE FUNCTION storage.deleteinstanceevent(_instance UUID)
+    RETURNS INT
     LANGUAGE 'plpgsql'	
 AS $BODY$
+DECLARE
+    _deleteCount INTEGER;
 BEGIN
 	DELETE FROM storage.instanceevents WHERE instance = _instance;
+    GET DIAGNOSTICS _deleteCount = ROW_COUNT;
+    RETURN _deleteCount;
 END;
 $BODY$;
 
