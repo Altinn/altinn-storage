@@ -12,6 +12,7 @@ using Azure;
 using Azure.Storage;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
+using Microsoft.ApplicationInsights;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -32,19 +33,17 @@ namespace Altinn.Platform.Storage.Repository
         /// <summary>
         /// Initializes a new instance of the <see cref="TestDataRepository"/> class.
         /// </summary>
-        /// <param name="sasTokenProvider">A provider that can be asked for SAS tokens.</param>
-        /// <param name="storageConfiguration">the storage configuration for azure blob storage.</param>
         /// <param name="logger">The logger to use when writing to logs.</param>
         /// <param name="dataSource">The npgsql data source.</param>
+        /// <param name="telemetryClient">Telemetry client</param>
         /// <param name="cosmosRepository">The cosmos repository.</param>
         public TestDataRepository(
-            ISasTokenProvider sasTokenProvider,
-            IOptions<AzureStorageConfiguration> storageConfiguration,
             ILogger<PgDataRepository> logger,
             NpgsqlDataSource dataSource,
-            IDataRepository cosmosRepository)
+            IDataRepository cosmosRepository,
+            TelemetryClient telemetryClient)
         {
-            _postgresRepository = new PgDataRepository(sasTokenProvider, storageConfiguration, logger, dataSource);
+            _postgresRepository = new PgDataRepository(logger, dataSource, telemetryClient);
             _cosmosRepository = cosmosRepository;
             _logger = logger;
         }
@@ -74,6 +73,12 @@ namespace Altinn.Platform.Storage.Repository
 
             _logger.LogError($"TracePgData: Deleted {dataElement.Id}");
             return cosmosDelete;
+        }
+
+        /// <inheritdoc/>
+        public async Task<bool> DeleteForInstance(string instanceId)
+        {
+            return await _postgresRepository.DeleteForInstance(instanceId);
         }
 
         /// <inheritdoc/>
@@ -175,24 +180,6 @@ namespace Altinn.Platform.Storage.Repository
 
             _logger.LogError($"TracePgData: Updated {dataElementId}");
             return cosmosUpdate;
-        }
-
-        /// <inheritdoc/>
-        public async Task<(long ContentLength, DateTimeOffset LastModified)> WriteDataToStorage(string org, Stream stream, string blobStoragePath)
-        {
-            return await _postgresRepository.WriteDataToStorage(org, stream, blobStoragePath);
-        }
-
-        /// <inheritdoc/>
-        public async Task<Stream> ReadDataFromStorage(string org, string blobStoragePath)
-        {
-            return await _postgresRepository.ReadDataFromStorage(org, blobStoragePath);
-        }
-
-        /// <inheritdoc/>
-        public async Task<bool> DeleteDataInStorage(string org, string blobStoragePath)
-        {
-            return await _postgresRepository.DeleteDataInStorage(org, blobStoragePath);
         }
 
         private bool CompareElements (DataElement cosmosElement, DataElement postgresElement)

@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Microsoft.ApplicationInsights;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Npgsql;
@@ -36,13 +37,15 @@ namespace Altinn.Platform.Storage.Repository
         /// </summary>
         /// <param name="logger">The logger to use when writing to logs.</param>
         /// <param name="dataSource">The npgsql data source.</param>
+        /// <param name="telemetryClient">Telemetry client</param>
         /// <param name="cosmosRepository">The cosmos repository.</param>
         public TestInstanceRepository(
             ILogger<PgInstanceRepository> logger,
             NpgsqlDataSource dataSource,
-            IInstanceRepository cosmosRepository)
+            IInstanceRepository cosmosRepository,
+            TelemetryClient telemetryClient)
         {
-            _postgresRepository = new PgInstanceRepository(logger, dataSource);
+            _postgresRepository = new PgInstanceRepository(logger, dataSource, telemetryClient);
             _cosmosRepository = cosmosRepository;
             _logger = logger;
         }
@@ -347,6 +350,18 @@ namespace Altinn.Platform.Storage.Repository
             }
 
             return isEqueal;
+        }
+
+        /// <inheritdoc/>
+        public async Task<List<Instance>> GetHardDeletedInstances()
+        {
+            return await _postgresRepository.GetHardDeletedInstances();
+        }
+
+        /// <inheritdoc/>
+        public async Task<List<DataElement>> GetHardDeletedDataElements()
+        {
+            return await _postgresRepository.GetHardDeletedDataElements();
         }
     }
 }

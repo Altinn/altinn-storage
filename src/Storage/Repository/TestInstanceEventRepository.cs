@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Microsoft.ApplicationInsights;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -31,13 +32,15 @@ namespace Altinn.Platform.Storage.Repository
         /// </summary>
         /// <param name="logger">The logger to use when writing to logs.</param>
         /// <param name="dataSource">The npgsql data source.</param>
+        /// <param name="telemetryClient">Telemetry client</param>
         /// <param name="cosmosRepository">The cosmos repository.</param>
         public TestInstanceEventRepository(
             ILogger<PgInstanceEventRepository> logger,
             NpgsqlDataSource dataSource,
-            IInstanceEventRepository cosmosRepository)
+            IInstanceEventRepository cosmosRepository,
+            TelemetryClient telemetryClient)
         {
-            _postgresRepository = new PgInstanceEventRepository(dataSource);
+            _postgresRepository = new PgInstanceEventRepository(logger, dataSource, telemetryClient);
             _cosmosRepository = cosmosRepository;
             _logger = logger;
         }

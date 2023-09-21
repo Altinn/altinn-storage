@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
-
+using Microsoft.ApplicationInsights;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -33,6 +33,7 @@ namespace Altinn.Platform.Storage.Repository
         /// </summary>
         /// <param name="logger">The logger to use when writing to logs.</param>
         /// <param name="dataSource">The npgsql data source.</param>
+        /// <param name="telemetryClient">Telemetry client</param>
         /// <param name="cosmosRepository">The cosmos repository.</param>
         /// <param name="generalSettings">Settings</param>
         /// <param name="memoryCache">Memory cache</param>
@@ -41,9 +42,10 @@ namespace Altinn.Platform.Storage.Repository
             NpgsqlDataSource dataSource,
             ITextRepository cosmosRepository,
             IOptions<GeneralSettings> generalSettings,
-            IMemoryCache memoryCache)
+            IMemoryCache memoryCache,
+            TelemetryClient telemetryClient)
         {
-            _postgresRepository = new PgTextRepository(generalSettings, memoryCache, dataSource);
+            _postgresRepository = new PgTextRepository(generalSettings, memoryCache, dataSource, telemetryClient);
             _cosmosRepository = cosmosRepository;
             _logger = logger;
         }
