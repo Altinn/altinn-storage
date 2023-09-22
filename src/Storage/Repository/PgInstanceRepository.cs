@@ -283,7 +283,11 @@ namespace Altinn.Platform.Storage.Repository
                     }
                 }
 
-                SetStatuses(instance);
+                if (id != -1)
+                {
+                    SetStatuses(instance);
+                }
+
                 queryResponse.ContinuationToken = queryResponse.Instances.Count == size ? $"{lastChanged.Ticks};{id}" : null;
             }
 
