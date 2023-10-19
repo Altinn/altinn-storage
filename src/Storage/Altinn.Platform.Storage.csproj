@@ -9,7 +9,7 @@
 	</PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Altinn.Common.AccessToken" Version="3.0.2" />
+    <PackageReference Include="Altinn.Common.AccessToken" Version="3.0.3" />
     <PackageReference Include="Altinn.Platform.Storage.Interface" Version="3.24.0" />
     <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.2.2" />
     <PackageReference Include="Azure.Identity" Version="1.10.2" />
