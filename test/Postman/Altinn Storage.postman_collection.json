@@ -1,0 +1,293 @@
+{
+	"info": {
+		"_postman_id": "ff77365d-9754-4180-b56d-fb4e66492f97",
+		"name": "Altinn Storage",
+		"description": "Collection of request examples and tests for the Storage API in Altinn 3.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "8992095"
+	},
+	"item": [
+		{
+			"name": "Applications",
+			"item": [
+				{
+					"name": "All applications",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BasePath}}{{PortNumber}}/storage/api/v1/applications",
+							"host": [
+								"{{BasePath}}{{PortNumber}}"
+							],
+							"path": [
+								"storage",
+								"api",
+								"v1",
+								"applications"
+							]
+						},
+						"description": "Retrieve the metadata documents for all deployed apps."
+					},
+					"response": []
+				},
+				{
+					"name": "Org applications",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BasePath}}{{PortNumber}}/storage/api/v1/applications/{{Org}}",
+							"host": [
+								"{{BasePath}}{{PortNumber}}"
+							],
+							"path": [
+								"storage",
+								"api",
+								"v1",
+								"applications",
+								"{{Org}}"
+							]
+						},
+						"description": "Retrieve the metadata documents for all deployed apps from a specific application owner."
+					},
+					"response": []
+				},
+				{
+					"name": "One application",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BasePath}}{{PortNumber}}/storage/api/v1/applications/{{Org}}/{{AppName}}",
+							"host": [
+								"{{BasePath}}{{PortNumber}}"
+							],
+							"path": [
+								"storage",
+								"api",
+								"v1",
+								"applications",
+								"{{Org}}",
+								"{{AppName}}"
+							]
+						},
+						"description": "Get the metadata document for a specific app."
+					},
+					"response": []
+				}
+			],
+			"description": "Collection of requests focused on application metadata. The API is meant to be used mostly by developers of integrations against a specific application as a way to get som insights into how the app will work."
+		},
+		{
+			"name": "Instances & data",
+			"item": [
+				{
+					"name": "all org instances",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BasePath}}{{PortNumber}}/storage/api/v1/instances?org={{Org}}",
+							"host": [
+								"{{BasePath}}{{PortNumber}}"
+							],
+							"path": [
+								"storage",
+								"api",
+								"v1",
+								"instances"
+							],
+							"query": [
+								{
+									"key": "org",
+									"value": "{{Org}}"
+								}
+							]
+						},
+						"description": "Get all instances that belong to apps from specified application owner.\n\nThis API have paging with a next url for the next page."
+					},
+					"response": []
+				},
+				{
+					"name": "all unconfirmed instances",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BasePath}}{{PortNumber}}/storage/api/v1/instances?org={{Org}}&appId={{Org}}%2F{{AppName}}&process.isComplete=true&excludeConfirmedBy={{Org}}",
+							"host": [
+								"{{BasePath}}{{PortNumber}}"
+							],
+							"path": [
+								"storage",
+								"api",
+								"v1",
+								"instances"
+							],
+							"query": [
+								{
+									"key": "org",
+									"value": "{{Org}}"
+								},
+								{
+									"key": "appId",
+									"value": "{{Org}}%2F{{AppName}}"
+								},
+								{
+									"key": "process.isComplete",
+									"value": "true"
+								},
+								{
+									"key": "excludeConfirmedBy",
+									"value": "{{Org}}"
+								}
+							]
+						},
+						"description": "Get instances from a specified app where the instances is complete (process) and the application owner has NOT marked it as completed."
+					},
+					"response": []
+				},
+				{
+					"name": "all completed instances with last changed after",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BasePath}}{{PortNumber}}/storage/api/v1/instances?org={{Org}}&appId={{Org}}%2F{{AppName}}&process.isComplete=true&lastChanged=gt:2023-10-19",
+							"host": [
+								"{{BasePath}}{{PortNumber}}"
+							],
+							"path": [
+								"storage",
+								"api",
+								"v1",
+								"instances"
+							],
+							"query": [
+								{
+									"key": "org",
+									"value": "{{Org}}"
+								},
+								{
+									"key": "appId",
+									"value": "{{Org}}%2F{{AppName}}"
+								},
+								{
+									"key": "process.isComplete",
+									"value": "true"
+								},
+								{
+									"key": "lastChanged",
+									"value": "gt:2023-10-19"
+								}
+							]
+						},
+						"description": "Get instances from a specified app where the instances is complete (process) and the application owner has NOT marked it as completed."
+					},
+					"response": []
+				},
+				{
+					"name": "single instance",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BasePath}}{{PortNumber}}/storage/api/v1/instances/{{InstanceId}}",
+							"host": [
+								"{{BasePath}}{{PortNumber}}"
+							],
+							"path": [
+								"storage",
+								"api",
+								"v1",
+								"instances",
+								"{{InstanceId}}"
+							]
+						},
+						"description": "Get instances from a specified app where the instances is complete (process) and the application owner has NOT marked it as completed."
+					},
+					"response": []
+				},
+				{
+					"name": "all data elements in instance",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BasePath}}{{PortNumber}}/storage/api/v1/instances/{{InstanceId}}/dataelements",
+							"host": [
+								"{{BasePath}}{{PortNumber}}"
+							],
+							"path": [
+								"storage",
+								"api",
+								"v1",
+								"instances",
+								"{{InstanceId}}",
+								"dataelements"
+							]
+						},
+						"description": "Get instances from a specified app where the instances is complete (process) and the application owner has NOT marked it as completed."
+					},
+					"response": []
+				},
+				{
+					"name": "specified data blob",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BasePath}}{{PortNumber}}/storage/api/v1/instances/{{InstanceId}}/data/4de77d38-3984-4ceb-ad85-40da1c62c049",
+							"host": [
+								"{{BasePath}}{{PortNumber}}"
+							],
+							"path": [
+								"storage",
+								"api",
+								"v1",
+								"instances",
+								"{{InstanceId}}",
+								"data",
+								"4de77d38-3984-4ceb-ad85-40da1c62c049"
+							]
+						},
+						"description": "Get instances from a specified app where the instances is complete (process) and the application owner has NOT marked it as completed."
+					},
+					"response": []
+				}
+			],
+			"description": "This collection of requests are focused on instance level operations. There are no way of making changes to any instance directly against Storage. Mutating an instance requires an App as only Apps have this access."
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{BearerToken}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}
