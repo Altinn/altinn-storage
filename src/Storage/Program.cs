@@ -292,7 +292,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
             ConnectionString = applicationInsightsConnectionString
         });
 
-        // services.AddApplicationInsightsTelemetryProcessor<HealthTelemetryFilter>();
+        services.AddApplicationInsightsTelemetryProcessor<HealthTelemetryFilter>();
         services.AddApplicationInsightsTelemetryProcessor<IdentityTelemetryFilter>();
         services.AddSingleton<ITelemetryInitializer, CustomTelemetryInitializer>();
     }
