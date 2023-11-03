@@ -42,6 +42,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+
 using Yuniql.AspNetCore;
 using Yuniql.PostgreSql;
 
@@ -262,6 +263,11 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
         services.AddRepositoriesCosmos();
     }
 
+    services.AddHealthChecks()
+        .AddNpgSql(string.Format(
+            config.GetValue<string>("PostgreSqlSettings:ConnectionString"),
+            config.GetValue<string>("PostgreSqlSettings:StorageDbPwd")));
+
     services.AddSingleton<ISasTokenProvider, SasTokenProvider>();
     services.AddSingleton<IKeyVaultClientWrapper, KeyVaultClientWrapper>();
     services.AddSingleton<IPDP, PDPAppSI>();
@@ -286,7 +292,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
             ConnectionString = applicationInsightsConnectionString
         });
 
-        services.AddApplicationInsightsTelemetryProcessor<HealthTelemetryFilter>();
+        // services.AddApplicationInsightsTelemetryProcessor<HealthTelemetryFilter>();
         services.AddApplicationInsightsTelemetryProcessor<IdentityTelemetryFilter>();
         services.AddSingleton<ITelemetryInitializer, CustomTelemetryInitializer>();
     }
