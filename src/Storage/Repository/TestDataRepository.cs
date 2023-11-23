@@ -51,9 +51,11 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<DataElement> Create(DataElement dataElement, long instanceInternalId = 0)
         {
+            _logger.LogError($"TracePgData: Create before cosmos {dataElement.Id}");
             DataElement cosmosElement = await _cosmosRepository.Create(dataElement, instanceInternalId);
+            _logger.LogError($"TracePgData: Created before postgres {dataElement.Id}");
             DataElement postgresElement = await _postgresRepository.Create(dataElement, instanceInternalId);
-            _logger.LogError($"TracePgData: Created {dataElement.Id}");
+            _logger.LogError($"TracePgData: Created finished {dataElement.Id}");
             return cosmosElement;
         }
 

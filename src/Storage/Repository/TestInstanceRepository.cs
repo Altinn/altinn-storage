@@ -83,12 +83,14 @@ namespace Altinn.Platform.Storage.Repository
                     param.Key.Contains("created", StringComparison.OrdinalIgnoreCase) ||
                     param.Key.Contains("lastChanged", StringComparison.OrdinalIgnoreCase))
                 {
+                    List<string> dates = new();
                     foreach (var value in param.Value)
                     {
                         string[] parts = value.Split(':');
-                        string newValue = $"{parts[0]}:{parts[1].Substring(0, 10)}T00:00:00.000Z";
-                        queryParams[param.Key] = newValue;
+                        dates.Add($"{parts[0]}:{parts[1].Substring(0, 10)}T00:00:00.000Z");
                     }
+
+                    queryParams[param.Key] = new StringValues(dates.ToArray());
                 }
             }
         }
