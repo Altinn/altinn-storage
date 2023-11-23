@@ -44,7 +44,7 @@ namespace Altinn.Platform.Storage.DataCleanup
         public async Task Run([TimerTrigger("0 0 3 * * *", RunOnStartup = false)] TimerInfo timer, ILogger log)
         {
             List<Instance> instances = await _cosmosService.GetHardDeletedInstances();
-            List<Application> applications = await _cosmosService.GetApplications(instances.Select(i => i.AppId).ToList());
+            List<Application> applications = await _cosmosService.GetApplications(instances.Select(i => i.AppId).Distinct().ToList());
             List<string> autoDeleteAppIds = applications.Where(a => a.AutoDeleteOnProcessEnd == true).Select(a => a.Id).ToList();
             int successfullyDeleted = 0;
 
