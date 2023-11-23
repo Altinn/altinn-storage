@@ -164,12 +164,13 @@ namespace Altinn.Platform.Storage.Repository
                 while (await reader.ReadAsync())
                 {
                     DataElement element = reader.GetFieldValue<DataElement>("element");
-                    if (!dataElements.ContainsKey(element.InstanceGuid))
+                    if (!dataElements.TryGetValue(element.InstanceGuid, out List<DataElement> elements))
                     {
-                        dataElements.Add(element.InstanceGuid, new List<DataElement>());
+                        elements = new List<DataElement>();
+                        dataElements.Add(element.InstanceGuid, elements);
                     }
 
-                    dataElements[element.InstanceGuid].Add(element);
+                    elements.Add(element);
                 }
             }
 

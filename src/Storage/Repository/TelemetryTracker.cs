@@ -30,12 +30,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public void Dispose()
         {
-            if (!_tracked)
-            {
-                Track(false);
-                _tracked = true;
-            }
-
+            Dispose(true);
             GC.SuppressFinalize(this);
         }
 
@@ -46,8 +41,22 @@ namespace Altinn.Platform.Storage.Repository
         public void Track(bool success = true)
         {
             _timer.Stop();
-            _telemetryClient.TrackDependency("Postgres", _cmd.CommandText, _cmd.CommandText, _startTime, _timer.Elapsed, success);
+            _telemetryClient?.TrackDependency("Postgres", _cmd.CommandText, _cmd.CommandText, _startTime, _timer.Elapsed, success);
+
             _tracked = true;
+        }
+
+        /// <summary>
+        /// Method to satisfy the dispose pattern
+        /// </summary>
+        /// <param name="disposing">Has disposed already been called?</param>
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_tracked && disposing)
+            {
+                Track(false);
+                _tracked = true;
+            }
         }
     }
 }
