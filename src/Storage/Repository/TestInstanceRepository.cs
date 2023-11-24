@@ -127,7 +127,7 @@ namespace Altinn.Platform.Storage.Repository
                 Console.WriteLine(cosmosResponse.Count);
 
                 bool responsesEqual = false;
-                for (int i = 0; i < 10; i++)
+                for (int i = 0; i < 5; i++)
                 {
                     if (!CompareInstanceResponses(postgresResponse, cosmosResponse))
                     {
@@ -290,6 +290,11 @@ namespace Altinn.Platform.Storage.Repository
 
         private void SyncLastChanged (Instance cosmosInstance, Instance postgresInstance)
         {
+            if (cosmosInstance?.LastChanged == null || postgresInstance?.LastChanged == null)
+            {
+                return;
+            }
+
             if (Math.Abs(((DateTime)cosmosInstance.LastChanged).Subtract((DateTime)postgresInstance.LastChanged).TotalSeconds) < 5)
             {
                 cosmosInstance.LastChanged = postgresInstance.LastChanged;
