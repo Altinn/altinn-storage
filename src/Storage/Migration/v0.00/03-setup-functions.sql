@@ -229,7 +229,7 @@ AS $BODY$
 DECLARE
     _deleteCount INTEGER;
 BEGIN
-	DELETE FROM storage.dataelements WHERE d.alternateid = _alternateid;
+	DELETE FROM storage.dataelements WHERE alternateid = _alternateid;
     GET DIAGNOSTICS _deleteCount = ROW_COUNT;
     RETURN _deleteCount;
 END;
