@@ -210,9 +210,12 @@ namespace Altinn.Platform.Storage.Repository
                         data.FileScanResult = FileScanResult.Clean;
                     }
 
-                    foreach (var data in patchedPostgres.Data)
+                    if (patchedPostgres?.Data != null)
                     {
-                        data.FileScanResult = FileScanResult.Clean;
+                        foreach (var data in patchedPostgres.Data)
+                        {
+                            data.FileScanResult = FileScanResult.Clean;
+                        }
                     }
                 }
 
