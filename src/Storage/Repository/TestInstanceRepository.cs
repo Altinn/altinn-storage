@@ -320,6 +320,11 @@ namespace Altinn.Platform.Storage.Repository
                 Console.WriteLine("Cosmos is 0");
                 return false;
             }
+            else if ((p_inst?.Instances?.Count ?? 0) != (c_inst?.Instances?.Count ?? 0))
+            {
+                Console.WriteLine("Diff in instance count");
+                return false;
+            }
 
             string p_instString = JsonSerializer.Serialize(p_inst);
             string c_instString = JsonSerializer.Serialize(c_inst);
