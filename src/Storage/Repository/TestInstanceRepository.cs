@@ -127,7 +127,7 @@ namespace Altinn.Platform.Storage.Repository
                 Console.WriteLine(cosmosResponse.Count);
 
                 bool responsesEqual = false;
-                for (int i = 0; i < 5; i++)
+                for (int i = 0; i < 2; i++)
                 {
                     if (!CompareInstanceResponses(postgresResponse, cosmosResponse))
                     {
