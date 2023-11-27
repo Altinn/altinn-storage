@@ -21,11 +21,11 @@ namespace Altinn.Platform.Storage.Controllers
     [ApiController]
     public class CleanupController : ControllerBase
     {
-        private readonly IInstanceRepository _instanceRepository;
-        private readonly IApplicationRepository _applicationRepository;
+        private readonly ITestInstanceRepository _instanceRepository;
+        private readonly ITestApplicationRepository _applicationRepository;
         private readonly IBlobRepository _blobRepository;
-        private readonly IDataRepository _dataRepository;
-        private readonly IInstanceEventRepository _instanceEventRepository;
+        private readonly ITestDataRepository _dataRepository;
+        private readonly ITestInstanceEventRepository _instanceEventRepository;
         private readonly ILogger<CleanupController> _logger;
 
         /// <summary>
@@ -38,11 +38,11 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceEventRepository">the instance event repository handler</param>
         /// <param name="logger">the logger</param>
         public CleanupController(
-            IInstanceRepository instanceRepository,
-            IApplicationRepository applicationRepository,
+            ITestInstanceRepository instanceRepository,
+            ITestApplicationRepository applicationRepository,
             IBlobRepository blobRepository,
-            IDataRepository dataRepository,
-            IInstanceEventRepository instanceEventRepository,
+            ITestDataRepository dataRepository,
+            ITestInstanceEventRepository instanceEventRepository,
             ILogger<CleanupController> logger)
         {
             _instanceRepository = instanceRepository;
