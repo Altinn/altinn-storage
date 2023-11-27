@@ -62,20 +62,32 @@ namespace Altinn.Platform.Storage.Controllers
         ////[ApiExplorerSettings(IgnoreApi = true)]
         public async Task<ActionResult> CleanupInstances()
         {
-            List<Instance> instances = await _instanceRepository.GetHardDeletedInstances();
-            List<string> autoDeleteAppIds = (await _applicationRepository.FindAll())
-                .Where(a => instances.Select(i => i.AppId).ToList().Contains(a.Id) && a.AutoDeleteOnProcessEnd == true)
-                .Select(a => a.Id).ToList();
+            try
+            {
+                List<Instance> instances = await _instanceRepository.GetHardDeletedInstances();
+                List<string> autoDeleteAppIds = (await _applicationRepository.FindAll())
+                    .Where(a => instances.Select(i => i.AppId).ToList().Contains(a.Id) && a.AutoDeleteOnProcessEnd == true)
+                    .Select(a => a.Id).ToList();
 
-            Stopwatch stopwatch = Stopwatch.StartNew();
-            int successfullyDeleted = await CleanupInstancesInternal(instances, autoDeleteAppIds);
-            stopwatch.Stop();
+                Stopwatch stopwatch = Stopwatch.StartNew();
+                int successfullyDeleted = await CleanupInstancesInternal(instances, autoDeleteAppIds);
+                stopwatch.Stop();
 
-            _logger.LogInformation(
-                "NightlyCleanup // Run // {DeleteCount} of {OriginalCount} instances deleted in {Duration} s",
-                successfullyDeleted,
-                instances.Count,
-                stopwatch.Elapsed.TotalSeconds);
+                _logger.LogInformation(
+                    "NightlyCleanup // Run // {DeleteCount} of {OriginalCount} instances deleted in {Duration} s",
+                    successfullyDeleted,
+                    instances.Count,
+                    stopwatch.Elapsed.TotalSeconds);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("CleanupInstances error: " + ex.Message);
+                throw;
+            }
+            finally
+            {
+                _logger.LogError("CleanupInstances success");
+            }
 
             return Ok();
         }
