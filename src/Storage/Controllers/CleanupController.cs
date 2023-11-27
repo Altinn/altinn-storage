@@ -59,7 +59,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <returns>?</returns>
         [HttpDelete("cleanupinstances")]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        [ApiExplorerSettings(IgnoreApi = true)]
+        ////[ApiExplorerSettings(IgnoreApi = true)]
         public async Task<ActionResult> CleanupInstances()
         {
             List<Instance> instances = await _instanceRepository.GetHardDeletedInstances();
@@ -86,7 +86,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <returns>?</returns>
         [HttpDelete("cleanupinstancesforapp/{appId}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        [ApiExplorerSettings(IgnoreApi = true)]
+        ////[ApiExplorerSettings(IgnoreApi = true)]
         public async Task<ActionResult> CleanupInstancesForApp(string appId)
         {
             appId = appId.Contains('/') ? appId : appId.Replace(appId.Split('-').First() + '-', appId.Split('-').First() + '/');
