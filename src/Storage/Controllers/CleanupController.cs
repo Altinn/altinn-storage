@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-
+using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 
 namespace Altinn.Platform.Storage.Controllers
@@ -27,6 +28,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IDataRepository _dataRepository;
         private readonly IInstanceEventRepository _instanceEventRepository;
         private readonly ILogger<CleanupController> _logger;
+        private readonly bool _usePostgreSQL;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CleanupController"/> class
@@ -37,13 +39,15 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataRepository">the data repository handler</param>
         /// <param name="instanceEventRepository">the instance event repository handler</param>
         /// <param name="logger">the logger</param>
+        /// <param name="generalSettings">the general settings.</param>
         public CleanupController(
             IInstanceRepository instanceRepository,
             IApplicationRepository applicationRepository,
             IBlobRepository blobRepository,
             IDataRepository dataRepository,
             IInstanceEventRepository instanceEventRepository,
-            ILogger<CleanupController> logger)
+            ILogger<CleanupController> logger,
+            IOptions<GeneralSettings> generalSettings)
         {
             _instanceRepository = instanceRepository;
             _applicationRepository = applicationRepository;
@@ -51,6 +55,7 @@ namespace Altinn.Platform.Storage.Controllers
             _dataRepository = dataRepository;
             _instanceEventRepository = instanceEventRepository;
             _logger = logger;
+            _usePostgreSQL = generalSettings.Value.UsePostgreSQL;
         }
 
         /// <summary>
@@ -62,6 +67,11 @@ namespace Altinn.Platform.Storage.Controllers
         [ApiExplorerSettings(IgnoreApi = true)]
         public async Task<ActionResult> CleanupInstances()
         {
+            if (!_usePostgreSQL)
+            {
+                return Ok();
+            }
+
             List<Instance> instances = await _instanceRepository.GetHardDeletedInstances();
             List<string> autoDeleteAppIds = (await _applicationRepository.FindAll())
                 .Where(a => instances.Select(i => i.AppId).ToList().Contains(a.Id) && a.AutoDeleteOnProcessEnd == true)
@@ -89,6 +99,11 @@ namespace Altinn.Platform.Storage.Controllers
         [ApiExplorerSettings(IgnoreApi = true)]
         public async Task<ActionResult> CleanupInstancesForApp(string appId)
         {
+            if (!_usePostgreSQL)
+            {
+                return Ok();
+            }
+
             appId = appId.Contains('/') ? appId : appId.Replace(appId.Split('-').First() + '-', appId.Split('-').First() + '/');
             int successfullyDeleted = 0;
             int processed = 0;
@@ -125,6 +140,11 @@ namespace Altinn.Platform.Storage.Controllers
         [ApiExplorerSettings(IgnoreApi = true)]
         public async Task<ActionResult> CleanupDataelements()
         {
+            if (!_usePostgreSQL)
+            {
+                return Ok();
+            }
+
             List<DataElement> dataElements = await _instanceRepository.GetHardDeletedDataElements();
 
             int successfullyDeleted = 0;
