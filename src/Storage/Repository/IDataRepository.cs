@@ -14,31 +14,6 @@ namespace Altinn.Platform.Storage.Repository
     public interface IDataRepository
     {
         /// <summary>
-        /// Create a new file in blob storage.
-        /// </summary>
-        /// <param name="org">The application owner id.</param>
-        /// <param name="stream">Data to be written to blob storage.</param>
-        /// <param name="blobStoragePath">Path to save the stream to in blob storage.</param>
-        /// <returns>The size of the blob.</returns>
-        Task<(long ContentLength, DateTimeOffset LastModified)> WriteDataToStorage(string org, Stream stream, string blobStoragePath);
-
-        /// <summary>
-        /// Reads a data file from blob storage
-        /// </summary>
-        /// <param name="org">The application owner id.</param>
-        /// <param name="blobStoragePath">Path to be file to read blob storage.</param>
-        /// <returns>The stream with the file</returns>
-        Task<Stream> ReadDataFromStorage(string org, string blobStoragePath);
-
-        /// <summary>
-        /// Deletes the data element permanently
-        /// </summary>
-        /// <param name="org">The application owner id.</param>
-        /// <param name="blobStoragePath">Path to the file to delete.</param>
-        /// <returns>A value indicating whether the delete was successful.</returns>
-        Task<bool> DeleteDataInStorage(string org, string blobStoragePath);
-
-        /// <summary>
         /// Gets all data elements for a given instance
         /// </summary>
         /// <param name="instanceGuid">the guid of the instance</param>
@@ -58,7 +33,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="dataElement">the data element to insert</param>
         /// <param name="instanceInternalId">the internal id of the parent instance</param>
         /// <returns>the data element with updated id</returns>
-        Task<DataElement> Create(DataElement dataElement, long instanceInternalId = 0);
+        Task<DataElement> Create(DataElement dataElement, long instanceInternalId);
 
         /// <summary>
         /// Reads a data element metadata object. Not the actual data.
@@ -74,6 +49,13 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="dataElement">the element to delete</param>
         /// <returns>true if delete went well.</returns>
         Task<bool> Delete(DataElement dataElement);
+
+        /// <summary>
+        /// Deletes the data elements metadata for an instance permanently!
+        /// </summary>
+        /// <param name="instanceId">the parent instance id of the data elements to delete</param>
+        /// <returns>true if delete went well.</returns>
+        Task<bool> DeleteForInstance(string instanceId);
 
         /// <summary>
         /// Updates the data element with the properties provided in the dictionary

@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
-
+using Microsoft.ApplicationInsights;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -31,11 +31,12 @@ namespace Altinn.Platform.Storage.Repository
         private static readonly string _updateSql = "update storage.texts set textresource = $4 where org = $1 and app = $2 and language = $3";
         private static readonly string _createSql = "insert into storage.texts (org, app, language, textresource, applicationinternalid) values ($1, $2, $3, $4, $5)";
 
-        private static TextResource _missingResourcePlaceholder = new() { Id = _missingResourceId };
+        private static readonly TextResource _missingResourcePlaceholder = new() { Id = _missingResourceId };
 
         private readonly IMemoryCache _memoryCache;
         private readonly MemoryCacheEntryOptions _cacheEntryOptions;
         private readonly NpgsqlDataSource _dataSource;
+        private readonly TelemetryClient _telemetryClient;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PgTextRepository"/> class
@@ -43,16 +44,19 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="generalSettings">the general settings</param>
         /// <param name="memoryCache">the memory cache</param>
         /// <param name="dataSource">The npgsql data source.</param>
+        /// <param name="telemetryClient">Telemetry client</param>
         public PgTextRepository(
             IOptions<GeneralSettings> generalSettings,
             IMemoryCache memoryCache,
-            NpgsqlDataSource dataSource)
+            NpgsqlDataSource dataSource,
+            TelemetryClient telemetryClient)
         {
             _memoryCache = memoryCache;
             _cacheEntryOptions = new MemoryCacheEntryOptions()
                 .SetPriority(CacheItemPriority.High)
                 .SetAbsoluteExpiration(new TimeSpan(0, 0, generalSettings.Value.TextResourceCacheLifeTimeInSeconds));
             _dataSource = dataSource;
+            _telemetryClient = telemetryClient;
         }
 
         /// <inheritdoc/>
@@ -63,6 +67,7 @@ namespace Altinn.Platform.Storage.Repository
             if (!_memoryCache.TryGetValue(id, out TextResource textResource))
             {
                     await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSql);
+                    using TelemetryTracker tracker = new(_telemetryClient, pgcom);
                     pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, org);
                     pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, app);
                     pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, language);
@@ -77,6 +82,7 @@ namespace Altinn.Platform.Storage.Repository
                     }
 
                     _memoryCache.Set(id, textResource, _cacheEntryOptions);
+                    tracker.Track();
             }
 
             return textResource.Id == _missingResourceId ? null : textResource;
@@ -116,6 +122,7 @@ namespace Altinn.Platform.Storage.Repository
 
             int applicationInternalId;
             await using NpgsqlCommand pgcomReadApp = _dataSource.CreateCommand(_readAppSql);
+            using TelemetryTracker trackerReadApp = new(_telemetryClient, pgcomReadApp);
             pgcomReadApp.Parameters.AddWithValue(NpgsqlDbType.Text, $"{org}-{app}");
             await using NpgsqlDataReader reader = await pgcomReadApp.ExecuteReaderAsync();
             if (await reader.ReadAsync())
@@ -127,7 +134,10 @@ namespace Altinn.Platform.Storage.Repository
                 throw new ArgumentException("App not found");
             }
 
+            trackerReadApp.Track();
+
             await using NpgsqlCommand pgcomRead = _dataSource.CreateCommand(_createSql);
+            using TelemetryTracker trackerRead = new(_telemetryClient, pgcomRead);
             pgcomRead.Parameters.AddWithValue(NpgsqlDbType.Text, org);
             pgcomRead.Parameters.AddWithValue(NpgsqlDbType.Text, app);
             pgcomRead.Parameters.AddWithValue(NpgsqlDbType.Text, textResource.Language);
@@ -136,6 +146,7 @@ namespace Altinn.Platform.Storage.Repository
 
             await pgcomRead.ExecuteNonQueryAsync();
 
+            trackerRead.Track();
             return PostProcess(org, app, textResource.Language, textResource);
         }
 
@@ -145,13 +156,14 @@ namespace Altinn.Platform.Storage.Repository
             ValidateArguments(org, app, textResource.Language);
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateSql);
+            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, org);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, app);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, textResource.Language);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, textResource);
 
             var statusCode = await pgcom.ExecuteNonQueryAsync();
-
+            tracker.Track();
             return statusCode == 0 ? null : PostProcess(org, app, textResource.Language, textResource);
         }
 
@@ -161,11 +173,14 @@ namespace Altinn.Platform.Storage.Repository
             ValidateArguments(org, app, language);
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
+            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, org);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, app);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, language);
 
-            return await pgcom.ExecuteNonQueryAsync() == 1;
+            int rc = await pgcom.ExecuteNonQueryAsync();
+            tracker.Track();
+            return rc == 1;
         }
 
         private static string GetTextId(string org, string app, string language)

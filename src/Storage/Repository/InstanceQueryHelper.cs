@@ -148,35 +148,6 @@ namespace Altinn.Platform.Storage.Repository
             return queryBuilder;
         }
 
-        /// <summary>
-        /// Convert timestamp based query params predicate to postgres predicate
-        /// </summary>
-        /// <param name="timestampKey">Key from query</param>
-        /// <param name="queryParams">The query params</param>
-        /// <param name="parameterNr">Positional parameter nr i postqres query</param>
-        /// <param name="timestampColumn">Postgres column name if different from timestampkey</param>
-        /// <returns>Postgres predicate and datetime object to use in postgres api</returns>
-        internal static (string Predicate, DateTime TimeStamp) ConvertTimestampParameter(string timestampKey, Dictionary<string, StringValues> queryParams, int parameterNr, string timestampColumn = null)
-        {
-            if (!queryParams.ContainsKey(timestampKey))
-            {
-                return (null, DateTime.MinValue);
-            }
-
-            timestampColumn ??= timestampKey;
-            string timestampValue = queryParams[timestampKey].First();
-            string @operator = timestampValue.Split(':')[0] switch
-            {
-                "gt" => ">",
-                "gte" => ">=",
-                "lt" => "<",
-                "lte" => "<=",
-                "eq" => "=",
-                _ => throw new Exception("Unexpeted parameter " + timestampValue),
-            };
-            return ($" AND {timestampColumn} {@operator} ${parameterNr}", ParseDateTimeIntoUtc(timestampValue[(timestampValue.Split(':')[0].Length + 1)..]));
-        }
-
         // Limitations in queryBuilder.Where interface forces me to duplicate the datetime methods
         private static IQueryable<Instance> QueryBuilderForDueBefore(IQueryable<Instance> queryBuilder, string queryValue)
         {
@@ -415,6 +386,5 @@ namespace Altinn.Platform.Storage.Repository
         {
             return DateTimeHelper.ParseAndConvertToUniversalTime(queryValue);
         }
-
     }
 }

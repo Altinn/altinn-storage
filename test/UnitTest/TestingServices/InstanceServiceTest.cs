@@ -40,7 +40,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 .ReturnsAsync((Guid.NewGuid().ToString(), null));
             
             dataServiceMock.Setup(
-                dsm => dsm.UploadDataAndCreateDataElement(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<DataElement>()));
+                dsm => dsm.UploadDataAndCreateDataElement(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<DataElement>(), 0));
 
             var instanceEventServiceMock = new Mock<IInstanceEventService>();
             instanceEventServiceMock.Setup(

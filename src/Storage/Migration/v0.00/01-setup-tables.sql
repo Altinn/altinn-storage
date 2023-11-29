@@ -67,6 +67,7 @@ TABLESPACE pg_default;
 
 CREATE INDEX IF NOT EXISTS dataelements_instanceinternalId ON storage.dataelements(instanceInternalId);
 CREATE INDEX IF NOT EXISTS dataelements_instanceguid ON storage.dataelements(instanceGuid);
+CREATE INDEX IF NOT EXISTS dataelements_deletestatus_harddeleted ON storage.dataelements (id) WHERE ((element -> 'DeleteStatus'::text) -> 'IsHardDeleted'::text)::boolean;
 
 CREATE INDEX IF NOT EXISTS instanceevents_instance ON storage.instanceevents(instance);
 
@@ -74,7 +75,10 @@ CREATE INDEX IF NOT EXISTS instances_partyid ON storage.instances(partyId);
 CREATE INDEX IF NOT EXISTS instances_appid ON storage.instances(appId);
 CREATE INDEX IF NOT EXISTS instances_appid_taskId ON storage.instances(appId, taskId);
 CREATE INDEX IF NOT EXISTS instances_appid_lastchanged ON storage.instances(appId, lastChanged);
+CREATE INDEX IF NOT EXISTS instances_partyid_lastchanged ON storage.instances(partyId, lastChanged);
 CREATE INDEX IF NOT EXISTS instances_lastchanged ON storage.instances(lastChanged);
 CREATE INDEX IF NOT EXISTS instances_org ON storage.instances(org);
+CREATE INDEX IF NOT EXISTS instances_created ON storage.instances (created);
+CREATE INDEX IF NOT EXISTS instances_isharddeleted_confirmed ON storage.instances(id) WHERE (instance -> 'Status' -> 'IsHardDeleted')::BOOLEAN AND (instance -> 'CompleteConfirmations') IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS applications_org ON storage.applications(org);
