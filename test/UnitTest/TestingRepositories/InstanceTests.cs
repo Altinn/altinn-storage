@@ -10,13 +10,14 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
 {
-    public class InstanceTests : IClassFixture<PgCommon>
+    [Collection("StorageInstanceAndDataElementsPostgreSQL")]
+    public class InstanceTests : IClassFixture<InstanceFixture>
     {
-        private readonly PgCommon _pgCommon;
+        private readonly InstanceFixture _instanceFixture;
 
-        public InstanceTests(PgCommon pgcommon)
+        public InstanceTests(InstanceFixture instanceFixture)
         {
-            _pgCommon = pgcommon;
+            _instanceFixture = instanceFixture;
 
             string sql = "delete from storage.instances; delete from storage.dataelements;";
             _ = PostgresUtil.RunSql(sql).Result;
@@ -26,12 +27,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         /// Test create
         /// </summary>
         [Fact]
-        public async Task Run_Create()
+        public async Task Instance_Create_Ok()
         {
             // Arrange
 
             // Act
-            Instance newInstance = await _pgCommon.InstanceRepo.Create(TestData.Instance_1_1);
+            Instance newInstance = await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1);
 
             // Assert
             string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
@@ -44,14 +45,14 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         /// Test update
         /// </summary>
         [Fact]
-        public async Task Run_Update()
+        public async Task Instance_Update_Ok()
         {
             // Arrange
-            Instance newInstance = await _pgCommon.InstanceRepo.Create(TestData.Instance_1_1);
+            Instance newInstance = await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1);
             newInstance.Process.CurrentTask.ElementId = "Task_2";
 
             // Act
-            await _pgCommon.InstanceRepo.Update(newInstance);
+            await _instanceFixture.InstanceRepo.Update(newInstance);
 
             // Assert
             string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'" +
@@ -64,13 +65,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         /// Test delete
         /// </summary>
         [Fact]
-        public async Task Run_Delete()
+        public async Task Instance_Delete_Ok()
         {
             // Arrange
-            Instance newInstance = await _pgCommon.InstanceRepo.Create(TestData.Instance_1_1);
+            Instance newInstance = await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1);
 
             // Act
-            bool deleted = await _pgCommon.InstanceRepo.Delete(newInstance);
+            bool deleted = await _instanceFixture.InstanceRepo.Delete(newInstance);
 
             // Assert
             string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
@@ -83,15 +84,15 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         /// Test GetOne
         /// </summary>
         [Fact]
-        public async Task Run_GetOne()
+        public async Task Instance_GetOne_Ok()
         {
             // Arrange
             DataElement data = TestDataUtil.GetDataElement("cdb627fd-c586-41f5-99db-bae38daa2b59");
             Instance instance = await InsertInstanceAndData(TestData.Instance_1_1, data);
 
             // Act
-            (Instance instanceNoData, _) = await _pgCommon.InstanceRepo.GetOne(0, Guid.Parse(instance.Id.Split('/').Last()), false);
-            (Instance instanceWithData, _) = await _pgCommon.InstanceRepo.GetOne(0, Guid.Parse(instance.Id.Split('/').Last()), true);
+            (Instance instanceNoData, _) = await _instanceFixture.InstanceRepo.GetOne(0, Guid.Parse(instance.Id.Split('/').Last()), false);
+            (Instance instanceWithData, _) = await _instanceFixture.InstanceRepo.GetOne(0, Guid.Parse(instance.Id.Split('/').Last()), true);
 
             // Assert
             Assert.Equal(instanceNoData.Id, instance.Id);
@@ -104,15 +105,15 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         /// Test GetHardDeletedInstances
         /// </summary>
         [Fact]
-        public async Task Run_GetHardDeletedInstances()
+        public async Task Instance_GetHardDeletedInstances_Ok()
         {
             // Arrange
-            await _pgCommon.InstanceRepo.Create(HardDelete(TestData.Instance_1_1));
-            await _pgCommon.InstanceRepo.Create(HardDelete(TestData.Instance_2_1));
-            await _pgCommon.InstanceRepo.Create(TestData.Instance_3_1);
+            await _instanceFixture.InstanceRepo.Create(HardDelete(TestData.Instance_1_1));
+            await _instanceFixture.InstanceRepo.Create(HardDelete(TestData.Instance_2_1));
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_3_1);
 
             // Act
-            var instances = await _pgCommon.InstanceRepo.GetHardDeletedInstances();
+            var instances = await _instanceFixture.InstanceRepo.GetHardDeletedInstances();
 
             // Assert
             Assert.Equal(2, instances.Count);
@@ -122,7 +123,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         /// Test GetHardDeletedDataElements
         /// </summary>
         [Fact]
-        public async Task Run_GetHardDeletedDataElements()
+        public async Task Instance_GetHardDeletedDataElements_Ok()
         {
             // Arrange
             DataElement data1 = TestDataUtil.GetDataElement("11f7c994-6681-47a1-9626-fcf6c27308a5");
@@ -133,9 +134,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             await InsertInstanceAndDataHardDelete(TestData.Instance_3_1, data3);
 
             // Act
-            var dataElements3 = await _pgCommon.InstanceRepo.GetHardDeletedDataElements();
-            await _pgCommon.DataRepo.Update(Guid.Empty, Guid.Parse(data1.Id), new Dictionary<string, object>() { { "/deleteStatus", new DeleteStatus() } });
-            var dataElements2 = await _pgCommon.InstanceRepo.GetHardDeletedDataElements();
+            var dataElements3 = await _instanceFixture.InstanceRepo.GetHardDeletedDataElements();
+            await _instanceFixture.DataRepo.Update(Guid.Empty, Guid.Parse(data1.Id), new Dictionary<string, object>() { { "/deleteStatus", new DeleteStatus() } });
+            var dataElements2 = await _instanceFixture.InstanceRepo.GetHardDeletedDataElements();
 
             // Assert
             Assert.Equal(3, dataElements3.Count);
@@ -146,19 +147,19 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         /// Test GetInstancesFromQuery
         /// </summary>
         [Fact]
-        public async Task Run_GetInstancesFromQuery()
+        public async Task Instance_GetInstancesFromQuery_Ok()
         {
             // Arrange
-            await _pgCommon.InstanceRepo.Create(TestData.Instance_1_1);
-            await _pgCommon.InstanceRepo.Create(TestData.Instance_1_2);
-            await _pgCommon.InstanceRepo.Create(TestData.Instance_1_3);
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1);
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_2);
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_3);
 
             Dictionary<string, StringValues> queryParams = new();
 
             // Act
-            var instances3 = await _pgCommon.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100);
+            var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100);
             queryParams.Add("instanceOwner.partyId", new StringValues(TestData.Instance_1_3.InstanceOwner.PartyId));
-            var instances1 = await _pgCommon.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100);
+            var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100);
 
             // Assert
             Assert.Equal(3, instances3.Count);
@@ -178,9 +179,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
 
         private async Task<Instance> InsertInstanceAndData(Instance instance, DataElement dataelement)
         {
-            instance = await _pgCommon.InstanceRepo.Create(instance);
-            (Instance instanceNoData, long internalId) = await _pgCommon.InstanceRepo.GetOne(0, Guid.Parse(instance.Id.Split('/').Last()));
-            await _pgCommon.DataRepo.Create(dataelement, internalId);
+            instance = await _instanceFixture.InstanceRepo.Create(instance);
+            (Instance instanceNoData, long internalId) = await _instanceFixture.InstanceRepo.GetOne(0, Guid.Parse(instance.Id.Split('/').Last()));
+            await _instanceFixture.DataRepo.Create(dataelement, internalId);
             return instance;
         }
 
@@ -190,6 +191,20 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             instance.Status.HardDeleted = DateTime.Now.AddDays(-8).ToUniversalTime();
             instance.CompleteConfirmations = new();
             return instance;
+        }
+    }
+
+    public class InstanceFixture
+    {
+        public IInstanceRepository InstanceRepo { get; set; }
+
+        public IDataRepository DataRepo { get; set; }
+
+        public InstanceFixture()
+        {
+            var serviceList = ServiceUtil.GetServices(new List<Type>() { typeof(IInstanceRepository), typeof(IDataRepository) });
+            InstanceRepo = (IInstanceRepository)serviceList.First(i => i.GetType() == typeof(PgInstanceRepository));
+            DataRepo = (IDataRepository)serviceList.First(i => i.GetType() == typeof(PgDataRepository));
         }
     }
 }
