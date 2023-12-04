@@ -43,7 +43,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             string sql = $"select count(*) from storage.instanceevents where alternateid = '{_ie1.Id}'";
             int count = await PostgresUtil.RunCountQuery(sql);
             Assert.Equal(1, count);
-            Assert.Equal(ie.Id, ie.Id);
+            Assert.Equal(ie.Id, _ie1.Id);
         }
 
         /// <summary>

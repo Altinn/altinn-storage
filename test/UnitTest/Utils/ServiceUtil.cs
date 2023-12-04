@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.UnitTest.Extensions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
@@ -33,6 +34,9 @@ public static class ServiceUtil
 
         services.AddLogging();
         services.AddPostgresRepositories(config);
+        services.AddMemoryCache();
+
+        services.Configure<GeneralSettings>(config.GetSection("GeneralSettings"));
 
         var serviceProvider = services.BuildServiceProvider();
         List<object> outputServices = new();
