@@ -16,9 +16,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
 
         private readonly InstanceEventFixture _instanceEventFixture;
 
-        private readonly InstanceEvent _ie1 = new InstanceEvent { Id = Guid.NewGuid(), InstanceId = _instanceId, EventType = "et1", Created = DateTime.Parse("1994-06-16T11:06:59.0851832Z") };
-        private readonly InstanceEvent _ie2 = new InstanceEvent { Id = Guid.NewGuid(), InstanceId = _instanceId, EventType = "et1", Created = DateTime.Parse("2004-06-16T11:06:59.0851832Z") };
-        private readonly InstanceEvent _ie3 = new InstanceEvent { Id = Guid.NewGuid(), InstanceId = _instanceId, EventType = "et2", Created = DateTime.Parse("2014-06-16T11:06:59.0851832Z") };
+        private readonly InstanceEvent _ie1 = new() { Id = Guid.NewGuid(), InstanceId = _instanceId, EventType = "et1", Created = DateTime.Parse("1994-06-16T11:06:59.0851832Z") };
+        private readonly InstanceEvent _ie2 = new() { Id = Guid.NewGuid(), InstanceId = _instanceId, EventType = "et1", Created = DateTime.Parse("2004-06-16T11:06:59.0851832Z") };
+        private readonly InstanceEvent _ie3 = new() { Id = Guid.NewGuid(), InstanceId = _instanceId, EventType = "et2", Created = DateTime.Parse("2014-06-16T11:06:59.0851832Z") };
 
         public InstanceEventTests(InstanceEventFixture instanceEventFixture)
         {

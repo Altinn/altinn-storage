@@ -158,7 +158,7 @@ namespace Altinn.Platform.Storage.Repository
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error deleting data elements {ex.Message}");
+                _logger.LogError(ex, "Error deleting data elements");
             }
 
             return elements;
@@ -170,21 +170,24 @@ namespace Altinn.Platform.Storage.Repository
             foreach (string name in _paramTypes.Keys)
             {
                 command += $"{name} => ";
-                string value = "NULL";
-                if (postgresParams.ContainsKey(name))
+                if (postgresParams.TryGetValue(name, out object value))
                 {
                     value = _paramTypes[name] switch
                     {
-                        NpgsqlDbType.Text => $"'{postgresParams[name]}'",
-                        NpgsqlDbType.Bigint => $"{postgresParams[name]}",
-                        NpgsqlDbType.TimestampTz => $"{((DateTime)postgresParams[name] != DateTime.MinValue ? "'" + ((DateTime)postgresParams[name]).ToString(DateTimeHelper.Iso8601UtcFormat, CultureInfo.InvariantCulture) + "'" : "NULL")}",
-                        NpgsqlDbType.Integer => $"{postgresParams[name]}",
-                        NpgsqlDbType.Boolean => $"{postgresParams[name]}",
-                        NpgsqlDbType.Text | NpgsqlDbType.Array => ArrayVariableFromText((string[])postgresParams[name]),
-                        NpgsqlDbType.Jsonb | NpgsqlDbType.Array => ArrayVariableFromJsonText((string[])postgresParams[name]),
-                        NpgsqlDbType.Integer | NpgsqlDbType.Array => ArrayVariableFromInteger((int[])postgresParams[name]),
+                        NpgsqlDbType.Text => $"'{value}'",
+                        NpgsqlDbType.Bigint => $"{value}",
+                        NpgsqlDbType.TimestampTz => $"{((DateTime)value != DateTime.MinValue ? "'" + ((DateTime)value).ToString(DateTimeHelper.Iso8601UtcFormat, CultureInfo.InvariantCulture) + "'" : "NULL")}",
+                        NpgsqlDbType.Integer => $"{value}",
+                        NpgsqlDbType.Boolean => $"{value}",
+                        NpgsqlDbType.Text | NpgsqlDbType.Array => ArrayVariableFromText((string[])value),
+                        NpgsqlDbType.Jsonb | NpgsqlDbType.Array => ArrayVariableFromJsonText((string[])value),
+                        NpgsqlDbType.Integer | NpgsqlDbType.Array => ArrayVariableFromInteger((int[])value),
                         _ => throw new NotImplementedException()
                     };
+                }
+                else
+                {
+                    value = "NULL";
                 }
 
                 command += value + ", ";
@@ -247,12 +250,14 @@ namespace Altinn.Platform.Storage.Repository
             postgresParams.Add("_size", size);
             foreach (string name in _paramTypes.Keys)
             {
-                pgcom.Parameters.AddWithValue(_paramTypes[name], postgresParams.ContainsKey(name) ? postgresParams[name] : DBNull.Value);
+                pgcom.Parameters.AddWithValue(_paramTypes[name], postgresParams.TryGetValue(name, out object value) ? value : DBNull.Value);
             }
 
             if (_logger.IsEnabled(LogLevel.Debug))
             {
+#pragma warning disable CA2254 // Template should be a static expression
                 _logger.LogDebug(FormatManualFunctionCall(postgresParams));
+#pragma warning restore CA2254 // Template should be a static expression
             }
 
             await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())

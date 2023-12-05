@@ -74,7 +74,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             List<Instance> instances = await _instanceRepository.GetHardDeletedInstances();
             List<string> autoDeleteAppIds = (await _applicationRepository.FindAll())
-                .Where(a => instances.Select(i => i.AppId).ToList().Contains(a.Id) && a.AutoDeleteOnProcessEnd == true)
+                .Where(a => instances.Select(i => i.AppId).ToList().Contains(a.Id) && a.AutoDeleteOnProcessEnd)
                 .Select(a => a.Id).ToList();
 
             Stopwatch stopwatch = Stopwatch.StartNew();
@@ -104,7 +104,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return Ok();
             }
 
-            appId = appId.Contains('/') ? appId : appId.Replace(appId.Split('-').First() + '-', appId.Split('-').First() + '/');
+            appId = appId.Contains('/') ? appId : appId.Replace(appId.Split('-')[0] + '-', appId.Split('-')[0] + '/');
             int successfullyDeleted = 0;
             int processed = 0;
             InstanceQueryResponse instancesResponse = new() { ContinuationToken = null };
@@ -157,7 +157,7 @@ namespace Altinn.Platform.Storage.Controllers
 
                 try
                 {
-                    dataBlobDeleted = await _blobRepository.DeleteBlob(dataElement.BlobStoragePath.Split('/').First(), dataElement.BlobStoragePath);
+                    dataBlobDeleted = await _blobRepository.DeleteBlob(dataElement.BlobStoragePath.Split('/')[0], dataElement.BlobStoragePath);
                     if (dataBlobDeleted && await _dataRepository.Delete(dataElement))
                     {
                         successfullyDeleted++;
@@ -165,13 +165,20 @@ namespace Altinn.Platform.Storage.Controllers
                 }
                 catch (Exception e)
                 {
-                    _logger.LogError(e, $"NightlyCleanupDataElements // Run // Error occured when deleting dataElement Id: {dataElement.Id} Blobstoragepath: {dataElement.BlobStoragePath} \r Exception: {e.Message}");
+                    _logger.LogError(
+                        e,
+                        "NightlyCleanupDataElements // Run // Error occured when deleting dataElement Id: {dataElement.Id} Blobstoragepath: {blobStoragePath} \r\n",
+                        dataElement.Id,
+                        dataElement.BlobStoragePath);
                 }
             }
 
             stopwatch.Stop();
             _logger.LogInformation(
-                $"NightlyCleanupDataElements // Run // {successfullyDeleted} of {dataElements.Count} data elements deleted in {stopwatch.Elapsed.TotalSeconds} s");
+                "NightlyCleanupDataElements // Run // {successfullyDeleted} of {count} data elements deleted in {totalSeconds} s",
+                successfullyDeleted,
+                dataElements.Count,
+                stopwatch.Elapsed.TotalSeconds);
 
             return Ok();
         }
@@ -204,7 +211,10 @@ namespace Altinn.Platform.Storage.Controllers
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError($"NightlyCleanup error deleting instance events for id {instance.Id}, {ex.Message}");
+                        _logger.LogError(
+                            "NightlyCleanup error deleting instance events for id {id}, {message}",
+                            instance.Id,
+                            ex.Message);
                     }
 
                     if (dataElementsNoException

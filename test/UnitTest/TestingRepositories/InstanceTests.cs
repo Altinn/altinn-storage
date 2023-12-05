@@ -185,7 +185,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             return instance;
         }
 
-        private Instance HardDelete(Instance instance)
+        private static Instance HardDelete(Instance instance)
         {
             instance.Status.IsHardDeleted = true;
             instance.Status.HardDeleted = DateTime.Now.AddDays(-8).ToUniversalTime();

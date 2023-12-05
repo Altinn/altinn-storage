@@ -90,7 +90,7 @@ namespace Altinn.Platform.Storage.Repository
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error deleting data elements for instance {instanceId}, {ex.Message}");
+                _logger.LogError(ex, "Error deleting data elements for instance {instanceId}", instanceId);
                 return false;
             }
         }
