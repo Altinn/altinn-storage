@@ -78,7 +78,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         shell: powershell
         run: |
-          .\.sonar\scanner\dotnet-sonarscanner begin /k:"Altinn_altinn-storage" /o:"altinn" /d:sonar.login="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.cs.vstest.reportsPaths="**/*.trx" /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml" /d:sonar.cpd.exclusions="**/Swagger/*Filter.cs"
+          .\.sonar\scanner\dotnet-sonarscanner begin /k:"Altinn_altinn-storage" /o:"altinn" /d:sonar.login="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.cs.vstest.reportsPaths="**/*.trx" /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml" /d:sonar.cpd.exclusions="**/Swagger/*Filter.cs" /d:sonar.cpd.exclusions="src/Storage/Migration/**/*.sql" /d:sonar.coverage.exclusions="src/Storage/Migration/"
 
           dotnet build Altinn.Platform.Storage.sln
           dotnet test Altinn.Platform.Storage.sln `
@@ -86,5 +86,16 @@ jobs:
           --results-directory TestResults/ `
           --collect:"XPlat Code Coverage" /p:Exclude="**/Program.cs" `
           -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
-
+      - name: Complete sonar analysis
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
           .\.sonar\scanner\dotnet-sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
+      - name: Process .NET test result
+        if: always()
+        uses: NasAmin/trx-parser@v0.5.0
+        with:
+          TRX_PATH: ${{ github.workspace }}/TestResults
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
