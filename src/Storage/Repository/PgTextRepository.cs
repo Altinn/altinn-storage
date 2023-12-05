@@ -49,7 +49,7 @@ namespace Altinn.Platform.Storage.Repository
             IOptions<GeneralSettings> generalSettings,
             IMemoryCache memoryCache,
             NpgsqlDataSource dataSource,
-            TelemetryClient telemetryClient)
+            TelemetryClient telemetryClient = null)
         {
             _memoryCache = memoryCache;
             _cacheEntryOptions = new MemoryCacheEntryOptions()

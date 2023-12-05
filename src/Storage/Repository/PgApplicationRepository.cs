@@ -50,7 +50,7 @@ namespace Altinn.Platform.Storage.Repository
             IOptions<GeneralSettings> generalSettings,
             IMemoryCache memoryCache,
             NpgsqlDataSource dataSource,
-            TelemetryClient telemetryClient)
+            TelemetryClient telemetryClient = null)
         {
             _dataSource = dataSource;
             _telemetryClient = telemetryClient;
@@ -184,7 +184,7 @@ namespace Altinn.Platform.Storage.Repository
                         }
                     }
 
-                    appTitles.Add(item.Id, titles.ToString());
+                    appTitles.Add(item.Id, titles.ToString().TrimEnd(';'));
                 }
 
                 _memoryCache.Set(_cacheKey, appTitles, _cacheEntryOptionsTitles);

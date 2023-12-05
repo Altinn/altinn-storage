@@ -38,7 +38,7 @@ namespace Altinn.Platform.Storage.Repository
         public PgInstanceEventRepository(
             ILogger<PgInstanceEventRepository> logger,
             NpgsqlDataSource dataSource,
-            TelemetryClient telemetryClient)
+            TelemetryClient telemetryClient = null)
         {
             _dataSource = dataSource;
             _telemetryClient = telemetryClient;
@@ -113,7 +113,7 @@ namespace Altinn.Platform.Storage.Repository
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceId.Split('/').Last()));
 
-            int rc = await pgcom.ExecuteNonQueryAsync();
+            int rc = (int)await pgcom.ExecuteScalarAsync();
             tracker.Track();
             return rc;
         }

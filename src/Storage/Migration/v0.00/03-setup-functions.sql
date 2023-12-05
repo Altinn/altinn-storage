@@ -282,7 +282,7 @@ RETURN QUERY
 END;
 $BODY$;
 
-CREATE OR REPLACE FUNCTION storage.readallformultipledataelement(_instanceGuid UUID)
+CREATE OR REPLACE FUNCTION storage.readallformultipledataelement(_instanceGuid UUID[])
     RETURNS TABLE (element JSONB)
     LANGUAGE 'plpgsql'
     

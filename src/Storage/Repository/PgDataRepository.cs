@@ -39,7 +39,7 @@ namespace Altinn.Platform.Storage.Repository
         public PgDataRepository(
             ILogger<PgDataRepository> logger,
             NpgsqlDataSource dataSource,
-            TelemetryClient telemetryClient)
+            TelemetryClient telemetryClient = null)
         {
             _logger = logger;
             _dataSource = dataSource;

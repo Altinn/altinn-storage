@@ -51,7 +51,7 @@ namespace Altinn.Platform.Storage.Repository
         public PgInstanceRepository(
             ILogger<PgInstanceRepository> logger,
             NpgsqlDataSource dataSource,
-            TelemetryClient telemetryClient)
+            TelemetryClient telemetryClient = null)
         {
             _logger = logger;
             _dataSource = dataSource;
@@ -143,7 +143,7 @@ namespace Altinn.Platform.Storage.Repository
                         // TODO move filter to db function
                         currentInstanceAllowsDelete =
                             instance.CompleteConfirmations != null &&
-                            instance.CompleteConfirmations.Any(c => c.StakeholderId.ToLower().Equals(instance.Org) &&
+                            instance.CompleteConfirmations.Any(c => c.StakeholderId.Equals(instance.Org, StringComparison.OrdinalIgnoreCase) &&
                             c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7));
                         previousId = id;
                     }
