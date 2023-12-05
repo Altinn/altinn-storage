@@ -20,28 +20,18 @@ namespace Altinn.Platform.Storage.Repository
     /// </summary>
     public class PgInstanceRepository: IInstanceRepository
     {
-        private static readonly string _deleteSql = "select * from storage.deleteinstance ($1)";
-        private static readonly string _insertSql = "call storage.insertinstance ($1, $2, $3, $4, $5, $6, $7, $8)";
-        private static readonly string _upsertSql = "call storage.upsertinstance ($1, $2, $3, $4, $5, $6, $7, $8)";
-        private static readonly string _readSql = "select * from storage.readinstance ($1)";
-        private static readonly string _readSqlFiltered = "select * from storage.readinstancefromquery (";
-        private static readonly string _readDeletedSql = "select * from storage.readdeletedinstances ()";
-        private static readonly string _readDeletedElementsSql = "select * from storage.readdeletedelements ()";
-        private static readonly string _readSqlNoElements = "select * from storage.readinstancenoelements ($1)";
+        private readonly string _deleteSql = "select * from storage.deleteinstance ($1)";
+        private readonly string _insertSql = "call storage.insertinstance ($1, $2, $3, $4, $5, $6, $7, $8)";
+        private readonly string _upsertSql = "call storage.upsertinstance ($1, $2, $3, $4, $5, $6, $7, $8)";
+        private readonly string _readSql = "select * from storage.readinstance ($1)";
+        private readonly string _readSqlFiltered = "select * from storage.readinstancefromquery (";
+        private readonly string _readDeletedSql = "select * from storage.readdeletedinstances ()";
+        private readonly string _readDeletedElementsSql = "select * from storage.readdeletedelements ()";
+        private readonly string _readSqlNoElements = "select * from storage.readinstancenoelements ($1)";
 
         private readonly ILogger<PgInstanceRepository> _logger;
         private readonly NpgsqlDataSource _dataSource;
         private readonly TelemetryClient _telemetryClient;
-
-        static PgInstanceRepository()
-        {
-            for (int i = 1; i <= _paramTypes.Count; i++)
-            {
-                _readSqlFiltered += $"${i}, ";
-            }
-
-            _readSqlFiltered = _readSqlFiltered[..^2] + ")";
-        }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PgInstanceRepository"/> class.
@@ -57,6 +47,13 @@ namespace Altinn.Platform.Storage.Repository
             _logger = logger;
             _dataSource = dataSource;
             _telemetryClient = telemetryClient;
+
+            for (int i = 1; i <= _paramTypes.Count; i++)
+            {
+                _readSqlFiltered += $"${i}, ";
+            }
+
+            _readSqlFiltered = _readSqlFiltered[..^2] + ")";
         }
 
         /// <inheritdoc/>
@@ -92,6 +89,7 @@ namespace Altinn.Platform.Storage.Repository
             }
             catch (Exception e)
             {
+                _logger.LogError(e, "Error running GetInstancesFromQuery");
                 return new() { Count = 0, Instances = new(), Exception = e.Message };
             }
         }

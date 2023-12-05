@@ -104,7 +104,6 @@ namespace Altinn.Platform.Storage.Controllers
                 return Ok();
             }
 
-            appId = appId.Contains('/') ? appId : appId.Replace(appId.Split('-')[0] + '-', appId.Split('-')[0] + '/');
             int successfullyDeleted = 0;
             int processed = 0;
             InstanceQueryResponse instancesResponse = new() { ContinuationToken = null };
@@ -212,7 +211,8 @@ namespace Altinn.Platform.Storage.Controllers
                     catch (Exception ex)
                     {
                         _logger.LogError(
-                            "NightlyCleanup error deleting instance events for id {id}, {message}",
+                            "{Caller} error deleting instance events for id {id}, {message}",
+                            caller,
                             instance.Id,
                             ex.Message);
                     }
