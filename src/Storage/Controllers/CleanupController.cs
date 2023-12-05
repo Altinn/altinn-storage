@@ -78,7 +78,7 @@ namespace Altinn.Platform.Storage.Controllers
                 .Select(a => a.Id).ToList();
 
             Stopwatch stopwatch = Stopwatch.StartNew();
-            int successfullyDeleted = await CleanupInstancesInternal(instances, autoDeleteAppIds);
+            int successfullyDeleted = await CleanupInstancesInternal(instances, autoDeleteAppIds, "NightlyCleanup");
             stopwatch.Stop();
 
             _logger.LogInformation(
@@ -183,7 +183,7 @@ namespace Altinn.Platform.Storage.Controllers
             return Ok();
         }
 
-        private async Task<int> CleanupInstancesInternal(List<Instance> instances, List<string> autoDeleteAppIds, string caller = "NightlyCleanup")
+        private async Task<int> CleanupInstancesInternal(List<Instance> instances, List<string> autoDeleteAppIds, string caller)
         {
             int successfullyDeleted = 0;
             foreach (Instance instance in instances)
@@ -198,7 +198,7 @@ namespace Altinn.Platform.Storage.Controllers
 
                     if (blobsNoException)
                     {
-                        dataElementsNoException = await _dataRepository.DeleteForInstance(instance.Id.Split('/').Last());
+                        dataElementsNoException = await _dataRepository.DeleteForInstance(instance.Id.Split('/')[^1]);
                     }
 
                     try

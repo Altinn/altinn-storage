@@ -61,9 +61,9 @@ BEGIN
             AND (_continue_idx <= 0 OR
                 (_continue_idx > 0 AND _sort_ascending = true  AND (i.lastchanged > _lastChanged_idx OR (i.lastchanged = _lastChanged_idx AND i.id > _continue_idx))) OR
                 (_continue_idx > 0 AND _sort_ascending = false AND (i.lastchanged < _lastChanged_idx OR (i.lastchanged = _lastChanged_idx AND i.id < _continue_idx))))
-			AND (_appId IS NULL OR i.appid = _appId)
+            AND (_appId IS NULL OR i.appid = _appId)
             AND (_appIds IS NULL OR i.appid = ANY(_appIds))
-			AND (_archiveReference IS NULL OR i.instance ->> 'Id' like '%' || _archiveReference)		
+            AND (_archiveReference IS NULL OR i.instance ->> 'Id' like '%' || _archiveReference)		
             AND (_created_gte IS NULL OR i.created >= _created_gte)
             AND (_created_gt  IS NULL OR i.created >  _created_gt)
             AND (_created_lte IS NULL OR i.created <= _created_lte)
@@ -74,16 +74,16 @@ BEGIN
             AND (_dueBefore_lte IS NULL OR i.instance ->> 'DueBefore' <= _dueBefore_lte)
             AND (_dueBefore_lt  IS NULL OR i.instance ->> 'DueBefore' <  _dueBefore_lt)
             AND (_dueBefore_eq   IS NULL OR i.instance ->> 'DueBefore' =  _dueBefore_eq)
-			AND (_excludeConfirmedBy IS NULL OR i.instance -> 'CompleteConfirmations' IS NULL OR NOT i.instance -> 'CompleteConfirmations' @> ANY (_excludeConfirmedBy))
-			AND (_instanceOwner_partyId IS NULL OR partyId = _instanceOwner_partyId)
-			AND (_instanceOwner_partyIds IS NULL OR partyId = ANY(_instanceOwner_partyIds))
+            AND (_excludeConfirmedBy IS NULL OR i.instance -> 'CompleteConfirmations' IS NULL OR NOT i.instance -> 'CompleteConfirmations' @> ANY (_excludeConfirmedBy))
+            AND (_instanceOwner_partyId IS NULL OR partyId = _instanceOwner_partyId)
+            AND (_instanceOwner_partyIds IS NULL OR partyId = ANY(_instanceOwner_partyIds))
             AND (_lastChanged_gte IS NULL OR i.lastchanged >= _lastChanged_gte)
             AND (_lastChanged_gt  IS NULL OR i.lastchanged >  _lastChanged_gt)
             AND (_lastChanged_lte IS NULL OR i.lastchanged <= _lastChanged_lte)
             AND (_lastChanged_lt  IS NULL OR i.lastchanged <  _lastChanged_lt)
             AND (_lastChanged_eq  IS NULL OR i.lastchanged =  _lastChanged_eq)
-			AND (_org IS NULL OR i.org = _org)
-			AND (_process_currentTask IS NULL OR i.instance -> 'Process' -> 'CurrentTask' ->> 'ElementId' = _process_currentTask)
+            AND (_org IS NULL OR i.org = _org)
+            AND (_process_currentTask IS NULL OR i.instance -> 'Process' -> 'CurrentTask' ->> 'ElementId' = _process_currentTask)
             AND (_process_ended_gte IS NULL OR i.instance -> 'Process' ->> 'Ended' >= _process_ended_gte)
             AND (_process_ended_gt  IS NULL OR i.instance -> 'Process' ->> 'Ended' >  _process_ended_gt)
             AND (_process_ended_lte IS NULL OR i.instance -> 'Process' ->> 'Ended' <= _process_ended_lte)
@@ -102,14 +102,14 @@ BEGIN
             AND (_visibleAfter_eq  IS NULL OR i.instance ->> 'VisibleAfter' =  _visibleAfter_eq)
         ORDER BY
             (CASE WHEN _sort_ascending = true  THEN i.lastChanged END) ASC,
-		    (CASE WHEN _sort_ascending = false THEN i.lastChanged END) DESC,
+            (CASE WHEN _sort_ascending = false THEN i.lastChanged END) DESC,
             i.id
         FETCH FIRST _size ROWS ONLY
     )
         SELECT filteredInstances.id, filteredInstances.instance, d.element FROM filteredInstances LEFT JOIN storage.dataelements d ON filteredInstances.id = d.instanceInternalId
         ORDER BY
             (CASE WHEN _sort_ascending = true  THEN filteredInstances.lastChanged END) ASC,
-		    (CASE WHEN _sort_ascending = false THEN filteredInstances.lastChanged END) DESC,
+            (CASE WHEN _sort_ascending = false THEN filteredInstances.lastChanged END) DESC,
             filteredInstances.id;
 END;
 $BODY$;
@@ -154,10 +154,10 @@ CREATE OR REPLACE FUNCTION storage.readinstance(_alternateid UUID)
 AS $BODY$
 BEGIN
 RETURN QUERY 
-	SELECT i.id, i.instance, d.element FROM storage.instances i
-		LEFT JOIN storage.dataelements d ON i.id = d.instanceinternalid
-		WHERE i.alternateid = _alternateid
-		ORDER BY d.id;
+    SELECT i.id, i.instance, d.element FROM storage.instances i
+        LEFT JOIN storage.dataelements d ON i.id = d.instanceinternalid
+        WHERE i.alternateid = _alternateid
+        ORDER BY d.id;
 
 END;
 $BODY$;
@@ -169,8 +169,8 @@ CREATE OR REPLACE FUNCTION storage.readinstancenoelements(_alternateid UUID)
 AS $BODY$
 BEGIN
 RETURN QUERY 
-	SELECT i.id, i.instance FROM storage.instances i
-		WHERE i.alternateid = _alternateid;
+    SELECT i.id, i.instance FROM storage.instances i
+        WHERE i.alternateid = _alternateid;
 END;
 $BODY$;
 
@@ -178,7 +178,7 @@ CREATE OR REPLACE PROCEDURE storage.insertinstance(_partyid BIGINT, _alternateid
     LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
-	INSERT INTO storage.instances(partyid, alternateid, instance, created, lastchanged, org, appid, taskid) VALUES (_partyid, _alternateid, jsonb_strip_nulls(_instance), _created, _lastchanged, _org, _appid, _taskid);
+    INSERT INTO storage.instances(partyid, alternateid, instance, created, lastchanged, org, appid, taskid) VALUES (_partyid, _alternateid, jsonb_strip_nulls(_instance), _created, _lastchanged, _org, _appid, _taskid);
 END;
 $BODY$;
 
@@ -198,7 +198,7 @@ AS $BODY$
 DECLARE
     _deleteCount INTEGER;
 BEGIN
-	DELETE FROM storage.instances WHERE alternateid = _alternateid;
+    DELETE FROM storage.instances WHERE alternateid = _alternateid;
     GET DIAGNOSTICS _deleteCount = ROW_COUNT;
     RETURN _deleteCount;
 END;
@@ -209,7 +209,7 @@ CREATE OR REPLACE PROCEDURE storage.insertdataelement(_instanceinternalid BIGINT
     LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
-	INSERT INTO storage.dataelements(instanceinternalid, instanceGuid, alternateid, element) VALUES (_instanceinternalid, _instanceGuid, _alternateid, jsonb_strip_nulls(_element));
+    INSERT INTO storage.dataelements(instanceinternalid, instanceGuid, alternateid, element) VALUES (_instanceinternalid, _instanceGuid, _alternateid, jsonb_strip_nulls(_element));
 END;
 $BODY$;
 
@@ -217,7 +217,7 @@ CREATE OR REPLACE PROCEDURE storage.upsertdataelement(_instanceinternalid BIGINT
     LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
-	INSERT INTO storage.dataelements(instanceinternalid, instanceGuid, alternateid, element) VALUES (_instanceinternalid, _instanceGuid, _alternateid, jsonb_strip_nulls(_element))
+    INSERT INTO storage.dataelements(instanceinternalid, instanceGuid, alternateid, element) VALUES (_instanceinternalid, _instanceGuid, _alternateid, jsonb_strip_nulls(_element))
     ON CONFLICT(alternateid) DO UPDATE SET element = jsonb_strip_nulls(_element);
 END;
 $BODY$;
@@ -229,7 +229,7 @@ AS $BODY$
 DECLARE
     _deleteCount INTEGER;
 BEGIN
-	DELETE FROM storage.dataelements WHERE alternateid = _alternateid;
+    DELETE FROM storage.dataelements WHERE alternateid = _alternateid;
     GET DIAGNOSTICS _deleteCount = ROW_COUNT;
     RETURN _deleteCount;
 END;
@@ -242,7 +242,7 @@ AS $BODY$
 DECLARE
     _deleteCount INTEGER;
 BEGIN
-	DELETE FROM storage.dataelements d
+    DELETE FROM storage.dataelements d
         USING storage.instances i
         WHERE i.alternateid = d.instanceguid AND i.alternateid = _instanceguid;
     GET DIAGNOSTICS _deleteCount = ROW_COUNT;
@@ -254,7 +254,7 @@ CREATE OR REPLACE PROCEDURE storage.updatedataelement(_alternateid UUID, _elemen
     LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
-	UPDATE storage.dataelements SET element = jsonb_strip_nulls(_element) WHERE alternateid = _alternateid;
+    UPDATE storage.dataelements SET element = jsonb_strip_nulls(_element) WHERE alternateid = _alternateid;
 END;
 $BODY$;
 
@@ -265,7 +265,7 @@ CREATE OR REPLACE FUNCTION storage.readdataelement(_alternateid UUID)
 AS $BODY$
 BEGIN
 RETURN QUERY 
-	SELECT d.element FROM storage.dataelements d WHERE alternateid = _alternateid;
+    SELECT d.element FROM storage.dataelements d WHERE alternateid = _alternateid;
 
 END;
 $BODY$;
@@ -277,7 +277,7 @@ CREATE OR REPLACE FUNCTION storage.readalldataelement(_instanceGuid UUID)
 AS $BODY$
 BEGIN
 RETURN QUERY 
-	SELECT d.element FROM storage.dataelements d WHERE instanceGuid = _instanceGuid;
+    SELECT d.element FROM storage.dataelements d WHERE instanceGuid = _instanceGuid;
 
 END;
 $BODY$;
@@ -289,7 +289,7 @@ CREATE OR REPLACE FUNCTION storage.readallformultipledataelement(_instanceGuid U
 AS $BODY$
 BEGIN
 RETURN QUERY 
-	SELECT d.element FROM storage.dataelements d WHERE instanceGuid = ANY (_instanceGuid);
+    SELECT d.element FROM storage.dataelements d WHERE instanceGuid = ANY (_instanceGuid);
 
 END;
 $BODY$;
@@ -310,7 +310,7 @@ AS $BODY$
 DECLARE
     _deleteCount INTEGER;
 BEGIN
-	DELETE FROM storage.instanceevents WHERE instance = _instance;
+    DELETE FROM storage.instanceevents WHERE instance = _instance;
     GET DIAGNOSTICS _deleteCount = ROW_COUNT;
     RETURN _deleteCount;
 END;
@@ -323,7 +323,7 @@ CREATE OR REPLACE FUNCTION storage.readinstanceevent(_alternateid UUID)
 AS $BODY$
 BEGIN
 RETURN QUERY 
-	SELECT ie.event FROM storage.instanceevents ie WHERE alternateid = _alternateid;
+    SELECT ie.event FROM storage.instanceevents ie WHERE alternateid = _alternateid;
 
 END;
 $BODY$;
@@ -335,12 +335,12 @@ CREATE OR REPLACE FUNCTION storage.filterinstanceevent(_instance UUID, _from TIM
 AS $BODY$
 BEGIN
 RETURN QUERY 
-	SELECT ie.event
-	FROM storage.instanceevents ie
-	WHERE instance = _instance
-		AND (ie.event->>'Created')::TIMESTAMP >= _from
-		AND (ie.event->>'Created')::TIMESTAMP <= _to
-		AND (_eventtype IS NULL OR ie.event->>'EventType' = ANY (_eventtype))
+    SELECT ie.event
+    FROM storage.instanceevents ie
+    WHERE instance = _instance
+        AND (ie.event->>'Created')::TIMESTAMP >= _from
+        AND (ie.event->>'Created')::TIMESTAMP <= _to
+        AND (_eventtype IS NULL OR ie.event->>'EventType' = ANY (_eventtype))
     ORDER BY ie.event->'Created';
 END;
 $BODY$;

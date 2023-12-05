@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
@@ -107,9 +108,7 @@ namespace Altinn.Platform.Storage.Repository
                 while (await reader.ReadAsync())
                 {
                     Instance i = reader.GetFieldValue<Instance>("instance");
-
-                    // TODO move filter to db function
-                    if (i.CompleteConfirmations != null && (i.CompleteConfirmations.Any(c => c.StakeholderId.ToLower().Equals(i.Org) && c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7))
+                    if (i.CompleteConfirmations != null && (i.CompleteConfirmations.Exists(c => c.StakeholderId.ToLower().Equals(i.Org) && c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7))
                         || !i.Status.IsArchived))
                     {
                         instances.Add(i);
@@ -139,11 +138,9 @@ namespace Altinn.Platform.Storage.Repository
                     if (id != previousId)
                     {
                         Instance instance = reader.GetFieldValue<Instance>("instance");
-
-                        // TODO move filter to db function
                         currentInstanceAllowsDelete =
                             instance.CompleteConfirmations != null &&
-                            instance.CompleteConfirmations.Any(c => c.StakeholderId.Equals(instance.Org, StringComparison.OrdinalIgnoreCase) &&
+                            instance.CompleteConfirmations.Exists(c => c.StakeholderId.Equals(instance.Org, StringComparison.OrdinalIgnoreCase) &&
                             c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7));
                         previousId = id;
                     }
@@ -166,10 +163,10 @@ namespace Altinn.Platform.Storage.Repository
 
         private static string FormatManualFunctionCall(Dictionary<string, object> postgresParams)
         {
-            string command = "select * from storage.readinstancefromquery (";
+            StringBuilder command = new("select * from storage.readinstancefromquery (");
             foreach (string name in _paramTypes.Keys)
             {
-                command += $"{name} => ";
+                command.Append($"{name} => ");
                 if (postgresParams.TryGetValue(name, out object value))
                 {
                     value = _paramTypes[name] switch
@@ -190,43 +187,43 @@ namespace Altinn.Platform.Storage.Repository
                     value = "NULL";
                 }
 
-                command += value + ", ";
+                command.Append(value + ", ");
             }
 
-            return command[..^2] + ");";
+            return command.ToString()[..^2] + ");";
         }
 
         private static string ArrayVariableFromText(string[] arr)
         {
-            string value = "'{";
+            StringBuilder value = new("'{");
             foreach (string param in arr)
             {
-                value += $"\"{param}\", ";
+                value.Append($"\"{param}\", ");
             }
 
-            return value[..^2] + "}'";
+            return value.ToString()[..^2] + "}'";
         }
 
         private static string ArrayVariableFromJsonText(string[] arr)
         {
-            string value = "ARRAY [";
+            StringBuilder value = new("ARRAY [");
             foreach (string param in arr)
             {
-                value += $"'{param}', ";
+                value.Append($"'{param}', ");
             }
 
-            return value[..^2] + "]::jsonb[]";
+            return value.ToString()[..^2] + "]::jsonb[]";
         }
 
         private static string ArrayVariableFromInteger(int[] arr)
         {
-            string value = "'{";
+            StringBuilder value = new("'{");
             foreach (int param in arr)
             {
-                value += $"{param}, ";
+                value.Append($"{param}, ");
             }
 
-            return value[..^2] + "}'";
+            return value.ToString()[..^2] + "}'";
         }
 
         private async Task<InstanceQueryResponse> GetInstancesInternal(
