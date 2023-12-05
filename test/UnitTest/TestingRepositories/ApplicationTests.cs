@@ -9,7 +9,7 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
 {
-    [Collection("StorageApplicationsPostgreSQL")]
+    [Collection("StorageAppsAndTextsPostgreSQL")]
     public class ApplicationTests : IClassFixture<ApplicationFixture>
     {
         private const string App1 = "ttd-app1";
@@ -17,9 +17,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         private const string App3 = "skd-app3";
         private readonly ApplicationFixture _applicationFixture;
 
-        private readonly Application _a1 = new Application() { Id = App1, Org = "ttd", Title = new() { { "nb", "t1" } } };
-        private readonly Application _a2 = new Application() { Id = App2, Org = "ttd", Title = new() { { "nb", "t2" } } };
-        private readonly Application _a3 = new Application() { Id = App3, Org = "skd", Title = new() { { "nb", "t3" }, { "en", "t3b" } } };
+        private readonly Application _a1 = new() { Id = App1, Org = "ttd", Title = new() { { "nb", "t1" } } };
+        private readonly Application _a2 = new() { Id = App2, Org = "ttd", Title = new() { { "nb", "t2" } } };
+        private readonly Application _a3 = new() { Id = App3, Org = "skd", Title = new() { { "nb", "t3" }, { "en", "t3b" } } };
 
         public ApplicationTests(ApplicationFixture applicationFixture)
         {

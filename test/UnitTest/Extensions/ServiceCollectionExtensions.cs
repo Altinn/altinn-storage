@@ -19,7 +19,7 @@ public static class ServiceCollectionExtensions
     /// <param name="config">the configuration collection</param>
     public static IServiceCollection AddPostgresRepositories(this IServiceCollection services, IConfiguration config)
     {
-        PostgreSqlSettings? settings = config.GetSection("PostgreSQLSettings")
+        PostgreSqlSettings settings = config.GetSection("PostgreSQLSettings")
             .Get<PostgreSqlSettings>()
             ?? throw new ArgumentNullException(nameof(config), "Required PostgreSQLSettings is missing from application configuration");
 

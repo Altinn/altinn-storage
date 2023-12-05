@@ -26,12 +26,12 @@ public class ConsoleTraceService : ITraceService
     public bool IsTraceToDirectory { get; set; } = false;
 
     /// <inheritdoc/>>
-    public string? TraceDirectory { get; set; }
+    public string TraceDirectory { get; set; }
 
     /// <summary>
     /// Info
     /// </summary>      
-    public void Info(string message, object? payload = null)
+    public void Info(string message, object payload = null)
     {
         var traceMessage = $"INF   {DateTime.UtcNow:o}   {message}{Environment.NewLine}";
         Console.Write(traceMessage);
@@ -40,7 +40,7 @@ public class ConsoleTraceService : ITraceService
     /// <summary>
     /// Error
     /// </summary>
-    public void Error(string message, object? payload = null)
+    public void Error(string message, object payload = null)
     {
         var traceMessage = $"ERR   {DateTime.UtcNow:o}   {message}{Environment.NewLine}";
         Console.Write(traceMessage);
@@ -49,7 +49,7 @@ public class ConsoleTraceService : ITraceService
     /// <summary>
     /// Debug
     /// </summary>
-    public void Debug(string message, object? payload = null)
+    public void Debug(string message, object payload = null)
     {
         if (IsDebugEnabled)
         {
@@ -61,7 +61,7 @@ public class ConsoleTraceService : ITraceService
     /// <summary>
     /// Success
     /// </summary>
-    public void Success(string message, object? payload = null)
+    public void Success(string message, object payload = null)
     {
         var traceMessage = $"INF   {DateTime.UtcNow:u}   {message}{Environment.NewLine}";
         Console.Write(traceMessage);
@@ -70,7 +70,7 @@ public class ConsoleTraceService : ITraceService
     /// <summary>
     /// Warn
     /// </summary>
-    public void Warn(string message, object? payload = null)
+    public void Warn(string message, object payload = null)
     {
         var traceMessage = $"WRN   {DateTime.UtcNow:o}   {message}{Environment.NewLine}";
         Console.Write(traceMessage);

@@ -10,7 +10,7 @@ namespace Altinn.Platform.Storage.UnitTest.Utils;
 
 public static class ServiceUtil
 {
-    public static List<object> GetServices(List<Type> interfaceTypes, Dictionary<string, string>? envVariables = null)
+    public static List<object> GetServices(List<Type> interfaceTypes, Dictionary<string, string> envVariables = null)
     {
         if (envVariables != null)
         {

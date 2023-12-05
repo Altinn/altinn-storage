@@ -81,7 +81,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             // Assert
             Assert.Equal(3, ies1.Count);
             Assert.Equal(2, ies2.Count);
-            Assert.Equal(1, ies3.Count);
+            Assert.Single(ies3);
             Assert.True(ies2.Where(ie => ie.EventType == "et1").Count() == 2);
         }
 

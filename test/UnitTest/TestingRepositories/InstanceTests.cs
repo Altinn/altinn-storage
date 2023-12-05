@@ -97,8 +97,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             // Assert
             Assert.Equal(instanceNoData.Id, instance.Id);
             Assert.Equal(instanceWithData.Id, instance.Id);
-            Assert.Equal(0, instanceNoData.Data.Count);
-            Assert.Equal(1, instanceWithData.Data.Count);
+            Assert.Empty(instanceNoData.Data);
+            Assert.Single(instanceWithData.Data);
         }
 
         /// <summary>
@@ -180,7 +180,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         private async Task<Instance> InsertInstanceAndData(Instance instance, DataElement dataelement)
         {
             instance = await _instanceFixture.InstanceRepo.Create(instance);
-            (Instance instanceNoData, long internalId) = await _instanceFixture.InstanceRepo.GetOne(0, Guid.Parse(instance.Id.Split('/').Last()));
+            (_, long internalId) = await _instanceFixture.InstanceRepo.GetOne(0, Guid.Parse(instance.Id.Split('/').Last()));
             await _instanceFixture.DataRepo.Create(dataelement, internalId);
             return instance;
         }

@@ -1,13 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
-using Microsoft.AspNetCore.Http.Connections;
-using Microsoft.Extensions.Primitives;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
@@ -110,7 +107,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         public async Task DataElement_ReadAllForMultiple_Ok()
         {
             // Arrange
-            Instance instance2 = _dataElementFixture.InstanceRepo.Create(TestData.Instance_2_1).Result;
+            Instance instance2 = await _dataElementFixture.InstanceRepo.Create(TestData.Instance_2_1);
             (instance2, long instanceInternalId2) = await _dataElementFixture.InstanceRepo.GetOne(0, Guid.Parse(instance2.Id.Split('/').Last()), false);
 
             await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement1), _instanceInternalId);
@@ -124,9 +121,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             // Assert
             Assert.Equal(2, elementDict1.Count);
             Assert.Equal(2, elementDict1.First().Value.Count);
-            Assert.Equal(1, elementDict1.Last().Value.Count);
+            Assert.Single(elementDict1.Last().Value);
 
-            Assert.Equal(1, elementDict2.Count);
+            Assert.Single(elementDict2);
             Assert.Equal(2, elementDict2.First().Value.Count);
         }
 
