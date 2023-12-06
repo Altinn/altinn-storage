@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.UnitTest.Extensions;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Microsoft.Extensions.Primitives;
 using Xunit;
@@ -32,7 +33,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             // Arrange
 
             // Act
-            Instance newInstance = await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1);
+            Instance newInstance = await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone());
 
             // Assert
             string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
@@ -48,7 +49,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         public async Task Instance_Update_Ok()
         {
             // Arrange
-            Instance newInstance = await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1);
+            Instance newInstance = await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone());
             newInstance.Process.CurrentTask.ElementId = "Task_2";
 
             // Act
@@ -68,7 +69,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         public async Task Instance_Delete_Ok()
         {
             // Arrange
-            Instance newInstance = await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1);
+            Instance newInstance = await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone());
 
             // Act
             bool deleted = await _instanceFixture.InstanceRepo.Delete(newInstance);
@@ -88,7 +89,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         {
             // Arrange
             DataElement data = TestDataUtil.GetDataElement("cdb627fd-c586-41f5-99db-bae38daa2b59");
-            Instance instance = await InsertInstanceAndData(TestData.Instance_1_1, data);
+            Instance instance = await InsertInstanceAndData(TestData.Instance_1_1.Clone(), data);
 
             // Act
             (Instance instanceNoData, _) = await _instanceFixture.InstanceRepo.GetOne(0, Guid.Parse(instance.Id.Split('/').Last()), false);
@@ -108,9 +109,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         public async Task Instance_GetHardDeletedInstances_Ok()
         {
             // Arrange
-            await _instanceFixture.InstanceRepo.Create(HardDelete(TestData.Instance_1_1));
-            await _instanceFixture.InstanceRepo.Create(HardDelete(TestData.Instance_2_1));
-            await _instanceFixture.InstanceRepo.Create(TestData.Instance_3_1);
+            await _instanceFixture.InstanceRepo.Create(HardDelete(TestData.Instance_1_1.Clone()));
+            await _instanceFixture.InstanceRepo.Create(HardDelete(TestData.Instance_2_1.Clone()));
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_3_1.Clone());
 
             // Act
             var instances = await _instanceFixture.InstanceRepo.GetHardDeletedInstances();
@@ -129,9 +130,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             DataElement data1 = TestDataUtil.GetDataElement("11f7c994-6681-47a1-9626-fcf6c27308a5");
             DataElement data2 = TestDataUtil.GetDataElement("1336b773-4ae2-4bdf-9529-d71dfc1c8b43");
             DataElement data3 = TestDataUtil.GetDataElement("24bfec2e-c4ce-4e82-8fa9-aa39da329fd5");
-            await InsertInstanceAndDataHardDelete(TestData.Instance_1_1, data1);
-            await InsertInstanceAndDataHardDelete(TestData.Instance_2_1, data2);
-            await InsertInstanceAndDataHardDelete(TestData.Instance_3_1, data3);
+            await InsertInstanceAndDataHardDelete(TestData.Instance_1_1.Clone(), data1);
+            await InsertInstanceAndDataHardDelete(TestData.Instance_2_1.Clone(), data2);
+            await InsertInstanceAndDataHardDelete(TestData.Instance_3_1.Clone(), data3);
 
             // Act
             var dataElements3 = await _instanceFixture.InstanceRepo.GetHardDeletedDataElements();
@@ -150,9 +151,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         public async Task Instance_GetInstancesFromQuery_Ok()
         {
             // Arrange
-            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1);
-            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_2);
-            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_3);
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone());
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_2.Clone());
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_3.Clone());
 
             Dictionary<string, StringValues> queryParams = new();
 

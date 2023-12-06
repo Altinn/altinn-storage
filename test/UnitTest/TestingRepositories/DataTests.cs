@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.UnitTest.Extensions;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Xunit;
 
@@ -27,7 +28,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             string sql = "delete from storage.instances; delete from storage.dataelements;";
             _ = PostgresUtil.RunSql(sql).Result;
 
-            Instance newInstance = _dataElementFixture.InstanceRepo.Create(TestData.Instance_1_1).Result;
+            Instance newInstance = _dataElementFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone()).Result;
             (_instance, _instanceInternalId) = _dataElementFixture.InstanceRepo.GetOne(0, Guid.Parse(newInstance.Id.Split('/').Last()), false).Result;
         }
 
