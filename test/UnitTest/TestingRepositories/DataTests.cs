@@ -27,8 +27,17 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
 
             string sql = "delete from storage.instances; delete from storage.dataelements;";
             _ = PostgresUtil.RunSql(sql).Result;
+            Instance instance = TestData.Instance_1_1.Clone();
+            ////try
+            ////{
+            ////    var x = Guid.Parse(instance.Id.Split('/')[^1]);
+            ////}
+            ////catch
+            ////{
+            ////    System.Diagnostics.Debugger.Launch();
+            ////}
 
-            Instance newInstance = _dataElementFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone()).Result;
+            Instance newInstance = _dataElementFixture.InstanceRepo.Create(instance).Result;
             (_instance, _instanceInternalId) = _dataElementFixture.InstanceRepo.GetOne(0, Guid.Parse(newInstance.Id.Split('/').Last()), false).Result;
         }
 
