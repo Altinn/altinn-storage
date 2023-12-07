@@ -10,13 +10,14 @@ on:
     branches: [ main ]
     types: [opened, synchronize, reopened]
     paths:
+      - '.github/workflows/build-and-analyze.yml'
       - 'src/**'
       - 'test/Altinn.Platform.Storage.Interface.Tests/**'
       - 'test/UnitTest/**'
   workflow_dispatch:
 jobs:
-  build-and-test:
-    name: Build and Test
+  build-test-analyze:
+    name: Build, test & analyze
     if: ((github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false) || github.event_name == 'push') &&  github.repository_owner == 'Altinn' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     services:
@@ -32,41 +33,22 @@ jobs:
          --health-timeout 5s
          --health-retries 5
        ports:
-         - 5432:5432    
+         - 5432:5432
     steps:
-      - uses: actions/checkout@v4
-      - name: Set inotify watchers
-        run: echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
-      - name: Set inotify instances
-        run: echo fs.inotify.max_user_instances=8192 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
       - name: Setup PostgreSQL
         run: |
             chmod +x dbsetup.sh
-            ./dbsetup.sh        
+            ./dbsetup.sh
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: |
             7.0.x
             6.0.x
-      - name: Build & Test
-        run: |
-           dotnet build Altinn.Platform.Storage.sln -v m
-           dotnet test Altinn.Platform.Storage.sln -v m
-  analyze:
-    name: Analyze
-    if: ((github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false) || github.event_name == 'push') &&  github.repository_owner == 'Altinn' && github.actor != 'dependabot[bot]'
-    runs-on: windows-latest
-    steps:
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: |
-            6.0.x
-      - name: Set up JDK 17
+      - name: Set up Java
         uses: actions/setup-java@v3
         with:
-          distribution: 'microsoft'
+          distribution: 'temurin'
           java-version: 17
       - uses: actions/checkout@v4
         with:
@@ -77,32 +59,35 @@ jobs:
           path: ~\sonar\cache
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
-      - name: Cache SonarCloud scanner
-        id: cache-sonar-scanner
-        uses: actions/cache@v3
-        with:
-          path: .\.sonar\scanner
-          key: ${{ runner.os }}-sonar-scanner
-          restore-keys: ${{ runner.os }}-sonar-scanner
-      - name: Install SonarCloud scanner
-        if: steps.cache-sonar-scanner.outputs.cache-hit != 'true'
-        shell: powershell
+      - name: Install SonarCloud scanners
         run: |
-          New-Item -Path .\.sonar\scanner -ItemType Directory
-          dotnet tool update dotnet-sonarscanner --tool-path .\.sonar\scanner
-      - name: Analyze
+          dotnet tool install --global dotnet-sonarscanner
+      - name: Build & Test
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        shell: powershell
         run: |
-          .\.sonar\scanner\dotnet-sonarscanner begin /k:"Altinn_altinn-storage" /o:"altinn" /d:sonar.login="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.cs.vstest.reportsPaths="**/*.trx" /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml" /d:sonar.cpd.exclusions="**/Swagger/*Filter.cs"
+          dotnet-sonarscanner begin /k:"Altinn_altinn-storage" /o:"altinn" /d:sonar.login="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.cs.vstest.reportsPaths="**/*.trx" /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml" /d:sonar.cpd.exclusions="**/Swagger/*Filter.cs,src/Storage/Migration/**/*.sql" /d:sonar.coverage.exclusions="src/Storage/Migration/"
 
-          dotnet build Altinn.Platform.Storage.sln
-          dotnet test Altinn.Platform.Storage.sln `
-          --no-build `
-          --results-directory TestResults/ `
-          --collect:"XPlat Code Coverage" /p:Exclude="**/Program.cs" `
+          dotnet build Altinn.Platform.Storage.sln -v q
+
+          dotnet test Altinn.Platform.Storage.sln \
+          -v q \
+          --collect:"XPlat Code Coverage" /p:Exclude="**/Program.cs" \
+          --results-directory TestResults/ \
+          --logger "trx;" \
+          --configuration release \
           -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
-
-          .\.sonar\scanner\dotnet-sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
+      - name: Complete sonar analysis
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          dotnet-sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
+      - name: Process .NET test result
+        if: always()
+        uses: NasAmin/trx-parser@v0.5.0
+        with:
+          TRX_PATH: ${{ github.workspace }}/TestResults
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
