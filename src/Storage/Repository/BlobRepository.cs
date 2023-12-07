@@ -144,7 +144,10 @@ namespace Altinn.Platform.Storage.Repository
             catch (Exception e)
             {
                 _sasTokenProvider.InvalidateSasToken(instance.Org);
-                _logger.LogError(e, $"BlobService // DeleteDataBlobs // Org: {instance.Org} // Exeption: {e.Message}");
+                _logger.LogError(
+                    e,
+                    "BlobService // DeleteDataBlobs // Org: {instance}",
+                    instance.Org);
                 return false;
             }
 

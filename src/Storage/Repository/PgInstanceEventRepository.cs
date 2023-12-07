@@ -26,23 +26,19 @@ namespace Altinn.Platform.Storage.Repository
         private readonly string _filterSql = "select * from storage.filterinstanceevent($1, $2, $3, $4)";
 
         private readonly NpgsqlDataSource _dataSource;
-        private readonly ILogger<PgInstanceEventRepository> _logger;
         private readonly TelemetryClient _telemetryClient;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PgInstanceEventRepository"/> class.
         /// </summary>
-        /// <param name="logger">The logger to use when writing to logs.</param>
         /// <param name="dataSource">The npgsql data source.</param>
         /// <param name="telemetryClient">Telemetry client</param>
         public PgInstanceEventRepository(
-            ILogger<PgInstanceEventRepository> logger,
             NpgsqlDataSource dataSource,
             TelemetryClient telemetryClient = null)
         {
             _dataSource = dataSource;
             _telemetryClient = telemetryClient;
-            _logger = logger;
         }
 
         /// <inheritdoc/>
