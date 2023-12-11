@@ -82,7 +82,7 @@ namespace Altinn.Platform.Storage.Controllers
             stopwatch.Stop();
 
             _logger.LogInformation(
-                "NightlyCleanup // Run // {DeleteCount} of {OriginalCount} instances deleted in {Duration} s",
+                "CleanupController// CleanupInstances // {DeleteCount} of {OriginalCount} instances deleted in {Duration} s",
                 successfullyDeleted,
                 instances.Count,
                 stopwatch.Elapsed.TotalSeconds);
