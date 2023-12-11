@@ -173,7 +173,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             stopwatch.Stop();
             _logger.LogInformation(
-                "NightlyCleanupDataElements // Run // {successfullyDeleted} of {count} data elements deleted in {totalSeconds} s",
+                "CleanupController // CleanupDataelements // {successfullyDeleted} of {count} data elements deleted in {totalSeconds} s",
                 successfullyDeleted,
                 dataElements.Count,
                 stopwatch.Elapsed.TotalSeconds);
