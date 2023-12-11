@@ -210,8 +210,7 @@ namespace Altinn.Platform.Storage.Controllers
                     catch (Exception ex)
                     {
                         _logger.LogError(
-                            "{Caller} error deleting instance events for id {id}, {message}",
-                            caller,
+                            "CleanupController // CleanupInstancesInternal // Error deleting instance events for id {id}, {message}",
                             instance.Id,
                             ex.Message);
                     }
