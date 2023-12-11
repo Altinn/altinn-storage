@@ -78,7 +78,7 @@ namespace Altinn.Platform.Storage.Controllers
                 .Select(a => a.Id).ToList();
 
             Stopwatch stopwatch = Stopwatch.StartNew();
-            int successfullyDeleted = await CleanupInstancesInternal(instances, autoDeleteAppIds, "NightlyCleanup");
+            int successfullyDeleted = await CleanupInstancesInternal(instances, autoDeleteAppIds);
             stopwatch.Stop();
 
             _logger.LogInformation(
@@ -113,7 +113,7 @@ namespace Altinn.Platform.Storage.Controllers
             do
             {
                 instancesResponse = await _instanceRepository.GetInstancesFromQuery(options, instancesResponse.ContinuationToken, 5000);
-                successfullyDeleted += await CleanupInstancesInternal(instancesResponse.Instances, new List<string>(), nameof(CleanupInstancesForApp));
+                successfullyDeleted += await CleanupInstancesInternal(instancesResponse.Instances, new List<string>());
                 processed += (int)instancesResponse.Count;
             }
             while (instancesResponse.ContinuationToken != null);

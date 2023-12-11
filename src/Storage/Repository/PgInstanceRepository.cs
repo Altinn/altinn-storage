@@ -229,8 +229,6 @@ namespace Altinn.Platform.Storage.Repository
             string continuationToken,
             int size)
         {
-            Instance instance = new(); // make sonarcloud happy
-            long id = -1;
             DateTime lastChanged = DateTime.MinValue;
             InstanceQueryResponse queryResponse = new() { Count = 0, Instances = new() };
             long continueIdx = string.IsNullOrEmpty(continuationToken) ? -1 : long.Parse(continuationToken.Split(';')[1]);
@@ -258,6 +256,8 @@ namespace Altinn.Platform.Storage.Repository
             await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
             {
                 long previousId = -1;
+                long id = -1;
+                Instance instance = new(); // make sonarcloud happy
                 while (await reader.ReadAsync())
                 {
                     id = reader.GetFieldValue<long>("id");
