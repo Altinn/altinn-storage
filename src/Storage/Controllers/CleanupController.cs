@@ -222,8 +222,7 @@ namespace Altinn.Platform.Storage.Controllers
                         await _instanceRepository.Delete(instance);
                         successfullyDeleted += 1;
                         _logger.LogInformation(
-                            "{Caller} // Run // Instance deleted: {AppId}/{InstanceId}",
-                            caller,
+                            "CleanupController // CleanupInstancesInternal // Instance deleted: {AppId}/{InstanceId}",
                             instance.AppId,
                             $"{instance.InstanceOwner.PartyId}/{instance.Id}");
                     }
