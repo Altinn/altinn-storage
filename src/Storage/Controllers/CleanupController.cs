@@ -166,7 +166,7 @@ namespace Altinn.Platform.Storage.Controllers
                 {
                     _logger.LogError(
                         e,
-                        "NightlyCleanupDataElements // Run // Error occured when deleting dataElement Id: {dataElement.Id} Blobstoragepath: {blobStoragePath} \r\n",
+                        "CleanupController // CleanupDataelements // Error occured when deleting dataElement Id: {dataElement.Id} Blobstoragepath: {blobStoragePath}",
                         dataElement.Id,
                         dataElement.BlobStoragePath);
                 }
