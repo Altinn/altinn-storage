@@ -231,8 +231,7 @@ namespace Altinn.Platform.Storage.Controllers
                 {
                     _logger.LogError(
                         e,
-                        "{Caller} // Run // Error occured when deleting instance: {AppId}/{InstanceId}",
-                        caller,
+                        "CleanupController // CleanupInstancesInternal // Error occured when deleting instance: {AppId}/{InstanceId}",
                         instance.AppId,
                         $"{instance.InstanceOwner.PartyId}/{instance.Id}");
                 }
