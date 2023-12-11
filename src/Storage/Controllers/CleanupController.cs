@@ -181,7 +181,7 @@ namespace Altinn.Platform.Storage.Controllers
             return Ok();
         }
 
-        private async Task<int> CleanupInstancesInternal(List<Instance> instances, List<string> autoDeleteAppIds, string caller)
+        private async Task<int> CleanupInstancesInternal(List<Instance> instances, List<string> autoDeleteAppIds)
         {
             int successfullyDeleted = 0;
             foreach (Instance instance in instances)
