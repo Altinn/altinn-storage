@@ -20,6 +20,20 @@ jobs:
     name: Build, test & analyze
     if: ((github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false) || github.event_name == 'push') &&  github.repository_owner == 'Altinn' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
+    services:
+     postgres:
+       image: postgres:15
+       env:
+         POSTGRES_USER: platform_storage_admin
+         POSTGRES_PASSWORD: Password
+         POSTGRES_DB: storagedb
+       options: >-
+         --health-cmd pg_isready
+         --health-interval 10s
+         --health-timeout 5s
+         --health-retries 5
+       ports:
+         - 5432:5432
     steps:
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
@@ -35,6 +49,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+      - name: Setup PostgreSQL
+        run: |
+            chmod +x dbsetup.sh
+            ./dbsetup.sh
       - name: Cache SonarCloud packages
         uses: actions/cache@v3
         with:
@@ -49,7 +67,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          dotnet-sonarscanner begin /k:"Altinn_altinn-storage" /o:"altinn" /d:sonar.login="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.cs.vstest.reportsPaths="**/*.trx" /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml" /d:sonar.cpd.exclusions="**/Swagger/*Filter.cs,src/Storage/Migration/**/*.sql" /d:sonar.coverage.exclusions="src/Storage/Migration/"
+          dotnet-sonarscanner begin /k:"Altinn_altinn-storage" /o:"altinn" /d:sonar.login="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.cs.vstest.reportsPaths="**/*.trx" /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml" /d:sonar.exclusions="src/Storage/Migration/**/*"
 
           dotnet build Altinn.Platform.Storage.sln -v q
 

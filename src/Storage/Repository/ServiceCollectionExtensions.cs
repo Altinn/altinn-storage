@@ -20,7 +20,8 @@ namespace Altinn.Platform.Storage.Repository
                 .AddRepository<IInstanceEventRepository, InstanceEventRepository>()
                 .AddRepository<IInstanceRepository, InstanceRepository>()
                 .AddRepository<IApplicationRepository, ApplicationRepository>()
-                .AddRepository<ITextRepository, TextRepository>();
+                .AddRepository<ITextRepository, TextRepository>()
+                .AddSingleton<IBlobRepository, BlobRepository>();
         }
 
         /// <summary>
@@ -38,6 +39,7 @@ namespace Altinn.Platform.Storage.Repository
                 .AddSingleton<IDataRepository, PgDataRepository>()
                 .AddSingleton<IInstanceEventRepository, PgInstanceEventRepository>()
                 .AddSingleton<IInstanceRepository, PgInstanceRepository>()
+                .AddSingleton<IBlobRepository, BlobRepository>()
                 .AddNpgsqlDataSource(connectionString, builder => builder.EnableParameterLogging(logParameters));
         }
 

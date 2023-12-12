@@ -9,6 +9,8 @@ namespace Altinn.Platform.Storage.UnitTest
     {
         public static string InstanceOwnerPartyId_1 { get; set; } = "50000000";
 
+        public static string InstanceOwnerPartyId_2 { get; set; } = "50000001";
+
         public static string UserId_1 { get; set; } = "20000000";
 
         public static string UserId_2 { get; set; } = "20000001";
@@ -78,11 +80,11 @@ namespace Altinn.Platform.Storage.UnitTest
             Id = $"{InstanceOwnerPartyId_1}/31d0941f-6d56-40a6-b4a4-b7fe18ccff30",
             AppId = AppId_1,
             CreatedBy = UserId_1,
-            Created = Convert.ToDateTime("2019-08-20T19:19:21.7920255Z"),
+            Created = Convert.ToDateTime("2019-08-20T19:19:21.7920255Z").ToUniversalTime(),
             InstanceOwner = new InstanceOwner { PartyId = InstanceOwnerPartyId_1 },
             Status = new InstanceStatus(),
             LastChangedBy = UserId_1,
-            LastChanged = Convert.ToDateTime("2019-08-20T19:19:22.2135489Z"),
+            LastChanged = Convert.ToDateTime("2019-08-20T19:19:22.2135489Z").ToUniversalTime(),
             Org = Org_1,
             Process = CreateProcessState(),
             DataValues = new Dictionary<string, string>
@@ -110,7 +112,7 @@ namespace Altinn.Platform.Storage.UnitTest
             Id = $"{InstanceOwnerPartyId_1}/c6b37e02-14eb-43a9-852c-a3d3aeffcb44",
             AppId = AppId_1,
             CreatedBy = UserId_1,
-            Created = Convert.ToDateTime("2019-08-20T19:20:21.7920255Z"),
+            Created = Convert.ToDateTime("2019-08-20T19:20:21.7920255Z").ToUniversalTime(),
             InstanceOwner = new InstanceOwner { PartyId = InstanceOwnerPartyId_1 },
             Status = new InstanceStatus
             {
@@ -120,7 +122,28 @@ namespace Altinn.Platform.Storage.UnitTest
                 new DataElement() { LastChangedBy = UserId_2, LastChanged = Convert.ToDateTime("2019-09-20T21:19:22.2135489Z") }
             },
             LastChangedBy = UserId_1,
-            LastChanged = Convert.ToDateTime("2019-08-20T21:19:22.2135489Z"),
+            LastChanged = Convert.ToDateTime("2019-08-20T21:19:22.2135489Z").ToUniversalTime(),
+            Org = Org_1,
+            Process = CreateProcessState(),
+        };
+
+        // 2nd instance of application 1
+        public static Instance Instance_1_3 { get; set; } = new Instance()
+        {
+            Id = $"{InstanceOwnerPartyId_2}/22bab5c0-844f-451e-bfdb-f6289edd1411",
+            AppId = AppId_1,
+            CreatedBy = UserId_1,
+            Created = Convert.ToDateTime("2019-08-20T19:20:21.7920255Z").ToUniversalTime(),
+            InstanceOwner = new InstanceOwner { PartyId = InstanceOwnerPartyId_2 },
+            Status = new InstanceStatus
+            {
+            },
+            Data = new List<DataElement>()
+            {
+                new DataElement() { LastChangedBy = UserId_2, LastChanged = Convert.ToDateTime("2019-09-20T21:19:22.2135489Z") }
+            },
+            LastChangedBy = UserId_1,
+            LastChanged = Convert.ToDateTime("2019-08-20T21:19:22.2135489Z").ToUniversalTime(),
             Org = Org_1,
             Process = CreateProcessState(),
         };
@@ -131,18 +154,18 @@ namespace Altinn.Platform.Storage.UnitTest
             Id = $"{InstanceOwnerPartyId_1}/d851287a-8c7a-4cf1-91ca-7d216c1336c4",
             AppId = AppId_2,
             CreatedBy = UserId_1,
-            Created = Convert.ToDateTime("2019-08-20T23:19:21.7920255Z"),
+            Created = Convert.ToDateTime("2019-08-20T23:19:21.7920255Z").ToUniversalTime(),
             InstanceOwner = new InstanceOwner { PartyId = InstanceOwnerPartyId_1 },
             Status = new InstanceStatus
             {
             },
             Data = new List<DataElement>()
             {
-                new DataElement() { LastChangedBy = UserId_2, LastChanged = Convert.ToDateTime("2019-09-20T21:19:22.2135489Z") },
-                new DataElement() { LastChangedBy = UserId_2, LastChanged = Convert.ToDateTime("2019-10-20T21:19:22.2135489Z") }
+                new DataElement() { LastChangedBy = UserId_2, LastChanged = Convert.ToDateTime("2019-09-20T21:19:22.2135489Z").ToUniversalTime() },
+                new DataElement() { LastChangedBy = UserId_2, LastChanged = Convert.ToDateTime("2019-10-20T21:19:22.2135489Z").ToUniversalTime() }
             },
             LastChangedBy = UserId_1,
-            LastChanged = Convert.ToDateTime("2019-08-20T23:19:22.2135489Z"),
+            LastChanged = Convert.ToDateTime("2019-08-20T23:19:22.2135489Z").ToUniversalTime(),
             Org = Org_1,
             Process = CreateProcessState(),
         };
@@ -153,7 +176,7 @@ namespace Altinn.Platform.Storage.UnitTest
             Id = $"{InstanceOwnerPartyId_1}/96cc315c-c8cc-4775-b81a-5cf134f00df1",
             AppId = AppId_2,
             CreatedBy = UserId_1,
-            Created = Convert.ToDateTime("2019-08-20T19:19:21.7920255Z"),
+            Created = Convert.ToDateTime("2019-08-20T19:19:21.7920255Z").ToUniversalTime(),
             InstanceOwner = new InstanceOwner { PartyId = InstanceOwnerPartyId_1 },
             Status = new InstanceStatus
             {
@@ -170,13 +193,13 @@ namespace Altinn.Platform.Storage.UnitTest
             Id = $"{InstanceOwnerPartyId_1}/83d87ad9-52a3-44de-aacd-ce79d55ef1f4",
             AppId = AppId_3,
             CreatedBy = UserId_1,
-            Created = Convert.ToDateTime("2019-08-20T17:19:21.7920255Z"),
+            Created = Convert.ToDateTime("2019-08-20T17:19:21.7920255Z").ToUniversalTime(),
             InstanceOwner = new InstanceOwner { PartyId = InstanceOwnerPartyId_1 },
             Status = new InstanceStatus
             {
             },
             LastChangedBy = UserId_1,
-            LastChanged = Convert.ToDateTime("2019-08-20T23:19:22.2135489Z"),
+            LastChanged = Convert.ToDateTime("2019-08-20T23:19:22.2135489Z").ToUniversalTime(),
             Org = Org_2,
             Process = CreateProcessState(),
         };
@@ -187,13 +210,13 @@ namespace Altinn.Platform.Storage.UnitTest
             Id = $"{InstanceOwnerPartyId_1}/dc489d27-6bf5-437b-95eb-de79c3a20b89",
             AppId = AppId_3,
             CreatedBy = UserId_1,
-            Created = Convert.ToDateTime("2019-08-20T17:21:21.7920255Z"),
+            Created = Convert.ToDateTime("2019-08-20T17:21:21.7920255Z").ToUniversalTime(),
             InstanceOwner = new InstanceOwner { PartyId = InstanceOwnerPartyId_1 },
             Status = new InstanceStatus
             {
             },
             LastChangedBy = UserId_1,
-            LastChanged = Convert.ToDateTime("2019-08-20T23:19:22.2135489Z"),
+            LastChanged = Convert.ToDateTime("2019-08-20T23:19:22.2135489Z").ToUniversalTime(),
             Org = Org_2,
             Process = CreateProcessState(),
         };
@@ -204,13 +227,13 @@ namespace Altinn.Platform.Storage.UnitTest
             Id = $"{InstanceOwnerPartyId_1}/9da48824-e0a4-4db6-85ed-61143c0c15d1",
             AppId = AppId_1,
             CreatedBy = UserId_1,
-            Created = Convert.ToDateTime("2019-08-20T19:19:21.7920255Z"),
+            Created = Convert.ToDateTime("2019-08-20T19:19:21.7920255Z").ToUniversalTime(),
             InstanceOwner = new InstanceOwner { PartyId = InstanceOwnerPartyId_1 },
             Status = new InstanceStatus
             {
             },
             LastChangedBy = UserId_1,
-            LastChanged = Convert.ToDateTime("2019-08-20T19:19:22.2135489Z"),
+            LastChanged = Convert.ToDateTime("2019-08-20T19:19:22.2135489Z").ToUniversalTime(),
             Org = Org_1,
             Process = new ProcessState
             {
@@ -228,17 +251,17 @@ namespace Altinn.Platform.Storage.UnitTest
             Id = $"{InstanceOwnerPartyId_1}/9da48824-e0a4-4db6-85ed-61143c0c15d1",
             AppId = AppId_1,
             CreatedBy = UserId_1,
-            Created = Convert.ToDateTime("2019-08-20T19:19:21.7920255Z"),
+            Created = Convert.ToDateTime("2019-08-20T19:19:21.7920255Z").ToUniversalTime(),
             InstanceOwner = new InstanceOwner { PartyId = InstanceOwnerPartyId_1 },
             Status = new InstanceStatus
             {
             },
             LastChangedBy = UserId_1,
-            LastChanged = Convert.ToDateTime("2019-08-20T19:19:22.2135489Z"),
+            LastChanged = Convert.ToDateTime("2019-08-20T19:19:22.2135489Z").ToUniversalTime(),
             Org = Org_1,
             Process = new ProcessState
             {
-                Ended = Convert.ToDateTime("2019-08-20T19:20:22.2135489Z")
+                Ended = Convert.ToDateTime("2019-08-20T19:20:22.2135489Z").ToUniversalTime()
             }
         };
 
@@ -252,14 +275,14 @@ namespace Altinn.Platform.Storage.UnitTest
             InstanceOwner = new InstanceOwner { PartyId = InstanceOwnerPartyId_1 },
             Status = new InstanceStatus
             {
-                Archived = Convert.ToDateTime("2019-08-20T19:20:22.2135489Z")
+                Archived = Convert.ToDateTime("2019-08-20T19:20:22.2135489Z").ToUniversalTime()
             },
             LastChangedBy = UserId_1,
-            LastChanged = Convert.ToDateTime("2019-08-20T19:19:22.2135489Z"),
+            LastChanged = Convert.ToDateTime("2019-08-20T19:19:22.2135489Z").ToUniversalTime(),
             Org = Org_1,
             Process = new ProcessState
             {
-                Ended = Convert.ToDateTime("2019-08-20T19:20:22.2135489Z")
+                Ended = Convert.ToDateTime("2019-08-20T19:20:22.2135489Z").ToUniversalTime()
             }
         };
 
@@ -269,13 +292,13 @@ namespace Altinn.Platform.Storage.UnitTest
             Id = $"{InstanceOwnerPartyId_1}/9da48824-e0a4-4db6-85ed-61143c0c15d1",
             AppId = AppId_1,
             CreatedBy = UserId_1,
-            Created = Convert.ToDateTime("2019-08-20T19:19:21.7920255Z"),
+            Created = Convert.ToDateTime("2019-08-20T19:19:21.7920255Z").ToUniversalTime(),
             InstanceOwner = new InstanceOwner { PartyId = InstanceOwnerPartyId_1 },
             Status = new InstanceStatus
             {
             },
             LastChangedBy = UserId_1,
-            LastChanged = Convert.ToDateTime("2019-08-20T19:19:22.2135489Z"),
+            LastChanged = Convert.ToDateTime("2019-08-20T19:19:22.2135489Z").ToUniversalTime(),
             Org = Org_1,
         };
 

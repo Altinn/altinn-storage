@@ -4,7 +4,7 @@ using System.Linq;
 
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
-
+using Altinn.Platform.Storage.UnitTest.Extensions;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest
@@ -25,8 +25,8 @@ namespace Altinn.Platform.Storage.UnitTest
         {
             // Arrange
             string instanceOwner = "instanceOwner";
-            string instanceGuid = "instanceGuid";
-            Instance instance = TestData.Instance_1_1;
+            string instanceGuid = Guid.NewGuid().ToString();
+            Instance instance = TestData.Instance_1_1.Clone();
             instance.Id = $"{instanceOwner}/{instanceGuid}";
 
             // Act
@@ -47,7 +47,7 @@ namespace Altinn.Platform.Storage.UnitTest
         {
             // Arrange
             string lastChangedBy = "20000000";
-            Instance instance = TestData.Instance_1_1;
+            Instance instance = TestData.Instance_1_1.Clone();
 
             // Act
             MessageBoxInstance actual = InstanceHelper.ConvertToMessageBoxInstance(instance);
@@ -66,7 +66,7 @@ namespace Altinn.Platform.Storage.UnitTest
         {
             // Arrange
             string lastChangedBy = TestData.UserId_1;
-            Instance instance = TestData.Instance_1_1;
+            Instance instance = TestData.Instance_1_1.Clone();
             instance.Data = new List<DataElement>()
             {
                 new DataElement()
@@ -279,7 +279,7 @@ namespace Altinn.Platform.Storage.UnitTest
             // Arrange
             Instance instance = TestData.Instance_2_1;
             string expectedlastChangedBy = "20000001";
-            DateTime expectedlastChanged = Convert.ToDateTime("2019-10-20T21:19:22.2135489Z");
+            DateTime expectedlastChanged = Convert.ToDateTime("2019-10-20T21:19:22.2135489Z").ToUniversalTime();
 
             // Act
             (string lastChangedBy, DateTime? lastChanged) = InstanceHelper.FindLastChanged(instance);

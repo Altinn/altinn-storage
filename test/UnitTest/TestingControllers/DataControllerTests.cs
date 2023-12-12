@@ -85,7 +85,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             Mock<IFileScanQueueClient> fileScanMock = new Mock<IFileScanQueueClient>();
 
-            HttpClient client = GetTestClient(null, fileScanMock);
+            HttpClient client = GetTestClient(null, null, fileScanMock);
 
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
 
@@ -184,7 +184,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             Mock<IFileScanQueueClient> fileScanMock = new Mock<IFileScanQueueClient>();
 
-            HttpClient client = GetTestClient(null, fileScanMock);
+            HttpClient client = GetTestClient(null, null, fileScanMock);
 
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
 
@@ -508,12 +508,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Arrange
             DataElement de = TestDataUtil.GetDataElement("887c5e56-6f73-494a-9730-6ebd11bffe30");
             Mock<IDataRepository> dataRepositoryMock = new();
+            Mock<IBlobRepository> blobRepositoryMock = new();
             dataRepositoryMock
                            .Setup(dr => dr.Read(It.IsAny<Guid>(), It.IsAny<Guid>()))
                 .ReturnsAsync(de);
 
-            dataRepositoryMock
-                .Setup(dr => dr.DeleteDataInStorage(It.IsAny<string>(), It.IsAny<string>()))
+            blobRepositoryMock
+                .Setup(dr => dr.DeleteBlob(It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync(true);
 
             dataRepositoryMock
@@ -666,16 +667,16 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             string dataPathWithData = $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
             HttpContent content = new StringContent("This is a blob file");
 
-            Mock<IDataRepository> repoMock = new();
+            Mock<IBlobRepository> repoMock = new();
             repoMock.
-                Setup(r => r.WriteDataToStorage(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>()))
+                Setup(r => r.WriteBlob(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>()))
                 .ReturnsAsync((0, DateTime.UtcNow));
 
             repoMock
-                .Setup(r => r.DeleteDataInStorage(It.IsAny<string>(), It.IsAny<string>()))
+                .Setup(r => r.DeleteBlob(It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync(true);
 
-            HttpClient client = GetTestClient(repoMock, null);
+            HttpClient client = GetTestClient(null, repoMock, null);
 
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
 
@@ -687,7 +688,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             repoMock.VerifyAll();
         }
 
-        private HttpClient GetTestClient(Mock<IDataRepository> repositoryMock = null, Mock<IFileScanQueueClient> fileScanMock = null)
+        private HttpClient GetTestClient(Mock<IDataRepository> dataRepositoryMock = null, Mock<IBlobRepository> blobRepositoryMock = null, Mock<IFileScanQueueClient> fileScanMock = null)
         {
             // No setup required for these services. They are not in use by the InstanceController
             Mock<ISasTokenProvider> sasTokenProvider = new Mock<ISasTokenProvider>();
@@ -700,9 +701,14 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 {
                     services.AddMockRepositories();
 
-                    if (repositoryMock is not null)
+                    if (blobRepositoryMock is not null)
                     {
-                        services.AddSingleton(repositoryMock.Object);
+                        services.AddSingleton(blobRepositoryMock.Object);
+                    }
+
+                    if (dataRepositoryMock is not null)
+                    {
+                        services.AddSingleton(dataRepositoryMock.Object);
                     }
 
                     if (fileScanMock is not null)

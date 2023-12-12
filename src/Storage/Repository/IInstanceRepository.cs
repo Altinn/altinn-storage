@@ -49,5 +49,17 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="item">The instance to delete</param>
         /// <returns>if the item is deleted or not</returns>
         Task<bool> Delete(Instance item);
+
+        /// <summary>
+        /// Gets hard deleted instances for cleanup
+        /// </summary>
+        /// <returns>Hard deleted instances</returns>
+        Task<List<Instance>> GetHardDeletedInstances();
+
+        /// <summary>
+        /// Gets hard deleted data elements for cleanup
+        /// </summary>
+        /// <returns>Hard deleted data elements</returns>
+        Task<List<DataElement>> GetHardDeletedDataElements();
     }
 }

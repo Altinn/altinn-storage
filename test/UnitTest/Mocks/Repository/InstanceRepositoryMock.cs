@@ -166,6 +166,16 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return Task.FromResult(instance);
         }
 
+        public Task<List<Instance>> GetHardDeletedInstances()
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<DataElement>> GetHardDeletedDataElements()
+        {
+            throw new NotImplementedException();
+        }
+
         private static string GetInstancePath(string instanceOwnerPartyId, Guid instanceGuid)
         {
             return Path.Combine(GetInstancesPath(), instanceOwnerPartyId, instanceGuid.ToString() + ".json");

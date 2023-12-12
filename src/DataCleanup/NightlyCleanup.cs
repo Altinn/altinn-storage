@@ -48,7 +48,7 @@ namespace Altinn.Platform.Storage.DataCleanup
             List<string> autoDeleteAppIds = applications.Where(a => a.AutoDeleteOnProcessEnd == true).Select(a => a.Id).ToList();
             int successfullyDeleted = 0;
 
-            Stopwatch stopwatch = new Stopwatch();
+            Stopwatch stopwatch = new();
             stopwatch.Start();
 
             foreach (Instance instance in instances)
