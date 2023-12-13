@@ -68,32 +68,32 @@ namespace Altinn.Platform.Storage.Controllers
         public async Task<ActionResult> CleanupInstances()
         {
             _logger.LogError("CleanupController init");
-            ////try
-            ////{
-            ////    if (!_usePostgreSQL)
-            ////    {
-            ////        return Ok();
-            ////    }
+            try
+            {
+                if (!_usePostgreSQL)
+                {
+                    return Ok();
+                }
 
-            ////    List<Instance> instances = await _instanceRepository.GetHardDeletedInstances();
-            ////    List<string> autoDeleteAppIds = (await _applicationRepository.FindAll())
-            ////        .Where(a => instances.Select(i => i.AppId).ToList().Contains(a.Id) && a.AutoDeleteOnProcessEnd)
-            ////        .Select(a => a.Id).ToList();
+                List<Instance> instances = await _instanceRepository.GetHardDeletedInstances();
+                List<string> autoDeleteAppIds = (await _applicationRepository.FindAll())
+                    .Where(a => instances.Select(i => i.AppId).ToList().Contains(a.Id) && a.AutoDeleteOnProcessEnd)
+                    .Select(a => a.Id).ToList();
 
-            ////    Stopwatch stopwatch = Stopwatch.StartNew();
-            ////    int successfullyDeleted = await CleanupInstancesInternal(instances, autoDeleteAppIds);
-            ////    stopwatch.Stop();
+                Stopwatch stopwatch = Stopwatch.StartNew();
+                int successfullyDeleted = await CleanupInstancesInternal(instances, autoDeleteAppIds);
+                stopwatch.Stop();
 
-            ////    _logger.LogInformation(
-            ////        "CleanupController// CleanupInstances // {DeleteCount} of {OriginalCount} instances deleted in {Duration} s",
-            ////        successfullyDeleted,
-            ////        instances.Count,
-            ////        stopwatch.Elapsed.TotalSeconds);
-            ////}
-            ////catch (Exception ex)
-            ////{
-            ////    _logger.LogInformation(ex, "CleanupController error");
-            ////}
+                _logger.LogError(
+                    "CleanupController// CleanupInstances // {DeleteCount} of {OriginalCount} instances deleted in {Duration} s",
+                    successfullyDeleted,
+                    instances.Count,
+                    stopwatch.Elapsed.TotalSeconds);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "CleanupController error");
+            }
 
             return Ok();
         }
