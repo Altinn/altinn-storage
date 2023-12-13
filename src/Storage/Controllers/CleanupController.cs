@@ -67,33 +67,33 @@ namespace Altinn.Platform.Storage.Controllers
         [ApiExplorerSettings(IgnoreApi = true)]
         public async Task<ActionResult> CleanupInstances()
         {
-            _logger.LogInformation("CleanupController init");
-            try
-            {
-                if (!_usePostgreSQL)
-                {
-                    return Ok();
-                }
+            _logger.LogError("CleanupController init");
+            ////try
+            ////{
+            ////    if (!_usePostgreSQL)
+            ////    {
+            ////        return Ok();
+            ////    }
 
-                List<Instance> instances = await _instanceRepository.GetHardDeletedInstances();
-                List<string> autoDeleteAppIds = (await _applicationRepository.FindAll())
-                    .Where(a => instances.Select(i => i.AppId).ToList().Contains(a.Id) && a.AutoDeleteOnProcessEnd)
-                    .Select(a => a.Id).ToList();
+            ////    List<Instance> instances = await _instanceRepository.GetHardDeletedInstances();
+            ////    List<string> autoDeleteAppIds = (await _applicationRepository.FindAll())
+            ////        .Where(a => instances.Select(i => i.AppId).ToList().Contains(a.Id) && a.AutoDeleteOnProcessEnd)
+            ////        .Select(a => a.Id).ToList();
 
-                Stopwatch stopwatch = Stopwatch.StartNew();
-                int successfullyDeleted = await CleanupInstancesInternal(instances, autoDeleteAppIds);
-                stopwatch.Stop();
+            ////    Stopwatch stopwatch = Stopwatch.StartNew();
+            ////    int successfullyDeleted = await CleanupInstancesInternal(instances, autoDeleteAppIds);
+            ////    stopwatch.Stop();
 
-                _logger.LogInformation(
-                    "CleanupController// CleanupInstances // {DeleteCount} of {OriginalCount} instances deleted in {Duration} s",
-                    successfullyDeleted,
-                    instances.Count,
-                    stopwatch.Elapsed.TotalSeconds);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogInformation(ex, "CleanupController error");
-            }
+            ////    _logger.LogInformation(
+            ////        "CleanupController// CleanupInstances // {DeleteCount} of {OriginalCount} instances deleted in {Duration} s",
+            ////        successfullyDeleted,
+            ////        instances.Count,
+            ////        stopwatch.Elapsed.TotalSeconds);
+            ////}
+            ////catch (Exception ex)
+            ////{
+            ////    _logger.LogInformation(ex, "CleanupController error");
+            ////}
 
             return Ok();
         }
@@ -127,7 +127,7 @@ namespace Altinn.Platform.Storage.Controllers
             while (instancesResponse.ContinuationToken != null);
             stopwatch.Stop();
 
-            _logger.LogInformation(
+            _logger.LogError(
                 "CleanupController // CleanupInstancesForApp // {DeleteCount} of {OriginalCount} instances deleted in {Duration} s",
                 successfullyDeleted,
                 processed,
@@ -180,7 +180,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             stopwatch.Stop();
-            _logger.LogInformation(
+            _logger.LogError(
                 "CleanupController // CleanupDataelements // {successfullyDeleted} of {count} data elements deleted in {totalSeconds} s",
                 successfullyDeleted,
                 dataElements.Count,
@@ -228,7 +228,7 @@ namespace Altinn.Platform.Storage.Controllers
                     {
                         await _instanceRepository.Delete(instance);
                         successfullyDeleted += 1;
-                        _logger.LogInformation(
+                        _logger.LogError(
                             "CleanupController // CleanupInstancesInternal // Instance deleted: {AppId}/{InstanceId}",
                             instance.AppId,
                             $"{instance.InstanceOwner.PartyId}/{instance.Id}");
