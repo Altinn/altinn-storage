@@ -67,11 +67,11 @@ namespace Altinn.Platform.Storage.Controllers
         [ApiExplorerSettings(IgnoreApi = true)]
         public async Task<ActionResult> CleanupInstances()
         {
-            _logger.LogError("CleanupController init");
             try
             {
                 if (!_usePostgreSQL)
                 {
+                    _logger.LogInformation("CleanupController // CleanupInstances // usePostgreSQL is false");
                     return Ok();
                 }
 
@@ -84,7 +84,7 @@ namespace Altinn.Platform.Storage.Controllers
                 int successfullyDeleted = await CleanupInstancesInternal(instances, autoDeleteAppIds);
                 stopwatch.Stop();
 
-                _logger.LogError(
+                _logger.LogInformation(
                     "CleanupController// CleanupInstances // {DeleteCount} of {OriginalCount} instances deleted in {Duration} s",
                     successfullyDeleted,
                     instances.Count,
@@ -109,6 +109,7 @@ namespace Altinn.Platform.Storage.Controllers
         {
             if (!_usePostgreSQL)
             {
+                _logger.LogInformation("CleanupController // CleanupInstancesForApp // usePostgreSQL is false");
                 return Ok();
             }
 
@@ -127,7 +128,7 @@ namespace Altinn.Platform.Storage.Controllers
             while (instancesResponse.ContinuationToken != null);
             stopwatch.Stop();
 
-            _logger.LogError(
+            _logger.LogInformation(
                 "CleanupController // CleanupInstancesForApp // {DeleteCount} of {OriginalCount} instances deleted in {Duration} s",
                 successfullyDeleted,
                 processed,
@@ -148,6 +149,7 @@ namespace Altinn.Platform.Storage.Controllers
         {
             if (!_usePostgreSQL)
             {
+                _logger.LogInformation("CleanupController // CleanupDataelements // usePostgreSQL is false");
                 return Ok();
             }
 
@@ -159,12 +161,23 @@ namespace Altinn.Platform.Storage.Controllers
 
             foreach (DataElement dataElement in dataElements)
             {
-                bool dataBlobDeleted = false;
-
                 try
                 {
-                    dataBlobDeleted = await _blobRepository.DeleteBlob(dataElement.BlobStoragePath.Split('/')[0], dataElement.BlobStoragePath);
-                    if (dataBlobDeleted && await _dataRepository.Delete(dataElement))
+                    if (!await _blobRepository.DeleteBlob(dataElement.BlobStoragePath.Split('/')[0], dataElement.BlobStoragePath))
+                    {
+                        _logger.LogError(
+                            "CleanupController // CleanupDataelements // Blob not found for dataElement Id: {dataElement.Id} Blobstoragepath: {blobStoragePath}",
+                            dataElement.Id,
+                            dataElement.BlobStoragePath);
+                    }
+
+                    if (!await _dataRepository.Delete(dataElement))
+                    {
+                        _logger.LogError(
+                            "CleanupController // CleanupDataelements // Data element not found for dataElement Id: {dataElement.Id}",
+                            dataElement.Id);
+                    }
+                    else
                     {
                         successfullyDeleted++;
                     }
@@ -180,7 +193,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             stopwatch.Stop();
-            _logger.LogError(
+            _logger.LogInformation(
                 "CleanupController // CleanupDataelements // {successfullyDeleted} of {count} data elements deleted in {totalSeconds} s",
                 successfullyDeleted,
                 dataElements.Count,
@@ -218,20 +231,24 @@ namespace Altinn.Platform.Storage.Controllers
                     catch (Exception ex)
                     {
                         _logger.LogError(
-                            "CleanupController // CleanupInstancesInternal // Error deleting instance events for id {id}, {message}",
-                            instance.Id,
-                            ex.Message);
+                            ex,
+                            "CleanupController // CleanupInstancesInternal // Error deleting instance events for id {id}",
+                            instance.Id);
                     }
 
                     if (dataElementsNoException
                         && (!autoDeleteAppIds.Contains(instance.AppId) || instanceEventsNoException))
                     {
-                        await _instanceRepository.Delete(instance);
-                        successfullyDeleted += 1;
-                        _logger.LogError(
-                            "CleanupController // CleanupInstancesInternal // Instance deleted: {AppId}/{InstanceId}",
-                            instance.AppId,
-                            $"{instance.InstanceOwner.PartyId}/{instance.Id}");
+                        if (await _instanceRepository.Delete(instance))
+                        {
+                            successfullyDeleted += 1;
+                        }
+                        else
+                        {
+                            _logger.LogError(
+                                "CleanupController // CleanupInstancesInternal // Instance not found for id {id}",
+                                instance.Id);
+                        }
                     }
                 }
                 catch (Exception e)
