@@ -9,7 +9,7 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
 {
-    [Collection("StorageAppsAndTextsPostgreSQL")]
+    [Collection("StoragePostgreSQL")]
     public class ApplicationTests : IClassFixture<ApplicationFixture>
     {
         private const string App1 = "ttd-app1";

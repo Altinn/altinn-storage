@@ -10,7 +10,7 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
 {
-    [Collection("StorageInstanceAndDataElementsPostgreSQL")]
+    [Collection("StoragePostgreSQL")]
     public class DataTests : IClassFixture<DataElementFixture>
     {
         private const string DataElement1 = "cdb627fd-c586-41f5-99db-bae38daa2b59";
