@@ -9,7 +9,7 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
 {
-    [Collection("StorageInstanceEventsPostgreSQL")]
+    [Collection("StoragePostgreSQL")]
     public class InstanceEventTests : IClassFixture<InstanceEventFixture>
     {
         private static readonly string _instanceId = Guid.NewGuid().ToString();

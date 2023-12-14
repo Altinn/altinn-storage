@@ -11,7 +11,7 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
 {
-    [Collection("StorageInstanceAndDataElementsPostgreSQL")]
+    [Collection("StoragePostgreSQL")]
     public class InstanceTests : IClassFixture<InstanceFixture>
     {
         private readonly InstanceFixture _instanceFixture;
