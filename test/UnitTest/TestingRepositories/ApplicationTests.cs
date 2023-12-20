@@ -12,14 +12,17 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
     [Collection("StoragePostgreSQL")]
     public class ApplicationTests : IClassFixture<ApplicationFixture>
     {
-        private const string App1 = "ttd-app1";
-        private const string App2 = "ttd-app2";
-        private const string App3 = "skd-app3";
+        private const string App1 = "app1";
+        private const string App2 = "app2";
+        private const string App3 = "app3";
+        private const string AppId1 = $"{App1}/app1";
+        private const string AppId2 = $"{App2}/app2";
+        private const string AppId3 = $"{App3}/app3";
         private readonly ApplicationFixture _applicationFixture;
 
-        private readonly Application _a1 = new() { Id = App1, Org = "ttd", Title = new() { { "nb", "t1" } } };
-        private readonly Application _a2 = new() { Id = App2, Org = "ttd", Title = new() { { "nb", "t2" } } };
-        private readonly Application _a3 = new() { Id = App3, Org = "skd", Title = new() { { "nb", "t3" }, { "en", "t3b" } } };
+        private readonly Application _a1 = new() { Id = AppId1, Org = "ttd", Title = new() { { "nb", "t1" } } };
+        private readonly Application _a2 = new() { Id = AppId2, Org = "ttd", Title = new() { { "nb", "t2" } } };
+        private readonly Application _a3 = new() { Id = AppId3, Org = "skd", Title = new() { { "nb", "t3" }, { "en", "t3b" } } };
 
         public ApplicationTests(ApplicationFixture applicationFixture)
         {
@@ -41,7 +44,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             Application a = await _applicationFixture.ApplicationRepo.Create(_a1);
 
             // Assert
-            string sql = $"select count(*) from storage.applications where alternateid = '{App1}'";
+            string sql = $"select count(*) from storage.applications where app = '{App1}' and org = 'ttd'";
             int count = await PostgresUtil.RunCountQuery(sql);
             Assert.Equal(1, count);
             Assert.Equal(_a1.Id, a.Id);
@@ -57,10 +60,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             await _applicationFixture.ApplicationRepo.Create(_a1);
 
             // Act
-            Application a = await _applicationFixture.ApplicationRepo.FindOne(App1, null);
+            Application a = await _applicationFixture.ApplicationRepo.FindOne(AppId1, "ttd");
 
             // Assert
-            Assert.Equal(App1, a.Id.Replace('/', '-'));
+            Assert.Equal(AppId1, a.Id);
         }
 
         /// <summary>
@@ -130,10 +133,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             await _applicationFixture.ApplicationRepo.Create(_a1);
 
             // Act
-            bool deleted = await _applicationFixture.ApplicationRepo.Delete(App1, null);
+            bool deleted = await _applicationFixture.ApplicationRepo.Delete(AppId1, "ttd");
 
             // Assert
-            string sql = $"select count(*) from storage.applications where alternateid = '{App1}'";
+            string sql = $"select count(*) from storage.applications where app = '{App1}' and org = 'ttd'";
             int count = await PostgresUtil.RunCountQuery(sql);
             Assert.Equal(0, count);
             Assert.True(deleted);

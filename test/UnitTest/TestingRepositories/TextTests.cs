@@ -12,15 +12,19 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
     [Collection("StoragePostgreSQL")]
     public class TextTests : IClassFixture<TextFixture>
     {
-        private const string App1 = "ttd-app1";
-        private const string App2 = "ttd-app2";
-        private readonly TextFixture _textFixture;
+        private const string App1 = "app1";
+        private const string App2 = "app2";
+        private const string AppId1 = $"{App1}/app1";
+        private const string AppId2 = $"{App2}/app2";
 
-        private readonly Application _a1 = new() { Id = App1, Org = "ttd", Title = new() { { "nb", "t1" } } };
-        private readonly Application _a2 = new() { Id = App2, Org = "ttd", Title = new() { { "nb", "t1" } } };
+        private readonly Application _a1 = new() { Id = AppId1, Org = "ttd", Title = new() { { "nb", "t1" } } };
+        private readonly Application _a2 = new() { Id = AppId2, Org = "ttd", Title = new() { { "nb", "t2" } } };
+
         private readonly TextResource _tr1 = new() { Org = "ttd", Language = "nb", Resources = new() { new() { Id = "i1", Value = "v1" }, new() { Id = "i2", Value = "v2" } } };
         private readonly TextResource _tr2 = new() { Org = "ttd", Language = "nn", Resources = new() { new() { Id = "i3", Value = "v3" }, new() { Id = "i4", Value = "v4" } } };
         private readonly TextResource _tr3 = new() { Org = "ttd", Language = "nb", Resources = new() { new() { Id = "i5", Value = "v5" }, new() { Id = "i6", Value = "v6" } } };
+
+        private readonly TextFixture _textFixture;
 
         public TextTests(TextFixture textFixture)
         {
