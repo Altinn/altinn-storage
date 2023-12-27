@@ -26,6 +26,7 @@ using Altinn.Platform.Storage.Wrappers;
 using AltinnCore.Authentication.JwtCookie;
 
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -170,6 +171,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             HttpClient client = _factory.WithWebHostBuilder(builder =>
             {
+                IConfiguration configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+                builder.ConfigureAppConfiguration((hostingContext, config) =>
+                {
+                    config.AddConfiguration(configuration);
+                });
+
                 builder.ConfigureTestServices(services =>
                 {
                     if (instanceServiceMock != null)

@@ -26,7 +26,7 @@ namespace Altinn.Platform.Storage.Repository
         private const string _missingResourceId = "MissingResource";
 
         private static readonly string _readSql = "select textresource from storage.texts where org = $1 and app = $2 and language = $3";
-        private static readonly string _readAppSql = "select id from storage.applications where alternateId = $1";
+        private static readonly string _readAppSql = "select id from storage.applications where app = $1 and org = $2";
         private static readonly string _deleteSql = "delete from storage.texts where org = $1 and app = $2 and language = $3";
         private static readonly string _updateSql = "update storage.texts set textresource = $4 where org = $1 and app = $2 and language = $3";
         private static readonly string _createSql = "insert into storage.texts (org, app, language, textresource, applicationinternalid) values ($1, $2, $3, $4, $5)";
@@ -63,26 +63,26 @@ namespace Altinn.Platform.Storage.Repository
         public async Task<TextResource> Get(string org, string app, string language)
         {
             ValidateArguments(org, app, language);
-            string id = GetTextId(org, app, language);
-            if (!_memoryCache.TryGetValue(id, out TextResource textResource))
+            string cacheKey = $"tid:{GetTextId(org, app, language)}";
+            if (!_memoryCache.TryGetValue(cacheKey, out TextResource textResource))
             {
-                    await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSql);
-                    using TelemetryTracker tracker = new(_telemetryClient, pgcom);
-                    pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, org);
-                    pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, app);
-                    pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, language);
-                    await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
-                    if (await reader.ReadAsync())
-                    {
-                        textResource = PostProcess(org, app, language, reader.GetFieldValue<TextResource>("textResource"));
-                    }
-                    else
-                    {
-                        textResource = _missingResourcePlaceholder;
-                    }
+                await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSql);
+                using TelemetryTracker tracker = new(_telemetryClient, pgcom);
+                pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, org);
+                pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, app);
+                pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, language);
+                await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
+                if (await reader.ReadAsync())
+                {
+                    textResource = PostProcess(org, app, language, reader.GetFieldValue<TextResource>("textResource"));
+                }
+                else
+                {
+                    textResource = _missingResourcePlaceholder;
+                }
 
-                    _memoryCache.Set(id, textResource, _cacheEntryOptions);
-                    tracker.Track();
+                _memoryCache.Set(cacheKey, textResource, _cacheEntryOptions);
+                tracker.Track();
             }
 
             return textResource.Id == _missingResourceId ? null : textResource;
@@ -123,7 +123,8 @@ namespace Altinn.Platform.Storage.Repository
             int applicationInternalId;
             await using NpgsqlCommand pgcomReadApp = _dataSource.CreateCommand(_readAppSql);
             using TelemetryTracker trackerReadApp = new(_telemetryClient, pgcomReadApp);
-            pgcomReadApp.Parameters.AddWithValue(NpgsqlDbType.Text, $"{org}-{app}");
+            pgcomReadApp.Parameters.AddWithValue(NpgsqlDbType.Text, app);
+            pgcomReadApp.Parameters.AddWithValue(NpgsqlDbType.Text, org);
             await using NpgsqlDataReader reader = await pgcomReadApp.ExecuteReaderAsync();
             if (await reader.ReadAsync())
             {

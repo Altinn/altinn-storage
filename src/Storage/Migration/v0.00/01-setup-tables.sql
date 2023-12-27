@@ -37,9 +37,10 @@ TABLESPACE pg_default;
 CREATE TABLE IF NOT EXISTS storage.applications
 (
 	id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-	alternateid TEXT UNIQUE NOT NULL,
+	app TEXT NOT NULL,
 	org TEXT NOT NULL,
-	application JSONB NOT NULL
+	application JSONB NOT NULL,
+	CONSTRAINT app_org UNIQUE (org, app)
 )
 TABLESPACE pg_default;
 
@@ -82,3 +83,4 @@ CREATE INDEX IF NOT EXISTS instances_created ON storage.instances (created);
 CREATE INDEX IF NOT EXISTS instances_isharddeleted_confirmed ON storage.instances(id) WHERE (instance -> 'Status' -> 'IsHardDeleted')::BOOLEAN AND (instance -> 'CompleteConfirmations') IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS applications_org ON storage.applications(org);
+CREATE INDEX IF NOT EXISTS applications_app ON storage.applications(app);

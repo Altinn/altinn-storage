@@ -27,10 +27,10 @@ namespace Altinn.Platform.Storage.Repository
     {
         private static readonly string _readSql = "select application from storage.applications";
         private static readonly string _readByOrgSql = "select application from storage.applications where org = $1";
-        private static readonly string _readByIdSql = "select application from storage.applications where alternateid = $1";
-        private static readonly string _deleteSql = "delete from storage.applications where alternateid = $1";
-        private static readonly string _updateSql = "update storage.applications set application = $2 where alternateid = $1";
-        private static readonly string _createSql = "insert into storage.applications (alternateid, org, application) values ($1, $2, $3)";
+        private static readonly string _readByIdSql = "select application from storage.applications where app = $1 and org = $2";
+        private static readonly string _deleteSql = "delete from storage.applications where app = $1 and org = $2";
+        private static readonly string _updateSql = "update storage.applications set application = $3 where app = $1 and org = $2";
+        private static readonly string _createSql = "insert into storage.applications (app, org, application) values ($1, $2, $3)";
 
         private readonly IMemoryCache _memoryCache;
         private readonly MemoryCacheEntryOptions _cacheEntryOptionsTitles;
@@ -73,7 +73,7 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
-                applications.Add(SetLegacyId(reader.GetFieldValue<Application>("application")));
+                applications.Add(reader.GetFieldValue<Application>("application"));
             }
 
             tracker.Track();
@@ -91,7 +91,7 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
-                applications.Add(SetLegacyId(reader.GetFieldValue<Application>("application")));
+                applications.Add(reader.GetFieldValue<Application>("application"));
             }
 
             tracker.Track();
@@ -101,16 +101,18 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<Application> FindOne(string appId, string org)
         {
-            if (!_memoryCache.TryGetValue(appId, out Application application))
+            string cacheKey = $"aid:{appId}";
+            if (!_memoryCache.TryGetValue(cacheKey, out Application application))
             {
                 await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readByIdSql);
                 using TelemetryTracker tracker = new(_telemetryClient, pgcom);
-                pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, appId.Replace('/', '-'));
+                pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, GetAppFromAppId(appId));
+                pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, org);
                 await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
                 if (await reader.ReadAsync())
                 {
-                    application = SetLegacyId(reader.GetFieldValue<Application>("application"));
-                    _memoryCache.Set(appId, application, _cacheEntryOptionsMetadata);
+                    application = reader.GetFieldValue<Application>("application");
+                    _memoryCache.Set(cacheKey, application, _cacheEntryOptionsMetadata);
                 }
                 else
                 {
@@ -126,30 +128,30 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<Application> Create(Application item)
         {
-            SetInternalId(item);
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_createSql);
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, item.Id);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, GetAppFromAppId(item.Id));
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, item.Org);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, item);
 
             await pgcom.ExecuteNonQueryAsync();
 
             tracker.Track();
-            return SetLegacyId(item);
+            return item;
         }
 
         /// <inheritdoc/>
         public async Task<Application> Update(Application item)
         {
-            SetInternalId(item);
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateSql);
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, item.Id);
+
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, GetAppFromAppId(item.Id));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, item.Org);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, item);
+
             await pgcom.ExecuteNonQueryAsync();
 
-            SetLegacyId(item);
             _memoryCache.Set(item.Id, item, _cacheEntryOptionsMetadata);
             tracker.Track();
             return item;
@@ -160,7 +162,8 @@ namespace Altinn.Platform.Storage.Repository
         {
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, appId.Replace('/', '-'));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, GetAppFromAppId(appId));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, org);
 
             var rc = await pgcom.ExecuteNonQueryAsync();
             tracker.Track();
@@ -193,24 +196,9 @@ namespace Altinn.Platform.Storage.Repository
             return appTitles;
         }
 
-        private static Application SetLegacyId(Application app)
+        private static string GetAppFromAppId(string appId)
         {
-            if (app.Id.StartsWith(app.Org + '-', StringComparison.OrdinalIgnoreCase))
-            {
-                string appIdWithoutOrg = app.Id[(app.Org.Length + 1)..];
-                app.Id = $"{app.Org}/{appIdWithoutOrg}";
-            }
-
-            return app;
-        }
-
-        private static void SetInternalId(Application app)
-        {
-            if (app.Id.StartsWith(app.Org + '/', StringComparison.OrdinalIgnoreCase))
-            {
-                string appIdWithoutOrg = app.Id[(app.Org.Length + 1)..];
-                app.Id = $"{app.Org}-{appIdWithoutOrg}";
-            }
+            return appId.Split('/')[1];
         }
     }
 }
