@@ -206,6 +206,7 @@ namespace Altinn.Platform.Storage.Repository
                     case "/contentType": element.ContentType = (string)kvp.Value; break;
                     case "/filename": element.Filename = (string)kvp.Value; break;
                     case "/size": element.Size = (long)kvp.Value; break;
+                    case "/isRead": element.IsRead = (bool)kvp.Value; break;
                     default: throw new ArgumentException("Unexpected key " + kvp.Key);
                 }
             }
