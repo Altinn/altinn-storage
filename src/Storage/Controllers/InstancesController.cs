@@ -661,7 +661,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// </summary>
         /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
         /// <param name="instanceGuid">The id of the instance to confirm as complete.</param>
-        /// <param name="dataValues">Collection of changes to the presentation texts collection.</param>
+        /// <param name="dataValues">Collection of changes to the data values collection.</param>
         /// <returns>The instance that was updated with an updated collection of data values.</returns>
         [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
         [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/datavalues")]
