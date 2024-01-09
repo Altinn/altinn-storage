@@ -513,7 +513,7 @@ namespace Altinn.Platform.Storage.Repository
                     string postgresParamName = GetPgParamName($"{dateParam}_{@operator}");
                     postgresParams.Add(postgresParamName, valueAsString ? dateValue : DateTimeHelper.ParseAndConvertToUniversalTime(dateValue));
                 }
-                catch (Exception)
+                catch
                 {
                     throw new ArgumentException($"Invalid date expression: {value} for query key: {dateParam}");
                 }
