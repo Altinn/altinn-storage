@@ -48,12 +48,14 @@ export function setup() {
   const app = __ENV.app;
 
   var token = setupToken.getAltinnTokenForUser(userId, partyId, pid, username, userpassword);
+  if (!partyId) {
+    partyId = setupToken.getPartyIdFromTokenClaim(userToken);
+  }
 
-  var tokenClaims = setupToken.getTokenClaims(token);
 
   const instanceId = setupInstanceForTest(
     token,
-    tokenClaims["partyId"],
+    partyId,
     org,
     app
   );
@@ -70,15 +72,15 @@ export function setup() {
       },
     ],
     signee: {
-      userId: tokenClaims["userId"],
+      userId: userId,
     },
   };
 
   var data = {
     runFullTestSet: runFullTestSet,
     token: token,
-    partyId: tokenClaims["partyId"],
-    userId: tokenClaims["userId"],
+    partyId: partyId,
+    userId: userId,
     instanceId: instanceId,
     attachmentId: dataElementId,
     signRequest: signRequest,

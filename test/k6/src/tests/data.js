@@ -50,18 +50,20 @@ export function setup() {
 
   var token = setupToken.getAltinnTokenForUser(userId, partyId, pid, username, userpassword);
 
-  var tokenClaims = setupToken.getTokenClaims(token);
+  if (!partyId) {
+    partyId = setupToken.getPartyIdFromTokenClaim(userToken);
+  }
 
   const instanceId = setupInstanceForTest(
     token,
-    tokenClaims["partyId"],
+    partyId,
     org,
     app
   );
   var data = {
     runFullTestSet: runFullTestSet,
     token: token,
-    partyId: tokenClaims["partyId"],
+    partyId: partyId,
     instanceId: instanceId,
   };
 

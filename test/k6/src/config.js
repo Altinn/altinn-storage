@@ -34,18 +34,34 @@ export var tokenGenerator = {
 export var platformAuthentication = {
   authentication:
     "https://platform." + baseUrl + "/authentication/api/v1/authentication",
-  refresh: "https://platform." + baseUrl + "/authentication/api/v1/refresh"
+  refresh: "https://platform." + baseUrl + "/authentication/api/v1/refresh",
 };
 
 //Platform Storage
 export var platformStorage = {
   instances: "https://platform." + baseUrl + "/storage/api/v1/instances",
+  applications: "https://platform." + baseUrl + "/storage/api/v1/applications",
 };
 
-
-//Function to build endpoints in storage with instanceOwnerId, instanceId, dataId, type
+//Function to build endpoints in storage related to an application with org and app
 //and returns the endpoint
-export function buildStorageUrls(instanceId, dataId, type) {
+export function buildAppUrl(org, app, type) {
+  var value = "";
+  switch (type) {
+    case "application":
+      value = platformStorage["applications"] + "/" + org + "/" + app;
+      break;
+    case "texts":
+      value = value =
+        platformStorage["applications"] + "/" + org + "/" + app + "/texts";
+      break;
+  }
+  return value;
+}
+
+//Function to build endpoints in storage related to an instance with instanceOwnerId, instanceId, dataId, type
+//and returns the endpoint
+export function buildInstanceUrl(instanceId, dataId, type) {
   var value = "";
   switch (type) {
     case "instanceid":
@@ -55,12 +71,12 @@ export function buildStorageUrls(instanceId, dataId, type) {
       value =
         platformStorage["instances"] + "/" + instanceId + "/data/" + dataId;
       break;
-      case "process":
-        value = platformStorage["instances"] + "/" + instanceId + "/"  + "process";
-        break;
-        case "sign":
-          value = platformStorage["instances"] + "/" + instanceId + "/"  + "sign";
-          break;
+    case "process":
+      value = platformStorage["instances"] + "/" + instanceId + "/" + "process";
+      break;
+    case "sign":
+      value = platformStorage["instances"] + "/" + instanceId + "/" + "sign";
+      break;
   }
   return value;
 }
