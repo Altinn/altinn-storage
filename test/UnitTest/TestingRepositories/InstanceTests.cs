@@ -168,6 +168,25 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         }
 
         /// <summary>
+        /// Test GetInstancesFromQuery
+        /// </summary>
+        [Fact]
+        public async Task Instance_GetInstancesFromQuery_AppId_Ok()
+        {
+            // Arrange
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone());
+
+            Dictionary<string, StringValues> queryParams = new();
+
+            // Act
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100);
+            queryParams.Add("appId", new StringValues("test-applikasjon-1"));
+
+            // Assert
+            Assert.Equal(1, instances.Count);
+        }
+
+        /// <summary>
         /// Test GetInstancesFromQuery with bad date
         /// </summary>
         [Fact]
