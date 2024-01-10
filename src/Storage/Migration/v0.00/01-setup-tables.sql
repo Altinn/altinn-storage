@@ -68,7 +68,11 @@ TABLESPACE pg_default;
 
 CREATE INDEX IF NOT EXISTS dataelements_instanceinternalId ON storage.dataelements(instanceInternalId);
 CREATE INDEX IF NOT EXISTS dataelements_instanceguid ON storage.dataelements(instanceGuid);
-CREATE INDEX IF NOT EXISTS dataelements_deletestatus_harddeleted ON storage.dataelements (id) WHERE ((element -> 'DeleteStatus'::text) -> 'IsHardDeleted'::text)::boolean;
+CREATE INDEX IF NOT EXISTS instances_isharddeleted_and_more ON storage.instances(id)
+	WHERE (instance -> 'Status' -> 'IsHardDeleted')::BOOLEAN AND
+	(
+		NOT (instance -> 'Status' -> 'IsArchived')::BOOLEAN OR (instance -> 'CompleteConfirmations') IS NOT NULL
+	);
 
 CREATE INDEX IF NOT EXISTS instanceevents_instance ON storage.instanceevents(instance);
 
