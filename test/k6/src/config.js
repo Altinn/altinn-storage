@@ -39,8 +39,9 @@ export var platformAuthentication = {
 
 //Platform Storage
 export var platformStorage = {
-  instances: "https://platform." + baseUrl + "/storage/api/v1/instances",
   applications: "https://platform." + baseUrl + "/storage/api/v1/applications",
+  instances: "https://platform." + baseUrl + "/storage/api/v1/instances",
+  sblInstances: "https://platform." + baseUrl + "/storage/api/v1/sbl/instances",
 };
 
 //Function to build endpoints in storage related to an application with org and app
@@ -76,6 +77,32 @@ export function buildInstanceUrl(instanceId, dataId, type) {
       break;
     case "sign":
       value = platformStorage["instances"] + "/" + instanceId + "/" + "sign";
+      break;
+    case "complete":
+      value =
+        platformStorage["instances"] + "/" + instanceId + "/" + "complete";
+      break;
+  }
+  return value;
+}
+
+
+//Function to build endpoints in storage related to messagebox instances
+//and returns the endpoint
+export function buildMessageboxInstanceUrl(instanceId, type) {
+  var value = "";
+  switch (type) {
+    case "search":
+      value = platformStorage["sblInstances"] + "/search";
+      break;
+    case "instanceid":
+      value = platformStorage["sblInstances"] + "/" + instanceId;
+      break;
+    case "events":
+      value = platformStorage["sblInstances"] + "/" + instanceId + "/" + "events";
+      break;
+    case "undelete":
+      value = platformStorage["sblInstances"] + "/" + instanceId + "/" + "undelete";
       break;
   }
   return value;

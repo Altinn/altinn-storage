@@ -18,6 +18,7 @@
 */
 
 import { check } from "k6";
+import * as cleanup from "../cleanup.js";
 import * as setupToken from "../setup-token.js";
 import * as setupData from "../setup-data.js";
 import { generateJUnitXML, reportPath } from "../report.js";
@@ -94,8 +95,6 @@ function TC02_GetProcessHistory(data) {
   var response, success;
   response = processApi.getProcessHistory(data.token, data.instanceId);
   var processHistory = JSON.parse(response.body);
-console.log(response);
-  console.log(JSON.stringify(processHistory));
   success = check([response, processHistory], {
     "TC02_GetProcessHistory: Get process history for instance. Status is 200": (
       r
@@ -123,18 +122,14 @@ export default function (data) {
   }
 }
 
-function teardown(data) {
-  var res = instancesApi.deleteInstanceById(data.token, data.instanceId, true);
-
-  check(res, {
-    "// Teardown // Delete instance. Status is 200": (r) => r.status === 200,
-  });
+export function teardown(data) {
+  cleanup.hardDeleteInstance(data.token, data.instanceId);
 }
 
 /*
 export function handleSummary(data) {
   let result = {};
-  result[reportPath("events.xml")] = generateJUnitXML(data, "platform-storage");
+  result[reportPath("events.xml")] = generateJUnitXML(data, "platform-storage-process");
   return result;
 }
 */

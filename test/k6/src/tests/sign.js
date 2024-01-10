@@ -20,13 +20,11 @@
 import { check } from "k6";
 import * as setupToken from "../setup-token.js";
 import * as setupData from "../setup-data.js";
+import * as cleanup from "../cleanup.js";
 import { generateJUnitXML, reportPath } from "../report.js";
 import * as dataApi from "../api/data.js";
 import * as instancesApi from "../api/instances.js";
-import * as processApi from "../api/process.js";
 import { addErrorCount, stopIterationOnFail } from "../errorhandler.js";
-let serializedProcessState = open("../data/process-task2.json");
-let pdfAttachment = open("../data/apps-test.pdf", "b");
 
 export const options = {
   thresholds: {
@@ -48,20 +46,21 @@ export function setup() {
   const org = __ENV.org;
   const app = __ENV.app;
 
-  var token = setupToken.getAltinnTokenForUser(userId, partyId, pid, username, userpassword);
+  var token = setupToken.getAltinnTokenForUser(
+    userId,
+    partyId,
+    pid,
+    username,
+    userpassword
+  );
   if (!partyId) {
     partyId = setupToken.getPartyIdFromTokenClaim(userToken);
   }
 
-  const instanceId = setupData.getInstanceForTest(
-    token,
-    partyId,
-    org,
-    app
-  );
+  const instanceId = setupData.getInstanceForTest(token, partyId, org, app);
 
-  const dataElementId = setupAttachmentsForTest(token, instanceId);
-  pushInstanceToNextStep(token, instanceId);
+  const dataElementId = setupData.addPdfAttachmentToInstance(token, instanceId);
+  setupData.pushInstanceToTask2_Signing(token, instanceId, "signing");
 
   var signRequest = {
     signatureDocumentDataType: "signature",
@@ -155,61 +154,14 @@ export default function (data) {
   }
 }
 
-function setupAttachmentsForTest(token, instanceId) {
-  var queryParams = {
-    dataType: "attachment",
-  };
-
-  var res = dataApi.postData(
-    token,
-    instanceId,
-    pdfAttachment,
-    "pdf",
-    queryParams
-  );
-
-  var success = check(res, {
-    "// Setup // Generate data element for test case. Status is 201": (r) =>
-      r.status === 201,
-  });
-  addErrorCount(success);
-  stopIterationOnFail(
-    "// Setup // Generate data element for test case. Failed",
-    success,
-    res
-  );
-
-  return JSON.parse(res.body)["id"];
-}
-
-function pushInstanceToNextStep(token, instanceId) {
-  var res = processApi.putProcess(token, instanceId, serializedProcessState);
-
-  var success = check(res, {
-    "// Setup // Push process to next task. Status is 200": (r) =>
-      r.status === 200,
-  });
-
-  addErrorCount(success);
-  stopIterationOnFail(
-    "// Setup // Push process to next task. Failed",
-    success,
-    res
-  );
-}
-
 export function teardown(data) {
-  var res = instancesApi.deleteInstanceById(data.token, data.instanceId, true);
-
-  check(res, {
-    "// Teardown // Delete instance. Status is 200": (r) => r.status === 200,
-  });
+  cleanup.hardDeleteInstance(data.token, data.instanceId);
 }
 
 /*
 export function handleSummary(data) {
   let result = {};
-  result[reportPath("events.xml")] = generateJUnitXML(data, "platform-storage");
+  result[reportPath("events.xml")] = generateJUnitXML(data, "platform-storage-sign");
   return result;
 }
 */

@@ -18,6 +18,7 @@
 */
 
 import { check } from "k6";
+import * as cleanup from "../cleanup.js";
 import * as setupToken from "../setup-token.js";
 import * as setupData from "../setup-data.js";
 
@@ -180,17 +181,13 @@ export default function (data) {
 }
 
 export function teardown(data) {
-  var res = instancesApi.deleteInstanceById(data.token, data.instanceId, true);
-
-  if (res.status != 200) {
-    console.log("teardown failed");
-  }
+  cleanup.hardDeleteInstance(data.token, data.instanceId);
 }
 
 /*
 export function handleSummary(data) {
   let result = {};
-  result[reportPath("events.xml")] = generateJUnitXML(data, "platform-storage");
+  result[reportPath("events.xml")] = generateJUnitXML(data, "platform-storage-data");
   return result;
 }
 */

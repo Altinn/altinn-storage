@@ -26,15 +26,9 @@ export function postInstance(token, partyId, org, app, serializedInstance) {
 }
 
 //Api call to Storage:Instances to get an instance by id and return response
-export function getInstanceById(
-  token,
-  instanceId
-) {
+export function getInstanceById(token, instanceId) {
   var endpoint = config.buildInstanceUrl(instanceId, "", "instanceid");
-  var params = apiHelper.buildHeaderWithBearer(
-    token,
-    "platform"
-  );
+  var params = apiHelper.buildHeaderWithBearer(token, "platform");
   return http.get(endpoint, params);
 }
 
@@ -50,14 +44,21 @@ export function deleteInstanceById(token, instanceId, hardDelete) {
 
 //Api call to Storage:Instances to sign data elements on an instance and return response
 export function signInstance(token, instanceId, signRequest) {
-  var endpoint =
-    config.buildInstanceUrl(instanceId, "", "sign");
+  var endpoint = config.buildInstanceUrl(instanceId, "", "sign");
   var params = apiHelper.buildHeaderWithBearerAndContentType(
     token,
     "application/json"
   );
 
   return http.post(endpoint, JSON.stringify(signRequest), params);
+}
+
+//Api call to Storage:Instances to complete confirm an instance and return response
+export function completeInstance(token, instanceId) {
+  var endpoint = config.buildInstanceUrl(instanceId, "", "complete");
+  var params = apiHelper.buildHeaderWithBearer(token);
+
+  return http.post(endpoint, params);
 }
 
 //Function to build input json for creation of instance with app, instanceOwner details and returns a JSON object
