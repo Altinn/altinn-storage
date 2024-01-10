@@ -30,7 +30,7 @@ export function getInstanceById(
   token,
   instanceId
 ) {
-  var endpoint = config.buildStorageUrls(instanceId, "", "instanceid");
+  var endpoint = config.buildInstanceUrl(instanceId, "", "instanceid");
   var params = apiHelper.buildHeaderWithBearer(
     token,
     "platform"
@@ -41,7 +41,7 @@ export function getInstanceById(
 //Api call to Storage:Instances to soft/hard delete an instance by id and return response
 export function deleteInstanceById(token, instanceId, hardDelete) {
   var endpoint =
-    config.buildStorageUrls(instanceId, "", "instanceid") +
+    config.buildInstanceUrl(instanceId, "", "instanceid") +
     "?hard=" +
     hardDelete;
   var params = apiHelper.buildHeaderWithBearer(token);
@@ -51,7 +51,7 @@ export function deleteInstanceById(token, instanceId, hardDelete) {
 //Api call to Storage:Instances to sign data elements on an instance and return response
 export function signInstance(token, instanceId, signRequest) {
   var endpoint =
-    config.buildStorageUrls(instanceId, "", "sign");
+    config.buildInstanceUrl(instanceId, "", "sign");
   var params = apiHelper.buildHeaderWithBearerAndContentType(
     token,
     "application/json"

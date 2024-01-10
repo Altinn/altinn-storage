@@ -18,13 +18,14 @@
 */
 
 import { check } from "k6";
-import * as setupToken from "../setup.js";
+import * as setupToken from "../setup-token.js";
+import * as setupData from "../setup-data.js";
 import { generateJUnitXML, reportPath } from "../report.js";
 import * as dataApi from "../api/data.js";
 import * as instancesApi from "../api/instances.js";
 import * as processApi from "../api/process.js";
 import { addErrorCount, stopIterationOnFail } from "../errorhandler.js";
-let serializedInstance = open("../data/instance.json");
+let serializedProcessState = open("../data/process-task2.json");
 let pdfAttachment = open("../data/apps-test.pdf", "b");
 
 export const options = {
@@ -52,8 +53,7 @@ export function setup() {
     partyId = setupToken.getPartyIdFromTokenClaim(userToken);
   }
 
-
-  const instanceId = setupInstanceForTest(
+  const instanceId = setupData.getInstanceForTest(
     token,
     partyId,
     org,
@@ -99,6 +99,7 @@ function Test_Instance_Sign(data) {
   var success = check(res, {
     "Test_Instance_Sign: Sign instance. Status is 201": (r) => r.status === 201,
   });
+
   addErrorCount(success);
   stopIterationOnFail(
     "Test_Instance_Sign: Sign instance. Failed",
@@ -154,29 +155,6 @@ export default function (data) {
   }
 }
 
-function setupInstanceForTest(token, partyId) {
-  var res = instancesApi.postInstance(
-    token,
-    partyId,
-    __ENV.org,
-    __ENV.app,
-    serializedInstance
-  );
-
-  var success = check(res, {
-    "// Setup // Generating instance for test. Success": (r) =>
-      r.status === 201,
-  });
-  addErrorCount(success);
-  stopIterationOnFail(
-    "// Setup // Generating instance for test. Failed",
-    success,
-    res
-  );
-
-  return JSON.parse(res.body)["id"];
-}
-
 function setupAttachmentsForTest(token, instanceId) {
   var queryParams = {
     dataType: "attachment",
@@ -205,20 +183,7 @@ function setupAttachmentsForTest(token, instanceId) {
 }
 
 function pushInstanceToNextStep(token, instanceId) {
-  var process = {
-    started: "2023-06-09T10:59:42.653Z",
-    startEvent: "string",
-    currentTask: {
-      flow: 2,
-      started: "2023-06-10T10:59:42.653Z",
-      elementId: "Task_2",
-      name: "Signering",
-      altinnTaskType: "signing",
-      flowType: "CompleteCurrentMoveToNext",
-    },
-  };
-
-  var res = processApi.putProcess(token, instanceId, JSON.stringify(process));
+  var res = processApi.putProcess(token, instanceId, serializedProcessState);
 
   var success = check(res, {
     "// Setup // Push process to next task. Status is 200": (r) =>

@@ -62,7 +62,7 @@ function generateToken(endpoint) {
   var response = http.get(endpoint, params);
 
   if (response.status != 200) {
-    stopIterationOnFail("// TokenGenerator // Token generation failed", false, response);
+    stopIterationOnFail("// Setup // Token generation failed", false, response);
   }
 
   var token = response.body;

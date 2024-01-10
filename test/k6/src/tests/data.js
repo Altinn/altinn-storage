@@ -18,14 +18,13 @@
 */
 
 import { check } from "k6";
-import * as setupToken from "../setup.js";
-import { uuidv4 } from "https://jslib.k6.io/k6-utils/1.4.0/index.js";
+import * as setupToken from "../setup-token.js";
+import * as setupData from "../setup-data.js";
 
 import { generateJUnitXML, reportPath } from "../report.js";
 import * as dataApi from "../api/data.js";
 import * as instancesApi from "../api/instances.js";
 import { addErrorCount, stopIterationOnFail } from "../errorhandler.js";
-let serializedInstance = open("../data/instance.json");
 let pdfAttachment = open("../data/apps-test.pdf", "b");
 
 export const options = {
@@ -54,7 +53,7 @@ export function setup() {
     partyId = setupToken.getPartyIdFromTokenClaim(userToken);
   }
 
-  const instanceId = setupInstanceForTest(
+  const instanceId =setupData.getInstanceForTest(
     token,
     partyId,
     org,
@@ -186,28 +185,6 @@ export function teardown(data) {
   if (res.status != 200) {
     console.log("teardown failed");
   }
-}
-
-function setupInstanceForTest(token, partyId) {
-  var res = instancesApi.postInstance(
-    token,
-    partyId,
-    __ENV.org,
-    __ENV.app,
-    serializedInstance
-  );
-
-  var success = check(res, {
-    "// Setup // Generating instance for test Success": (r) => r.status === 201,
-  });
-  addErrorCount(success);
-  stopIterationOnFail(
-    "// Setup // Generating instance for test Failed",
-    success,
-    res
-  );
-
-  return JSON.parse(res.body)["id"];
 }
 
 /*

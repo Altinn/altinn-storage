@@ -11,7 +11,7 @@ export function postData(
   queryParams
 ) {
   var endpoint =
-    config.buildStorageUrls(instanceId, "", "instanceid") + "/data";
+    config.buildInstanceUrl(instanceId, "", "instanceid") + "/data";
 
   endpoint +=
     queryParams != null
@@ -35,7 +35,7 @@ export function putData(
   attachmentType,
   attachmentContent
 ) {
-  var endpoint = config.buildStorageUrls(instanceId, dataId, "dataid");
+  var endpoint = config.buildInstanceUrl(instanceId, dataId, "dataid");
   var isBinaryAttachment = typeof data === "object" ? true : false;
   var params = apiHelper.buildHeadersForData(
     isBinaryAttachment,
@@ -54,7 +54,7 @@ export function getDataFromSelfLink(token, platformSelfLink){
 //Api call to Platform:Storage to lock a data element and returns the response
 export function lockData(token, instanceId, dataId) {
   var endpoint =
-    config.buildStorageUrls(instanceId, dataId, "dataid") + "/lock";
+    config.buildInstanceUrl(instanceId, dataId, "dataid") + "/lock";
   var params = apiHelper.buildHeaderWithBearer(token);
 
   return http.put(endpoint, null, params);
@@ -63,7 +63,7 @@ export function lockData(token, instanceId, dataId) {
 //Api call to Platform:Storage to unlock a data element and returns the response
 export function unlockData(token, instanceId, dataId) {
   var endpoint =
-    config.buildStorageUrls(instanceId, dataId, "dataid") + "/lock";
+    config.buildInstanceUrl(instanceId, dataId, "dataid") + "/lock";
   var params = apiHelper.buildHeaderWithBearer(token);
 
   return http.del(endpoint, null, params);
