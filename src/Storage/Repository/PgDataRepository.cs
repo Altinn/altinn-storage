@@ -188,7 +188,7 @@ namespace Altinn.Platform.Storage.Repository
             {
                 try
                 {
-                    return await UpdateInternal(instanceGuid, dataElementId, propertylist);
+                    return await UpdateInternal(dataElementId, propertylist);
                 }
                 catch (PostgresException e)
                 {
@@ -207,7 +207,7 @@ namespace Altinn.Platform.Storage.Repository
             throw exceptionToRethrow;
         }
 
-        private async Task<DataElement> UpdateInternal(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertylist)
+        private async Task<DataElement> UpdateInternal(Guid dataElementId, Dictionary<string, object> propertylist)
         {
             if (propertylist.Count > 10)
             {
