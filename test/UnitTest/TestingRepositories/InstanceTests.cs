@@ -167,6 +167,48 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             Assert.Equal(1, instances1.Count);
         }
 
+        /// <summary>
+        /// Test GetInstancesFromQuery
+        /// </summary>
+        [Fact]
+        public async Task Instance_GetInstancesFromQuery_AppId_Ok()
+        {
+            // Arrange
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone());
+
+            Dictionary<string, StringValues> queryParams = new();
+
+            // Act
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100);
+            queryParams.Add("appId", new StringValues("test-applikasjon-1"));
+
+            // Assert
+            Assert.Equal(1, instances.Count);
+        }
+
+        /// <summary>
+        /// Test GetInstancesFromQuery with bad date
+        /// </summary>
+        [Fact]
+        public async Task Instance_GetInstancesFromQuery_InvalidDate()
+        {
+            // Arrange
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone());
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_2.Clone());
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_3.Clone());
+
+            Dictionary<string, StringValues> queryParams = new();
+
+            // Act
+            queryParams.Add("instanceOwner.partyId", new StringValues(TestData.Instance_1_3.InstanceOwner.PartyId));
+            queryParams.Add("process.ended", new StringValues("true"));
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100);
+
+            // Assert
+            Assert.Equal(0, instances.Count);
+            Assert.NotNull(instances.Exception);
+        }
+
         private async Task<Instance> InsertInstanceAndDataHardDelete(Instance instance, DataElement dataelement)
         {
             dataelement.DeleteStatus = new() { IsHardDeleted = true, HardDeleted = DateTime.Now.AddDays(-8).ToUniversalTime() };

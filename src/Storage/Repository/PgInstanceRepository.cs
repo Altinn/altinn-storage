@@ -506,10 +506,17 @@ namespace Altinn.Platform.Storage.Repository
         {
             foreach (string value in queryValues)
             {
-                string @operator = value.Split(':')[0];
-                string dateValue = value[(@operator.Length + 1)..];
-                string postgresParamName = GetPgParamName($"{dateParam}_{@operator}");
-                postgresParams.Add(postgresParamName, valueAsString ? dateValue : DateTimeHelper.ParseAndConvertToUniversalTime(dateValue));
+                try
+                {
+                    string @operator = value.Split(':')[0];
+                    string dateValue = value[(@operator.Length + 1)..];
+                    string postgresParamName = GetPgParamName($"{dateParam}_{@operator}");
+                    postgresParams.Add(postgresParamName, valueAsString ? dateValue : DateTimeHelper.ParseAndConvertToUniversalTime(dateValue));
+                }
+                catch
+                {
+                    throw new ArgumentException($"Invalid date expression: {value} for query key: {dateParam}");
+                }
             }
         }
 

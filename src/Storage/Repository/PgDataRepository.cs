@@ -181,6 +181,34 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<DataElement> Update(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertylist)
         {
+            // Retry loop below because Postgres doesn't lock the element between the read and the following update
+            // even if it's in a transaction with repeatable read.
+            PostgresException exceptionToRethrow = null;
+            for (int i = 0; i < 10; i++)
+            {
+                try
+                {
+                    return await UpdateInternal(dataElementId, propertylist);
+                }
+                catch (PostgresException e)
+                {
+                    if (e.Message == "40001: could not serialize access due to concurrent update")
+                    {
+                        exceptionToRethrow = e;
+                        await Task.Delay(100);
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
+            }
+
+            throw exceptionToRethrow;
+        }
+
+        private async Task<DataElement> UpdateInternal(Guid dataElementId, Dictionary<string, object> propertylist)
+        {
             if (propertylist.Count > 10)
             {
                 throw new ArgumentOutOfRangeException(nameof(propertylist), "PropertyList can contain at most 10 entries.");
