@@ -1,5 +1,4 @@
 import { check } from "k6";
-import * as setupToken from "./setup-token.js";
 import * as instancesApi from "./api/instances.js";
 
 export function hardDeleteInstance(token, instanceId) {

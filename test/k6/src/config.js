@@ -82,10 +82,25 @@ export function buildInstanceUrl(instanceId, dataId, type) {
       value =
         platformStorage["instances"] + "/" + instanceId + "/" + "complete";
       break;
+    case "readstatus":
+      value =
+        platformStorage["instances"] + "/" + instanceId + "/" + "readstatus";
+      break;
+    case "presentationtexts":
+      value =
+        platformStorage["instances"] +
+        "/" +
+        instanceId +
+        "/" +
+        "presentationtexts";
+      break;
+    case "datavalues":
+      value =
+        platformStorage["instances"] + "/" + instanceId + "/" + "datavalues";
+      break;
   }
   return value;
 }
-
 
 //Function to build endpoints in storage related to messagebox instances
 //and returns the endpoint
@@ -99,10 +114,12 @@ export function buildMessageboxInstanceUrl(instanceId, type) {
       value = platformStorage["sblInstances"] + "/" + instanceId;
       break;
     case "events":
-      value = platformStorage["sblInstances"] + "/" + instanceId + "/" + "events";
+      value =
+        platformStorage["sblInstances"] + "/" + instanceId + "/" + "events";
       break;
     case "undelete":
-      value = platformStorage["sblInstances"] + "/" + instanceId + "/" + "undelete";
+      value =
+        platformStorage["sblInstances"] + "/" + instanceId + "/" + "undelete";
       break;
   }
   return value;

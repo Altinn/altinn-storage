@@ -1,7 +1,7 @@
 /*
     Test script for the data endpoint in the Storage API
     Command:
-    docker-compose run k6 run /src/tests/messageboxinstance.js `
+    docker-compose run k6 run /src/tests/messageboxinstances.js `
     -e env=*** `
     -e userId=*** `
     -e partyId=*** `

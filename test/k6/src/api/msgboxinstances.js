@@ -4,9 +4,10 @@ import * as config from "../config.js";
 import { stopIterationOnFail } from "../errorhandler.js";
 
 const sblAccesKey = __ENV.apimSblSubsKey;
-validateEnvironmentVars();
 
 export function getInstanceById(token, instanceId) {
+  validateEnvironmentVars();
+
   var endpoint = config.buildMessageboxInstanceUrl(instanceId, "instanceid");
   var params = apiHelper.buildHeaderWithBearerAndSubscriptionKey(
     token,
@@ -16,6 +17,8 @@ export function getInstanceById(token, instanceId) {
 }
 
 export function searchInstances(token, queryModel) {
+  validateEnvironmentVars();
+
   var endpoint = config.buildMessageboxInstanceUrl("", "search");
   var params = apiHelper.buildHeaderWithBearerAndSubscriptionKey(
     token,
@@ -27,6 +30,8 @@ export function searchInstances(token, queryModel) {
 }
 
 export function getInstanceEvents(token, instanceId) {
+  validateEnvironmentVars();
+
   var endpoint = config.buildMessageboxInstanceUrl(instanceId, "events");
   var params = apiHelper.buildHeaderWithBearerAndSubscriptionKey(
     token,
@@ -36,6 +41,8 @@ export function getInstanceEvents(token, instanceId) {
 }
 
 export function deleteInstance(token, instanceId, hardDelete) {
+  validateEnvironmentVars();
+
   var endpoint =
     config.buildMessageboxInstanceUrl(instanceId, "instanceid") +
     "?hard=" +
@@ -49,6 +56,8 @@ export function deleteInstance(token, instanceId, hardDelete) {
 }
 
 export function undeleteInstance(token, instanceId) {
+  validateEnvironmentVars();
+
   var endpoint = config.buildMessageboxInstanceUrl(instanceId, "undelete");
 
   var params = apiHelper.buildHeaderWithBearerAndSubscriptionKey(

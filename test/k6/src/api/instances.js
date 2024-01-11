@@ -31,13 +31,17 @@ export function getInstanceById(token, instanceId) {
   var params = apiHelper.buildHeaderWithBearer(token, "platform");
   return http.get(endpoint, params);
 }
+//Api call to Storage:Instances to get instances based on filter parameters and return response
+export function getInstances(token, filters) {
+  var endpoint = config.platformStorage["instances"];
+  endpoint += apiHelper.buildQueryParametersForEndpoint(filters);
+  var params = apiHelper.buildHeaderWithBearer(token, "platform");
+  return http.get(endpoint, params);
+}
 
 //Api call to Storage:Instances to soft/hard delete an instance by id and return response
 export function deleteInstanceById(token, instanceId, hardDelete) {
-  var endpoint =
-    config.buildInstanceUrl(instanceId, "", "instanceid") +
-    "?hard=" +
-    hardDelete;
+  var endpoint = config.buildInstanceUrl(instanceId, "", "instanceid") + "?hard=" + hardDelete;
   var params = apiHelper.buildHeaderWithBearer(token);
   return http.del(endpoint, null, params);
 }
@@ -60,6 +64,31 @@ export function completeInstance(token, instanceId) {
 
   return http.post(endpoint, params);
 }
+
+//Api call to Storage:Instances to update the read status to: Unread, Read, UpdatedSinceLastReview
+//an instance by id and return response
+export function putUpdateReadStatus(token, instanceId, readStatus) {
+  var endpoint = config.buildInstanceUrl(instanceId, "", "readstatus") + "?status=" + readStatus;
+  var params = apiHelper.buildHeaderWithBearer(token);
+  return http.put(endpoint, null, params);
+}
+
+//Api call to Storage:Instances to update the presentation texts for an instance by id and return response
+export function putUpdatePresentationTexts(token, instanceId, presentationTexts) {
+  var endpoint = config.buildInstanceUrl(instanceId, "", "presentationtexts");
+  var params = apiHelper.buildHeaderWithBearerAndContentType(token, "application/json");
+
+  return http.put(endpoint, JSON.stringify(presentationTexts), params);
+}
+
+//Api call to Storage:Instances to update the data values for an instance by id and return response
+export function putUpdateDataValues(token, instanceId, dataValues) {
+  var endpoint = config.buildInstanceUrl(instanceId, "", "datavalues");
+  var params = apiHelper.buildHeaderWithBearerAndContentType(token, "application/json");
+
+  return http.put(endpoint, JSON.stringify(dataValues), params);
+}
+
 
 //Function to build input json for creation of instance with app, instanceOwner details and returns a JSON object
 function buildInstanceInputJson(instanceJson, appId, partyId) {
