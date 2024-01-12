@@ -6,7 +6,7 @@ on:
   - cron: '*/15 * * * *'
   pull_request:
     branches:
-      - master
+      - main
     types: [opened, synchronize, reopened]
 
 jobs:
