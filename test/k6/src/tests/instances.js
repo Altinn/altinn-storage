@@ -42,8 +42,11 @@ export function setup() {
 
   const org = __ENV.org;
   const app = __ENV.app;
+  var scopes =
+    "altinn:serviceowner/instances.read altinn:serviceowner/instances.write";
+  var orgToken = setupToken.getAltinnTokenForOrg(scopes);
 
-  var token = setupToken.getAltinnTokenForUser(
+  var userToken = setupToken.getAltinnTokenForUser(
     userId,
     partyId,
     pid,
@@ -57,7 +60,8 @@ export function setup() {
 
   var data = {
     runFullTestSet: runFullTestSet,
-    token: token,
+    userToken: userToken,
+    orgToken: orgToken,
     partyId: partyId,
     org: org,
     app: app,
@@ -69,7 +73,7 @@ export function setup() {
 // TC01 - POST instance
 function TC01_PostInstance(data) {
   var res = instancesApi.postInstance(
-    data.token,
+    data.userToken,
     data.partyId,
     data.org,
     data.app,
@@ -89,7 +93,7 @@ function TC01_PostInstance(data) {
 
 // TC02 - Get instance by id
 function TC02_GetInstanceById(data) {
-  var res = instancesApi.getInstanceById(data.token, data.instanceId);
+  var res = instancesApi.getInstanceById(data.userToken, data.instanceId);
 
   var success = check(res, {
     "TC02_GetInstanceById: Get instance by id. Status is 200": (r) =>
@@ -103,7 +107,7 @@ function TC03_GetInstances_PartyFilter(data) {
   var filters = {
     "instanceOwner.partyId": data.partyId,
   };
-  var res = instancesApi.getInstances(data.token, filters);
+  var res = instancesApi.getInstances(data.userToken, filters);
 
   var success = check(res, {
     "TC03_GetAllInstancesForParty: Get instance for party. Status is 200": (
@@ -130,7 +134,7 @@ function TC04_GetInstances_IsArchivedFilter(data) {
     "status.isSoftDeleted": false,
   };
 
-  var res = instancesApi.getInstances(data.token, filters);
+  var res = instancesApi.getInstances(data.userToken, filters);
   var responseInstances = res.json("instances");
 
   var success = check(res, {
@@ -154,8 +158,8 @@ function TC04_GetInstances_IsArchivedFilter(data) {
 
 //TC05 - Set read status
 function TC05_SetReadStatus(data) {
-  var res = instancesApi.putUpdateReadStatus(
-    data.token,
+  var res = instancesApi.putReadStatus(
+    data.userToken,
     data.instanceId,
     "UpdatedSinceLastReview"
   );
@@ -178,8 +182,8 @@ function TC06_SetPresentationTexts(data) {
     },
   };
 
-  var res = instancesApi.putUpdatePresentationTexts(
-    data.token,
+  var res = instancesApi.putPresentationTexts(
+    data.userToken,
     data.instanceId,
     presentationTexts
   );
@@ -201,8 +205,8 @@ function TC07_SetDataValues(data) {
       value1: "test",
     },
   };
-  var res = instancesApi.putUpdateDataValues(
-    data.token,
+  var res = instancesApi.putDataValues(
+    data.userToken,
     data.instanceId,
     dataValues
   );
@@ -216,25 +220,71 @@ function TC07_SetDataValues(data) {
   addErrorCount(success);
 }
 
-function TC08_SoftDeleteInstance(data) {
-  var res = instancesApi.deleteInstanceById(data.token, data.instanceId, false);
+function TC08_SetSubStatus(data) {
+  var subStatus = {
+    label: "This is the label",
+    description: "This is the description",
+  };
+
+  var res = instancesApi.putSubstatus(
+    data.orgToken,
+    data.instanceId,
+    subStatus
+  );
+  var instance = res.json();
+
+  var success = check([res, instance.status], {
+    "TC08_SetSubStatus: Set sub status. Response is 200": (r) =>
+      r[0].status === 200,
+    "TC08_SetSubStatus: Set sub status. Instance sub status is updated": (r) =>
+      r[1].substatus.label == "This is the label",
+  });
+  addErrorCount(success);
+}
+
+function TC09_CompleteConfirmInstance(data) {
+  var res = instancesApi.completeInstance(
+    data.orgToken,
+    data.instanceId,
+    false
+  );
+
+  console.log(res);
+  var success = check(res, {
+    "TC09_CompleteConfirmInstance: Complete confirm instance. Status is 200": (
+      r
+    ) => r.status === 200,
+  });
+  addErrorCount(success);
+}
+
+function TC10_SoftDeleteInstance(data) {
+  var res = instancesApi.deleteInstanceById(
+    data.userToken,
+    data.instanceId,
+    false
+  );
 
   var success = check(res, {
-    "TC08_SoftDeleteInstance: Soft delete instance. Status is 200": (r) =>
+    "TC10_SoftDeleteInstance: Soft delete instance. Status is 200": (r) =>
       r.status === 200,
-    "TC08_SoftDeleteInstance: Soft delete instance. Soft DELETE date populated":
+    "TC10_SoftDeleteInstance: Soft delete instance. Soft DELETE date populated":
       (r) => JSON.parse(r.body).status.softDeleted != null,
   });
 
   addErrorCount(success);
 }
 
-function TC09_HardDeleteInstance(data) {
-  var res = instancesApi.deleteInstanceById(data.token, data.instanceId, true);
+function TC11_HardDeleteInstance(data) {
+  var res = instancesApi.deleteInstanceById(
+    data.userToken,
+    data.instanceId,
+    true
+  );
 
   var success = check(res, {
-    "TC09_HardDeleteInstance: Hard delete instance. Status is 200": (r) =>
-      r.status === 200
+    "TC11_HardDeleteInstance: Hard delete instance. Status is 200": (r) =>
+      r.status === 200,
   });
 
   addErrorCount(success);
@@ -248,8 +298,10 @@ function TC09_HardDeleteInstance(data) {
  * TC05_SetReadStatus
  * TC06_SetPresentationTexts
  * TC07_SetDataValues
- * TC08_SoftDeleteInstance
- * TC09_HardDeleteInstance
+ * TC08_SetSubStatus
+ * TC09_CompleteConfirmInstance
+ * TC10_SoftDeleteInstance
+ * TC11_HardDeleteInstance
  */
 export default function (data) {
   try {
@@ -262,10 +314,17 @@ export default function (data) {
       TC05_SetReadStatus(data);
       TC06_SetPresentationTexts(data);
       TC07_SetDataValues(data);
-      TC08_SoftDeleteInstance(data);
-      TC09_HardDeleteInstance(data);
+      TC08_SetSubStatus(data);
+      TC09_CompleteConfirmInstance(data);
+      TC10_SoftDeleteInstance(data);
+      TC11_HardDeleteInstance(data);
     } else {
       // Limited test set for use case tests
+      var instanceId = TC01_PostInstance(data);
+      data.instanceId = instanceId;
+      TC02_GetInstanceById(data);
+      TC03_GetInstances_PartyFilter(data);
+      TC11_HardDeleteInstance(data);
     }
   } catch (error) {
     addErrorCount(false);
