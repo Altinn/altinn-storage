@@ -30,16 +30,13 @@ export function getInstanceForTest(token, partyId, org, app) {
 }
 
 export function addPdfAttachmentToInstance(token, instanceId) {
-  var queryParams = {
-    dataType: "attachment",
-  };
 
   var res = dataApi.postData(
     token,
     instanceId,
     pdfAttachment,
     "pdf",
-    queryParams
+    "attachment"
   );
 
   var success = check(res, {

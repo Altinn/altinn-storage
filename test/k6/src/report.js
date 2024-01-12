@@ -1,9 +1,9 @@
 var replacements = {
-  '&': '&amp;',
-  '<': '&lt;',
-  '>': '&gt;',
-  "'": '&#39;',
-  '"': '&quot;',
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  "'": "&#39;",
+  '"': "&quot;",
 };
 
 function escapeHTML(str) {
@@ -20,11 +20,35 @@ function checksToTestcase(checks, failures) {
         testCases.push(`<testcase name="${escapeHTML(check.name)}"/>`);
       } else {
         failures++;
-        testCases.push(`<testcase name="${escapeHTML(check.name)}"><failure message="failed"/></testcase>`);
+        testCases.push(
+          `<testcase name="${escapeHTML(
+            check.name
+          )}"><failure message="failed"/></testcase>`
+        );
       }
     });
   }
   return [testCases, failures];
+}
+
+/**
+ * Generates a report file for the provided data.
+ * @param {*} data
+ * @param {string} testsuite: name of the test suite
+ * @returns junit xml string
+ */
+export function generateReport(data, testsuite) {
+  const formattedDate = new Date()
+    .toISOString()
+    .replace(/[-T:]/g, "_")
+    .slice(0, -5);
+
+  const fileName = formattedDate + ".xml";
+
+  let result = {};
+  result[reportPath(fileName)] = generateJUnitXML(data, testsuite);
+
+  return result;
 }
 
 /**
@@ -39,24 +63,31 @@ export function generateJUnitXML(data, suiteName) {
     testSubset = [];
   var time = data.state.testRunDurationMs ? data.state.testRunDurationMs : 0;
 
-  if (data.root_group.hasOwnProperty('groups') && data.root_group.groups.length > 0) {
+  if (
+    data.root_group.hasOwnProperty("groups") &&
+    data.root_group.groups.length > 0
+  ) {
     var groups = data.root_group.groups;
     groups.forEach((group) => {
       var testSubset = [];
-      if (group.hasOwnProperty('checks')) [testSubset, failures] = checksToTestcase(group.checks, failures);
+      if (group.hasOwnProperty("checks"))
+        [testSubset, failures] = checksToTestcase(group.checks, failures);
       allTests.push(...testSubset);
     });
   }
 
-  if (data.root_group.hasOwnProperty('checks')) [testSubset, failures] = checksToTestcase(data.root_group.checks, failures);
+  if (data.root_group.hasOwnProperty("checks"))
+    [testSubset, failures] = checksToTestcase(data.root_group.checks, failures);
   allTests.push(...testSubset);
 
   return (
     `<?xml version="1.0" encoding="UTF-8" ?>\n<testsuites tests="${allTests.length}" ` +
     `failures="${failures}\" time="${time}">\n` +
-    `<testsuite name="${escapeHTML(suiteName)}" tests="${allTests.length}" failures="${failures}" ` +
+    `<testsuite name="${escapeHTML(suiteName)}" tests="${
+      allTests.length
+    }" failures="${failures}" ` +
     `time="${time}" timestamp="${new Date().toISOString()}">\n` +
-    `${allTests.join('\n')}\n</testsuite>\n</testsuites>`
+    `${allTests.join("\n")}\n</testsuite>\n</testsuites>`
   );
 }
 

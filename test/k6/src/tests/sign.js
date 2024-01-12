@@ -21,7 +21,7 @@ import { check } from "k6";
 import * as setupToken from "../setup-token.js";
 import * as setupData from "../setup-data.js";
 import * as cleanup from "../cleanup.js";
-import { generateJUnitXML, reportPath } from "../report.js";
+import { generateReport } from "../report.js";
 import * as dataApi from "../api/data.js";
 import * as instancesApi from "../api/instances.js";
 import { addErrorCount, stopIterationOnFail } from "../errorhandler.js";
@@ -158,10 +158,7 @@ export function teardown(data) {
   cleanup.hardDeleteInstance(data.token, data.instanceId);
 }
 
-/*
-export function handleSummary(data) {
-  let result = {};
-  result[reportPath("events.xml")] = generateJUnitXML(data, "platform-storage-sign");
-  return result;
+/*export function handleSummary(data) {
+ return generateReport(data, "sign");
 }
 */

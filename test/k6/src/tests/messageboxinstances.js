@@ -22,8 +22,8 @@ import * as cleanup from "../cleanup.js";
 import * as setupToken from "../setup-token.js";
 import * as setupData from "../setup-data.js";
 import * as msgboxApi from "../api/msgboxinstances.js";
-import { generateJUnitXML, reportPath } from "../report.js";
-import { addErrorCount, stopIterationOnFail } from "../errorhandler.js";
+import { generateReport } from "../report.js";
+import { addErrorCount } from "../errorhandler.js";
 
 export const options = {
   thresholds: {
@@ -249,8 +249,6 @@ export function teardown(data) {
 
 /*
 export function handleSummary(data) {
-  let result = {};
-  result[reportPath("events.xml")] = generateJUnitXML(data, "platform-storage-messageboxinstances");
-  return result;
+ return generateReport(data, "messagebox");
 }
 */

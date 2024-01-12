@@ -68,23 +68,27 @@ export function buildInstanceUrl(instanceId, dataId, type) {
     case "instanceid":
       value = platformStorage["instances"] + "/" + instanceId;
       break;
-    case "dataid":
+    case "data":
       value =
         platformStorage["instances"] + "/" + instanceId + "/data/" + dataId;
       break;
+      case "dataelements":
+        value =
+          platformStorage["instances"] + "/" + instanceId + "/dataelements";
+        break;
     case "process":
-      value = platformStorage["instances"] + "/" + instanceId + "/" + "process";
+      value = platformStorage["instances"] + "/" + instanceId + "/process";
       break;
     case "sign":
-      value = platformStorage["instances"] + "/" + instanceId + "/" + "sign";
+      value = platformStorage["instances"] + "/" + instanceId + "/sign";
       break;
     case "complete":
       value =
-        platformStorage["instances"] + "/" + instanceId + "/" + "complete";
+        platformStorage["instances"] + "/" + instanceId + "/complete";
       break;
     case "readstatus":
       value =
-        platformStorage["instances"] + "/" + instanceId + "/" + "readstatus";
+        platformStorage["instances"] + "/" + instanceId + "/readstatus";
       break;
     case "presentationtexts":
       value =

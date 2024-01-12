@@ -17,11 +17,10 @@
     -e useTestTokenGenerator=true
 */
 import { check } from "k6";
-import * as cleanup from "../cleanup.js";
 import * as setupToken from "../setup-token.js";
 import * as instancesApi from "../api/instances.js";
-import { generateJUnitXML, reportPath } from "../report.js";
-import { addErrorCount, stopIterationOnFail } from "../errorhandler.js";
+import { generateReport } from "../report.js";
+import { addErrorCount } from "../errorhandler.js";
 let serializedInstance = open("../data/instance.json");
 
 export const options = {
@@ -281,8 +280,6 @@ export function teardown(data) {
 
 /*
 export function handleSummary(data) {
-  let result = {};
-  result[reportPath("events.xml")] = generateJUnitXML(data, "platform-storage-instances");
-  return result;
+ return generateReport(data, "instances");
 }
 */

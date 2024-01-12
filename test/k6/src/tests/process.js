@@ -21,10 +21,9 @@ import { check } from "k6";
 import * as cleanup from "../cleanup.js";
 import * as setupToken from "../setup-token.js";
 import * as setupData from "../setup-data.js";
-import { generateJUnitXML, reportPath } from "../report.js";
-import * as instancesApi from "../api/instances.js";
+import { generateReport } from "../report.js";
 import * as processApi from "../api/process.js";
-import { addErrorCount, stopIterationOnFail } from "../errorhandler.js";
+import { addErrorCount } from "../errorhandler.js";
 let serializedProcessState = open("../data/process-task2.json");
 
 export const options = {
@@ -128,8 +127,6 @@ export function teardown(data) {
 
 /*
 export function handleSummary(data) {
-  let result = {};
-  result[reportPath("events.xml")] = generateJUnitXML(data, "platform-storage-process");
-  return result;
+ return generateReport(data, "process");
 }
 */

@@ -12,7 +12,7 @@
 */
 import { check } from "k6";
 import * as setupToken from "../setup-token.js";
-import { generateJUnitXML, reportPath } from "../report.js";
+import { generateReport } from "../report.js";
 import * as textsApi from "../api/texts.js";
 import { addErrorCount } from "../errorhandler.js";
 
@@ -86,3 +86,9 @@ function TC02_PostNewAppText_Invalid(data) {
 
   addErrorCount(success);
 }
+
+/*
+export function handleSummary(data) {
+ return generateReport(data, "texts");
+}
+*/
