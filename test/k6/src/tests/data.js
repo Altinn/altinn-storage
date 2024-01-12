@@ -291,7 +291,6 @@ export default function (data) {
       data.formDataElementId = formDataElementId;
       TC02_GetFormDataById(data);
       TC03_UpdateFormData(data);
-      TC05_GetAllDataForInstance(data);
     }
   } catch (error) {
     addErrorCount(false);
