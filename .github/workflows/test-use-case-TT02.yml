@@ -1,0 +1,19 @@
+name: Test - Use Case - TT02
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+
+jobs:
+  usecase-test:
+    environment: TT02
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run use case tests for endpoint 'applications' again
+      uses: grafana/k6-action@v0.3.1
+      with:
+        filename: src/tests/applications.js
+        flags: -e env=${{ vars.ENV }} -e org=${{ vars.ORG }} -e app=${{ vars.APP }}
