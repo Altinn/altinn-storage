@@ -19,6 +19,14 @@ jobs:
       run: |
             cd test/k6
             docker-compose run k6 run /src/tests/applications.js -e env=${{ vars.ENV }} -e org=${{ vars.ORG }} -e app=${{ vars.APP }}
+    - name: Run use case tests for endpoint 'applications' again
+      uses: grafana/k6-action@v0.3.1
+      with:
+        filename: src/tests/applications.js
+        env: |
+          env: ${{ vars.ENV }}
+          org:  ${{ vars.ORG }}
+          app: ${{ vars.APP }}
     - name: Run use case tests for endpoint 'instances'
       if: always()
       run: |
