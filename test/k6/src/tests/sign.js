@@ -40,11 +40,11 @@ export function setup() {
   const org = __ENV.org;
   const app = __ENV.app;
 
-  const userId = __ENV.userId;
   const pid = __ENV.pid;
   const username = __ENV.username;
   const userpassword = __ENV.userpwd;
   let partyId = __ENV.partyId;
+  let userId = __ENV.userId;
 
   var userToken = setupToken.getAltinnTokenForUser(
     userId,
@@ -53,8 +53,10 @@ export function setup() {
     username,
     userpassword
   );
+
   if (!partyId) {
-    partyId = setupToken.getPartyIdFromTokenClaim(userToken);
+    partyId = setupToken.getClaimFromToken(userToken, "partyid");
+    userId = setupToken.getClaimFromToken(userToken, "userid");
   }
 
   const instanceId = setupData.getInstanceForTest(userToken, partyId, org, app);
@@ -91,7 +93,7 @@ export function setup() {
   return data;
 }
 
-function Test_Instance_Sign(data) {
+function TC01_SignInstance(data) {
   var res = instancesApi.signInstance(
     data.userToken,
     data.instanceId,
@@ -99,12 +101,12 @@ function Test_Instance_Sign(data) {
   );
 
   var success = check(res, {
-    "Test_Instance_Sign: Sign instance. Status is 201": (r) => r.status === 201,
+    "TC01_SignInstance: Sign instance. Status is 201": (r) => r.status === 201,
   });
 
   addErrorCount(success);
   stopIterationOnFail(
-    "Test_Instance_Sign: Sign instance. Failed",
+    "TC01_SignInstance: Sign instance. Failed",
     success,
     res
   );
@@ -112,14 +114,14 @@ function Test_Instance_Sign(data) {
   res = instancesApi.getInstanceById(data.userToken, data.instanceId);
   var dataElements = JSON.parse(res.body)["data"];
   success = check([res, dataElements], {
-    "Test_Instance_Sign: Get instance. Status is 200": (r) =>
+    "TC01_SignInstance: Get instance. Status is 200": (r) =>
       r[0].status === 200,
-    "Test_Instance_Sign: Get instance. Data list contains sign document": (r) =>
+    "TC01_SignInstance: Get instance. Data list contains sign document": (r) =>
       r[1].some((e) => e.dataType === "signature"),
   });
   addErrorCount(success);
   stopIterationOnFail(
-    "Test_Instance_Sign: Get instance and validate signature data element. Failed",
+    "TC01_SignInstance: Get instance and validate signature data element. Failed",
     success,
     res
   );
@@ -134,9 +136,9 @@ function Test_Instance_Sign(data) {
   );
   var retrievedSignDocument = JSON.parse(res.body);
   success = check([res, retrievedSignDocument], {
-    "Test_Instance_Sign: Get signature document. Status is 200": (r) =>
+    "TC01_SignInstance: Get signature document. Status is 200": (r) =>
       r[0].status === 200,
-    "Test_Instance_Sign: Get signature document. Validate properties": (r) =>
+    "TC01_SignInstance: Get signature document. Validate properties": (r) =>
       r[1].dataElementSignatures.length == 1 &&
       r[1].dataElementSignatures[0].dataElementId == data.attachmentId &&
       r[1].dataElementSignatures[0].sha256Hash ==
@@ -149,10 +151,10 @@ function Test_Instance_Sign(data) {
 export default function (data) {
   try {
     if (data.runFullTestSet) {
-      Test_Instance_Sign(data);
+      TC01_SignInstance(data);
     } else {
       // Limited test set for use case tests
-      Test_Instance_Sign(data);
+      TC01_SignInstance(data);
     }
   } catch (error) {
     addErrorCount(false);

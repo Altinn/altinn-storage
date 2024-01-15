@@ -7,7 +7,7 @@ const environment = __ENV.env.toLowerCase();
 
 /*
  * generate an altinn token for org based on the environment using AltinnTestTools
-* or Maskinporten depending on the environment.
+ * or Maskinporten depending on the environment.
  * If org is not provided TTD will be used.
  * @returns altinn token with the provided scopes for an org
  */
@@ -35,9 +35,9 @@ export function getAltinnTokenForUser() {
   return tokenGenerator.generatePersonalToken();
 }
 
-export function getPartyIdFromTokenClaim(jwtToken) {
+export function getAltinnClaimFromToken(jwtToken, claimName) {
   const parts = jwtToken.split(".");
   var claims = JSON.parse(b64decode(parts[1].toString(), "rawstd", "s"));
 
-  return claims["urn:altinn:partyid"];
+  return claims["urn:altinn:" + claimName];
 }

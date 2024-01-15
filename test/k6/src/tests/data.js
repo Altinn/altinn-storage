@@ -57,7 +57,7 @@ export function setup() {
   );
 
   if (!partyId) {
-    partyId = setupToken.getPartyIdFromTokenClaim(userToken);
+    partyId = setupToken.getClaimFromToken(userToken, "partyid");
   }
 
   const instanceId = setupData.getInstanceForTest(userToken, partyId, org, app);
@@ -187,35 +187,41 @@ function TC07_LockUnlockDataElement(data) {
   );
   var dataElement = res.json();
 
- var success = check([res, dataElement], {
-    "TC07_LockUnlockDataElement: Lock data element first time. Status is 201": (r) =>
-      r[0].status === 201,
+  var success = check([res, dataElement], {
+    "TC07_LockUnlockDataElement: Lock data element first time. Status is 201": (
+      r
+    ) => r[0].status === 201,
     "TC07_LockUnlockDataElement: Lock data element first time. Lock property is true":
       (r) => r[1]["locked"] === true,
   });
   addErrorCount(success);
 
-  res = dataApi.lockData(data.userToken, data.instanceId, data.formDataElementId);
+  res = dataApi.lockData(
+    data.userToken,
+    data.instanceId,
+    data.formDataElementId
+  );
   dataElement = JSON.parse(res.body);
   success = check([res, dataElement], {
-    "TC07_LockUnlockDataElement: Re-lock locked data element. Status is 200": (r) =>
-      r[0].status === 200,
-    "TC07_LockUnlockDataElement: Re-lock locked data element. Lock property is true": (r) =>
-      r[1]["locked"] === true,
+    "TC07_LockUnlockDataElement: Re-lock locked data element. Status is 200": (
+      r
+    ) => r[0].status === 200,
+    "TC07_LockUnlockDataElement: Re-lock locked data element. Lock property is true":
+      (r) => r[1]["locked"] === true,
   });
   addErrorCount(success);
 
   res = dataApi.unlockData(data.userToken, data.instanceId, dataElement["id"]);
   dataElement = JSON.parse(res.body);
   success = check([res, dataElement], {
-    "TC07_LockUnlockDataElement: Unlock locked data element. Status is 200": (r) =>
-      r[0].status === 200,
-    "TC07_LockUnlockDataElement: Unlock locked data element. Lock property is false": (r) =>
-      r[1]["locked"] === false,
+    "TC07_LockUnlockDataElement: Unlock locked data element. Status is 200": (
+      r
+    ) => r[0].status === 200,
+    "TC07_LockUnlockDataElement: Unlock locked data element. Lock property is false":
+      (r) => r[1]["locked"] === false,
   });
   addErrorCount(success);
 }
-
 
 function TC08_SetDataReferences(data) {
   var tags = {
@@ -233,9 +239,8 @@ function TC08_SetDataReferences(data) {
 
   var dataElement = JSON.parse(res.body);
   var success = check([res, dataElement.references], {
-    "TC08_SetDataReferences: Post data with generated from refs. Status is 201": (
-      r
-    ) => r[0].status === 201,
+    "TC08_SetDataReferences: Post data with generated from refs. Status is 201":
+      (r) => r[0].status === 201,
     "TC08_SetDataReferences: Post data with generated from refs. Verify number of references":
       (r) => r[1].length === 1,
   });
@@ -252,8 +257,9 @@ function TC08_SetDataReferences(data) {
   dataElement = JSON.parse(res.body);
 
   success = check([res, dataElement.references], {
-    "TC08_SetDataReferences: Put on existing data element. Status is 200": (r) =>
-      r[0].status === 200,
+    "TC08_SetDataReferences: Put on existing data element. Status is 200": (
+      r
+    ) => r[0].status === 200,
     "TC08_SetDataReferences: Put on existing data element. No references are persisted":
       (r) => r[1] === undefined,
   });
@@ -284,7 +290,6 @@ export default function (data) {
       TC06_DeleteAttachment(data);
       TC07_LockUnlockDataElement(data);
       TC08_SetDataReferences(data);
-
     } else {
       // Limited test set for use case tests
       var formDataElementId = TC01_CreateFormData(data);
@@ -307,4 +312,3 @@ export function handleSummary(data) {
  return generateReport(data, "data");
 }
 */
-

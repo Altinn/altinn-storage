@@ -55,7 +55,7 @@ export function setup() {
   );
 
   if (!partyId) {
-    partyId = setupToken.getPartyIdFromTokenClaim(userToken);
+    partyId = setupToken.getClaimFromToken(userToken, "partyid");
   }
 
   const instanceId = setupData.getInstanceForTest(userToken, partyId, org, app);

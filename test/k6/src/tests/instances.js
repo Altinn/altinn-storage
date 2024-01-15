@@ -56,7 +56,7 @@ export function setup() {
   );
 
   if (!partyId) {
-    partyId = setupToken.getPartyIdFromTokenClaim(userToken);
+    partyId = setupToken.getClaimFromToken(userToken, "partyid");
   }
 
   var data = {
