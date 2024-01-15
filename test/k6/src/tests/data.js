@@ -57,7 +57,7 @@ export function setup() {
   );
 
   if (!partyId) {
-    partyId = setupToken.getClaimFromToken(userToken, "partyid");
+    partyId = setupToken.getAltinnClaimFromToken(userToken, "partyid");
   }
 
   const instanceId = setupData.getInstanceForTest(userToken, partyId, org, app);
