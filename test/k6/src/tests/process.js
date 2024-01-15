@@ -37,16 +37,16 @@ export function setup() {
     ? __ENV.runFullTestSet.toLowerCase().includes("true")
     : false;
 
-  const userId = __ENV.userId;
-  const partyId = __ENV.partyId;
-  const pid = __ENV.pid;
-  const username = __ENV.username;
-  const userpassword = __ENV.userpwd;
-
   const org = __ENV.org;
   const app = __ENV.app;
 
-  var token = setupToken.getAltinnTokenForUser(
+  const userId = __ENV.userId;
+  const pid = __ENV.pid;
+  const username = __ENV.username;
+  const userpassword = __ENV.userpwd;
+  let partyId = __ENV.partyId;
+
+  var userToken = setupToken.getAltinnTokenForUser(
     userId,
     partyId,
     pid,
@@ -58,11 +58,11 @@ export function setup() {
     partyId = setupToken.getPartyIdFromTokenClaim(userToken);
   }
 
-  const instanceId = setupData.getInstanceForTest(token, partyId, org, app);
+  const instanceId = setupData.getInstanceForTest(userToken, partyId, org, app);
 
   var data = {
     runFullTestSet: runFullTestSet,
-    token: token,
+    userToken: userToken,
     partyId: partyId,
     instanceId: instanceId,
   };
@@ -74,7 +74,7 @@ export function setup() {
 function TC01_PutProcess(data) {
   var response, success;
   response = processApi.putProcess(
-    data.token,
+    data.userToken,
     data.instanceId,
     serializedProcessState
   );
@@ -92,7 +92,7 @@ function TC01_PutProcess(data) {
 // 02 - GET process history with valid token
 function TC02_GetProcessHistory(data) {
   var response, success;
-  response = processApi.getProcessHistory(data.token, data.instanceId);
+  response = processApi.getProcessHistory(data.userToken, data.instanceId);
   var processHistory = JSON.parse(response.body);
   success = check([response, processHistory], {
     "TC02_GetProcessHistory: Get process history for instance. Status is 200": (
@@ -113,7 +113,7 @@ export default function (data) {
       TC02_GetProcessHistory(data);
     } else {
       // Limited test set for use case tests
-      TC01_PutProcess( data);
+      TC01_PutProcess(data);
     }
   } catch (error) {
     addErrorCount(false);
@@ -122,7 +122,7 @@ export default function (data) {
 }
 
 export function teardown(data) {
-  cleanup.hardDeleteInstance(data.token, data.instanceId);
+  cleanup.hardDeleteInstance(data.userToken, data.instanceId);
 }
 
 /*

@@ -11,6 +11,7 @@ import { stopIterationOnFail, addErrorCount } from "../errorhandler.js";
 
 const userName = __ENV.userName;
 const userPassword = __ENV.userPassword;
+const aspxAuthCookieName = ".ASPXAUTH";
 
 export function exchangeToAltinnToken(token, test) {
   var endpoint = platformAuthentication.exchange + "?test=" + test;
@@ -46,6 +47,32 @@ export function authenticateUser() {
     );
   }
 
+  var aspxAuthCookie = getAspxAuth(userName, userPassword);
+  var runtimeToken = getRuntimeTokenFromCookie(aspxAuthCookie);
+  return runtimeToken;
+}
+
+function getRuntimeTokenFromCookie(cookie) {
+  var endpoint = platformAuthentication.refresh;
+
+  var params = buildHeaderWithCookie(aspxAuthCookieName, cookie);
+  var res = http.get(endpoint, params);
+  var success = check(res, {
+    "// Setup // Authentication towards Altinn 3 Success": (r) =>
+      r.status === 200,
+  });
+
+  addErrorCount(success);
+  stopIterationOnFail(
+    "// Setup // Authentication towards Altinn 3 Success",
+    success,
+    res
+  );
+
+  return res.body;
+}
+
+function getAspxAuth(userName, userPassword) {
   var endpoint = portalAuthentication.authenticateWithPwd;
 
   var requestBody = {
@@ -72,21 +99,5 @@ export function authenticateUser() {
 
   var aspxAuthCookie = res.cookies[aspxAuthCookieName][0].value;
 
-  var endpoint = platformAuthentication.refresh;
-
-  var params = buildHeaderWithCookie(aspxAuthCookieName, aspxAuthCookie);
-
-  var res = http.get(endpoint, params);
-  var success = check(res, {
-    "// Setup // Authentication towards Altinn 3 Success": (r) =>
-      r.status === 200,
-  });
-  addErrorCount(success);
-  stopIterationOnFail(
-    "// Setup // Authentication towards Altinn 3 Success",
-    success,
-    res
-  );
-
-  return res.body;
+  return aspxAuthCookie;
 }

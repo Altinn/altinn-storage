@@ -37,16 +37,16 @@ export function setup() {
     ? __ENV.runFullTestSet.toLowerCase().includes("true")
     : false;
 
-  const userId = __ENV.userId;
-  const partyId = __ENV.partyId;
-  const pid = __ENV.pid;
-  const username = __ENV.username;
-  const userpassword = __ENV.userpwd;
-
   const org = __ENV.org;
   const app = __ENV.app;
 
-  var token = setupToken.getAltinnTokenForUser(
+  const userId = __ENV.userId;
+  const pid = __ENV.pid;
+  const username = __ENV.username;
+  const userpassword = __ENV.userpwd;
+  let partyId = __ENV.partyId;
+
+  var userToken = setupToken.getAltinnTokenForUser(
     userId,
     partyId,
     pid,
@@ -57,10 +57,13 @@ export function setup() {
     partyId = setupToken.getPartyIdFromTokenClaim(userToken);
   }
 
-  const instanceId = setupData.getInstanceForTest(token, partyId, org, app);
+  const instanceId = setupData.getInstanceForTest(userToken, partyId, org, app);
 
-  const dataElementId = setupData.addPdfAttachmentToInstance(token, instanceId);
-  setupData.pushInstanceToTask2_Signing(token, instanceId, "signing");
+  const dataElementId = setupData.addPdfAttachmentToInstance(
+    userToken,
+    instanceId
+  );
+  setupData.pushInstanceToTask2_Signing(userToken, instanceId, "signing");
 
   var signRequest = {
     signatureDocumentDataType: "signature",
@@ -77,7 +80,7 @@ export function setup() {
 
   var data = {
     runFullTestSet: runFullTestSet,
-    token: token,
+    userToken: userToken,
     partyId: partyId,
     userId: userId,
     instanceId: instanceId,
@@ -90,7 +93,7 @@ export function setup() {
 
 function Test_Instance_Sign(data) {
   var res = instancesApi.signInstance(
-    data.token,
+    data.userToken,
     data.instanceId,
     data.signRequest
   );
@@ -106,7 +109,7 @@ function Test_Instance_Sign(data) {
     res
   );
 
-  res = instancesApi.getInstanceById(data.token, data.instanceId);
+  res = instancesApi.getInstanceById(data.userToken, data.instanceId);
   var dataElements = JSON.parse(res.body)["data"];
   success = check([res, dataElements], {
     "Test_Instance_Sign: Get instance. Status is 200": (r) =>
@@ -125,7 +128,10 @@ function Test_Instance_Sign(data) {
     return obj.dataType === "signature";
   });
 
-  res = dataApi.getDataFromSelfLink(data.token, dataElement.selfLinks.platform);
+  res = dataApi.getDataFromSelfLink(
+    data.userToken,
+    dataElement.selfLinks.platform
+  );
   var retrievedSignDocument = JSON.parse(res.body);
   success = check([res, retrievedSignDocument], {
     "Test_Instance_Sign: Get signature document. Status is 200": (r) =>
@@ -155,7 +161,7 @@ export default function (data) {
 }
 
 export function teardown(data) {
-  cleanup.hardDeleteInstance(data.token, data.instanceId);
+  cleanup.hardDeleteInstance(data.userToken, data.instanceId);
 }
 
 /*export function handleSummary(data) {

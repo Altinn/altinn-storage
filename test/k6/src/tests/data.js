@@ -40,15 +40,15 @@ export function setup() {
     : false;
 
   const userId = __ENV.userId;
-  const partyId = __ENV.partyId;
   const pid = __ENV.pid;
   const username = __ENV.username;
   const userpassword = __ENV.userpwd;
+  let partyId = __ENV.partyId;
 
   const org = __ENV.org;
   const app = __ENV.app;
 
-  var token = setupToken.getAltinnTokenForUser(
+  var userToken = setupToken.getAltinnTokenForUser(
     userId,
     partyId,
     pid,
@@ -60,11 +60,11 @@ export function setup() {
     partyId = setupToken.getPartyIdFromTokenClaim(userToken);
   }
 
-  const instanceId = setupData.getInstanceForTest(token, partyId, org, app);
+  const instanceId = setupData.getInstanceForTest(userToken, partyId, org, app);
 
   var data = {
     runFullTestSet: runFullTestSet,
-    token: token,
+    userToken: userToken,
     partyId: partyId,
     instanceId: instanceId,
   };
@@ -75,7 +75,7 @@ export function setup() {
 // TC01 POST form data
 function TC01_CreateFormData(data) {
   var res = dataApi.postData(
-    data.token,
+    data.userToken,
     data.instanceId,
     formDataXml,
     "xml",
@@ -98,7 +98,7 @@ function TC01_CreateFormData(data) {
 // TC02 GET form data by id
 function TC02_GetFormDataById(data) {
   var res = dataApi.getDataById(
-    data.token,
+    data.userToken,
     data.instanceId,
     data.formDataElementId
   );
@@ -113,7 +113,7 @@ function TC02_GetFormDataById(data) {
 // TC03 PUT form data
 function TC03_UpdateFormData(data) {
   var res = dataApi.putData(
-    data.token,
+    data.userToken,
     data.instanceId,
     data.formDataElementId,
     formDataXml,
@@ -131,7 +131,7 @@ function TC03_UpdateFormData(data) {
 // TC04 POST binary data
 function TC04_AddPdfAttachment(data) {
   var res = dataApi.postData(
-    data.token,
+    data.userToken,
     data.instanceId,
     pdfAttachment,
     "pdf",
@@ -152,7 +152,7 @@ function TC04_AddPdfAttachment(data) {
 
 // TC05 GET all data for instance
 function TC05_GetAllDataForInstance(data) {
-  var res = dataApi.getAllDataElements(data.token, data.instanceId);
+  var res = dataApi.getAllDataElements(data.userToken, data.instanceId);
 
   var success = check(res, {
     "TC05_GetAllDataForInstance. Get all data elements for instance. Status is 200":
@@ -166,7 +166,7 @@ function TC05_GetAllDataForInstance(data) {
 // TC06 DELETE binary data
 function TC06_DeleteAttachment(data) {
   var res = dataApi.deleteData(
-    data.token,
+    data.userToken,
     data.instanceId,
     data.attachmentDataElementId
   );
@@ -181,7 +181,7 @@ function TC06_DeleteAttachment(data) {
 // TC07 Lock and unlock data element
 function TC07_LockUnlockDataElement(data) {
   var res = dataApi.lockData(
-    data.token,
+    data.userToken,
     data.instanceId,
     data.formDataElementId
   );
@@ -195,7 +195,7 @@ function TC07_LockUnlockDataElement(data) {
   });
   addErrorCount(success);
 
-  res = dataApi.lockData(data.token, data.instanceId, data.formDataElementId);
+  res = dataApi.lockData(data.userToken, data.instanceId, data.formDataElementId);
   dataElement = JSON.parse(res.body);
   success = check([res, dataElement], {
     "TC07_LockUnlockDataElement: Re-lock locked data element. Status is 200": (r) =>
@@ -205,7 +205,7 @@ function TC07_LockUnlockDataElement(data) {
   });
   addErrorCount(success);
 
-  res = dataApi.unlockData(data.token, data.instanceId, dataElement["id"]);
+  res = dataApi.unlockData(data.userToken, data.instanceId, dataElement["id"]);
   dataElement = JSON.parse(res.body);
   success = check([res, dataElement], {
     "TC07_LockUnlockDataElement: Unlock locked data element. Status is 200": (r) =>
@@ -223,7 +223,7 @@ function TC08_SetDataReferences(data) {
   };
 
   var res = dataApi.postData(
-    data.token,
+    data.userToken,
     data.instanceId,
     pdfAttachment,
     "pdf",
@@ -242,7 +242,7 @@ function TC08_SetDataReferences(data) {
   addErrorCount(success);
 
   res = dataApi.putData(
-    data.token,
+    data.userToken,
     data.instanceId,
     dataElement["id"],
     pdfAttachment,
@@ -299,7 +299,7 @@ export default function (data) {
 }
 
 export function teardown(data) {
-  cleanup.hardDeleteInstance(data.token, data.instanceId);
+  cleanup.hardDeleteInstance(data.userToken, data.instanceId);
 }
 
 /*

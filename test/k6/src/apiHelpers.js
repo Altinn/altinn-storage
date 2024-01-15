@@ -33,6 +33,16 @@ export function buildHeaderWithBearer(token) {
   return params;
 }
 
+export function buildHeaderWithContentType(contentType) {
+  var params = {
+    headers: {
+      "Content-Type": contentType,
+    },
+  };
+
+  return params;
+}
+
 export function buildHeaderWithBearerAndSubscriptionKey(token, apimSubsKey) {
   var params = {
     headers: {
@@ -66,6 +76,17 @@ export function buildHeaderWithBearerAndContentType(token, contentType) {
 
   return params;
 }
+
+export function buildHeaderWithCookie(name, value) {
+  var params = {
+    headers: {
+      Cookie: name + "=" + value,
+    }
+  };
+
+  return params;
+}
+
 
 //Function to determine the headers for a POST/PUT data based on dataType
 export function buildHeadersForData(isBinaryAttachment, fileType, token) {

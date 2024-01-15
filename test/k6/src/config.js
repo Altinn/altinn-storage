@@ -9,9 +9,16 @@ export var baseUrls = {
   prod: "altinn.no",
 };
 
+var maskinportenBaseUrls = {
+  tt02: "https://test.maskinporten.no/",
+  prod: "https://maskinporten.no/",
+};
+
+
 //Get values from environment
 const environment = __ENV.env.toLowerCase();
 export let baseUrl = baseUrls[environment];
+let maskinportenBaseUrl = maskinportenBaseUrls[environment];
 
 //Altinn API
 export var authentication = {
@@ -32,9 +39,11 @@ export var tokenGenerator = {
 //Platform APIs
 //Authentication
 export var platformAuthentication = {
-  authentication:
-    "https://platform." + baseUrl + "/authentication/api/v1/authentication",
-  refresh: "https://platform." + baseUrl + "/authentication/api/v1/refresh",
+    refresh:
+    "https://platform." + baseUrl + "/authentication/api/v1/authentication?goto=" +
+    "https://platform." + baseUrl + "/authentication/api/v1/refresh",
+    exchange:
+    "https://platform." + baseUrl + "/authentication/api/v1/exchange/maskinporten",
 };
 
 //Platform Storage
@@ -108,3 +117,14 @@ export function buildMessageboxInstanceUrl(instanceId, type) {
   }
   return value;
 }
+
+export var portalAuthentication = {
+  authenticateWithPwd:
+    "https://" + baseUrl + "/api/authentication/authenticatewithpassword",
+};
+
+// Maskinporten
+export var maskinporten = {
+  audience: maskinportenBaseUrl,
+  token: maskinportenBaseUrl + "token",
+};

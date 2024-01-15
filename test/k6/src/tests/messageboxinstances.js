@@ -36,16 +36,16 @@ export function setup() {
     ? __ENV.runFullTestSet.toLowerCase().includes("true")
     : false;
 
-  const userId = __ENV.userId;
-  const partyId = __ENV.partyId;
-  const pid = __ENV.pid;
-  const username = __ENV.username;
-  const userpassword = __ENV.userpwd;
-
   const org = __ENV.org;
   const app = __ENV.app;
 
-  var token = setupToken.getAltinnTokenForUser(
+  const userId = __ENV.userId;
+  const pid = __ENV.pid;
+  const username = __ENV.username;
+  const userpassword = __ENV.userpwd;
+  let partyId = __ENV.partyId;
+
+  var userToken = setupToken.getAltinnTokenForUser(
     userId,
     partyId,
     pid,
@@ -57,11 +57,11 @@ export function setup() {
     partyId = setupToken.getPartyIdFromTokenClaim(userToken);
   }
 
-  const instanceId = setupData.getInstanceForTest(token, partyId, org, app);
+  const instanceId = setupData.getInstanceForTest(userToken, partyId, org, app);
 
   var data = {
     runFullTestSet: runFullTestSet,
-    token: token,
+    userToken: userToken,
     partyId: partyId,
     instanceId: instanceId,
     org: org,
@@ -73,7 +73,7 @@ export function setup() {
 
 // TC01 - GET instance by id
 function TC01_GetInstanceById(data) {
-  var res = msgboxApi.getInstanceById(data.token, data.instanceId);
+  var res = msgboxApi.getInstanceById(data.userToken, data.instanceId);
   var instance = JSON.parse(res.body);
   var success = check([res, instance], {
     "TC01_GetInstanceById: Get instance by id. Status is 200": (r) =>
@@ -92,7 +92,7 @@ function TC02_SearchActiveInstances(data) {
     instanceOwnerPartyIdList: [data.partyId],
     includeActive: "true",
   };
-  var res = msgboxApi.searchInstances(data.token, queryModel);
+  var res = msgboxApi.searchInstances(data.userToken, queryModel);
 
   var instances = JSON.parse(res.body);
   var success = check([res, instances], {
@@ -120,7 +120,7 @@ function TC03_SearchInstances(data) {
     toLastChanged: new Date().toISOString(),
   };
 
-  var res = msgboxApi.searchInstances(data.token, queryModel);
+  var res = msgboxApi.searchInstances(data.userToken, queryModel);
   var instances = JSON.parse(res.body);
 
   var success = check([res, instances], {
@@ -144,7 +144,7 @@ function TC03_SearchInstances(data) {
     language: "nb",
   };
 
-  res = msgboxApi.searchInstances(data.token, queryModel);
+  res = msgboxApi.searchInstances(data.userToken, queryModel);
 
   var instances = JSON.parse(res.body);
   var success = check([res, instances], {
@@ -165,7 +165,7 @@ function TC03_SearchInstances(data) {
 
 // TC04 - GET instance events
 function TC04_GetInstanceEvents(data) {
-  var res = msgboxApi.getInstanceEvents(data.token, data.instanceId);
+  var res = msgboxApi.getInstanceEvents(data.userToken, data.instanceId);
   var events = JSON.parse(res.body);
 
   var success = check([res, events], {
@@ -182,7 +182,7 @@ function TC04_GetInstanceEvents(data) {
 
 // TC05 - DELETE soft delete instance
 function TC05_SoftDeleteInstance(data) {
-  var res = msgboxApi.deleteInstance(data.token, data.instanceId, false);
+  var res = msgboxApi.deleteInstance(data.userToken, data.instanceId, false);
   var success = check([res], {
     "TC05_SoftDeleteInstance: Soft delete instance. Status is 200": (r) =>
       r[0].status === 200,
@@ -192,7 +192,7 @@ function TC05_SoftDeleteInstance(data) {
 
 // TC06 - PUT undelete instance
 function TC06_UndeleteInstance(data) {
-  var res = msgboxApi.undeleteInstance(data.token, data.instanceId);
+  var res = msgboxApi.undeleteInstance(data.userToken, data.instanceId);
   var success = check(res, {
     "TC06_UndeleteInstance: Undelete instance. Status is 200": (r) =>
       r.status === 200,
@@ -203,7 +203,7 @@ function TC06_UndeleteInstance(data) {
 
 // TC07 - DELETE hard delete instance
 function TC07_HardDeleteInstance(data) {
-  var res = msgboxApi.deleteInstance(data.token, data.instanceId, true);
+  var res = msgboxApi.deleteInstance(data.userToken, data.instanceId, true);
   var success = check([res], {
     "TC07_HardDeleteInstance: Hard delete instance. Status is 200": (r) =>
       r[0].status === 200,
@@ -244,7 +244,7 @@ export default function (data) {
 }
 
 export function teardown(data) {
-  cleanup.hardDeleteInstance(data.token, data.instanceId);
+  cleanup.hardDeleteInstance(data.userToken, data.instanceId);
 }
 
 /*

@@ -34,14 +34,15 @@ export function setup() {
     ? __ENV.runFullTestSet.toLowerCase().includes("true")
     : false;
 
+  const org = __ENV.org;
+  const app = __ENV.app;
+
   const userId = __ENV.userId;
-  const partyId = __ENV.partyId;
   const pid = __ENV.pid;
   const username = __ENV.username;
   const userpassword = __ENV.userpwd;
+  let partyId = __ENV.partyId;
 
-  const org = __ENV.org;
-  const app = __ENV.app;
   var scopes =
     "altinn:serviceowner/instances.read altinn:serviceowner/instances.write";
   var orgToken = setupToken.getAltinnTokenForOrg(scopes);

@@ -26,7 +26,7 @@ export function setup() {
   var scopes = "altinn:serviceowner";
   const app = __ENV.app.toLowerCase();
   const org = "ttd";
-  var token = setupToken.getAltinnTokenForOrg(scopes);
+  var orgToken = setupToken.getAltinnTokenForOrg(scopes);
 
   const runFullTestSet = __ENV.runFullTestSet
     ? __ENV.runFullTestSet.toLowerCase().includes("true")
@@ -34,7 +34,7 @@ export function setup() {
 
   var data = {
     runFullTestSet: runFullTestSet,
-    token: token,
+    orgToken: orgToken,
     org: org,
     app: app,
   };
@@ -61,7 +61,7 @@ export default function (data) {
 function TC01_GetAppTexts(data) {
   var response, success;
 
-  response = textsApi.getTexts(data.token, data.org, data.app, "nb");
+  response = textsApi.getTexts(data.orgToken, data.org, data.app, "nb");
   success = check(response, {
     "GET App texts is 200": (r) => r.status === 200,
   });
@@ -73,15 +73,15 @@ function TC02_PostNewAppText_Invalid(data) {
   var response, success;
 
   response = textsApi.postText(
-    data.token,
+    data.orgToken,
     data.org,
     data.app,
     JSON.stringify(data.texts)
   );
 
   success = check(response, {
-    "POST new app text missing APIM subscription key . Status is 401": (r) =>
-      r.status === 401,
+    "POST new app text missing APIM subscription key . Status is 403": (r) =>
+      r.status === 403,
   });
 
   addErrorCount(success);
