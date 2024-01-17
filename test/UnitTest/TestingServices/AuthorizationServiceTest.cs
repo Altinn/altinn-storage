@@ -164,7 +164,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         /// Expected: An empty list is returned.
         /// </summary>
         [Fact]
-        public async void AuthorizeMesseageBoxInstances_TC01_EmptyList()
+        public async Task AuthorizeMesseageBoxInstances_TC01_EmptyList()
         {
             // Arrange
             List<MessageBoxInstance> expected = new List<MessageBoxInstance>();

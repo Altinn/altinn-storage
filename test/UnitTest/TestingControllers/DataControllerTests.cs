@@ -65,7 +65,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Created 
         /// </summary>
         [Fact]
-        public async void Post_NewData_Ok()
+        public async Task Post_NewData_Ok()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
             HttpContent content = new StringContent("This is a blob file");
@@ -78,7 +78,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void Post_NewDataThatRequiresFileScan_Ok()
+        public async Task Post_NewDataThatRequiresFileScan_Ok()
         {
             // Arrange
             string dataPathWithData = $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
@@ -113,7 +113,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Created 
         /// </summary>
         [Fact]
-        public async void Post_NewData_NotAuthorized()
+        public async Task Post_NewData_NotAuthorized()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/1337/69c259d1-9c1f-4ab6-9d8b-5c210042dc4f/data";
             HttpContent content = new StringContent("This is a blob file");
@@ -134,7 +134,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Created 
         /// </summary>
         [Fact]
-        public async void Post_NewData_ToLowAuthenticationLevel()
+        public async Task Post_NewData_ToLowAuthenticationLevel()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/1337/69c259d1-9c1f-4ab6-9d8b-5c210042dc4f/data";
             HttpContent content = new StringContent("This is a blob file");
@@ -155,7 +155,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Created 
         /// </summary>
         [Fact]
-        public async void OverwriteData_UpdateData_Ok()
+        public async Task OverwriteData_UpdateData_Ok()
         {
             // Arrange
             string dataPathWithData = $"{_versionPrefix}/instances/1337/649388f0-a2c0-4774-bd11-c870223ed819/data/11f7c994-6681-47a1-9626-fcf6c27308a5";
@@ -177,7 +177,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void OverwriteData_UpdateDataOnDataTypeWithFileScan_StartsFileScan()
+        public async Task OverwriteData_UpdateDataOnDataTypeWithFileScan_StartsFileScan()
         {
             // Arrange
             string dataPathWithData = $"{_versionPrefix}/instances/1337/649388f0-a2c0-4774-bd11-c870223ed819/data/50c60b30-cb9a-435b-a31e-bbce47c2b936";
@@ -204,7 +204,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void OverwriteData_DataElementDoesNotExist_ReturnsNotFound()
+        public async Task OverwriteData_DataElementDoesNotExist_ReturnsNotFound()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/1337/649388f0-a2c0-4774-bd11-c870223ed819/data/11111111-6681-47a1-9626-fcf6c27308a5";
             HttpContent content = new StringContent("This is a blob file with updated data");
@@ -225,7 +225,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Created 
         /// </summary>
         [Fact]
-        public async void OverwriteData_UpdateData_Conflict()
+        public async Task OverwriteData_UpdateData_Conflict()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/1337/6aa47207-f089-4c11-9cb2-f00af6f66a47/data/24bfec2e-c4ce-4e82-8fa9-aa39da329fd5";
             HttpContent content = new StringContent("This is a blob file with updated data");
@@ -238,7 +238,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void Delete_DataElement_Ok()
+        public async Task Delete_DataElement_Ok()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/1337/649388f0-a2c0-4774-bd11-c870223ed819/data/11f7c994-6681-47a1-9626-fcf6c27308a5";
 
@@ -250,7 +250,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void Delete_DataElementDoesNotExist_ReturnsNotFound()
+        public async Task Delete_DataElementDoesNotExist_ReturnsNotFound()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/1337/649388f0-a2c0-4774-bd11-c870223ed819/data/11111111-6681-47a1-9626-fcf6c27308a5";
 
@@ -262,7 +262,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void Delete_DataElement_NotAuthorized()
+        public async Task Delete_DataElement_NotAuthorized()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/1337/649388f0-a2c0-4774-bd11-c870223ed819/data/11f7c994-6681-47a1-9626-fcf6c27308a5";
 
@@ -274,7 +274,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void Get_DataElement_Ok()
+        public async Task Get_DataElement_Ok()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/data/f4feb26c-8eed-4d1d-9d75-9239c40724e9";
 
@@ -286,7 +286,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void Get_DataElementDoesNotExists_ReturnsNotFound()
+        public async Task Get_DataElementDoesNotExists_ReturnsNotFound()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/data/11111111-8eed-4d1d-9d75-9239c40724e9";
 
@@ -298,7 +298,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void Get_DataElements_Ok()
+        public async Task Get_DataElements_Ok()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/dataelements/";
 
@@ -310,7 +310,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void Get_DataElementsAsEndUser_HardDeletedFilteredOut()
+        public async Task Get_DataElementsAsEndUser_HardDeletedFilteredOut()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/dataelements/";
             int expectedCount = 2;
@@ -326,7 +326,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void Get_DataElementsAsAppOwner_HardDeletedIncluded()
+        public async Task Get_DataElementsAsAppOwner_HardDeletedIncluded()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/dataelements/";
             int expectedCount = 3;
@@ -342,7 +342,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void Get_DataElements_To_Low_Auth_Level()
+        public async Task Get_DataElements_To_Low_Auth_Level()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/dataelements/";
 
@@ -354,7 +354,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void Get_DataElements_NotAuthorized()
+        public async Task Get_DataElements_NotAuthorized()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/dataelements/";
 
@@ -366,7 +366,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void Get_DataElement_NotAuthorized()
+        public async Task Get_DataElement_NotAuthorized()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/data/f4feb26c-8eed-4d1d-9d75-9239c40724e9";
 
@@ -378,7 +378,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void Get_DataElement_ToLowAuthenticationLevel()
+        public async Task Get_DataElement_ToLowAuthenticationLevel()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/data/f4feb26c-8eed-4d1d-9d75-9239c40724e9";
 
@@ -390,7 +390,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void Get_DataElement_Org_Ok()
+        public async Task Get_DataElement_Org_Ok()
         {
             // Arrange
             string dataPathWithData = $"{_versionPrefix}/instances/1337/ca9da17c-904a-44d2-9771-a5420acfbcf3/data/28023597-516b-4a71-a77c-d3736912abd5";
@@ -406,7 +406,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void Get_DataElementAsEndUser_HardDeleted_NotFound()
+        public async Task Get_DataElementAsEndUser_HardDeleted_NotFound()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe88";
 
@@ -418,7 +418,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void Get_DataElementAsAppOwner_HardDeletedIncluded()
+        public async Task Get_DataElementAsAppOwner_HardDeletedIncluded()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe88";
 
@@ -430,7 +430,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void Delete_Delayed_AutoDeleteMissing_BadRequest()
+        public async Task Delete_Delayed_AutoDeleteMissing_BadRequest()
         {
             // Arrange
             string dataPathWithData = $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/data/f4feb26c-8eed-4d1d-9d75-9239c40724e9?delay=true";
@@ -448,7 +448,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void Delete_Delayed_UpdateMethodCalledInRepository()
+        public async Task Delete_Delayed_UpdateMethodCalledInRepository()
         {
             // Arrange
             DataElement de = TestDataUtil.GetDataElement("887c5e56-6f73-494a-9730-6ebd11bffe30");
@@ -504,7 +504,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void Delete_Immediate_DeleteMethodCalledInRepository()
+        public async Task Delete_Immediate_DeleteMethodCalledInRepository()
         {
             // Arrange
             DataElement de = TestDataUtil.GetDataElement("887c5e56-6f73-494a-9730-6ebd11bffe30");
@@ -535,7 +535,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void Delete_EndUserDeletingAlreadyDeletedElement_NotFound()
+        public async Task Delete_EndUserDeletingAlreadyDeletedElement_NotFound()
         {
             // Arrange      
             string dataPathWithData = $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe88";
@@ -550,7 +550,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void Delete_OrgDeletingAlreadyDeletedElement_RepositoryUpdateNotCalled()
+        public async Task Delete_OrgDeletingAlreadyDeletedElement_RepositoryUpdateNotCalled()
         {
             // Arrange
             DataElement de = TestDataUtil.GetDataElement("887c5e56-6f73-494a-9730-6ebd11bffe88");
@@ -581,7 +581,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   Response code is successful.
         /// </summary>
         [Fact]
-        public async void PutFileScanStatus_PlatformAccessIncluded_Ok()
+        public async Task PutFileScanStatus_PlatformAccessIncluded_Ok()
         {
             // Arrange
             string dataPathWithData = $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
@@ -626,7 +626,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   Response code is Forbidden.
         /// </summary>
         [Fact]
-        public async void PutFileScanStatusAsEndUser_MissingPlatformAccess_Forbidden()
+        public async Task PutFileScanStatusAsEndUser_MissingPlatformAccess_Forbidden()
         {
             // Arrange
             string dataPathWithData = $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";

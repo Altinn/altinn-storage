@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Threading.Tasks;
+
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Clients;
@@ -57,7 +59,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void User_with_write_is_allowed_to_lock()
+        public async Task User_with_write_is_allowed_to_lock()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dccc/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
 
@@ -71,7 +73,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
         
         [Fact]
-        public async void User_with_write_is_allowed_to_lock_already_locked_dataelement()
+        public async Task User_with_write_is_allowed_to_lock_already_locked_dataelement()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
 
@@ -85,7 +87,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
         
         [Fact]
-        public async void PUT_lock_return_NotFound_when_datalement_not_present()
+        public async Task PUT_lock_return_NotFound_when_datalement_not_present()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff00/lock";
 
@@ -97,7 +99,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
         
         [Fact]
-        public async void User_with_read_write_unlock_is_allowed_to_lock()
+        public async Task User_with_read_write_unlock_is_allowed_to_lock()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dccc/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
 
@@ -111,7 +113,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
         
         [Fact]
-        public async void User_with_read_is_not_allowed_to_lock()
+        public async Task User_with_read_is_not_allowed_to_lock()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dccc/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
 
@@ -123,7 +125,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
         
         [Fact]
-        public async void User_with_unlock_is_not_allowed_to_lock()
+        public async Task User_with_unlock_is_not_allowed_to_lock()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dccc/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
 
@@ -135,7 +137,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
         
         [Fact]
-        public async void User_with_write_on_Task_1_is_not_allowed_to_lock_data_if_current_task_is_Task_2()
+        public async Task User_with_write_on_Task_1_is_not_allowed_to_lock_data_if_current_task_is_Task_2()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcde/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
 
@@ -147,7 +149,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
         
         [Fact]
-        public async void User_with_write_is_allowed_to_unlock()
+        public async Task User_with_write_is_allowed_to_unlock()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
 
@@ -161,7 +163,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
         
         [Fact]
-        public async void User_with_write_is_allowed_to_unlock_already_unlocked_dataelement()
+        public async Task User_with_write_is_allowed_to_unlock_already_unlocked_dataelement()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
 
@@ -175,7 +177,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
         
         [Fact]
-        public async void User_with_read_write_unlock_is_allowed_to_unlock()
+        public async Task User_with_read_write_unlock_is_allowed_to_unlock()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
 
@@ -189,7 +191,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
         
         [Fact]
-        public async void Users_not_allowed_to_lock_when_partyId_not_same_as_instance_partyId()
+        public async Task Users_not_allowed_to_lock_when_partyId_not_same_as_instance_partyId()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcde/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
 
@@ -201,7 +203,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
         
         [Fact]
-        public async void DELETE_lock_return_NotFound_when_datalement_not_present()
+        public async Task DELETE_lock_return_NotFound_when_datalement_not_present()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff00/lock";
 
@@ -213,7 +215,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
         
         [Fact]
-        public async void User_with_read_is_not_allowed_to_unlock()
+        public async Task User_with_read_is_not_allowed_to_unlock()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
 
@@ -225,7 +227,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
         
         [Fact]
-        public async void User_with_unlock_is_allowed_to_unlock()
+        public async Task User_with_unlock_is_allowed_to_unlock()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
 
@@ -238,7 +240,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
         
         [Fact]
-        public async void User_with_reject_is_allowed_to_unlock()
+        public async Task User_with_reject_is_allowed_to_unlock()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
 
@@ -251,7 +253,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
         
         [Fact]
-        public async void Users_not_allowed_to_unlock_when_user_has_no_allowed_actions_on_current_task()
+        public async Task Users_not_allowed_to_unlock_when_user_has_no_allowed_actions_on_current_task()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcde/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
 
@@ -263,7 +265,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
         
         [Fact]
-        public async void Users_not_allowed_to_unlock_when_partyId_not_same_as_instance_partyId()
+        public async Task Users_not_allowed_to_unlock_when_partyId_not_same_as_instance_partyId()
         {
             string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcde/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
 
