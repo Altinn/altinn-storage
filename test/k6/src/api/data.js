@@ -46,7 +46,7 @@ export function getAllDataElements(token, instanceId) {
   return http.get(endpoint, params);
 }
 
-//Api call to Storage:Data to upload a data to an instance and returns the response
+//Api call to Storage:Data to upload a data element to an instance and returns the response
 export function putData(
   token,
   instanceId,
@@ -80,7 +80,7 @@ export function unlockData(token, instanceId, dataId) {
   return http.del(endpoint, null, params);
 }
 
-//Api call to Platform:Storage to delete a data by id from an instance and returns the response
+//Api call to Platform:Storage to delete a data element by id from an instance and returns the response
 export function deleteData(token, instanceId, datalementId) {
   var endpoint = config.buildInstanceUrl(instanceId, datalementId, "data")
   var params = apiHelper.buildHeaderWithBearer(token);
