@@ -14,11 +14,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install dotnet 7
+      - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: |
-            7.0.x
+            8.0.x
       - name: Install deps
         run: |
           cd src/Storage.Interface
