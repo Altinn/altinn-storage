@@ -629,9 +629,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.True(actual.ContainsKey("instanceOwner.partyId"));
             Assert.True(actual.ContainsKey("sortBy"));
             actual.TryGetValue("status.isSoftDeleted", out StringValues actualIsSoftDeleted);
-            Assert.Equal(expectedIsSoftDeleted, actualIsSoftDeleted.First());
+            Assert.Equal(expectedIsSoftDeleted, actualIsSoftDeleted[0]);
             actual.TryGetValue("status.isArchived", out StringValues actualIsArchived);
-            Assert.Equal(expectedIsArchived, actualIsArchived.First());
+            Assert.Equal(expectedIsArchived, actualIsArchived[0]);
             Assert.Equal(expectedParamCount, actual.Keys.Count);
         }
 
@@ -671,9 +671,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
             Assert.True(actual.ContainsKey("instanceOwner.partyId"));
             actual.TryGetValue("status.isSoftDeleted", out StringValues actualIsSoftDeleted);
-            Assert.Equal(expectedIsSoftDeleted, actualIsSoftDeleted.First());
+            Assert.Equal(expectedIsSoftDeleted, actualIsSoftDeleted[0]);
             actual.TryGetValue("status.isArchived", out StringValues actualIsArchived);
-            Assert.Equal(expectedIsArchived, actualIsArchived.First());
+            Assert.Equal(expectedIsArchived, actualIsArchived[0]);
             Assert.Equal(expectedParamCount, actual.Keys.Count);
         }
 
@@ -750,9 +750,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
             Assert.True(actual.ContainsKey("instanceOwner.partyId"));
             actual.TryGetValue("status.isArchivedOrSoftDeleted", out StringValues actualIsArchivedOrSoftDeleted);
-            Assert.True(bool.Parse(actualIsArchivedOrSoftDeleted.First()));
+            Assert.True(bool.Parse(actualIsArchivedOrSoftDeleted[0]));
             actual.TryGetValue("sortBy", out StringValues actualSortBy);
-            Assert.Equal(expectedSortBy, actualSortBy.First());
+            Assert.Equal(expectedSortBy, actualSortBy[0]);
             Assert.Equal(expectedParamCount, actual.Keys.Count);
         }
 
@@ -791,7 +791,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
             Assert.True(actual.ContainsKey("instanceOwner.partyId"));
             actual.TryGetValue("status.isActiveOrSoftDeleted", out StringValues actualIsArchivedOrSoftDeleted);
-            Assert.True(bool.Parse(actualIsArchivedOrSoftDeleted.First()));
+            Assert.True(bool.Parse(actualIsArchivedOrSoftDeleted[0]));
             Assert.Equal(expectedParamCount, actual.Keys.Count);
         }
 
@@ -902,7 +902,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
             Assert.True(actual.ContainsKey("appId"));
             actual.TryGetValue("appId", out StringValues actualAppid);
-            Assert.Equal(expectedAppId, actualAppid.First());
+            Assert.Equal(expectedAppId, actualAppid[0]);
             Assert.False(actual.ContainsKey("searchString"));
             instanceRepositoryMock.VerifyAll();
         }
@@ -1011,7 +1011,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
             Assert.True(actual.ContainsKey("instanceOwner.partyId"));
             actual.TryGetValue("status.isArchivedOrSoftDeleted", out StringValues actualIsArchivedOrSoftDeleted);
-            Assert.True(bool.Parse(actualIsArchivedOrSoftDeleted.First()));
+            Assert.True(bool.Parse(actualIsArchivedOrSoftDeleted[0]));
         }
 
         /// <summary>
@@ -1048,7 +1048,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
             Assert.True(actual.ContainsKey("instanceOwner.partyId"));
             actual.TryGetValue("status.isSoftDeleted", out StringValues actualIsArchived);
-            Assert.True(bool.Parse(actualIsArchived.First()));
+            Assert.True(bool.Parse(actualIsArchived[0]));
         }
 
         /// <summary>
@@ -1106,7 +1106,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
             Assert.Single(actualResult);
-            Assert.True(actualResult.First().AuthorizedForSign);
+            Assert.True(actualResult[0].AuthorizedForSign);
         }
 
         [Fact]

@@ -540,7 +540,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Act
             HttpResponseMessage response = await client.GetAsync(requestUri);
             string responseMessage = await response.Content.ReadAsStringAsync();
-            InstanceQueryResponse queryResponse = JsonConvert.DeserializeObject<InstanceQueryResponse>(responseMessage);
+            JsonConvert.DeserializeObject<InstanceQueryResponse>(responseMessage);
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);

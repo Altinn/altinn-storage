@@ -158,7 +158,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
         {
             if (instance.Id.Equals("1337/d3b326de-2dd8-49a1-834a-b1d23b11e540"))
             {
-                return null;
+                return Task.FromResult<Instance>(null);
             }
 
             instance.Data = new List<DataElement>();
@@ -206,11 +206,11 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
 
         private static void SetReadStatus(Instance instance)
         {
-            if (instance.Status.ReadStatus == ReadStatus.Read && instance.Data.Any(d => !d.IsRead))
+            if (instance.Status.ReadStatus == ReadStatus.Read && instance.Data.Exists(d => !d.IsRead))
             {
                 instance.Status.ReadStatus = ReadStatus.UpdatedSinceLastReview;
             }
-            else if (instance.Status.ReadStatus == ReadStatus.Read && !instance.Data.Any(d => d.IsRead))
+            else if (instance.Status.ReadStatus == ReadStatus.Read && !instance.Data.Exists(d => d.IsRead))
             {
                 instance.Status.ReadStatus = ReadStatus.Unread;
             }

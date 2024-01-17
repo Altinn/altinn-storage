@@ -98,7 +98,7 @@ namespace Altinn.Platform.Storage.Authorization
                 Instance authorizedInstance = instances.First(i => i.Id == instanceId);
 
                 MessageBoxInstance authorizedMessageBoxInstance =
-                    authorizedInstanceList.FirstOrDefault(i => i.Id.Equals(authorizedInstance.Id.Split("/")[1]));
+                    authorizedInstanceList.Find(i => i.Id.Equals(authorizedInstance.Id.Split("/")[1]));
                 if (authorizedMessageBoxInstance is null)
                 {
                     authorizedMessageBoxInstance = InstanceHelper.ConvertToMessageBoxInstance(authorizedInstance);
@@ -175,7 +175,7 @@ namespace Altinn.Platform.Storage.Authorization
             _logger.LogDebug("// Authorization Helper // AuthorizeAnyOfInstanceActions // response: {Response}", JsonSerializer.Serialize(response));
             if (response?.Response != null)
             {
-                return response.Response.Any(result => DecisionHelper.ValidateDecisionResult(result, user));
+                return response.Response.Exists(result => DecisionHelper.ValidateDecisionResult(result, user));
             }
 
             _logger.LogInformation("// Authorization Helper // Authorize instance action failed for request: {request}.", JsonSerializer.Serialize(request));
@@ -210,7 +210,7 @@ namespace Altinn.Platform.Storage.Authorization
                     }
                 }
 
-                Instance instance = instances.FirstOrDefault(i => i.Id == instanceId);
+                Instance instance = instances.Find(i => i.Id == instanceId);
                 authorizedInstanceList.Add(instance);
             }
 
@@ -231,7 +231,7 @@ namespace Altinn.Platform.Storage.Authorization
 
             if (!string.IsNullOrWhiteSpace(contextScope))
             {
-                return requiredScope.Any(scope => contextScope.Contains(scope, StringComparison.InvariantCultureIgnoreCase));
+                return requiredScope.Exists(scope => contextScope.Contains(scope, StringComparison.InvariantCultureIgnoreCase));
             }
 
             return false;

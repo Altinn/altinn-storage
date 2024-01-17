@@ -57,9 +57,9 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<Instance> Create(Instance item)
+        public async Task<Instance> Create(Instance instance)
         {
-            Instance updatedInstance = await Upsert(item, true);
+            Instance updatedInstance = await Upsert(instance, true);
             updatedInstance.Data = new List<DataElement>();
             return updatedInstance;
         }

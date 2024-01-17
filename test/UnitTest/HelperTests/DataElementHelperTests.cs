@@ -20,8 +20,8 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
 
             // Assert
             Assert.NotEmpty(actual.References);
-            Assert.Equal(RelationType.GeneratedFrom, actual.References.First().Relation);
-            Assert.Equal(ReferenceType.Task, actual.References.First().ValueType);
+            Assert.Equal(RelationType.GeneratedFrom, actual.References[0].Relation);
+            Assert.Equal(ReferenceType.Task, actual.References[0].ValueType);
         }
 
         [Fact]

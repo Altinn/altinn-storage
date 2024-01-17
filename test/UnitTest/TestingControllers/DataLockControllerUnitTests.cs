@@ -20,8 +20,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         private static List<string> _forbiddenUpdateProps = new List<string>()
             { "/created", "/createdBy", "/id", "/instanceGuid", "/blobStoragePath", "/dataType", "/contentType", "/filename", "/lastChangedBy", "/lastChanged", "/refs", "/size", "/fileScanResult", "/tags", "/deleteStatus", };
 
-        private string _org = "ttd";
-        private string _appId = "ttd/apps-test";
+        private readonly string _org = "ttd";
+        private readonly string _appId = "ttd/apps-test";
 
         [Fact]
         public async Task Lock_does_not_perform_lock_when_data_on_instance_marked_as_locked()

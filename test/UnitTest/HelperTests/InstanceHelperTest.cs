@@ -531,7 +531,7 @@ namespace Altinn.Platform.Storage.UnitTest
             };
 
             // Act
-            var actual = InstanceHelper.ConvertToSBLInstanceEvent(input).First();
+            var actual = InstanceHelper.ConvertToSBLInstanceEvent(input)[0];
 
             // Assert
             Assert.NotNull(actual);

@@ -120,7 +120,7 @@ namespace Altinn.Platform.Storage.Controllers
                     return applicationError;
                 }
 
-                DataType dataType = application.DataTypes.FirstOrDefault(dt => dt.Id == dataElement.DataType);
+                DataType dataType = application.DataTypes.Find(dt => dt.Id == dataElement.DataType);
 
                 if (dataType == null || dataType.AppLogic?.AutoDeleteOnProcessEnd != true)
                 {
@@ -272,7 +272,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return applicationError;
             }
 
-            DataType dataTypeDefinition = appInfo.DataTypes.FirstOrDefault(e => e.Id == dataType);
+            DataType dataTypeDefinition = appInfo.DataTypes.Find(e => e.Id == dataType);
 
             if (dataTypeDefinition is null)
             {
@@ -364,7 +364,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return dataElementError;
             }
 
-            DataType dataTypeDefinition = appInfo.DataTypes.FirstOrDefault(e => e.Id == dataElement.DataType);
+            DataType dataTypeDefinition = appInfo.DataTypes.Find(e => e.Id == dataElement.DataType);
 
             if (dataTypeDefinition is null)
             {

@@ -481,7 +481,7 @@ namespace Altinn.Platform.Storage.Controllers
             string org = User.GetOrg();
 
             instance.CompleteConfirmations ??= new List<CompleteConfirmation>();
-            if (instance.CompleteConfirmations.Any(cc => cc.StakeholderId == org))
+            if (instance.CompleteConfirmations.Exists(cc => cc.StakeholderId == org))
             {
                 instance.SetPlatformSelfLinks(_storageBaseAndHost);
                 return Ok(instance);

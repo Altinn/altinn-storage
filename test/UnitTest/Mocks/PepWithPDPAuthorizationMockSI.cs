@@ -114,7 +114,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks
                         multiResponse.Response = new List<XacmlJsonResult>();
                     }
 
-                    multiResponse.Response.Add(xacmlJsonResponsePart.Response.First());
+                    multiResponse.Response.Add(xacmlJsonResponsePart.Response[0]);
                 }
 
                 return multiResponse;

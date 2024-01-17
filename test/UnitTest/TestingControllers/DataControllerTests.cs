@@ -554,8 +554,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         {
             // Arrange
             DataElement de = TestDataUtil.GetDataElement("887c5e56-6f73-494a-9730-6ebd11bffe88");
-            Mock<IDataRepository> dataRepositoryMock = new();
-            dataRepositoryMock = new();
+            Mock<IDataRepository> dataRepositoryMock = new();            
             dataRepositoryMock
                 .Setup(dr => dr.Read(It.IsAny<Guid>(), It.IsAny<Guid>()))
                 .ReturnsAsync(de);
