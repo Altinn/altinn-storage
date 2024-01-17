@@ -237,7 +237,7 @@ namespace Altinn.Platform.Storage.DataCleanup.Services
                         if (retrievedInstances.TryGetValue(dataElement.InstanceGuid, out Instance instance))
                         {
                             if (instance.CompleteConfirmations != null &&
-                                instance.CompleteConfirmations.Exists(c => c.StakeholderId.ToLower().Equals(instance.Org) &&
+                                instance.CompleteConfirmations.Any(c => c.StakeholderId.ToLower().Equals(instance.Org) &&
                                 c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7)))
                             {
                                 dataElements.Add(dataElement);
@@ -275,7 +275,7 @@ namespace Altinn.Platform.Storage.DataCleanup.Services
                                 retrievedInstances.Add(instance.Id, instance);
 
                                 if (instance.CompleteConfirmations != null &&
-                                    instance.CompleteConfirmations.Exists(c => c.StakeholderId.ToLower().Equals(instance.Org) &&
+                                    instance.CompleteConfirmations.Any(c => c.StakeholderId.ToLower().Equals(instance.Org) &&
                                     c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7)))
                                 {
                                     dataElements.Add(dataElement);
