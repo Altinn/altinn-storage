@@ -9,9 +9,16 @@ export var baseUrls = {
   prod: "altinn.no",
 };
 
+var maskinportenBaseUrls = {
+  tt02: "https://test.maskinporten.no/",
+  prod: "https://maskinporten.no/",
+};
+
+
 //Get values from environment
 const environment = __ENV.env.toLowerCase();
 export let baseUrl = baseUrls[environment];
+let maskinportenBaseUrl = maskinportenBaseUrls[environment];
 
 //Altinn API
 export var authentication = {
@@ -32,35 +39,92 @@ export var tokenGenerator = {
 //Platform APIs
 //Authentication
 export var platformAuthentication = {
-  authentication:
-    "https://platform." + baseUrl + "/authentication/api/v1/authentication",
-  refresh: "https://platform." + baseUrl + "/authentication/api/v1/refresh"
+    refresh:
+    "https://platform." + baseUrl + "/authentication/api/v1/authentication?goto=" +
+    "https://platform." + baseUrl + "/authentication/api/v1/refresh",
+    exchange:
+    "https://platform." + baseUrl + "/authentication/api/v1/exchange/maskinporten",
 };
 
 //Platform Storage
 export var platformStorage = {
+  applications: "https://platform." + baseUrl + "/storage/api/v1/applications",
   instances: "https://platform." + baseUrl + "/storage/api/v1/instances",
+  sblInstances: "https://platform." + baseUrl + "/storage/api/v1/sbl/instances",
 };
 
-
-//Function to build endpoints in storage with instanceOwnerId, instanceId, dataId, type
+//Function to build endpoints in storage related to an application with org and app
 //and returns the endpoint
-export function buildStorageUrls(instanceId, dataId, type) {
+export function buildAppUrl(org, app, type) {
+  var value = "";
+  switch (type) {
+    case "application":
+      value = platformStorage["applications"] + "/" + org + "/" + app;
+      break;
+    case "texts":
+      value = value =
+        platformStorage["applications"] + "/" + org + "/" + app + "/texts";
+      break;
+  }
+  return value;
+}
+
+//Function to build endpoints in storage related to an instance with instanceOwnerId, instanceId, dataId, type
+//and returns the endpoint
+export function buildInstanceUrl(instanceId, dataId, type) {
   var value = "";
   switch (type) {
     case "instanceid":
       value = platformStorage["instances"] + "/" + instanceId;
       break;
-    case "dataid":
+    case "data":
       value =
         platformStorage["instances"] + "/" + instanceId + "/data/" + dataId;
       break;
-      case "process":
-        value = platformStorage["instances"] + "/" + instanceId + "/"  + "process";
-        break;
-        case "sign":
-          value = platformStorage["instances"] + "/" + instanceId + "/"  + "sign";
-          break;
+    case "dataelements":
+    case "process":
+    case "sign":
+    case "complete":
+    case "readstatus":
+    case "presentationtexts":
+    case "datavalues":
+    case "substatus":
+      value = platformStorage["instances"] + "/" + instanceId + "/" + type;
+      break;
   }
   return value;
 }
+
+//Function to build endpoints in storage related to messagebox instances
+//and returns the endpoint
+export function buildMessageboxInstanceUrl(instanceId, type) {
+  var value = "";
+  switch (type) {
+    case "search":
+      value = platformStorage["sblInstances"] + "/search";
+      break;
+    case "instanceid":
+      value = platformStorage["sblInstances"] + "/" + instanceId;
+      break;
+    case "events":
+      value =
+        platformStorage["sblInstances"] + "/" + instanceId + "/" + "events";
+      break;
+    case "undelete":
+      value =
+        platformStorage["sblInstances"] + "/" + instanceId + "/" + "undelete";
+      break;
+  }
+  return value;
+}
+
+export var portalAuthentication = {
+  authenticateWithPwd:
+    "https://" + baseUrl + "/api/authentication/authenticatewithpassword",
+};
+
+// Maskinporten
+export var maskinporten = {
+  audience: maskinportenBaseUrl,
+  token: maskinportenBaseUrl + "token",
+};

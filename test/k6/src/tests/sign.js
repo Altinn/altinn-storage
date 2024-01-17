@@ -18,14 +18,13 @@
 */
 
 import { check } from "k6";
-import * as setupToken from "../setup.js";
-import { generateJUnitXML, reportPath } from "../report.js";
+import * as setupToken from "../setup-token.js";
+import * as setupData from "../setup-data.js";
+import * as cleanup from "../cleanup.js";
+import { generateReport } from "../report.js";
 import * as dataApi from "../api/data.js";
 import * as instancesApi from "../api/instances.js";
-import * as processApi from "../api/process.js";
 import { addErrorCount, stopIterationOnFail } from "../errorhandler.js";
-let serializedInstance = open("../data/instance.json");
-let pdfAttachment = open("../data/apps-test.pdf", "b");
 
 export const options = {
   thresholds: {
@@ -38,28 +37,35 @@ export function setup() {
     ? __ENV.runFullTestSet.toLowerCase().includes("true")
     : false;
 
-  const userId = __ENV.userId;
-  const partyId = __ENV.partyId;
-  const pid = __ENV.pid;
-  const username = __ENV.username;
-  const userpassword = __ENV.userpwd;
-
   const org = __ENV.org;
   const app = __ENV.app;
 
-  var token = setupToken.getAltinnTokenForUser(userId, partyId, pid, username, userpassword);
+  const pid = __ENV.pid;
+  const username = __ENV.username;
+  const userpassword = __ENV.userpwd;
+  let partyId = __ENV.partyId;
+  let userId = __ENV.userId;
 
-  var tokenClaims = setupToken.getTokenClaims(token);
-
-  const instanceId = setupInstanceForTest(
-    token,
-    tokenClaims["partyId"],
-    org,
-    app
+  var userToken = setupToken.getAltinnTokenForUser(
+    userId,
+    partyId,
+    pid,
+    username,
+    userpassword
   );
 
-  const dataElementId = setupAttachmentsForTest(token, instanceId);
-  pushInstanceToNextStep(token, instanceId);
+  if (!partyId) {
+    partyId = setupToken.getAltinnClaimFromToken(userToken, "partyid");
+    userId = setupToken.getAltinnClaimFromToken(userToken, "userid");
+  }
+
+  const instanceId = setupData.getInstanceForTest(userToken, partyId, org, app);
+
+  const dataElementId = setupData.addPdfAttachmentToInstance(
+    userToken,
+    instanceId
+  );
+  setupData.pushInstanceToTask2_Signing(userToken, instanceId, "signing");
 
   var signRequest = {
     signatureDocumentDataType: "signature",
@@ -70,15 +76,15 @@ export function setup() {
       },
     ],
     signee: {
-      userId: tokenClaims["userId"],
+      userId: userId,
     },
   };
 
   var data = {
     runFullTestSet: runFullTestSet,
-    token: token,
-    partyId: tokenClaims["partyId"],
-    userId: tokenClaims["userId"],
+    userToken: userToken,
+    partyId: partyId,
+    userId: userId,
     instanceId: instanceId,
     attachmentId: dataElementId,
     signRequest: signRequest,
@@ -87,34 +93,35 @@ export function setup() {
   return data;
 }
 
-function Test_Instance_Sign(data) {
+function TC01_SignInstance(data) {
   var res = instancesApi.signInstance(
-    data.token,
+    data.userToken,
     data.instanceId,
     data.signRequest
   );
 
   var success = check(res, {
-    "Test_Instance_Sign: Sign instance. Status is 201": (r) => r.status === 201,
+    "TC01_SignInstance: Sign instance. Status is 201": (r) => r.status === 201,
   });
+
   addErrorCount(success);
   stopIterationOnFail(
-    "Test_Instance_Sign: Sign instance. Failed",
+    "TC01_SignInstance: Sign instance. Failed",
     success,
     res
   );
 
-  res = instancesApi.getInstanceById(data.token, data.instanceId);
+  res = instancesApi.getInstanceById(data.userToken, data.instanceId);
   var dataElements = JSON.parse(res.body)["data"];
   success = check([res, dataElements], {
-    "Test_Instance_Sign: Get instance. Status is 200": (r) =>
+    "TC01_SignInstance: Get instance. Status is 200": (r) =>
       r[0].status === 200,
-    "Test_Instance_Sign: Get instance. Data list contains sign document": (r) =>
+    "TC01_SignInstance: Get instance. Data list contains sign document": (r) =>
       r[1].some((e) => e.dataType === "signature"),
   });
   addErrorCount(success);
   stopIterationOnFail(
-    "Test_Instance_Sign: Get instance and validate signature data element. Failed",
+    "TC01_SignInstance: Get instance and validate signature data element. Failed",
     success,
     res
   );
@@ -123,12 +130,15 @@ function Test_Instance_Sign(data) {
     return obj.dataType === "signature";
   });
 
-  res = dataApi.getDataFromSelfLink(data.token, dataElement.selfLinks.platform);
+  res = dataApi.getDataFromSelfLink(
+    data.userToken,
+    dataElement.selfLinks.platform
+  );
   var retrievedSignDocument = JSON.parse(res.body);
   success = check([res, retrievedSignDocument], {
-    "Test_Instance_Sign: Get signature document. Status is 200": (r) =>
+    "TC01_SignInstance: Get signature document. Status is 200": (r) =>
       r[0].status === 200,
-    "Test_Instance_Sign: Get signature document. Validate properties": (r) =>
+    "TC01_SignInstance: Get signature document. Validate properties": (r) =>
       r[1].dataElementSignatures.length == 1 &&
       r[1].dataElementSignatures[0].dataElementId == data.attachmentId &&
       r[1].dataElementSignatures[0].sha256Hash ==
@@ -141,10 +151,10 @@ function Test_Instance_Sign(data) {
 export default function (data) {
   try {
     if (data.runFullTestSet) {
-      Test_Instance_Sign(data);
+      TC01_SignInstance(data);
     } else {
       // Limited test set for use case tests
-      Test_Instance_Sign(data);
+      TC01_SignInstance(data);
     }
   } catch (error) {
     addErrorCount(false);
@@ -152,97 +162,11 @@ export default function (data) {
   }
 }
 
-function setupInstanceForTest(token, partyId) {
-  var res = instancesApi.postInstance(
-    token,
-    partyId,
-    __ENV.org,
-    __ENV.app,
-    serializedInstance
-  );
-
-  var success = check(res, {
-    "// Setup // Generating instance for test. Success": (r) =>
-      r.status === 201,
-  });
-  addErrorCount(success);
-  stopIterationOnFail(
-    "// Setup // Generating instance for test. Failed",
-    success,
-    res
-  );
-
-  return JSON.parse(res.body)["id"];
-}
-
-function setupAttachmentsForTest(token, instanceId) {
-  var queryParams = {
-    dataType: "attachment",
-  };
-
-  var res = dataApi.postData(
-    token,
-    instanceId,
-    pdfAttachment,
-    "pdf",
-    queryParams
-  );
-
-  var success = check(res, {
-    "// Setup // Generate data element for test case. Status is 201": (r) =>
-      r.status === 201,
-  });
-  addErrorCount(success);
-  stopIterationOnFail(
-    "// Setup // Generate data element for test case. Failed",
-    success,
-    res
-  );
-
-  return JSON.parse(res.body)["id"];
-}
-
-function pushInstanceToNextStep(token, instanceId) {
-  var process = {
-    started: "2023-06-09T10:59:42.653Z",
-    startEvent: "string",
-    currentTask: {
-      flow: 2,
-      started: "2023-06-10T10:59:42.653Z",
-      elementId: "Task_2",
-      name: "Signering",
-      altinnTaskType: "signing",
-      flowType: "CompleteCurrentMoveToNext",
-    },
-  };
-
-  var res = processApi.putProcess(token, instanceId, JSON.stringify(process));
-
-  var success = check(res, {
-    "// Setup // Push process to next task. Status is 200": (r) =>
-      r.status === 200,
-  });
-
-  addErrorCount(success);
-  stopIterationOnFail(
-    "// Setup // Push process to next task. Failed",
-    success,
-    res
-  );
-}
-
 export function teardown(data) {
-  var res = instancesApi.deleteInstanceById(data.token, data.instanceId, true);
-
-  check(res, {
-    "// Teardown // Delete instance. Status is 200": (r) => r.status === 200,
-  });
+  cleanup.hardDeleteInstance(data.userToken, data.instanceId);
 }
 
-/*
-export function handleSummary(data) {
-  let result = {};
-  result[reportPath("events.xml")] = generateJUnitXML(data, "platform-storage");
-  return result;
+/*export function handleSummary(data) {
+ return generateReport(data, "sign");
 }
 */

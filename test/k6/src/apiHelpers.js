@@ -7,7 +7,6 @@
 
 const subscriptionKey = __ENV.apimSubsKey;
 
-
 export function buildQueryParametersForEndpoint(queryparams) {
   var query = "?";
   Object.keys(queryparams).forEach(function (key) {
@@ -23,25 +22,47 @@ export function buildQueryParametersForEndpoint(queryparams) {
   return query;
 }
 
-export function buildHeaderWithBearer(token){
-    var params = {
-        headers: {
-          Authorization: "Bearer " + token,
-          "Ocp-Apim-Subscription-Key": subscriptionKey
-        }
-      };
+export function buildHeaderWithBearer(token) {
+  var params = {
+    headers: {
+      Authorization: "Bearer " + token,
+      "Ocp-Apim-Subscription-Key": subscriptionKey,
+    },
+  };
 
-      return params;
+  return params;
 }
 
-export function buildHeaderWithBasic(token){
+export function buildHeaderWithContentType(contentType) {
   var params = {
-      headers: {
-        Authorization: "Basic " + token
-      }
-    };
+    headers: {
+      "Content-Type": contentType,
+    },
+  };
 
-    return params;
+  return params;
+}
+
+export function buildHeaderWithBearerAndSubscriptionKey(token, apimSubsKey) {
+  var params = {
+    headers: {
+      Authorization: "Bearer " + token,
+      "Ocp-Apim-Subscription-Key": apimSubsKey,
+      "Content-Type": "application/json",
+    },
+  };
+
+  return params;
+}
+
+export function buildHeaderWithBasic(token) {
+  var params = {
+    headers: {
+      Authorization: "Basic " + token,
+    },
+  };
+
+  return params;
 }
 
 export function buildHeaderWithBearerAndContentType(token, contentType) {
@@ -49,7 +70,17 @@ export function buildHeaderWithBearerAndContentType(token, contentType) {
     headers: {
       Authorization: "Bearer " + token,
       "Content-Type": contentType,
-      "Ocp-Apim-Subscription-Key": subscriptionKey
+      "Ocp-Apim-Subscription-Key": subscriptionKey,
+    },
+  };
+
+  return params;
+}
+
+export function buildHeaderWithCookie(name, value) {
+  var params = {
+    headers: {
+      Cookie: name + "=" + value,
     }
   };
 
@@ -63,19 +94,18 @@ export function buildHeadersForData(isBinaryAttachment, fileType, token) {
   if (isBinaryAttachment) {
     params = {
       headers: {
-        Authorization: 'Bearer ' + token,
-        'Content-Type': `${findContentType(fileType)}`,
-        'Content-Disposition': `attachment; filename=test.${fileType}`,
-        "Ocp-Apim-Subscription-Key": subscriptionKey
-
+        Authorization: "Bearer " + token,
+        "Content-Type": `${findContentType(fileType)}`,
+        "Content-Disposition": `attachment; filename=test.${fileType}`,
+        "Ocp-Apim-Subscription-Key": subscriptionKey,
       },
     };
   } else {
     params = {
       headers: {
-        Authorization: 'Bearer ' + token,
-        'Content-Type': 'application/xml',
-        "Ocp-Apim-Subscription-Key": subscriptionKey
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/xml",
+        "Ocp-Apim-Subscription-Key": subscriptionKey,
       },
     };
   }
@@ -90,17 +120,17 @@ export function buildHeadersForData(isBinaryAttachment, fileType, token) {
 function findContentType(type) {
   var contentType;
   switch (type) {
-    case 'xml':
-      contentType = 'text/xml';
+    case "xml":
+      contentType = "text/xml";
       break;
-    case 'pdf':
-      contentType = 'application/pdf';
+    case "pdf":
+      contentType = "application/pdf";
       break;
-    case 'txt':
-      contentType = 'text/plain';
+    case "txt":
+      contentType = "text/plain";
       break;
     default:
-      contentType = 'application/octet-stream';
+      contentType = "application/octet-stream";
       break;
   }
   return contentType;
