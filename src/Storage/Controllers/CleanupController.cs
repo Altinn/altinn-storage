@@ -93,6 +93,7 @@ namespace Altinn.Platform.Storage.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "CleanupController error");
+                return StatusCode(StatusCodes.Status500InternalServerError, "CleanupController error: " + ex.Message);
             }
 
             return Ok();
@@ -184,11 +185,10 @@ namespace Altinn.Platform.Storage.Controllers
                 }
                 catch (Exception e)
                 {
-                    _logger.LogError(
-                        e,
-                        "CleanupController // CleanupDataelements // Error occured when deleting dataElement Id: {dataElement.Id} Blobstoragepath: {blobStoragePath}",
-                        dataElement.Id,
-                        dataElement.BlobStoragePath);
+                    string template = "CleanupController // CleanupDataelements // Error occured when deleting dataElement Id: {0} Blobstoragepath: {1}";
+                    _logger.LogError(e, template, dataElement.Id, dataElement.BlobStoragePath);
+                    stopwatch.Stop();
+                    return StatusCode(StatusCodes.Status500InternalServerError, string.Format(template, dataElement.Id, dataElement.BlobStoragePath));
                 }
             }
 
