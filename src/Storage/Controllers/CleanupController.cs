@@ -64,6 +64,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <returns>?</returns>
         [HttpDelete("cleanupinstances")]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [ApiExplorerSettings(IgnoreApi = true)]
         public async Task<ActionResult> CleanupInstances()
         {
@@ -144,6 +145,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <returns>?</returns>
         [HttpDelete("cleanupdataelements")]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [Produces("application/json")]
         [ApiExplorerSettings(IgnoreApi = true)]
         public async Task<ActionResult> CleanupDataelements()
