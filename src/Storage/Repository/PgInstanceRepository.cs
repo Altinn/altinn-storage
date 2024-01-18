@@ -60,7 +60,7 @@ namespace Altinn.Platform.Storage.Repository
         public async Task<Instance> Create(Instance instance)
         {
             Instance updatedInstance = await Upsert(instance, true);
-            updatedInstance.Data = new List<DataElement>();
+            updatedInstance.Data = [];
             return updatedInstance;
         }
 
@@ -90,14 +90,14 @@ namespace Altinn.Platform.Storage.Repository
             catch (Exception e)
             {
                 _logger.LogError(e, "Error running GetInstancesFromQuery");
-                return new() { Count = 0, Instances = new(), Exception = e.Message };
+                return new() { Count = 0, Instances = [], Exception = e.Message };
             }
         }
 
         /// <inheritdoc/>
         public async Task<List<Instance>> GetHardDeletedInstances()
         {
-            List<Instance> instances = new();
+            List<Instance> instances = [];
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readDeletedSql);
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
@@ -121,7 +121,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<List<DataElement>> GetHardDeletedDataElements()
         {
-            List<DataElement> elements = new();
+            List<DataElement> elements = [];
             try
             {
                 await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readDeletedElementsSql);
@@ -230,7 +230,7 @@ namespace Altinn.Platform.Storage.Repository
             int size)
         {
             DateTime lastChanged = DateTime.MinValue;
-            InstanceQueryResponse queryResponse = new() { Count = 0, Instances = new() };
+            InstanceQueryResponse queryResponse = new() { Count = 0, Instances = [] };
             long continueIdx = string.IsNullOrEmpty(continuationToken) ? -1 : long.Parse(continuationToken.Split(';')[1]);
             DateTime lastChangeIdx = string.IsNullOrEmpty(continuationToken) ? DateTime.MinValue : new DateTime(long.Parse(continuationToken.Split(';')[0]), DateTimeKind.Utc);
 
@@ -271,7 +271,7 @@ namespace Altinn.Platform.Storage.Repository
                         instance = reader.GetFieldValue<Instance>("instance");
                         lastChanged = instance.LastChanged ?? DateTime.MinValue;
                         queryResponse.Instances.Add(instance);
-                        instance.Data = new();
+                        instance.Data = [];
                         previousId = id;
                     }
 
@@ -295,7 +295,7 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<(Instance Instance, long InternalId)> GetOne(int instanceOwnerPartyId, Guid instanceGuid, bool includeElements = true)
+        public async Task<(Instance Instance, long InternalId)> GetOne(Guid instanceGuid, bool includeElements = true)
         {
             Instance instance = null;
             long instanceInternalId = 0;
@@ -314,7 +314,7 @@ namespace Altinn.Platform.Storage.Repository
                         instanceCreated = true;
                         instance = reader.GetFieldValue<Instance>("instance");
                         instanceInternalId = reader.GetFieldValue<long>("id");
-                        instance.Data = new();
+                        instance.Data = [];
                     }
 
                     if (includeElements && !reader.IsDBNull("element"))
@@ -382,7 +382,7 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, instance.LastChanged ?? DateTime.Now);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, instance.Org);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, instance.AppId);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, instance?.Process?.CurrentTask?.ElementId ?? (object)DBNull.Value);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, instance.Process?.CurrentTask?.ElementId ?? (object)DBNull.Value);
 
             await pgcom.ExecuteNonQueryAsync();
             tracker.Track();
@@ -415,7 +415,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <returns>Dictionary with postgres parameters</returns>
         private static Dictionary<string, object> AddParametersFromQueryParams(Dictionary<string, StringValues> queryParams)
         {
-            Dictionary<string, object> postgresParams = new();
+            Dictionary<string, object> postgresParams = [];
             foreach (KeyValuePair<string, StringValues> param in queryParams)
             {
                 string queryParameter = param.Key;
@@ -492,14 +492,14 @@ namespace Altinn.Platform.Storage.Repository
 
         private static string[] GetExcludeConfirmedBy(StringValues queryValues)
         {
-            List<string> confirmations = new();
+            List<string> confirmations = [];
 
             foreach (var queryParameter in queryValues)
             {
                 confirmations.Add($"[{{\"StakeholderId\":\"{queryParameter}\"}}]");
             }
 
-            return confirmations.ToArray();
+            return [.. confirmations];
         }
 
         private static void AddDateParam(string dateParam, StringValues queryValues, Dictionary<string, object> postgresParams, bool valueAsString)

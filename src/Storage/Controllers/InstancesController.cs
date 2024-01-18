@@ -263,7 +263,7 @@ namespace Altinn.Platform.Storage.Controllers
         {
             try
             {
-                (Instance result, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+                (Instance result, _) = await _instanceRepository.GetOne(instanceGuid);
 
                 bool appOwnerRequestingElement = User.GetOrg() == result.Org;
                 if (!appOwnerRequestingElement)
@@ -306,7 +306,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Something went wrong during GetApplicationOrErrorAsync for application id: {appId} AppInfo: {appInfo}", appId, appInfo?.ToString());
+                _logger.LogError(ex, "Something went wrong during GetApplicationOrErrorAsync for application id: {appId}", appId);
                 throw;
             }
 
@@ -339,7 +339,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Something went wrong during GetDecisionForRequest for application id: {appId} AppInfo: {appInfo}", appId, appInfo?.ToString());
+                _logger.LogError(ex, "Something went wrong during GetDecisionForRequest for application id: {appId} AppInfo: {appInfo}", appId, appInfo.ToString());
                 throw;
             }
 
@@ -356,7 +356,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Something went wrong during ValidatePdpDecision for application id: {appId} AppInfo: {appInfo}", appId, appInfo?.ToString());
+                _logger.LogError(ex, "Something went wrong during ValidatePdpDecision for application id: {appId} AppInfo: {appInfo}", appId, appInfo.ToString());
                 throw;
             }
 
@@ -414,7 +414,7 @@ namespace Altinn.Platform.Storage.Controllers
         {
             Instance instance;
 
-            (instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (instance, _) = await _instanceRepository.GetOne(instanceGuid);
 
             if (instance == null)
             {
@@ -476,7 +476,7 @@ namespace Altinn.Platform.Storage.Controllers
             [FromRoute] int instanceOwnerPartyId,
             [FromRoute] Guid instanceGuid)
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid);
 
             string org = User.GetOrg();
 
@@ -530,7 +530,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest($"Invalid read status: {status}. Accepted types include: {string.Join(", ", Enum.GetNames(typeof(ReadStatus)))}");
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid);
 
             Instance updatedInstance;
             try
@@ -578,7 +578,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest($"Invalid sub status: {JsonConvert.SerializeObject(substatus)}. Substatus must be defined and include a label.");
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid);
 
             string org = User.GetOrg();
             if (!instance.Org.Equals(org))
@@ -633,7 +633,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest($"Missing parameter value: presentationTexts is misformed or empty");
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid);
 
             if (instance.PresentationTexts == null)
             {
@@ -679,7 +679,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest($"Missing parameter value: dataValues is misformed or empty");
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid);
 
             instance.DataValues ??= new Dictionary<string, string>();
 

@@ -92,8 +92,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             Instance instance = await InsertInstanceAndData(TestData.Instance_1_1.Clone(), data);
 
             // Act
-            (Instance instanceNoData, _) = await _instanceFixture.InstanceRepo.GetOne(0, Guid.Parse(instance.Id.Split('/').Last()), false);
-            (Instance instanceWithData, _) = await _instanceFixture.InstanceRepo.GetOne(0, Guid.Parse(instance.Id.Split('/').Last()), true);
+            (Instance instanceNoData, _) = await _instanceFixture.InstanceRepo.GetOne(Guid.Parse(instance.Id.Split('/').Last()), false);
+            (Instance instanceWithData, _) = await _instanceFixture.InstanceRepo.GetOne(Guid.Parse(instance.Id.Split('/').Last()), true);
 
             // Assert
             Assert.Equal(instanceNoData.Id, instance.Id);
@@ -223,7 +223,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         private async Task<Instance> InsertInstanceAndData(Instance instance, DataElement dataelement)
         {
             instance = await _instanceFixture.InstanceRepo.Create(instance);
-            (_, long internalId) = await _instanceFixture.InstanceRepo.GetOne(0, Guid.Parse(instance.Id.Split('/').Last()));
+            (_, long internalId) = await _instanceFixture.InstanceRepo.GetOne(Guid.Parse(instance.Id.Split('/').Last()));
             await _instanceFixture.DataRepo.Create(dataelement, internalId);
             return instance;
         }

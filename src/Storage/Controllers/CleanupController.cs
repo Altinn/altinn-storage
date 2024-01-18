@@ -18,45 +18,26 @@ namespace Altinn.Platform.Storage.Controllers
     /// <summary>
     /// Handles cleanup of storage data
     /// </summary>
+    /// <remarks>
+    /// Initializes a new instance of the <see cref="CleanupController"/> class
+    /// </remarks>
+    /// <param name="instanceRepository">the instance repository handler</param>
+    /// <param name="applicationRepository">the application repository handler</param>
+    /// <param name="blobRepository">the blob repository handler</param>
+    /// <param name="dataRepository">the data repository handler</param>
+    /// <param name="instanceEventRepository">the instance event repository handler</param>
+    /// <param name="logger">the logger</param>
     [Route("storage/api/v1/cleanup")]
     [ApiController]
-    public class CleanupController : ControllerBase
+    public class CleanupController(
+        IInstanceRepository instanceRepository,
+        IApplicationRepository applicationRepository,
+        IBlobRepository blobRepository,
+        IDataRepository dataRepository,
+        IInstanceEventRepository instanceEventRepository,
+        ILogger<CleanupController> logger) : ControllerBase
     {
-        private readonly IInstanceRepository _instanceRepository;
-        private readonly IApplicationRepository _applicationRepository;
-        private readonly IBlobRepository _blobRepository;
-        private readonly IDataRepository _dataRepository;
-        private readonly IInstanceEventRepository _instanceEventRepository;
-        private readonly ILogger<CleanupController> _logger;
-        private readonly bool _usePostgreSQL;
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="CleanupController"/> class
-        /// </summary>
-        /// <param name="instanceRepository">the instance repository handler</param>
-        /// <param name="applicationRepository">the application repository handler</param>
-        /// <param name="blobRepository">the blob repository handler</param>
-        /// <param name="dataRepository">the data repository handler</param>
-        /// <param name="instanceEventRepository">the instance event repository handler</param>
-        /// <param name="logger">the logger</param>
-        /// <param name="generalSettings">the general settings.</param>
-        public CleanupController(
-            IInstanceRepository instanceRepository,
-            IApplicationRepository applicationRepository,
-            IBlobRepository blobRepository,
-            IDataRepository dataRepository,
-            IInstanceEventRepository instanceEventRepository,
-            ILogger<CleanupController> logger,
-            IOptions<GeneralSettings> generalSettings)
-        {
-            _instanceRepository = instanceRepository;
-            _applicationRepository = applicationRepository;
-            _blobRepository = blobRepository;
-            _dataRepository = dataRepository;
-            _instanceEventRepository = instanceEventRepository;
-            _logger = logger;
-            _usePostgreSQL = generalSettings.Value.UsePostgreSQL;
-        }
+        private readonly ILogger<CleanupController> _logger = logger;
 
         /// <summary>
         /// Invoke periodic cleanup of instances
@@ -70,14 +51,8 @@ namespace Altinn.Platform.Storage.Controllers
         {
             try
             {
-                if (!_usePostgreSQL)
-                {
-                    _logger.LogInformation("CleanupController // CleanupInstances // usePostgreSQL is false");
-                    return Ok();
-                }
-
-                List<Instance> instances = await _instanceRepository.GetHardDeletedInstances();
-                List<string> autoDeleteAppIds = (await _applicationRepository.FindAll())
+                List<Instance> instances = await instanceRepository.GetHardDeletedInstances();
+                List<string> autoDeleteAppIds = (await applicationRepository.FindAll())
                     .Where(a => instances.Select(i => i.AppId).ToList().Contains(a.Id) && a.AutoDeleteOnProcessEnd)
                     .Select(a => a.Id).ToList();
 
@@ -109,12 +84,6 @@ namespace Altinn.Platform.Storage.Controllers
         [ApiExplorerSettings(IgnoreApi = true)]
         public async Task<ActionResult> CleanupInstancesForApp(string appId)
         {
-            if (!_usePostgreSQL)
-            {
-                _logger.LogInformation("CleanupController // CleanupInstancesForApp // usePostgreSQL is false");
-                return Ok();
-            }
-
             int successfullyDeleted = 0;
             int processed = 0;
             InstanceQueryResponse instancesResponse = new() { ContinuationToken = null };
@@ -123,8 +92,8 @@ namespace Altinn.Platform.Storage.Controllers
             Stopwatch stopwatch = Stopwatch.StartNew();
             do
             {
-                instancesResponse = await _instanceRepository.GetInstancesFromQuery(options, instancesResponse.ContinuationToken, 5000);
-                successfullyDeleted += await CleanupInstancesInternal(instancesResponse.Instances, new List<string>());
+                instancesResponse = await instanceRepository.GetInstancesFromQuery(options, instancesResponse.ContinuationToken, 5000);
+                successfullyDeleted += await CleanupInstancesInternal(instancesResponse.Instances, []);
                 processed += (int)instancesResponse.Count;
             }
             while (instancesResponse.ContinuationToken != null);
@@ -150,13 +119,7 @@ namespace Altinn.Platform.Storage.Controllers
         [ApiExplorerSettings(IgnoreApi = true)]
         public async Task<ActionResult> CleanupDataelements()
         {
-            if (!_usePostgreSQL)
-            {
-                _logger.LogInformation("CleanupController // CleanupDataelements // usePostgreSQL is false");
-                return Ok();
-            }
-
-            List<DataElement> dataElements = await _instanceRepository.GetHardDeletedDataElements();
+            List<DataElement> dataElements = await instanceRepository.GetHardDeletedDataElements();
 
             int successfullyDeleted = 0;
 
@@ -166,7 +129,7 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 try
                 {
-                    if (!await _blobRepository.DeleteBlob(dataElement.BlobStoragePath.Split('/')[0], dataElement.BlobStoragePath))
+                    if (!await blobRepository.DeleteBlob(dataElement.BlobStoragePath.Split('/')[0], dataElement.BlobStoragePath))
                     {
                         _logger.LogError(
                             "CleanupController // CleanupDataelements // Blob not found for dataElement Id: {dataElement.Id} Blobstoragepath: {blobStoragePath}",
@@ -174,7 +137,7 @@ namespace Altinn.Platform.Storage.Controllers
                             dataElement.BlobStoragePath);
                     }
 
-                    if (!await _dataRepository.Delete(dataElement))
+                    if (!await dataRepository.Delete(dataElement))
                     {
                         _logger.LogError(
                             "CleanupController // CleanupDataelements // Data element not found for dataElement Id: {dataElement.Id}",
@@ -215,18 +178,18 @@ namespace Altinn.Platform.Storage.Controllers
 
                 try
                 {
-                    blobsNoException = await _blobRepository.DeleteDataBlobs(instance);
+                    blobsNoException = await blobRepository.DeleteDataBlobs(instance);
 
                     if (blobsNoException)
                     {
-                        dataElementsNoException = await _dataRepository.DeleteForInstance(instance.Id.Split('/')[^1]);
+                        dataElementsNoException = await dataRepository.DeleteForInstance(instance.Id.Split('/')[^1]);
                     }
 
                     try
                     {
                         if (autoDeleteAppIds.Contains(instance.AppId))
                         {
-                            await _instanceEventRepository.DeleteAllInstanceEvents(instance.Id);
+                            await instanceEventRepository.DeleteAllInstanceEvents(instance.Id);
                             instanceEventsNoException = true;
                         }
                     }
@@ -241,7 +204,7 @@ namespace Altinn.Platform.Storage.Controllers
                     if (dataElementsNoException
                         && (!autoDeleteAppIds.Contains(instance.AppId) || instanceEventsNoException))
                     {
-                        if (await _instanceRepository.Delete(instance))
+                        if (await instanceRepository.Delete(instance))
                         {
                             successfullyDeleted += 1;
                         }

@@ -84,7 +84,7 @@ namespace Altinn.Platform.Storage.Controllers
             if (!string.IsNullOrEmpty(queryModel.SearchString))
             {
                 StringValues applicationIds = await MatchStringToAppTitle(queryModel.SearchString);
-                if (!applicationIds.Any() || (!string.IsNullOrEmpty(queryModel.AppId) && !applicationIds.Contains(queryModel.AppId)))
+                if (applicationIds.Count == 0 || (!string.IsNullOrEmpty(queryModel.AppId) && !applicationIds.Contains(queryModel.AppId)))
                 {
                     return Ok(new List<MessageBoxInstance>());
                 }
@@ -130,7 +130,7 @@ namespace Altinn.Platform.Storage.Controllers
                 languageId = language;
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid);
 
             if (instance == null)
             {
@@ -151,7 +151,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return Forbid();
             }
 
-            MessageBoxInstance authorizedInstance = authorizedInstanceList.First();
+            MessageBoxInstance authorizedInstance = authorizedInstanceList[0];
 
             // get app texts and exchange all text keys.
             List<TextResource> texts = await _textRepository.Get(new List<string> { instance.AppId }, languageId);
@@ -208,7 +208,7 @@ namespace Altinn.Platform.Storage.Controllers
         [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/undelete")]
         public async Task<ActionResult> Undelete(int instanceOwnerPartyId, Guid instanceGuid)
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid);
 
             if (instance == null)
             {
@@ -262,7 +262,7 @@ namespace Altinn.Platform.Storage.Controllers
         {
             string instanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
 
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid);
             if (instance == null)
             {
                 return NotFound($"Didn't find the object that should be deleted with instanceId={instanceId}");
@@ -313,15 +313,7 @@ namespace Altinn.Platform.Storage.Controllers
             List<string> appIds = new List<string>();
 
             Dictionary<string, string> appTitles = await _applicationRepository.GetAllAppTitles();
-
-            foreach (KeyValuePair<string, string> entry in appTitles)
-            {
-                if (entry.Value.Contains(searchString.Trim(), StringComparison.OrdinalIgnoreCase))
-                {
-                    appIds.Add(entry.Key);
-                }
-            }
-
+            appIds.AddRange(appTitles.Where(entry => entry.Value.Contains(searchString.Trim(), StringComparison.OrdinalIgnoreCase)).Select(entry => entry.Key));
             return new StringValues(appIds.ToArray());
         }
 
@@ -465,7 +457,7 @@ namespace Altinn.Platform.Storage.Controllers
             List<Instance> allInstances = queryResponse.Instances;
             await RemoveHiddenInstances(allInstances);
 
-            if (!allInstances.Any())
+            if (allInstances.Count == 0)
             {
                 return Ok(new List<MessageBoxInstance>());
             }
@@ -481,7 +473,7 @@ namespace Altinn.Platform.Storage.Controllers
             List<MessageBoxInstance> authorizedInstances =
                 await _authorizationService.AuthorizeMesseageBoxInstances(allInstances, false);
 
-            if (!authorizedInstances.Any())
+            if (authorizedInstances.Count == 0)
             {
                 return Ok(new List<MessageBoxInstance>());
             }

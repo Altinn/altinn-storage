@@ -16,22 +16,22 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
 {
     public class InstanceRepositoryMock : IInstanceRepository
     {
-        public async Task<Instance> Create(Instance item)
+        public async Task<Instance> Create(Instance instance)
         {
-            string partyId = item.InstanceOwner.PartyId;
+            string partyId = instance.InstanceOwner.PartyId;
             Guid instanceGuid = Guid.NewGuid();
 
-            Instance instance = new Instance
+            Instance newInstance = new Instance
             {
                 Id = $"{partyId}/{instanceGuid}",
-                AppId = item.AppId,
-                Org = item.Org,
-                InstanceOwner = item.InstanceOwner,
-                Process = item.Process,
+                AppId = instance.AppId,
+                Org = instance.Org,
+                InstanceOwner = instance.InstanceOwner,
+                Process = instance.Process,
                 Data = new List<DataElement>(),
             };
 
-            return await Task.FromResult(instance);
+            return await Task.FromResult(newInstance);
         }
 
         public Task<bool> Delete(Instance item)
@@ -132,7 +132,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
                 instances.RemoveAll(i => i.Status.IsSoftDeleted != match);
             }
 
-            instances.RemoveAll(i => i.Status.IsHardDeleted == true);
+            instances.RemoveAll(i => i.Status.IsHardDeleted);
 
             response.Instances = instances;
             response.Count = instances.Count;
@@ -140,9 +140,9 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return Task.FromResult(response);
         }
 
-        public Task<(Instance Instance, long InternalId)> GetOne(int instanceOwnerPartyId, Guid instanceGuid, bool includeElements = true)
+        public Task<(Instance Instance, long InternalId)> GetOne(Guid instanceGuid, bool includeElements = true)
         {
-            string instancePath = GetInstancePath(instanceOwnerPartyId.ToString(), instanceGuid);
+            string instancePath = GetInstancePath(instanceGuid);
             if (File.Exists(instancePath))
             {
                 string content = File.ReadAllText(instancePath);
@@ -154,16 +154,16 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return Task.FromResult<(Instance, long)>((null, 0));
         }
 
-        public Task<Instance> Update(Instance instance)
+        public Task<Instance> Update(Instance item)
         {
-            if (instance.Id.Equals("1337/d3b326de-2dd8-49a1-834a-b1d23b11e540"))
+            if (item.Id.Equals("1337/d3b326de-2dd8-49a1-834a-b1d23b11e540"))
             {
                 return Task.FromResult<Instance>(null);
             }
 
-            instance.Data = new List<DataElement>();
+            item.Data = new List<DataElement>();
 
-            return Task.FromResult(instance);
+            return Task.FromResult(item);
         }
 
         public Task<List<Instance>> GetHardDeletedInstances()
@@ -176,9 +176,9 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             throw new NotImplementedException();
         }
 
-        private static string GetInstancePath(string instanceOwnerPartyId, Guid instanceGuid)
+        private static string GetInstancePath(Guid instanceGuid)
         {
-            return Path.Combine(GetInstancesPath(), instanceOwnerPartyId, instanceGuid.ToString() + ".json");
+            return Path.Combine(GetInstancesPath(), instanceGuid.ToString() + ".json");
         }
 
         private static string GetInstancesPath()

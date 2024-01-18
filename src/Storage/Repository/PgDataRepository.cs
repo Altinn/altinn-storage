@@ -116,7 +116,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<List<DataElement>> ReadAll(Guid instanceGuid)
         {
-            List<DataElement> elements = new();
+            List<DataElement> elements = [];
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readAllSql);
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
@@ -138,7 +138,7 @@ namespace Altinn.Platform.Storage.Repository
         {
             ////TODO: Remove this method/interface and join the dataelements at the inestance level
             //// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            Dictionary<string, List<DataElement>> dataElements = new();
+            Dictionary<string, List<DataElement>> dataElements = [];
             if (instanceGuids == null || instanceGuids.Count == 0)
             {
                 return dataElements;
@@ -146,10 +146,10 @@ namespace Altinn.Platform.Storage.Repository
 
             foreach (var guidString in instanceGuids)
             {
-                dataElements[guidString] = new List<DataElement>();
+                dataElements[guidString] = [];
             }
 
-            List<Guid> instanceGuidsAsGuids = new();
+            List<Guid> instanceGuidsAsGuids = [];
             foreach (var instance in instanceGuids)
             {
                 instanceGuidsAsGuids.Add(new Guid(instance));
@@ -157,7 +157,7 @@ namespace Altinn.Platform.Storage.Repository
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readAllForMultipleSql);
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Array | NpgsqlDbType.Uuid, instanceGuidsAsGuids ?? (object)DBNull.Value);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Array | NpgsqlDbType.Uuid, instanceGuidsAsGuids);
 
             await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
             {
@@ -166,7 +166,7 @@ namespace Altinn.Platform.Storage.Repository
                     DataElement element = reader.GetFieldValue<DataElement>("element");
                     if (!dataElements.TryGetValue(element.InstanceGuid, out List<DataElement> elements))
                     {
-                        elements = new List<DataElement>();
+                        elements = [];
                         dataElements.Add(element.InstanceGuid, elements);
                     }
 

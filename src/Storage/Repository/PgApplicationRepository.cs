@@ -66,7 +66,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<List<Application>> FindAll()
         {
-            List<Application> applications = new();
+            List<Application> applications = [];
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSql);
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
@@ -83,7 +83,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<List<Application>> FindByOrg(string org)
         {
-            List<Application> applications = new();
+            List<Application> applications = [];
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readByOrgSql);
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
@@ -175,7 +175,7 @@ namespace Altinn.Platform.Storage.Repository
         {
             if (!_memoryCache.TryGetValue(_cacheKey, out Dictionary<string, string> appTitles))
             {
-                appTitles = new Dictionary<string, string>();
+                appTitles = [];
                 foreach (Application item in await FindAll())
                 {
                     StringBuilder titles = new();

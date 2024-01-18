@@ -243,7 +243,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         {
             // Arrange
             string requestUri = $"storage/api/v1/instances/1337/377efa97-80ee-4cc6-8d48-09de12cc273d/process/";
-            Instance testInstance = TestDataUtil.GetInstance(1337, new Guid("377efa97-80ee-4cc6-8d48-09de12cc273d"));
+            Instance testInstance = TestDataUtil.GetInstance(new Guid("377efa97-80ee-4cc6-8d48-09de12cc273d"));
             testInstance.Id = $"{testInstance.InstanceOwner.PartyId}/{testInstance.Id}";
             ProcessState state = new ProcessState
             {
@@ -256,7 +256,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             JsonContent jsonString = JsonContent.Create(state, new MediaTypeHeaderValue("application/json"));
 
             Mock<IInstanceRepository> repositoryMock = new Mock<IInstanceRepository>();
-            repositoryMock.Setup(ir => ir.GetOne(It.IsAny<int>(), It.IsAny<Guid>(), true)).ReturnsAsync((testInstance, 0));
+            repositoryMock.Setup(ir => ir.GetOne(It.IsAny<Guid>(), true)).ReturnsAsync((testInstance, 0));
             repositoryMock.Setup(ir => ir.Update(It.IsAny<Instance>())).ReturnsAsync((Instance i) => i);
 
             HttpClient client = GetTestClient(repositoryMock.Object);

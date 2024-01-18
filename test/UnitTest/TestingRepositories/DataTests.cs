@@ -29,7 +29,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             _ = PostgresUtil.RunSql(sql).Result;
             Instance instance = TestData.Instance_1_1.Clone();
             Instance newInstance = _dataElementFixture.InstanceRepo.Create(instance).Result;
-            (_instance, _instanceInternalId) = _dataElementFixture.InstanceRepo.GetOne(0, Guid.Parse(newInstance.Id.Split('/').Last()), false).Result;
+            (_instance, _instanceInternalId) = _dataElementFixture.InstanceRepo.GetOne(Guid.Parse(newInstance.Id.Split('/').Last()), false).Result;
         }
 
         /// <summary>
@@ -109,7 +109,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         {
             // Arrange
             Instance instance2 = await _dataElementFixture.InstanceRepo.Create(TestData.Instance_2_1);
-            (instance2, long instanceInternalId2) = await _dataElementFixture.InstanceRepo.GetOne(0, Guid.Parse(instance2.Id.Split('/').Last()), false);
+            (instance2, long instanceInternalId2) = await _dataElementFixture.InstanceRepo.GetOne(Guid.Parse(instance2.Id.Split('/').Last()), false);
 
             await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement1), _instanceInternalId);
             await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement2), _instanceInternalId);

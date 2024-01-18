@@ -73,7 +73,7 @@ namespace Altinn.Platform.Storage.Controllers
                 Guid instanceGuid,
                 [FromBody] ProcessState processState)
         {
-            (Instance existingInstance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance existingInstance, _) = await _instanceRepository.GetOne(instanceGuid);
 
             if (existingInstance == null)
             {
@@ -180,7 +180,7 @@ namespace Altinn.Platform.Storage.Controllers
             string message = null;
             try
             {
-                (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid, false);
+                (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false);
                 if (instance.InstanceOwner.PartyId == instanceOwnerPartyId.ToString())
                 {
                     return Ok(new AuthInfo() { Process = instance.Process, AppId = instance.AppId });

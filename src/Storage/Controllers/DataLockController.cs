@@ -9,7 +9,6 @@ using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Azure.Cosmos;
 
 namespace Altinn.Platform.Storage.Controllers;
 
@@ -107,7 +106,7 @@ public class DataLockController : ControllerBase
             return Forbid();
         }
 
-        bool authorized = await _authorizationService.AuthorizeAnyOfInstanceActions(instance, new List<string>() { "write", "unlock", "reject" });
+        bool authorized = await _authorizationService.AuthorizeAnyOfInstanceActions(instance, ["write", "unlock", "reject"]);
         if (!authorized)
         {
             return Forbid();
@@ -130,7 +129,7 @@ public class DataLockController : ControllerBase
 
     private async Task<(Instance? Instance, ActionResult? ErrorMessage)> GetInstanceAsync(Guid instanceGuid, int instanceOwnerPartyId)
     {
-        (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+        (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid);
 
         if (instance == null)
         {

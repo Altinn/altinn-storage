@@ -569,7 +569,7 @@ namespace Altinn.Platform.Storage.Controllers
 
         private async Task<(Instance Instance, long InternalId, ActionResult ErrorMessage)> GetInstanceAsync(Guid instanceGuid, int instanceOwnerPartyId)
         {
-            (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(instanceGuid);
 
             if (instance == null)
             {
