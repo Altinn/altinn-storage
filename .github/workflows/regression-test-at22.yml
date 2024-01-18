@@ -1,0 +1,21 @@
+name: Regression Test - AT22
+
+on:
+  workflow_dispatch:
+  schedule:
+  - cron: '0 12 * * 1-5'
+
+jobs:
+  call-tests:
+    uses: ./.github/workflows/regression-test-ATX.yml
+    with:
+      environment: AT22
+    secrets:
+      TOKENGENERATOR_USERNAME: ${{ secrets.TOKENGENERATOR_USERNAME }}
+      TOKENGENERATOR_USERPASSWORD: ${{ secrets.TOKENGENERATOR_USERPASSWORD }}
+      PERSON_NUMBER: ${{ secrets.PERSON_NUMBER }}
+      PARTY_ID: ${{ secrets.PARTY_ID }}
+      USER_ID: ${{ secrets.USER_ID }}
+      APIM_SUBSKEY: ${{ secrets.APIM_SUBSKEY }}
+      APIM_SBL_SUBSKEY: ${{ secrets.APIM_SBL_SUBSKEY }}
+      SLACK_WEBHOOK_URL_TEST: ${{ secrets.SLACK_WEBHOOK_URL_TEST }}

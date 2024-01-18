@@ -1,18 +1,33 @@
 name: Regression test - AT
 
 on:
-  workflow_dispatch:
-  schedule:
-  - cron: '0 12 * * 1-5'
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+    secrets:
+      TOKENGENERATOR_USERNAME:
+        required: true
+      TOKENGENERATOR_USERPASSWORD:
+        required: true
+      PERSON_NUMBER:
+        required: true
+      PARTY_ID:
+        required: true
+      USER_ID:
+        required: true
+      APIM_SUBSKEY:
+        required: true
+      APIM_SBL_SUBSKEY:
+        required: true
+      SLACK_WEBHOOK_URL_TEST:
+        required: true
 
 jobs:
   test:
-    strategy:
-      fail-fast: false
-      matrix:
-        environment: [AT22, AT23, AT24]
-    environment: ${{ matrix.environment }}
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
     steps:
     - uses: actions/checkout@v4
     - name: Run regression tests for endpoint 'applications'
