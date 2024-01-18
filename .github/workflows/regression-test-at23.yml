@@ -1,4 +1,4 @@
-name: Regression Test - AT22
+name: Regression Test - AT23
 
 on:
   workflow_dispatch:
@@ -9,8 +9,8 @@ on:
     types: [opened, synchronize, reopened]
 
 jobs:
-  at22:
+  at23:
     uses: ./.github/workflows/regression-test-ATX.yml
     with:
-      environment: AT22
+      environment: AT23
     secrets: inherit
