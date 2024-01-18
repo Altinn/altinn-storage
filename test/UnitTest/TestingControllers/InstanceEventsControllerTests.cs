@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
+using System.Threading.Tasks;
 
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
@@ -47,7 +48,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Add a new event to an instance.
         /// </summary>
         [Fact]
-        public async void Post_CreateNewEvent_ReturnsCreated()
+        public async Task Post_CreateNewEvent_ReturnsCreated()
         {
             // Arrange
             string requestUri = "storage/api/v1/instances/1337/3c42ee2a-9464-42a8-a976-16eb926bd20a/events/";
@@ -74,7 +75,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Expected: Returns status forbidden.
         /// </summary>
         [Fact]
-        public async void Post_UserHasToLowAuthLv_ReturnStatusForbidden()
+        public async Task Post_UserHasToLowAuthLv_ReturnStatusForbidden()
         {
             // Arrange
             string requestUri = $"storage/api/v1/instances/1337/3c42ee2a-9464-42a8-a976-16eb926bd20a/events/";
@@ -103,7 +104,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Expected: Returns status forbidden.
         /// </summary>
         [Fact]
-        public async void Post_ResponseIsDeny_ReturnStatusForbidden()
+        public async Task Post_ResponseIsDeny_ReturnStatusForbidden()
         {
             // Arrange
             string requestUri = $"storage/api/v1/instances/1337/3c42ee2a-9464-42a8-a976-16eb926bd20a/events/";
@@ -126,7 +127,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Expected: Returns status forbidden.
         /// </summary>
         [Fact]
-        public async void GetOne_UserHasToLowAuthLv_ReturnStatusForbidden()
+        public async Task GetOne_UserHasToLowAuthLv_ReturnStatusForbidden()
         {
             // Arrange
             string eventGuid = "c8a44353-114a-48fc-af8f-b85392793cb2";
@@ -148,7 +149,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Expected: Returns status forbidden.
         /// </summary>
         [Fact]
-        public async void GetOne_ResponseIsDeny_ReturnStatusForbidden()
+        public async Task GetOne_ResponseIsDeny_ReturnStatusForbidden()
         {
             string eventGuid = "9f07c256-a344-490b-b42b-1c855a83f6fc";
             string requestUri = $"storage/api/v1/instances/1337/a6020470-2200-4448-bed9-ef46b679bdb8/events/{eventGuid}";
@@ -169,7 +170,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Expected: Returns status forbidden.
         /// </summary>
         [Fact]
-        public async void Get_UserHasToLowAuthLv_ReturnStatusForbidden()
+        public async Task Get_UserHasToLowAuthLv_ReturnStatusForbidden()
         {
             // Arrange
             string requestUri = "storage/api/v1/instances/1337/3c42ee2a-9464-42a8-a976-16eb926bd20a/events/";
@@ -190,7 +191,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Expected: Returns status forbidden.
         /// </summary>
         [Fact]
-        public async void Get_ResponseIsDeny_ReturnStatusForbidden()
+        public async Task Get_ResponseIsDeny_ReturnStatusForbidden()
         {
             // Arrange
             string requestUri = "storage/api/v1/instances/1337/3c42ee2a-9464-42a8-a976-16eb926bd20a/events/";

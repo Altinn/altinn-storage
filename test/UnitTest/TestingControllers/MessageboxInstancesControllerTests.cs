@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Threading.Tasks;
 
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
@@ -64,7 +65,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///  The instance has the expected properties.
         /// </summary>
         [Fact]
-        public async void GetMessageBoxInstance_RequestsExistingInstance_InstanceIsSuccessfullyMappedAndReturned()
+        public async Task GetMessageBoxInstance_RequestsExistingInstance_InstanceIsSuccessfullyMappedAndReturned()
         {
             // Arrange
             string instanceId = "1337/6323a337-26e7-4d40-89e8-f5bb3d80be3a";
@@ -98,7 +99,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///  The instance does not have allowed to delete permissions.
         /// </summary>
         [Fact]
-        public async void GetMessageBoxInstance_RequestsExistingInstanceUserCannotDelete_InstanceIsSuccessfullyMappedAndReturned()
+        public async Task GetMessageBoxInstance_RequestsExistingInstanceUserCannotDelete_InstanceIsSuccessfullyMappedAndReturned()
         {
             // Arrange
             string instanceId = "1606/6323a337-26e7-4d40-89e8-f5bb3d80be3a";
@@ -128,7 +129,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   Forbidden response.
         /// </summary>
         [Fact]
-        public async void GetMessageBoxInstance_RequestsInstanceUserIsNotAuthorized_ForbiddenReturned()
+        public async Task GetMessageBoxInstance_RequestsInstanceUserIsNotAuthorized_ForbiddenReturned()
         {
             // Arrange
             string instanceId = "1337/6323a337-26e7-4d40-89e8-f5bb3d80be3a";
@@ -144,7 +145,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         [Fact]
-        public async void GetMessageBoxInstance_ArchivedInstanceCanBeCopied_UserHaveRights_InstanceIsSuccessfullyMappedAndReturned()
+        public async Task GetMessageBoxInstance_ArchivedInstanceCanBeCopied_UserHaveRights_InstanceIsSuccessfullyMappedAndReturned()
         {
             // Arrange
             string instanceId = "1337/07274f48-8313-4e2d-9788-bbdacef5a54e";
@@ -175,7 +176,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   True is returned for the http request.
         /// </summary>
         [Fact]
-        public async void Undelete_RestoreSoftDeletedInstance_ReturnsTrue()
+        public async Task Undelete_RestoreSoftDeletedInstance_ReturnsTrue()
         {
             // Arrange
             HttpClient client = GetTestClient();
@@ -200,7 +201,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   The instance is not restored and returns status forbidden.
         /// </summary>
         [Fact]
-        public async void Undelete_UserHasTooLowAuthLv_ReturnsStatusForbidden()
+        public async Task Undelete_UserHasTooLowAuthLv_ReturnsStatusForbidden()
         {
             // Arrange
             HttpClient client = GetTestClient();
@@ -223,7 +224,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   The instance is not restored and returns status forbidden.
         /// </summary>
         [Fact]
-        public async void Undelete_ResponseIsDeny_ReturnsStatusForbidden()
+        public async Task Undelete_ResponseIsDeny_ReturnsStatusForbidden()
         {
             // Arrange
             HttpClient client = GetTestClient();
@@ -248,7 +249,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   Response status is NotFound and the body contains correct reason.
         /// </summary>
         [Fact]
-        public async void Undelete_AttemptToRestoreHardDeletedInstance_ReturnsNotFound()
+        public async Task Undelete_AttemptToRestoreHardDeletedInstance_ReturnsNotFound()
         {
             // Arrange
             HttpClient client = GetTestClient();
@@ -273,7 +274,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   Internal server error
         /// </summary>
         [Fact]
-        public async void Undelete_RestoreNonExistentInstance_ReturnsNotFound()
+        public async Task Undelete_RestoreNonExistentInstance_ReturnsNotFound()
         {
             // Arrange
             HttpClient client = GetTestClient();
@@ -295,7 +296,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   True is returned for the http request.
         /// </summary>
         [Fact]
-        public async void Delete_SoftDeleteActiveInstance_InstanceIsMarked_EventIsCreated_ReturnsTrue()
+        public async Task Delete_SoftDeleteActiveInstance_InstanceIsMarked_EventIsCreated_ReturnsTrue()
         {
             // Arrange
             HttpClient client = GetTestClient();
@@ -319,7 +320,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   Returns status forbidden.
         /// </summary>
         [Fact]
-        public async void Delete_UserHasTooLowAuthLv_ReturnsStatusForbidden()
+        public async Task Delete_UserHasTooLowAuthLv_ReturnsStatusForbidden()
         {
             // Arrange
             Mock<IInstanceEventRepository> instanceEventRepository = new Mock<IInstanceEventRepository>();
@@ -345,7 +346,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   Returns status forbidden.
         /// </summary>
         [Fact]
-        public async void Delete_ResponseIsDeny_ReturnsStatusForbidden()
+        public async Task Delete_ResponseIsDeny_ReturnsStatusForbidden()
         {
             // Arrange
             HttpClient client = GetTestClient();
@@ -370,7 +371,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   True is returned for the http request.
         /// </summary>
         [Fact]
-        public async void Delete_HardDeleteSoftDeleted()
+        public async Task Delete_HardDeleteSoftDeleted()
         {
             // Arrange
             HttpClient client = GetTestClient();
@@ -399,7 +400,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   True is returned for the http request.
         /// </summary>
         [Fact]
-        public async void Delete_ActiveHasRole_ReturnsOk()
+        public async Task Delete_ActiveHasRole_ReturnsOk()
         {
             // Arrange
             HttpClient client = GetTestClient();
@@ -423,7 +424,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   Forbidden is returned for the http request.
         /// </summary>
         [Fact]
-        public async void Delete_ActiveMissingRole_ReturnsForbidden()
+        public async Task Delete_ActiveMissingRole_ReturnsForbidden()
         {
             // Arrange
             HttpClient client = GetTestClient();
@@ -446,7 +447,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   True is returned for the http request.
         /// </summary>
         [Fact]
-        public async void Delete_ArchivedHasRole_ReturnsOk()
+        public async Task Delete_ArchivedHasRole_ReturnsOk()
         {
             // Arrange
             HttpClient client = GetTestClient();
@@ -472,7 +473,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   Forbidden is returned for the http request.
         /// </summary>
         [Fact]
-        public async void Delete_ArchivedMissingRole_ReturnsForbidden()
+        public async Task Delete_ArchivedMissingRole_ReturnsForbidden()
         {
             // Arrange
             HttpClient client = GetTestClient();
@@ -495,7 +496,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   Unauthorized is returned.
         /// </summary>
         [Fact]
-        public async void Post_Search_MissingToken_ReturnsForbidden()
+        public async Task Post_Search_MissingToken_ReturnsForbidden()
         {
             // Arrange
             HttpClient client = GetTestClient();
@@ -517,7 +518,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///  List of instances is returned
         /// </summary>
         [Fact]
-        public async void Post_Search_FilterOnAppId_ReturnsActiveArchivedAndDeletedInstances()
+        public async Task Post_Search_FilterOnAppId_ReturnsActiveArchivedAndDeletedInstances()
         {
             // Arrange
             HttpClient client = GetTestClient();
@@ -546,7 +547,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///  Hard deleted instances are not included in the response.
         /// </summary>
         [Fact]
-        public async void Post_Search_FilterOnAppId_HardDeletedInstancesAreExcludedFromResult()
+        public async Task Post_Search_FilterOnAppId_HardDeletedInstancesAreExcludedFromResult()
         {
             // Arrange
             HttpClient client = GetTestClient();
@@ -579,7 +580,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///  Bad request is returned
         /// </summary>
         [Fact]
-        public async void Post_Search_FilterOnUnknownParameter_BadRequestIsReturned()
+        public async Task Post_Search_FilterOnUnknownParameter_BadRequestIsReturned()
         {
             // Arrange
             HttpClient client = GetTestClient();
@@ -602,7 +603,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///  isSoftDeleted and isArchived are set to false.
         /// </summary>
         [Fact]
-        public async void Post_Search_IncludeActive_OriginalQuerySuccesfullyConverted()
+        public async Task Post_Search_IncludeActive_OriginalQuerySuccesfullyConverted()
         {
             // Arrange
             Dictionary<string, StringValues> actual = new Dictionary<string, StringValues>();
@@ -628,9 +629,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.True(actual.ContainsKey("instanceOwner.partyId"));
             Assert.True(actual.ContainsKey("sortBy"));
             actual.TryGetValue("status.isSoftDeleted", out StringValues actualIsSoftDeleted);
-            Assert.Equal(expectedIsSoftDeleted, actualIsSoftDeleted.First());
+            Assert.Equal(expectedIsSoftDeleted, actualIsSoftDeleted[0]);
             actual.TryGetValue("status.isArchived", out StringValues actualIsArchived);
-            Assert.Equal(expectedIsArchived, actualIsArchived.First());
+            Assert.Equal(expectedIsArchived, actualIsArchived[0]);
             Assert.Equal(expectedParamCount, actual.Keys.Count);
         }
 
@@ -643,7 +644,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///  isSoftDeleted is set to false and isArchived is set to true.
         /// </summary>
         [Fact]
-        public async void Post_Search_IncludeArchived_OriginalQuerySuccesfullyConverted()
+        public async Task Post_Search_IncludeArchived_OriginalQuerySuccesfullyConverted()
         {
             // Arrange
             Dictionary<string, StringValues> actual = new Dictionary<string, StringValues>();
@@ -670,9 +671,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
             Assert.True(actual.ContainsKey("instanceOwner.partyId"));
             actual.TryGetValue("status.isSoftDeleted", out StringValues actualIsSoftDeleted);
-            Assert.Equal(expectedIsSoftDeleted, actualIsSoftDeleted.First());
+            Assert.Equal(expectedIsSoftDeleted, actualIsSoftDeleted[0]);
             actual.TryGetValue("status.isArchived", out StringValues actualIsArchived);
-            Assert.Equal(expectedIsArchived, actualIsArchived.First());
+            Assert.Equal(expectedIsArchived, actualIsArchived[0]);
             Assert.Equal(expectedParamCount, actual.Keys.Count);
         }
 
@@ -685,7 +686,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///  No new parameters are included, and the "includeX" parameters are removed.
         /// </summary>
         [Fact]
-        public async void Post_Search_IncludeAllStates_OriginalQuerySuccesfullyConverted()
+        public async Task Post_Search_IncludeAllStates_OriginalQuerySuccesfullyConverted()
         {
             // Arrange
             Dictionary<string, StringValues> actual = new Dictionary<string, StringValues>();
@@ -722,7 +723,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///  isArchivedOrSoftDeleted is set to true.
         /// </summary>
         [Fact]
-        public async void Post_Search_IncludeArchivedAndDeleted_OriginalQuerySuccesfullyConverted()
+        public async Task Post_Search_IncludeArchivedAndDeleted_OriginalQuerySuccesfullyConverted()
         {
             // Arrange
             Dictionary<string, StringValues> actual = new Dictionary<string, StringValues>();
@@ -749,9 +750,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
             Assert.True(actual.ContainsKey("instanceOwner.partyId"));
             actual.TryGetValue("status.isArchivedOrSoftDeleted", out StringValues actualIsArchivedOrSoftDeleted);
-            Assert.True(bool.Parse(actualIsArchivedOrSoftDeleted.First()));
+            Assert.True(bool.Parse(actualIsArchivedOrSoftDeleted[0]));
             actual.TryGetValue("sortBy", out StringValues actualSortBy);
-            Assert.Equal(expectedSortBy, actualSortBy.First());
+            Assert.Equal(expectedSortBy, actualSortBy[0]);
             Assert.Equal(expectedParamCount, actual.Keys.Count);
         }
 
@@ -764,7 +765,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///  isActiveOrSoftDeleted is set to true.
         /// </summary>
         [Fact]
-        public async void Post_Search_IncludeActivedAndDeleted_OriginalQuerySuccesfullyConverted()
+        public async Task Post_Search_IncludeActivedAndDeleted_OriginalQuerySuccesfullyConverted()
         {
             // Arrange
             Dictionary<string, StringValues> actual = new Dictionary<string, StringValues>();
@@ -790,7 +791,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
             Assert.True(actual.ContainsKey("instanceOwner.partyId"));
             actual.TryGetValue("status.isActiveOrSoftDeleted", out StringValues actualIsArchivedOrSoftDeleted);
-            Assert.True(bool.Parse(actualIsArchivedOrSoftDeleted.First()));
+            Assert.True(bool.Parse(actualIsArchivedOrSoftDeleted[0]));
             Assert.Equal(expectedParamCount, actual.Keys.Count);
         }
 
@@ -803,7 +804,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///  Empty list is returned.
         /// </summary>
         [Fact]
-        public async void Post_Search_SearchStringDoesNotMatchAppId_EmptyListIsReturned()
+        public async Task Post_Search_SearchStringDoesNotMatchAppId_EmptyListIsReturned()
         {
             // Arrange
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
@@ -839,7 +840,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///  Empty list is returned.
         /// </summary>
         [Fact]
-        public async void Post_Search_SearchStringDoesNotMatchAnyApp_NoCallToRepository()
+        public async Task Post_Search_SearchStringDoesNotMatchAnyApp_NoCallToRepository()
         {
             // Arrange
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
@@ -877,7 +878,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///  SearchString is removed and appId is included in query string
         /// </summary>
         [Fact]
-        public async void Post_Search_MatchFoundForSearchString_OriginalQuerySuccesfullyConverted()
+        public async Task Post_Search_MatchFoundForSearchString_OriginalQuerySuccesfullyConverted()
         {
             // Arrange
             Dictionary<string, StringValues> actual = new Dictionary<string, StringValues>();
@@ -901,7 +902,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
             Assert.True(actual.ContainsKey("appId"));
             actual.TryGetValue("appId", out StringValues actualAppid);
-            Assert.Equal(expectedAppId, actualAppid.First());
+            Assert.Equal(expectedAppId, actualAppid[0]);
             Assert.False(actual.ContainsKey("searchString"));
             instanceRepositoryMock.VerifyAll();
         }
@@ -915,7 +916,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///  SearchString is removed and appId is included in query string.
         /// </summary>
         [Fact]
-        public async void Post_Search_MultipleMatchesFoundForSearchString_OriginalQuerySuccesfullyConverted()
+        public async Task Post_Search_MultipleMatchesFoundForSearchString_OriginalQuerySuccesfullyConverted()
         {
             // Arrange
             Dictionary<string, StringValues> actual = new Dictionary<string, StringValues>();
@@ -953,7 +954,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///  Instances for two parties are returned
         /// </summary>
         [Fact]
-        public async void Post_Search_MultiplePartyIds_InstancesForBothIdsReturned()
+        public async Task Post_Search_MultiplePartyIds_InstancesForBothIdsReturned()
         {
             // Arrange
             int expectedCount = 3;
@@ -987,7 +988,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///  isArchivedOrSoftDeleted is set to true.
         /// </summary>
         [Fact]
-        public async void Post_Search_ArchiveReferenceNoStateFilter_OriginalQuerySuccesfullyConverted()
+        public async Task Post_Search_ArchiveReferenceNoStateFilter_OriginalQuerySuccesfullyConverted()
         {
             // Arrange
             Dictionary<string, StringValues> actual = new Dictionary<string, StringValues>();
@@ -1010,7 +1011,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
             Assert.True(actual.ContainsKey("instanceOwner.partyId"));
             actual.TryGetValue("status.isArchivedOrSoftDeleted", out StringValues actualIsArchivedOrSoftDeleted);
-            Assert.True(bool.Parse(actualIsArchivedOrSoftDeleted.First()));
+            Assert.True(bool.Parse(actualIsArchivedOrSoftDeleted[0]));
         }
 
         /// <summary>
@@ -1022,7 +1023,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///  isArchived is set to true. isSoftDeleted is set to false.
         /// </summary>
         [Fact]
-        public async void Post_Search_ArchiveReferenceIncludeActiveAndSoftDeleted_OriginalQuerySuccesfullyConverted()
+        public async Task Post_Search_ArchiveReferenceIncludeActiveAndSoftDeleted_OriginalQuerySuccesfullyConverted()
         {
             // Arrange
             Dictionary<string, StringValues> actual = new Dictionary<string, StringValues>();
@@ -1047,7 +1048,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
             Assert.True(actual.ContainsKey("instanceOwner.partyId"));
             actual.TryGetValue("status.isSoftDeleted", out StringValues actualIsArchived);
-            Assert.True(bool.Parse(actualIsArchived.First()));
+            Assert.True(bool.Parse(actualIsArchived[0]));
         }
 
         /// <summary>
@@ -1059,7 +1060,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///  Single instance is returned.
         /// </summary>
         [Fact]
-        public async void Post_Search_VisibleDateNotReached_InstanceRemovedFromResponse()
+        public async Task Post_Search_VisibleDateNotReached_InstanceRemovedFromResponse()
         {
             // Arrange
             HttpClient client = GetTestClient();
@@ -1086,7 +1087,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///  Messagebox instance contains authorizedForSign true.
         /// </summary>
         [Fact]
-        public async void Post_Search_InstanceInSigningStage_UserAuthorizedToSign()
+        public async Task Post_Search_InstanceInSigningStage_UserAuthorizedToSign()
         {
             // Arrange
             HttpClient client = GetTestClient();
@@ -1105,11 +1106,11 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
             Assert.Single(actualResult);
-            Assert.True(actualResult.First().AuthorizedForSign);
+            Assert.True(actualResult[0].AuthorizedForSign);
         }
 
         [Fact]
-        public async void GetMessageBoxInstanceEvents_AllEventTypesIncludedInSearch()
+        public async Task GetMessageBoxInstanceEvents_AllEventTypesIncludedInSearch()
         {
             // Arrange            
             string[] extepctedEventTypes = { "Created", "Deleted", "Undeleted", "Saved", "Submited", "SubstatusUpdated", "Signed", "SentToSign" };
@@ -1137,7 +1138,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Events close in time from different users are not considered duplicates.
         /// </summary>
         [Fact]
-        public async void GetMessageBoxInstanceEvents_DuplicateEventsRemoved()
+        public async Task GetMessageBoxInstanceEvents_DuplicateEventsRemoved()
         {
             // Arrange
             var eventA = new InstanceEvent

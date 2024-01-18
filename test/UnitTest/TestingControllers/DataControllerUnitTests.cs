@@ -28,10 +28,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
     public class DataControllerUnitTests
     {
         private static List<string> _forbiddenUpdateProps = new List<string>() { "/created", "/createdBy", "/id", "/instanceGuid", "/blobStoragePath", "/dataType" };
-        private int _instanceOwnerPartyId = 1337;
-        private string _org = "ttd";
-        private string _appId = "ttd/apps-test";
-        private string _dataType = "attachment";
+        private readonly int _instanceOwnerPartyId = 1337;
+        private readonly string _org = "ttd";
+        private readonly string _appId = "ttd/apps-test";
+        private readonly string _dataType = "attachment";
 
         [Fact]
         public async Task Get_VerifyDataRepositoryUpdateInput()

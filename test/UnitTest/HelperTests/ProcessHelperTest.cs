@@ -15,12 +15,12 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
         [Theory]
         [MemberData(nameof(InstanceEventData_ExpectedProps))]
         public void MapInstanceEventsToProcessHistoryTest(
-            InstanceEvent instanceEvent, 
-            string expectedPerformedBy, 
-            string expectedEventType, 
+            InstanceEvent instanceEvent,
+            string expectedPerformedBy,
+            string expectedEventType,
             DateTime? expectedOccured)
         {
-            ProcessHistoryItem actual = ProcessHelper.MapInstanceEventsToProcessHistory(new List<InstanceEvent> { instanceEvent }).First();
+            ProcessHistoryItem actual = ProcessHelper.MapInstanceEventsToProcessHistory(new List<InstanceEvent> { instanceEvent })[0];
             Assert.Equal(expectedPerformedBy, actual.PerformedBy);
             Assert.Equal(expectedEventType, actual.EventType);
             Assert.Equal(expectedOccured, actual.Occured);
@@ -93,7 +93,7 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
                         Started = ReferenceTimestamp.AddSeconds(1),
                         CurrentTask = new ProcessElementInfo
                         {
-                            Flow = 2,                            
+                            Flow = 2,
                             Started = ReferenceTimestamp.AddSeconds(2),
                             ElementId = "Task_1",
                             Name = "Utfylling",
@@ -138,7 +138,7 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
                 new InstanceEvent
                 {
                     EventType = InstanceEventType.process_StartEvent.ToString(),
-                    Created = ReferenceTimestamp,                    
+                    Created = ReferenceTimestamp,
                     User = new PlatformUser
                     {
                         AuthenticationLevel = 2,

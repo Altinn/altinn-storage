@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Threading.Tasks;
 
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
@@ -52,7 +53,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Expected: Returns status forbidden.
         /// </summary>
         [Fact]
-        public async void GetProcessHistory_UserHasToLowAuthLv_ReturnStatusForbidden()
+        public async Task GetProcessHistory_UserHasToLowAuthLv_ReturnStatusForbidden()
         {
             // Arrange
             string requestUri = $"storage/api/v1/instances/1337/ba577e7f-3dfd-4ff6-b659-350308a47348/process/history";
@@ -73,7 +74,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Expected: Returns status forbidden.
         /// </summary>
         [Fact]
-        public async void GetProcessHistory_ReponseIsDeny_ReturnStatusForbidden()
+        public async Task GetProcessHistory_ReponseIsDeny_ReturnStatusForbidden()
         { // Arrange
             string requestUri = $"storage/api/v1/instances/1337/ba577e7f-3dfd-4ff6-b659-350308a47348/process/history";
 
@@ -93,7 +94,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Expected: Success status code. Empty process history is returned
         /// </summary>
         [Fact]
-        public async void GetProcessHistory_UserIsAuthorized_ReturnsEmptyProcessHistoryReturnStatusForbidden()
+        public async Task GetProcessHistory_UserIsAuthorized_ReturnsEmptyProcessHistoryReturnStatusForbidden()
         {
             // Arrange 
             string requestUri = $"storage/api/v1/instances/1337/17ad1851-f6cb-4573-bfcb-a17d145307b3/process/history";
@@ -117,7 +118,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Expected: Returns status forbidden.
         /// </summary>
         [Fact]
-        public async void PutProcess_UserHasToLowAuthLv_ReturnStatusForbidden()
+        public async Task PutProcess_UserHasToLowAuthLv_ReturnStatusForbidden()
         {
             // Arrange
             string requestUri = $"storage/api/v1/instances/1337/ae3fe2fa-1fcb-42b4-8e63-69a42d4e3502/process/";
@@ -141,7 +142,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Expected: Returns status forbidden.
         /// </summary>
         [Fact]
-        public async void PutProcess_PDPResponseIsDeny_ReturnStatusForbidden()
+        public async Task PutProcess_PDPResponseIsDeny_ReturnStatusForbidden()
         {
             // Arrange
             string requestUri = $"storage/api/v1/instances/1337/ae3fe2fa-1fcb-42b4-8e63-69a42d4e3502/process/";
@@ -165,7 +166,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Expected: Returns status ok. 
         /// </summary>
         [Fact]
-        public async void PutProcess_UserIsAuthorized_ReturnStatusOK()
+        public async Task PutProcess_UserIsAuthorized_ReturnStatusOK()
         {
             // Arrange 
             string requestUri = $"storage/api/v1/instances/1337/20a1353e-91cf-44d6-8ff7-f68993638ffe/process/";
@@ -188,7 +189,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Expected: Returns status ok. 
         /// </summary>
         [Fact]
-        public async void PutProcessGatewayReturn_UserIsAuthorized_ReturnStatusOK()
+        public async Task PutProcessGatewayReturn_UserIsAuthorized_ReturnStatusOK()
         {
             // Arrange 
             string requestUri = $"storage/api/v1/instances/1337/20b1353e-91cf-44d6-8ff7-f68993638ffe/process/";
@@ -215,7 +216,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Expected: Returns forbidden. 
         /// </summary>
         [Fact]
-        public async void PutProcessConfirm_UserIsNotAuthorized_ReturnDenied()
+        public async Task PutProcessConfirm_UserIsNotAuthorized_ReturnDenied()
         {
             // Arrange 
             string requestUri = $"storage/api/v1/instances/1337/20b1353e-91cf-44d6-8ff7-f68993638ffe/process/";
@@ -238,7 +239,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Expected: Returns status ok. 
         /// </summary>
         [Fact]
-        public async void PutProcess_EndProcess_EnsureArchivedStateIsSet()
+        public async Task PutProcess_EndProcess_EnsureArchivedStateIsSet()
         {
             // Arrange
             string requestUri = $"storage/api/v1/instances/1337/377efa97-80ee-4cc6-8d48-09de12cc273d/process/";
@@ -276,7 +277,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Expected: An instance event of type "sentToSign" is registered.
         /// </summary>
         [Fact]
-        public async void PutProcess_MoveToSigning_SentToSignEventGenerated()
+        public async Task PutProcess_MoveToSigning_SentToSignEventGenerated()
         {
             // Arrange 
             string requestUri = $"storage/api/v1/instances/1337/20a1353e-91cf-44d6-8ff7-f68993638ffe/process/";

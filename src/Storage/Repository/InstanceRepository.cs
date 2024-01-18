@@ -281,11 +281,11 @@ namespace Altinn.Platform.Storage.Repository
 
         private static void SetReadStatus(Instance instance)
         {
-            if (instance.Status.ReadStatus == ReadStatus.Read && instance.Data.Any(d => !d.IsRead))
+            if (instance.Status.ReadStatus == ReadStatus.Read && instance.Data.Exists(d => !d.IsRead))
             {
                 instance.Status.ReadStatus = ReadStatus.UpdatedSinceLastReview;
             }
-            else if (instance.Status.ReadStatus == ReadStatus.Read && !instance.Data.Any(d => d.IsRead))
+            else if (instance.Status.ReadStatus == ReadStatus.Read && !instance.Data.Exists(d => d.IsRead))
             {
                 instance.Status.ReadStatus = ReadStatus.Unread;
             }

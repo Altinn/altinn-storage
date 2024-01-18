@@ -46,7 +46,7 @@ namespace Altinn.Platform.Storage.Helpers
                               });
                         break;
                     case InstanceEventType.process_StartTask:
-                        ProcessHistoryItem task_1 = history.FirstOrDefault(i => i.ElementId.Equals(instanceEvent.ProcessInfo.CurrentTask.ElementId));
+                        ProcessHistoryItem task_1 = history.Find(i => i.ElementId.Equals(instanceEvent.ProcessInfo.CurrentTask.ElementId));
 
                         if (task_1 != null)
                         {
@@ -66,7 +66,7 @@ namespace Altinn.Platform.Storage.Helpers
 
                         break;
                     case InstanceEventType.process_EndTask:
-                        ProcessHistoryItem task_2 = history.FirstOrDefault(i => i.ElementId.Equals(instanceEvent?.ProcessInfo?.CurrentTask?.ElementId));
+                        ProcessHistoryItem task_2 = history.Find(i => i.ElementId.Equals(instanceEvent?.ProcessInfo?.CurrentTask?.ElementId));
                         if (task_2 != null)
                         {
                             task_2.Ended = instanceEvent.Created;

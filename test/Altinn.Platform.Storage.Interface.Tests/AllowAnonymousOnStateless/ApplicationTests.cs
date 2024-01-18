@@ -12,7 +12,7 @@ namespace Altinn.Platform.Storage.Interface.Tests
         {
             Application applicationBefore = TestdataHelper.LoadDataFromEmbeddedResourceAsType<Application>("AllowAnonymousOnStateless.applicationMetadata_beforeChange.json");
 
-            applicationBefore.DataTypes.Where(d => d.Id == "Veileder").First().AppLogic.AllowAnonymousOnStateless.Should().BeFalse();
+            applicationBefore.DataTypes.First(d => d.Id == "Veileder").AppLogic.AllowAnonymousOnStateless.Should().BeFalse();
         }
 
         [Fact]
@@ -20,7 +20,7 @@ namespace Altinn.Platform.Storage.Interface.Tests
         {
             Application applicationBefore = TestdataHelper.LoadDataFromEmbeddedResourceAsType<Application>("AllowAnonymousOnStateless.applicationMetadata_afterChange.json");
 
-            applicationBefore.DataTypes.Where(d => d.Id == "Veileder").First().AppLogic.AllowAnonymousOnStateless.Should().BeTrue();
+            applicationBefore.DataTypes.First(d => d.Id == "Veileder").AppLogic.AllowAnonymousOnStateless.Should().BeTrue();
         }
     }
 }

@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Threading.Tasks;
 
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
@@ -81,7 +82,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   The response has correct status and the returned application instance has been populated with an empty list of data type.
         /// </summary>
         [Fact]
-        public async void Post_GivenValidApplication_ReturnsStatusCreatedAndCorrectData()
+        public async Task Post_GivenValidApplication_ReturnsStatusCreatedAndCorrectData()
         {
             // Arrange
             string org = "test";
@@ -119,7 +120,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   Returns HttpStatus Forbidden and no Application instance get returned.
         /// </summary>
         [Fact]
-        public async void Post_ClientWithIncorrectScope_ReturnsStatusForbidden()
+        public async Task Post_ClientWithIncorrectScope_ReturnsStatusForbidden()
         {
             // Arrange
             string org = "test";
@@ -154,7 +155,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   Returns HttpStatus Forbidden and no Application instance get returned.
         /// </summary>
         [Fact]
-        public async void Post_ClientWithEmptyScope_ReturnsStatusForbidden()
+        public async Task Post_ClientWithEmptyScope_ReturnsStatusForbidden()
         {
             // Arrange
             string org = "test";
@@ -191,7 +192,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   The response has correct status and the returned reason phrase has the correct keywords.
         /// </summary>
         [Fact]
-        public async void Post_GivenApplicationWithInvalidId_ReturnsStatusBadRequestWithMessage()
+        public async Task Post_GivenApplicationWithInvalidId_ReturnsStatusBadRequestWithMessage()
         {
             // Arrange
             string org = "TEST";
@@ -224,7 +225,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   Returns HttpStatus Forbidden and application will not be updated
         /// </summary>
         [Fact]
-        public async void Delete_ClientWithEmptyAppId_ReturnsStatusForbidden()
+        public async Task Delete_ClientWithEmptyAppId_ReturnsStatusForbidden()
         {
             // Arrange
             string org = "test";
@@ -258,7 +259,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   Returns HttpStatus Forbidden and application will not be updated
         /// </summary>
         [Fact]
-        public async void Delete_ClientWithIncorrectAppId_ReturnsStatusForbidden()
+        public async Task Delete_ClientWithIncorrectAppId_ReturnsStatusForbidden()
         {
             // Arrange
             string org = "test";
@@ -294,7 +295,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   The response has correct status code and the returned application has updated valid to date.
         /// </summary>
         [Fact]
-        public async void Delete_GivenExistingApplicationToSoftDelete_ReturnsStatusAcceptedWithUpdatedValidDateOnApplication()
+        public async Task Delete_GivenExistingApplicationToSoftDelete_ReturnsStatusAcceptedWithUpdatedValidDateOnApplication()
         {
             // Arrange
             string org = "test";
@@ -329,7 +330,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Create an application, read one, update it and get it one more time.
         /// </summary>
         [Fact]
-        public async void GetAndUpdateApplication()
+        public async Task GetAndUpdateApplication()
         {
             // Arrange
             string org = "test";
@@ -370,7 +371,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Create an application, read one, update it and get it one more time  but user has too low authentication level.
         /// </summary>
         [Fact]
-        public async void GetAndUpdateApplication_AuthLv0_ReturnsStatusForbidden()
+        public async Task GetAndUpdateApplication_AuthLv0_ReturnsStatusForbidden()
         {
             // Arrange
             string org = "test";
@@ -405,7 +406,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Create an application, read one, update it and get it one more time  but response is deny.
         /// </summary>
         [Fact]
-        public async void GetAndUpdateApplication_ResponseIsDeny_ReturnsStatusForbidden()
+        public async Task GetAndUpdateApplication_ResponseIsDeny_ReturnsStatusForbidden()
         {
             // Arrange
             string org = "test";
@@ -440,7 +441,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Get all applications returns 200.
         /// </summary>
         [Fact]
-        public async void GetAll_ReturnsOK()
+        public async Task GetAll_ReturnsOK()
         {
             // Arrange
             string requestUri = $"{BasePath}/applications";
@@ -463,7 +464,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Request all applications of an invalid app owner. Repository called is never called. Controller returns bad request.
         /// </summary>
         [Fact]
-        public async void GetMany_InvalidOrg_ReturnsBadRequest()
+        public async Task GetMany_InvalidOrg_ReturnsBadRequest()
         {
             // Arrange
             string requestUri = $"{BasePath}/applications/test%20org";
@@ -483,7 +484,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Request all applications of a valid app owner. Repository called once and controller returns 200.
         /// </summary>
         [Fact]
-        public async void GetMany_ValidRequest_RepositoryIsCalledOnce()
+        public async Task GetMany_ValidRequest_RepositoryIsCalledOnce()
         {
             // Arrange
             string requestUri = $"{BasePath}/applications/test";
@@ -509,7 +510,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Request an application that does not exist. Repository called once. Controller returns not found. 
         /// </summary>
         [Fact]
-        public async void GetOne_NonExistingApp_ReturnsNotFound()
+        public async Task GetOne_NonExistingApp_ReturnsNotFound()
         {
             // Arrange
             string requestUri = $"{BasePath}/applications/ttd/non-exsisting-app";
@@ -533,7 +534,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Request an application that exists. Repository called once. Controller returns ok. 
         /// </summary>
         [Fact]
-        public async void GetOne_ExistingApp_ReturnsOk()
+        public async Task GetOne_ExistingApp_ReturnsOk()
         {
             // Arrange
             string requestUri = $"{BasePath}/applications/ttd/exsisting-app";

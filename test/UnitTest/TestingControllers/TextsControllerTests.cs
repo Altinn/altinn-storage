@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
+using System.Threading.Tasks;
 
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
@@ -56,7 +57,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   The response has correct status and we get a text in return
         /// </summary>
         [Fact]
-        public async void Create_ReturnsOK()
+        public async Task Create_ReturnsOK()
         {
             string org = "testOrg";
             string app = "testApp";
@@ -80,7 +81,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   The response has correct status code
         /// </summary>
         [Fact]
-        public async void CreateWhereResourceAlreadyExists_ReturnsConflict()
+        public async Task CreateWhereResourceAlreadyExists_ReturnsConflict()
         {
             string org = "testOrg";
             string app = "testApp";
@@ -102,7 +103,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   The response has correct status and returns a text
         /// </summary>
         [Fact]
-        public async void Get_ReturnsOK()
+        public async Task Get_ReturnsOK()
         {
             string org = "testOrg";
             string app = "testApp";
@@ -122,7 +123,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   The response has correct status
         /// </summary>
         [Fact]
-        public async void GetGivenInvalidLanguage_ReturnsBadRequest()
+        public async Task GetGivenInvalidLanguage_ReturnsBadRequest()
         {
             string org = "testOrg";
             string app = "testApp";
@@ -142,7 +143,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   The response has correct status
         /// </summary>
         [Fact]
-        public async void Delete_ReturnsOK()
+        public async Task Delete_ReturnsOK()
         {
             string org = "testOrg";
             string app = "testApp";
@@ -162,7 +163,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   The response has correct status
         /// </summary>
         [Fact]
-        public async void DeleteForResourceThatDoesNotExist_ReturnsNotFound()
+        public async Task DeleteForResourceThatDoesNotExist_ReturnsNotFound()
         {
             string org = "testOrg";
             string app = "testApp";
@@ -182,7 +183,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   The response has correct status and returns the updated object
         /// </summary>
         [Fact]
-        public async void Update_ReturnsOK()
+        public async Task Update_ReturnsOK()
         {
             string org = "testOrg";
             string app = "testApp";
@@ -204,7 +205,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   The responses has correct status
         /// </summary>
         [Fact]
-        public async void UnauthorizedRequests_ReturnsUnauthorized()
+        public async Task UnauthorizedRequests_ReturnsUnauthorized()
         {
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "notvalidtoken");
             string org = "testOrg";
@@ -235,7 +236,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         ///   The responses has correct status
         /// </summary>
         [Fact]
-        public async void RegularTokenShouldNotBeAbleToPostPutAndDelete()
+        public async Task RegularTokenShouldNotBeAbleToPostPutAndDelete()
         {
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1, 1000));
             string org = "testOrg";
