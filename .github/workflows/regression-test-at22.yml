@@ -4,9 +4,12 @@ on:
   workflow_dispatch:
   schedule:
   - cron: '0 12 * * 1-5'
+  pull_request:
+    branches: [ main ]
+    types: [opened, synchronize, reopened]
 
 jobs:
-  call-tests:
+  call-regression-test:
     uses: ./.github/workflows/regression-test-ATX.yml
     with:
       environment: AT22
