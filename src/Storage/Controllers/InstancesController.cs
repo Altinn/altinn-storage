@@ -365,7 +365,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return Forbid();
             }
 
-            Instance storedInstance = new Instance();
+            Instance storedInstance = null;
             try
             {
                 DateTime creationTime = DateTime.UtcNow;
