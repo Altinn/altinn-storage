@@ -131,10 +131,13 @@ namespace Altinn.Platform.Storage.Authorization
             string instanceId = string.Empty;
             foreach (XacmlJsonCategory category in request.Request.Resource)
             {
-                foreach (var atr in category.Attribute.Where(atr => atr.AttributeId.Equals(AltinnXacmlUrns.InstanceId)))
+                foreach (var atr in category.Attribute)
                 {
-                    instanceId = atr.Value;
-                    break;
+                    if (atr.AttributeId.Equals(AltinnXacmlUrns.InstanceId))
+                    {
+                        instanceId = atr.Value;
+                        break;
+                    }
                 }
             }
 
