@@ -146,7 +146,7 @@ namespace Altinn.Platform.Storage.Authorization
                 return null;
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(Guid.Parse(instanceId.Split("/")[1]));
+            (Instance instance, _) = await _instanceRepository.GetOne(Guid.Parse(instanceId.Split("/")[1]), false);
             return instance;
         }
 

@@ -65,12 +65,12 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<bool> Delete(Instance item)
+        public async Task<bool> Delete(Instance instance)
         {
-            ToInternal(item);
+            ToInternal(instance);
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(item.Id));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instance.Id));
 
             int rc = (int)await pgcom.ExecuteScalarAsync();
             tracker.Track();
@@ -337,10 +337,10 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<Instance> Update(Instance item)
+        public async Task<Instance> Update(Instance instance)
         {
-            List<DataElement> dataElements = item.Data;
-            Instance updatedInstance = await Upsert(item, false);
+            List<DataElement> dataElements = instance.Data;
+            Instance updatedInstance = await Upsert(instance, false);
             updatedInstance.Data = dataElements;
             return updatedInstance;
         }

@@ -88,7 +88,7 @@ namespace Altinn.Platform.Storage.Controllers
         [Produces("application/json")]
         public async Task<ActionResult<DataElement>> Delete(int instanceOwnerPartyId, Guid instanceGuid, Guid dataGuid, [FromQuery] bool delay)
         {
-            (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
+            (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false);
             if (instance == null)
             {
                 return instanceError;
@@ -154,7 +154,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest("Missing parameter value: instanceOwnerPartyId can not be empty");
             }
 
-            (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
+            (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false);
             if (instance == null)
             {
                 return instanceError;
@@ -213,23 +213,18 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest("Missing parameter value: instanceOwnerPartyId can not be empty");
             }
 
-            (Instance instance, _, ActionResult errorResult) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
+            (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, true);
             if (instance == null)
             {
-                return errorResult;
+                return instanceError;
             }
 
-            List<DataElement> dataElements = await _dataRepository.ReadAll(instanceGuid);
-
             bool appOwnerRequestingElement = User.GetOrg() == instance.Org;
+            instance.Data = appOwnerRequestingElement ?
+                instance.Data :
+                instance.Data.Where(de => de.DeleteStatus == null || !de.DeleteStatus.IsHardDeleted).ToList();
 
-            List<DataElement> filteredList = appOwnerRequestingElement ?
-                dataElements :
-                dataElements.Where(de => de.DeleteStatus == null || !de.DeleteStatus.IsHardDeleted).ToList();
-
-            DataElementList dataElementList = new() { DataElements = filteredList };
-
-            return Ok(dataElementList);
+            return Ok(new DataElementList() { DataElements = instance.Data });
         }
 
         /// <summary>
@@ -260,7 +255,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest("Missing parameter values: instanceId, elementType or attached file content cannot be null");
             }
 
-            (Instance instance, long instanceInternalId, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
+            (Instance instance, long instanceInternalId, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false);
             if (instance == null)
             {
                 return instanceError;
@@ -346,7 +341,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest("Missing parameter values: instanceId, datafile or attached file content cannot be empty");
             }
 
-            (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
+            (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false);
             if (instance == null)
             {
                 return instanceError;
@@ -567,9 +562,9 @@ namespace Altinn.Platform.Storage.Controllers
             return (application, null);
         }
 
-        private async Task<(Instance Instance, long InternalId, ActionResult ErrorMessage)> GetInstanceAsync(Guid instanceGuid, int instanceOwnerPartyId)
+        private async Task<(Instance Instance, long InternalId, ActionResult ErrorMessage)> GetInstanceAsync(Guid instanceGuid, int instanceOwnerPartyId, bool includeDataelements)
         {
-            (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(instanceGuid);
+            (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(instanceGuid, includeDataelements);
 
             if (instance == null)
             {
@@ -578,7 +573,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             return (instance, instanceInternalId, null);
         }
-
+        
         private async Task<(DataElement DataElement, ActionResult ErrorMessage)> GetDataElementAsync(Guid instanceGuid, Guid dataGuid)
         {
             DataElement dataElement = await _dataRepository.Read(instanceGuid, dataGuid);

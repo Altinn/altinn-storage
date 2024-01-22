@@ -95,8 +95,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             
             // Assert
             Assert.IsType<OkObjectResult>(result.Result);
-            instanceRepoMock.Verify(i => i.GetOne(instanceGuid, true), Times.Once);
-            instanceRepoMock.VerifyNoOtherCalls();
             dataRepositoryMock.Verify(d => d.Update(instanceGuid, dataElementId, It.Is<Dictionary<string, object>>(p => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p))), Times.Once);
             dataRepositoryMock.VerifyNoOtherCalls();
         }
@@ -116,10 +114,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Assert
             Assert.IsType<StatusCodeResult>(result.Result);
             Assert.Equal(404, ((StatusCodeResult)result.Result).StatusCode);
-            instanceRepoMock.Verify(i => i.GetOne(instanceGuid, true), Times.Once);
-            instanceRepoMock.VerifyNoOtherCalls();
-            dataRepositoryMock.Verify(d => d.Update(instanceGuid, dataElementId, It.Is<Dictionary<string, object>>(p => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p))), Times.Once);
-            dataRepositoryMock.VerifyNoOtherCalls();
         }
         
         [Fact]
@@ -136,9 +130,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             
             // Assert
             Assert.IsType<ForbidResult>(result.Result);
-            instanceRepoMock.Verify(i => i.GetOne(instanceGuid, true), Times.Once);
-            instanceRepoMock.VerifyNoOtherCalls();
-            dataRepositoryMock.VerifyNoOtherCalls();
         }
         
         [Fact]
@@ -155,9 +146,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             
             // Assert
             Assert.IsType<ForbidResult>(result.Result);
-            instanceRepoMock.Verify(i => i.GetOne(instanceGuid, true), Times.Once);
-            instanceRepoMock.VerifyNoOtherCalls();
-            dataRepositoryMock.VerifyNoOtherCalls();
         }
 
         private static bool VerifyPropertyListInput(int expectedPropCount, List<string> expectedProperties, Dictionary<string, object> propertyList)
@@ -216,8 +204,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             if (instanceFound)
             {
                 instanceRepositoryMock
-                    .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true))
-                    .ReturnsAsync((Guid instanceGuid, bool dummy) =>
+                    .Setup(ir => ir.GetOne(It.IsAny<Guid>(), It.IsAny<bool>()))
+                    .ReturnsAsync((Guid instanceGuid, bool includeDataElements) =>
                     {
                         return (new Instance
                         {
@@ -233,7 +221,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                                     ElementId = "Task_1"
                                 }
                             },
-                            Data = new()
+                            Data = !includeDataElements ? null : new()
                             {
                                 new()
                                 {

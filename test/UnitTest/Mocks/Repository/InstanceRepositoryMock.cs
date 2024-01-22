@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Helpers;
@@ -34,7 +35,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return await Task.FromResult(newInstance);
         }
 
-        public Task<bool> Delete(Instance item)
+        public Task<bool> Delete(Instance instance)
         {
             throw new NotImplementedException();
         }
@@ -147,6 +148,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             {
                 string content = File.ReadAllText(instancePath);
                 Instance instance = (Instance)JsonConvert.DeserializeObject(content, typeof(Instance));
+                instance.Data = includeElements ? GetDataElements(instanceGuid) : null;
                 PostProcess(instance);
                 return Task.FromResult<(Instance, long)>((instance, 0));
             }
@@ -154,16 +156,16 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return Task.FromResult<(Instance, long)>((null, 0));
         }
 
-        public Task<Instance> Update(Instance item)
+        public Task<Instance> Update(Instance instance)
         {
-            if (item.Id.Equals("1337/d3b326de-2dd8-49a1-834a-b1d23b11e540"))
+            if (instance.Id.Equals("1337/d3b326de-2dd8-49a1-834a-b1d23b11e540"))
             {
                 return Task.FromResult<Instance>(null);
             }
 
-            item.Data = new List<DataElement>();
+            instance.Data = new List<DataElement>();
 
-            return Task.FromResult(item);
+            return Task.FromResult(instance);
         }
 
         public Task<List<Instance>> GetHardDeletedInstances()
@@ -179,6 +181,35 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
         private static string GetInstancePath(Guid instanceGuid)
         {
             return Path.Combine(GetInstancesPath(), instanceGuid.ToString() + ".json");
+        }
+
+        private List<DataElement> GetDataElements(Guid instanceGuid)
+        {
+            List<DataElement> dataElements = new List<DataElement>();
+            string dataElementsPath = GetDataElementsPath();
+
+            string[] dataElementPaths = Directory.GetFiles(dataElementsPath);
+            foreach (string elementPath in dataElementPaths)
+            {
+                string content = File.ReadAllText(elementPath);
+                DataElement dataElement = System.Text.Json.JsonSerializer.Deserialize<DataElement>(content, new JsonSerializerOptions()
+                {
+                    PropertyNameCaseInsensitive = true,
+                    WriteIndented = true
+                });
+                if (dataElement.InstanceGuid.Contains(instanceGuid.ToString()))
+                {
+                    dataElements.Add(dataElement);
+                }
+            }
+
+            return dataElements;
+        }
+
+        private static string GetDataElementsPath()
+        {
+            string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(InstanceRepositoryMock).Assembly.Location).LocalPath);
+            return Path.Combine(unitTestFolder, "..", "..", "..", "data", "cosmoscollections", "dataelements");
         }
 
         private static string GetInstancesPath()

@@ -55,7 +55,7 @@ public class DataLockController : ControllerBase
     [Produces("application/json")]
     public async Task<ActionResult<DataElement>> Lock(int instanceOwnerPartyId, Guid instanceGuid, Guid dataGuid)
     {
-        (Instance? instance, ActionResult? instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
+        (Instance? instance, ActionResult? instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, true);
         if (instance == null)
         {
             return instanceError!;
@@ -100,7 +100,7 @@ public class DataLockController : ControllerBase
     [Produces("application/json")]
     public async Task<ActionResult<DataElement>> Unlock(int instanceOwnerPartyId, Guid instanceGuid, Guid dataGuid)
     {
-        (Instance? instance, _) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
+        (Instance? instance, _) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false);
         if (instance == null)
         {
             return Forbid();
@@ -127,9 +127,9 @@ public class DataLockController : ControllerBase
         }
     }
 
-    private async Task<(Instance? Instance, ActionResult? ErrorMessage)> GetInstanceAsync(Guid instanceGuid, int instanceOwnerPartyId)
+    private async Task<(Instance? Instance, ActionResult? ErrorMessage)> GetInstanceAsync(Guid instanceGuid, int instanceOwnerPartyId, bool includeDataElements)
     {
-        (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid);
+        (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, includeDataElements);
 
         if (instance == null)
         {

@@ -85,23 +85,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         }
 
         /// <summary>
-        /// Test readall
-        /// </summary>
-        [Fact]
-        public async Task DataElement_ReadAll_Ok()
-        {
-            // Arrange
-            await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement1), _instanceInternalId);
-            await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement2), _instanceInternalId);
-
-            // Act
-            var elements = await _dataElementFixture.DataRepo.ReadAll(Guid.Parse(_instance.Id.Split('/').Last()));
-
-            // Assert
-            Assert.Equal(2, elements.Count);
-        }
-
-        /// <summary>
         /// Test delete
         /// </summary>
         [Fact]

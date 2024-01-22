@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -173,8 +174,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                .ReturnsAsync((123145864564, DateTimeOffset.Now));
 
             instanceRepositoryMock
-               .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true))
-            .ReturnsAsync((Guid instanceGuid, bool dummy) =>
+               .Setup(ir => ir.GetOne(It.IsAny<Guid>(), It.IsAny<bool>()))
+            .ReturnsAsync((Guid instanceGuid, bool includeDataElements) =>
             {
                 return (new Instance()
                 {
@@ -184,7 +185,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                         PartyId = "555"
                     },
                     Org = _org,
-                    AppId = _appId
+                    AppId = _appId,
+                    Data = includeDataElements ? GetDataElements(instanceGuid) : null
                 }, 0);
             });
 
@@ -249,6 +251,35 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             };
 
             return (sut, dataRepositoryMock);
+        }
+
+        private List<DataElement> GetDataElements(Guid instanceGuid)
+        {
+            List<DataElement> dataElements = new List<DataElement>();
+            string dataElementsPath = GetDataElementsPath();
+
+            string[] dataElementPaths = Directory.GetFiles(dataElementsPath);
+            foreach (string elementPath in dataElementPaths)
+            {
+                string content = File.ReadAllText(elementPath);
+                DataElement dataElement = JsonSerializer.Deserialize<DataElement>(content, new JsonSerializerOptions()
+                    {
+                        PropertyNameCaseInsensitive = true,
+                        WriteIndented = true
+                    });
+                if (dataElement.InstanceGuid.Contains(instanceGuid.ToString()))
+                {
+                    dataElements.Add(dataElement);
+                }
+            }
+
+            return dataElements;
+        }
+
+        private static string GetDataElementsPath()
+        {
+            string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(DataControllerUnitTests).Assembly.Location).LocalPath);
+            return Path.Combine(unitTestFolder, "..", "..", "..", "data", "cosmoscollections", "dataelements");
         }
     }
 }

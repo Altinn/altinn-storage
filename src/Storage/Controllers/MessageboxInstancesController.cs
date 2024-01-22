@@ -130,7 +130,7 @@ namespace Altinn.Platform.Storage.Controllers
                 languageId = language;
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
 
             if (instance == null)
             {
@@ -208,7 +208,7 @@ namespace Altinn.Platform.Storage.Controllers
         [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/undelete")]
         public async Task<ActionResult> Undelete(int instanceOwnerPartyId, Guid instanceGuid)
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false);
 
             if (instance == null)
             {
@@ -262,7 +262,7 @@ namespace Altinn.Platform.Storage.Controllers
         {
             string instanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
 
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false);
             if (instance == null)
             {
                 return NotFound($"Didn't find the object that should be deleted with instanceId={instanceId}");

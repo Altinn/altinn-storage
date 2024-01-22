@@ -38,16 +38,16 @@ namespace Altinn.Platform.Storage.Repository
         /// <summary>
         /// update existing instance
         /// </summary>
-        /// <param name="item">the instance to update</param>
+        /// <param name="instance">the instance to update</param>
         /// <returns>The updated instance</returns>
-        Task<Instance> Update(Instance item);
+        Task<Instance> Update(Instance instance);
 
         /// <summary>
         /// Delets an instance.
         /// </summary>
-        /// <param name="item">The instance to delete</param>
+        /// <param name="instance">The instance to delete</param>
         /// <returns>if the item is deleted or not</returns>
-        Task<bool> Delete(Instance item);
+        Task<bool> Delete(Instance instance);
 
         /// <summary>
         /// Gets hard deleted instances for cleanup

@@ -19,7 +19,6 @@ namespace Altinn.Platform.Storage.Repository
     public class PgDataRepository : IDataRepository
     {
         private readonly string _insertSql = "call storage.insertdataelement ($1, $2, $3, $4)";
-        private readonly string _readAllSql = "select * from storage.readalldataelement($1)";
         private readonly string _readSql = "select * from storage.readdataelement($1)";
         private readonly string _deleteSql = "select * from storage.deletedataelement ($1)";
         private readonly string _deleteForInstanceSql = "select * from storage.deletedataelements ($1)";
@@ -110,26 +109,6 @@ namespace Altinn.Platform.Storage.Repository
 
             tracker.Track();
             return dataElement;
-        }
-
-        /// <inheritdoc/>
-        public async Task<List<DataElement>> ReadAll(Guid instanceGuid)
-        {
-            List<DataElement> elements = [];
-            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readAllSql);
-            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
-
-            await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
-            {
-                while (await reader.ReadAsync())
-                {
-                    elements.Add(reader.GetFieldValue<DataElement>("element"));
-                }
-            }
-
-            tracker.Track();
-            return elements;
         }
 
         /// <inheritdoc/>

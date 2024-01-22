@@ -61,25 +61,6 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return null;
         }
 
-        public async Task<List<DataElement>> ReadAll(Guid instanceGuid)
-        {
-            List<DataElement> dataElements = new List<DataElement>();
-            string dataElementsPath = GetDataElementsPath();
-
-            string[] dataElementPaths = Directory.GetFiles(dataElementsPath);
-            foreach (string elementPath in dataElementPaths)
-            {
-                string content = File.ReadAllText(elementPath);
-                DataElement dataElement = JsonSerializer.Deserialize<DataElement>(content, _options);
-                if (dataElement.InstanceGuid.Contains(instanceGuid.ToString()))
-                {
-                    dataElements.Add(dataElement);
-                }
-            }
-
-            return await Task.FromResult(dataElements);
-        }
-
         public async Task<DataElement> Update(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertyList)
         {
             DataElement dataElement = null;
