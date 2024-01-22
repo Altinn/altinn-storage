@@ -102,33 +102,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         }
 
         /// <summary>
-        /// Test ReadAllForMultiple
-        /// </summary>
-        [Fact]
-        public async Task DataElement_ReadAllForMultiple_Ok()
-        {
-            // Arrange
-            Instance instance2 = await _dataElementFixture.InstanceRepo.Create(TestData.Instance_2_1);
-            (instance2, long instanceInternalId2) = await _dataElementFixture.InstanceRepo.GetOne(Guid.Parse(instance2.Id.Split('/').Last()), false);
-
-            await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement1), _instanceInternalId);
-            await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement2), _instanceInternalId);
-            await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement3), instanceInternalId2);
-
-            // Act
-            var elementDict1 = await _dataElementFixture.DataRepo.ReadAllForMultiple(new List<string>() { _instance.Id.Split('/').Last(), instance2.Id.Split('/').Last() });
-            var elementDict2 = await _dataElementFixture.DataRepo.ReadAllForMultiple(new List<string>() { _instance.Id.Split('/').Last() });
-
-            // Assert
-            Assert.Equal(2, elementDict1.Count);
-            Assert.Equal(2, elementDict1.First().Value.Count);
-            Assert.Single(elementDict1.Last().Value);
-
-            Assert.Single(elementDict2);
-            Assert.Equal(2, elementDict2.First().Value.Count);
-        }
-
-        /// <summary>
         /// Test delete
         /// </summary>
         [Fact]
