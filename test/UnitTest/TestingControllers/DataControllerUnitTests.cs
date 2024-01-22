@@ -29,6 +29,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
     public class DataControllerUnitTests
     {
         private static List<string> _forbiddenUpdateProps = new List<string>() { "/created", "/createdBy", "/id", "/instanceGuid", "/blobStoragePath", "/dataType" };
+        private static readonly JsonSerializerOptions _options = new()
+        {
+            PropertyNameCaseInsensitive = true,
+            WriteIndented = true
+        };
+
         private readonly int _instanceOwnerPartyId = 1337;
         private readonly string _org = "ttd";
         private readonly string _appId = "ttd/apps-test";
@@ -253,7 +259,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             return (sut, dataRepositoryMock);
         }
 
-        private List<DataElement> GetDataElements(Guid instanceGuid)
+        private static List<DataElement> GetDataElements(Guid instanceGuid)
         {
             List<DataElement> dataElements = new List<DataElement>();
             string dataElementsPath = GetDataElementsPath();
@@ -262,11 +268,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             foreach (string elementPath in dataElementPaths)
             {
                 string content = File.ReadAllText(elementPath);
-                DataElement dataElement = JsonSerializer.Deserialize<DataElement>(content, new JsonSerializerOptions()
-                    {
-                        PropertyNameCaseInsensitive = true,
-                        WriteIndented = true
-                    });
+                DataElement dataElement = JsonSerializer.Deserialize<DataElement>(content, _options);
                 if (dataElement.InstanceGuid.Contains(instanceGuid.ToString()))
                 {
                     dataElements.Add(dataElement);

@@ -300,6 +300,8 @@ namespace Altinn.Platform.Storage.Controllers
             ActionResult appInfoError;
             int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
 
+            ValidateAppId(appId);
+
             try
             {
                 (appInfo, appInfoError) = await GetApplicationOrErrorAsync(appId);
@@ -798,6 +800,17 @@ namespace Altinn.Platform.Storage.Controllers
                 string selfUrl = $"{host}{url}{selfQueryString}";
 
                 return selfUrl;
+            }
+        }
+
+        /// <summary>
+        /// Validates app id
+        /// </summary>
+        private static void ValidateAppId(string app)
+        {
+            if (string.IsNullOrEmpty(app) || !app.Contains('/'))
+            {
+                throw new ArgumentException("App id can not be null or empty and must contain a slash");
             }
         }
     }

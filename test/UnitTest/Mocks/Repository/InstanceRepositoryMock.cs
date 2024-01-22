@@ -17,6 +17,12 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
 {
     public class InstanceRepositoryMock : IInstanceRepository
     {
+        private static readonly JsonSerializerOptions _options = new()
+        {
+            PropertyNameCaseInsensitive = true,
+            WriteIndented = true
+        };
+
         public async Task<Instance> Create(Instance instance)
         {
             string partyId = instance.InstanceOwner.PartyId;
@@ -183,7 +189,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return Path.Combine(GetInstancesPath(), instanceGuid.ToString() + ".json");
         }
 
-        private List<DataElement> GetDataElements(Guid instanceGuid)
+        private static List<DataElement> GetDataElements(Guid instanceGuid)
         {
             List<DataElement> dataElements = new List<DataElement>();
             string dataElementsPath = GetDataElementsPath();
@@ -192,11 +198,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             foreach (string elementPath in dataElementPaths)
             {
                 string content = File.ReadAllText(elementPath);
-                DataElement dataElement = System.Text.Json.JsonSerializer.Deserialize<DataElement>(content, new JsonSerializerOptions()
-                {
-                    PropertyNameCaseInsensitive = true,
-                    WriteIndented = true
-                });
+                DataElement dataElement = System.Text.Json.JsonSerializer.Deserialize<DataElement>(content, _options);
                 if (dataElement.InstanceGuid.Contains(instanceGuid.ToString()))
                 {
                     dataElements.Add(dataElement);
