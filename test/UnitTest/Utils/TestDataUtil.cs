@@ -11,9 +11,9 @@ namespace Altinn.Platform.Storage.UnitTest.Utils
     {
         public static readonly object DataLock = new object();
 
-        public static Instance GetInstance(int instanceOwnerId, Guid instanceGuid)
+        public static Instance GetInstance(Guid instanceGuid)
         {
-            string path = GetInstancePath(instanceOwnerId, instanceGuid);
+            string path = GetInstancePath(instanceGuid);
             if (!File.Exists(path))
             {
                 return null;
@@ -33,7 +33,7 @@ namespace Altinn.Platform.Storage.UnitTest.Utils
             return dataElement;
         }
 
-        private static string GetInstancePath(int instanceOwnerId, Guid instanceGuid)
+        private static string GetInstancePath(Guid instanceGuid)
         {
             string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(TestDataUtil).Assembly.Location).LocalPath);
             return Path.Combine(
@@ -44,7 +44,6 @@ namespace Altinn.Platform.Storage.UnitTest.Utils
                 "data",
                 "cosmoscollections",
                 "instances",
-                instanceOwnerId.ToString(),
                 instanceGuid + @".json");
         }
 

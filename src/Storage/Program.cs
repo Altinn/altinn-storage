@@ -35,7 +35,6 @@ using Microsoft.ApplicationInsights.WindowsServer.TelemetryChannel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -61,7 +60,7 @@ ConfigureLogging(builder.Logging);
 
 ConfigureServices(builder.Services, builder.Configuration);
 
-logger.LogInformation("// Checking CosmosDB and Azure Storage connection.");
+logger.LogInformation("// Checking Azure Storage connection.");
 
 var app = builder.Build();
 
@@ -191,7 +190,6 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
 
     services.AddHttpClient<AuthorizationApiClient>();
 
-    services.Configure<AzureCosmosSettings>(config.GetSection("AzureCosmosSettings"));
     services.Configure<AzureStorageConfiguration>(config.GetSection("AzureStorageConfiguration"));
     services.Configure<GeneralSettings>(config.GetSection("GeneralSettings"));
     services.Configure<KeyVaultSettings>(config.GetSection("kvSetting"));
@@ -227,40 +225,21 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
             }
         });
 
-    services.AddAuthorization(options =>
-    {
-        options.AddPolicy(AuthzConstants.POLICY_INSTANCE_READ, policy => policy.Requirements.Add(new AppAccessRequirement("read")));
-        options.AddPolicy(AuthzConstants.POLICY_INSTANCE_WRITE, policy => policy.Requirements.Add(new AppAccessRequirement("write")));
-        options.AddPolicy(AuthzConstants.POLICY_INSTANCE_DELETE, policy => policy.Requirements.Add(new AppAccessRequirement("delete")));
-        options.AddPolicy(AuthzConstants.POLICY_INSTANCE_COMPLETE, policy => policy.Requirements.Add(new AppAccessRequirement("complete")));
-        options.AddPolicy(AuthzConstants.POLICY_INSTANCE_SIGN, policy => policy.Requirements.Add(new AppAccessRequirement("sign")));
-        options.AddPolicy(AuthzConstants.POLICY_SCOPE_APPDEPLOY, policy => policy.Requirements.Add(new ScopeAccessRequirement("altinn:appdeploy")));
-        options.AddPolicy(AuthzConstants.POLICY_STUDIO_DESIGNER, policy => policy.Requirements.Add(new ClaimAccessRequirement("urn:altinn:app", "studio.designer")));
-        options.AddPolicy("PlatformAccess", policy => policy.Requirements.Add(new AccessTokenRequirement()));
-    });
+    services.AddAuthorizationBuilder()
+        .AddPolicy(AuthzConstants.POLICY_INSTANCE_READ, policy => policy.Requirements.Add(new AppAccessRequirement("read")))
+        .AddPolicy(AuthzConstants.POLICY_INSTANCE_WRITE, policy => policy.Requirements.Add(new AppAccessRequirement("write")))
+        .AddPolicy(AuthzConstants.POLICY_INSTANCE_DELETE, policy => policy.Requirements.Add(new AppAccessRequirement("delete")))
+        .AddPolicy(AuthzConstants.POLICY_INSTANCE_COMPLETE, policy => policy.Requirements.Add(new AppAccessRequirement("complete")))
+        .AddPolicy(AuthzConstants.POLICY_INSTANCE_SIGN, policy => policy.Requirements.Add(new AppAccessRequirement("sign")))
+        .AddPolicy(AuthzConstants.POLICY_SCOPE_APPDEPLOY, policy => policy.Requirements.Add(new ScopeAccessRequirement("altinn:appdeploy")))
+        .AddPolicy(AuthzConstants.POLICY_STUDIO_DESIGNER, policy => policy.Requirements.Add(new ClaimAccessRequirement("urn:altinn:app", "studio.designer")))
+        .AddPolicy("PlatformAccess", policy => policy.Requirements.Add(new AccessTokenRequirement()));
 
     services.AddHttpContextAccessor();
     services.AddSingleton<IClaimsPrincipalProvider, ClaimsPrincipalProvider>();
 
-    // hookup Cosmos DB
-    AzureCosmosSettings cosmosSettings = config.GetSection("AzureCosmosSettings").Get<AzureCosmosSettings>();
-    CosmosClientOptions options = new()
-    {
-        ConnectionMode = ConnectionMode.Direct,
-        GatewayModeMaxConnectionLimit = 100
-    };
-    CosmosClient cosmosClient = new(cosmosSettings.EndpointUri, cosmosSettings.PrimaryKey, options);
-    services.AddSingleton(cosmosClient);
-
-    if (generalSettings.UsePostgreSQL)
-    {
-        PostgreSqlSettings postgresSettings = config.GetSection("PostgreSqlSettings").Get<PostgreSqlSettings>();
-        services.AddRepositoriesPostgreSQL(string.Format(postgresSettings.ConnectionString, postgresSettings.StorageDbPwd), postgresSettings.LogParameters);
-    }
-    else
-    {
-        services.AddRepositoriesCosmos();
-    }
+    PostgreSqlSettings postgresSettings = config.GetSection("PostgreSqlSettings").Get<PostgreSqlSettings>();
+    services.AddRepositoriesPostgreSQL(string.Format(postgresSettings.ConnectionString, postgresSettings.StorageDbPwd), postgresSettings.LogParameters);
 
     services.AddSingleton<ISasTokenProvider, SasTokenProvider>();
     services.AddSingleton<IKeyVaultClientWrapper, KeyVaultClientWrapper>();
@@ -351,26 +330,21 @@ void Configure(IConfiguration config)
         app.UseExceptionHandler("/storage/api/v1/error");
     }
 
-    if (config.GetSection("GeneralSettings").Get<GeneralSettings>().UsePostgreSQL)
-    {
-        ConsoleTraceService traceService = new() { IsDebugEnabled = true };
-
-        string connectionString = string.Format(
-            config.GetValue<string>("PostgreSqlSettings:AdminConnectionString"),
-            config.GetValue<string>("PostgreSqlSettings:StorageDbAdminPwd"));
-
-        app.UseYuniql(
-            new PostgreSqlDataService(traceService),
-            new PostgreSqlBulkImportService(traceService),
-            traceService,
-            new Yuniql.AspNetCore.Configuration
-            {
-                Workspace = Path.Combine(Environment.CurrentDirectory, config.GetValue<string>("PostgreSqlSettings:WorkspacePath")),
-                ConnectionString = connectionString,
-                IsAutoCreateDatabase = false,
-                IsDebug = true
-            });
-    }
+    ConsoleTraceService traceService = new() { IsDebugEnabled = true };
+    string connectionString = string.Format(
+        config.GetValue<string>("PostgreSqlSettings:AdminConnectionString"),
+        config.GetValue<string>("PostgreSqlSettings:StorageDbAdminPwd"));
+    app.UseYuniql(
+        new PostgreSqlDataService(traceService),
+        new PostgreSqlBulkImportService(traceService),
+        traceService,
+        new Yuniql.AspNetCore.Configuration
+        {
+            Workspace = Path.Combine(Environment.CurrentDirectory, config.GetValue<string>("PostgreSqlSettings:WorkspacePath")),
+            ConnectionString = connectionString,
+            IsAutoCreateDatabase = false,
+            IsDebug = true
+        });
 
     app.UseSwagger(o => o.RouteTemplate = "storage/swagger/{documentName}/swagger.json");
 

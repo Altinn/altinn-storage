@@ -29,7 +29,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             _ = PostgresUtil.RunSql(sql).Result;
             Instance instance = TestData.Instance_1_1.Clone();
             Instance newInstance = _dataElementFixture.InstanceRepo.Create(instance).Result;
-            (_instance, _instanceInternalId) = _dataElementFixture.InstanceRepo.GetOne(0, Guid.Parse(newInstance.Id.Split('/').Last()), false).Result;
+            (_instance, _instanceInternalId) = _dataElementFixture.InstanceRepo.GetOne(Guid.Parse(newInstance.Id.Split('/').Last()), false).Result;
         }
 
         /// <summary>
@@ -82,50 +82,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
 
             // Assert
             Assert.Equal(dataElement.Id, readDataelement.Id);
-        }
-
-        /// <summary>
-        /// Test readall
-        /// </summary>
-        [Fact]
-        public async Task DataElement_ReadAll_Ok()
-        {
-            // Arrange
-            await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement1), _instanceInternalId);
-            await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement2), _instanceInternalId);
-
-            // Act
-            var elements = await _dataElementFixture.DataRepo.ReadAll(Guid.Parse(_instance.Id.Split('/').Last()));
-
-            // Assert
-            Assert.Equal(2, elements.Count);
-        }
-
-        /// <summary>
-        /// Test ReadAllForMultiple
-        /// </summary>
-        [Fact]
-        public async Task DataElement_ReadAllForMultiple_Ok()
-        {
-            // Arrange
-            Instance instance2 = await _dataElementFixture.InstanceRepo.Create(TestData.Instance_2_1);
-            (instance2, long instanceInternalId2) = await _dataElementFixture.InstanceRepo.GetOne(0, Guid.Parse(instance2.Id.Split('/').Last()), false);
-
-            await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement1), _instanceInternalId);
-            await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement2), _instanceInternalId);
-            await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement3), instanceInternalId2);
-
-            // Act
-            var elementDict1 = await _dataElementFixture.DataRepo.ReadAllForMultiple(new List<string>() { _instance.Id.Split('/').Last(), instance2.Id.Split('/').Last() });
-            var elementDict2 = await _dataElementFixture.DataRepo.ReadAllForMultiple(new List<string>() { _instance.Id.Split('/').Last() });
-
-            // Assert
-            Assert.Equal(2, elementDict1.Count);
-            Assert.Equal(2, elementDict1.First().Value.Count);
-            Assert.Single(elementDict1.Last().Value);
-
-            Assert.Single(elementDict2);
-            Assert.Equal(2, elementDict2.First().Value.Count);
         }
 
         /// <summary>

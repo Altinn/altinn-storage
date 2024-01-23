@@ -34,7 +34,7 @@ namespace Altinn.Platform.Storage.Services
         /// <inheritdoc/>
         public async Task<(bool Created, ServiceError ServiceError)> CreateSignDocument(int instanceOwnerPartyId, Guid instanceGuid, SignRequest signRequest, int userId)
         {
-            (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(instanceGuid, false);
             if (instance == null) 
             {
                 return (false, new ServiceError(404, "Instance not found"));

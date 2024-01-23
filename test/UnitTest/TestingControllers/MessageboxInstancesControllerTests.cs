@@ -102,7 +102,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         public async Task GetMessageBoxInstance_RequestsExistingInstanceUserCannotDelete_InstanceIsSuccessfullyMappedAndReturned()
         {
             // Arrange
-            string instanceId = "1606/6323a337-26e7-4d40-89e8-f5bb3d80be3a";
+            string instanceId = "1606/6323a337-26e7-4d40-89e8-f5bb3d80be3b";
 
             HttpClient client = GetTestClient();
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));

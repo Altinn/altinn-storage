@@ -9,7 +9,6 @@ using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Azure.Cosmos;
 
 namespace Altinn.Platform.Storage.Controllers;
 
@@ -56,7 +55,7 @@ public class DataLockController : ControllerBase
     [Produces("application/json")]
     public async Task<ActionResult<DataElement>> Lock(int instanceOwnerPartyId, Guid instanceGuid, Guid dataGuid)
     {
-        (Instance? instance, ActionResult? instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
+        (Instance? instance, ActionResult? instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, true);
         if (instance == null)
         {
             return instanceError!;
@@ -101,13 +100,13 @@ public class DataLockController : ControllerBase
     [Produces("application/json")]
     public async Task<ActionResult<DataElement>> Unlock(int instanceOwnerPartyId, Guid instanceGuid, Guid dataGuid)
     {
-        (Instance? instance, _) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId);
+        (Instance? instance, _) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false);
         if (instance == null)
         {
             return Forbid();
         }
 
-        bool authorized = await _authorizationService.AuthorizeAnyOfInstanceActions(instance, new List<string>() { "write", "unlock", "reject" });
+        bool authorized = await _authorizationService.AuthorizeAnyOfInstanceActions(instance, ["write", "unlock", "reject"]);
         if (!authorized)
         {
             return Forbid();
@@ -128,9 +127,9 @@ public class DataLockController : ControllerBase
         }
     }
 
-    private async Task<(Instance? Instance, ActionResult? ErrorMessage)> GetInstanceAsync(Guid instanceGuid, int instanceOwnerPartyId)
+    private async Task<(Instance? Instance, ActionResult? ErrorMessage)> GetInstanceAsync(Guid instanceGuid, int instanceOwnerPartyId, bool includeDataElements)
     {
-        (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+        (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, includeDataElements);
 
         if (instance == null)
         {

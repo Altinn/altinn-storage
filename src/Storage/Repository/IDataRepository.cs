@@ -14,20 +14,6 @@ namespace Altinn.Platform.Storage.Repository
     public interface IDataRepository
     {
         /// <summary>
-        /// Gets all data elements for a given instance
-        /// </summary>
-        /// <param name="instanceGuid">the guid of the instance</param>
-        /// <returns>list of data elements</returns>
-        Task<List<DataElement>> ReadAll(Guid instanceGuid);
-
-        /// <summary>
-        /// Gets all data elements for given instances
-        /// </summary>
-        /// <param name="instanceGuids">the list of instance guids to return data elements for</param>
-        /// <returns>list of data elements</returns>
-        Task<Dictionary<string, List<DataElement>>> ReadAllForMultiple(List<string> instanceGuids);
-
-        /// <summary>
         /// Creates a dataElement into the repository
         /// </summary>
         /// <param name="dataElement">the data element to insert</param>

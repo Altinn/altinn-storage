@@ -19,8 +19,6 @@ namespace Altinn.Platform.Storage.Repository
     public class PgDataRepository : IDataRepository
     {
         private readonly string _insertSql = "call storage.insertdataelement ($1, $2, $3, $4)";
-        private readonly string _readAllSql = "select * from storage.readalldataelement($1)";
-        private readonly string _readAllForMultipleSql = "select * from storage.readallformultipledataelement($1)";
         private readonly string _readSql = "select * from storage.readdataelement($1)";
         private readonly string _deleteSql = "select * from storage.deletedataelement ($1)";
         private readonly string _deleteForInstanceSql = "select * from storage.deletedataelements ($1)";
@@ -111,71 +109,6 @@ namespace Altinn.Platform.Storage.Repository
 
             tracker.Track();
             return dataElement;
-        }
-
-        /// <inheritdoc/>
-        public async Task<List<DataElement>> ReadAll(Guid instanceGuid)
-        {
-            List<DataElement> elements = new();
-            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readAllSql);
-            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
-
-            await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
-            {
-                while (await reader.ReadAsync())
-                {
-                    elements.Add(reader.GetFieldValue<DataElement>("element"));
-                }
-            }
-
-            tracker.Track();
-            return elements;
-        }
-
-        /// <inheritdoc/>
-        public async Task<Dictionary<string, List<DataElement>>> ReadAllForMultiple(List<string> instanceGuids)
-        {
-            ////TODO: Remove this method/interface and join the dataelements at the inestance level
-            //// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            Dictionary<string, List<DataElement>> dataElements = new();
-            if (instanceGuids == null || instanceGuids.Count == 0)
-            {
-                return dataElements;
-            }
-
-            foreach (var guidString in instanceGuids)
-            {
-                dataElements[guidString] = new List<DataElement>();
-            }
-
-            List<Guid> instanceGuidsAsGuids = new();
-            foreach (var instance in instanceGuids)
-            {
-                instanceGuidsAsGuids.Add(new Guid(instance));
-            }
-
-            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readAllForMultipleSql);
-            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Array | NpgsqlDbType.Uuid, instanceGuidsAsGuids ?? (object)DBNull.Value);
-
-            await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
-            {
-                while (await reader.ReadAsync())
-                {
-                    DataElement element = reader.GetFieldValue<DataElement>("element");
-                    if (!dataElements.TryGetValue(element.InstanceGuid, out List<DataElement> elements))
-                    {
-                        elements = new List<DataElement>();
-                        dataElements.Add(element.InstanceGuid, elements);
-                    }
-
-                    elements.Add(element);
-                }
-            }
-
-            tracker.Track();
-            return dataElements;
         }
 
         /// <inheritdoc/>

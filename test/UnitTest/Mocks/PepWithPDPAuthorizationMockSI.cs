@@ -202,7 +202,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks
 
             if (!resourceAttributeComplete)
             {
-                (Instance instanceData, _) = await _instanceService.GetOne(Convert.ToInt32(resourceAttributes.InstanceValue.Split('/')[0]), Guid.Parse(resourceAttributes.InstanceValue.Split('/')[1]));
+                (Instance instanceData, _) = await _instanceService.GetOne(Guid.Parse(resourceAttributes.InstanceValue.Split('/')[1]));
 
                 if (instanceData != null)
                 {

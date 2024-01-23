@@ -23,11 +23,10 @@ namespace Altinn.Platform.Storage.Repository
         /// <summary>
         /// Get an instance for a given instance id
         /// </summary>
-        /// <param name="instanceOwnerPartyId">the instance owner id</param>
         /// <param name="instanceGuid">the instance guid</param>
         /// <param name="includeElements">whether to include data elements</param>
         /// <returns>The instance for the given parameters</returns>
-        Task<(Instance Instance, long InternalId)> GetOne(int instanceOwnerPartyId, Guid instanceGuid, bool includeElements = true);
+        Task<(Instance Instance, long InternalId)> GetOne(Guid instanceGuid, bool includeElements = true);
 
         /// <summary>
         /// insert new instance into collection
@@ -39,16 +38,16 @@ namespace Altinn.Platform.Storage.Repository
         /// <summary>
         /// update existing instance
         /// </summary>
-        /// <param name="item">the instance to update</param>
+        /// <param name="instance">the instance to update</param>
         /// <returns>The updated instance</returns>
-        Task<Instance> Update(Instance item);
+        Task<Instance> Update(Instance instance);
 
         /// <summary>
         /// Delets an instance.
         /// </summary>
-        /// <param name="item">The instance to delete</param>
+        /// <param name="instance">The instance to delete</param>
         /// <returns>if the item is deleted or not</returns>
-        Task<bool> Delete(Instance item);
+        Task<bool> Delete(Instance instance);
 
         /// <summary>
         /// Gets hard deleted instances for cleanup

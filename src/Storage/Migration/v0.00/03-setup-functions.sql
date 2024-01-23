@@ -272,30 +272,6 @@ RETURN QUERY
 END;
 $BODY$;
 
-CREATE OR REPLACE FUNCTION storage.readalldataelement(_instanceGuid UUID)
-    RETURNS TABLE (element JSONB)
-    LANGUAGE 'plpgsql'
-    
-AS $BODY$
-BEGIN
-RETURN QUERY 
-    SELECT d.element FROM storage.dataelements d WHERE instanceGuid = _instanceGuid;
-
-END;
-$BODY$;
-
-CREATE OR REPLACE FUNCTION storage.readallformultipledataelement(_instanceGuid UUID[])
-    RETURNS TABLE (element JSONB)
-    LANGUAGE 'plpgsql'
-    
-AS $BODY$
-BEGIN
-RETURN QUERY 
-    SELECT d.element FROM storage.dataelements d WHERE instanceGuid = ANY (_instanceGuid);
-
-END;
-$BODY$;
-
 -- instanceevents ----------------------------------------------------------------
 CREATE OR REPLACE PROCEDURE storage.insertinstanceevent(_instance UUID, _alternateid UUID, _event JSONB)
     LANGUAGE 'plpgsql'	

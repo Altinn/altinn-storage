@@ -263,7 +263,7 @@ namespace Altinn.Platform.Storage.Controllers
         {
             try
             {
-                (Instance result, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+                (Instance result, _) = await _instanceRepository.GetOne(instanceGuid, true);
 
                 bool appOwnerRequestingElement = User.GetOrg() == result.Org;
                 if (!appOwnerRequestingElement)
@@ -296,9 +296,11 @@ namespace Altinn.Platform.Storage.Controllers
         [Produces("application/json")]
         public async Task<ActionResult<Instance>> Post(string appId, [FromBody] Instance instance)
         {
-            Application appInfo = null;
+            Application appInfo;
             ActionResult appInfoError;
             int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
+
+            appId = ValidateAppId(appId);
 
             try
             {
@@ -306,7 +308,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Something went wrong during GetApplicationOrErrorAsync for application id: {appId} AppInfo: {appInfo}", appId, appInfo?.ToString());
+                _logger.LogError(ex, "Something went wrong during GetApplicationOrErrorAsync for application id: {appId}", appId);
                 throw;
             }
 
@@ -328,7 +330,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Something went wrong during CreateDecisionRequest for application id: {appId} AppInfo: {appInfo}", appId, appInfo?.ToString());
+                _logger.LogError(ex, "Something went wrong during CreateDecisionRequest for application id: {appId} AppInfo: {appInfo}", appId, appInfo.ToString());
                 throw;
             }
 
@@ -339,7 +341,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Something went wrong during GetDecisionForRequest for application id: {appId} AppInfo: {appInfo}", appId, appInfo?.ToString());
+                _logger.LogError(ex, "Something went wrong during GetDecisionForRequest for application id: {appId} AppInfo: {appInfo}", appId, appInfo.ToString());
                 throw;
             }
 
@@ -356,7 +358,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Something went wrong during ValidatePdpDecision for application id: {appId} AppInfo: {appInfo}", appId, appInfo?.ToString());
+                _logger.LogError(ex, "Something went wrong during ValidatePdpDecision for application id: {appId} AppInfo: {appInfo}", appId, appInfo.ToString());
                 throw;
             }
 
@@ -414,7 +416,7 @@ namespace Altinn.Platform.Storage.Controllers
         {
             Instance instance;
 
-            (instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (instance, _) = await _instanceRepository.GetOne(instanceGuid, false);
 
             if (instance == null)
             {
@@ -476,7 +478,7 @@ namespace Altinn.Platform.Storage.Controllers
             [FromRoute] int instanceOwnerPartyId,
             [FromRoute] Guid instanceGuid)
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
 
             string org = User.GetOrg();
 
@@ -530,7 +532,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest($"Invalid read status: {status}. Accepted types include: {string.Join(", ", Enum.GetNames(typeof(ReadStatus)))}");
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
 
             Instance updatedInstance;
             try
@@ -578,7 +580,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest($"Invalid sub status: {JsonConvert.SerializeObject(substatus)}. Substatus must be defined and include a label.");
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
 
             string org = User.GetOrg();
             if (!instance.Org.Equals(org))
@@ -633,7 +635,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest($"Missing parameter value: presentationTexts is misformed or empty");
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
 
             if (instance.PresentationTexts == null)
             {
@@ -679,7 +681,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest($"Missing parameter value: dataValues is misformed or empty");
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceOwnerPartyId, instanceGuid);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
 
             instance.DataValues ??= new Dictionary<string, string>();
 
@@ -799,6 +801,20 @@ namespace Altinn.Platform.Storage.Controllers
 
                 return selfUrl;
             }
+        }
+
+        /// <summary>
+        /// Validates app id
+        /// </summary>
+        private static string ValidateAppId(string app)
+        {
+            if (string.IsNullOrEmpty(app) || !app.Contains('/'))
+            {
+                throw new ArgumentException("App id can not be null or empty and must contain a slash");
+            }
+
+            // To make sonarcloud happy
+            return app.Replace(Environment.NewLine, null);
         }
     }
 }

@@ -12,22 +12,6 @@ namespace Altinn.Platform.Storage.Repository
         /// Adds repositories to DI container.
         /// </summary>
         /// <param name="services">service collection.</param>
-        /// <returns></returns>
-        public static IServiceCollection AddRepositoriesCosmos(this IServiceCollection services)
-        {
-            return services
-                .AddRepository<IDataRepository, DataRepository>()
-                .AddRepository<IInstanceEventRepository, InstanceEventRepository>()
-                .AddRepository<IInstanceRepository, InstanceRepository>()
-                .AddRepository<IApplicationRepository, ApplicationRepository>()
-                .AddRepository<ITextRepository, TextRepository>()
-                .AddSingleton<IBlobRepository, BlobRepository>();
-        }
-
-        /// <summary>
-        /// Adds repositories to DI container.
-        /// </summary>
-        /// <param name="services">service collection.</param>
         /// <param name="connectionString">PostgreSQL connection string.</param>
         /// <param name="logParameters">Whether to log parameters.</param>
         /// <returns></returns>
@@ -41,15 +25,6 @@ namespace Altinn.Platform.Storage.Repository
                 .AddSingleton<IInstanceRepository, PgInstanceRepository>()
                 .AddSingleton<IBlobRepository, BlobRepository>()
                 .AddNpgsqlDataSource(connectionString, builder => builder.EnableParameterLogging(logParameters));
-        }
-
-        private static IServiceCollection AddRepository<TIRepo, TRepo>(this IServiceCollection services)
-            where TIRepo : class
-            where TRepo : class, IHostedService, TIRepo
-        {
-            return services
-                .AddSingleton<TIRepo, TRepo>()
-                .AddHostedService(sp => (TRepo)sp.GetRequiredService<TIRepo>());
         }
     }
 }

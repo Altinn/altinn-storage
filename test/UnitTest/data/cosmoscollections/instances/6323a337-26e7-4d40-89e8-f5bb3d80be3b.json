@@ -1,5 +1,5 @@
 {
-  "id": "6323a337-26e7-4d40-89e8-f5bb3d80be3a",
+  "id": "6323a337-26e7-4d40-89e8-f5bb3d80be3b",
   "instanceOwner": {
     "partyId": "1606",
     "organisationNumber": "725736800"
@@ -20,7 +20,7 @@
   "status": {
     "isArchived": false,
     "isHardDeleted": false,
-    "isSoftDeleted":  false
+    "isSoftDeleted": false
   },
   "appOwner": {},
   "data": [

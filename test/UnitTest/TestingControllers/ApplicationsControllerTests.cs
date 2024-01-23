@@ -25,7 +25,6 @@ using AltinnCore.Authentication.JwtCookie;
 
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -129,10 +128,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             Application appInfo = CreateApplication(org, appName);
 
-            CosmosException dex = CreateCosmosExceptionForTesting("Not found", HttpStatusCode.NotFound);
-
             Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-            applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>())).ThrowsAsync(dex);
+            applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>())).ThrowsAsync(new Exception());
             applicationRepository.Setup(s => s.Create(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
 
             HttpClient client = GetTestClient(applicationRepository.Object);
@@ -164,10 +161,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             Application appInfo = CreateApplication(org, appName);
 
-            CosmosException dex = CreateCosmosExceptionForTesting("Not found", HttpStatusCode.NotFound);
-
             Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-            applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>())).ThrowsAsync(dex);
+            applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>())).ThrowsAsync(new Exception());
             applicationRepository.Setup(s => s.Create(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
 
             HttpClient client = GetTestClient(applicationRepository.Object);
@@ -552,11 +547,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             applicationRepository.Verify(m => m.FindOne(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
-        }
-
-        private static CosmosException CreateCosmosExceptionForTesting(string message, HttpStatusCode httpStatusCode)
-        {
-            return new CosmosException(message, httpStatusCode, 0, string.Empty, 0.0);
         }
 
         private HttpClient GetTestClient(IApplicationRepository applicationRepository)

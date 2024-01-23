@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -28,6 +29,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
     public class DataControllerUnitTests
     {
         private static List<string> _forbiddenUpdateProps = new List<string>() { "/created", "/createdBy", "/id", "/instanceGuid", "/blobStoragePath", "/dataType" };
+        private static readonly JsonSerializerOptions _options = new()
+        {
+            PropertyNameCaseInsensitive = true,
+            WriteIndented = true
+        };
+
         private readonly int _instanceOwnerPartyId = 1337;
         private readonly string _org = "ttd";
         private readonly string _appId = "ttd/apps-test";
@@ -173,18 +180,19 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                .ReturnsAsync((123145864564, DateTimeOffset.Now));
 
             instanceRepositoryMock
-               .Setup(ir => ir.GetOne(It.IsAny<int>(), It.IsAny<Guid>(), true))
-            .ReturnsAsync((int partyId, Guid instanceGuid, bool dummy) =>
+               .Setup(ir => ir.GetOne(It.IsAny<Guid>(), It.IsAny<bool>()))
+            .ReturnsAsync((Guid instanceGuid, bool includeDataElements) =>
             {
                 return (new Instance()
                 {
-                    Id = $"{partyId}/{instanceGuid}",
+                    Id = $"555/{instanceGuid}",
                     InstanceOwner = new()
                     {
-                        PartyId = partyId.ToString()
+                        PartyId = "555"
                     },
                     Org = _org,
-                    AppId = _appId
+                    AppId = _appId,
+                    Data = includeDataElements ? GetDataElements(instanceGuid) : null
                 }, 0);
             });
 
@@ -249,6 +257,31 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             };
 
             return (sut, dataRepositoryMock);
+        }
+
+        private static List<DataElement> GetDataElements(Guid instanceGuid)
+        {
+            List<DataElement> dataElements = new List<DataElement>();
+            string dataElementsPath = GetDataElementsPath();
+
+            string[] dataElementPaths = Directory.GetFiles(dataElementsPath);
+            foreach (string elementPath in dataElementPaths)
+            {
+                string content = File.ReadAllText(elementPath);
+                DataElement dataElement = JsonSerializer.Deserialize<DataElement>(content, _options);
+                if (dataElement.InstanceGuid.Contains(instanceGuid.ToString()))
+                {
+                    dataElements.Add(dataElement);
+                }
+            }
+
+            return dataElements;
+        }
+
+        private static string GetDataElementsPath()
+        {
+            string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(DataControllerUnitTests).Assembly.Location).LocalPath);
+            return Path.Combine(unitTestFolder, "..", "..", "..", "data", "cosmoscollections", "dataelements");
         }
     }
 }

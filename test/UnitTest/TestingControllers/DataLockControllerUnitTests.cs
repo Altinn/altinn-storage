@@ -9,7 +9,6 @@ using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Azure.Cosmos;
 using Moq;
 using Xunit;
 
@@ -17,7 +16,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 {
     public class DataLockControllerUnitTests
     {
-        private static List<string> _forbiddenUpdateProps = new List<string>()
+        private static readonly List<string> _forbiddenUpdateProps = new List<string>()
             { "/created", "/createdBy", "/id", "/instanceGuid", "/blobStoragePath", "/dataType", "/contentType", "/filename", "/lastChangedBy", "/lastChanged", "/refs", "/size", "/fileScanResult", "/tags", "/deleteStatus", };
 
         private readonly string _org = "ttd";
@@ -37,7 +36,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.IsType<OkObjectResult>(result.Result);
-            instanceRepoMock.Verify(i => i.GetOne(12345, instanceGuid, true), Times.Once);
+            instanceRepoMock.Verify(i => i.GetOne(instanceGuid, true), Times.Once);
             instanceRepoMock.VerifyNoOtherCalls();
             dataRepositoryMock.VerifyNoOtherCalls();
         }
@@ -57,7 +56,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Assert
             Assert.IsType<StatusCodeResult>(result.Result);
             Assert.Equal(404, ((StatusCodeResult)result.Result).StatusCode);
-            instanceRepoMock.Verify(i => i.GetOne(12345, instanceGuid, true), Times.Once);
+            instanceRepoMock.Verify(i => i.GetOne(instanceGuid, true), Times.Once);
             instanceRepoMock.VerifyNoOtherCalls();
             dataRepositoryMock.Verify(d => d.Update(instanceGuid, dataElementId, It.Is<Dictionary<string, object>>(p => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p))), Times.Once);
             dataRepositoryMock.VerifyNoOtherCalls();
@@ -77,7 +76,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             
             // Assert
             Assert.IsType<NotFoundObjectResult>(result.Result);
-            instanceRepoMock.Verify(i => i.GetOne(12345, instanceGuid, true), Times.Once);
+            instanceRepoMock.Verify(i => i.GetOne(instanceGuid, true), Times.Once);
             instanceRepoMock.VerifyNoOtherCalls();
             dataRepositoryMock.VerifyNoOtherCalls();
         }
@@ -96,8 +95,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             
             // Assert
             Assert.IsType<OkObjectResult>(result.Result);
-            instanceRepoMock.Verify(i => i.GetOne(12345, instanceGuid, true), Times.Once);
-            instanceRepoMock.VerifyNoOtherCalls();
             dataRepositoryMock.Verify(d => d.Update(instanceGuid, dataElementId, It.Is<Dictionary<string, object>>(p => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p))), Times.Once);
             dataRepositoryMock.VerifyNoOtherCalls();
         }
@@ -117,10 +114,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Assert
             Assert.IsType<StatusCodeResult>(result.Result);
             Assert.Equal(404, ((StatusCodeResult)result.Result).StatusCode);
-            instanceRepoMock.Verify(i => i.GetOne(12345, instanceGuid, true), Times.Once);
-            instanceRepoMock.VerifyNoOtherCalls();
-            dataRepositoryMock.Verify(d => d.Update(instanceGuid, dataElementId, It.Is<Dictionary<string, object>>(p => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p))), Times.Once);
-            dataRepositoryMock.VerifyNoOtherCalls();
         }
         
         [Fact]
@@ -137,9 +130,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             
             // Assert
             Assert.IsType<ForbidResult>(result.Result);
-            instanceRepoMock.Verify(i => i.GetOne(12345, instanceGuid, true), Times.Once);
-            instanceRepoMock.VerifyNoOtherCalls();
-            dataRepositoryMock.VerifyNoOtherCalls();
         }
         
         [Fact]
@@ -156,9 +146,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             
             // Assert
             Assert.IsType<ForbidResult>(result.Result);
-            instanceRepoMock.Verify(i => i.GetOne(12345, instanceGuid, true), Times.Once);
-            instanceRepoMock.VerifyNoOtherCalls();
-            dataRepositoryMock.VerifyNoOtherCalls();
         }
 
         private static bool VerifyPropertyListInput(int expectedPropCount, List<string> expectedProperties, Dictionary<string, object> propertyList)
@@ -217,15 +204,15 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             if (instanceFound)
             {
                 instanceRepositoryMock
-                    .Setup(ir => ir.GetOne(It.IsAny<int>(), It.IsAny<Guid>(), true))
-                    .ReturnsAsync((int partyId, Guid instanceGuid, bool dummy) =>
+                    .Setup(ir => ir.GetOne(It.IsAny<Guid>(), It.IsAny<bool>()))
+                    .ReturnsAsync((Guid instanceGuid, bool includeDataElements) =>
                     {
                         return (new Instance
                         {
-                            Id = $"{partyId}/{instanceGuid}",
+                            Id = $"555/{instanceGuid}",
                             InstanceOwner = new()
                             {
-                                PartyId = partyId.ToString()
+                                PartyId = "555"
                             },
                             Process = new()
                             {
@@ -234,7 +221,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                                     ElementId = "Task_1"
                                 }
                             },
-                            Data = new()
+                            Data = !includeDataElements ? null : new()
                             {
                                 new()
                                 {
@@ -250,8 +237,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             else
             {
                 instanceRepositoryMock
-                    .Setup(ir => ir.GetOne(It.IsAny<int>(), It.IsAny<Guid>(), true))
-                    .ReturnsAsync((int partyId, Guid instanceGuid, bool dummy) => (null, 0));
+                    .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true))
+                    .ReturnsAsync((Guid instanceGuid, bool dummy) => (null, 0));
             }
 
             Mock<HttpContext> httpContextMock = new();

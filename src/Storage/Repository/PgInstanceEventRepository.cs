@@ -82,7 +82,7 @@ namespace Altinn.Platform.Storage.Repository
             DateTime? fromDateTime,
             DateTime? toDateTime)
         {
-            List<InstanceEvent> events = new();
+            List<InstanceEvent> events = [];
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_filterSql);
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceId.Split('/').Last()));

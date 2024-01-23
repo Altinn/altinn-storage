@@ -1,7 +1,7 @@
 using System;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Authorization;
 using Altinn.Common.PEP.Configuration;
@@ -10,14 +10,12 @@ using Altinn.Common.PEP.Helpers;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-
 using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.Authorization
@@ -148,7 +146,7 @@ namespace Altinn.Platform.Storage.Authorization
                 return null;
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(Convert.ToInt32(instanceId.Split("/")[0]), Guid.Parse(instanceId.Split("/")[1]));
+            (Instance instance, _) = await _instanceRepository.GetOne(Guid.Parse(instanceId.Split("/")[1]), false);
             return instance;
         }
 

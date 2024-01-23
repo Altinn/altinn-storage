@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Helpers;
@@ -16,25 +17,31 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
 {
     public class InstanceRepositoryMock : IInstanceRepository
     {
-        public async Task<Instance> Create(Instance item)
+        private static readonly JsonSerializerOptions _options = new()
         {
-            string partyId = item.InstanceOwner.PartyId;
+            PropertyNameCaseInsensitive = true,
+            WriteIndented = true
+        };
+
+        public async Task<Instance> Create(Instance instance)
+        {
+            string partyId = instance.InstanceOwner.PartyId;
             Guid instanceGuid = Guid.NewGuid();
 
-            Instance instance = new Instance
+            Instance newInstance = new Instance
             {
                 Id = $"{partyId}/{instanceGuid}",
-                AppId = item.AppId,
-                Org = item.Org,
-                InstanceOwner = item.InstanceOwner,
-                Process = item.Process,
+                AppId = instance.AppId,
+                Org = instance.Org,
+                InstanceOwner = instance.InstanceOwner,
+                Process = instance.Process,
                 Data = new List<DataElement>(),
             };
 
-            return await Task.FromResult(instance);
+            return await Task.FromResult(newInstance);
         }
 
-        public Task<bool> Delete(Instance item)
+        public Task<bool> Delete(Instance instance)
         {
             throw new NotImplementedException();
         }
@@ -132,7 +139,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
                 instances.RemoveAll(i => i.Status.IsSoftDeleted != match);
             }
 
-            instances.RemoveAll(i => i.Status.IsHardDeleted == true);
+            instances.RemoveAll(i => i.Status.IsHardDeleted);
 
             response.Instances = instances;
             response.Count = instances.Count;
@@ -140,13 +147,14 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return Task.FromResult(response);
         }
 
-        public Task<(Instance Instance, long InternalId)> GetOne(int instanceOwnerPartyId, Guid instanceGuid, bool includeElements = true)
+        public Task<(Instance Instance, long InternalId)> GetOne(Guid instanceGuid, bool includeElements = true)
         {
-            string instancePath = GetInstancePath(instanceOwnerPartyId.ToString(), instanceGuid);
+            string instancePath = GetInstancePath(instanceGuid);
             if (File.Exists(instancePath))
             {
                 string content = File.ReadAllText(instancePath);
                 Instance instance = (Instance)JsonConvert.DeserializeObject(content, typeof(Instance));
+                instance.Data = includeElements ? GetDataElements(instanceGuid) : null;
                 PostProcess(instance);
                 return Task.FromResult<(Instance, long)>((instance, 0));
             }
@@ -176,9 +184,34 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             throw new NotImplementedException();
         }
 
-        private static string GetInstancePath(string instanceOwnerPartyId, Guid instanceGuid)
+        private static string GetInstancePath(Guid instanceGuid)
         {
-            return Path.Combine(GetInstancesPath(), instanceOwnerPartyId, instanceGuid.ToString() + ".json");
+            return Path.Combine(GetInstancesPath(), instanceGuid.ToString() + ".json");
+        }
+
+        private static List<DataElement> GetDataElements(Guid instanceGuid)
+        {
+            List<DataElement> dataElements = new List<DataElement>();
+            string dataElementsPath = GetDataElementsPath();
+
+            string[] dataElementPaths = Directory.GetFiles(dataElementsPath);
+            foreach (string elementPath in dataElementPaths)
+            {
+                string content = File.ReadAllText(elementPath);
+                DataElement dataElement = System.Text.Json.JsonSerializer.Deserialize<DataElement>(content, _options);
+                if (dataElement.InstanceGuid.Contains(instanceGuid.ToString()))
+                {
+                    dataElements.Add(dataElement);
+                }
+            }
+
+            return dataElements;
+        }
+
+        private static string GetDataElementsPath()
+        {
+            string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(InstanceRepositoryMock).Assembly.Location).LocalPath);
+            return Path.Combine(unitTestFolder, "..", "..", "..", "data", "cosmoscollections", "dataelements");
         }
 
         private static string GetInstancesPath()

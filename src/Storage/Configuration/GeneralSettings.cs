@@ -47,10 +47,5 @@ namespace Altinn.Platform.Storage.Configuration
         /// Gets or sets the cache lifetime for application metadata document.
         /// </summary>
         public int AppMetadataCacheLifeTimeInSeconds { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether to use PostgreSQL or Cosmos for metadata
-        /// </summary>
-        public bool UsePostgreSQL { get; set; }
     }
 }
