@@ -300,7 +300,7 @@ namespace Altinn.Platform.Storage.Controllers
             ActionResult appInfoError;
             int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
 
-            ValidateAppId(appId);
+            appId = ValidateAppId(appId);
 
             try
             {
@@ -806,12 +806,15 @@ namespace Altinn.Platform.Storage.Controllers
         /// <summary>
         /// Validates app id
         /// </summary>
-        private static void ValidateAppId(string app)
+        private static string ValidateAppId(string app)
         {
             if (string.IsNullOrEmpty(app) || !app.Contains('/'))
             {
                 throw new ArgumentException("App id can not be null or empty and must contain a slash");
             }
+
+            // To make sonarcloud happy
+            return app.Replace(Environment.NewLine, null);
         }
     }
 }
