@@ -24,7 +24,7 @@ namespace Altinn.Platform.Storage.Repository
                 .AddSingleton<IInstanceEventRepository, PgInstanceEventRepository>()
                 .AddSingleton<IInstanceRepository, PgInstanceRepository>()
                 .AddSingleton<IBlobRepository, BlobRepository>()
-                .AddNpgsqlDataSource(connectionString, builder => builder.EnableParameterLogging(logParameters));
+                .AddNpgsqlDataSource(connectionString, builder => builder.EnableParameterLogging(logParameters).EnableDynamicJson());
         }
     }
 }
