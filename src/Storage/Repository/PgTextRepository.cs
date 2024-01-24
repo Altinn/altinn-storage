@@ -29,7 +29,8 @@ namespace Altinn.Platform.Storage.Repository
         private static readonly string _readAppSql = "select id from storage.applications where app = $1 and org = $2";
         private static readonly string _deleteSql = "delete from storage.texts where org = $1 and app = $2 and language = $3";
         private static readonly string _updateSql = "update storage.texts set textresource = $4 where org = $1 and app = $2 and language = $3";
-        private static readonly string _createSql = "insert into storage.texts (org, app, language, textresource, applicationinternalid) values ($1, $2, $3, $4, $5)";
+        private static readonly string _createSql = "insert into storage.texts (org, app, language, textresource, applicationinternalid) values ($1, $2, $3, jsonb_strip_nulls($4), $5)" +
+            " on conflict on constraint textalternateid do update set textResource = jsonb_strip_nulls($4)";
 
         private static readonly TextResource _missingResourcePlaceholder = new() { Id = _missingResourceId };
 

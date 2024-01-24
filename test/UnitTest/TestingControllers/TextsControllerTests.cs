@@ -76,12 +76,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Scenario:
         ///   Tries to create a text resource that already exists
         /// Expected result:
-        ///   Returns HttpStatus Conflict
+        ///   Returns HttpStatus OK
         /// Success criteria:
         ///   The response has correct status code
         /// </summary>
         [Fact]
-        public async Task CreateWhereResourceAlreadyExists_ReturnsConflict()
+        public async Task CreateWhereResourceAlreadyExists_ReturnsOk()
         {
             string org = "testOrg";
             string app = "testApp";
@@ -91,7 +91,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 requestUri,
                 JsonContent.Create(GetTextResourceThatAlreadyExists(), new MediaTypeHeaderValue("application/json")));
 
-            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 
         /// <summary>

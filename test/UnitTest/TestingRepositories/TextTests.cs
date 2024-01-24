@@ -53,6 +53,27 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         }
 
         /// <summary>
+        /// Test create when a text resource already exists
+        /// </summary>
+        [Fact]
+        public async Task Text_Upsert_Ok()
+        {
+            // Arrange
+            TextResource text = await _textFixture.TextRepo.Create("ttd", "app1", _tr1);
+            text.Resources.RemoveAt(0);
+
+            // Act
+            await _textFixture.TextRepo.Create("ttd", "app1", text);
+
+            // Assert
+            string sql = $"select count(*) from storage.texts where org = 'ttd' and app = 'app1';";
+            int count = await PostgresUtil.RunCountQuery(sql);
+            Assert.Equal(1, count);
+            text = await PostgresUtil.RunQuery<TextResource>($"select textresource from storage.texts where org = 'ttd' and app = 'app1';");
+            Assert.Single(text.Resources);
+        }
+
+        /// <summary>
         /// Test get
         /// </summary>
         [Fact]
