@@ -1,6 +1,9 @@
-using Altinn.Platform.Storage.Interface.Models;
-using FluentAssertions;
 using System.Linq;
+
+using Altinn.Platform.Storage.Interface.Models;
+
+using FluentAssertions;
+
 using Xunit;
 
 namespace Altinn.Platform.Storage.Interface.Tests
@@ -22,7 +25,6 @@ namespace Altinn.Platform.Storage.Interface.Tests
 
             applicationBefore.DataTypes.First(d => d.Id == "Veileder").AppLogic.ShadowFields.Prefix.Should().Be("AltinnSF_");
             applicationBefore.DataTypes.First(d => d.Id == "Veileder").AppLogic.ShadowFields.SaveToDataType.Should().Be("model-clean");
-
         }
     }
 }

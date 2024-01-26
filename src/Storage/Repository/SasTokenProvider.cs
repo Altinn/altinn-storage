@@ -6,8 +6,6 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Wrappers;
 
-using AltinnCore.Authentication.Constants;
-
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -29,7 +27,7 @@ namespace Altinn.Platform.Storage.Repository
         private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="SasTokenProvider"/> class with the given <see cref="KeyVaultSettings"/>.
+        /// Initializes a new instance of the <see cref="SasTokenProvider"/> class.
         /// </summary>
         /// <param name="keyVaultWrapper">
         /// An instance of <see cref="KeyVaultClientWrapper"/> with a principal with access to the application owner key vault(s).</param>

@@ -1,6 +1,9 @@
-using Altinn.Platform.Storage.Interface.Models;
-using FluentAssertions;
 using System.Linq;
+
+using Altinn.Platform.Storage.Interface.Models;
+
+using FluentAssertions;
+
 using Xunit;
 
 namespace Altinn.Platform.Storage.Interface.Tests
