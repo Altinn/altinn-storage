@@ -3,6 +3,8 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <IsPackable>false</IsPackable>
+    <UserSecretsId>719eaaa3-a93f-43e9-bc80-86e01719b323</UserSecretsId>
+    
     <!-- SonarCloud needs this -->
     <ProjectGuid>{7AD8A36D-CC19-4799-935E-FC99870CE096}</ProjectGuid>
     <AssemblyName>Altinn.Platform.Storage.UnitTest</AssemblyName>
@@ -10,7 +12,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Altinn.Authorization.ABAC" Version="0.0.7" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageReference Include="Moq" Version="4.20.70" />
@@ -26,7 +27,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)'=='Debug'">
-     <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556">
+    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
@@ -35,14 +36,13 @@
     </AdditionalFiles>
   </ItemGroup>
 
-  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
-    <CodeAnalysisRuleSet>..\..\Altinn3.ruleset</CodeAnalysisRuleSet>
-  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Storage\Altinn.Platform.Storage.csproj" />
+  </ItemGroup>
 
   <PropertyGroup>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
-    <UserSecretsId>719eaaa3-a93f-43e9-bc80-86e01719b323</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -105,10 +105,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Storage\Altinn.Platform.Storage.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Update="data\apps\spf\test-applikasjon-3\config\authorization\policy.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -165,17 +161,17 @@
     </None>
   </ItemGroup>
 
-	<ItemGroup>
-		<None Update="platform-org.pem">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-		<None Update="platform-org.pfx">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-	</ItemGroup>
+  <ItemGroup>
+    <None Update="platform-org.pem">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="platform-org.pfx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 
-	<ItemGroup>
-	  <_ContentIncludedByDefault Remove="data\roles\user_5\party_1337\roles.json" />
-	</ItemGroup>
+  <ItemGroup>
+    <_ContentIncludedByDefault Remove="data\roles\user_5\party_1337\roles.json" />
+  </ItemGroup>
 
 </Project>
