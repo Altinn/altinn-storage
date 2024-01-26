@@ -43,7 +43,6 @@ namespace Altinn.Platform.Storage.Controllers
         [HttpPost]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
         [Produces("application/json")]
         [Authorize(Policy = AuthzConstants.POLICY_STUDIO_DESIGNER)]
         public async Task<ActionResult<TextResource>> Create(string org, string app, [FromBody] TextResource textResource)
@@ -51,12 +50,6 @@ namespace Altinn.Platform.Storage.Controllers
             if (!LanguageHelper.IsTwoLetters(textResource.Language))
             {
                 return BadRequest("The language must be a two letter ISO language name.");
-            }
-
-            var existingTextResource = await _textRepository.Get(org, app, textResource.Language);
-            if (existingTextResource != null)
-            {
-                return Conflict("Text resource allready exists.");
             }
 
             var createdObjected = await _textRepository.Create(org, app, textResource);

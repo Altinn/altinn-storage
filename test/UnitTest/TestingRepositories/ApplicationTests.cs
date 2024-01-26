@@ -51,6 +51,29 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         }
 
         /// <summary>
+        /// Test create when an application already exists
+        /// </summary>
+        [Fact]
+        public async Task Application_Upsert_Ok()
+        {
+            // Arrange
+            Application a = await _applicationFixture.ApplicationRepo.Create(_a1);
+            a.CreatedBy = "updatedCreator";
+
+            // Act
+            await _applicationFixture.ApplicationRepo.Create(a);
+
+            // Assert
+            string sql = $"select count(*) from storage.applications where app = '{App1}' and org = 'ttd'";
+            int count = await PostgresUtil.RunCountQuery(sql);
+            Assert.Equal(1, count);
+            Assert.Equal(_a1.Id, a.Id);
+            sql = $"select count(*) from storage.applications where app = '{App1}' and org = 'ttd' and application ->> 'CreatedBy' = 'updatedCreator'";
+            count = await PostgresUtil.RunCountQuery(sql);
+            Assert.Equal(1, count);
+        }
+
+        /// <summary>
         /// Test FindOne
         /// </summary>
         [Fact]

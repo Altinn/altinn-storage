@@ -30,7 +30,8 @@ namespace Altinn.Platform.Storage.Repository
         private static readonly string _readByIdSql = "select application from storage.applications where app = $1 and org = $2";
         private static readonly string _deleteSql = "delete from storage.applications where app = $1 and org = $2";
         private static readonly string _updateSql = "update storage.applications set application = $3 where app = $1 and org = $2";
-        private static readonly string _createSql = "insert into storage.applications (app, org, application) values ($1, $2, $3)";
+        private static readonly string _createSql = "insert into storage.applications (app, org, application) values ($1, $2, jsonb_strip_nulls($3))" +
+            " on conflict on constraint app_org do update set application = jsonb_strip_nulls($3)";
 
         private readonly IMemoryCache _memoryCache;
         private readonly MemoryCacheEntryOptions _cacheEntryOptionsTitles;

@@ -122,13 +122,6 @@ namespace Altinn.Platform.Storage.Controllers
 
             string org = appId.Split("/")[0];
 
-            var existingApp = await repository.FindOne(appId, org);
-
-            if (existingApp != null)
-            {
-                return BadRequest("Application already exists in repository! Try update application instead. ");
-            }
-
             DateTime creationTime = DateTime.UtcNow;
 
             // make sure minimum application values are set

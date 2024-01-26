@@ -24,6 +24,22 @@ public static class PostgresUtil
         throw new Exception("No results for " + query);
     }
 
+    public static async Task<T> RunQuery<T>(string query)
+    {
+        NpgsqlDataSource dataSource = (NpgsqlDataSource)ServiceUtil.GetServices(new List<Type>() { typeof(NpgsqlDataSource) })[0]!;
+
+        await using NpgsqlCommand pgcom = dataSource.CreateCommand(query);
+        await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
+        {
+            if (await reader.ReadAsync())
+            {
+                return reader.GetFieldValue<T>(0);
+            }
+        }
+
+        throw new Exception("No results for " + query);
+    }
+
     public static async Task<int> RunSql(string query)
     {
         NpgsqlDataSource dataSource = (NpgsqlDataSource)ServiceUtil.GetServices(new List<Type>() { typeof(NpgsqlDataSource) })[0]!;
