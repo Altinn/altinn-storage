@@ -21,7 +21,7 @@ namespace Altinn.Platform.Telemetry
             }
 
             // Disable sampling for exceptions, failed requests&dependencies and cleanup
-            if (telemetry is RequestTelemetry requestTelemetry && !(requestTelemetry.Success ?? true))
+            if (telemetry is RequestTelemetry requestTelemetry) //// && !(requestTelemetry.Success ?? true))
             {
                 ((ISupportSampling)telemetry).SamplingPercentage = 100;
                 requestTelemetry.ProactiveSamplingDecision = SamplingDecision.SampledIn;
