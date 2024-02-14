@@ -262,7 +262,8 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
         services.AddSingleton(typeof(ITelemetryChannel), new ServerTelemetryChannel() { StorageFolder = "/tmp/logtelemetry" });
         services.AddApplicationInsightsTelemetry(new ApplicationInsightsServiceOptions
         {
-            ConnectionString = applicationInsightsConnectionString
+            ConnectionString = applicationInsightsConnectionString,
+            EnablePerformanceCounterCollectionModule = false
         });
 
         services.AddApplicationInsightsTelemetryProcessor<HealthTelemetryFilter>();
