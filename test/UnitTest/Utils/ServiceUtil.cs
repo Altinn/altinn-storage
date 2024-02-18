@@ -52,7 +52,6 @@ public static class ServiceUtil
 
     public static string GetAppsettingsPath()
     {
-        ////return @$"{System.IO.Directory.GetCurrentDirectory()}\..\..\..\appsettings.json";
         return "appsettings.json";
     }
 }
