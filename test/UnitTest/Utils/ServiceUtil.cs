@@ -21,7 +21,7 @@ public static class ServiceUtil
         }
 
         var builder = new ConfigurationBuilder()
-            .AddJsonFile(@$"{System.IO.Directory.GetCurrentDirectory()}\..\..\..\appsettings.json")
+            .AddJsonFile(GetAppsettingsPath())
             .AddEnvironmentVariables();
 
         var config = builder.Build();
@@ -48,5 +48,11 @@ public static class ServiceUtil
         }
 
         return outputServices;
+    }
+
+    public static string GetAppsettingsPath()
+    {
+        ////return @$"{System.IO.Directory.GetCurrentDirectory()}\..\..\..\appsettings.json";
+        return "appsettings.json";
     }
 }

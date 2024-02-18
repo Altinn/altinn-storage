@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Health;
 using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
+using Altinn.Platform.Storage.UnitTest.Utils;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Xunit;
@@ -43,7 +44,7 @@ namespace Altinn.Platform.Storage.UnitTest.Health
             HttpClient client = _factory.WithWebHostBuilder(builder =>
             {
                 IConfiguration configuration = new ConfigurationBuilder()
-                    .AddJsonFile(@$"{System.IO.Directory.GetCurrentDirectory()}\..\..\..\appsettings.json")
+                    .AddJsonFile(ServiceUtil.GetAppsettingsPath())
                     .Build();
                 builder.ConfigureAppConfiguration((hostingContext, config) =>
                 {
