@@ -130,6 +130,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return await InitiateDelayedDelete(instance, dataElement);
             }
 
+            dataElement.LastChangedBy = User.GetUserOrOrgId();
             return await DeleteImmediately(instance, dataElement);
         }
 

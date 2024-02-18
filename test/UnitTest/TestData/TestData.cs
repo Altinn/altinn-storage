@@ -82,7 +82,7 @@ namespace Altinn.Platform.Storage.UnitTest
             CreatedBy = UserId_1,
             Created = Convert.ToDateTime("2019-08-20T19:19:21.7920255Z").ToUniversalTime(),
             InstanceOwner = new InstanceOwner { PartyId = InstanceOwnerPartyId_1 },
-            Status = new InstanceStatus(),
+            Status = new InstanceStatus() { ReadStatus = ReadStatus.Read },
             LastChangedBy = UserId_1,
             LastChanged = Convert.ToDateTime("2019-08-20T19:19:22.2135489Z").ToUniversalTime(),
             Org = Org_1,

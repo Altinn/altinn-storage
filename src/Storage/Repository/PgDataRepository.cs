@@ -20,7 +20,7 @@ namespace Altinn.Platform.Storage.Repository
     {
         private readonly string _insertSql = "call storage.insertdataelement ($1, $2, $3, $4)";
         private readonly string _readSql = "select * from storage.readdataelement($1)";
-        private readonly string _deleteSql = "select * from storage.deletedataelement ($1)";
+        private readonly string _deleteSql = "select * from storage.deletedataelement_v2 ($1, $2, $3)";
         private readonly string _deleteForInstanceSql = "select * from storage.deletedataelements ($1)";
         private readonly string _updateSql = "call storage.updatedataelement ($1, $2)";
 
@@ -67,6 +67,8 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.InstanceGuid));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, dataElement.LastChangedBy);
 
             int rc = (int)await pgcom.ExecuteScalarAsync();
             tracker.Track();
