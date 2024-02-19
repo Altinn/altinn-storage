@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Security.Claims;
 
 using AltinnCore.Authentication.Constants;
@@ -7,6 +8,7 @@ using Microsoft.ApplicationInsights.Channel;
 using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Primitives;
 
 namespace Altinn.Platform.Storage.Filters
 {
@@ -37,6 +39,16 @@ namespace Altinn.Platform.Storage.Filters
             if (request != null && request.Url.ToString().Contains("storage/api/"))
             {
                 HttpContext ctx = _httpContextAccessor.HttpContext;
+
+                if (ctx.Request.Headers.TryGetValue("Ocp-Apim-Subscription-Key", out StringValues appKey))
+                {
+                    request.Properties.Add("appKey", appKey.FirstOrDefault());
+                }
+
+                if (ctx.Request.Headers.TryGetValue("X-Forwarded-For", out StringValues ipAddress))
+                {
+                    request.Properties.Add("ipAddress", ipAddress.FirstOrDefault());
+                }
 
                 if (ctx?.User != null)
                 {
