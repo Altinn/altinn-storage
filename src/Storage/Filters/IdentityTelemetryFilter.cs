@@ -40,12 +40,7 @@ namespace Altinn.Platform.Storage.Filters
             {
                 HttpContext ctx = _httpContextAccessor.HttpContext;
 
-                if (ctx.Request.Headers.TryGetValue("Ocp-Apim-Subscription-Key", out StringValues appKey))
-                {
-                    request.Properties.Add("appKey", appKey.FirstOrDefault());
-                }
-
-                if (ctx.Request.Headers.TryGetValue("X-Forwarded-For", out StringValues ipAddress))
+                if (ctx != null && ctx.Request.Headers.TryGetValue("X-Forwarded-For", out StringValues ipAddress))
                 {
                     request.Properties.Add("ipAddress", ipAddress.FirstOrDefault());
                 }
