@@ -127,6 +127,7 @@ namespace Altinn.Platform.Storage.Controllers
                     return BadRequest($"DataType {dataElement.DataType} does not support delayed deletion");
                 }
 
+                dataElement.LastChangedBy = User.GetUserOrOrgId();
                 return await InitiateDelayedDelete(instance, dataElement);
             }
 
@@ -597,7 +598,12 @@ namespace Altinn.Platform.Storage.Controllers
                 HardDeleted = deletedTime
             };
 
-            var updatedDateElement = await _dataRepository.Update(Guid.Parse(dataElement.InstanceGuid), Guid.Parse(dataElement.Id), new Dictionary<string, object>() { { "/deleteStatus", deleteStatus } });
+            var updatedDateElement = await _dataRepository.Update(Guid.Parse(dataElement.InstanceGuid), Guid.Parse(dataElement.Id), new Dictionary<string, object>()
+            {
+                { "/deleteStatus", deleteStatus },
+                { "/lastChanged", deletedTime },
+                { "/lastChangedBy", dataElement.LastChangedBy }
+            });
 
             await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, instance, dataElement);
             return Ok(updatedDateElement);

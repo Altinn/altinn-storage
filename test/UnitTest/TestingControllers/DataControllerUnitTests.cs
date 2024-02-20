@@ -92,7 +92,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         public async Task Delete_VerifyDataRepositoryUpdateInput()
         {
             // Arrange
-            List<string> expectedPropertiesForPatch = new() { "/deleteStatus" };
+            List<string> expectedPropertiesForPatch = new() { "/deleteStatus", "/lastChanged", "/lastChangedBy" };
             (DataController testController, Mock<IDataRepository> dataRepositoryMock) = GetTestController(expectedPropertiesForPatch);
 
             // Act
