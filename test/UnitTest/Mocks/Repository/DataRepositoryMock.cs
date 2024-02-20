@@ -104,7 +104,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
         private static string GetDataElementsPath()
         {
             string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(DataRepositoryMock).Assembly.Location).LocalPath);
-            return Path.Combine(unitTestFolder, "..", "..", "..", "data", "cosmoscollections", "dataelements");
+            return Path.Combine(unitTestFolder, "..", "..", "..", "data", "postgresdata", "dataelements");
         }
     }
 }

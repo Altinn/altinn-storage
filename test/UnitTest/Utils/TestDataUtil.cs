@@ -42,7 +42,7 @@ namespace Altinn.Platform.Storage.UnitTest.Utils
                 "..", 
                 "..",
                 "data",
-                "cosmoscollections",
+                "postgresdata",
                 "instances",
                 instanceGuid + @".json");
         }
@@ -50,7 +50,7 @@ namespace Altinn.Platform.Storage.UnitTest.Utils
         private static string GetDataPath()
         {
             string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(TestDataUtil).Assembly.Location).LocalPath);
-            return Path.Combine(unitTestFolder, "..", "..", "..", "data", "cosmoscollections", "dataelements");
+            return Path.Combine(unitTestFolder, "..", "..", "..", "data", "postgresdata", "dataelements");
         }
     }
 }
