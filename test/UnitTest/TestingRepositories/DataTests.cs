@@ -33,10 +33,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         }
 
         /// <summary>
-        /// Test create
+        /// Test create and change instance read status
         /// </summary>
         [Fact]
-        public async Task DataElement_Create_Ok()
+        public async Task DataElement_Create_Change_Instance_Readstatus_Ok()
         {
             // Arrange
 
@@ -45,27 +45,82 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
 
             // Assert
             string sql = $"select count(*) from storage.dataelements where alternateid = '{dataElement.Id}'";
-            int count = await PostgresUtil.RunCountQuery(sql);
-            Assert.Equal(1, count);
+            int dataCount = await PostgresUtil.RunCountQuery(sql);
+            sql = $"select count(*) from storage.instances where alternateid = '{_instance.Id.Split('/').Last()}' and instance -> 'Status' ->> 'ReadStatus' = '2'"
+                + $" and lastchanged = '{((DateTime)dataElement.LastChanged).ToString("o")}' and instance -> 'LastChangedBy' = '\"{dataElement.LastChangedBy}\"'";
+            int instanceCount = await PostgresUtil.RunCountQuery(sql);
+            Assert.Equal(1, dataCount);
+            Assert.Equal(1, instanceCount);
         }
 
         /// <summary>
-        /// Test update
+        /// Test create and don't change instance read status
         /// </summary>
         [Fact]
-        public async Task DataElement_Update_Ok()
+        public async Task DataElement_Create_NoChange_Instance_Readstatus_Ok()
+        {
+            // Arrange
+            await PostgresUtil.RunSql("update storage.instances set instance = jsonb_set(instance, '{Status, ReadStatus}', '0') where alternateid = '" + _instance.Id.Split('/').Last() + "';");
+
+            // Act
+            DataElement dataElement = await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement1), _instanceInternalId);
+
+            // Assert
+            string sql = $"select count(*) from storage.dataelements where alternateid = '{dataElement.Id}'";
+            int dataCount = await PostgresUtil.RunCountQuery(sql);
+            sql = $"select count(*) from storage.instances where alternateid = '{_instance.Id.Split('/').Last()}' and instance -> 'Status' ->> 'ReadStatus' = '0'"
+                + $" and lastchanged = '{((DateTime)dataElement.LastChanged).ToString("o")}' and instance -> 'LastChangedBy' = '\"{dataElement.LastChangedBy}\"'";
+            int instanceCount = await PostgresUtil.RunCountQuery(sql);
+            Assert.Equal(1, dataCount);
+            Assert.Equal(1, instanceCount);
+        }
+
+        /// <summary>
+        /// Test update and don't change instance read status
+        /// </summary>
+        [Fact]
+        public async Task DataElement_Update_NoChange_Instance_Readstatus_Ok()
         {
             // Arrange
             string contentType = "unittestContentType";
             DataElement dataElement = await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement1), _instanceInternalId);
+            await PostgresUtil.RunSql("update storage.instances set instance = jsonb_set(instance, '{Status, ReadStatus}', '0') where alternateid = '" + _instance.Id.Split('/').Last() + "';");
 
             // Act
             await _dataElementFixture.DataRepo.Update(Guid.Empty, Guid.Parse(dataElement.Id), new Dictionary<string, object>() { { "/contentType", contentType } });
 
             // Assert
             string sql = $"select count(*) from storage.dataelements where element ->> 'ContentType' = '{contentType}'";
-            int count = await PostgresUtil.RunCountQuery(sql);
-            Assert.Equal(1, count);
+            int dataCount = await PostgresUtil.RunCountQuery(sql);
+            sql = $"select count(*) from storage.instances where alternateid = '{_instance.Id.Split('/').Last()}' and instance -> 'Status' ->> 'ReadStatus' = '0'"
+                + $" and lastchanged = '{((DateTime)dataElement.LastChanged).ToString("o")}' and instance -> 'LastChangedBy' = '\"{dataElement.LastChangedBy}\"'";
+            int instanceCount = await PostgresUtil.RunCountQuery(sql);
+            Assert.Equal(1, dataCount);
+            Assert.Equal(1, instanceCount);
+        }
+
+        /// <summary>
+        /// Test update and change instance read status
+        /// </summary>
+        [Fact]
+        public async Task DataElement_Update_Change_Instance_Readstatus_Ok()
+        {
+            // Arrange
+            string contentType = "unittestContentType";
+            DataElement dataElement = await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement1), _instanceInternalId);
+            await PostgresUtil.RunSql("update storage.instances set instance = jsonb_set(instance, '{Status, ReadStatus}', '1') where alternateid = '" + _instance.Id.Split('/').Last() + "';");
+
+            // Act
+            await _dataElementFixture.DataRepo.Update(Guid.Empty, Guid.Parse(dataElement.Id), new Dictionary<string, object>() { { "/contentType", contentType } });
+
+            // Assert
+            string sql = $"select count(*) from storage.dataelements where element ->> 'ContentType' = '{contentType}'";
+            int dataCount = await PostgresUtil.RunCountQuery(sql);
+            sql = $"select count(*) from storage.instances where alternateid = '{_instance.Id.Split('/').Last()}' and instance -> 'Status' ->> 'ReadStatus' = '0'"
+                + $" and lastchanged = '{((DateTime)dataElement.LastChanged).ToString("o")}' and instance -> 'LastChangedBy' = '\"{dataElement.LastChangedBy}\"'";
+            int instanceCount = await PostgresUtil.RunCountQuery(sql);
+            Assert.Equal(1, dataCount);
+            Assert.Equal(1, instanceCount);
         }
 
         /// <summary>
@@ -85,22 +140,49 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         }
 
         /// <summary>
-        /// Test delete
+        /// Test delete and change instance read status
         /// </summary>
         [Fact]
-        public async Task DataElement_Delete_Ok()
+        public async Task DataElement_Delete_Change_Instance_Readstatus_Ok()
         {
             // Arrange
             DataElement dataElement = await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement1), _instanceInternalId);
+            await PostgresUtil.RunSql("update storage.instances set instance = jsonb_set(instance, '{Status, ReadStatus}', '1') where alternateid = '" + _instance.Id.Split('/').Last() + "';");
 
             // Act
             bool deleted = await _dataElementFixture.DataRepo.Delete(dataElement);
 
             // Assert
             string sql = $"select count(*) from storage.dataelements where alternateid = '{dataElement.Id}'";
-            int count = await PostgresUtil.RunCountQuery(sql);
-            Assert.Equal(0, count);
-            Assert.True(deleted);
+            int dataCount = await PostgresUtil.RunCountQuery(sql);
+            sql = $"select count(*) from storage.instances where alternateid = '{_instance.Id.Split('/').Last()}' and instance -> 'Status' ->> 'ReadStatus' = '0'"
+                + $" and lastchanged between now() - make_interval(secs => 2) and now() and instance -> 'LastChangedBy' = '\"{dataElement.LastChangedBy}\"'";
+            int instanceCount = await PostgresUtil.RunCountQuery(sql);
+            Assert.Equal(0, dataCount);
+            Assert.Equal(1, instanceCount);
+        }
+
+        /// <summary>
+        /// Test delete and don't change instance read status
+        /// </summary>
+        [Fact]
+        public async Task DataElement_Delete_NoChange_Instance_Readstatus_Ok()
+        {
+            // Arrange
+            DataElement dataElement = await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement1), _instanceInternalId);
+            await PostgresUtil.RunSql("update storage.instances set instance = jsonb_set(instance, '{Status, ReadStatus}', '0') where alternateid = '" + _instance.Id.Split('/').Last() + "';");
+
+            // Act
+            bool deleted = await _dataElementFixture.DataRepo.Delete(dataElement);
+
+            // Assert
+            string sql = $"select count(*) from storage.dataelements where alternateid = '{dataElement.Id}'";
+            int dataCount = await PostgresUtil.RunCountQuery(sql);
+            sql = $"select count(*) from storage.instances where alternateid = '{_instance.Id.Split('/').Last()}' and instance -> 'Status' ->> 'ReadStatus' = '0'"
+                + $" and lastchanged between now() - make_interval(secs => 2) and now() and instance -> 'LastChangedBy' = '\"{dataElement.LastChangedBy}\"'";
+            int instanceCount = await PostgresUtil.RunCountQuery(sql);
+            Assert.Equal(0, dataCount);
+            Assert.Equal(1, instanceCount);
         }
 
         /// <summary>

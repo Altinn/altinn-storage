@@ -92,7 +92,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         public async Task Delete_VerifyDataRepositoryUpdateInput()
         {
             // Arrange
-            List<string> expectedPropertiesForPatch = new() { "/deleteStatus" };
+            List<string> expectedPropertiesForPatch = new() { "/deleteStatus", "/lastChanged", "/lastChangedBy" };
             (DataController testController, Mock<IDataRepository> dataRepositoryMock) = GetTestController(expectedPropertiesForPatch);
 
             // Act
@@ -281,7 +281,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         private static string GetDataElementsPath()
         {
             string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(DataControllerUnitTests).Assembly.Location).LocalPath);
-            return Path.Combine(unitTestFolder, "..", "..", "..", "data", "cosmoscollections", "dataelements");
+            return Path.Combine(unitTestFolder, "..", "..", "..", "data", "postgresdata", "dataelements");
         }
     }
 }

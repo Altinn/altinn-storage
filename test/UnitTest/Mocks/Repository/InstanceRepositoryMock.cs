@@ -211,13 +211,13 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
         private static string GetDataElementsPath()
         {
             string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(InstanceRepositoryMock).Assembly.Location).LocalPath);
-            return Path.Combine(unitTestFolder, "..", "..", "..", "data", "cosmoscollections", "dataelements");
+            return Path.Combine(unitTestFolder, "..", "..", "..", "data", "postgresdata", "dataelements");
         }
 
         private static string GetInstancesPath()
         {
             string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(InstanceRepositoryMock).Assembly.Location).LocalPath);
-            return Path.Combine(unitTestFolder, "..", "..", "..", "data", "cosmoscollections", "instances");
+            return Path.Combine(unitTestFolder, "..", "..", "..", "data", "postgresdata", "instances");
         }
 
         /// <summary>

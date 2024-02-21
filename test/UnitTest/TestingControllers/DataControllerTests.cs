@@ -478,12 +478,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
         private static bool VerifyDeleteStatusPresentInDictionary(Dictionary<string, object> propertyList)
         {
-            if (!propertyList.ContainsKey("/deleteStatus"))
+            if (!propertyList.ContainsKey("/deleteStatus") || !propertyList.ContainsKey("/lastChanged") || !propertyList.ContainsKey("/lastChangedBy"))
             {
                 return false;
             }
 
-            if (propertyList.Count > 1)
+            if (propertyList.Count > 3)
             {
                 // property list should only contain one element when called from this controller method
                 return false;
@@ -697,7 +697,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             HttpClient client = _factory.WithWebHostBuilder(builder =>
             {
-                IConfiguration configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+                IConfiguration configuration = new ConfigurationBuilder()
+                    .AddJsonFile(ServiceUtil.GetAppsettingsPath())
+                    .Build();
                 builder.ConfigureAppConfiguration((hostingContext, config) =>
                 {
                     config.AddConfiguration(configuration);

@@ -1215,7 +1215,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             HttpClient client = _factory.WithWebHostBuilder(builder =>
             {
-                IConfiguration configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+                IConfiguration configuration = new ConfigurationBuilder().AddJsonFile(ServiceUtil.GetAppsettingsPath()).Build();
                 builder.ConfigureAppConfiguration((hostingContext, config) =>
                 {
                     config.AddConfiguration(configuration);
