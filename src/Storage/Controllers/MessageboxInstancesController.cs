@@ -371,7 +371,10 @@ namespace Altinn.Platform.Storage.Controllers
 
             instances.RemoveAll(i => i.VisibleAfter > DateTime.UtcNow);
 
-            InstanceHelper.RemoveHiddenInstances(apps, instances);
+            if (apps.Count > 0)
+            {
+                InstanceHelper.RemoveHiddenInstances(apps, instances);
+            }
         }
 
         private static Dictionary<string, StringValues> GetQueryParams(MessageBoxQueryModel queryModel)
