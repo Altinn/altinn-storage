@@ -1,18 +1,16 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Data;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+
 using Altinn.Platform.Storage.Configuration;
-using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+
 using Azure;
 using Azure.Storage;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
-using Microsoft.Extensions.Hosting;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
