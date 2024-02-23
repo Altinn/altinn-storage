@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
@@ -38,7 +39,7 @@ namespace Altinn.Platform.Storage.Repository
             ILogger<PgDataRepository> logger)
         {
             _storageConfiguration = storageConfiguration.Value;
-            Console.WriteLine($"// BlobRepository // KV config: // {System.Text.Json.JsonSerializer.Serialize(_storageConfiguration.OrgKeyVaultDict)}");
+            Console.WriteLine($"// BlobRepository // KV config: // {_storageConfiguration.OrgKeyVaultDict.First().Key} : {_storageConfiguration.OrgKeyVaultDict.First().Value}");
             _sasTokenProvider = sasTokenProvider;
             _logger = logger;
         }
