@@ -26,7 +26,6 @@ namespace Altinn.Platform.Storage.Repository
         private readonly AzureStorageConfiguration _storageConfiguration;
         private readonly ISasTokenProvider _sasTokenProvider;
         private readonly ILogger<PgDataRepository> _logger;
-        private readonly Dictionary<string, string> _orgKeyVaultDict;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="BlobRepository"/> class.
@@ -40,8 +39,6 @@ namespace Altinn.Platform.Storage.Repository
             ILogger<PgDataRepository> logger)
         {
             _storageConfiguration = storageConfiguration.Value;
-            _orgKeyVaultDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(_storageConfiguration.OrgKeyVaultDict);
-            Console.WriteLine($"// BlobRepository // KV config: // {_orgKeyVaultDict.First().Key} : {_orgKeyVaultDict.First().Value}");
             _sasTokenProvider = sasTokenProvider;
             _logger = logger;
         }
