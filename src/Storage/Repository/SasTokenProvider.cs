@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -25,6 +27,7 @@ namespace Altinn.Platform.Storage.Repository
         private readonly ILogger<SasTokenProvider> _logger;
 
         private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
+        private readonly Dictionary<string, string> _orgKeyVaultDict;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SasTokenProvider"/> class.
@@ -43,6 +46,7 @@ namespace Altinn.Platform.Storage.Repository
         {
             _keyVaultWrapper = keyVaultWrapper;
             _storageConfiguration = storageConfiguration.Value;
+            _orgKeyVaultDict = JsonSerializer.Deserialize<Dictionary<string, string>>(_storageConfiguration.OrgKeyVaultDict);
             _logger = logger;
         }
 
@@ -72,7 +76,17 @@ namespace Altinn.Platform.Storage.Repository
                 string sasDefinition = string.Format(_storageConfiguration.OrgSasDefinition, org);
 
                 string secretName = $"{storageAccount}-{sasDefinition}";
-                string keyVaultUri = string.Format(_storageConfiguration.OrgKeyVaultURI, org);
+
+                string keyVaultUri = string.Empty;
+
+                if (_orgKeyVaultDict.TryGetValue(org, out keyVaultUri))
+                {
+                    // key was found in dictionary and keyVaultUri populated with a value
+                }
+                else
+                {
+                    keyVaultUri = string.Format(_storageConfiguration.OrgKeyVaultURI, org);
+                }
 
                 _logger.LogInformation("Getting secret '{secretName}' from '{keyVaultUri}'.", secretName, keyVaultUri);
 

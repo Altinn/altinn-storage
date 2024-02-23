@@ -36,6 +36,11 @@ namespace Altinn.Platform.Storage.Configuration
         public string OrgKeyVaultURI { get; set; }
 
         /// <summary>
+        /// Dictionary containing alternative key vault names for app owner
+        /// </summary>
+        public string OrgKeyVaultDict { get; set; } = "{}";
+
+        /// <summary>
         /// name of app owner storage account
         /// </summary>
         public string OrgStorageAccount { get; set; }
