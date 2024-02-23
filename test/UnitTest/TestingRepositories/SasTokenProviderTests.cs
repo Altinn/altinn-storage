@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using Moq;
+
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
@@ -230,6 +231,44 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
                 OrgKeyVaultURI = KeyVaultURI,
                 OrgStorageAccount = StorageAccount,
                 OrgSasDefinition = SasDefinition,
+                AllowedSasTokenAgeHours = 0
+            };
+
+            Mock<IOptions<AzureStorageConfiguration>> storageConfiguration = new Mock<IOptions<AzureStorageConfiguration>>();
+            storageConfiguration.SetupGet(x => x.Value).Returns(storageSettings);
+
+            SasTokenProvider target = new SasTokenProvider(keyVaultClient.Object, storageConfiguration.Object, _mockLogger.Object);
+
+            // Act
+            await target.GetSasToken(org);
+            string actual = await target.GetSasToken(org);
+
+            // Assert
+            Assert.Equal("ttdsecret", actual);
+
+            keyVaultClient.Verify(s => s.GetSecretAsync(It.Is<string>(u => u == uri), It.Is<string>(i => i == secretName)), Times.Exactly(2));
+        }
+
+        [Fact]
+        public async Task GetSasToken_OrgKvUsesAlternativeName_NameRetrievedFromDictionary()
+        {
+            // Arrange
+            string org = "ttd";
+            string uri = "random-uri.com";
+
+            string storageAccount = string.Format(StorageAccount, org);
+            string sasDefinition = string.Format(SasDefinition, org);
+            string secretName = $"{storageAccount}-{sasDefinition}";
+
+            Mock<IKeyVaultClientWrapper> keyVaultClient = new Mock<IKeyVaultClientWrapper>();
+            keyVaultClient.Setup(s => s.GetSecretAsync(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync("ttdsecret");
+
+            AzureStorageConfiguration storageSettings = new AzureStorageConfiguration
+            {
+                OrgKeyVaultURI = KeyVaultURI,
+                OrgStorageAccount = StorageAccount,
+                OrgSasDefinition = SasDefinition,
+                OrgKeyVaultDict = "{\"ttd\":\"random-uri.com\"}",
                 AllowedSasTokenAgeHours = 0
             };
 
