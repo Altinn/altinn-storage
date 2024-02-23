@@ -79,9 +79,9 @@ namespace Altinn.Platform.Storage.Repository
 
                 string keyVaultUri = string.Empty;
 
-                if (_orgKeyVaultDict.ContainsKey(org))
+                if (_orgKeyVaultDict.TryGetValue(org, out keyVaultUri))
                 {
-                    keyVaultUri = _orgKeyVaultDict[org];
+                    // key was found in dictionary and keyVaultUri populated with a value
                 }
                 else
                 {
