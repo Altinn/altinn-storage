@@ -38,6 +38,7 @@ namespace Altinn.Platform.Storage.Repository
             ILogger<PgDataRepository> logger)
         {
             _storageConfiguration = storageConfiguration.Value;
+            Console.WriteLine($"// BlobRepository // KV config: // {System.Text.Json.JsonSerializer.Serialize(_storageConfiguration.OrgKeyVaultDict)}");
             _sasTokenProvider = sasTokenProvider;
             _logger = logger;
         }
