@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 
 using Npgsql;
 using NpgsqlTypes;
+using static Altinn.Platform.Storage.Repository.JsonHelper;
 
 namespace Altinn.Platform.Storage.Repository
 {
@@ -22,7 +23,7 @@ namespace Altinn.Platform.Storage.Repository
         private readonly string _readSql = "select * from storage.readdataelement($1)";
         private readonly string _deleteSql = "select * from storage.deletedataelement_v2 ($1, $2, $3)";
         private readonly string _deleteForInstanceSql = "select * from storage.deletedataelements ($1)";
-        private readonly string _updateSql = "call storage.updatedataelement ($1, $2)";
+        private readonly string _updateSql = "select * from storage.updatedataelement_v2 ($1, $2, $3, $4, $5, $6)";
 
         private readonly ILogger<PgDataRepository> _logger;
         private readonly NpgsqlDataSource _dataSource;
@@ -116,77 +117,53 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<DataElement> Update(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertylist)
         {
-            // Retry loop below because Postgres doesn't lock the element between the read and the following update
-            // even if it's in a transaction with repeatable read.
-            PostgresException exceptionToRethrow = null;
-            for (int i = 0; i < 10; i++)
+            if (propertylist.Count > 12)
             {
-                try
-                {
-                    return await UpdateInternal(dataElementId, propertylist);
-                }
-                catch (PostgresException e)
-                {
-                    if (e.Message == "40001: could not serialize access due to concurrent update")
-                    {
-                        exceptionToRethrow = e;
-                        await Task.Delay(100);
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
+                throw new ArgumentOutOfRangeException(nameof(propertylist), "PropertyList can contain at most 12 entries.");
             }
 
-            throw exceptionToRethrow;
-        }
-
-        private async Task<DataElement> UpdateInternal(Guid dataElementId, Dictionary<string, object> propertylist)
-        {
-            if (propertylist.Count > 10)
-            {
-                throw new ArgumentOutOfRangeException(nameof(propertylist), "PropertyList can contain at most 10 entries.");
-            }
-
-            await using var transConnection = _dataSource.CreateConnection();
-            await transConnection.OpenAsync();
-            await using var transaction = await transConnection.BeginTransactionAsync(isolationLevel: IsolationLevel.RepeatableRead); // Ensure that the read element is locked until updated
-            DataElement element = await Read(Guid.Empty, dataElementId) ?? throw new ArgumentException("Element not found for id " + dataElementId, nameof(dataElementId));
-
+            List<string> elementProperties = new();
+            List<string> instanceProperties = new();
+            DataElement element = new();
+            Instance lastChangedWrapper = new();
+            bool isReadChangedToFalse = false;
             foreach (var kvp in propertylist)
             {
                 switch (kvp.Key)
                 {
-                    case "/locked": element.Locked = (bool)kvp.Value; break;
-                    case "/refs": element.Refs = (List<Guid>)kvp.Value; break;
-                    case "/references": element.References = (List<Reference>)kvp.Value; break;
-                    case "/tags": element.Tags = (List<string>)kvp.Value; break;
-                    case "/deleteStatus": element.DeleteStatus = (DeleteStatus)kvp.Value; break;
-                    case "/lastChanged": element.LastChanged = (DateTime?)kvp.Value; break;
-                    case "/lastChangedBy": element.LastChangedBy = (string)kvp.Value; break;
-                    case "/fileScanResult": element.FileScanResult = (FileScanResult)kvp.Value; break;
-                    case "/contentType": element.ContentType = (string)kvp.Value; break;
-                    case "/filename": element.Filename = (string)kvp.Value; break;
-                    case "/size": element.Size = (long)kvp.Value; break;
-                    case "/isRead": element.IsRead = (bool)kvp.Value; break;
+                    case "/locked": element.Locked = (bool)kvp.Value; elementProperties.Add(nameof(DataElement.Locked)); break;
+                    case "/refs": element.Refs = (List<Guid>)kvp.Value; elementProperties.Add(nameof(DataElement.Refs)); break;
+                    case "/references": element.References = (List<Reference>)kvp.Value; elementProperties.Add(nameof(DataElement.References)); break;
+                    case "/tags": element.Tags = (List<string>)kvp.Value; elementProperties.Add(nameof(DataElement.Tags)); break;
+                    case "/deleteStatus": element.DeleteStatus = (DeleteStatus)kvp.Value; elementProperties.Add(nameof(DataElement.DeleteStatus)); break;
+                    case "/lastChanged": element.LastChanged = (DateTime?)kvp.Value; elementProperties.Add(nameof(DataElement.LastChanged)); instanceProperties.Add(nameof(Instance.LastChanged)); break;
+                    case "/lastChangedBy": element.LastChangedBy = (string)kvp.Value; elementProperties.Add(nameof(DataElement.LastChangedBy)); instanceProperties.Add(nameof(Instance.LastChangedBy)); break;
+                    case "/fileScanResult": element.FileScanResult = (FileScanResult)kvp.Value; elementProperties.Add(nameof(DataElement.FileScanResult)); break;
+                    case "/contentType": element.ContentType = (string)kvp.Value; elementProperties.Add(nameof(DataElement.ContentType)); break;
+                    case "/filename": element.Filename = (string)kvp.Value; elementProperties.Add(nameof(DataElement.Filename)); break;
+                    case "/size": element.Size = (long)kvp.Value; elementProperties.Add(nameof(DataElement.Size)); break;
+                    case "/isRead": element.IsRead = (bool)kvp.Value; elementProperties.Add(nameof(DataElement.IsRead)); isReadChangedToFalse = !element.IsRead; break;
                     default: throw new ArgumentException("Unexpected key " + kvp.Key);
                 }
             }
 
-            await using NpgsqlCommand pgcom = new(_updateSql, transConnection)
-            {
-                Parameters =
-                {
-                    new() { Value = dataElementId, NpgsqlDbType = NpgsqlDbType.Uuid },
-                    new() { Value = element, NpgsqlDbType = NpgsqlDbType.Jsonb },
-                },
-            };
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateSql);
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
-            await pgcom.ExecuteNonQueryAsync();
-            tracker.Track();
-            await transaction.CommitAsync();
 
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, CustomSerializer.Serialize(element, elementProperties));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, CustomSerializer.Serialize(lastChangedWrapper, instanceProperties));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Boolean, isReadChangedToFalse);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, lastChangedWrapper.LastChanged ?? (object)DBNull.Value);
+
+            await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                element = reader.GetFieldValue<DataElement>("updatedElement");
+            }
+
+            tracker.Track();
             return element;
         }
      }

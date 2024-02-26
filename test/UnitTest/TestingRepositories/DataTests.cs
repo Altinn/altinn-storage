@@ -84,19 +84,22 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             // Arrange
             string contentType = "unittestContentType";
             DataElement dataElement = await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement1), _instanceInternalId);
-            await PostgresUtil.RunSql("update storage.instances set instance = jsonb_set(instance, '{Status, ReadStatus}', '0') where alternateid = '" + _instance.Id.Split('/').Last() + "';");
+            string restoreValues = """{"Status": {"ReadStatus": 0},"LastChanged": "<lastChanged>","LastChangedBy": "<lastChangedBy>"}"""
+                .Replace("<lastChanged>", ((DateTime)_instance.LastChanged).ToString("o")).Replace("<lastChangedBy>", _instance.LastChangedBy);
+            await PostgresUtil.RunSql($"update storage.instances set instance = instance || '{restoreValues}', lastChanged = '{((DateTime)_instance.LastChanged).ToString("o")}' where alternateid = '{_instance.Id.Split('/').Last()}';");
 
             // Act
-            await _dataElementFixture.DataRepo.Update(Guid.Empty, Guid.Parse(dataElement.Id), new Dictionary<string, object>() { { "/contentType", contentType } });
+            DataElement updatedElement = await _dataElementFixture.DataRepo.Update(Guid.Empty, Guid.Parse(dataElement.Id), new Dictionary<string, object>() { { "/contentType", contentType } });
 
             // Assert
             string sql = $"select count(*) from storage.dataelements where element ->> 'ContentType' = '{contentType}'";
             int dataCount = await PostgresUtil.RunCountQuery(sql);
             sql = $"select count(*) from storage.instances where alternateid = '{_instance.Id.Split('/').Last()}' and instance -> 'Status' ->> 'ReadStatus' = '0'"
-                + $" and lastchanged = '{((DateTime)dataElement.LastChanged).ToString("o")}' and instance -> 'LastChangedBy' = '\"{dataElement.LastChangedBy}\"'";
+                + $" and lastchanged = '{((DateTime)_instance.LastChanged).ToString("o")}' and instance -> 'LastChangedBy' = '\"{_instance.LastChangedBy}\"'";
             int instanceCount = await PostgresUtil.RunCountQuery(sql);
             Assert.Equal(1, dataCount);
             Assert.Equal(1, instanceCount);
+            Assert.Equal(contentType, updatedElement.ContentType);
         }
 
         /// <summary>
@@ -111,7 +114,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             await PostgresUtil.RunSql("update storage.instances set instance = jsonb_set(instance, '{Status, ReadStatus}', '1') where alternateid = '" + _instance.Id.Split('/').Last() + "';");
 
             // Act
-            await _dataElementFixture.DataRepo.Update(Guid.Empty, Guid.Parse(dataElement.Id), new Dictionary<string, object>() { { "/contentType", contentType } });
+            DataElement updatedElement = await _dataElementFixture.DataRepo.Update(Guid.Parse(_instance.Id.Split('/').Last()), Guid.Parse(dataElement.Id), new Dictionary<string, object>()
+            {
+                { "/contentType", contentType },
+                { "/isRead", false },
+                { "/lastChanged", dataElement.LastChanged },
+                { "/lastChangedBy", dataElement.LastChangedBy } 
+            });
 
             // Assert
             string sql = $"select count(*) from storage.dataelements where element ->> 'ContentType' = '{contentType}'";
@@ -121,6 +130,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             int instanceCount = await PostgresUtil.RunCountQuery(sql);
             Assert.Equal(1, dataCount);
             Assert.Equal(1, instanceCount);
+            Assert.Equal(contentType, updatedElement.ContentType);
         }
 
         /// <summary>
