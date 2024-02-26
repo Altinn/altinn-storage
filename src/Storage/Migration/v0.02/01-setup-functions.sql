@@ -42,7 +42,7 @@ BEGIN
     UPDATE storage.instances
         SET lastchanged = NOW(),
             instance = instance
-                || jsonb_set('{"LastChanged":""}', '{LastChanged}', to_jsonb(NOW() AT TIME ZONE 'UTC' || 'Z'))
+                || jsonb_set('{"LastChanged":""}', '{LastChanged}', to_jsonb(REPLACE((NOW() AT TIME ZONE 'UTC')::TEXT, ' ', 'T') || 'Z'))
                 || jsonb_set('{"LastChangedBy":""}', '{LastChangedBy}', to_jsonb(_lastChangedBy))            
         WHERE alternateid = (SELECT instanceguid FROM storage.dataelements WHERE alternateid = _alternateid);
 
@@ -63,7 +63,7 @@ BEGIN
     UPDATE storage.instances
         SET lastchanged = NOW(),
             instance = instance
-                || jsonb_set('{"LastChanged":""}', '{LastChanged}', to_jsonb(NOW() AT TIME ZONE 'UTC' || 'Z'))
+                || jsonb_set('{"LastChanged":""}', '{LastChanged}', to_jsonb(REPLACE((NOW() AT TIME ZONE 'UTC')::TEXT, ' ', 'T') || 'Z'))
                 || jsonb_set('{"LastChangedBy":""}', '{LastChangedBy}', to_jsonb('altinn'::TEXT))   
         WHERE alternateid = _instanceguid;
 
