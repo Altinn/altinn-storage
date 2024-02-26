@@ -378,8 +378,8 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Bigint, long.Parse(instance.InstanceOwner.PartyId));
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instance.Id));
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, instance);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, instance.Created ?? DateTime.Now);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, instance.LastChanged ?? DateTime.Now);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, instance.Created ?? DateTime.UtcNow);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, instance.LastChanged ?? DateTime.UtcNow);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, instance.Org);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, instance.AppId);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, instance.Process?.CurrentTask?.ElementId ?? (object)DBNull.Value);
