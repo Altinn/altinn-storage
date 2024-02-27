@@ -78,7 +78,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
                 throw new RepositoryException("Data element not found", System.Net.HttpStatusCode.NotFound);
             }
 
-            foreach (var entry in propertyList)
+            foreach (var entry in propertylist)
             {
                 if (entry.Key == "/fileScanResult")
                 {
