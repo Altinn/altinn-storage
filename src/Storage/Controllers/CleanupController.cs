@@ -90,7 +90,7 @@ namespace Altinn.Platform.Storage.Controllers
             Stopwatch stopwatch = Stopwatch.StartNew();
             do
             {
-                instancesResponse = await instanceRepository.GetInstancesFromQuery(options, instancesResponse.ContinuationToken, 5000);
+                instancesResponse = await instanceRepository.GetInstancesFromQuery(options, instancesResponse.ContinuationToken, 5000, true);
                 successfullyDeleted += await CleanupInstancesInternal(instancesResponse.Instances, []);
                 processed += (int)instancesResponse.Count;
             }

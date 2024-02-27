@@ -203,7 +203,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             try
             {
-                InstanceQueryResponse result = await _instanceRepository.GetInstancesFromQuery(queryParams, continuationToken, pageSize);
+                InstanceQueryResponse result = await _instanceRepository.GetInstancesFromQuery(queryParams, continuationToken, pageSize, true);
 
                 if (!string.IsNullOrEmpty(result.Exception))
                 {

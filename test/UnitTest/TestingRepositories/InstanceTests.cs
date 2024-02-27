@@ -158,9 +158,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             Dictionary<string, StringValues> queryParams = new();
 
             // Act
-            var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100);
+            var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100, true);
             queryParams.Add("instanceOwner.partyId", new StringValues(TestData.Instance_1_3.InstanceOwner.PartyId));
-            var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100);
+            var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100, true);
 
             // Assert
             Assert.Equal(3, instances3.Count);
@@ -177,10 +177,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone());
 
             Dictionary<string, StringValues> queryParams = new();
+            queryParams.Add("appId", new StringValues("ttd/test-applikasjon-1"));
 
             // Act
-            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100);
-            queryParams.Add("appId", new StringValues("test-applikasjon-1"));
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100, true);
 
             // Assert
             Assert.Equal(1, instances.Count);
@@ -202,7 +202,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             // Act
             queryParams.Add("instanceOwner.partyId", new StringValues(TestData.Instance_1_3.InstanceOwner.PartyId));
             queryParams.Add("process.ended", new StringValues("true"));
-            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100);
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100, true);
 
             // Assert
             Assert.Equal(0, instances.Count);
