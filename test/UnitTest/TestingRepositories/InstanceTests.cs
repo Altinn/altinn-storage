@@ -223,7 +223,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         private async Task<Instance> InsertInstanceAndData(Instance instance, DataElement dataelement)
         {
             instance = await _instanceFixture.InstanceRepo.Create(instance);
-            (_, long internalId) = await _instanceFixture.InstanceRepo.GetOne(Guid.Parse(instance.Id.Split('/').Last()));
+            (_, long internalId) = await _instanceFixture.InstanceRepo.GetOne(Guid.Parse(instance.Id.Split('/').Last()), true);
             await _instanceFixture.DataRepo.Create(dataelement, internalId);
             return instance;
         }

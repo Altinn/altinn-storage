@@ -18,28 +18,22 @@ namespace Altinn.Platform.Storage.Repository
     /// <summary>
     /// Represents an implementation of <see cref="IInstanceEventRepository"/>.
     /// </summary>
-    public class PgInstanceEventRepository: IInstanceEventRepository
+    /// <remarks>
+    /// Initializes a new instance of the <see cref="PgInstanceEventRepository"/> class.
+    /// </remarks>
+    /// <param name="dataSource">The npgsql data source.</param>
+    /// <param name="telemetryClient">Telemetry client</param>
+    public class PgInstanceEventRepository(
+        NpgsqlDataSource dataSource,
+        TelemetryClient telemetryClient = null) : IInstanceEventRepository
     {
         private readonly string _readSql = "select * from storage.readinstanceevent($1)";
         private readonly string _deleteSql = "select * from storage.deleteInstanceevent($1)";
         private readonly string _insertSql = "call storage.insertInstanceevent($1, $2, $3)";
         private readonly string _filterSql = "select * from storage.filterinstanceevent($1, $2, $3, $4)";
 
-        private readonly NpgsqlDataSource _dataSource;
-        private readonly TelemetryClient _telemetryClient;
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="PgInstanceEventRepository"/> class.
-        /// </summary>
-        /// <param name="dataSource">The npgsql data source.</param>
-        /// <param name="telemetryClient">Telemetry client</param>
-        public PgInstanceEventRepository(
-            NpgsqlDataSource dataSource,
-            TelemetryClient telemetryClient = null)
-        {
-            _dataSource = dataSource;
-            _telemetryClient = telemetryClient;
-        }
+        private readonly NpgsqlDataSource _dataSource = dataSource;
+        private readonly TelemetryClient _telemetryClient = telemetryClient;
 
         /// <inheritdoc/>
         public async Task<InstanceEvent> InsertInstanceEvent(InstanceEvent instanceEvent)

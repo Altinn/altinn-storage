@@ -537,14 +537,19 @@ namespace Altinn.Platform.Storage.Controllers
             Instance updatedInstance;
             try
             {
+                ReadStatus? oldStatus = null;
                 if (instance.Status == null)
                 {
                     instance.Status = new InstanceStatus();
                 }
+                else
+                {
+                    oldStatus = instance.Status.ReadStatus;
+                }
 
                 instance.Status.ReadStatus = newStatus;
 
-                updatedInstance = await _instanceRepository.Update(instance);
+                updatedInstance = (oldStatus == null || oldStatus != newStatus) ? await _instanceRepository.Update(instance) : instance;
                 updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
             }
             catch (Exception e)

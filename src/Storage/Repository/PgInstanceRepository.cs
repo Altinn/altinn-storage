@@ -269,7 +269,7 @@ namespace Altinn.Platform.Storage.Repository
                     {
                         if (previousId != -1)
                         {
-                            SetStatuses(instance);
+                            ToExternal(instance);
                         }
 
                         instance = reader.GetFieldValue<Instance>("instance");
@@ -287,7 +287,7 @@ namespace Altinn.Platform.Storage.Repository
 
                 if (id != -1)
                 {
-                    SetStatuses(instance);
+                    ToExternal(instance);
                 }
 
                 queryResponse.ContinuationToken = queryResponse.Instances.Count == size ? $"{lastChanged.Ticks};{id}" : null;
@@ -299,7 +299,7 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<(Instance Instance, long InternalId)> GetOne(Guid instanceGuid, bool includeElements = true)
+        public async Task<(Instance Instance, long InternalId)> GetOne(Guid instanceGuid, bool includeElements)
         {
             Instance instance = null;
             long instanceInternalId = 0;
@@ -333,7 +333,7 @@ namespace Altinn.Platform.Storage.Repository
                     return (null, 0);
                 }
 
-                SetStatuses(instance);
+                ToExternal(instance);
             }
 
             tracker.Track();
@@ -347,29 +347,6 @@ namespace Altinn.Platform.Storage.Repository
             Instance updatedInstance = await Upsert(instance, false);
             updatedInstance.Data = dataElements;
             return updatedInstance;
-        }
-
-        private static void SetStatuses(Instance instance)
-        {
-            if (instance == null)
-            {
-                return;
-            }
-
-            if (instance.Status.ReadStatus == ReadStatus.Read && instance.Data.Exists(d => !d.IsRead))
-            {
-                instance.Status.ReadStatus = ReadStatus.UpdatedSinceLastReview;
-            }
-            else if (instance.Status.ReadStatus == ReadStatus.Read && instance.Data.Count > 0 && !instance.Data.Exists(d => d.IsRead))
-            {
-                instance.Status.ReadStatus = ReadStatus.Unread;
-            }
-
-            (string lastChangedBy, DateTime? lastChanged) = InstanceHelper.FindLastChanged(instance);
-            instance.LastChanged = lastChanged;
-            instance.LastChangedBy = lastChangedBy;
-
-            ToExternal(instance);
         }
 
         private async Task<Instance> Upsert(Instance instance, bool insertOnly)

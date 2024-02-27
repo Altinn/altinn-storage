@@ -24,7 +24,7 @@ namespace Altinn.Platform.Storage.Helpers
 
             DateTime createdDateTime = visibleAfter != null && visibleAfter > instance.Created ? (DateTime)visibleAfter : instance.Created.Value;
 
-            MessageBoxInstance messageBoxInstance = new MessageBoxInstance
+            MessageBoxInstance messageBoxInstance = new()
             {
                 CreatedDateTime = createdDateTime,
                 DueDateTime = instance.DueBefore,
@@ -73,7 +73,7 @@ namespace Altinn.Platform.Storage.Helpers
         /// <param name="instanceEvents">List of instance events to convert.</param>
         public static List<SblInstanceEvent> ConvertToSBLInstanceEvent(List<InstanceEvent> instanceEvents)
         {
-            List<SblInstanceEvent> simpleEvents = new List<SblInstanceEvent>();
+            List<SblInstanceEvent> simpleEvents = [];
             foreach (InstanceEvent instanceEvent in instanceEvents)
             {
                 simpleEvents.Add(
@@ -210,7 +210,7 @@ namespace Altinn.Platform.Storage.Helpers
         /// <param name="instances">The list of applications to process.</param>
         public static void RemoveHiddenInstances(Dictionary<string, Application> applications, List<Instance> instances)
         {
-            List<Instance> instancesToRemove = new List<Instance>();
+            List<Instance> instancesToRemove = [];
 
             foreach (Instance instance in instances)
             {

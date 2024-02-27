@@ -130,7 +130,7 @@ namespace Altinn.Platform.Storage.Controllers
                 languageId = language;
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false);
 
             if (instance == null)
             {

@@ -61,7 +61,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return null;
         }
 
-        public async Task<DataElement> Update(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertyList)
+        public async Task<DataElement> Update(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertylist)
         {
             DataElement dataElement = null;
             if (_tempRepository.TryGetValue(dataElementId.ToString(), out string serializedDataElement))
