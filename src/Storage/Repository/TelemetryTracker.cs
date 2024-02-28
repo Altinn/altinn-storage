@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Text;
 using Microsoft.ApplicationInsights;
 using Npgsql;
 
@@ -48,13 +49,13 @@ namespace Altinn.Platform.Storage.Repository
             string properties = null;
             if (_props.Count > 0)
             {
-                properties = " ";
+                StringBuilder propertiesBuilder = new(" ");
                 foreach (var prop in _props)
                 {
-                    properties += $"{prop.Key}: {prop.Value}; ";
+                    propertiesBuilder.Append($"{prop.Key}: {prop.Value}; ");
                 }
 
-                properties = properties[..^2];
+                properties = propertiesBuilder.ToString()[..^2];
             }
 
             _telemetryClient?.TrackDependency("Postgres", _cmd.CommandText, properties, _startTime, _timer.Elapsed, success);
