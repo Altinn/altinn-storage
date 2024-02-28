@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using Microsoft.ApplicationInsights;
 using Npgsql;
@@ -19,7 +20,16 @@ namespace Altinn.Platform.Storage.Repository
         private readonly Stopwatch _timer = Stopwatch.StartNew();
         private readonly TelemetryClient _telemetryClient = telemetryClient;
         private readonly NpgsqlCommand _cmd = cmd;
+        private readonly Dictionary<string, string> _props = [];
         private bool _tracked = false;
+
+        /// <summary>
+        /// ElapsedMilliseconds
+        /// </summary>
+        public long ElapsedMilliseconds
+        {
+            get { return _timer.ElapsedMilliseconds; }
+        }
 
         /// <inheritdoc/>
         public void Dispose()
@@ -35,9 +45,31 @@ namespace Altinn.Platform.Storage.Repository
         public void Track(bool success = true)
         {
             _timer.Stop();
-            _telemetryClient?.TrackDependency("Postgres", _cmd.CommandText, _cmd.CommandText, _startTime, _timer.Elapsed, success);
+            string properties = null;
+            if (_props.Count > 0)
+            {
+                properties = " ";
+                foreach (var prop in _props)
+                {
+                    properties += $"{prop.Key}: {prop.Value}; ";
+                }
+
+                properties = properties[..^2];
+            }
+
+            _telemetryClient?.TrackDependency("Postgres", _cmd.CommandText, properties, _startTime, _timer.Elapsed, success);
 
             _tracked = true;
+        }
+
+        /// <summary>
+        /// Add property to log
+        /// </summary>
+        /// <param name="key">Key</param>
+        /// <param name="value">Value</param>
+        public void Add(string key, string value)
+        {
+            _props.Add(key, value);
         }
 
         /// <summary>

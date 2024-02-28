@@ -168,6 +168,38 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         }
 
         /// <summary>
+        /// Test GetInstancesFromQuery with continuation token
+        /// </summary>
+        [Fact]
+        public async Task Instance_GetInstancesFromQuery_Continuation_Ok()
+        {
+            // Arrange
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone());
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_2.Clone());
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_3.Clone());
+            Dictionary<string, StringValues> queryParams = new();
+            queryParams.Add("sortBy", new StringValues("asc:"));
+
+            // Act
+            var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 1, true);
+            string contToken1 = instances1.ContinuationToken;
+            var instances2 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, contToken1, 1, true);
+            string contToken2 = instances2.ContinuationToken;
+            var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, contToken2, 2, true);
+            string contToken3 = instances3.ContinuationToken;
+
+            // Assert
+            Assert.Equal(1, instances1.Count);
+            Assert.Equal(1, instances2.Count);
+            Assert.Equal(1, instances3.Count);
+            Assert.Null(contToken3);
+            Assert.True(string.CompareOrdinal(contToken1, contToken2) < 0);
+            Assert.Equal(instances1.Instances.FirstOrDefault().Id, TestData.Instance_1_1.Id);
+            Assert.Equal(instances2.Instances.FirstOrDefault().Id, TestData.Instance_1_2.Id);
+            Assert.Equal(instances3.Instances.FirstOrDefault().Id, TestData.Instance_1_3.Id);
+        }
+
+        /// <summary>
         /// Test GetInstancesFromQuery
         /// </summary>
         [Fact]
