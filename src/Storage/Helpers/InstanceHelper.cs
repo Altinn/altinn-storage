@@ -106,22 +106,23 @@ namespace Altinn.Platform.Storage.Helpers
                 {
                     return "Archived";
                 }
-                else if (instance.Process.CurrentTask.AltinnTaskType.Equals("confirmation", StringComparison.OrdinalIgnoreCase))
+                else if (instance.Process?.CurrentTask?.AltinnTaskType != null)
                 {
-                    return "Confirmation";
+                    if (instance.Process.CurrentTask.AltinnTaskType.Equals("confirmation", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return "Confirmation";
+                    }
+                    else if (instance.Process.CurrentTask.AltinnTaskType.Equals("feedback", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return "Feedback";
+                    }
+                    else if (instance.Process.CurrentTask.AltinnTaskType.Equals("signing", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return "Signing";
+                    }
                 }
-                else if (instance.Process.CurrentTask.AltinnTaskType.Equals("feedback", StringComparison.OrdinalIgnoreCase))
-                {
-                    return "Feedback";
-                }
-                else if (instance.Process.CurrentTask.AltinnTaskType.Equals("signing", StringComparison.OrdinalIgnoreCase))
-                {
-                    return "Signing";
-                }
-                else
-                {
-                    return "FormFilling";
-                }
+
+                return "FormFilling";
             }
             else
             {
