@@ -10,6 +10,8 @@ using Altinn.Common.PEP.Helpers;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
 namespace Altinn.Platform.Storage.Authorization
@@ -21,6 +23,7 @@ namespace Altinn.Platform.Storage.Authorization
     {
         private readonly IPDP _pdp;
         private readonly IClaimsPrincipalProvider _claimsPrincipalProvider;
+        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogger _logger;
 
         private const string XacmlResourceTaskId = "urn:altinn:task";
@@ -37,11 +40,13 @@ namespace Altinn.Platform.Storage.Authorization
         /// </summary>
         /// <param name="pdp">Policy decision point</param>
         /// <param name="claimsPrincipalProvider">A service providing access to the current <see cref="ClaimsPrincipal"/>.</param>
+        /// <param name="httpContextAccessor">An http context accessor service.</param>
         /// <param name="logger">The logger</param>
-        public AuthorizationService(IPDP pdp, IClaimsPrincipalProvider claimsPrincipalProvider, ILogger<IAuthorization> logger)
+        public AuthorizationService(IPDP pdp, IClaimsPrincipalProvider claimsPrincipalProvider, IHttpContextAccessor httpContextAccessor, ILogger<IAuthorization> logger)
         {
             _pdp = pdp;
             _claimsPrincipalProvider = claimsPrincipalProvider;
+            _httpContextAccessor = httpContextAccessor;
             _logger = logger;
         }
 
@@ -138,12 +143,12 @@ namespace Altinn.Platform.Storage.Authorization
             ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
             if (instance.Id == null)
             {
-                request = DecisionHelper.CreateDecisionRequest(org, app, user, action, instanceOwnerPartyId, null);
+                request = DecisionHelper.CreateDecisionRequest(org, app, user, action, instanceOwnerPartyId, null, _httpContextAccessor.HttpContext.Request.Headers);
             }
             else
             {
                 Guid instanceGuid = Guid.Parse(instance.Id.Split('/')[1]);
-                request = DecisionHelper.CreateDecisionRequest(org, app, user, action, instanceOwnerPartyId, instanceGuid, task);
+                request = DecisionHelper.CreateDecisionRequest(org, app, user, action, instanceOwnerPartyId, instanceGuid, _httpContextAccessor.HttpContext.Request.Headers, task);
             }
 
             XacmlJsonResponse response = await _pdp.GetDecisionForRequest(request);
