@@ -528,7 +528,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 It.Is<Dictionary<string, StringValues>>(
                     dict => dict.GetValueOrDefault("status.isHardDeleted").Single(v => v.Equals("false")) != null),
                 It.IsAny<string>(),
-                It.IsAny<int>()))
+                It.IsAny<int>(),
+                It.IsAny<bool>()))
             .ReturnsAsync(new InstanceQueryResponse { Instances = new() });
 
             string requestUri = $"{BasePath}?instanceOwner.partyId=1337";
@@ -558,7 +559,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 It.Is<Dictionary<string, StringValues>>(
                     dict => dict.GetValueOrDefault("status.isHardDeleted").Single(v => v.Equals("false")) != null),
                 It.IsAny<string>(),
-                It.IsAny<int>()))
+                It.IsAny<int>(),
+                It.IsAny<bool>()))
             .ReturnsAsync(new InstanceQueryResponse { Instances = new() });
 
             string requestUri = $"{BasePath}?instanceOwner.partyId=1337&continuationToken=thisIsTheFirstToken";

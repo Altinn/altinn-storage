@@ -17,8 +17,9 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="queryParams">the query params</param>
         /// <param name="continuationToken">a token to get the next page, more performant than using page</param>
         /// <param name="size">The number of items per page</param>
+        /// <param name="includeDataelements">Whether to include data elements</param>
         /// <returns>The query response including the list of instances</returns>
-        Task<InstanceQueryResponse> GetInstancesFromQuery(Dictionary<string, StringValues> queryParams, string continuationToken, int size);
+        Task<InstanceQueryResponse> GetInstancesFromQuery(Dictionary<string, StringValues> queryParams, string continuationToken, int size, bool includeDataelements);
 
         /// <summary>
         /// Get an instance for a given instance id
@@ -26,7 +27,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="instanceGuid">the instance guid</param>
         /// <param name="includeElements">whether to include data elements</param>
         /// <returns>The instance for the given parameters</returns>
-        Task<(Instance Instance, long InternalId)> GetOne(Guid instanceGuid, bool includeElements = true);
+        Task<(Instance Instance, long InternalId)> GetOne(Guid instanceGuid, bool includeElements);
 
         /// <summary>
         /// insert new instance into collection

@@ -17,7 +17,16 @@ namespace Altinn.Platform.Storage.Repository
     /// <summary>
     /// Represents an implementation of <see cref="IDataRepository"/>.
     /// </summary>
-    public class PgDataRepository : IDataRepository
+    /// <remarks>
+    /// Initializes a new instance of the <see cref="PgDataRepository"/> class.
+    /// </remarks>
+    /// <param name="logger">The logger to use when writing to logs.</param>
+    /// <param name="dataSource">The npgsql data source.</param>
+    /// <param name="telemetryClient">Telemetry client</param>
+    public class PgDataRepository(
+        ILogger<PgDataRepository> logger,
+        NpgsqlDataSource dataSource,
+        TelemetryClient telemetryClient = null) : IDataRepository
     {
         private readonly string _insertSql = "call storage.insertdataelement ($1, $2, $3, $4)";
         private readonly string _readSql = "select * from storage.readdataelement($1)";
@@ -25,25 +34,9 @@ namespace Altinn.Platform.Storage.Repository
         private readonly string _deleteForInstanceSql = "select * from storage.deletedataelements ($1)";
         private readonly string _updateSql = "select * from storage.updatedataelement_v2 ($1, $2, $3, $4, $5, $6)";
 
-        private readonly ILogger<PgDataRepository> _logger;
-        private readonly NpgsqlDataSource _dataSource;
-        private readonly TelemetryClient _telemetryClient;
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="PgDataRepository"/> class.
-        /// </summary>
-        /// <param name="logger">The logger to use when writing to logs.</param>
-        /// <param name="dataSource">The npgsql data source.</param>
-        /// <param name="telemetryClient">Telemetry client</param>
-        public PgDataRepository(
-            ILogger<PgDataRepository> logger,
-            NpgsqlDataSource dataSource,
-            TelemetryClient telemetryClient = null)
-        {
-            _logger = logger;
-            _dataSource = dataSource;
-            _telemetryClient = telemetryClient;
-        }
+        private readonly ILogger<PgDataRepository> _logger = logger;
+        private readonly NpgsqlDataSource _dataSource = dataSource;
+        private readonly TelemetryClient _telemetryClient = telemetryClient;
 
         /// <inheritdoc/>
         public async Task<DataElement> Create(DataElement dataElement, long instanceInternalId = 0)
@@ -122,8 +115,8 @@ namespace Altinn.Platform.Storage.Repository
                 throw new ArgumentOutOfRangeException(nameof(propertylist), "PropertyList can contain at most 12 entries.");
             }
 
-            List<string> elementProperties = new();
-            List<string> instanceProperties = new();
+            List<string> elementProperties = [];
+            List<string> instanceProperties = [];
             DataElement element = new();
             Instance lastChangedWrapper = new();
             bool isReadChangedToFalse = false;

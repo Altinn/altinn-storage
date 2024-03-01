@@ -24,7 +24,7 @@ namespace Altinn.Platform.Storage.Helpers
 
             DateTime createdDateTime = visibleAfter != null && visibleAfter > instance.Created ? (DateTime)visibleAfter : instance.Created.Value;
 
-            MessageBoxInstance messageBoxInstance = new MessageBoxInstance
+            MessageBoxInstance messageBoxInstance = new()
             {
                 CreatedDateTime = createdDateTime,
                 DueDateTime = instance.DueBefore,
@@ -73,7 +73,7 @@ namespace Altinn.Platform.Storage.Helpers
         /// <param name="instanceEvents">List of instance events to convert.</param>
         public static List<SblInstanceEvent> ConvertToSBLInstanceEvent(List<InstanceEvent> instanceEvents)
         {
-            List<SblInstanceEvent> simpleEvents = new List<SblInstanceEvent>();
+            List<SblInstanceEvent> simpleEvents = [];
             foreach (InstanceEvent instanceEvent in instanceEvents)
             {
                 simpleEvents.Add(
@@ -98,6 +98,7 @@ namespace Altinn.Platform.Storage.Helpers
         {
             if (instance.Process != null)
             {
+                string taskType;
                 if (instance.Process.Ended != null && instance.Status?.Archived == null)
                 {
                     return "Submit";
@@ -106,22 +107,23 @@ namespace Altinn.Platform.Storage.Helpers
                 {
                     return "Archived";
                 }
-                else if (instance.Process.CurrentTask.AltinnTaskType.Equals("confirmation", StringComparison.OrdinalIgnoreCase))
+                else if ((taskType = instance.Process?.CurrentTask?.AltinnTaskType) != null)
                 {
-                    return "Confirmation";
+                    if (taskType.Equals("confirmation", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return "Confirmation";
+                    }
+                    else if (taskType.Equals("feedback", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return "Feedback";
+                    }
+                    else if (taskType.Equals("signing", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return "Signing";
+                    }
                 }
-                else if (instance.Process.CurrentTask.AltinnTaskType.Equals("feedback", StringComparison.OrdinalIgnoreCase))
-                {
-                    return "Feedback";
-                }
-                else if (instance.Process.CurrentTask.AltinnTaskType.Equals("signing", StringComparison.OrdinalIgnoreCase))
-                {
-                    return "Signing";
-                }
-                else
-                {
-                    return "FormFilling";
-                }
+
+                return "FormFilling";
             }
             else
             {
@@ -210,7 +212,7 @@ namespace Altinn.Platform.Storage.Helpers
         /// <param name="instances">The list of applications to process.</param>
         public static void RemoveHiddenInstances(Dictionary<string, Application> applications, List<Instance> instances)
         {
-            List<Instance> instancesToRemove = new List<Instance>();
+            List<Instance> instancesToRemove = [];
 
             foreach (Instance instance in instances)
             {

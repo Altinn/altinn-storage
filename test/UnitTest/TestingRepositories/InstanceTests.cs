@@ -158,13 +158,45 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             Dictionary<string, StringValues> queryParams = new();
 
             // Act
-            var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100);
+            var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100, true);
             queryParams.Add("instanceOwner.partyId", new StringValues(TestData.Instance_1_3.InstanceOwner.PartyId));
-            var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100);
+            var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100, true);
 
             // Assert
             Assert.Equal(3, instances3.Count);
             Assert.Equal(1, instances1.Count);
+        }
+
+        /// <summary>
+        /// Test GetInstancesFromQuery with continuation token
+        /// </summary>
+        [Fact]
+        public async Task Instance_GetInstancesFromQuery_Continuation_Ok()
+        {
+            // Arrange
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone());
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_2.Clone());
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_3.Clone());
+            Dictionary<string, StringValues> queryParams = new();
+            queryParams.Add("sortBy", new StringValues("asc:"));
+
+            // Act
+            var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 1, true);
+            string contToken1 = instances1.ContinuationToken;
+            var instances2 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, contToken1, 1, true);
+            string contToken2 = instances2.ContinuationToken;
+            var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, contToken2, 2, true);
+            string contToken3 = instances3.ContinuationToken;
+
+            // Assert
+            Assert.Equal(1, instances1.Count);
+            Assert.Equal(1, instances2.Count);
+            Assert.Equal(1, instances3.Count);
+            Assert.Null(contToken3);
+            Assert.True(string.CompareOrdinal(contToken1, contToken2) < 0);
+            Assert.Equal(instances1.Instances.FirstOrDefault().Id, TestData.Instance_1_1.Id);
+            Assert.Equal(instances2.Instances.FirstOrDefault().Id, TestData.Instance_1_2.Id);
+            Assert.Equal(instances3.Instances.FirstOrDefault().Id, TestData.Instance_1_3.Id);
         }
 
         /// <summary>
@@ -177,10 +209,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone());
 
             Dictionary<string, StringValues> queryParams = new();
+            queryParams.Add("appId", new StringValues("ttd/test-applikasjon-1"));
 
             // Act
-            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100);
-            queryParams.Add("appId", new StringValues("test-applikasjon-1"));
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100, true);
 
             // Assert
             Assert.Equal(1, instances.Count);
@@ -202,7 +234,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             // Act
             queryParams.Add("instanceOwner.partyId", new StringValues(TestData.Instance_1_3.InstanceOwner.PartyId));
             queryParams.Add("process.ended", new StringValues("true"));
-            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100);
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100, true);
 
             // Assert
             Assert.Equal(0, instances.Count);
@@ -223,7 +255,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         private async Task<Instance> InsertInstanceAndData(Instance instance, DataElement dataelement)
         {
             instance = await _instanceFixture.InstanceRepo.Create(instance);
-            (_, long internalId) = await _instanceFixture.InstanceRepo.GetOne(Guid.Parse(instance.Id.Split('/').Last()));
+            (_, long internalId) = await _instanceFixture.InstanceRepo.GetOne(Guid.Parse(instance.Id.Split('/').Last()), true);
             await _instanceFixture.DataRepo.Create(dataelement, internalId);
             return instance;
         }

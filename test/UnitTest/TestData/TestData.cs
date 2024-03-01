@@ -15,7 +15,7 @@ namespace Altinn.Platform.Storage.UnitTest
 
         public static string UserId_2 { get; set; } = "20000001";
 
-        public static string Org_1 { get; set; } = "TDD";
+        public static string Org_1 { get; set; } = "TTD";
 
         public static string Org_2 { get; set; } = "SPF";
 

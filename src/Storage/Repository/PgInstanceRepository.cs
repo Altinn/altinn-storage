@@ -20,11 +20,12 @@ namespace Altinn.Platform.Storage.Repository
     /// </summary>
     public class PgInstanceRepository: IInstanceRepository
     {
+        private const string _readSqlFilteredInitial = "select * from storage.readinstancefromquery_v2 (";
         private readonly string _deleteSql = "select * from storage.deleteinstance ($1)";
         private readonly string _insertSql = "call storage.insertinstance ($1, $2, $3, $4, $5, $6, $7, $8)";
         private readonly string _upsertSql = "call storage.upsertinstance ($1, $2, $3, $4, $5, $6, $7, $8)";
         private readonly string _readSql = "select * from storage.readinstance ($1)";
-        private readonly string _readSqlFiltered = "select * from storage.readinstancefromquery (";
+        private readonly string _readSqlFiltered = _readSqlFilteredInitial;
         private readonly string _readDeletedSql = "select * from storage.readdeletedinstances ()";
         private readonly string _readDeletedElementsSql = "select * from storage.readdeletedelements ()";
         private readonly string _readSqlNoElements = "select * from storage.readinstancenoelements ($1)";
@@ -81,11 +82,12 @@ namespace Altinn.Platform.Storage.Repository
         public async Task<InstanceQueryResponse> GetInstancesFromQuery(
             Dictionary<string, StringValues> queryParams,
             string continuationToken,
-            int size)
+            int size,
+            bool includeDataelements)
         {
             try
             {
-                return await GetInstancesInternal(queryParams, continuationToken, size);
+                return await GetInstancesInternal(queryParams, continuationToken, size, includeDataelements);
             }
             catch (Exception e)
             {
@@ -161,7 +163,7 @@ namespace Altinn.Platform.Storage.Repository
 
         private static string FormatManualFunctionCall(Dictionary<string, object> postgresParams)
         {
-            StringBuilder command = new("select * from storage.readinstancefromquery (");
+            StringBuilder command = new(_readSqlFilteredInitial);
             foreach (string name in _paramTypes.Keys)
             {
                 command.Append($"{name} => ");
@@ -227,7 +229,8 @@ namespace Altinn.Platform.Storage.Repository
         private async Task<InstanceQueryResponse> GetInstancesInternal(
             Dictionary<string, StringValues> queryParams,
             string continuationToken,
-            int size)
+            int size,
+            bool includeDataelements)
         {
             DateTime lastChanged = DateTime.MinValue;
             InstanceQueryResponse queryResponse = new() { Count = 0, Instances = [] };
@@ -241,6 +244,7 @@ namespace Altinn.Platform.Storage.Repository
             postgresParams.Add("_continue_idx", continueIdx);
             postgresParams.Add("_lastChanged_idx", lastChangeIdx);
             postgresParams.Add("_size", size);
+            postgresParams.Add("_includeElements", includeDataelements);
             foreach (string name in _paramTypes.Keys)
             {
                 pgcom.Parameters.AddWithValue(_paramTypes[name], postgresParams.TryGetValue(name, out object value) ? value : DBNull.Value);
@@ -265,7 +269,7 @@ namespace Altinn.Platform.Storage.Repository
                     {
                         if (previousId != -1)
                         {
-                            SetStatuses(instance);
+                            ToExternal(instance);
                         }
 
                         instance = reader.GetFieldValue<Instance>("instance");
@@ -283,19 +287,25 @@ namespace Altinn.Platform.Storage.Repository
 
                 if (id != -1)
                 {
-                    SetStatuses(instance);
+                    ToExternal(instance);
                 }
 
                 queryResponse.ContinuationToken = queryResponse.Instances.Count == size ? $"{lastChanged.Ticks};{id}" : null;
             }
 
             queryResponse.Count = queryResponse.Instances.Count;
+            tracker.Add("Count", queryResponse.Count.ToString());
+            if (tracker.ElapsedMilliseconds > 500)
+            {
+                tracker.Add("Call", FormatManualFunctionCall(postgresParams));
+            }
+
             tracker.Track();
             return queryResponse;
         }
 
         /// <inheritdoc/>
-        public async Task<(Instance Instance, long InternalId)> GetOne(Guid instanceGuid, bool includeElements = true)
+        public async Task<(Instance Instance, long InternalId)> GetOne(Guid instanceGuid, bool includeElements)
         {
             Instance instance = null;
             long instanceInternalId = 0;
@@ -329,7 +339,7 @@ namespace Altinn.Platform.Storage.Repository
                     return (null, 0);
                 }
 
-                SetStatuses(instance);
+                ToExternal(instance);
             }
 
             tracker.Track();
@@ -343,29 +353,6 @@ namespace Altinn.Platform.Storage.Repository
             Instance updatedInstance = await Upsert(instance, false);
             updatedInstance.Data = dataElements;
             return updatedInstance;
-        }
-
-        private static void SetStatuses(Instance instance)
-        {
-            if (instance == null)
-            {
-                return;
-            }
-
-            if (instance.Status.ReadStatus == ReadStatus.Read && instance.Data.Exists(d => !d.IsRead))
-            {
-                instance.Status.ReadStatus = ReadStatus.UpdatedSinceLastReview;
-            }
-            else if (instance.Status.ReadStatus == ReadStatus.Read && instance.Data.Count > 0 && !instance.Data.Exists(d => d.IsRead))
-            {
-                instance.Status.ReadStatus = ReadStatus.Unread;
-            }
-
-            (string lastChangedBy, DateTime? lastChanged) = InstanceHelper.FindLastChanged(instance);
-            instance.LastChanged = lastChanged;
-            instance.LastChangedBy = lastChangedBy;
-
-            ToExternal(instance);
         }
 
         private async Task<Instance> Upsert(Instance instance, bool insertOnly)
@@ -543,6 +530,7 @@ namespace Altinn.Platform.Storage.Repository
             { "_dueBefore_lt", NpgsqlDbType.Text },
             { "_dueBefore_lte", NpgsqlDbType.Text },
             { "_excludeConfirmedBy", NpgsqlDbType.Jsonb | NpgsqlDbType.Array },
+            { "_includeElements", NpgsqlDbType.Boolean },
             { "_instanceOwner_partyId", NpgsqlDbType.Integer },
             { "_instanceOwner_partyIds", NpgsqlDbType.Integer | NpgsqlDbType.Array },
             { "_lastChanged_eq", NpgsqlDbType.TimestampTz },

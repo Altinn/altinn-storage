@@ -96,7 +96,7 @@ namespace Altinn.Platform.Storage.Controllers
                 queryParams.Remove("searchString");
             }
 
-            InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesFromQuery(queryParams, null, 100);
+            InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesFromQuery(queryParams, null, 100, false);
 
             AddQueryModelToTelemetry(queryModel);
 
@@ -130,7 +130,7 @@ namespace Altinn.Platform.Storage.Controllers
                 languageId = language;
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false);
 
             if (instance == null)
             {
