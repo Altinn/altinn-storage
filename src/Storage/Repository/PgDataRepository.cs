@@ -118,7 +118,6 @@ namespace Altinn.Platform.Storage.Repository
             List<string> elementProperties = [];
             List<string> instanceProperties = [];
             DataElement element = new();
-            Instance lastChangedWrapper = new();
             bool isReadChangedToFalse = false;
             foreach (var kvp in propertylist)
             {
@@ -140,6 +139,7 @@ namespace Altinn.Platform.Storage.Repository
                 }
             }
 
+            Instance lastChangedWrapper = new() { LastChanged = element.LastChanged, LastChangedBy = element.LastChangedBy };
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateSql);
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
