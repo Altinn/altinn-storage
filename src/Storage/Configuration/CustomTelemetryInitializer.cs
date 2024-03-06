@@ -20,13 +20,13 @@ namespace Altinn.Platform.Telemetry
                 telemetry.Context.Cloud.RoleName = "platform-storage";
             }
 
-            // Disable sampling for exceptions, requests, failed dependencies and cleanup
+            // Disable sampling for exceptions, requests, dependencies and cleanup
             if (telemetry is RequestTelemetry requestTelemetry)
             {
                 ((ISupportSampling)telemetry).SamplingPercentage = 100;
                 requestTelemetry.ProactiveSamplingDecision = SamplingDecision.SampledIn;
             }
-            else if (telemetry is DependencyTelemetry dependencyTelemetry && !(dependencyTelemetry.Success ?? true))
+            else if (telemetry is DependencyTelemetry dependencyTelemetry)
             {
                 ((ISupportSampling)telemetry).SamplingPercentage = 100;
                 dependencyTelemetry.ProactiveSamplingDecision = SamplingDecision.SampledIn;

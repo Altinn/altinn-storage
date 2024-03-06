@@ -28,7 +28,7 @@ namespace Altinn.Platform.Storage.Repository
         NpgsqlDataSource dataSource,
         TelemetryClient telemetryClient = null) : IDataRepository
     {
-        private readonly string _insertSql = "call storage.insertdataelement ($1, $2, $3, $4)";
+        private readonly string _insertSql = "select * from storage.insertdataelement_v2 ($1, $2, $3, $4)";
         private readonly string _readSql = "select * from storage.readdataelement($1)";
         private readonly string _deleteSql = "select * from storage.deletedataelement_v2 ($1, $2, $3)";
         private readonly string _deleteForInstanceSql = "select * from storage.deletedataelements ($1)";
@@ -49,7 +49,11 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, dataElement);
 
-            await pgcom.ExecuteNonQueryAsync();
+            await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                dataElement = reader.GetFieldValue<DataElement>("updatedElement");
+            }
 
             tracker.Track();
             return dataElement;
@@ -118,7 +122,6 @@ namespace Altinn.Platform.Storage.Repository
             List<string> elementProperties = [];
             List<string> instanceProperties = [];
             DataElement element = new();
-            Instance lastChangedWrapper = new();
             bool isReadChangedToFalse = false;
             foreach (var kvp in propertylist)
             {
@@ -140,6 +143,7 @@ namespace Altinn.Platform.Storage.Repository
                 }
             }
 
+            Instance lastChangedWrapper = new() { LastChanged = element.LastChanged, LastChangedBy = element.LastChangedBy };
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateSql);
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
