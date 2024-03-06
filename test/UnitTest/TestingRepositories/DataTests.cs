@@ -39,9 +39,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         public async Task DataElement_Create_Change_Instance_Readstatus_Ok()
         {
             // Arrange
+            DateTime lastChanged = DateTime.UtcNow;
+            DataElement dataElement = TestDataUtil.GetDataElement(DataElement1);
+            dataElement.LastChanged = lastChanged;
 
             // Act
-            DataElement dataElement = await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement1), _instanceInternalId);
+            dataElement = await _dataElementFixture.DataRepo.Create(dataElement, _instanceInternalId);
+            (Instance instance, _) = await _dataElementFixture.InstanceRepo.GetOne(Guid.Parse(dataElement.InstanceGuid), false);
 
             // Assert
             string sql = $"select count(*) from storage.dataelements where alternateid = '{dataElement.Id}'";
@@ -51,6 +55,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             int instanceCount = await PostgresUtil.RunCountQuery(sql);
             Assert.Equal(1, dataCount);
             Assert.Equal(1, instanceCount);
+            Assert.Equal(instance.LastChanged, dataElement.LastChanged);
+            Assert.True(Math.Abs(((DateTime)dataElement.LastChanged).Ticks - lastChanged.Ticks) < TimeSpan.TicksPerMicrosecond);
         }
 
         /// <summary>
@@ -110,7 +116,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         {
             // Arrange
             string contentType = "unittestContentType";
-            DataElement dataElement = await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement1), _instanceInternalId);
+            DateTime lastChanged = DateTime.UtcNow;
+            DataElement element = TestDataUtil.GetDataElement(DataElement1);
+            element.LastChanged = lastChanged;
+            DataElement dataElement = await _dataElementFixture.DataRepo.Create(element, _instanceInternalId);
             await PostgresUtil.RunSql("update storage.instances set instance = jsonb_set(instance, '{Status, ReadStatus}', '1') where alternateid = '" + _instance.Id.Split('/').Last() + "';");
 
             // Act
@@ -121,6 +130,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
                 { "/lastChanged", dataElement.LastChanged },
                 { "/lastChangedBy", dataElement.LastChangedBy } 
             });
+            (Instance instance, _) = await _dataElementFixture.InstanceRepo.GetOne(Guid.Parse(updatedElement.InstanceGuid), false);
 
             // Assert
             string sql = $"select count(*) from storage.dataelements where element ->> 'ContentType' = '{contentType}'";
@@ -131,6 +141,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             Assert.Equal(1, dataCount);
             Assert.Equal(1, instanceCount);
             Assert.Equal(contentType, updatedElement.ContentType);
+            Assert.Equal(instance.LastChanged, updatedElement.LastChanged);
+            Assert.True(Math.Abs(((DateTime)updatedElement.LastChanged).Ticks - lastChanged.Ticks) < TimeSpan.TicksPerMicrosecond);
         }
 
         /// <summary>
