@@ -43,23 +43,179 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         }
 
         /// <summary>
-        /// Test update
+        /// Test update task
         /// </summary>
         [Fact]
-        public async Task Instance_Update_Ok()
+        public async Task Instance_Update_Task_Ok()
         {
             // Arrange
-            Instance newInstance = await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone());
+            Instance newInstance = TestData.Instance_1_1.Clone();
+            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
             newInstance.Process.CurrentTask.ElementId = "Task_2";
+            newInstance.Process.CurrentTask.Name = "Shouldn't be updated";
+            newInstance.LastChanged = DateTime.UtcNow;
+            newInstance.LastChangedBy = "unittest";
+            
+            List<string> updateProperties = [];
+            updateProperties.Add(nameof(newInstance.LastChanged));
+            updateProperties.Add(nameof(newInstance.LastChangedBy));
+            updateProperties.Add(nameof(newInstance.Process));
+            updateProperties.Add(nameof(newInstance.Process.CurrentTask));
+            updateProperties.Add(nameof(newInstance.Process.CurrentTask.ElementId));
 
             // Act
-            await _instanceFixture.InstanceRepo.Update(newInstance);
+            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties);
 
             // Assert
             string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'" +
                 $" and taskid = 'Task_2'";
             int count = await PostgresUtil.RunCountQuery(sql);
             Assert.Equal(1, count);
+            Assert.Equal("Task_2", updatedInstance.Process.CurrentTask.ElementId);
+            Assert.NotEqual("Shouldn't be updated", updatedInstance.Process.CurrentTask.Name);
+        }
+
+        /// <summary>
+        /// Test update presentationtexts
+        /// </summary>
+        [Fact]
+        public async Task Instance_Update_PresentationTexts_Ok()
+        {
+            // Arrange
+            Instance newInstance = TestData.Instance_1_1.Clone();
+            newInstance.PresentationTexts = new() { { "k1", "v1" } };
+            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
+            newInstance.PresentationTexts = new() { { "k2", "v2" }, { "k3", "v3" } };
+            newInstance.LastChanged = DateTime.UtcNow;
+            newInstance.LastChangedBy = "unittest";
+
+            List<string> updateProperties = [];
+            updateProperties.Add(nameof(newInstance.LastChanged));
+            updateProperties.Add(nameof(newInstance.LastChangedBy));
+            updateProperties.Add(nameof(newInstance.PresentationTexts));
+
+            // Act
+            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties);
+
+            // Assert
+            string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'" +
+                $" and instance ->> 'LastChangedBy' = 'unittest'";
+            int count = await PostgresUtil.RunCountQuery(sql);
+            Assert.Equal(1, count);
+            Assert.Equal(2, updatedInstance.PresentationTexts.Count);
+        }
+
+        /// <summary>
+        /// Test update process
+        /// </summary>
+        [Fact]
+        public async Task Instance_Update_Process_Ok()
+        {
+            // Arrange
+            Instance newInstance = TestData.Instance_1_1.Clone();
+            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
+            newInstance.Process = new()
+            {
+                CurrentTask = new()
+                {
+                    AltinnTaskType = "Task_3"
+                },
+                Ended = DateTime.Parse("2023-12-24")
+            };
+            newInstance.LastChanged = DateTime.UtcNow;
+            newInstance.LastChangedBy = "unittest";
+
+            List<string> updateProperties = [
+                nameof(newInstance.Process),
+                nameof(newInstance.Process.CurrentTask),
+                nameof(newInstance.Process.CurrentTask.AltinnTaskType),
+                nameof(newInstance.Process.CurrentTask.ElementId),
+                nameof(newInstance.Process.CurrentTask.Ended),
+                nameof(newInstance.Process.CurrentTask.Flow),
+                nameof(newInstance.Process.CurrentTask.FlowType),
+                nameof(newInstance.Process.CurrentTask.Name),
+                nameof(newInstance.Process.CurrentTask.Started),
+                nameof(newInstance.Process.CurrentTask.Validated),
+                nameof(newInstance.Process.CurrentTask.Validated.Timestamp),
+                nameof(newInstance.Process.CurrentTask.Validated.CanCompleteTask),
+                nameof(newInstance.Process.Ended),
+                nameof(newInstance.Process.EndEvent),
+                nameof(newInstance.Process.Started),
+                nameof(newInstance.Process.StartEvent),
+                nameof(newInstance.LastChanged),
+                nameof(newInstance.LastChangedBy)
+            ];
+
+            // Act
+            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties);
+
+            // Assert
+            string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'" +
+                $" and instance ->> 'LastChangedBy' = 'unittest'";
+            int count = await PostgresUtil.RunCountQuery(sql);
+            Assert.Equal(1, count);
+            Assert.Equal(newInstance.Process.CurrentTask.AltinnTaskType, updatedInstance.Process.CurrentTask.AltinnTaskType);
+            Assert.Equal(newInstance.Process.Ended, updatedInstance.Process.Ended);
+        }
+
+        /// <summary>
+        /// Test update data values
+        /// </summary>
+        [Fact]
+        public async Task Instance_Update_DataValues_Ok()
+        {
+            // Arrange
+            Instance newInstance = TestData.Instance_1_1.Clone();
+            newInstance.DataValues = new() { { "k1", "v1" } };
+            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
+            newInstance.DataValues = new() { { "k2", "v2" }, { "k3", "v3" } };
+            newInstance.LastChanged = DateTime.UtcNow;
+            newInstance.LastChangedBy = "unittest";
+
+            List<string> updateProperties = [];
+            updateProperties.Add(nameof(newInstance.LastChanged));
+            updateProperties.Add(nameof(newInstance.LastChangedBy));
+            updateProperties.Add(nameof(newInstance.DataValues));
+
+            // Act
+            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties);
+
+            // Assert
+            string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'" +
+                $" and instance ->> 'LastChangedBy' = 'unittest'";
+            int count = await PostgresUtil.RunCountQuery(sql);
+            Assert.Equal(1, count);
+            Assert.Equal(3, updatedInstance.DataValues.Count);
+        }
+
+        /// <summary>
+        /// Test update CompleteConfirmations
+        /// </summary>
+        [Fact]
+        public async Task Instance_Update_CompleteConfirmations_Ok()
+        {
+            // Arrange
+            Instance newInstance = TestData.Instance_1_1.Clone();
+            newInstance.CompleteConfirmations = [new CompleteConfirmation() { ConfirmedOn = DateTime.UtcNow.AddYears(-1), StakeholderId = "s1" }];
+            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
+            newInstance.CompleteConfirmations = [new CompleteConfirmation() { ConfirmedOn = DateTime.UtcNow.AddYears(-2), StakeholderId = "s2" }];
+            newInstance.LastChanged = DateTime.UtcNow;
+            newInstance.LastChangedBy = "unittest";
+
+            List<string> updateProperties = [];
+            updateProperties.Add(nameof(newInstance.LastChanged));
+            updateProperties.Add(nameof(newInstance.LastChangedBy));
+            updateProperties.Add(nameof(newInstance.CompleteConfirmations));
+
+            // Act
+            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties);
+
+            // Assert
+            string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'" +
+                $" and instance ->> 'LastChangedBy' = 'unittest'";
+            int count = await PostgresUtil.RunCountQuery(sql);
+            Assert.Equal(1, count);
+            Assert.Equal(2, updatedInstance.CompleteConfirmations.Count);
         }
 
         /// <summary>

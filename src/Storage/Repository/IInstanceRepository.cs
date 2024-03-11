@@ -40,8 +40,9 @@ namespace Altinn.Platform.Storage.Repository
         /// update existing instance
         /// </summary>
         /// <param name="instance">the instance to update</param>
+        /// <param name="updateProperties">a list of which properties should be updated</param>
         /// <returns>The updated instance</returns>
-        Task<Instance> Update(Instance instance);
+        Task<Instance> Update(Instance instance, List<string> updateProperties);
 
         /// <summary>
         /// Delets an instance.
