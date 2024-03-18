@@ -1,6 +1,11 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0.202-alpine3.18 AS build
 
 COPY src/Storage ./Storage
+COPY src/DbTools ./DbTools
+
+WORKDIR DbTools/
+RUN dotnet build DbTools.csproj -c Release -o /app_tools
+
 WORKDIR Storage/
 
 RUN dotnet build Altinn.Platform.Storage.csproj -c Release -o /app_output
