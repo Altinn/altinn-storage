@@ -228,7 +228,7 @@ namespace Altinn.Platform.Storage.Helpers
                 {
                     instancesToRemove.Add(instance);
                 }
-                else if (HideOnCurrentTask(hideSettings, instance.Process.CurrentTask))
+                else if (HideOnCurrentTask(hideSettings, instance.Process?.CurrentTask))
                 {
                     instancesToRemove.Add(instance);
                 }
@@ -239,12 +239,12 @@ namespace Altinn.Platform.Storage.Helpers
 
         private static bool HideOnCurrentTask(HideSettings hideSettings, ProcessElementInfo currentTask)
         {
-            if (hideSettings.HideOnTask == null)
+            if (hideSettings.HideOnTask == null || currentTask == null)
             {
                 return false;
             }
 
-            return hideSettings.HideOnTask.Contains(currentTask?.ElementId);
+            return hideSettings.HideOnTask.Contains(currentTask.ElementId);
         }
     }
 }

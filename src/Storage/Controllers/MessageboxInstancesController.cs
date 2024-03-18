@@ -221,6 +221,12 @@ namespace Altinn.Platform.Storage.Controllers
             }
             else if (instance.Status.IsSoftDeleted)
             {
+                List<string> updateProperties = [];
+                updateProperties.Add(nameof(instance.LastChanged));
+                updateProperties.Add(nameof(instance.LastChangedBy));
+                updateProperties.Add(nameof(instance.Status));
+                updateProperties.Add(nameof(instance.Status.IsSoftDeleted));
+                updateProperties.Add(nameof(instance.Status.SoftDeleted));
                 instance.LastChangedBy = User.GetUserOrOrgId();
                 instance.LastChanged = DateTime.UtcNow;
                 instance.Status.IsSoftDeleted = false;
@@ -240,7 +246,7 @@ namespace Altinn.Platform.Storage.Controllers
                     }
                 };
 
-                await _instanceRepository.Update(instance);
+                await _instanceRepository.Update(instance, updateProperties);
                 await _instanceEventRepository.InsertInstanceEvent(instanceEvent);
                 return Ok(true);
             }
@@ -272,12 +278,18 @@ namespace Altinn.Platform.Storage.Controllers
 
             instance.Status ??= new InstanceStatus();
 
+            List<string> updateProperties = [];
+            updateProperties.Add(nameof(instance.Status));
+            updateProperties.Add(nameof(instance.Status.IsSoftDeleted));
+            updateProperties.Add(nameof(instance.Status.SoftDeleted));
             if (hard)
             {
                 instance.Status.IsHardDeleted = true;
                 instance.Status.IsSoftDeleted = true;
                 instance.Status.HardDeleted = now;
                 instance.Status.SoftDeleted ??= now;
+                updateProperties.Add(nameof(instance.Status.IsHardDeleted));
+                updateProperties.Add(nameof(instance.Status.HardDeleted));
             }
             else
             {
@@ -287,6 +299,8 @@ namespace Altinn.Platform.Storage.Controllers
 
             instance.LastChangedBy = User.GetUserOrOrgId();
             instance.LastChanged = now;
+            updateProperties.Add(nameof(instance.LastChanged));
+            updateProperties.Add(nameof(instance.LastChangedBy));
 
             InstanceEvent instanceEvent = new InstanceEvent
             {
@@ -302,7 +316,7 @@ namespace Altinn.Platform.Storage.Controllers
                 },
             };
 
-            await _instanceRepository.Update(instance);
+            await _instanceRepository.Update(instance, updateProperties);
             await _instanceEventRepository.InsertInstanceEvent(instanceEvent);
 
             return Ok(true);

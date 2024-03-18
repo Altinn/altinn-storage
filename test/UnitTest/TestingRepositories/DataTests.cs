@@ -28,6 +28,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             string sql = "delete from storage.instances; delete from storage.dataelements;";
             _ = PostgresUtil.RunSql(sql).Result;
             Instance instance = TestData.Instance_1_1.Clone();
+            instance.Status.IsSoftDeleted = true;
             Instance newInstance = _dataElementFixture.InstanceRepo.Create(instance).Result;
             (_instance, _instanceInternalId) = _dataElementFixture.InstanceRepo.GetOne(Guid.Parse(newInstance.Id.Split('/').Last()), false).Result;
         }
