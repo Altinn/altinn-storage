@@ -429,12 +429,18 @@ namespace Altinn.Platform.Storage.Controllers
                 instance.Status = new InstanceStatus();
             }
 
+            List<string> updateProperties = [];
+            updateProperties.Add(nameof(instance.Status));
+            updateProperties.Add(nameof(instance.Status.IsSoftDeleted));
+            updateProperties.Add(nameof(instance.Status.SoftDeleted));
             if (hard)
             {
                 instance.Status.IsHardDeleted = true;
                 instance.Status.IsSoftDeleted = true;
                 instance.Status.HardDeleted = now;
                 instance.Status.SoftDeleted ??= now;
+                updateProperties.Add(nameof(instance.Status.IsHardDeleted));
+                updateProperties.Add(nameof(instance.Status.HardDeleted));
             }
             else
             {
@@ -444,10 +450,12 @@ namespace Altinn.Platform.Storage.Controllers
 
             instance.LastChangedBy = GetUserId();
             instance.LastChanged = now;
+            updateProperties.Add(nameof(instance.LastChanged));
+            updateProperties.Add(nameof(instance.LastChangedBy));
 
             try
             {
-                Instance deletedInstance = await _instanceRepository.Update(instance);
+                Instance deletedInstance = await _instanceRepository.Update(instance, updateProperties);
 
                 return Ok(deletedInstance);
             }
@@ -477,6 +485,7 @@ namespace Altinn.Platform.Storage.Controllers
             [FromRoute] int instanceOwnerPartyId,
             [FromRoute] Guid instanceGuid)
         {
+            List<string> updateProperties = [];
             (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
 
             string org = User.GetOrg();
@@ -492,10 +501,14 @@ namespace Altinn.Platform.Storage.Controllers
             instance.LastChanged = DateTime.UtcNow;
             instance.LastChangedBy = User.GetUserOrOrgId();
 
+            updateProperties.Add(nameof(instance.CompleteConfirmations));
+            updateProperties.Add(nameof(instance.LastChanged));
+            updateProperties.Add(nameof(instance.LastChangedBy));
+
             Instance updatedInstance;
             try
             {
-                updatedInstance = await _instanceRepository.Update(instance);
+                updatedInstance = await _instanceRepository.Update(instance, updateProperties);
                 updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
             }
             catch (Exception e)
@@ -533,6 +546,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
 
+            List<string> updateProperties = [nameof(instance.Status), nameof(instance.Status.ReadStatus)];
             Instance updatedInstance;
             try
             {
@@ -548,7 +562,7 @@ namespace Altinn.Platform.Storage.Controllers
 
                 instance.Status.ReadStatus = newStatus;
 
-                updatedInstance = (oldStatus == null || oldStatus != newStatus) ? await _instanceRepository.Update(instance) : instance;
+                updatedInstance = (oldStatus == null || oldStatus != newStatus) ? await _instanceRepository.Update(instance, updateProperties) : instance;
                 updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
             }
             catch (Exception e)
@@ -595,6 +609,12 @@ namespace Altinn.Platform.Storage.Controllers
             Instance updatedInstance;
             try
             {
+                List<string> updateProperties = [
+                    nameof(instance.Status),
+                    nameof(instance.Status.Substatus),
+                    nameof(instance.LastChanged),
+                    nameof(instance.LastChangedBy)
+                ];
                 if (instance.Status == null)
                 {
                     instance.Status = new InstanceStatus();
@@ -604,7 +624,7 @@ namespace Altinn.Platform.Storage.Controllers
                 instance.LastChanged = creationTime;
                 instance.LastChangedBy = User.GetOrgNumber().ToString();
 
-                updatedInstance = await _instanceRepository.Update(instance);
+                updatedInstance = await _instanceRepository.Update(instance, updateProperties);
                 updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
             }
             catch (Exception e)
@@ -646,6 +666,8 @@ namespace Altinn.Platform.Storage.Controllers
                 instance.PresentationTexts = new Dictionary<string, string>();
             }
 
+            List<string> updateProperties = [];
+            updateProperties.Add(nameof(instance.PresentationTexts));
             foreach (KeyValuePair<string, string> entry in presentationTexts.Texts)
             {
                 if (string.IsNullOrEmpty(entry.Value))
@@ -658,7 +680,7 @@ namespace Altinn.Platform.Storage.Controllers
                 }
             }
 
-            Instance updatedInstance = await _instanceRepository.Update(instance);
+            Instance updatedInstance = await _instanceRepository.Update(instance, updateProperties);
             return updatedInstance;
         }
 
@@ -689,6 +711,8 @@ namespace Altinn.Platform.Storage.Controllers
 
             instance.DataValues ??= new Dictionary<string, string>();
 
+            List<string> updateProperties = [];
+            updateProperties.Add(nameof(instance.DataValues));
             foreach (KeyValuePair<string, string> entry in dataValues.Values)
             {
                 if (string.IsNullOrEmpty(entry.Value))
@@ -701,7 +725,7 @@ namespace Altinn.Platform.Storage.Controllers
                 }
             }
 
-            var updatedInstance = await _instanceRepository.Update(instance);
+            var updatedInstance = await _instanceRepository.Update(instance, updateProperties);
             return Ok(updatedInstance);
         }
 

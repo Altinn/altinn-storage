@@ -116,11 +116,34 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             // Archiving instance if process was ended
+            List<string> updateProperties = [
+                nameof(existingInstance.Process),
+                nameof(existingInstance.Process.CurrentTask),
+                nameof(existingInstance.Process.CurrentTask.AltinnTaskType),
+                nameof(existingInstance.Process.CurrentTask.ElementId),
+                nameof(existingInstance.Process.CurrentTask.Ended),
+                nameof(existingInstance.Process.CurrentTask.Flow),
+                nameof(existingInstance.Process.CurrentTask.FlowType),
+                nameof(existingInstance.Process.CurrentTask.Name),
+                nameof(existingInstance.Process.CurrentTask.Started),
+                nameof(existingInstance.Process.CurrentTask.Validated),
+                nameof(existingInstance.Process.CurrentTask.Validated.Timestamp),
+                nameof(existingInstance.Process.CurrentTask.Validated.CanCompleteTask),
+                nameof(existingInstance.Process.Ended),
+                nameof(existingInstance.Process.EndEvent),
+                nameof(existingInstance.Process.Started),
+                nameof(existingInstance.Process.StartEvent),
+                nameof(existingInstance.LastChanged),
+                nameof(existingInstance.LastChangedBy)
+            ];
             if (existingInstance.Process.Ended == null && processState?.Ended != null)
             {
                 existingInstance.Status ??= new InstanceStatus();
                 existingInstance.Status.IsArchived = true;
                 existingInstance.Status.Archived = processState.Ended;
+                updateProperties.Add(nameof(existingInstance.Status));
+                updateProperties.Add(nameof(existingInstance.Status.IsArchived));
+                updateProperties.Add(nameof(existingInstance.Status.Archived));
             }
 
             existingInstance.Process = processState;
@@ -129,7 +152,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             Instance updatedInstance;
 
-            updatedInstance = await _instanceRepository.Update(existingInstance);
+            updatedInstance = await _instanceRepository.Update(existingInstance, updateProperties);
 
             if (processState?.CurrentTask?.AltinnTaskType == "signing")
             {

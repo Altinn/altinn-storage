@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -257,7 +258,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             Mock<IInstanceRepository> repositoryMock = new Mock<IInstanceRepository>();
             repositoryMock.Setup(ir => ir.GetOne(It.IsAny<Guid>(), true)).ReturnsAsync((testInstance, 0));
-            repositoryMock.Setup(ir => ir.Update(It.IsAny<Instance>())).ReturnsAsync((Instance i) => i);
+            repositoryMock.Setup(ir => ir.Update(It.IsAny<Instance>(), It.IsAny<List<string>>())).ReturnsAsync((Instance i, List<string> props) => i);
 
             HttpClient client = GetTestClient(repositoryMock.Object);
             string token = PrincipalUtil.GetToken(3, 1337, 3);

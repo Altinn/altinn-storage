@@ -1,6 +1,4 @@
-﻿using System.Diagnostics;
-
-namespace DbTools
+﻿namespace DbTools
 {
     internal static class Program
     {
@@ -10,7 +8,7 @@ namespace DbTools
         {
             Console.WriteLine(Directory.GetCurrentDirectory());
             string migrationPath = args.Length != 0 ? args[0] : @"../../../../src\Storage\Migration";
-            string funcPath = $@"{migrationPath}/FunctionsAndProcedures";
+            string funcAndProcDirectory = $@"{migrationPath}/FunctionsAndProcedures";
             if (!Directory.Exists(migrationPath))
             {
                 throw new ArgumentException($"Migration directory {migrationPath} does not exist");
@@ -21,9 +19,9 @@ namespace DbTools
                 return;
             }
 
-            string scriptFile = GetScriptFile(versionDirectory);
+            string scriptFile = GetScriptFile(versionDirectory, funcAndProcDirectory);
 
-            foreach (string filename in (new DirectoryInfo(funcPath).GetFiles(("*.sql"))
+            foreach (string filename in (new DirectoryInfo(funcAndProcDirectory).GetFiles(("*.sql"))
                 .Where(f => f.LastWriteTime > new DirectoryInfo(versionDirectory).CreationTime).Select(f => f.FullName)))
             {
                 File.AppendAllText(scriptFile, $"--{filename}:\r\n{File.ReadAllText(filename)}\r\n\r\n");
@@ -38,7 +36,7 @@ namespace DbTools
                 .FirstOrDefault();
         }
 
-        private static string GetScriptFile(string versionDirectory)
+        private static string GetScriptFile(string versionDirectory, string funcAndProcDirectory)
         {
             FileInfo[] scriptFiles = new DirectoryInfo(versionDirectory).GetFiles($"*{_scriptSuffix}");
             if (scriptFiles.Length > 1)
@@ -47,7 +45,13 @@ namespace DbTools
             }
             else if (scriptFiles.Length == 1)
             {
-                File.Delete(scriptFiles[0].FullName);
+                if (new DirectoryInfo(funcAndProcDirectory).GetFiles(("*.sql"))
+                    .AsEnumerable()
+                    .Any(f => f.LastWriteTime > new DirectoryInfo(versionDirectory).CreationTime))
+                {
+                    File.Delete(scriptFiles[0].FullName);
+                }
+
                 return scriptFiles[0].FullName;
             }
             else
