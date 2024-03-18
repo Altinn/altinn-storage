@@ -6,7 +6,7 @@ COPY src/DbTools ./DbTools
 WORKDIR DbTools/
 RUN dotnet build DbTools.csproj -c Release -o /app_tools
 
-WORKDIR Storage/
+WORKDIR ../Storage/
 
 RUN dotnet build Altinn.Platform.Storage.csproj -c Release -o /app_output
 RUN dotnet publish Altinn.Platform.Storage.csproj -c Release -o /app_output
