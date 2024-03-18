@@ -52,10 +52,6 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Migration\v0.05\" />
-  </ItemGroup>
   
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <Exec Command="$(TargetDir)../../../../../DbTools/bin/Debug/net8.0/DbTools.exe $(TargetDir)../../../Migration" />
