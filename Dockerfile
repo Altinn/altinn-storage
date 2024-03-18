@@ -2,6 +2,7 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0.202-alpine3.18 AS build
 
 COPY src/Storage ./Storage
 COPY src/DbTools ./DbTools
+COPY src/Storage/Migration ./Migration
 
 WORKDIR DbTools/
 RUN dotnet build DbTools.csproj -c Release -o /app_tools
@@ -16,8 +17,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0.3-alpine3.18 AS final
 EXPOSE 5010
 WORKDIR /app
 COPY --from=build /app_output .
-
-COPY src/Storage/Migration ./Migration
+COPY --from=build /Migration ./Migration
 
 # setup the user and group
 # the user will have no password, using shell /bin/false and using the group dotnet
