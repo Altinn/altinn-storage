@@ -6,7 +6,7 @@
 
         static void Main(string[] args)
         {
-            string migrationPath = args.Length != 0 ? args[0].Replace("altinn-storage/altinn-storage", "altinn-storage") : @"../../../../src\Storage\Migration";
+            string migrationPath = args.Length != 0 ? args[0] : @"../../../../src\Storage\Migration";
             string funcAndProcDirectory = $@"{migrationPath}/FunctionsAndProcedures";
             if (!Directory.Exists(migrationPath))
             {
