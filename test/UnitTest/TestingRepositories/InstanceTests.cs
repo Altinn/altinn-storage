@@ -76,6 +76,38 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         }
 
         /// <summary>
+        /// Test update substatus
+        /// </summary>
+        [Fact]
+        public async Task Instance_Update_Substatus_Ok()
+        {
+            // Arrange
+            Instance newInstance = TestData.Instance_1_1.Clone();
+            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
+            newInstance.Status.Substatus = new() { Description = "substatustest" };
+            newInstance.LastChanged = DateTime.UtcNow;
+            newInstance.LastChangedBy = "unittest";
+
+            List<string> updateProperties = [
+                nameof(newInstance.Status),
+                nameof(newInstance.Status.Substatus),
+                nameof(newInstance.Status.Substatus.Description),
+                nameof(newInstance.Status.Substatus.Label),
+                nameof(newInstance.LastChanged),
+                nameof(newInstance.LastChangedBy)
+            ];
+
+            // Act
+            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties);
+
+            // Assert
+            string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
+            int count = await PostgresUtil.RunCountQuery(sql);
+            Assert.Equal(1, count);
+            Assert.Equal(newInstance.Status.Substatus.Description, updatedInstance.Status.Substatus.Description);
+        }
+
+        /// <summary>
         /// Test update presentationtexts
         /// </summary>
         [Fact]
