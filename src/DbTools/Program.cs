@@ -6,7 +6,9 @@
 
         static void Main(string[] args)
         {
-            string migrationPath = args.Length != 0 ? args[0] : @"../../../../src\Storage\Migration";
+            string s = Directory.GetCurrentDirectory();
+            Console.WriteLine(s);
+            string migrationPath = args.Length != 0 ? args[0] : @"../../../../Storage/Migration";
             string funcAndProcDirectory = $@"{migrationPath}/FunctionsAndProcedures";
             if (!Directory.Exists(migrationPath))
             {
