@@ -7,7 +7,7 @@
         static void Main(string[] args)
         {
             string dirs = "Dirlist debug\r\n";
-            foreach (string dir in Directory.GetDirectories("/home", "*", SearchOption.TopDirectoryOnly))
+            foreach (string dir in Directory.GetDirectories("/home/app", "*", SearchOption.TopDirectoryOnly))
                 dirs += dir + "\r\n";
 
             throw new Exception(dirs);
