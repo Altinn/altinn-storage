@@ -59,7 +59,7 @@
       Condition="Exists('$(TargetDir)../../../../DbTools/bin/Debug/net8.0/DbTools')"
     />
     <Exec
-      Command="$(TargetDir)../app_tools/DbTools ../Migration"
+      Command="$(TargetDir)../app_tools/DbTools /src/Storage/Migration"
       Condition="Exists('$(TargetDir)../app_tools/DbTools')"
     />
   </Target>  

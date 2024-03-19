@@ -17,7 +17,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0.3-alpine3.18 AS final
 EXPOSE 5010
 WORKDIR /app
 COPY --from=build /app_output .
-COPY --from=build /Migration ./Migration
+COPY --from=build src/Storage/Migration ./Migration
 
 # setup the user and group
 # the user will have no password, using shell /bin/false and using the group dotnet
