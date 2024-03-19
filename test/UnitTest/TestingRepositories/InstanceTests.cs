@@ -55,7 +55,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             newInstance.Process.CurrentTask.Name = "Shouldn't be updated";
             newInstance.LastChanged = DateTime.UtcNow;
             newInstance.LastChangedBy = "unittest";
-            
+
             List<string> updateProperties = [];
             updateProperties.Add(nameof(newInstance.LastChanged));
             updateProperties.Add(nameof(newInstance.LastChangedBy));
