@@ -6,12 +6,6 @@
 
         static void Main(string[] args)
         {
-            string dirs = "Dirlist debug\r\n";
-            foreach (string dir in Directory.GetDirectories("/home/app", "*", SearchOption.TopDirectoryOnly))
-                dirs += dir + "\r\n";
-
-            throw new Exception(dirs);
-
             string migrationPath = args.Length != 0 ? args[0] : @"../../../../Storage/Migration";
             string funcAndProcDirectory = $@"{migrationPath}/FunctionsAndProcedures";
             if (!Directory.Exists(migrationPath))

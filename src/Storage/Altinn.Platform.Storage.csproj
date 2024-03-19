@@ -62,6 +62,10 @@
       Command="$(TargetDir)../app_tools/DbTools /src/Storage/Migration"
       Condition="Exists('$(TargetDir)../app_tools/DbTools')"
     />
+    <Exec
+      Command="/app_tools/DbTools src/Storage/Migration"
+      Condition="Exists('/app_tools/DbTools')"
+    />
   </Target>  
 
 </Project>
