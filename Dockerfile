@@ -5,19 +5,18 @@ COPY src/DbTools ./DbTools
 COPY src/Storage/Migration ./Migration
 
 WORKDIR DbTools/
-RUN dotnet build DbTools.csproj -c Release -o /app_tools
+RUN dotnet build ./DbTools/DbTools.csproj -c Release -o /app_tools
 
 WORKDIR ../Storage/
 
-RUN dotnet build Altinn.Platform.Storage.csproj -c Release -o /app_output
-RUN dotnet publish Altinn.Platform.Storage.csproj -c Release -o /app_output
-
+RUN dotnet build ./Storage/Altinn.Platform.Storage.csproj -c Release -o /app_output
+RUN dotnet publish ./Storage/Altinn.Platform.Storage.csproj -c Release -o /app_output
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0.3-alpine3.18 AS final
 EXPOSE 5010
 WORKDIR /app
 COPY --from=build /app_output .
-COPY --from=build src/Storage/Migration ./Migration
+COPY --from=build /Migration ./Migration
 
 # setup the user and group
 # the user will have no password, using shell /bin/false and using the group dotnet

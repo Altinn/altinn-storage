@@ -18,13 +18,13 @@
                 return;
             }
 
-            string scriptFile = GetScriptFile(versionDirectory, funcAndProcDirectory);
-
-            foreach (string filename in (new DirectoryInfo(funcAndProcDirectory).GetFiles(("*.sql"))
-                .Where(f => f.LastWriteTime > new DirectoryInfo(versionDirectory).CreationTime).Select(f => f.FullName)))
+            string scriptFile = GetScriptFile(versionDirectory);
+            foreach (string filename in (new DirectoryInfo(funcAndProcDirectory).GetFiles(("*.sql")).Select(f => f.FullName)))
             {
                 File.AppendAllText(scriptFile, $"--{filename}:\r\n{File.ReadAllText(filename)}\r\n\r\n");
             }
+
+            Console.WriteLine($"DbTools: {scriptFile} is updated");
         }
 
         private static string? GetVersionDirectory(string migrationPath)
@@ -35,7 +35,7 @@
                 .FirstOrDefault();
         }
 
-        private static string GetScriptFile(string versionDirectory, string funcAndProcDirectory)
+        private static string GetScriptFile(string versionDirectory)
         {
             FileInfo[] scriptFiles = new DirectoryInfo(versionDirectory).GetFiles($"*{_scriptSuffix}");
             if (scriptFiles.Length > 1)
@@ -44,13 +44,6 @@
             }
             else if (scriptFiles.Length == 1)
             {
-                if (new DirectoryInfo(funcAndProcDirectory).GetFiles(("*.sql"))
-                    .AsEnumerable()
-                    .Any(f => f.LastWriteTime > new DirectoryInfo(versionDirectory).CreationTime))
-                {
-                    File.Delete(scriptFiles[0].FullName);
-                }
-
                 return scriptFiles[0].FullName;
             }
             else
