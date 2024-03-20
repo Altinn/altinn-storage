@@ -9,8 +9,8 @@ RUN dotnet build ./DbTools.csproj -c Release -o /app_tools
 
 WORKDIR ../Storage/
 
-RUN dotnet build ./Storage/Altinn.Platform.Storage.csproj -c Release -o /app_output
-RUN dotnet publish ./Storage/Altinn.Platform.Storage.csproj -c Release -o /app_output
+RUN dotnet build ./Altinn.Platform.Storage.csproj -c Release -o /app_output
+RUN dotnet publish ./Altinn.Platform.Storage.csproj -c Release -o /app_output
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0.3-alpine3.18 AS final
 EXPOSE 5010
