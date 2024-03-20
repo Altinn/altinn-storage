@@ -24,7 +24,7 @@
                 File.AppendAllText(scriptFile, $"--{filename}:\r\n{File.ReadAllText(filename)}\r\n\r\n");
             }
 
-            Console.WriteLine($"DbTools: {scriptFile} is updated");
+            Console.WriteLine($"DbTools:\r\nScript: {scriptFile}\r\nMigration dir: {migrationPath}, {Path.GetFullPath(migrationPath)}\r\nVersion dir: {versionDirectory}");
         }
 
         private static string? GetVersionDirectory(string migrationPath)
