@@ -5,7 +5,7 @@ COPY src/DbTools ./DbTools
 COPY src/Storage/Migration ./Migration
 
 WORKDIR DbTools/
-RUN dotnet build ./DbTools/DbTools.csproj -c Release -o /app_tools
+RUN dotnet build ./DbTools.csproj -c Release -o /app_tools
 
 WORKDIR ../Storage/
 
