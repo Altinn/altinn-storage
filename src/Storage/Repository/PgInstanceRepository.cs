@@ -24,7 +24,7 @@ namespace Altinn.Platform.Storage.Repository
         private const string _readSqlFilteredInitial = "select * from storage.readinstancefromquery_v2 (";
         private readonly string _deleteSql = "select * from storage.deleteinstance ($1)";
         private readonly string _insertSql = "call storage.insertinstance ($1, $2, $3, $4, $5, $6, $7, $8)";
-        private readonly string _updateSql = "select * from storage.updateinstance ($1, $2, $3, $4, $5, $6)";
+        private readonly string _updateSql = "select * from storage.updateinstance_v2 (@_alternateid, @_toplevelsimpleprops, @_datavalues, @_completeconfirmations, @_presentationtexts, @_status, @_substatus, @_process, @_lastchanged, @_taskid)";
         private readonly string _readSql = "select * from storage.readinstance ($1)";
         private readonly string _readSqlFiltered = _readSqlFilteredInitial;
         private readonly string _readDeletedSql = "select * from storage.readdeletedinstances ()";
@@ -377,12 +377,16 @@ namespace Altinn.Platform.Storage.Repository
             instance.Data = null;
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateSql);
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instance.Id));
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, CustomSerializer.Serialize(instance, updateProperties));
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, updateProperties.Contains(nameof(instance.DataValues)) ? instance.DataValues : DBNull.Value);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, updateProperties.Contains(nameof(instance.CompleteConfirmations)) ? instance.CompleteConfirmations : DBNull.Value);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, instance.LastChanged ?? DateTime.UtcNow);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, instance.Process?.CurrentTask?.ElementId ?? (object)DBNull.Value);
+            pgcom.Parameters.AddWithValue("_alternateid",           NpgsqlDbType.Uuid,  new Guid(instance.Id));
+            pgcom.Parameters.AddWithValue("_toplevelsimpleprops",   NpgsqlDbType.Jsonb, CustomSerializer.Serialize(instance, updateProperties));
+            pgcom.Parameters.AddWithValue("_datavalues",            NpgsqlDbType.Jsonb, updateProperties.Contains(nameof(instance.DataValues)) ? instance.DataValues : DBNull.Value);
+            pgcom.Parameters.AddWithValue("_completeconfirmations", NpgsqlDbType.Jsonb, updateProperties.Contains(nameof(instance.CompleteConfirmations)) ? instance.CompleteConfirmations : DBNull.Value);
+            pgcom.Parameters.AddWithValue("_presentationtexts",     NpgsqlDbType.Jsonb, updateProperties.Contains(nameof(instance.PresentationTexts)) ? instance.PresentationTexts : DBNull.Value);
+            pgcom.Parameters.AddWithValue("_status",                NpgsqlDbType.Jsonb, updateProperties.Contains(nameof(instance.Status)) ? CustomSerializer.Serialize(instance.Status, updateProperties) : DBNull.Value);
+            pgcom.Parameters.AddWithValue("_substatus",             NpgsqlDbType.Jsonb, updateProperties.Contains(nameof(instance.Status.Substatus)) ? instance.Status.Substatus : DBNull.Value);
+            pgcom.Parameters.AddWithValue("_process",               NpgsqlDbType.Jsonb, updateProperties.Contains(nameof(instance.Process)) ? instance.Process : DBNull.Value);
+            pgcom.Parameters.AddWithValue("_lastchanged",           NpgsqlDbType.TimestampTz, instance.LastChanged ?? DateTime.UtcNow);
+            pgcom.Parameters.AddWithValue("_taskid",                NpgsqlDbType.Text, instance.Process?.CurrentTask?.ElementId ?? (object)DBNull.Value);
 
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             if (await reader.ReadAsync())

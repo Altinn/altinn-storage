@@ -610,10 +610,7 @@ namespace Altinn.Platform.Storage.Controllers
             try
             {
                 List<string> updateProperties = [
-                    nameof(instance.Status),
                     nameof(instance.Status.Substatus),
-                    nameof(instance.Status.Substatus.Description),
-                    nameof(instance.Status.Substatus.Label),
                     nameof(instance.LastChanged),
                     nameof(instance.LastChangedBy)
                 ];
