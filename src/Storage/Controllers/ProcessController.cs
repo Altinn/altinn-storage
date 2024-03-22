@@ -118,21 +118,6 @@ namespace Altinn.Platform.Storage.Controllers
             // Archiving instance if process was ended
             List<string> updateProperties = [
                 nameof(existingInstance.Process),
-                nameof(existingInstance.Process.CurrentTask),
-                nameof(existingInstance.Process.CurrentTask.AltinnTaskType),
-                nameof(existingInstance.Process.CurrentTask.ElementId),
-                nameof(existingInstance.Process.CurrentTask.Ended),
-                nameof(existingInstance.Process.CurrentTask.Flow),
-                nameof(existingInstance.Process.CurrentTask.FlowType),
-                nameof(existingInstance.Process.CurrentTask.Name),
-                nameof(existingInstance.Process.CurrentTask.Started),
-                nameof(existingInstance.Process.CurrentTask.Validated),
-                nameof(existingInstance.Process.CurrentTask.Validated.Timestamp),
-                nameof(existingInstance.Process.CurrentTask.Validated.CanCompleteTask),
-                nameof(existingInstance.Process.Ended),
-                nameof(existingInstance.Process.EndEvent),
-                nameof(existingInstance.Process.Started),
-                nameof(existingInstance.Process.StartEvent),
                 nameof(existingInstance.LastChanged),
                 nameof(existingInstance.LastChangedBy)
             ];

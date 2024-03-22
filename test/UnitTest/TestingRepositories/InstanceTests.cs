@@ -50,9 +50,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         {
             // Arrange
             Instance newInstance = TestData.Instance_1_1.Clone();
+            newInstance.Process.CurrentTask.Name = "Before update";
+            newInstance.Process.StartEvent = "s1";
             newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
             newInstance.Process.CurrentTask.ElementId = "Task_2";
-            newInstance.Process.CurrentTask.Name = "Shouldn't be updated";
+            newInstance.Process.CurrentTask.Name = "After update";
+            newInstance.Process.StartEvent = null;
+            newInstance.Process.EndEvent = "e1";
             newInstance.LastChanged = DateTime.UtcNow;
             newInstance.LastChangedBy = "unittest";
 
@@ -60,8 +64,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             updateProperties.Add(nameof(newInstance.LastChanged));
             updateProperties.Add(nameof(newInstance.LastChangedBy));
             updateProperties.Add(nameof(newInstance.Process));
-            updateProperties.Add(nameof(newInstance.Process.CurrentTask));
-            updateProperties.Add(nameof(newInstance.Process.CurrentTask.ElementId));
 
             // Act
             Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties);
@@ -72,27 +74,32 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             int count = await PostgresUtil.RunCountQuery(sql);
             Assert.Equal(1, count);
             Assert.Equal("Task_2", updatedInstance.Process.CurrentTask.ElementId);
-            Assert.NotEqual("Shouldn't be updated", updatedInstance.Process.CurrentTask.Name);
+            Assert.Equal(newInstance.Process.CurrentTask.Name, updatedInstance.Process.CurrentTask.Name);
+            Assert.Equal("After update", updatedInstance.Process.CurrentTask.Name);
+            Assert.Equal("e1", newInstance.Process.EndEvent);
+            Assert.Null(newInstance.Process.StartEvent);
+            Assert.Equal(newInstance.LastChanged, updatedInstance.LastChanged);
+            Assert.Equal(newInstance.LastChangedBy, updatedInstance.LastChangedBy);
         }
 
         /// <summary>
-        /// Test update substatus
+        /// Test update status
         /// </summary>
         [Fact]
-        public async Task Instance_Update_Substatus_Ok()
+        public async Task Instance_Update_Status_Ok()
         {
             // Arrange
             Instance newInstance = TestData.Instance_1_1.Clone();
+            newInstance.Status.IsArchived = true;
+            newInstance.Status.Substatus = new() { Description = "desc " };
             newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
-            newInstance.Status.Substatus = new() { Description = "substatustest" };
             newInstance.LastChanged = DateTime.UtcNow;
+            newInstance.Status.IsSoftDeleted = true;
             newInstance.LastChangedBy = "unittest";
 
             List<string> updateProperties = [
                 nameof(newInstance.Status),
-                nameof(newInstance.Status.Substatus),
-                nameof(newInstance.Status.Substatus.Description),
-                nameof(newInstance.Status.Substatus.Label),
+                nameof(newInstance.Status.IsSoftDeleted),
                 nameof(newInstance.LastChanged),
                 nameof(newInstance.LastChangedBy)
             ];
@@ -104,7 +111,47 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
             int count = await PostgresUtil.RunCountQuery(sql);
             Assert.Equal(1, count);
+            Assert.Equal(newInstance.Status.IsArchived, updatedInstance.Status.IsArchived);
+            Assert.Equal(newInstance.Status.IsSoftDeleted, updatedInstance.Status.IsSoftDeleted);
+            Assert.Equal(newInstance.LastChanged, updatedInstance.LastChanged);
+            Assert.Equal(newInstance.LastChangedBy, updatedInstance.LastChangedBy);
             Assert.Equal(newInstance.Status.Substatus.Description, updatedInstance.Status.Substatus.Description);
+        }
+
+        /// <summary>
+        /// Test update substatus
+        /// </summary>
+        [Fact]
+        public async Task Instance_Update_Substatus_Ok()
+        {
+            // Arrange
+            Instance newInstance = TestData.Instance_1_1.Clone();
+            newInstance.Status.IsArchived = true;
+            newInstance.Status.Substatus = new() { Description = "substatustest-desc" };
+            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
+            newInstance.Status.Substatus = new() { Label = "substatustest-label" };
+            newInstance.LastChanged = DateTime.UtcNow;
+            newInstance.LastChangedBy = "unittest";
+            newInstance.Status.IsArchived = false;
+
+            List<string> updateProperties = [
+                nameof(newInstance.Status.Substatus),
+                nameof(newInstance.LastChanged),
+                nameof(newInstance.LastChangedBy)
+            ];
+
+            // Act
+            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties);
+
+            // Assert
+            string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
+            int count = await PostgresUtil.RunCountQuery(sql);
+            Assert.Equal(1, count);
+            Assert.Equal("substatustest-label", updatedInstance.Status.Substatus.Label);
+            Assert.Null(updatedInstance.Status.Substatus.Description);
+            Assert.True(updatedInstance.Status.IsArchived);
+            Assert.Equal(newInstance.LastChanged, updatedInstance.LastChanged);
+            Assert.Equal(newInstance.LastChangedBy, updatedInstance.LastChangedBy);
         }
 
         /// <summary>
@@ -115,9 +162,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         {
             // Arrange
             Instance newInstance = TestData.Instance_1_1.Clone();
-            newInstance.PresentationTexts = new() { { "k1", "v1" } };
+            newInstance.PresentationTexts = new() { { "k1", "v1" }, { "k2", "v2" } };
             newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
-            newInstance.PresentationTexts = new() { { "k2", "v2" }, { "k3", "v3" } };
+            newInstance.PresentationTexts = new() { { "k2", null }, { "k3", "v3" } };
             newInstance.LastChanged = DateTime.UtcNow;
             newInstance.LastChangedBy = "unittest";
 
@@ -135,16 +182,22 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             int count = await PostgresUtil.RunCountQuery(sql);
             Assert.Equal(1, count);
             Assert.Equal(2, updatedInstance.PresentationTexts.Count);
+            Assert.True(updatedInstance.PresentationTexts.ContainsKey("k1"));
+            Assert.True(updatedInstance.PresentationTexts.ContainsKey("k3"));
+            Assert.Equal(newInstance.LastChanged, updatedInstance.LastChanged);
+            Assert.Equal(newInstance.LastChangedBy, updatedInstance.LastChangedBy);
         }
 
         /// <summary>
         /// Test update process
         /// </summary>
         [Fact]
-        public async Task Instance_Update_Process_Ok()
+        public async Task Instance_Update_Process_And_Status_Ok()
         {
             // Arrange
+            DateTime unchangedSofteDeleted = DateTime.UtcNow.AddYears(-2);
             Instance newInstance = TestData.Instance_1_1.Clone();
+            newInstance.Status.SoftDeleted = unchangedSofteDeleted;
             newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
             newInstance.Process = new()
             {
@@ -156,26 +209,15 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             };
             newInstance.LastChanged = DateTime.UtcNow;
             newInstance.LastChangedBy = "unittest";
+            newInstance.Status.HardDeleted = DateTime.UtcNow;
+            newInstance.Status.SoftDeleted = unchangedSofteDeleted.AddYears(1);
 
             List<string> updateProperties = [
                 nameof(newInstance.Process),
-                nameof(newInstance.Process.CurrentTask),
-                nameof(newInstance.Process.CurrentTask.AltinnTaskType),
-                nameof(newInstance.Process.CurrentTask.ElementId),
-                nameof(newInstance.Process.CurrentTask.Ended),
-                nameof(newInstance.Process.CurrentTask.Flow),
-                nameof(newInstance.Process.CurrentTask.FlowType),
-                nameof(newInstance.Process.CurrentTask.Name),
-                nameof(newInstance.Process.CurrentTask.Started),
-                nameof(newInstance.Process.CurrentTask.Validated),
-                nameof(newInstance.Process.CurrentTask.Validated.Timestamp),
-                nameof(newInstance.Process.CurrentTask.Validated.CanCompleteTask),
-                nameof(newInstance.Process.Ended),
-                nameof(newInstance.Process.EndEvent),
-                nameof(newInstance.Process.Started),
-                nameof(newInstance.Process.StartEvent),
                 nameof(newInstance.LastChanged),
-                nameof(newInstance.LastChangedBy)
+                nameof(newInstance.LastChangedBy),
+                nameof(newInstance.Status),
+                nameof(newInstance.Status.HardDeleted),
             ];
 
             // Act
@@ -188,6 +230,54 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             Assert.Equal(1, count);
             Assert.Equal(newInstance.Process.CurrentTask.AltinnTaskType, updatedInstance.Process.CurrentTask.AltinnTaskType);
             Assert.Equal(newInstance.Process.Ended, updatedInstance.Process.Ended);
+            Assert.Equal(newInstance.LastChanged, updatedInstance.LastChanged);
+            Assert.Equal(newInstance.LastChangedBy, updatedInstance.LastChangedBy);
+            Assert.Equal(newInstance.Status.HardDeleted, updatedInstance.Status.HardDeleted);
+            Assert.Equal(unchangedSofteDeleted, updatedInstance.Status.SoftDeleted);
+        }
+
+        /// <summary>
+        /// Test update process without updating status
+        /// </summary>
+        [Fact]
+        public async Task Instance_Update_Process_And_No_Status_Ok()
+        {
+            // Arrange
+            DateTime unchangedSofteDeleted = DateTime.UtcNow.AddYears(-2);
+            Instance newInstance = TestData.Instance_1_1.Clone();
+            newInstance.Status.SoftDeleted = unchangedSofteDeleted;
+            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
+            newInstance.Process = new()
+            {
+                CurrentTask = new()
+                {
+                    AltinnTaskType = "Task_3"
+                },
+                Ended = DateTime.Parse("2023-12-24")
+            };
+            newInstance.LastChanged = DateTime.UtcNow;
+            newInstance.LastChangedBy = "unittest";
+            newInstance.Status.SoftDeleted = unchangedSofteDeleted.AddYears(1);
+
+            List<string> updateProperties = [
+                nameof(newInstance.Process),
+                nameof(newInstance.LastChanged),
+                nameof(newInstance.LastChangedBy),
+            ];
+
+            // Act
+            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties);
+
+            // Assert
+            string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'" +
+                $" and instance ->> 'LastChangedBy' = 'unittest'";
+            int count = await PostgresUtil.RunCountQuery(sql);
+            Assert.Equal(1, count);
+            Assert.Equal(newInstance.Process.CurrentTask.AltinnTaskType, updatedInstance.Process.CurrentTask.AltinnTaskType);
+            Assert.Equal(newInstance.Process.Ended, updatedInstance.Process.Ended);
+            Assert.Equal(newInstance.LastChanged, updatedInstance.LastChanged);
+            Assert.Equal(newInstance.LastChangedBy, updatedInstance.LastChangedBy);
+            Assert.Equal(unchangedSofteDeleted, updatedInstance.Status.SoftDeleted);
         }
 
         /// <summary>
@@ -198,9 +288,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         {
             // Arrange
             Instance newInstance = TestData.Instance_1_1.Clone();
-            newInstance.DataValues = new() { { "k1", "v1" } };
+            newInstance.DataValues = new() { { "k1", "v1" }, { "k2", "v2" } };
             newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
-            newInstance.DataValues = new() { { "k2", "v2" }, { "k3", "v3" } };
+            newInstance.DataValues = new() { { "k2", null }, { "k3", "v3" } };
             newInstance.LastChanged = DateTime.UtcNow;
             newInstance.LastChangedBy = "unittest";
 
@@ -217,7 +307,11 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
                 $" and instance ->> 'LastChangedBy' = 'unittest'";
             int count = await PostgresUtil.RunCountQuery(sql);
             Assert.Equal(1, count);
-            Assert.Equal(3, updatedInstance.DataValues.Count);
+            Assert.Equal(2, updatedInstance.DataValues.Count);
+            Assert.True(updatedInstance.DataValues.ContainsKey("k1"));
+            Assert.True(updatedInstance.DataValues.ContainsKey("k3"));
+            Assert.Equal(newInstance.LastChanged, updatedInstance.LastChanged);
+            Assert.Equal(newInstance.LastChangedBy, updatedInstance.LastChangedBy);
         }
 
         /// <summary>
@@ -248,6 +342,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             int count = await PostgresUtil.RunCountQuery(sql);
             Assert.Equal(1, count);
             Assert.Equal(2, updatedInstance.CompleteConfirmations.Count);
+            Assert.Equal(newInstance.LastChanged, updatedInstance.LastChanged);
+            Assert.Equal(newInstance.LastChangedBy, updatedInstance.LastChangedBy);
         }
 
         /// <summary>
