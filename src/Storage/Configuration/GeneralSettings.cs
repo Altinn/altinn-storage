@@ -47,5 +47,10 @@ namespace Altinn.Platform.Storage.Configuration
         /// Gets or sets the cache lifetime for application metadata document.
         /// </summary>
         public int AppMetadataCacheLifeTimeInSeconds { get; set; }
+
+        /// <summary>
+        /// Name of the cookie for where JWT is stored
+        /// </summary>
+        public string JwtCookieName { get; set; }
     }
 }
