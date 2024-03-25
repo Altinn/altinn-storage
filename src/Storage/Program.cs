@@ -189,12 +189,13 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddHealthChecks().AddCheck<HealthCheck>("storage_health_check");
 
     services.AddHttpClient<AuthorizationApiClient>();
+    services.AddHttpClient<IRegisterService, RegisterService>();
 
     services.Configure<AzureStorageConfiguration>(config.GetSection("AzureStorageConfiguration"));
     services.Configure<GeneralSettings>(config.GetSection("GeneralSettings"));
     services.Configure<KeyVaultSettings>(config.GetSection("kvSetting"));
     services.Configure<PepSettings>(config.GetSection("PepSettings"));
-    services.Configure<PlatformSettings>(config.GetSection("PlatformSettings"));
+    services.Configure<Altinn.Common.PEP.Configuration.PlatformSettings>(config.GetSection("PlatformSettings"));
     services.Configure<QueueStorageSettings>(config.GetSection("QueueStorageSettings"));
     services.Configure<AccessTokenSettings>(config.GetSection("AccessTokenSettings"));
     services.Configure<PostgreSqlSettings>(config.GetSection("PostgreSqlSettings"));
