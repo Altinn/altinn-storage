@@ -246,5 +246,38 @@ namespace Altinn.Platform.Storage.Helpers
 
             return hideSettings.HideOnTask.Contains(currentTask.ElementId);
         }
+
+        /// <summary>
+        /// Parsing instanceOwnerIdentifier string and find the number type and value.
+        /// </summary>
+        /// <param name="instanceOwnerIdentifier">The list of applications</param>
+        public static (string InstanceOwnerIdType, string InstanceOwnerIdValue) GetIdentifierFromInstanceOwnerIdentifier(string instanceOwnerIdentifier)
+        {
+            string partyType = null;
+            string partyNumber = null;
+
+            if (string.IsNullOrEmpty(instanceOwnerIdentifier))
+            {
+                return (string.Empty, string.Empty);
+            }
+
+            string[] parts = instanceOwnerIdentifier.Split(':');
+            if (parts.Length != 2)
+            {
+                return (string.Empty, string.Empty);
+            }
+
+            partyType = parts[0];
+            partyNumber = parts[1];
+
+            string[] partyTypeHayStack = ["person", "organization", "username"];
+
+            if (Array.IndexOf(partyTypeHayStack, partyType.ToLower()) != -1)
+            {
+                return (partyType.ToLower(), partyNumber);
+            }
+
+            return (string.Empty, string.Empty);
+        }
     }
 }
