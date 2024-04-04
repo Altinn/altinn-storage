@@ -274,7 +274,7 @@ namespace Altinn.Platform.Storage.Helpers
 
             if (Array.IndexOf(partyTypeHayStack, partyType.ToLower()) != -1)
             {
-                return (partyType.ToLower(), partyNumber);
+                return (partyType.ToLower(), partyNumber.Replace(" ", string.Empty));
             }
 
             return (string.Empty, string.Empty);

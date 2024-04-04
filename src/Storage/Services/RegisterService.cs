@@ -90,7 +90,7 @@ namespace Altinn.Platform.Storage.Services
             PartyLookup partyLookup = new PartyLookup() { Ssn = person, OrgNo = orgNo };
 
             string bearerToken = JwtTokenUtil.GetTokenFromContext(_httpContextAccessor.HttpContext, _generalSettings.JwtCookieName);
-            string accessToken = _accessTokenGenerator.GenerateAccessToken("platform", "events");
+            string accessToken = _accessTokenGenerator.GenerateAccessToken("platform", "storage");
 
             StringContent content = new StringContent(JsonSerializer.Serialize(partyLookup));
             content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/json");
