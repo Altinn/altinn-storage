@@ -261,7 +261,7 @@ namespace Altinn.Platform.Storage.Helpers
                 return (string.Empty, string.Empty);
             }
 
-            string[] parts = instanceOwnerIdentifier.Split(':');
+            string[] parts = instanceOwnerIdentifier.Replace(" ", string.Empty).ToLower().Split(':');
             if (parts.Length != 2)
             {
                 return (string.Empty, string.Empty);
@@ -272,9 +272,9 @@ namespace Altinn.Platform.Storage.Helpers
 
             string[] partyTypeHayStack = ["person", "organization"];
 
-            if (Array.IndexOf(partyTypeHayStack, partyType.ToLower().Replace(" ", string.Empty)) != -1)
+            if (Array.IndexOf(partyTypeHayStack, partyType) != -1)
             {
-                return (partyType.ToLower(), partyNumber.Replace(" ", string.Empty));
+                return (partyType, partyNumber);
             }
 
             return (string.Empty, string.Empty);
