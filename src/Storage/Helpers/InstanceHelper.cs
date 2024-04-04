@@ -272,7 +272,7 @@ namespace Altinn.Platform.Storage.Helpers
 
             string[] partyTypeHayStack = ["person", "organization"];
 
-            if (Array.IndexOf(partyTypeHayStack, partyType.ToLower()) != -1)
+            if (Array.IndexOf(partyTypeHayStack, partyType.ToLower().Replace(" ", string.Empty)) != -1)
             {
                 return (partyType.ToLower(), partyNumber.Replace(" ", string.Empty));
             }
