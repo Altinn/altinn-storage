@@ -174,4 +174,10 @@
     <_ContentIncludedByDefault Remove="data\roles\user_5\party_1337\roles.json" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Update="appsettings.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
