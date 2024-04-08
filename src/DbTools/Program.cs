@@ -19,13 +19,14 @@
             }
 
             string scriptFile = GetScriptFile(versionDirectory);
+            string cr = Environment.NewLine;
             foreach (string filename in (new DirectoryInfo(funcAndProcDirectory).GetFiles(("*.sql")).Select(f => f.FullName)))
             {
-                File.AppendAllText(scriptFile, $"--{filename}:\r\n{File.ReadAllText(filename)}\r\n\r\n");
+                File.AppendAllText(scriptFile, $"--{filename}:{cr}{File.ReadAllText(filename)}{cr}{cr}");
             }
 
-            Console.WriteLine($"DbTools:\r\nScript: {scriptFile}\r\nMigration dir: {migrationPath}, {Path.GetFullPath(migrationPath)}\r\n" +
-                $"Version dir: {versionDirectory}\r\nCurrent dir: {Directory.GetCurrentDirectory()}");
+            Console.WriteLine($"DbTools:{cr}Script: {scriptFile}{cr}Migration dir: {migrationPath}, {Path.GetFullPath(migrationPath)}{cr}" +
+                $"Version dir: {versionDirectory}{cr}Current dir: {Directory.GetCurrentDirectory()}");
         }
 
         private static string? GetVersionDirectory(string migrationPath)
