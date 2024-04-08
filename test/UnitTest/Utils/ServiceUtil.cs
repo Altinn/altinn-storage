@@ -52,6 +52,6 @@ public static class ServiceUtil
 
     public static string GetAppsettingsPath()
     {
-        return "appsettings.json";
+        return "appsettings.unittest.json";
     }
 }

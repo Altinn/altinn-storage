@@ -54,13 +54,13 @@
   </ItemGroup>
   
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec
-      Command="$(TargetDir)../../../../DbTools/bin/Debug/net8.0/DbTools $(TargetDir)../../../Migration"
-      Condition="Exists('$(TargetDir)../../../../DbTools/bin/Debug/net8.0/DbTools') or Exists('$(TargetDir)../../../../DbTools/bin/Debug/net8.0/DbTools.exe')"
+	  <Exec
+		Command="$(TargetDir)../../../../DbTools/bin/Debug/net8.0/DbTools $(TargetDir)../../../Migration"
+		Condition="Exists('$(TargetDir)../../../../DbTools/bin/Debug/net8.0/DbTools') or Exists('$(TargetDir)../../../../DbTools/bin/Debug/net8.0/DbTools.exe')"
     />
-    <Exec
-      Command="/app_tools/DbTools ./Migration"
-      Condition="Exists('/app_tools/DbTools')"
+	  <Exec
+		Command="/app_tools/DbTools ./Migration"
+		Condition="Exists('/app_tools/DbTools')"
     />
   </Target>  
 
