@@ -31,6 +31,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         private readonly Mock<HttpMessageHandler> _handlerMock;
         private readonly Mock<IHttpContextAccessor> _contextAccessor;
         private readonly Mock<IAccessTokenGenerator> _accessTokenGenerator;
+        private readonly Mock<ILogger<RegisterService>> _loggerRegisterService;
 
         public RegisterServiceTest()
         {
@@ -39,6 +40,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             _handlerMock = new Mock<HttpMessageHandler>(MockBehavior.Strict);
             _contextAccessor = new Mock<IHttpContextAccessor>();
             _accessTokenGenerator = new Mock<IAccessTokenGenerator>();
+            _loggerRegisterService = new Mock<ILogger<RegisterService>>();
         }
 
         [Fact]
@@ -119,6 +121,51 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
 
             // Assert
             Assert.Equal(expectedPartyType, actual.PartyTypeName);
+        }
+
+        [Fact]
+        public async Task GetParty_BadRequestResponse_PartyTypeDeserializationFailedWithHttpStatusCode()
+        {
+            // Arrange
+            string repsonseString = "{\"partyId\": 500000," +
+                "\"partyTypeName\": \"Organisation\"," +
+                "\"orgNumber\": \"897069650\"," +
+                "\"unitType\": \"AS\"," +
+                "\"name\": \"DDG Fitness\"," +
+                "\"isDeleted\": false," +
+                "\"onlyHierarchyElementWithNoAccess\": false," +
+                "\"organization\": {\"orgNumber\": \"897069650\",\"name\": \"DDG Fitness\",\"unitType\": \"AS\",\"telephoneNumber\": \"12345678\",\"mobileNumber\": \"92010000\",\"faxNumber\": \"92110000\",\"eMailAddress\": \"central@ddgfitness.no\",\"internetAddress\": \"http://ddgfitness.no\",\"mailingAddress\": \"Sofies Gate 1\",\"mailingPostalCode\": \"0170\",\"mailingPostalCity\": \"Oslo\",\"businessAddress\": \"Sofies Gate 1\",\"businessPostalCode\": \"0170\",\"businessPostalCity\": \"By\",\"unitStatus\": null},\"childParties\": null\r\n}";
+
+            HttpResponseMessage httpResponseMessage = new()
+            {
+                StatusCode = HttpStatusCode.BadRequest,
+                Content = new StringContent(repsonseString, Encoding.UTF8, "application/json")
+            };
+
+            HttpRequestMessage actualRequest = null;
+            void SetRequest(HttpRequestMessage request) => actualRequest = request;
+            InitializeMocks(httpResponseMessage, SetRequest);
+
+            HttpClient httpClient = new HttpClient(_handlerMock.Object);
+
+            RegisterService target = new RegisterService(
+                httpClient,
+                _contextAccessor.Object,
+                _accessTokenGenerator.Object,
+                _generalSettings.Object,
+                _platformSettings.Object,
+                _loggerRegisterService.Object);
+
+            // Act
+            Party actual = await target.GetParty(500000);
+
+            // Assert
+            _loggerRegisterService.Verify(
+                x => x.LogError(
+                    It.Is<string>(s => s == repsonseString),
+                    "500000",
+                    HttpStatusCode.BadRequest),
+                Times.Once);
         }
 
         [Fact]
