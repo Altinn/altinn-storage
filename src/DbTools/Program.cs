@@ -45,6 +45,7 @@
             }
             else if (scriptFiles.Length == 1)
             {
+                File.Delete(scriptFiles[0].FullName);
                 return scriptFiles[0].FullName;
             }
             else
