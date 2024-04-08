@@ -43,7 +43,7 @@ namespace Altinn.Platform.Storage.Services
             IAccessTokenGenerator accessTokenGenerator,
             IOptions<GeneralSettings> generalSettings,
             IOptions<PlatformSettings> platformSettings,
-            ILogger<IRegisterService> logger)
+            ILogger<RegisterService> logger)
         {
             httpClient.BaseAddress = new Uri(platformSettings.Value.ApiRegisterEndpoint);
             httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -70,13 +70,15 @@ namespace Altinn.Platform.Storage.Services
             string accessToken = _accessTokenGenerator.GenerateAccessToken("platform", "events");
 
             HttpResponseMessage response = await _client.GetAsync(token, endpointUrl, accessToken);
-            if (response.StatusCode == HttpStatusCode.OK)
+            HttpStatusCode responseHttpStatusCode = response.StatusCode;
+
+            if (responseHttpStatusCode == HttpStatusCode.OK)
             {
                 party = await response.Content.ReadFromJsonAsync<Party>(_serializerOptions);
             }
             else
             {
-                _logger.LogError("// Getting party with partyID {partyId} failed with statuscode {response.StatusCode}", partyId, response.StatusCode);
+                _logger.LogError("// Getting party with partyID {partyId} failed with statuscode {responseHttpStatusCode}", partyId, responseHttpStatusCode);
             }
 
             return party;
