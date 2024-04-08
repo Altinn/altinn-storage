@@ -127,19 +127,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         public async Task GetParty_BadRequestResponse_PartyTypeDeserializationFailedWithHttpStatusCode()
         {
             // Arrange
-            string repsonseString = "{\"partyId\": 500000," +
-                "\"partyTypeName\": \"Organisation\"," +
-                "\"orgNumber\": \"897069650\"," +
-                "\"unitType\": \"AS\"," +
-                "\"name\": \"DDG Fitness\"," +
-                "\"isDeleted\": false," +
-                "\"onlyHierarchyElementWithNoAccess\": false," +
-                "\"organization\": {\"orgNumber\": \"897069650\",\"name\": \"DDG Fitness\",\"unitType\": \"AS\",\"telephoneNumber\": \"12345678\",\"mobileNumber\": \"92010000\",\"faxNumber\": \"92110000\",\"eMailAddress\": \"central@ddgfitness.no\",\"internetAddress\": \"http://ddgfitness.no\",\"mailingAddress\": \"Sofies Gate 1\",\"mailingPostalCode\": \"0170\",\"mailingPostalCity\": \"Oslo\",\"businessAddress\": \"Sofies Gate 1\",\"businessPostalCode\": \"0170\",\"businessPostalCity\": \"By\",\"unitStatus\": null},\"childParties\": null\r\n}";
+            int partyId = 500000;
+            string loggedMessasge = "// Getting party with partyID 500000 failed with statuscode 400";
 
             HttpResponseMessage httpResponseMessage = new()
             {
-                StatusCode = HttpStatusCode.BadRequest,
-                Content = new StringContent(repsonseString, Encoding.UTF8, "application/json")
+                StatusCode = HttpStatusCode.BadRequest
             };
 
             HttpRequestMessage actualRequest = null;
@@ -157,13 +150,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 _loggerRegisterService.Object);
 
             // Act
-            Party actual = await target.GetParty(500000);
+            Party actual = await target.GetParty(partyId);
 
             // Assert
             _loggerRegisterService.Verify(
                 x => x.LogError(
-                    It.Is<string>(s => s == repsonseString),
-                    "500000",
+                    It.Is<string>(s => s == loggedMessasge),
+                    partyId,
                     HttpStatusCode.BadRequest),
                 Times.Once);
         }
