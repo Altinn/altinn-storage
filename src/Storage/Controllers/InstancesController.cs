@@ -24,6 +24,7 @@ using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
+using Microsoft.IdentityModel.Tokens;
 
 using Newtonsoft.Json;
 
@@ -191,6 +192,10 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             Dictionary<string, StringValues> queryParams = QueryHelpers.ParseQuery(Request.QueryString.Value);
+            if (instanceOwnerPartyId.HasValue || !instanceOwnerIdentifier.IsNullOrEmpty())
+            {
+                queryParams["instanceOwner.partyId"] = new StringValues(instanceOwnerPartyId.ToString());
+            }
 
             // filter out hard deleted instances if it isn't appOwner requesting instances
             if (!appOwnerRequestingInstances)
