@@ -22,7 +22,7 @@
             string cr = Environment.NewLine;
             foreach (string filename in (new DirectoryInfo(funcAndProcDirectory).GetFiles(("*.sql")).Select(f => f.FullName)))
             {
-                File.AppendAllText(scriptFile, $"--{filename}:{cr}{File.ReadAllText(filename)}{cr}{cr}");
+                File.AppendAllText(scriptFile, $"-- {filename.Split(Path.DirectorySeparatorChar)[^1]}:{cr}{File.ReadAllText(filename)}{cr}{cr}");
             }
 
             Console.WriteLine($"DbTools:{cr}Script: {scriptFile}{cr}Migration dir: {migrationPath}, {Path.GetFullPath(migrationPath)}{cr}" +
