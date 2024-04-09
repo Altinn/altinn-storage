@@ -55,8 +55,8 @@
   
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
 	  <Exec
-		Command="$(TargetDir)../../../../DbTools/bin/Debug/net8.0/DbTools $(TargetDir)../../../Migration"
-		Condition="Exists('$(TargetDir)../../../../DbTools/bin/Debug/net8.0/DbTools') or Exists('$(TargetDir)../../../../DbTools/bin/Debug/net8.0/DbTools.exe')"
+		Command="$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools $(TargetDir)../../../Migration"
+		Condition="Exists('$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools') or Exists('$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools.exe')"
     />
 	  <Exec
 		Command="/app_tools/DbTools ./Migration"
