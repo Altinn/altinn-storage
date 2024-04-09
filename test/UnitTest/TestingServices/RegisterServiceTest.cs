@@ -128,7 +128,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         {
             // Arrange
             int partyId = 500000;
-            string partOfLoggedMessasge = "// Getting party with partyID 500000 failed with statuscode ";
+            string loggedMessasge = "// Getting party with partyID 500000 failed with statuscode BadRequest";
 
             HttpResponseMessage httpResponseMessage = new()
             {
@@ -157,7 +157,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                x => x.Log(
                    LogLevel.Error,
                    It.IsAny<EventId>(),
-                   It.Is<It.IsAnyType>((o, t) => o.ToString().Contains(partOfLoggedMessasge)),
+                   It.Is<It.IsAnyType>((o, t) => o.ToString().Equals(loggedMessasge)),
                    It.IsAny<Exception>(),
                    It.IsAny<Func<It.IsAnyType, Exception, string>>()),
                Times.Once);
