@@ -44,9 +44,24 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\DbTools\DbTools.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="Altinn.Platform.Storage.Interface.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+  
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+	  <Exec
+		Command="$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools $(TargetDir)../../../Migration"
+		Condition="Exists('$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools') or Exists('$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools.exe')"
+    />
+	  <Exec
+		Command="/app_tools/DbTools ./Migration"
+		Condition="Exists('/app_tools/DbTools')"
+    />
+  </Target>  
 
 </Project>

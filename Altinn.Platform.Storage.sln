@@ -11,6 +11,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Altinn.Platform.Storage.Uni
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Altinn.Platform.Storage.Interface.Tests", "test\Altinn.Platform.Storage.Interface.Tests\Altinn.Platform.Storage.Interface.Tests.csproj", "{0AC2E38B-E7BA-4453-A800-2B524BF4E2DC}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DbTools", "src\DbTools\DbTools.csproj", "{115F1EEC-918A-40BF-AE46-60017B2D4F3F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{0AC2E38B-E7BA-4453-A800-2B524BF4E2DC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0AC2E38B-E7BA-4453-A800-2B524BF4E2DC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0AC2E38B-E7BA-4453-A800-2B524BF4E2DC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{115F1EEC-918A-40BF-AE46-60017B2D4F3F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{115F1EEC-918A-40BF-AE46-60017B2D4F3F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{115F1EEC-918A-40BF-AE46-60017B2D4F3F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{115F1EEC-918A-40BF-AE46-60017B2D4F3F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
