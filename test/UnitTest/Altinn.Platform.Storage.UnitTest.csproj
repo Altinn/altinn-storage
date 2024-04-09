@@ -61,17 +61,6 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<Compile Remove="data\apps\tdd\endring-av-navn\logic\**" />
-		<Compile Remove="data\roles\user_1 - Copy\**" />
-		<Content Remove="data\apps\tdd\endring-av-navn\logic\**" />
-		<Content Remove="data\roles\user_1 - Copy\**" />
-		<EmbeddedResource Remove="data\apps\tdd\endring-av-navn\logic\**" />
-		<EmbeddedResource Remove="data\roles\user_1 - Copy\**" />
-		<None Remove="data\apps\tdd\endring-av-navn\logic\**" />
-		<None Remove="data\roles\user_1 - Copy\**" />
-	</ItemGroup>
-
-	<ItemGroup>
 		<Content Remove="data\apps\tests-sailor.json" />
 		<Content Remove="data\m1000-instances.json" />
 		<Content Remove="data\response_deny.json" />
