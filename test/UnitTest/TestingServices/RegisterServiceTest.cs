@@ -154,11 +154,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
 
             // Assert
             _loggerRegisterService.Verify(
-                x => x.LogError(
-                    It.Is<string>(s => s == loggedMessasge),
-                    partyId,
-                    HttpStatusCode.BadRequest),
-                Times.Once);
+               x => x.Log(
+                   LogLevel.Error,
+                   It.IsAny<EventId>(),
+                   It.Is<It.IsAnyType>((o, t) => o.ToString().Equals(loggedMessasge)),
+                   It.IsAny<Exception>(),
+                   It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+               Times.Once);
         }
 
         [Fact]
