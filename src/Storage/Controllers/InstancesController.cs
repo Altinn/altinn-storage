@@ -192,7 +192,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             Dictionary<string, StringValues> queryParams = QueryHelpers.ParseQuery(Request.QueryString.Value);
-            if (instanceOwnerPartyId.HasValue || !instanceOwnerIdentifier.IsNullOrEmpty())
+            if (!instanceOwnerIdentifier.IsNullOrEmpty())
             {
                 queryParams["instanceOwner.partyId"] = new StringValues(instanceOwnerPartyId.ToString());
             }
