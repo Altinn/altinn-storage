@@ -4,12 +4,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-
-using Altinn.Common.AccessTokenClient.Services;
-using Altinn.Platform.Storage.Configuration;
-
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Options;
+using Altinn.Platform.Storage.Extensions;
 
 using Moq;
 using Moq.Protected;
@@ -44,11 +39,12 @@ namespace Altinn.Platform.Storage.Tests.Extensions
                 .ReturnsAsync(httpResponseMessage);
 
             HttpClient httpClient = new HttpClient(handlerMock.Object);
-            string requestUri = "http://example.com/api/resource";
+            httpClient.BaseAddress = new Uri("http://localhost:5101/register/api/v1/");
+            string requestUri = "/api/resource";
             HttpContent content = new StringContent("dummyContent");
 
             // Act
-            var response = await httpClient.PostAsync(requestUri, content);
+            var response = await httpClient.PostAsync("dummyAuthorizationToken", requestUri, content, "dummyPlatformAccessToken");
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -79,11 +75,12 @@ namespace Altinn.Platform.Storage.Tests.Extensions
                 .ReturnsAsync(httpResponseMessage);
 
             HttpClient httpClient = new HttpClient(handlerMock.Object);
-            string requestUri = "http://example.com/api/resource";
+            httpClient.BaseAddress = new Uri("http://localhost:5101/register/api/v1/");
+            string requestUri = "/api/resource";
             HttpContent content = new StringContent("dummyContent");
 
             // Act
-            var response = await httpClient.GetAsync(requestUri);
+            var response = await httpClient.GetAsync("dummyAuthorizationToken", requestUri, "dummyPlatformAccessToken");
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
