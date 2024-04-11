@@ -78,7 +78,7 @@ namespace Altinn.Platform.Storage.Services
             }
             else
             {
-                _logger.LogError("// Getting party with partyID {partyId} failed with statuscode {responseHttpStatusCode}", partyId, responseHttpStatusCode);
+                _logger.LogError("// Getting party with partyID {PartyId} failed with statuscode {ResponseHttpStatusCode}", partyId, responseHttpStatusCode);
             }
 
             return party;
