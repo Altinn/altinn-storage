@@ -19,6 +19,7 @@ namespace Altinn.Platform.Storage.Tests.Extensions
             var httpMessageHandler = new DelegatingHandlerStub(async (request, token) =>
             {
                 _httpRequest = request;
+                await Task.Yield();
                 return new HttpResponseMessage(HttpStatusCode.OK);
             });
 
