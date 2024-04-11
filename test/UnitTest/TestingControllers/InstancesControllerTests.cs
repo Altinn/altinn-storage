@@ -478,7 +478,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             HttpClient client = GetTestClient();
             string token = PrincipalUtil.GetToken(3, 1337);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            string expected = "Either InstanceOwnerPartyId or InstanceOwnerIdentifier must need to be defined.";
+            string expected = "Either InstanceOwnerPartyId or InstanceOwnerIdentifier need to be defined.";
 
             // Act
             HttpResponseMessage response = await client.GetAsync(requestUri);

@@ -164,7 +164,7 @@ namespace Altinn.Platform.Storage.Controllers
                 {
                     if (string.IsNullOrEmpty(instanceOwnerIdentifier))
                     {
-                        return BadRequest("Either InstanceOwnerPartyId or InstanceOwnerIdentifier must need to be defined.");
+                        return BadRequest("Either InstanceOwnerPartyId or InstanceOwnerIdentifier need to be defined.");
                     }
 
                     (string instanceOwnerIdType, string instanceOwnerIdValue) = InstanceHelper.GetIdentifierFromInstanceOwnerIdentifier(instanceOwnerIdentifier);
