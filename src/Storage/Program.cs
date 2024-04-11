@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Altinn.Common.AccessToken;
 using Altinn.Common.AccessToken.Configuration;
 using Altinn.Common.AccessToken.Services;
+using Altinn.Common.AccessTokenClient.Services;
 using Altinn.Common.PEP.Authorization;
 using Altinn.Common.PEP.Clients;
 using Altinn.Common.PEP.Configuration;
@@ -189,12 +190,13 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddHealthChecks().AddCheck<HealthCheck>("storage_health_check");
 
     services.AddHttpClient<AuthorizationApiClient>();
+    services.AddHttpClient<IRegisterService, RegisterService>();
 
     services.Configure<AzureStorageConfiguration>(config.GetSection("AzureStorageConfiguration"));
     services.Configure<GeneralSettings>(config.GetSection("GeneralSettings"));
     services.Configure<KeyVaultSettings>(config.GetSection("kvSetting"));
     services.Configure<PepSettings>(config.GetSection("PepSettings"));
-    services.Configure<PlatformSettings>(config.GetSection("PlatformSettings"));
+    services.Configure<Altinn.Platform.Storage.Configuration.PlatformSettings>(config.GetSection("PlatformSettings"));
     services.Configure<QueueStorageSettings>(config.GetSection("QueueStorageSettings"));
     services.Configure<AccessTokenSettings>(config.GetSection("AccessTokenSettings"));
     services.Configure<PostgreSqlSettings>(config.GetSection("PostgreSqlSettings"));
@@ -250,6 +252,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddTransient<IAuthorizationHandler, ScopeAccessHandler>();
     services.AddTransient<IAuthorizationHandler, ClaimAccessHandler>();
     services.AddTransient<IAuthorization, AuthorizationService>();
+    services.AddSingleton<IAccessTokenGenerator, AccessTokenGenerator>();
     services.AddTransient<IDataService, DataService>();
     services.AddTransient<IInstanceService, InstanceService>();
     services.AddTransient<IInstanceEventService, InstanceEventService>();

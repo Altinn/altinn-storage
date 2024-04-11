@@ -478,7 +478,32 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             HttpClient client = GetTestClient();
             string token = PrincipalUtil.GetToken(3, 1337);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            string expected = "InstanceOwnerPartyId must be defined.";
+            string expected = "Either InstanceOwnerPartyId or InstanceOwnerIdentifier need to be defined.";
+
+            // Act
+            HttpResponseMessage response = await client.GetAsync(requestUri);
+            string responseMessage = await response.Content.ReadAsStringAsync();
+
+            // Assert
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Contains(expected, responseMessage);
+        }
+
+        /// <summary>
+        /// Test case: Get Multiple instances without specifying instance owner partyId.
+        /// Expected: Returns status bad request.
+        /// </summary>
+        [Fact]
+        public async Task GetMany_UserRequestsInstancesNoPartyIdButWithWrongInstanceOwnerIdDefined_ReturnsBadRequest()
+        {
+            // Arrange
+            string requestUri = $"{BasePath}";
+
+            HttpClient client = GetTestClient();
+            string token = PrincipalUtil.GetToken(3, 1337);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", "something:3312321321");
+            string expected = "Invalid InstanceOwnerIdentifier.";
 
             // Act
             HttpResponseMessage response = await client.GetAsync(requestUri);

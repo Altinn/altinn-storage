@@ -24,6 +24,7 @@ using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
+using Microsoft.IdentityModel.Tokens;
 
 using Newtonsoft.Json;
 
@@ -46,6 +47,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IInstanceEventService _instanceEventService;
         private readonly string _storageBaseAndHost;
         private readonly GeneralSettings _generalSettings;
+        private readonly IRegisterService _registerService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="InstancesController"/> class
@@ -56,6 +58,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="logger">the logger</param>
         /// <param name="authorizationService">the authorization service.</param>
         /// <param name="instanceEventService">the instance event service.</param>
+        /// <param name="registerService">the instance register service.</param>
         /// <param name="settings">the general settings.</param>
         public InstancesController(
             IInstanceRepository instanceRepository,
@@ -64,6 +67,7 @@ namespace Altinn.Platform.Storage.Controllers
             ILogger<InstancesController> logger,
             IAuthorization authorizationService,
             IInstanceEventService instanceEventService,
+            IRegisterService registerService,
             IOptions<GeneralSettings> settings)
         {
             _instanceRepository = instanceRepository;
@@ -73,6 +77,7 @@ namespace Altinn.Platform.Storage.Controllers
             _storageBaseAndHost = $"{settings.Value.Hostname}/storage/api/v1/";
             _authorizationService = authorizationService;
             _instanceEventService = instanceEventService;
+            _registerService = registerService;
             _generalSettings = settings.Value;
         }
 
@@ -86,6 +91,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="processEndEvent">Process end state.</param>
         /// <param name="processEnded">Process ended value.</param>
         /// <param name="instanceOwnerPartyId">Instance owner id.</param>
+        /// <param name="instanceOwnerIdentifier">Instance owner identifier, i.e. Person:PersonNumber, Organisation:OrganisationNumber, Username:Username.</param>
         /// <param name="lastChanged">Last changed date.</param>
         /// <param name="created">Created time.</param>
         /// <param name="visibleAfter">The visible after date time.</param>
@@ -111,6 +117,7 @@ namespace Altinn.Platform.Storage.Controllers
             [FromQuery(Name = "process.endEvent")] string processEndEvent,
             [FromQuery(Name = "process.ended")] string processEnded,
             [FromQuery(Name = "instanceOwner.partyId")] int? instanceOwnerPartyId,
+            [FromHeader(Name = "X-Ai-InstanceOwnerIdentifier")] string instanceOwnerIdentifier,
             [FromQuery] string lastChanged,
             [FromQuery] string created,
             [FromQuery(Name = "visibleAfter")] string visibleAfter,
@@ -155,7 +162,22 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 if (instanceOwnerPartyId == null)
                 {
-                    return BadRequest("InstanceOwnerPartyId must be defined.");
+                    if (string.IsNullOrEmpty(instanceOwnerIdentifier))
+                    {
+                        return BadRequest("Either InstanceOwnerPartyId or InstanceOwnerIdentifier need to be defined.");
+                    }
+
+                    (string instanceOwnerIdType, string instanceOwnerIdValue) = InstanceHelper.GetIdentifierFromInstanceOwnerIdentifier(instanceOwnerIdentifier);
+
+                    if (string.IsNullOrEmpty(instanceOwnerIdType) || string.IsNullOrEmpty(instanceOwnerIdValue))
+                    {
+                        return BadRequest("Invalid InstanceOwnerIdentifier.");
+                    }
+
+                    string orgNo = instanceOwnerIdType == "organization" ? instanceOwnerIdValue : string.Empty;
+                    string person = instanceOwnerIdType == "person" ? instanceOwnerIdValue : string.Empty;
+
+                    instanceOwnerPartyId = await _registerService.PartyLookup(orgNo, person);
                 }
             }
             else
@@ -170,6 +192,10 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             Dictionary<string, StringValues> queryParams = QueryHelpers.ParseQuery(Request.QueryString.Value);
+            if (instanceOwnerPartyId > 0)
+            {
+                queryParams["instanceOwner.partyId"] = new StringValues(instanceOwnerPartyId.ToString());
+            }
 
             // filter out hard deleted instances if it isn't appOwner requesting instances
             if (!appOwnerRequestingInstances)

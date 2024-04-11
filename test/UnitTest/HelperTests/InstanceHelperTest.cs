@@ -539,5 +539,27 @@ namespace Altinn.Platform.Storage.UnitTest
             Assert.Equal(1337, actual.User.UserId);
             Assert.Equal("test.event", actual.EventType);
         }
+
+        [Theory]
+        [InlineData(null, "", "")]
+        [InlineData("", "", "")]
+        [InlineData("person12345", "", "")]
+        [InlineData("invalid:12345", "", "")]
+        [InlineData("PERSON:12345", "person", "12345")]
+        [InlineData("organization:  12345  ", "organization", "12345")]
+        [InlineData("  person:12345", "person", "12345")]
+        [InlineData("Person:12345", "person", "12345")]
+        [InlineData("organization: 123 45", "organization", "12345")]
+        [InlineData("organization:12345", "organization", "12345")]
+        [InlineData("Organization:67890", "organization", "67890")]
+        [InlineData(" Organization : 456 78", "organization", "45678")]
+        public void GetIdentifierFromInstanceOwnerIdentifier_ValidInput_ReturnsCorrectTuple(string instanceOwnerIdentifier, string expectedType, string expectedValue)
+        {
+            // Act
+            var result = InstanceHelper.GetIdentifierFromInstanceOwnerIdentifier(instanceOwnerIdentifier);
+
+            // Assert
+            Assert.Equal((expectedType, expectedValue), result);
+        }
     }
 }
