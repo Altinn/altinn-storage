@@ -22,7 +22,7 @@ namespace Altinn.Platform.Storage.Authorization
     {
         private readonly IPDP _pdp;
         private readonly IClaimsPrincipalProvider _claimsPrincipalProvider;
-        private readonly ILogger<IAuthorization> _logger;
+        private readonly ILogger<AuthorizationService> _logger;
 
         private const string XacmlResourceTaskId = "urn:altinn:task";
         private const string XacmlResourceEndId = "urn:altinn:end-event";
@@ -39,7 +39,7 @@ namespace Altinn.Platform.Storage.Authorization
         /// <param name="pdp">Policy decision point</param>
         /// <param name="claimsPrincipalProvider">A service providing access to the current <see cref="ClaimsPrincipal"/>.</param>
         /// <param name="logger">The logger</param>
-        public AuthorizationService(IPDP pdp, IClaimsPrincipalProvider claimsPrincipalProvider, ILogger<IAuthorization> logger)
+        public AuthorizationService(IPDP pdp, IClaimsPrincipalProvider claimsPrincipalProvider, ILogger<AuthorizationService> logger)
         {
             _pdp = pdp;
             _claimsPrincipalProvider = claimsPrincipalProvider;
