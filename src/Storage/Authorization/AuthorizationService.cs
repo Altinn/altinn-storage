@@ -22,7 +22,7 @@ namespace Altinn.Platform.Storage.Authorization
     {
         private readonly IPDP _pdp;
         private readonly IClaimsPrincipalProvider _claimsPrincipalProvider;
-        private readonly ILogger _logger;
+        private readonly ILogger<IAuthorization> _logger;
 
         private const string XacmlResourceTaskId = "urn:altinn:task";
         private const string XacmlResourceEndId = "urn:altinn:end-event";
