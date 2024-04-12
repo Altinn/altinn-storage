@@ -41,7 +41,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             _pdpSimpleMock = new Mock<IPDP>();
             _pdpMockSI = new PepWithPDPAuthorizationMockSI(_instanceRepository.Object);
             _authzService = new AuthorizationService(
-                _pdpMockSI, _claimsPrincipalProviderMock.Object, Mock.Of<ILogger<IAuthorization>>());
+                _pdpMockSI, _claimsPrincipalProviderMock.Object, Mock.Of<ILogger<AuthorizationService>>());
         }
 
         [Fact]
@@ -62,7 +62,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 .ReturnsAsync(res);
 
             var sut = new AuthorizationService(
-                _pdpSimpleMock.Object, _claimsPrincipalProviderMock.Object, Mock.Of<ILogger<IAuthorization>>());
+                _pdpSimpleMock.Object, _claimsPrincipalProviderMock.Object, Mock.Of<ILogger<AuthorizationService>>());
             await sut.GetDecisionForRequest(new XacmlJsonRequestRoot());
 
             _pdpSimpleMock.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Once());
