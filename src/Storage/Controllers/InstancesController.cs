@@ -351,7 +351,7 @@ namespace Altinn.Platform.Storage.Controllers
             XacmlJsonRequestRoot request;
             try
             {
-                request = DecisionHelper.CreateDecisionRequest(appInfo.Org, appInfo.Id.Split('/')[1], HttpContext.User, "instantiate", instanceOwnerPartyId, null, Request.Headers);
+                request = DecisionHelper.CreateDecisionRequest(appInfo.Org, appInfo.Id.Split('/')[1], HttpContext.User, "instantiate", instanceOwnerPartyId, null);
             }
             catch (Exception ex)
             {
