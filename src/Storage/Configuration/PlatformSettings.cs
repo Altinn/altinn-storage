@@ -1,5 +1,3 @@
-using System.Runtime.Serialization;
-
 namespace Altinn.Platform.Storage.Configuration
 {
     /// <summary>
@@ -12,15 +10,5 @@ namespace Altinn.Platform.Storage.Configuration
         /// Gets or sets the url for the Register API endpoint.
         /// </summary>
         public string ApiRegisterEndpoint { get; set; }
-
-        /// <summary>
-        /// Gets or sets the apps domain used to match events source
-        /// </summary>
-        public string AppsDomain { get; set; }
-
-        /// <summary>
-        /// The lifetime to cache subscriptions
-        /// </summary>
-        public int SubscriptionCachingLifetimeInSeconds { get; set; }
     }
 }
