@@ -202,7 +202,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
 
             GeneralSettings generalSettings = new GeneralSettings
             {
-                JwtCookieName = "AltinnStudioRuntime"
+                RuntimeCookieName = "AltinnStudioRuntime"
             };
 
             _generalSettings.Setup(s => s.Value).Returns(generalSettings);

@@ -66,7 +66,7 @@ namespace Altinn.Platform.Storage.Services
             Party party = null;
 
             string endpointUrl = $"parties/{partyId}";
-            string token = JwtTokenUtil.GetTokenFromContext(_httpContextAccessor.HttpContext, _generalSettings.JwtCookieName);
+            string token = JwtTokenUtil.GetTokenFromContext(_httpContextAccessor.HttpContext, _generalSettings.RuntimeCookieName);
             string accessToken = _accessTokenGenerator.GenerateAccessToken("platform", "events");
 
             HttpResponseMessage response = await _client.GetAsync(token, endpointUrl, accessToken);
@@ -91,7 +91,7 @@ namespace Altinn.Platform.Storage.Services
 
             PartyLookup partyLookup = new PartyLookup() { Ssn = person, OrgNo = orgNo };
 
-            string bearerToken = JwtTokenUtil.GetTokenFromContext(_httpContextAccessor.HttpContext, _generalSettings.JwtCookieName);
+            string bearerToken = JwtTokenUtil.GetTokenFromContext(_httpContextAccessor.HttpContext, _generalSettings.RuntimeCookieName);
             string accessToken = _accessTokenGenerator.GenerateAccessToken("platform", "storage");
 
             StringContent content = new StringContent(JsonSerializer.Serialize(partyLookup));
