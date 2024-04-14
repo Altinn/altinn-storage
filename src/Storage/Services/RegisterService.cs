@@ -42,10 +42,10 @@ namespace Altinn.Platform.Storage.Services
             IHttpContextAccessor httpContextAccessor,
             IAccessTokenGenerator accessTokenGenerator,
             IOptions<GeneralSettings> generalSettings,
-            IOptions<PlatformSettings> platformSettings,
+            IOptions<RegisterServiceSettings> registerServiceSettings,
             ILogger<RegisterService> logger)
         {
-            httpClient.BaseAddress = new Uri(platformSettings.Value.ApiRegisterEndpoint);
+            httpClient.BaseAddress = new Uri(registerServiceSettings.Value.ApiRegisterEndpoint);
             httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             _client = httpClient;
             _httpContextAccessor = httpContextAccessor;

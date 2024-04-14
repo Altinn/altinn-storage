@@ -196,7 +196,8 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.Configure<GeneralSettings>(config.GetSection("GeneralSettings"));
     services.Configure<KeyVaultSettings>(config.GetSection("kvSetting"));
     services.Configure<PepSettings>(config.GetSection("PepSettings"));
-    services.Configure<Altinn.Platform.Storage.Configuration.PlatformSettings>(config.GetSection("PlatformSettings"));
+    services.Configure<PlatformSettings>(config.GetSection("PlatformSettings"));
+    services.Configure<RegisterServiceSettings>(config.GetSection("RegisterServiceSettings"));
     services.Configure<QueueStorageSettings>(config.GetSection("QueueStorageSettings"));
     services.Configure<AccessTokenSettings>(config.GetSection("AccessTokenSettings"));
     services.Configure<PostgreSqlSettings>(config.GetSection("PostgreSqlSettings"));

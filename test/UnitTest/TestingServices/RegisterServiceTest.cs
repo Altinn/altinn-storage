@@ -26,7 +26,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
 {
     public class RegisterServiceTest
     {
-        private readonly Mock<IOptions<PlatformSettings>> _platformSettings;
+        private readonly Mock<IOptions<RegisterServiceSettings>> _registerServiceSettings;
         private readonly Mock<IOptions<GeneralSettings>> _generalSettings;
         private readonly Mock<HttpMessageHandler> _handlerMock;
         private readonly Mock<IHttpContextAccessor> _contextAccessor;
@@ -35,7 +35,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
 
         public RegisterServiceTest()
         {
-            _platformSettings = new Mock<IOptions<PlatformSettings>>();
+            _registerServiceSettings = new Mock<IOptions<RegisterServiceSettings>>();
             _generalSettings = new Mock<IOptions<GeneralSettings>>();
             _handlerMock = new Mock<HttpMessageHandler>(MockBehavior.Strict);
             _contextAccessor = new Mock<IHttpContextAccessor>();
@@ -71,7 +71,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 _contextAccessor.Object,
                 _accessTokenGenerator.Object,
                 _generalSettings.Object,
-                _platformSettings.Object,
+                _registerServiceSettings.Object,
                 new Mock<ILogger<RegisterService>>().Object);
 
             // Act
@@ -113,7 +113,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 _contextAccessor.Object,
                 _accessTokenGenerator.Object,
                 _generalSettings.Object,
-                _platformSettings.Object,
+                _registerServiceSettings.Object,
                 new Mock<ILogger<RegisterService>>().Object);
 
             // Act
@@ -146,7 +146,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 _contextAccessor.Object,
                 _accessTokenGenerator.Object,
                 _generalSettings.Object,
-                _platformSettings.Object,
+                _registerServiceSettings.Object,
                 _loggerRegisterService.Object);
 
             // Act
@@ -184,7 +184,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 _contextAccessor.Object,
                 _accessTokenGenerator.Object,
                 _generalSettings.Object,
-                _platformSettings.Object,
+                _registerServiceSettings.Object,
                 new Mock<ILogger<RegisterService>>().Object);
 
             // Act & Assert
@@ -193,12 +193,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
 
         private void InitializeMocks(HttpResponseMessage httpResponseMessage, Action<HttpRequestMessage> callback)
         {
-            PlatformSettings platformSettings = new PlatformSettings
+            RegisterServiceSettings registerServiceSettings = new RegisterServiceSettings
             {
                 ApiRegisterEndpoint = "http://localhost:5101/register/api/v1/"
             };
 
-            _platformSettings.Setup(s => s.Value).Returns(platformSettings);
+            _registerServiceSettings.Setup(s => s.Value).Returns(registerServiceSettings);
 
             GeneralSettings generalSettings = new GeneralSettings
             {
