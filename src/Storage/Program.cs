@@ -264,7 +264,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
 
     if (!string.IsNullOrEmpty(applicationInsightsConnectionString))
     {
-        services.AddSingleton(typeof(ITelemetryChannel), new ServerTelemetryChannel() { StorageFolder = "/tmp/logtelemetry" });
+        services.AddSingleton(typeof(ITelemetryChannel), new ServerTelemetryChannel() { StorageFolder = "tmp/logtelemetry" });
         services.AddApplicationInsightsTelemetry(new ApplicationInsightsServiceOptions
         {
             ConnectionString = applicationInsightsConnectionString,
@@ -337,7 +337,7 @@ void Configure(IConfiguration config)
     }
 
     ConsoleTraceService traceService = new() { IsDebugEnabled = true };
-  /*  string connectionString = string.Format(
+    string connectionString = string.Format(
         config.GetValue<string>("PostgreSqlSettings:AdminConnectionString"),
         config.GetValue<string>("PostgreSqlSettings:StorageDbAdminPwd"));
     app.UseYuniql(
@@ -351,7 +351,7 @@ void Configure(IConfiguration config)
             IsAutoCreateDatabase = false,
             IsDebug = true
         });
-  */
+
     app.UseSwagger(o => o.RouteTemplate = "storage/swagger/{documentName}/swagger.json");
 
     app.UseSwaggerUI(c =>
