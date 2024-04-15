@@ -264,7 +264,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
 
     if (!string.IsNullOrEmpty(applicationInsightsConnectionString))
     {
-        services.AddSingleton(typeof(ITelemetryChannel), new ServerTelemetryChannel() { StorageFolder = "tmp/logtelemetry" });
+        services.AddSingleton(typeof(ITelemetryChannel), new ServerTelemetryChannel() { StorageFolder = "7tmp/logtelemetry" });
         services.AddApplicationInsightsTelemetry(new ApplicationInsightsServiceOptions
         {
             ConnectionString = applicationInsightsConnectionString,
