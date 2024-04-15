@@ -254,6 +254,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddTransient<IAuthorizationHandler, ClaimAccessHandler>();
     services.AddTransient<IAuthorization, AuthorizationService>();
     services.AddSingleton<IAccessTokenGenerator, AccessTokenGenerator>();
+    services.AddSingleton<ISigningCredentialsResolver, SigningCredentialsResolver>();
     services.AddTransient<IDataService, DataService>();
     services.AddTransient<IInstanceService, InstanceService>();
     services.AddTransient<IInstanceEventService, InstanceEventService>();
@@ -336,7 +337,7 @@ void Configure(IConfiguration config)
     }
 
     ConsoleTraceService traceService = new() { IsDebugEnabled = true };
-    string connectionString = string.Format(
+  /*  string connectionString = string.Format(
         config.GetValue<string>("PostgreSqlSettings:AdminConnectionString"),
         config.GetValue<string>("PostgreSqlSettings:StorageDbAdminPwd"));
     app.UseYuniql(
@@ -350,7 +351,7 @@ void Configure(IConfiguration config)
             IsAutoCreateDatabase = false,
             IsDebug = true
         });
-
+  */
     app.UseSwagger(o => o.RouteTemplate = "storage/swagger/{documentName}/swagger.json");
 
     app.UseSwaggerUI(c =>
