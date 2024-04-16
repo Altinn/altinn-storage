@@ -256,13 +256,11 @@ namespace Altinn.Platform.Storage.Helpers
             /// <summary>
             /// Represents a person.
             /// </summary>
-            [EnumMember(Value = "person")]
             Person,
 
             /// <summary>
             /// Represents an organization.
             /// </summary>
-            [EnumMember(Value = "organisation")]
             Organisation
         }
 
@@ -301,16 +299,17 @@ namespace Altinn.Platform.Storage.Helpers
         /// <param name="instanceOwnerIdValue">The value of instance owner</param>
         public static (string Person, string Org) SeparatePersonAndOrgNo(string instanceOwnerIdType, string instanceOwnerIdValue)
         {
-            string ownerIdType = instanceOwnerIdType.ToLower();
-
-            if (ownerIdType == "person")
+            if (Enum.TryParse<PartyType>(instanceOwnerIdType, true, out PartyType partyType))
             {
-                return (instanceOwnerIdValue, null);
-            }
+                if (partyType == PartyType.Person)
+                {
+                    return (instanceOwnerIdValue, null);
+                }
 
-            if (ownerIdType == "organisation")
-            {
-                return (null, instanceOwnerIdValue);
+                if (partyType == PartyType.Organisation)
+                {
+                    return (null, instanceOwnerIdValue);
+                }
             }
 
             return (null, null);
