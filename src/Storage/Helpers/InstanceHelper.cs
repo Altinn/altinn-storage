@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Serialization;
 
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -248,6 +249,24 @@ namespace Altinn.Platform.Storage.Helpers
         }
 
         /// <summary>
+        /// Represents the type of a party.
+        /// </summary>
+        public enum PartyType
+        {
+            /// <summary>
+            /// Represents a person.
+            /// </summary>
+            [EnumMember(Value = "person")]
+            Person,
+
+            /// <summary>
+            /// Represents an organization.
+            /// </summary>
+            [EnumMember(Value = "organisation")]
+            Organisation
+        }
+
+        /// <summary>
         /// Parsing instanceOwnerIdentifier string and find the number type and value.
         /// </summary>
         /// <param name="instanceOwnerIdentifier">The list of applications</param>
@@ -267,9 +286,7 @@ namespace Altinn.Platform.Storage.Helpers
             string partyType = parts[0];
             string partyNumber = parts[1];
 
-            string[] partyTypeHayStack = ["person", "organization"];
-
-            if (Array.IndexOf(partyTypeHayStack, partyType) != -1)
+            if (Enum.TryParse<PartyType>(partyType, true, out _))
             {
                 return (partyType, partyNumber);
             }
