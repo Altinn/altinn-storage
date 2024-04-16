@@ -564,6 +564,7 @@ namespace Altinn.Platform.Storage.UnitTest
 
         [Theory]
         [InlineData("person", "123456789", "123456789", null)]
+        [InlineData("organisation", "123456789", null, "123456789")]
         [InlineData("organisation", null, null, null)]
         [InlineData("invalid_type", "value", null, null)]
         public void SeparatePersonAndOrgNo_ReturnsCorrectValues(string instanceOwnerIdType, string instanceOwnerIdValue, string expectedPersonNo, string expectedOrgNo)

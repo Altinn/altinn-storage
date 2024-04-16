@@ -253,9 +253,6 @@ namespace Altinn.Platform.Storage.Helpers
         /// <param name="instanceOwnerIdentifier">The list of applications</param>
         public static (string InstanceOwnerIdType, string InstanceOwnerIdValue) GetIdentifierFromInstanceOwnerIdentifier(string instanceOwnerIdentifier)
         {
-            string partyType = null;
-            string partyNumber = null;
-
             if (string.IsNullOrEmpty(instanceOwnerIdentifier))
             {
                 return (string.Empty, string.Empty);
@@ -267,8 +264,8 @@ namespace Altinn.Platform.Storage.Helpers
                 return (string.Empty, string.Empty);
             }
 
-            partyType = parts[0];
-            partyNumber = parts[1];
+            string partyType = parts[0];
+            string partyNumber = parts[1];
 
             string[] partyTypeHayStack = ["person", "organization"];
 
