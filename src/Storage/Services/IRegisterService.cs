@@ -18,9 +18,9 @@ namespace Altinn.Platform.Storage.Services
         /// <summary>
         /// Party lookup
         /// </summary>
-        /// <param name="orgNo">organisation number</param>
         /// <param name="person">f or d number</param>
+        /// <param name="orgNo">organisation number</param>
         /// <returns></returns>
-        Task<int> PartyLookup(string orgNo, string person);
+        Task<int> PartyLookup(string person, string orgNo);
     }
 }
