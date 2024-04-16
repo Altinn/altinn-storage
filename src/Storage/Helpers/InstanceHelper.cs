@@ -279,5 +279,27 @@ namespace Altinn.Platform.Storage.Helpers
 
             return (string.Empty, string.Empty);
         }
+
+        /// <summary>
+        /// Validate and separate person number and organisation number
+        /// </summary>
+        /// <param name="InstanceOwnerIdType">The type of instance owner ID</param>
+        /// <param name="InstanceOwnerIdValue">The value of instance owner</param>
+        public static (string Person, string Org) ValidateSsnAndOrgNo(string InstanceOwnerIdType, string InstanceOwnerIdValue)
+        {
+            string ownerIdType = InstanceOwnerIdType.ToLower();
+
+            if (ownerIdType == "person")
+            {
+                return (InstanceOwnerIdValue, null);
+            }
+
+            if (ownerIdType == "organization")
+            {
+                return (null, InstanceOwnerIdValue);
+            }
+
+            return (null, null);
+        }
     }
 }

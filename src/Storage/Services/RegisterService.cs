@@ -85,7 +85,7 @@ namespace Altinn.Platform.Storage.Services
         }
 
         /// <inheritdoc/>
-        public async Task<int> PartyLookup(string orgNo, string person)
+        public async Task<int> PartyLookup(string person, string orgNo)
         {
             string endpointUrl = "parties/lookup";
 

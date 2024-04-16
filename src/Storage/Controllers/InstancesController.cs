@@ -173,10 +173,9 @@ namespace Altinn.Platform.Storage.Controllers
                         return BadRequest("Invalid InstanceOwnerIdentifier.");
                     }
 
-                    string orgNo = instanceOwnerIdType == "organization" ? instanceOwnerIdValue : string.Empty;
-                    string person = instanceOwnerIdType == "person" ? instanceOwnerIdValue : string.Empty;
+                    (string person, string orgNo) = InstanceHelper.ValidateSsnAndOrgNo(instanceOwnerIdType, instanceOwnerIdValue);
 
-                    instanceOwnerPartyId = await _registerService.PartyLookup(orgNo, person);
+                    instanceOwnerPartyId = await _registerService.PartyLookup(person, orgNo);
                 }
             }
             else
