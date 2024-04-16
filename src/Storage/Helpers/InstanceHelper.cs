@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.Serialization;
 
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -246,22 +245,6 @@ namespace Altinn.Platform.Storage.Helpers
             }
 
             return hideSettings.HideOnTask.Contains(currentTask.ElementId);
-        }
-
-        /// <summary>
-        /// Represents the type of a party.
-        /// </summary>
-        public enum PartyType
-        {
-            /// <summary>
-            /// Represents a person.
-            /// </summary>
-            Person,
-
-            /// <summary>
-            /// Represents an organization.
-            /// </summary>
-            Organisation
         }
 
         /// <summary>
