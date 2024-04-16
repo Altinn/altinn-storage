@@ -283,20 +283,20 @@ namespace Altinn.Platform.Storage.Helpers
         /// <summary>
         /// Validate and separate person number and organisation number
         /// </summary>
-        /// <param name="InstanceOwnerIdType">The type of instance owner ID</param>
-        /// <param name="InstanceOwnerIdValue">The value of instance owner</param>
-        public static (string Person, string Org) ValidateSsnAndOrgNo(string InstanceOwnerIdType, string InstanceOwnerIdValue)
+        /// <param name="instanceOwnerIdType">The type of instance owner ID</param>
+        /// <param name="instanceOwnerIdValue">The value of instance owner</param>
+        public static (string Person, string Org) SeparatePersonAndOrgNo(string instanceOwnerIdType, string instanceOwnerIdValue)
         {
-            string ownerIdType = InstanceOwnerIdType.ToLower();
+            string ownerIdType = instanceOwnerIdType.ToLower();
 
             if (ownerIdType == "person")
             {
-                return (InstanceOwnerIdValue, null);
+                return (instanceOwnerIdValue, null);
             }
 
-            if (ownerIdType == "organization")
+            if (ownerIdType == "organisation")
             {
-                return (null, InstanceOwnerIdValue);
+                return (null, instanceOwnerIdValue);
             }
 
             return (null, null);
