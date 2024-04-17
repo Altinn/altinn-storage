@@ -515,6 +515,28 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         /// <summary>
+        /// Test case: Get Multiple instances with person number and without specifying instance owner partyId.
+        /// Expected: Returns internal server error.
+        /// </summary>
+        [Fact]
+        public async Task GetMany_UserRequestsInstancesNoPartyIdDefinedAndWithPerson_ReturnsInternalServerError()
+        {
+            // Arrange
+            string requestUri = $"{BasePath}";
+
+            HttpClient client = GetTestClient();
+            string token = PrincipalUtil.GetToken(3, 1337);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", "Person:33312321321");
+
+            // Act
+            HttpResponseMessage response = await client.GetAsync(requestUri);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        }
+
+        /// <summary>
         /// Test case: Get Multiple instances and specifying status.isHardDeleted=true.
         /// Expected: No instances included in response.
         /// </summary>
