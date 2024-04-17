@@ -551,6 +551,7 @@ namespace Altinn.Platform.Storage.UnitTest
         [InlineData("Person:12345", "person", "12345")]
         [InlineData("organisation: 123 45", "organisation", "12345")]
         [InlineData("organisation:12345", "organisation", "12345")]
+        [InlineData("organization:12345", "", "")]
         [InlineData("organisation:67890", "organisation", "67890")]
         [InlineData(" organisation : 456 78", "organisation", "45678")]
         public void GetIdentifierFromInstanceOwnerIdentifier_ValidInput_ReturnsCorrectTuple(string instanceOwnerIdentifier, string expectedType, string expectedValue)

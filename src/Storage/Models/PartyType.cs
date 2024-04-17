@@ -11,7 +11,7 @@ namespace Altinn.Platform.Storage.Models
         Person,
 
         /// <summary>
-        /// Represents an organization.
+        /// Represents an organisation.
         /// </summary>
         Organisation
     }
