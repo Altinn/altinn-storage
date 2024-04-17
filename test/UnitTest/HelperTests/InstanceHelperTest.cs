@@ -574,7 +574,7 @@ namespace Altinn.Platform.Storage.UnitTest
             var result = InstanceHelper.SeparatePersonAndOrgNo(instanceOwnerIdType, instanceOwnerIdValue);
 
             // Assert
-            Assert.Equal(expectedPersonNo, result.Person);
+            Assert.Equal(expectedPersonNo, result.PersonNo);
             Assert.Equal(expectedOrgNo, result.OrgNo);
         }
     }

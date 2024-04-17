@@ -280,7 +280,7 @@ namespace Altinn.Platform.Storage.Helpers
         /// </summary>
         /// <param name="instanceOwnerIdType">The type of instance owner ID</param>
         /// <param name="instanceOwnerIdValue">The value of instance owner</param>
-        public static (string Person, string OrgNo) SeparatePersonAndOrgNo(string instanceOwnerIdType, string instanceOwnerIdValue)
+        public static (string PersonNo, string OrgNo) SeparatePersonAndOrgNo(string instanceOwnerIdType, string instanceOwnerIdValue)
         {
             if (Enum.TryParse<PartyType>(instanceOwnerIdType, true, out PartyType partyType))
             {
