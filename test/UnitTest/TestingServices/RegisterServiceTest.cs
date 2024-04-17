@@ -94,7 +94,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 "\"name\": \"DDG Fitness\"," +
                 "\"isDeleted\": false," +
                 "\"onlyHierarchyElementWithNoAccess\": false," +
-                "\"organization\": {\"orgNumber\": \"897069650\",\"name\": \"DDG Fitness\",\"unitType\": \"AS\",\"telephoneNumber\": \"12345678\",\"mobileNumber\": \"92010000\",\"faxNumber\": \"92110000\",\"eMailAddress\": \"central@ddgfitness.no\",\"internetAddress\": \"http://ddgfitness.no\",\"mailingAddress\": \"Sofies Gate 1\",\"mailingPostalCode\": \"0170\",\"mailingPostalCity\": \"Oslo\",\"businessAddress\": \"Sofies Gate 1\",\"businessPostalCode\": \"0170\",\"businessPostalCity\": \"By\",\"unitStatus\": null},\"childParties\": null\r\n}";
+                "\"organisation\": {\"orgNumber\": \"897069650\",\"name\": \"DDG Fitness\",\"unitType\": \"AS\",\"telephoneNumber\": \"12345678\",\"mobileNumber\": \"92010000\",\"faxNumber\": \"92110000\",\"eMailAddress\": \"central@ddgfitness.no\",\"internetAddress\": \"http://ddgfitness.no\",\"mailingAddress\": \"Sofies Gate 1\",\"mailingPostalCode\": \"0170\",\"mailingPostalCity\": \"Oslo\",\"businessAddress\": \"Sofies Gate 1\",\"businessPostalCode\": \"0170\",\"businessPostalCity\": \"By\",\"unitStatus\": null},\"childParties\": null\r\n}";
 
             HttpResponseMessage httpResponseMessage = new()
             {
