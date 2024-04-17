@@ -520,7 +520,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Expected: Returns internal server error.
         /// </summary>
         [Fact]
-        public async Task GetMany_UserRequestsInstancesNoPartyIdDefinedAndWithPerson_ReturnsInternalServerError()
+        public async Task GetMany_UserRequestsInstancesNoPartyIdDefinedAndWithPerson_ReturnsOK()
         {
             // Arrange
             string requestUri = $"{BasePath}";
