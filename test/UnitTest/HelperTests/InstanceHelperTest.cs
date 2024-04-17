@@ -575,7 +575,7 @@ namespace Altinn.Platform.Storage.UnitTest
 
             // Assert
             Assert.Equal(expectedPersonNo, result.Person);
-            Assert.Equal(expectedOrgNo, result.Org);
+            Assert.Equal(expectedOrgNo, result.OrgNo);
         }
     }
 }
