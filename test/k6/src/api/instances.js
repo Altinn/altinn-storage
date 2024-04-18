@@ -42,6 +42,13 @@ export function getInstances(token, filters) {
   return http.get(endpoint, params);
 }
 
+//Api call to Storage:Instances to get an instance by person number and return response
+export function getInstanceByInstanceOwnerIdentifier(token, instanceOwnerIdentifierValue) {
+  var endpoint = config.platformStorage["instances"];
+  var params = apiHelper.buildHeaderWithBearerAndInstanceOwnerIdentifier(token, instanceOwnerIdentifierValue);
+  return http.get(endpoint, params);
+}
+
 //Api call to Storage:Instances to soft/hard delete an instance by id and return response
 export function deleteInstanceById(token, instanceId, hardDelete) {
   var endpoint = config.buildInstanceUrl(instanceId, "", "instanceid") + "?hard=" + hardDelete;

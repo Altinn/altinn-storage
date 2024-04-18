@@ -33,6 +33,18 @@ export function buildHeaderWithBearer(token) {
   return params;
 }
 
+export function buildHeaderWithBearerAndInstanceOwnerIdentifier(token, instanceOwnerIdentifierValue) {
+  var params = {
+    headers: {
+      Authorization: "Bearer " + token,
+      "Ocp-Apim-Subscription-Key": subscriptionKey,
+      "X-Ai-InstanceOwnerIdentifier": instanceOwnerIdentifierValue,
+    },
+  };
+
+  return params;
+}
+
 export function buildHeaderWithContentType(contentType) {
   var params = {
     headers: {

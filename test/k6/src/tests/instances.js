@@ -5,6 +5,8 @@
     -e env=*** `
     -e userId=*** `
     -e partyId=*** `
+    -e personNumber=*** `
+    -e orgNumber=*** `
     -e pid=*** `
     -e username=*** `
     -e userpwd=*** `
@@ -42,6 +44,8 @@ export function setup() {
   const username = __ENV.username;
   const userpassword = __ENV.userpwd;
   let partyId = __ENV.partyId;
+  const personNumber = __ENV.personNumber;
+  const orgNumber = __ENV.orgNumber;
 
   var scopes =
     "altinn:serviceowner/instances.read altinn:serviceowner/instances.write";
@@ -64,6 +68,8 @@ export function setup() {
     userToken: userToken,
     orgToken: orgToken,
     partyId: partyId,
+    personNumber: personNumber,
+    orgNumber: orgNumber,
     org: org,
     app: app,
   };
@@ -291,6 +297,50 @@ function TC11_HardDeleteInstance(data) {
   addErrorCount(success);
 }
 
+//TC12 - Get all instances for party looked up with a person number
+function TC12_GetInstances_ByPersonNumber(data) {
+  var instanceOwnerIdentifier = "Person:" + data.personNumber;
+  var res = instancesApi.getInstanceByInstanceOwnerIdentifier(data.userToken, instanceOwnerIdentifier);
+
+  var success = check(res, {
+    "TC12_GetInstances_ByPersonNumber: Get instance for party. Status is 200": (
+      r
+    ) => r.status === 200,
+  });
+  addErrorCount(success);
+
+  const firstInstance = JSON.parse(res.body).instances[0];
+  const instanceIdSplit = firstInstance["id"].split("/");
+
+  success = check(res, {
+    "TC12_GetInstances_ByPersonNumber: Get instance for party. InstanceId has expected format":
+      instanceIdSplit.length === 2,
+  });
+  addErrorCount(success);
+}
+
+//TC13 - Get all instances for party looked up with a person number
+function TC13_GetInstances_ByOrgNumber(data) {
+  var instanceOwnerIdentifier = "Organisation:" + data.orgNumber;
+  var res = instancesApi.getInstanceByInstanceOwnerIdentifier(data.userToken, instanceOwnerIdentifier);
+
+  var success = check(res, {
+    "TC13_GetInstances_ByOrgNumber: Get instance for party. Status is 200": (
+      r
+    ) => r.status === 200,
+  });
+  addErrorCount(success);
+
+  const firstInstance = JSON.parse(res.body).instances[0];
+  const instanceIdSplit = firstInstance["id"].split("/");
+
+  success = check(res, {
+    "TC13_GetInstances_ByOrgNumber: Get instance for party. InstanceId has expected format":
+      instanceIdSplit.length === 2,
+  });
+  addErrorCount(success);
+}
+
 /*
  * TC01_PostInstance
  * TC02_GetInstanceById
@@ -303,6 +353,8 @@ function TC11_HardDeleteInstance(data) {
  * TC09_CompleteConfirmInstance
  * TC10_SoftDeleteInstance
  * TC11_HardDeleteInstance
+ * TC12_GetInstances_ByPersonNumber
+ * TC13_GetInstances_ByOrgNumber
  */
 export default function (data) {
   try {
@@ -319,6 +371,8 @@ export default function (data) {
       TC09_CompleteConfirmInstance(data);
       TC10_SoftDeleteInstance(data);
       TC11_HardDeleteInstance(data);
+      TC12_GetInstances_ByPersonNumber(data);
+      TC13_GetInstances_ByOrgNumber(data);
     } else {
       // Limited test set for use case tests
       var instanceId = TC01_PostInstance(data);
@@ -326,6 +380,8 @@ export default function (data) {
       TC02_GetInstanceById(data);
       TC03_GetInstances_PartyFilter(data);
       TC11_HardDeleteInstance(data);
+      TC12_GetInstances_ByPersonNumber(data);
+      TC13_GetInstances_ByOrgNumber(data);
     }
   } catch (error) {
     addErrorCount(false);
