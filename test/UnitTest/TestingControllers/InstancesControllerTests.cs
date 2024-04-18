@@ -15,6 +15,7 @@ using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.Tests.Mocks;
 using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Mocks;
@@ -512,6 +513,60 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Assert
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             Assert.Contains(expected, responseMessage);
+        }
+
+        /// <summary>
+        /// Test case: Get Multiple instances with person number and without specifying instance owner partyId.
+        /// Expected: Returns internal server error.
+        /// </summary>
+        [Fact]
+        public async Task GetMany_UserRequestsInstancesNoPartyIdDefinedAndWithPerson_ReturnsOK()
+        {
+            // Arrange
+            string requestUri = $"{BasePath}";
+            int partyId = 1337;
+
+            Mock<IRegisterService> registerService = new Mock<IRegisterService>();
+            registerService.Setup(x => x.PartyLookup(It.Is<string>(p => p == "33312321321"), It.Is<string>(o => o == null))).ReturnsAsync(partyId);
+
+            HttpClient client = GetTestClient(null, registerService);
+            string token = PrincipalUtil.GetToken(3, partyId);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", "Person:33312321321");
+
+            // Act
+            HttpResponseMessage response = await client.GetAsync(requestUri);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            registerService.VerifyAll();
+        }
+
+        /// <summary>
+        /// Test case: Get Multiple instances with organisation number and without specifying instance owner partyId.
+        /// Expected: Returns internal server error.
+        /// </summary>
+        [Fact]
+        public async Task GetMany_UserRequestsInstancesNoPartyIdDefinedAndWithOrganisation_ReturnsOK()
+        {
+            // Arrange
+            string requestUri = $"{BasePath}";
+            int partyId = 1337;
+
+            Mock<IRegisterService> registerService = new Mock<IRegisterService>();
+            registerService.Setup(x => x.PartyLookup(It.Is<string>(p => p == null), It.Is<string>(o => o == "33312321321"))).ReturnsAsync(partyId);
+
+            HttpClient client = GetTestClient(null, registerService);
+            string token = PrincipalUtil.GetToken(3, partyId);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", "Organisation:33312321321");
+
+            // Act
+            HttpResponseMessage response = await client.GetAsync(requestUri);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            registerService.VerifyAll();
         }
 
         /// <summary>
@@ -1513,7 +1568,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             yield return new object[] { null };
         }
 
-        private HttpClient GetTestClient(Mock<IInstanceRepository> repositoryMock = null)
+        private HttpClient GetTestClient(Mock<IInstanceRepository> repositoryMock = null, Mock<IRegisterService> registerService = null)
         {
             // No setup required for these services. They are not in use by the InstanceController
             Mock<ISasTokenProvider> sasTokenProvider = new Mock<ISasTokenProvider>();
@@ -1536,8 +1591,14 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                         services.AddSingleton(repositoryMock.Object);
                     }
 
+                    if (registerService != null)
+                    {
+                        services.AddSingleton(registerService.Object);
+                    }
+
                     services.AddSingleton(sasTokenProvider.Object);
                     services.AddSingleton(keyVaultWrapper.Object);
+
                     services.AddSingleton<IPartiesWithInstancesClient, PartiesWithInstancesClientMock>();
                     services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
                     services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();

@@ -90,7 +90,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="processEndEvent">Process end state.</param>
         /// <param name="processEnded">Process ended value.</param>
         /// <param name="instanceOwnerPartyId">Instance owner id.</param>
-        /// <param name="instanceOwnerIdentifier">Instance owner identifier, i.e. Person:PersonNumber, Organisation:OrganisationNumber, Username:Username.</param>
+        /// <param name="instanceOwnerIdentifier">Instance owner identifier, i.e. Person:PersonNumber, Organisation:OrganisationNumber.</param>
         /// <param name="lastChanged">Last changed date.</param>
         /// <param name="created">Created time.</param>
         /// <param name="visibleAfter">The visible after date time.</param>
@@ -173,10 +173,9 @@ namespace Altinn.Platform.Storage.Controllers
                         return BadRequest("Invalid InstanceOwnerIdentifier.");
                     }
 
-                    string orgNo = instanceOwnerIdType == "organization" ? instanceOwnerIdValue : string.Empty;
-                    string person = instanceOwnerIdType == "person" ? instanceOwnerIdValue : string.Empty;
+                    (string person, string orgNo) = InstanceHelper.SeparatePersonAndOrgNo(instanceOwnerIdType, instanceOwnerIdValue);
 
-                    instanceOwnerPartyId = await _registerService.PartyLookup(orgNo, person);
+                    instanceOwnerPartyId = await _registerService.PartyLookup(person, orgNo);
                 }
             }
             else

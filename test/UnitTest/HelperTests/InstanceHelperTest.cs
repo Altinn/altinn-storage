@@ -546,13 +546,14 @@ namespace Altinn.Platform.Storage.UnitTest
         [InlineData("person12345", "", "")]
         [InlineData("invalid:12345", "", "")]
         [InlineData("PERSON:12345", "person", "12345")]
-        [InlineData("organization:  12345  ", "organization", "12345")]
+        [InlineData("organisation:  12345  ", "organisation", "12345")]
         [InlineData("  person:12345", "person", "12345")]
         [InlineData("Person:12345", "person", "12345")]
-        [InlineData("organization: 123 45", "organization", "12345")]
-        [InlineData("organization:12345", "organization", "12345")]
-        [InlineData("Organization:67890", "organization", "67890")]
-        [InlineData(" Organization : 456 78", "organization", "45678")]
+        [InlineData("organisation: 123 45", "organisation", "12345")]
+        [InlineData("organisation:12345", "organisation", "12345")]
+        [InlineData("organization:12345", "", "")]
+        [InlineData("organisation:67890", "organisation", "67890")]
+        [InlineData(" organisation : 456 78", "organisation", "45678")]
         public void GetIdentifierFromInstanceOwnerIdentifier_ValidInput_ReturnsCorrectTuple(string instanceOwnerIdentifier, string expectedType, string expectedValue)
         {
             // Act
@@ -560,6 +561,22 @@ namespace Altinn.Platform.Storage.UnitTest
 
             // Assert
             Assert.Equal((expectedType, expectedValue), result);
+        }
+
+        [Theory]
+        [InlineData("person", "123456789", "123456789", null)]
+        [InlineData("organisation", "123456789", null, "123456789")]
+        [InlineData("organisation", null, null, null)]
+        [InlineData("person", null, null, null)]
+        [InlineData("invalid_type", "value_not_returned", null, null)]
+        public void SeparatePersonAndOrgNo_ReturnsCorrectValues(string instanceOwnerIdType, string instanceOwnerIdValue, string expectedPersonNo, string expectedOrgNo)
+        {
+            // Arrange & Act
+            var result = InstanceHelper.SeparatePersonAndOrgNo(instanceOwnerIdType, instanceOwnerIdValue);
+
+            // Assert
+            Assert.Equal(expectedPersonNo, result.PersonNo);
+            Assert.Equal(expectedOrgNo, result.OrgNo);
         }
     }
 }

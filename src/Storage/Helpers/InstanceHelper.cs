@@ -253,9 +253,6 @@ namespace Altinn.Platform.Storage.Helpers
         /// <param name="instanceOwnerIdentifier">The list of applications</param>
         public static (string InstanceOwnerIdType, string InstanceOwnerIdValue) GetIdentifierFromInstanceOwnerIdentifier(string instanceOwnerIdentifier)
         {
-            string partyType = null;
-            string partyNumber = null;
-
             if (string.IsNullOrEmpty(instanceOwnerIdentifier))
             {
                 return (string.Empty, string.Empty);
@@ -267,17 +264,38 @@ namespace Altinn.Platform.Storage.Helpers
                 return (string.Empty, string.Empty);
             }
 
-            partyType = parts[0];
-            partyNumber = parts[1];
+            string partyType = parts[0];
+            string partyNumber = parts[1];
 
-            string[] partyTypeHayStack = ["person", "organization"];
-
-            if (Array.IndexOf(partyTypeHayStack, partyType) != -1)
+            if (Enum.TryParse<PartyType>(partyType, true, out _))
             {
                 return (partyType, partyNumber);
             }
 
             return (string.Empty, string.Empty);
+        }
+
+        /// <summary>
+        /// Validate and separate person number and organisation number
+        /// </summary>
+        /// <param name="instanceOwnerIdType">The type of instance owner ID</param>
+        /// <param name="instanceOwnerIdValue">The value of instance owner</param>
+        public static (string PersonNo, string OrgNo) SeparatePersonAndOrgNo(string instanceOwnerIdType, string instanceOwnerIdValue)
+        {
+            if (Enum.TryParse<PartyType>(instanceOwnerIdType, true, out PartyType partyType))
+            {
+                if (partyType == PartyType.Person)
+                {
+                    return (instanceOwnerIdValue, null);
+                }
+
+                if (partyType == PartyType.Organisation)
+                {
+                    return (null, instanceOwnerIdValue);
+                }
+            }
+
+            return (null, null);
         }
     }
 }
