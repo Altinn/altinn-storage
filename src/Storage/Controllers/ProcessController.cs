@@ -91,7 +91,6 @@ namespace Altinn.Platform.Storage.Controllers
 
             string action;
             
-
             switch (altinnTaskType)
             {
                 case "data":
