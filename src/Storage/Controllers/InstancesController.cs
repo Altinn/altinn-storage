@@ -138,7 +138,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (instanceOwnerPartyId.HasValue && !string.IsNullOrEmpty(instanceOwnerIdentifier))
             {
-                return BadRequest("Both InstanceOwnerPartyId and InstanceOwnerIdentifier cannot be present at the same time.");
+                return BadRequest("Both InstanceOwner.PartyId and InstanceOwnerIdentifier cannot be present at the same time.");
             }
 
             if (orgClaim != null)
