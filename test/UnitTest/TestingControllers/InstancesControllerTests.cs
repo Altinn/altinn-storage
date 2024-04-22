@@ -543,6 +543,32 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         /// <summary>
+        /// Test case: Get Multiple instances with person number and instance owner partyId.
+        /// Expected: Returns status bad request.
+        /// </summary>
+        [Fact]
+        public async Task GetMany_UserRequestsInstancesWithPartyIdDefinedAndWithPerson_ReturnsBadRequest()
+        {
+            // Arrange
+            string requestUri = $"{BasePath}?instanceOwner.partyId=1600";
+            int partyId = 1337;
+            string expected = "Both InstanceOwner.PartyId and InstanceOwnerIdentifier cannot be present at the same time.";
+
+            HttpClient client = GetTestClient();
+            string token = PrincipalUtil.GetToken(3, partyId);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", "Person:33312321321");
+
+            // Act
+            HttpResponseMessage response = await client.GetAsync(requestUri);
+            string responseMessage = await response.Content.ReadAsStringAsync();
+
+            // Assert
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Contains(expected, responseMessage);
+        }
+
+        /// <summary>
         /// Test case: Get Multiple instances with organisation number and without specifying instance owner partyId.
         /// Expected: Returns internal server error.
         /// </summary>
