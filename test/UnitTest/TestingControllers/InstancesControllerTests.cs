@@ -552,7 +552,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Arrange
             string requestUri = $"{BasePath}?instanceOwner.partyId=1600";
             int partyId = 1337;
-            string expected = "Both InstanceOwnerPartyId and InstanceOwnerIdentifier cannot be present at the same time.";
+            string expected = "Both InstanceOwner.PartyId and InstanceOwnerIdentifier cannot be present at the same time.";
 
             HttpClient client = GetTestClient();
             string token = PrincipalUtil.GetToken(3, partyId);
