@@ -136,6 +136,11 @@ namespace Altinn.Platform.Storage.Controllers
             string orgClaim = User.GetOrg();
             int? userId = User.GetUserIdAsInt();
 
+            if (instanceOwnerPartyId.HasValue && string.IsNullOrEmpty(instanceOwnerIdentifier))
+            {
+                return BadRequest("Both InstanceOwnerPartyId and InstanceOwnerIdentifier cannot be present at the same time.");
+            }
+
             if (orgClaim != null)
             {
                 if (!_authorizationService.UserHasRequiredScope(_generalSettings.InstanceReadScope))
