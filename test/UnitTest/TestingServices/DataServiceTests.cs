@@ -73,6 +73,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
 
             Guid id = Guid.NewGuid();
             string blobStoragePath = "/ttd/some-app";
+            byte[] blobStorageBytes = "whatever"u8.ToArray();
+            string expectedHashResult = "85738f8f9a7f1b04b5329c590ebcb9e425925c6d0984089c43a022de4f19c281";
+            
             DataElement dataElement = new DataElement
             {
                 Id = id.ToString(),
@@ -82,7 +85,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             dataRepositoryMock.Setup(drm => drm.Read(It.IsAny<Guid>(), It.IsAny<Guid>())).ReturnsAsync(dataElement);
             blobRepositoryMock.Setup(
                 drm => drm.ReadBlob(It.IsAny<string>(), blobStoragePath))
-                .ReturnsAsync(new MemoryStream(Encoding.UTF8.GetBytes("whatever")));
+                .ReturnsAsync(new MemoryStream(blobStorageBytes));
 
             DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object);
             
@@ -90,7 +93,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             (string fileHash, ServiceError serviceError) = await dataService.GenerateSha256Hash("ttd", Guid.NewGuid(), id);
 
             // Assert
-            Assert.NotNull(fileHash);
+            Assert.Equal(fileHash, expectedHashResult);
             Assert.Null(serviceError);
             dataRepositoryMock.VerifyAll();
         }
