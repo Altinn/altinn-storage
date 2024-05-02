@@ -395,6 +395,7 @@ namespace Altinn.Platform.Storage.Repository
             }
 
             instance.Data = dataElements;
+            tracker.Track();
             return ToExternal(instance);
         }
 
