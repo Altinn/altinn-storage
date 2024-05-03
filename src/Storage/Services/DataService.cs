@@ -91,8 +91,7 @@ namespace Altinn.Platform.Storage.Services
         /// <returns>String representation of the digest</returns>
         private static string FormatShaDigest(byte[] digest)
         {
-            var hexString = BitConverter.ToString(digest);
-            return hexString.Replace("-", string.Empty).ToLowerInvariant();
+            return Convert.ToHexString(digest).ToLowerInvariant();
         }
     }
 }
