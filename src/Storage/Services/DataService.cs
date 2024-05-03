@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Clients;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
@@ -68,8 +69,9 @@ namespace Altinn.Platform.Storage.Services
                 return (null, new ServiceError(404, $"Failed reading file, dataElementId: {dataElementId}"));
             }
 
-            using SHA256 sha256 = SHA256.Create();
-            return (BitConverter.ToString(sha256.ComputeHash(filestream)).Replace("-", string.Empty).ToLowerInvariant(), null);   
+            using var sha256 = SHA256.Create();
+            var digest = await sha256.ComputeHashAsync(filestream);
+            return (FormatShaDigest(digest), null);   
         }
 
         /// <inheritdoc/>
@@ -79,6 +81,17 @@ namespace Altinn.Platform.Storage.Services
             dataElement.Size = length;
             
             await _dataRepository.Create(dataElement, instanceInternalId);
+        }
+        
+        /// <summary>
+        /// Formats a SHA digest with common best best practice:<br/>
+        /// Lowercase hexadecimal representation without delimiters
+        /// </summary>
+        /// <param name="digest">The hash code (digest) to format</param>
+        /// <returns>String representation of the digest</returns>
+        private static string FormatShaDigest(byte[] digest)
+        {
+            return Convert.ToHexString(digest).ToLowerInvariant();
         }
     }
 }
