@@ -141,53 +141,69 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest("Both InstanceOwner.PartyId and InstanceOwnerIdentifier cannot be present at the same time.");
             }
 
-            switch ((orgClaim != null, userId != null))
+            if (orgClaim != null)
             {
-                case (true, _):
-                    if (!_authorizationService.UserHasRequiredScope(_generalSettings.InstanceReadScope))
+                if (!_authorizationService.UserHasRequiredScope(_generalSettings.InstanceReadScope))
+                {
+                    return Forbid();
+                }
+
+                if (string.IsNullOrEmpty(org) && string.IsNullOrEmpty(appId))
+                {
+                    return BadRequest("Org or AppId must be defined.");
+                }
+
+                org = string.IsNullOrEmpty(org) ? appId.Split('/')[0] : org;
+
+                if (!orgClaim.Equals(org, StringComparison.InvariantCultureIgnoreCase))
+                {
+                    return Forbid();
+                }
+
+                appOwnerRequestingInstances = true;
+
+                if (!string.IsNullOrEmpty(instanceOwnerIdentifier))
+                {
+                    string[] identifierParts = instanceOwnerIdentifier.Replace(" ", string.Empty).ToLower().Split(':');
+                    if (identifierParts.Length == 2 && identifierParts[0] == "organisation")
                     {
-                        return Forbid();
+                        (string instanceOwnerIdType, string instanceOwnerIdValue) = InstanceHelper.GetIdentifierFromInstanceOwnerIdentifier(instanceOwnerIdentifier);
+
+                        if (string.IsNullOrEmpty(instanceOwnerIdType) || string.IsNullOrEmpty(instanceOwnerIdValue))
+                        {
+                            return BadRequest("Invalid InstanceOwnerIdentifier.");
+                        }
+
+                        (string person, string orgNo) = InstanceHelper.SeparatePersonAndOrgNo(instanceOwnerIdType, instanceOwnerIdValue);
+
+                        instanceOwnerPartyId = await _registerService.PartyLookup(person, orgNo);
                     }
-
-                    if (string.IsNullOrEmpty(org) && string.IsNullOrEmpty(appId))
-                    {
-                        return BadRequest("Org or AppId must be defined.");
-                    }
-
-                    org = string.IsNullOrEmpty(org) ? appId.Split('/')[0] : org;
-
-                    if (!orgClaim.Equals(org, StringComparison.InvariantCultureIgnoreCase))
-                    {
-                        return Forbid();
-                    }
-
-                    appOwnerRequestingInstances = true;
-                    break;
-
-                case (false, true):
-                    break;
-
-                default:
-                    return BadRequest();
+                }
             }
-
-            if (instanceOwnerPartyId == null)
+            else if (userId != null)
             {
-                if (string.IsNullOrEmpty(instanceOwnerIdentifier))
+                if (instanceOwnerPartyId == null)
                 {
-                    return BadRequest("Either InstanceOwnerPartyId or InstanceOwnerIdentifier need to be defined.");
+                    if (string.IsNullOrEmpty(instanceOwnerIdentifier))
+                    {
+                        return BadRequest("Either InstanceOwnerPartyId or InstanceOwnerIdentifier need to be defined.");
+                    }
+
+                    (string instanceOwnerIdType, string instanceOwnerIdValue) = InstanceHelper.GetIdentifierFromInstanceOwnerIdentifier(instanceOwnerIdentifier);
+
+                    if (string.IsNullOrEmpty(instanceOwnerIdType) || string.IsNullOrEmpty(instanceOwnerIdValue))
+                    {
+                        return BadRequest("Invalid InstanceOwnerIdentifier.");
+                    }
+
+                    (string person, string orgNo) = InstanceHelper.SeparatePersonAndOrgNo(instanceOwnerIdType, instanceOwnerIdValue);
+
+                    instanceOwnerPartyId = await _registerService.PartyLookup(person, orgNo);
                 }
-
-                (string instanceOwnerIdType, string instanceOwnerIdValue) = InstanceHelper.GetIdentifierFromInstanceOwnerIdentifier(instanceOwnerIdentifier);
-
-                if (string.IsNullOrEmpty(instanceOwnerIdType) || string.IsNullOrEmpty(instanceOwnerIdValue))
-                {
-                    return BadRequest("Invalid InstanceOwnerIdentifier.");
-                }
-
-                (string person, string orgNo) = InstanceHelper.SeparatePersonAndOrgNo(instanceOwnerIdType, instanceOwnerIdValue);
-
-                instanceOwnerPartyId = await _registerService.PartyLookup(person, orgNo);
+            }
+            else
+            {
+                return BadRequest();
             }
 
             if (!string.IsNullOrEmpty(continuationToken))
