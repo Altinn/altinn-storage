@@ -141,37 +141,34 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest("Both InstanceOwner.PartyId and InstanceOwnerIdentifier cannot be present at the same time.");
             }
 
-            if (orgClaim != null)
+            switch ((orgClaim != null, userId != null))
             {
-                if (!_authorizationService.UserHasRequiredScope(_generalSettings.InstanceReadScope))
-                {
-                    return Forbid();
-                }
+                case (true, _):
+                    if (!_authorizationService.UserHasRequiredScope(_generalSettings.InstanceReadScope))
+                    {
+                        return Forbid();
+                    }
 
-                if (string.IsNullOrEmpty(org) && string.IsNullOrEmpty(appId))
-                {
-                    return BadRequest("Org or AppId must be defined.");
-                }
+                    if (string.IsNullOrEmpty(org) && string.IsNullOrEmpty(appId))
+                    {
+                        return BadRequest("Org or AppId must be defined.");
+                    }
 
-                org = string.IsNullOrEmpty(org) ? appId.Split('/')[0] : org;
+                    org = string.IsNullOrEmpty(org) ? appId.Split('/')[0] : org;
 
-                if (!orgClaim.Equals(org, StringComparison.InvariantCultureIgnoreCase))
-                {
-                    return Forbid();
-                }
+                    if (!orgClaim.Equals(org, StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        return Forbid();
+                    }
 
-                appOwnerRequestingInstances = true;
-            }
-            else if (userId != null)
-            {
-                if (instanceOwnerPartyId == null)
-                {
-                    return BadRequest("InstanceOwnerPartyId must be defined.");
-                }
-            }
-            else
-            {
-                return BadRequest();
+                    appOwnerRequestingInstances = true;
+                    break;
+
+                case (false, true):
+                    break;
+
+                default:
+                    return BadRequest();
             }
 
             if (instanceOwnerPartyId == null)
