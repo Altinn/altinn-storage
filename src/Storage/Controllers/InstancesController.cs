@@ -161,24 +161,6 @@ namespace Altinn.Platform.Storage.Controllers
                 }
 
                 appOwnerRequestingInstances = true;
-
-                if (!string.IsNullOrEmpty(instanceOwnerIdentifier))
-                {
-                    string[] identifierParts = instanceOwnerIdentifier.Replace(" ", string.Empty).ToLower().Split(':');
-                    if (identifierParts.Length == 2 && identifierParts[0] == "organisation")
-                    {
-                        (string instanceOwnerIdType, string instanceOwnerIdValue) = InstanceHelper.GetIdentifierFromInstanceOwnerIdentifier(instanceOwnerIdentifier);
-
-                        if (string.IsNullOrEmpty(instanceOwnerIdType) || string.IsNullOrEmpty(instanceOwnerIdValue))
-                        {
-                            return BadRequest("Invalid InstanceOwnerIdentifier.");
-                        }
-
-                        (string person, string orgNo) = InstanceHelper.SeparatePersonAndOrgNo(instanceOwnerIdType, instanceOwnerIdValue);
-
-                        instanceOwnerPartyId = await _registerService.PartyLookup(person, orgNo);
-                    }
-                }
             }
             else if (userId != null)
             {
