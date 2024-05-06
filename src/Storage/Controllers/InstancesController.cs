@@ -166,26 +166,31 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 if (instanceOwnerPartyId == null)
                 {
-                    if (string.IsNullOrEmpty(instanceOwnerIdentifier))
-                    {
-                        return BadRequest("Either InstanceOwnerPartyId or InstanceOwnerIdentifier need to be defined.");
-                    }
-
-                    (string instanceOwnerIdType, string instanceOwnerIdValue) = InstanceHelper.GetIdentifierFromInstanceOwnerIdentifier(instanceOwnerIdentifier);
-
-                    if (string.IsNullOrEmpty(instanceOwnerIdType) || string.IsNullOrEmpty(instanceOwnerIdValue))
-                    {
-                        return BadRequest("Invalid InstanceOwnerIdentifier.");
-                    }
-
-                    (string person, string orgNo) = InstanceHelper.SeparatePersonAndOrgNo(instanceOwnerIdType, instanceOwnerIdValue);
-
-                    instanceOwnerPartyId = await _registerService.PartyLookup(person, orgNo);
+                    return BadRequest("InstanceOwnerPartyId must be defined.");
                 }
             }
             else
             {
                 return BadRequest();
+            }
+
+            if (instanceOwnerPartyId == null)
+            {
+                if (string.IsNullOrEmpty(instanceOwnerIdentifier))
+                {
+                    return BadRequest("Either InstanceOwnerPartyId or InstanceOwnerIdentifier need to be defined.");
+                }
+
+                (string instanceOwnerIdType, string instanceOwnerIdValue) = InstanceHelper.GetIdentifierFromInstanceOwnerIdentifier(instanceOwnerIdentifier);
+
+                if (string.IsNullOrEmpty(instanceOwnerIdType) || string.IsNullOrEmpty(instanceOwnerIdValue))
+                {
+                    return BadRequest("Invalid InstanceOwnerIdentifier.");
+                }
+
+                (string person, string orgNo) = InstanceHelper.SeparatePersonAndOrgNo(instanceOwnerIdType, instanceOwnerIdValue);
+
+                instanceOwnerPartyId = await _registerService.PartyLookup(person, orgNo);
             }
 
             if (!string.IsNullOrEmpty(continuationToken))
