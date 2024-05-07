@@ -185,7 +185,22 @@ namespace Altinn.Platform.Storage.Controllers
 
                 (string person, string orgNo) = InstanceHelper.SeparatePersonAndOrgNo(instanceOwnerIdType, instanceOwnerIdValue);
 
-                instanceOwnerPartyId = await _registerService.PartyLookup(person, orgNo);
+                try
+                {
+                    instanceOwnerPartyId = await _registerService.PartyLookup(person, orgNo);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "An error occurred during PartyLookup with either person number: {person} or organisation number: {orgNo}", person, orgNo);
+
+                    QueryResponse<Instance> response = new()
+                    {
+                        Instances = new List<Instance>(),
+                        Count = 0,
+                    };
+
+                    return Ok(response);
+                }
             }
 
             if (!string.IsNullOrEmpty(continuationToken))
