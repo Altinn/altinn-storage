@@ -191,7 +191,7 @@ namespace Altinn.Platform.Storage.Controllers
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "An error occurred during PartyLookup with either person number: {person} or organisation number: {orgNo}", person, orgNo);
+                    _logger.LogError(ex, "An error occurred during PartyLookup with either person number: {Person} or organisation number: {OrgNo}", person, orgNo);
 
                     QueryResponse<Instance> response = new()
                     {
