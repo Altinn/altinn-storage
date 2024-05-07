@@ -195,8 +195,7 @@ namespace Altinn.Platform.Storage.Controllers
 
                     QueryResponse<Instance> response = new()
                     {
-                        Instances = new List<Instance>(),
-                        Count = 0,
+                        Instances = new List<Instance>()
                     };
 
                     return Ok(response);
