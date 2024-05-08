@@ -596,6 +596,33 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         /// <summary>
+        /// Test case: Get empty list of instances with wrong organisation number and without specifying instance owner partyId.
+        /// Expected: Returns empty list of instances with HTTP status OK.
+        /// </summary>
+        [Fact]
+        public async Task GetEmptyListOfInstances_UserRequestsInstancesNoPartyIdDefinedAndWithOrganisation_ReturnsOK()
+        {
+            // Arrange
+            string requestUri = $"{BasePath}";
+            int partyId = -1;
+
+            Mock<IRegisterService> registerService = new Mock<IRegisterService>();
+            registerService.Setup(x => x.PartyLookup(It.Is<string>(p => p == null), It.Is<string>(o => o == "33312321321"))).ReturnsAsync(partyId);
+
+            HttpClient client = GetTestClient(null, registerService);
+            string token = PrincipalUtil.GetToken(3, partyId);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", "Organisation:33312321321");
+
+            // Act
+            HttpResponseMessage response = await client.GetAsync(requestUri);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            registerService.VerifyAll();
+        }
+
+        /// <summary>
         /// Test case: Get Multiple instances and specifying status.isHardDeleted=true.
         /// Expected: No instances included in response.
         /// </summary>
