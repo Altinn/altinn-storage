@@ -164,7 +164,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         }
 
         [Fact]
-        public async Task PartyLookup_ResponseIsNotSuccessful_ReturnsMinusOne()
+        public async Task PartyLookup_ResponseIsNotFound_ReturnsMinusOne()
         {
             // Arrange
             HttpResponseMessage httpResponseMessage = new HttpResponseMessage

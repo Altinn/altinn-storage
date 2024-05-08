@@ -185,7 +185,7 @@ namespace Altinn.Platform.Storage.Controllers
 
                 (string person, string orgNo) = InstanceHelper.SeparatePersonAndOrgNo(instanceOwnerIdType, instanceOwnerIdValue);
 
-                instanceOwnerPartyId = await _registerService.PartyLookup(person, orgNo); 
+                instanceOwnerPartyId = _registerService.PartyLookup(person, orgNo).GetAwaiter().GetResult();
 
                 if (instanceOwnerPartyId < 0)
                 {
