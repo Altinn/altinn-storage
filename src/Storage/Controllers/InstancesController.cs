@@ -190,19 +190,16 @@ namespace Altinn.Platform.Storage.Controllers
                 {
                     instanceOwnerPartyId = await _registerService.PartyLookup(person, orgNo);
                 }
-                catch (Exception ex)
+                catch (PartyNotFoundException partyNotFoundException)
                 {
-                    if (ex.GetType() == typeof(PartyNotFoundException))
+                    _logger.LogError(partyNotFoundException, "PartyLookup returned NotFound with either person number: {Person} or organisation number: {OrgNo}", person, orgNo);
+
+                    QueryResponse<Instance> response = new()
                     {
-                        _logger.LogError(ex, "An error occurred during PartyLookup with either person number: {Person} or organisation number: {OrgNo}", person, orgNo);
+                        Instances = new List<Instance>()
+                    };
 
-                        QueryResponse<Instance> response = new()
-                        {
-                            Instances = new List<Instance>()
-                        };
-
-                        return Ok(response);
-                    }
+                    return Ok(response);
                 }
             }
 
