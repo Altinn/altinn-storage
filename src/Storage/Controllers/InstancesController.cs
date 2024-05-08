@@ -9,6 +9,7 @@ using Altinn.Common.PEP.Helpers;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Exceptions;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
@@ -191,14 +192,17 @@ namespace Altinn.Platform.Storage.Controllers
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "An error occurred during PartyLookup with either person number: {Person} or organisation number: {OrgNo}", person, orgNo);
-
-                    QueryResponse<Instance> response = new()
+                    if (ex.GetType() == typeof(PartyNotFoundException))
                     {
-                        Instances = new List<Instance>()
-                    };
+                        _logger.LogError(ex, "An error occurred during PartyLookup with either person number: {Person} or organisation number: {OrgNo}", person, orgNo);
 
-                    return Ok(response);
+                        QueryResponse<Instance> response = new()
+                        {
+                            Instances = new List<Instance>()
+                        };
+
+                        return Ok(response);
+                    }
                 }
             }
 
