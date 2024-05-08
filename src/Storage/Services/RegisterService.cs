@@ -107,8 +107,7 @@ namespace Altinn.Platform.Storage.Services
             }
             else if (response.StatusCode == HttpStatusCode.NotFound)
             {
-                string reason = await response.Content.ReadAsStringAsync();
-                _logger.LogWarning("// RegisterService // PartyLookup // Party not found. Response status code is {StatusCode}. \n Reason {Reason}.", response.StatusCode, reason);
+                _logger.LogWarning("// RegisterService // PartyLookup // Response status code is {StatusCode}.", response.StatusCode);
 
                 return -1;
             }
