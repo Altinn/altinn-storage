@@ -164,7 +164,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         }
 
         [Fact]
-        public async Task PartyLookup_ResponseIsNotSuccessful_PlatformExceptionThrown()
+        public async Task PartyLookup_ResponseIsNotSuccessful_PartyNotFoundException()
         {
             // Arrange
             HttpResponseMessage httpResponseMessage = new HttpResponseMessage
@@ -188,7 +188,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 new Mock<ILogger<RegisterService>>().Object);
 
             // Act & Assert
-            await Assert.ThrowsAsync<PlatformHttpException>(async () => { await target.PartyLookup("16069412345", null); });
+            await Assert.ThrowsAsync<PartyNotFoundException>(async () => { await target.PartyLookup("16069412345", null); });
         }
 
         private void InitializeMocks(HttpResponseMessage httpResponseMessage, Action<HttpRequestMessage> callback)
