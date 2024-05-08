@@ -105,7 +105,7 @@ namespace Altinn.Platform.Storage.Services
                 Party party = await response.Content.ReadFromJsonAsync<Party>(_serializerOptions);
                 return party.PartyId;
             }
-            else if (response.StatusCode == HttpStatusCode.NotFound)
+            else if (response.StatusCode == HttpStatusCode.NotFound || response.StatusCode == HttpStatusCode.NoContent)
             {
                 string reason = await response.Content.ReadAsStringAsync();
                 _logger.LogError("// RegisterService // PartyLookup // Party not found. Response status code is {StatusCode}. \n Reason {Reason}.", response.StatusCode, reason);
