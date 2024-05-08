@@ -9,7 +9,6 @@ using Altinn.Common.PEP.Helpers;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
-using Altinn.Platform.Storage.Exceptions;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
@@ -186,14 +185,10 @@ namespace Altinn.Platform.Storage.Controllers
 
                 (string person, string orgNo) = InstanceHelper.SeparatePersonAndOrgNo(instanceOwnerIdType, instanceOwnerIdValue);
 
-                try
-                {
-                    instanceOwnerPartyId = await _registerService.PartyLookup(person, orgNo);
-                }
-                catch (PartyNotFoundException partyNotFoundException)
-                {
-                    _logger.LogError(partyNotFoundException, "PartyLookup returned NotFound with either person number: {Person} or organisation number: {OrgNo}", person, orgNo);
+                instanceOwnerPartyId = await _registerService.PartyLookup(person, orgNo); 
 
+                if (instanceOwnerPartyId < 0)
+                {
                     QueryResponse<Instance> response = new()
                     {
                         Instances = new List<Instance>()
