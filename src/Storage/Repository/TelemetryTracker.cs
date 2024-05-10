@@ -81,6 +81,7 @@ namespace Altinn.Platform.Storage.Repository
         {
             if (!_tracked && disposing)
             {
+                _props.Add("Internal error", "Look for an exception log entry. If not present, TelemetryTracker.Track() is not called from application code, and the outcome is unknown.");
                 Track(false);
                 _tracked = true;
             }

@@ -164,12 +164,43 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         }
 
         [Fact]
-        public async Task PartyLookup_ResponseIsNotSuccessful_PlatformExceptionThrown()
+        public async Task PartyLookup_ResponseIsNotFound_ReturnsMinusOne()
         {
             // Arrange
             HttpResponseMessage httpResponseMessage = new HttpResponseMessage
             {
                 StatusCode = HttpStatusCode.NotFound,
+                Content = new StringContent(string.Empty)
+            };
+
+            HttpRequestMessage actualRequest = null;
+            void SetRequest(HttpRequestMessage request) => actualRequest = request;
+            InitializeMocks(httpResponseMessage, SetRequest);
+
+            HttpClient httpClient = new HttpClient(_handlerMock.Object);
+
+            RegisterService target = new RegisterService(
+                httpClient,
+                _contextAccessor.Object,
+                _accessTokenGenerator.Object,
+                _generalSettings.Object,
+                _registerServiceSettings.Object,
+                new Mock<ILogger<RegisterService>>().Object);
+            
+            // Act
+            int actual = await target.PartyLookup("16069412345", null);
+
+            // Assert
+            Assert.Equal(-1, actual);
+        }
+
+        [Fact]
+        public async Task PartyLookup_ResponseIsNotSuccessful_PlatformHttpException()
+        {
+            // Arrange
+            HttpResponseMessage httpResponseMessage = new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.Forbidden,
                 Content = new StringContent(string.Empty)
             };
 

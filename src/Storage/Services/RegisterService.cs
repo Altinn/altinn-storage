@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -16,6 +17,7 @@ using Altinn.Platform.Storage.Extensions;
 using AltinnCore.Authentication.Utils;
 
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -102,6 +104,12 @@ namespace Altinn.Platform.Storage.Services
             {
                 Party party = await response.Content.ReadFromJsonAsync<Party>(_serializerOptions);
                 return party.PartyId;
+            }
+            else if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                _logger.LogWarning("// RegisterService // PartyLookup // Response status code is {StatusCode}.", response.StatusCode);
+
+                return -1;
             }
             else
             {
