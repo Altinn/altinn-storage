@@ -184,20 +184,30 @@ namespace Altinn.Platform.Storage.Controllers
                     return BadRequest("Invalid InstanceOwnerIdentifier.");
                 }
 
+                string person = null;
+                string orgNo = null;
+
                 if (Enum.TryParse<PartyType>(instanceOwnerIdType, true, out PartyType partyType))
                 {
-                    if (partyType == PartyType.Person && instanceOwnerIdValue.Length != 11)
+                    if (partyType == PartyType.Person)
                     {
-                        return BadRequest("Person number needs to be exactly 11 digits.");
-                    }
+                        if (instanceOwnerIdValue.Length != 11)
+                        {
+                            return BadRequest("Person number needs to be exactly 11 digits.");
+                        }
 
-                    if (partyType == PartyType.Organisation && instanceOwnerIdValue.Length != 9)
+                        person = instanceOwnerIdValue;
+                    }
+                    else if (partyType == PartyType.Organisation)
                     {
-                        return BadRequest("Organisation number needs to be exactly 8 or 9 digits.");
+                        if (instanceOwnerIdValue.Length != 9)
+                        {
+                            return BadRequest("Organisation number needs to be exactly 8 or 9 digits.");
+                        }
+
+                        orgNo = instanceOwnerIdValue;
                     }
                 }
-
-                (string person, string orgNo) = InstanceHelper.SeparatePersonAndOrgNo(instanceOwnerIdType, instanceOwnerIdValue);
 
                 instanceOwnerPartyId = _registerService.PartyLookup(person, orgNo).GetAwaiter().GetResult();
 
