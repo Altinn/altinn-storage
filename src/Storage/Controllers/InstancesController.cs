@@ -183,6 +183,11 @@ namespace Altinn.Platform.Storage.Controllers
                     return BadRequest("Invalid InstanceOwnerIdentifier.");
                 }
 
+                if (instanceOwnerIdValue.Length != 11)
+                {
+                    return BadRequest("InstanceOwnerIdentifier value needs to be exactly 11 digits.");
+                }
+
                 (string person, string orgNo) = InstanceHelper.SeparatePersonAndOrgNo(instanceOwnerIdType, instanceOwnerIdValue);
 
                 instanceOwnerPartyId = _registerService.PartyLookup(person, orgNo).GetAwaiter().GetResult();
