@@ -12,6 +12,7 @@ using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 
@@ -183,9 +184,17 @@ namespace Altinn.Platform.Storage.Controllers
                     return BadRequest("Invalid InstanceOwnerIdentifier.");
                 }
 
-                if (instanceOwnerIdValue.Length != 11)
+                if (Enum.TryParse<PartyType>(instanceOwnerIdType, true, out PartyType partyType))
                 {
-                    return BadRequest("InstanceOwnerIdentifier value needs to be exactly 11 digits.");
+                    if (partyType == PartyType.Person && instanceOwnerIdValue.Length != 11)
+                    {
+                        return BadRequest("Person number needs to be exactly 11 digits.");
+                    }
+
+                    if (partyType == PartyType.Organisation && instanceOwnerIdValue.Length != 9)
+                    {
+                        return BadRequest("Organisation number needs to be exactly 8 or 9 digits.");
+                    }
                 }
 
                 (string person, string orgNo) = InstanceHelper.SeparatePersonAndOrgNo(instanceOwnerIdType, instanceOwnerIdValue);
