@@ -683,7 +683,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Expected: Controller throws 400 bad request.
         /// </summary>
         [Fact]
-        public async Task GetMany_UserRequestsInstancesNoPartyIdDefinedAndWithInvalidPerson_ThrowsBadRequest()
+        public async Task GetMany_UserRequestsInstancesNoPartyIdDefinedAndWithInvalidPerson_ReturnsBadRequest()
         {
             // Arrange
             string requestUri = $"{BasePath}";
