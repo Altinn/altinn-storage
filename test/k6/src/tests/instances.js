@@ -332,11 +332,14 @@ function TC13_GetInstances_ByOrgNumber(data) {
   addErrorCount(success);
 
   const firstInstance = JSON.parse(res.body).instances[0];
+  const orgnasationNumber = firstInstance.instanceOwner.organisationNumber;
   const instanceIdSplit = firstInstance["id"].split("/");
 
   success = check(res, {
     "TC13_GetInstances_ByOrgNumber: Get instance for party. InstanceId has expected format":
       instanceIdSplit.length === 2,
+      "TC13_GetInstances_ByOrgNumber: Get instance for party. Organisation number matches instanceOwner.organisationNumber":
+      orgnasationNumber === data.orgNumber,
   });
   addErrorCount(success);
 }
