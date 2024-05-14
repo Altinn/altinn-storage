@@ -16,6 +16,12 @@ namespace Altinn.Platform.Storage.Interface.Models
         public string SignatureDocumentDataType { get; set; }
 
         /// <summary>
+        /// The task which should be linked to this signature
+        /// </summary>
+        [JsonProperty(PropertyName = "generatedFromTask")]
+        public string GeneratedFromTask { get; set; } = string.Empty;
+        
+        /// <summary>
         /// List of dataElementSignatures
         /// </summary>
         [JsonProperty(PropertyName = "dataElementSignatures")]
