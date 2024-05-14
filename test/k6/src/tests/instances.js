@@ -319,7 +319,7 @@ function TC12_GetInstances_ByPersonNumber(data) {
   addErrorCount(success);
 }
 
-//TC13 - Get all instances for party looked up with a person number
+//TC13 - Get all instances for party looked up with an organisation number
 function TC13_GetInstances_ByOrgNumber(data) {
   var instanceOwnerIdentifier = "Organisation:" + data.orgNumber;
   var res = instancesApi.getInstanceByInstanceOwnerIdentifier(data.userToken, instanceOwnerIdentifier);
