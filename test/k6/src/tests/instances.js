@@ -5,17 +5,17 @@
     -e env=*** `
     -e userId=*** `
     -e partyId=*** `
-    -e orgNumber=*** `
     -e pid=*** `
     -e username=*** `
     -e userpwd=*** `
     -e org=ttd `
+    -e orgNumber=*** `
     -e app=*** `
     -e apimSubsKey=*** `
     -e tokenGeneratorUserName=*** `
     -e tokenGeneratorUserPwd=*** `
     -e runFullTestSet=true `
-    -e useTestTokenGenerator=true
+    -e useTestTokenGenerator=true `
 */
 import { check } from "k6";
 import * as setupToken from "../setup-token.js";
