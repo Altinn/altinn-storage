@@ -43,8 +43,9 @@ export function getInstances(token, filters) {
 }
 
 //Api call to Storage:Instances to get an instance by person number and return response
-export function getInstanceByInstanceOwnerIdentifier(token, instanceOwnerIdentifierValue) {
-  var endpoint = config.platformStorage["instances"];
+export function getInstanceByInstanceOwnerIdentifier(token, instanceOwnerIdentifierValue, org, app) {
+  var appId = org + "/" + app;
+  var endpoint = config.platformStorage["instances"] + "?appId=" + appId;
   var params = apiHelper.buildHeaderWithBearerAndInstanceOwnerIdentifier(token, instanceOwnerIdentifierValue);
   return http.get(endpoint, params);
 }

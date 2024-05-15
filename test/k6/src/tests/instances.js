@@ -5,7 +5,6 @@
     -e env=*** `
     -e userId=*** `
     -e partyId=*** `
-    -e personNumber=*** `
     -e orgNumber=*** `
     -e pid=*** `
     -e username=*** `
@@ -44,7 +43,6 @@ export function setup() {
   const username = __ENV.username;
   const userpassword = __ENV.userpwd;
   let partyId = __ENV.partyId;
-  const personNumber = __ENV.personNumber;
   const orgNumber = __ENV.orgNumber;
 
   var scopes =
@@ -68,7 +66,7 @@ export function setup() {
     userToken: userToken,
     orgToken: orgToken,
     partyId: partyId,
-    personNumber: personNumber,
+    personNumber: pid,
     orgNumber: orgNumber,
     org: org,
     app: app,
@@ -300,7 +298,7 @@ function TC11_HardDeleteInstance(data) {
 //TC12 - Get all instances for party looked up with a person number
 function TC12_GetInstances_ByPersonNumber(data) {
   var instanceOwnerIdentifier = "Person:" + data.personNumber;
-  var res = instancesApi.getInstanceByInstanceOwnerIdentifier(data.userToken, instanceOwnerIdentifier);
+  var res = instancesApi.getInstanceByInstanceOwnerIdentifier(data.userToken, instanceOwnerIdentifier, data.org, data.app);
 
   var success = check(res, {
     "TC12_GetInstances_ByPersonNumber: Get instance for party. Status is 200": (
@@ -322,7 +320,7 @@ function TC12_GetInstances_ByPersonNumber(data) {
 //TC13 - Get all instances for party looked up with an organisation number
 function TC13_GetInstances_ByOrgNumber(data) {
   var instanceOwnerIdentifier = "Organisation:" + data.orgNumber;
-  var res = instancesApi.getInstanceByInstanceOwnerIdentifier(data.userToken, instanceOwnerIdentifier);
+  var res = instancesApi.getInstanceByInstanceOwnerIdentifier(data.orgToken, instanceOwnerIdentifier, data.org, data.app);
 
   var success = check(res, {
     "TC13_GetInstances_ByOrgNumber: Get instance for party. Status is 200": (
