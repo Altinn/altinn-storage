@@ -202,7 +202,7 @@ namespace Altinn.Platform.Storage.Controllers
                     {
                         if (instanceOwnerIdValue.Length != 9)
                         {
-                            return BadRequest("Organisation number needs to be exactly 8 or 9 digits.");
+                            return BadRequest("Organisation number needs to be exactly 9 digits.");
                         }
 
                         orgNo = instanceOwnerIdValue;
