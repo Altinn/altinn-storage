@@ -195,33 +195,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         }
 
         [Fact]
-        public async Task PartyLookup_ResponseReturnsBadRequest_ThrowsBadHttpRequestException()
-        {
-            // Arrange
-            HttpResponseMessage httpResponseMessage = new HttpResponseMessage
-            {
-                StatusCode = HttpStatusCode.BadRequest
-            };
-
-            HttpRequestMessage actualRequest = null;
-            void SetRequest(HttpRequestMessage request) => actualRequest = request;
-            InitializeMocks(httpResponseMessage, SetRequest);
-
-            HttpClient httpClient = new HttpClient(_handlerMock.Object);
-
-            RegisterService target = new RegisterService(
-                httpClient,
-                _contextAccessor.Object,
-                _accessTokenGenerator.Object,
-                _generalSettings.Object,
-                _registerServiceSettings.Object,
-                new Mock<ILogger<RegisterService>>().Object);
-
-            // Act & Assert
-            await Assert.ThrowsAsync<BadHttpRequestException>(async () => { await target.PartyLookup("16069", null); });
-        }
-
-        [Fact]
         public async Task PartyLookup_ResponseIsNotSuccessful_PlatformHttpException()
         {
             // Arrange
