@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 
@@ -191,7 +192,7 @@ namespace Altinn.Platform.Storage.Controllers
                 {
                     if (partyType == PartyType.Person)
                     {
-                        if (instanceOwnerIdValue.Length != 11)
+                        if (!Regex.IsMatch(instanceOwnerIdValue, @"^\d{11}$"))
                         {
                             return BadRequest("Person number needs to be exactly 11 digits.");
                         }
@@ -200,7 +201,7 @@ namespace Altinn.Platform.Storage.Controllers
                     }
                     else if (partyType == PartyType.Organisation)
                     {
-                        if (instanceOwnerIdValue.Length != 9)
+                        if (!Regex.IsMatch(instanceOwnerIdValue, @"^\d{9}$"))
                         {
                             return BadRequest("Organisation number needs to be exactly 9 digits.");
                         }
