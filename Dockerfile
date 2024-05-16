@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0.204-alpine3.18 AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0.300-alpine3.18 AS build
 
 COPY src/Storage ./Storage
 COPY src/DbTools ./DbTools
@@ -12,7 +12,7 @@ WORKDIR ../Storage/
 RUN dotnet build ./Altinn.Platform.Storage.csproj -c Release -o /app_output
 RUN dotnet publish ./Altinn.Platform.Storage.csproj -c Release -o /app_output
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0.4-alpine3.18 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:8.0.5-alpine3.18 AS final
 EXPOSE 5010
 WORKDIR /app
 COPY --from=build /app_output .
