@@ -624,36 +624,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         /// <summary>
-        /// Test case: Get Multiple instances with an organisation number(which for some reason ended up in bad request in the register) and without specifying instance owner partyId.
-        /// Expected: Register service throws 400 bad request.
-        /// </summary>
-        [Fact]
-        public async Task GetMany_UserRequestsInstancesNoPartyIdDefinedAndWithOrganisation_ThrowsBadRequest()
-        {
-            // Arrange
-            string requestUri = $"{BasePath}";
-            int partyId = 1337;
-            string expectedExceptionMessage = "Exception response message.";
-
-            Mock<IRegisterService> registerService = new Mock<IRegisterService>();
-            registerService.Setup(x => x.PartyLookup(It.Is<string>(p => p == null), It.Is<string>(o => o == "333123213"))).Throws(new BadHttpRequestException(expectedExceptionMessage));
-
-            HttpClient client = GetTestClient(null, registerService);
-            string token = PrincipalUtil.GetToken(3, partyId);
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", "Organisation:333123213");
-
-            // Act
-            HttpResponseMessage response = await client.GetAsync(requestUri);
-            string responseMessage = await response.Content.ReadAsStringAsync();
-
-            // Assert
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains(expectedExceptionMessage, responseMessage);
-            registerService.VerifyAll();
-        }
-
-        /// <summary>
         /// Test case: Get Multiple instances with invalid organisation number and without specifying instance owner partyId.
         /// Expected: Controller returns 400 bad request.
         /// </summary>

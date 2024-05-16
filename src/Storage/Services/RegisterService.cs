@@ -111,13 +111,6 @@ namespace Altinn.Platform.Storage.Services
 
                 return -1;
             }
-            else if (response.StatusCode == HttpStatusCode.BadRequest)
-            {
-                string reason = await response.Content.ReadAsStringAsync();
-                _logger.LogWarning("// RegisterService // PartyLookup // Failed to lookup party in platform register. Response status code is {StatusCode}. \n Reason {Reason}.", response.StatusCode, reason);
-
-                throw new BadHttpRequestException(reason);
-            }
             else
             {
                 throw await PlatformHttpException.CreateAsync(response);
