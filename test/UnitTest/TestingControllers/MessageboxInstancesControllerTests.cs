@@ -835,7 +835,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Scenario:
         ///  Search instances with a search string that doesn't match any app title
         /// Expected:
-        ///  No applicationId is retrieved and the repository call is never called.
+        ///  appIds is empty
         /// Success:
         ///  Empty list is returned.
         /// </summary>
@@ -864,9 +864,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
             Assert.Equal(expectedCount, actual.Count);
-            instanceRepositoryMock.Verify(
-                ir => ir.GetInstancesFromQuery(It.IsAny<Dictionary<string, StringValues>>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<bool>()),
-                Times.Never);
         }
 
         /// <summary>
@@ -875,7 +872,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Expected:
         ///  A matching application is found and query parameters are transformed accordingly.
         /// Success:
-        ///  SearchString is removed and appId is included in query string
+        ///  appId is included in query string
         /// </summary>
         [Fact]
         public async Task Post_Search_MatchFoundForSearchString_OriginalQuerySuccesfullyConverted()
@@ -900,10 +897,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-            Assert.True(actual.ContainsKey("appId"));
-            actual.TryGetValue("appId", out StringValues actualAppid);
+            Assert.True(actual.ContainsKey("appIds"));
+            actual.TryGetValue("appIds", out StringValues actualAppid);
             Assert.Equal(expectedAppId, actualAppid[0]);
-            Assert.False(actual.ContainsKey("searchString"));
             instanceRepositoryMock.VerifyAll();
         }
 
@@ -913,7 +909,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Expected:
         ///  Two matching application are found and query parameters are transformed accordingly.
         /// Success:
-        ///  SearchString is removed and appId is included in query string.
+        ///  appId is included in query string.
         /// </summary>
         [Fact]
         public async Task Post_Search_MultipleMatchesFoundForSearchString_OriginalQuerySuccesfullyConverted()
@@ -938,10 +934,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-            Assert.True(actual.ContainsKey("appId"));
-            actual.TryGetValue("appId", out StringValues actualAppid);
+            Assert.True(actual.ContainsKey("appIds"));
+            actual.TryGetValue("appIds", out StringValues actualAppid);
             Assert.Equal(expectedCount, actualAppid.Count);
-            Assert.False(actual.ContainsKey("searchString"));
             instanceRepositoryMock.VerifyAll();
         }
 

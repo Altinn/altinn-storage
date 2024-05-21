@@ -21,7 +21,7 @@ namespace Altinn.Platform.Storage.Repository
     /// </summary>
     public class PgInstanceRepository: IInstanceRepository
     {
-        private const string _readSqlFilteredInitial = "select * from storage.readinstancefromquery_v2 (";
+        private const string _readSqlFilteredInitial = "select * from storage.readinstancefromquery_v3 (";
         private readonly string _deleteSql = "select * from storage.deleteinstance ($1)";
         private readonly string _insertSql = "call storage.insertinstance ($1, $2, $3, $4, $5, $6, $7, $8)";
         private readonly string _updateSql = "select * from storage.updateinstance_v2 (@_alternateid, @_toplevelsimpleprops, @_datavalues, @_completeconfirmations, @_presentationtexts, @_status, @_substatus, @_process, @_lastchanged, @_taskid)";
@@ -448,15 +448,10 @@ namespace Altinn.Platform.Storage.Repository
                         // handled outside this method
                         break;
                     case "appId":
-                        if (queryValues.Count == 1)
-                        {
-                            postgresParams.Add($"{GetPgParamName(queryParameter)}", queryValues[0]);
-                        }
-                        else
-                        {
-                            postgresParams.Add($"{GetPgParamName(queryParameter)}s", queryValues.ToArray());
-                        }
-
+                        postgresParams.Add($"{GetPgParamName(queryParameter)}", queryValues[0]);
+                        break;
+                    case "appIds":
+                        postgresParams.Add($"{GetPgParamName(queryParameter)}", queryValues.ToArray());
                         break;
                     case "excludeConfirmedBy":
                         postgresParams.Add(GetPgParamName(queryParameter), GetExcludeConfirmedBy(queryValues));
@@ -464,6 +459,9 @@ namespace Altinn.Platform.Storage.Repository
                     case "org":
                     case "process.currentTask":
                         postgresParams.Add(GetPgParamName(queryParameter), queryValues[0]);
+                        break;
+                    case "searchString":
+                        postgresParams.Add("_search_string", $"%{queryValues[0]}%");
                         break;
                     case "archiveReference":
                         postgresParams.Add(GetPgParamName(queryParameter), queryValues[0].ToLower());
@@ -569,6 +567,7 @@ namespace Altinn.Platform.Storage.Repository
             { "_process_ended_lt", NpgsqlDbType.Text },
             { "_process_ended_lte", NpgsqlDbType.Text },
             { "_process_isComplete", NpgsqlDbType.Boolean },
+            { "_search_string", NpgsqlDbType.Text },
             { "_size", NpgsqlDbType.Integer },
             { "_sort_ascending", NpgsqlDbType.Boolean },
             { "_status_isActiveOrSoftDeleted", NpgsqlDbType.Boolean },

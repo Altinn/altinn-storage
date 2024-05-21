@@ -83,17 +83,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (!string.IsNullOrEmpty(queryModel.SearchString))
             {
-                StringValues applicationIds = await MatchStringToAppTitle(queryModel.SearchString);
-                if (applicationIds.Count == 0 || (!string.IsNullOrEmpty(queryModel.AppId) && !applicationIds.Contains(queryModel.AppId)))
-                {
-                    return Ok(new List<MessageBoxInstance>());
-                }
-                else if (string.IsNullOrEmpty(queryModel.AppId))
-                {
-                    queryParams.Add("appId", applicationIds);
-                }
-
-                queryParams.Remove("searchString");
+                queryParams.Add("appIds", await MatchStringToAppTitle(queryModel.SearchString));
             }
 
             InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesFromQuery(queryParams, null, 100, false);

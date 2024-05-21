@@ -484,7 +484,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         }
 
         /// <summary>
-        /// Test GetInstancesFromQuery
+        /// Test GetInstancesFromQuery with appId
         /// </summary>
         [Fact]
         public async Task Instance_GetInstancesFromQuery_AppId_Ok()
@@ -500,6 +500,105 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
 
             // Assert
             Assert.Equal(1, instances.Count);
+        }
+
+        /// <summary>
+        /// Test GetInstancesFromQuery with PresentationFields, no match
+        /// </summary>
+        [Fact]
+        public async Task Instance_GetInstancesFromQuery_NoMatchFromPresentationFields_Ok()
+        {
+            // Arrange
+            Instance newInstance = TestData.Instance_1_1.Clone();
+            newInstance.PresentationTexts = new() { { "field1", "tjo" }, { "field2", "bing" } };
+            await _instanceFixture.InstanceRepo.Create(newInstance);
+
+            Dictionary<string, StringValues> queryParams = new()
+            {
+                { "searchString", new StringValues("nomatchj") },
+                { "appIds", new List<string>().ToArray() }
+            };
+
+            // Act
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100, true);
+
+            // Assert
+            Assert.Equal(0, instances.Count);
+        }
+
+        /// <summary>
+        /// Test GetInstancesFromQuery with PresentationFields, match
+        /// </summary>
+        [Fact]
+        public async Task Instance_GetInstancesFromQuery_MatchFromPresentationFields_Ok()
+        {
+            // Arrange
+            Instance newInstance = TestData.Instance_1_1.Clone();
+            newInstance.PresentationTexts = new() { { "field1", "tjo" }, { "field2", "bing" } };
+            await _instanceFixture.InstanceRepo.Create(newInstance);
+
+            Dictionary<string, StringValues> queryParams = new()
+            {
+                { "searchString", new StringValues("bing") },
+                { "appIds", new List<string>().ToArray() }
+            };
+
+            // Act
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100, true);
+
+            // Assert
+            Assert.Equal(1, instances.Count);
+        }
+
+        /// <summary>
+        /// Test GetInstancesFromQuery with appIds, match
+        /// </summary>
+        [Fact]
+        public async Task Instance_GetInstancesFromQuery_MatchFromAppIds_Ok()
+        {
+            // Arrange
+            Instance newInstance = TestData.Instance_1_1.Clone();
+            newInstance.PresentationTexts = new() { { "field1", "tjo" }, { "field2", "bing" } };
+            await _instanceFixture.InstanceRepo.Create(newInstance);
+
+            Dictionary<string, StringValues> queryParams = new()
+            {
+                { "searchString", new StringValues("nomatch") },
+                { "appIds", new List<string>() { "ttd/test-applikasjon-1", "ttd/test-applikasjon-2" }.ToArray() }
+            };
+
+            // Act
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100, true);
+
+            // Assert
+            Assert.Equal(1, instances.Count);
+        }
+
+        /// <summary>
+        /// Test GetInstancesFromQuery with appIds and presentation fields, match
+        /// </summary>
+        [Fact]
+        public async Task Instance_GetInstancesFromQuery_MatchFromAppIdsAndPresFields_Ok()
+        {
+            // Arrange
+            Instance newInstance1 = TestData.Instance_1_1.Clone();
+            Instance newInstance2 = TestData.Instance_1_2.Clone();
+            newInstance1.PresentationTexts = new() { { "field1", "tjo" }, { "field2", "bing" } };
+            newInstance2.AppId = "ttd/test-applikasjon-3";
+            await _instanceFixture.InstanceRepo.Create(newInstance1);
+            await _instanceFixture.InstanceRepo.Create(newInstance2);
+
+            Dictionary<string, StringValues> queryParams = new()
+            {
+                { "searchString", new StringValues("ing") },
+                { "appIds", new List<string>() { "ttd/test-applikasjon-3", "ttd/test-applikasjon-2" }.ToArray() }
+            };
+
+            // Act
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, null, 100, true);
+
+            // Assert
+            Assert.Equal(2, instances.Count);
         }
 
         /// <summary>
