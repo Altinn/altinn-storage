@@ -308,13 +308,15 @@ function TC12_GetInstances_ByPersonNumber(data) {
   addErrorCount(success);
 
   const firstInstance = JSON.parse(res.body).instances[0];
-  const instanceIdSplit = firstInstance["id"].split("/");
+  if (firstInstance) { // Making sure there actually exists instances for the instanceOwner
+    const instanceIdSplit = firstInstance["id"].split("/");
 
-  success = check(res, {
-    "TC12_GetInstances_ByPersonNumber: Get instance for party. InstanceId has expected format":
-      instanceIdSplit.length === 2,
-  });
-  addErrorCount(success);
+    success = check(res, {
+      "TC12_GetInstances_ByPersonNumber: Get instance for party. InstanceId has expected format":
+        instanceIdSplit.length === 2,
+    });
+    addErrorCount(success);
+  }
 }
 
 //TC13 - Get all instances for party looked up with an organisation number
@@ -330,16 +332,18 @@ function TC13_GetInstances_ByOrgNumber(data) {
   addErrorCount(success);
 
   const firstInstance = JSON.parse(res.body).instances[0];
-  const orgnasationNumber = firstInstance.instanceOwner.organisationNumber;
-  const instanceIdSplit = firstInstance["id"].split("/");
+  if (firstInstance) { // Making sure there actually exists instances for the instanceOwner
+    const orgnasationNumber = firstInstance.instanceOwner.organisationNumber;
+    const instanceIdSplit = firstInstance["id"].split("/");
 
-  success = check(res, {
-    "TC13_GetInstances_ByOrgNumber: Get instance for party. InstanceId has expected format":
-      instanceIdSplit.length === 2,
-      "TC13_GetInstances_ByOrgNumber: Get instance for party. Organisation number matches instanceOwner.organisationNumber":
-      orgnasationNumber === data.orgNumber,
-  });
-  addErrorCount(success);
+    success = check(res, {
+      "TC13_GetInstances_ByOrgNumber: Get instance for party. InstanceId has expected format":
+        instanceIdSplit.length === 2,
+        "TC13_GetInstances_ByOrgNumber: Get instance for party. Organisation number matches instanceOwner.organisationNumber":
+        orgnasationNumber === data.orgNumber,
+    });
+    addErrorCount(success);
+  }
 }
 
 /*
