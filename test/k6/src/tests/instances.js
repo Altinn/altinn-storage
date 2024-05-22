@@ -292,17 +292,17 @@ function TC11_GetInstances_ByPersonNumber(data) {
   // var res = instancesApi.getInstances(data.userToken, filters, options);
   var res = instancesApi.getInstances(data.userToken, filters, options);
 
-  var instances = JSON.parse(res.body).instances;
+  var dataBody = JSON.parse(res.body);
   var success = check(res, {
     "TC11_GetInstances_ByPersonNumber: Get instance for party. Status is 200": (
       r
     ) => r.status === 200,
     "TC11_GetInstances_ByPersonNumber: Instances exists for party.": 
-    instances.length > 0,
+    dataBody.count > 0,
   });
   addErrorCount(success);
   
-  const firstInstance = instances[0];
+  const firstInstance = dataBody.instances[0];
   const instanceIdSplit = firstInstance["id"].split("/");
 
   success = check(res, {
@@ -322,17 +322,18 @@ function TC12_GetInstances_ByOrgNumber(data) {
     "instanceOwnerIdentifier" : instanceOwnerIdentifier,
   };
   var res = instancesApi.getInstances(data.userToken, filters, options);
-  var instances = JSON.parse(res.body).instances;
+
+  var dataBody = JSON.parse(res.body);
   var success = check(res, {
     "TC12_GetInstances_ByOrgNumber: Get instance for party. Status is 200": (
       r
     ) => r.status === 200,
-    "TC12_GetInstances_ByOrgNumber: Instances exists for party.": 
-    instances.length > 0,
+    "TC12_GetInstances_ByOrgNumber: Instances exists for party.":
+    dataBody.count > 0,
   });
   addErrorCount(success);
 
-  const firstInstance = instances[0];
+  const firstInstance = dataBody.instances[0];
   const orgNumber = firstInstance.instanceOwner.organisationNumber;
   const instanceIdSplit = firstInstance["id"].split("/");
 
