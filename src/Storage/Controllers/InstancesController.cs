@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 
@@ -12,6 +13,7 @@ using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 
@@ -183,7 +185,32 @@ namespace Altinn.Platform.Storage.Controllers
                     return BadRequest("Invalid InstanceOwnerIdentifier.");
                 }
 
-                (string person, string orgNo) = InstanceHelper.SeparatePersonAndOrgNo(instanceOwnerIdType, instanceOwnerIdValue);
+                string person = null;
+                string orgNo = null;
+
+                if (Enum.TryParse<PartyType>(instanceOwnerIdType, true, out PartyType partyType))
+                {
+                    if (partyType == PartyType.Person)
+                    {
+                        Regex regex = InstanceOwnerIdRegExHelper.ElevenDigitRegex();
+                        if (!regex.IsMatch(instanceOwnerIdValue))
+                        {
+                            return BadRequest("Person number needs to be exactly 11 digits.");
+                        }
+
+                        person = instanceOwnerIdValue;
+                    }
+                    else if (partyType == PartyType.Organisation)
+                    {
+                        Regex regex = InstanceOwnerIdRegExHelper.NineDigitRegex();
+                        if (!regex.IsMatch(instanceOwnerIdValue))
+                        {
+                            return BadRequest("Organisation number needs to be exactly 9 digits.");
+                        }
+
+                        orgNo = instanceOwnerIdValue;
+                    }
+                }
 
                 instanceOwnerPartyId = _registerService.PartyLookup(person, orgNo).GetAwaiter().GetResult();
 

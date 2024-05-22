@@ -562,21 +562,5 @@ namespace Altinn.Platform.Storage.UnitTest
             // Assert
             Assert.Equal((expectedType, expectedValue), result);
         }
-
-        [Theory]
-        [InlineData("person", "123456789", "123456789", null)]
-        [InlineData("organisation", "123456789", null, "123456789")]
-        [InlineData("organisation", null, null, null)]
-        [InlineData("person", null, null, null)]
-        [InlineData("invalid_type", "value_not_returned", null, null)]
-        public void SeparatePersonAndOrgNo_ReturnsCorrectValues(string instanceOwnerIdType, string instanceOwnerIdValue, string expectedPersonNo, string expectedOrgNo)
-        {
-            // Arrange & Act
-            var result = InstanceHelper.SeparatePersonAndOrgNo(instanceOwnerIdType, instanceOwnerIdValue);
-
-            // Assert
-            Assert.Equal(expectedPersonNo, result.PersonNo);
-            Assert.Equal(expectedOrgNo, result.OrgNo);
-        }
     }
 }

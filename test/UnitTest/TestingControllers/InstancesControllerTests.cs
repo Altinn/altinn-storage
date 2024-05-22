@@ -26,6 +26,7 @@ using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
 
 using AltinnCore.Authentication.JwtCookie;
+using Microsoft.AspNetCore.Http;
 
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
@@ -580,12 +581,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             int partyId = 1337;
 
             Mock<IRegisterService> registerService = new Mock<IRegisterService>();
-            registerService.Setup(x => x.PartyLookup(It.Is<string>(p => p == null), It.Is<string>(o => o == "33312321321"))).ReturnsAsync(partyId);
+            registerService.Setup(x => x.PartyLookup(It.Is<string>(p => p == null), It.Is<string>(o => o == "333123213"))).ReturnsAsync(partyId);
 
             HttpClient client = GetTestClient(null, registerService);
             string token = PrincipalUtil.GetToken(3, partyId);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", "Organisation:33312321321");
+            client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", "Organisation:333123213");
 
             // Act
             HttpResponseMessage response = await client.GetAsync(requestUri);
@@ -607,12 +608,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             int partyId = -1;
 
             Mock<IRegisterService> registerService = new Mock<IRegisterService>();
-            registerService.Setup(x => x.PartyLookup(It.Is<string>(p => p == null), It.Is<string>(o => o == "33312321321"))).ReturnsAsync(partyId);
+            registerService.Setup(x => x.PartyLookup(It.Is<string>(p => p == null), It.Is<string>(o => o == "333123213"))).ReturnsAsync(partyId);
 
             HttpClient client = GetTestClient(null, registerService);
             string token = PrincipalUtil.GetToken(3, partyId);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", "Organisation:33312321321");
+            client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", "Organisation:333123213");
 
             // Act
             HttpResponseMessage response = await client.GetAsync(requestUri);
@@ -620,6 +621,58 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             registerService.VerifyAll();
+        }
+
+        /// <summary>
+        /// Test case: Get Multiple instances with invalid organisation number and without specifying instance owner partyId.
+        /// Expected: Controller returns 400 bad request.
+        /// </summary>
+        [Fact]
+        public async Task GetMany_UserRequestsInstancesNoPartyIdDefinedAndWithInvalidOrganisation_ReturnsBadRequest()
+        {
+            // Arrange
+            string requestUri = $"{BasePath}";
+            int partyId = 1337;
+            string expectedResponseMessage = "Organisation number needs to be exactly 9 digits.";
+
+            HttpClient client = GetTestClient(null, null);
+            string token = PrincipalUtil.GetToken(3, partyId);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", "Organisation:33312");
+
+            // Act
+            HttpResponseMessage response = await client.GetAsync(requestUri);
+            string responseMessage = await response.Content.ReadAsStringAsync();
+
+            // Assert
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Contains(expectedResponseMessage, responseMessage);
+        }
+
+        /// <summary>
+        /// Test case: Get Multiple instances with invalid organisation number and without specifying instance owner partyId.
+        /// Expected: Controller returns 400 bad request.
+        /// </summary>
+        [Fact]
+        public async Task GetMany_UserRequestsInstancesNoPartyIdDefinedAndWithInvalidPerson_ReturnsBadRequest()
+        {
+            // Arrange
+            string requestUri = $"{BasePath}";
+            int partyId = 1337;
+            string expectedResponseMessage = "Person number needs to be exactly 11 digits.";
+
+            HttpClient client = GetTestClient(null, null);
+            string token = PrincipalUtil.GetToken(3, partyId);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", "Person:33312");
+
+            // Act
+            HttpResponseMessage response = await client.GetAsync(requestUri);
+            string responseMessage = await response.Content.ReadAsStringAsync();
+
+            // Assert
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Contains(expectedResponseMessage, responseMessage);
         }
 
         /// <summary>

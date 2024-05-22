@@ -113,9 +113,6 @@ namespace Altinn.Platform.Storage.Services
             }
             else
             {
-                string reason = await response.Content.ReadAsStringAsync();
-                _logger.LogError("// RegisterService // PartyLookup // Failed to lookup party in platform register. Response status code is {StatusCode}. \n Reason {Reason}.", response.StatusCode, reason);
-
                 throw await PlatformHttpException.CreateAsync(response);
             }
         }

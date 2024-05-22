@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -274,28 +275,17 @@ namespace Altinn.Platform.Storage.Helpers
 
             return (string.Empty, string.Empty);
         }
+    }
 
-        /// <summary>
-        /// Validate and separate person number and organisation number
-        /// </summary>
-        /// <param name="instanceOwnerIdType">The type of instance owner ID</param>
-        /// <param name="instanceOwnerIdValue">The value of instance owner</param>
-        public static (string PersonNo, string OrgNo) SeparatePersonAndOrgNo(string instanceOwnerIdType, string instanceOwnerIdValue)
-        {
-            if (Enum.TryParse<PartyType>(instanceOwnerIdType, true, out PartyType partyType))
-            {
-                if (partyType == PartyType.Person)
-                {
-                    return (instanceOwnerIdValue, null);
-                }
+    /// <summary>
+    /// A helper class to validate instance owner ID with regular expression
+    /// </summary>
+    public static partial class InstanceOwnerIdRegExHelper
+    {
+        [GeneratedRegex(@"^\d{11}$", RegexOptions.None, matchTimeoutMilliseconds: 500)]
+        public static partial Regex ElevenDigitRegex();
 
-                if (partyType == PartyType.Organisation)
-                {
-                    return (null, instanceOwnerIdValue);
-                }
-            }
-
-            return (null, null);
-        }
+        [GeneratedRegex(@"^\d{9}$", RegexOptions.None, matchTimeoutMilliseconds: 500)]
+        public static partial Regex NineDigitRegex();
     }
 }
