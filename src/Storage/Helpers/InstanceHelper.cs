@@ -280,7 +280,7 @@ namespace Altinn.Platform.Storage.Helpers
     /// <summary>
     /// A helper class to validate instance owner ID with regular expression
     /// </summary>
-    public partial class InstanceOwnerIdRegExHelper
+    public static partial class InstanceOwnerIdRegExHelper
     {
         [GeneratedRegex(@"^\d{11}$", RegexOptions.None, matchTimeoutMilliseconds: 500)]
         public static partial Regex ElevenDigitRegex();
