@@ -280,28 +280,13 @@ function TC10_SoftDeleteInstance(data) {
   addErrorCount(success);
 }
 
-function TC11_HardDeleteInstance(data) {
-  var res = instancesApi.deleteInstanceById(
-    data.userToken,
-    data.instanceId,
-    true
-  );
-
-  var success = check(res, {
-    "TC11_HardDeleteInstance: Hard delete instance. Status is 200": (r) =>
-      r.status === 200,
-  });
-
-  addErrorCount(success);
-}
-
 //TC12 - Get all instances for party looked up with a person number
-function TC12_GetInstances_ByPersonNumber(data) {
+function TC11_GetInstances_ByPersonNumber(data) {
   var instanceOwnerIdentifier = "Person:" + data.personNumber;
   var res = instancesApi.getInstanceByInstanceOwnerIdentifier(data.userToken, instanceOwnerIdentifier, data.org, data.app);
 
   var success = check(res, {
-    "TC12_GetInstances_ByPersonNumber: Get instance for party. Status is 200": (
+    "TC11_GetInstances_ByPersonNumber: Get instance for party. Status is 200": (
       r
     ) => r.status === 200,
   });
@@ -312,7 +297,7 @@ function TC12_GetInstances_ByPersonNumber(data) {
     const instanceIdSplit = firstInstance["id"].split("/");
 
     success = check(res, {
-      "TC12_GetInstances_ByPersonNumber: Get instance for party. InstanceId has expected format":
+      "TC11_GetInstances_ByPersonNumber: Get instance for party. InstanceId has expected format":
         instanceIdSplit.length === 2,
     });
     addErrorCount(success);
@@ -320,12 +305,12 @@ function TC12_GetInstances_ByPersonNumber(data) {
 }
 
 //TC13 - Get all instances for party looked up with an organisation number
-function TC13_GetInstances_ByOrgNumber(data) {
+function TC12_GetInstances_ByOrgNumber(data) {
   var instanceOwnerIdentifier = "Organisation:" + data.orgNumber;
   var res = instancesApi.getInstanceByInstanceOwnerIdentifier(data.orgToken, instanceOwnerIdentifier, data.org, data.app);
 
   var success = check(res, {
-    "TC13_GetInstances_ByOrgNumber: Get instance for party. Status is 200": (
+    "TC12_GetInstances_ByOrgNumber: Get instance for party. Status is 200": (
       r
     ) => r.status === 200,
   });
@@ -337,13 +322,32 @@ function TC13_GetInstances_ByOrgNumber(data) {
     const instanceIdSplit = firstInstance["id"].split("/");
 
     success = check(res, {
-      "TC13_GetInstances_ByOrgNumber: Get instance for party. InstanceId has expected format":
+      "TC12_GetInstances_ByOrgNumber: Get instance for party. InstanceId has expected format":
         instanceIdSplit.length === 2,
-        "TC13_GetInstances_ByOrgNumber: Get instance for party. Organisation number matches instanceOwner.organisationNumber":
+        "TC12_GetInstances_ByOrgNumber: Get instance for party. Organisation number matches instanceOwner.organisationNumber":
         orgnasationNumber === data.orgNumber,
     });
     addErrorCount(success);
   }
+}
+
+// Here we are deleting instances,
+// hereby it would be better to
+// put/call this function at
+// the end of call chain 
+function TC99_HardDeleteInstance(data) {
+  var res = instancesApi.deleteInstanceById(
+    data.userToken,
+    data.instanceId,
+    true
+  );
+
+  var success = check(res, {
+    "TC99_HardDeleteInstance: Hard delete instance. Status is 200": (r) =>
+      r.status === 200,
+  });
+
+  addErrorCount(success);
 }
 
 /*
@@ -357,9 +361,9 @@ function TC13_GetInstances_ByOrgNumber(data) {
  * TC08_SetSubStatus
  * TC09_CompleteConfirmInstance
  * TC10_SoftDeleteInstance
- * TC11_HardDeleteInstance
- * TC12_GetInstances_ByPersonNumber
- * TC13_GetInstances_ByOrgNumber
+ * TC11_GetInstances_ByPersonNumber
+ * TC12_GetInstances_ByOrgNumber
+ * TC99_HardDeleteInstance
  */
 export default function (data) {
   try {
@@ -375,18 +379,18 @@ export default function (data) {
       TC08_SetSubStatus(data);
       TC09_CompleteConfirmInstance(data);
       TC10_SoftDeleteInstance(data);
-      TC11_HardDeleteInstance(data);
-      TC12_GetInstances_ByPersonNumber(data);
-      TC13_GetInstances_ByOrgNumber(data);
+      TC11_GetInstances_ByPersonNumber(data);
+      TC12_GetInstances_ByOrgNumber(data);
+      TC99_HardDeleteInstance(data);
     } else {
       // Limited test set for use case tests
       var instanceId = TC01_PostInstance(data);
       data.instanceId = instanceId;
       TC02_GetInstanceById(data);
       TC03_GetInstances_PartyFilter(data);
-      TC11_HardDeleteInstance(data);
-      TC12_GetInstances_ByPersonNumber(data);
-      TC13_GetInstances_ByOrgNumber(data);
+      TC11_GetInstances_ByPersonNumber(data);
+      TC12_GetInstances_ByOrgNumber(data);
+      TC99_HardDeleteInstance(data);
     }
   } catch (error) {
     addErrorCount(false);
