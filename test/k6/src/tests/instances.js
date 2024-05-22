@@ -280,7 +280,7 @@ function TC10_SoftDeleteInstance(data) {
   addErrorCount(success);
 }
 
-//TC12 - Get all instances for party looked up with a person number
+//TC11 - Get all instances for party looked up with a person number
 function TC11_GetInstances_ByPersonNumber(data) {
   var instanceOwnerIdentifier = "Person:" + data.personNumber;
   var filters = {
@@ -309,7 +309,7 @@ function TC11_GetInstances_ByPersonNumber(data) {
   addErrorCount(success);
 }
 
-//TC13 - Get all instances for party looked up with an organisation number
+//TC12 - Get all instances for party looked up with an organisation number
 function TC12_GetInstances_ByOrgNumber(data) {
   var instanceOwnerIdentifier = "Organisation:" + data.orgNumber;
   var filters = {
