@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -274,5 +275,17 @@ namespace Altinn.Platform.Storage.Helpers
 
             return (string.Empty, string.Empty);
         }
+    }
+
+    /// <summary>
+    /// A helper class to validate instance owner ID with regular expression
+    /// </summary>
+    public partial class InstanceOwnerIdRegExHelper
+    {
+        [GeneratedRegex(@"^\d{11}$", RegexOptions.None, matchTimeoutMilliseconds: 500)]
+        public static partial Regex ElevenDigitRegex();
+
+        [GeneratedRegex(@"^\d{9}$", RegexOptions.None, matchTimeoutMilliseconds: 500)]
+        public static partial Regex NineDigitRegex();
     }
 }

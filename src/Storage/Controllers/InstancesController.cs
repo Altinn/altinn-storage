@@ -192,7 +192,8 @@ namespace Altinn.Platform.Storage.Controllers
                 {
                     if (partyType == PartyType.Person)
                     {
-                        if (!Regex.IsMatch(instanceOwnerIdValue, @"^\d{11}$"))
+                        Regex regex = InstanceOwnerIdRegExHelper.ElevenDigitRegex();
+                        if (!regex.IsMatch(instanceOwnerIdValue))
                         {
                             return BadRequest("Person number needs to be exactly 11 digits.");
                         }
@@ -201,7 +202,8 @@ namespace Altinn.Platform.Storage.Controllers
                     }
                     else if (partyType == PartyType.Organisation)
                     {
-                        if (!Regex.IsMatch(instanceOwnerIdValue, @"^\d{9}$"))
+                        Regex regex = InstanceOwnerIdRegExHelper.NineDigitRegex();
+                        if (!regex.IsMatch(instanceOwnerIdValue))
                         {
                             return BadRequest("Organisation number needs to be exactly 9 digits.");
                         }
