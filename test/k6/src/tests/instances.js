@@ -292,14 +292,17 @@ function TC11_GetInstances_ByPersonNumber(data) {
   // var res = instancesApi.getInstances(data.userToken, filters, options);
   var res = instancesApi.getInstances(data.userToken, filters, options);
 
+  var instances = JSON.parse(res.body).instances;
   var success = check(res, {
     "TC11_GetInstances_ByPersonNumber: Get instance for party. Status is 200": (
       r
     ) => r.status === 200,
+    "TC11_GetInstances_ByPersonNumber: Instances exists for party.": 
+    instances.length > 0,
   });
   addErrorCount(success);
-
-  const firstInstance = JSON.parse(res.body).instances[0];
+  
+  const firstInstance = instances[0];
   const instanceIdSplit = firstInstance["id"].split("/");
 
   success = check(res, {
@@ -319,23 +322,25 @@ function TC12_GetInstances_ByOrgNumber(data) {
     "instanceOwnerIdentifier" : instanceOwnerIdentifier,
   };
   var res = instancesApi.getInstances(data.userToken, filters, options);
-
+  var instances = JSON.parse(res.body).instances;
   var success = check(res, {
     "TC12_GetInstances_ByOrgNumber: Get instance for party. Status is 200": (
       r
     ) => r.status === 200,
+    "TC12_GetInstances_ByOrgNumber: Instances exists for party.": 
+    instances.length > 0,
   });
   addErrorCount(success);
 
-  const firstInstance = JSON.parse(res.body).instances[0];
-  const orgnasationNumber = firstInstance.instanceOwner.organisationNumber;
+  const firstInstance = instances[0];
+  const orgNumber = firstInstance.instanceOwner.organisationNumber;
   const instanceIdSplit = firstInstance["id"].split("/");
 
   success = check(res, {
     "TC12_GetInstances_ByOrgNumber: Get instance for party. InstanceId has expected format":
       instanceIdSplit.length === 2,
       "TC12_GetInstances_ByOrgNumber: Get instance for party. Organisation number matches instanceOwner.organisationNumber":
-      orgnasationNumber === data.orgNumber,
+      orgNumber === data.orgNumber,
   });
   addErrorCount(success);
 }
