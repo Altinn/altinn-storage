@@ -15,7 +15,7 @@
     -e tokenGeneratorUserName=*** `
     -e tokenGeneratorUserPwd=*** `
     -e runFullTestSet=true `
-    -e useTestTokenGenerator=true `
+    -e useTestTokenGenerator=true
 */
 import { check } from "k6";
 import * as setupToken from "../setup-token.js";
