@@ -28,8 +28,8 @@ export function buildHeaderWithBearer(token, options = {}) {
     "Ocp-Apim-Subscription-Key": subscriptionKey,
   };
 
-  if (options.instanceOwnerIdentifierValue) {
-    headers["X-Ai-InstanceOwnerIdentifier"] = options.instanceOwnerIdentifierValue;
+  if (options.instanceOwnerIdentifier) {
+    headers["X-Ai-InstanceOwnerIdentifier"] = options.instanceOwnerIdentifier;
   }
 
   return { headers };
