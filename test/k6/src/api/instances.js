@@ -35,18 +35,10 @@ export function getInstanceById(token, instanceId) {
   return http.get(endpoint, params);
 }
 //Api call to Storage:Instances to get instances based on filter parameters and return response
-export function getInstances(token, filters) {
+export function getInstances(token, filters, options = {}) {
   var endpoint = config.platformStorage["instances"];
   endpoint += apiHelper.buildQueryParametersForEndpoint(filters);
-  var params = apiHelper.buildHeaderWithBearer(token);
-  return http.get(endpoint, params);
-}
-
-//Api call to Storage:Instances to get an instance by person number and return response
-export function getInstanceByInstanceOwnerIdentifier(token, instanceOwnerIdentifier, org, app) {
-  var appId = org + "/" + app;
-  var endpoint = config.platformStorage["instances"] + "?appId=" + appId;
-  var params = apiHelper.buildHeaderWithBearer(token, { "instanceOwnerIdentifier": instanceOwnerIdentifier });
+  var params = apiHelper.buildHeaderWithBearer(token, options);
   return http.get(endpoint, params);
 }
 

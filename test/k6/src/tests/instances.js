@@ -283,7 +283,14 @@ function TC10_SoftDeleteInstance(data) {
 //TC12 - Get all instances for party looked up with a person number
 function TC11_GetInstances_ByPersonNumber(data) {
   var instanceOwnerIdentifier = "Person:" + data.personNumber;
-  var res = instancesApi.getInstanceByInstanceOwnerIdentifier(data.userToken, instanceOwnerIdentifier, data.org, data.app);
+  var filters = {
+    "appId": data.org + "/" + data.app,
+  };
+  var options = {
+    "instanceOwnerIdentifier" : instanceOwnerIdentifier,
+  };
+  // var res = instancesApi.getInstances(data.userToken, filters, options);
+  var res = instancesApi.getInstances(data.userToken, filters, options);
 
   var success = check(res, {
     "TC11_GetInstances_ByPersonNumber: Get instance for party. Status is 200": (
@@ -307,7 +314,13 @@ function TC11_GetInstances_ByPersonNumber(data) {
 //TC13 - Get all instances for party looked up with an organisation number
 function TC12_GetInstances_ByOrgNumber(data) {
   var instanceOwnerIdentifier = "Organisation:" + data.orgNumber;
-  var res = instancesApi.getInstanceByInstanceOwnerIdentifier(data.orgToken, instanceOwnerIdentifier, data.org, data.app);
+  var filters = {
+    "appId": data.org + "/" + data.app,
+  };
+  var options = {
+    "instanceOwnerIdentifier" : instanceOwnerIdentifier,
+  };
+  var res = instancesApi.getInstances(data.userToken, filters, options);
 
   var success = check(res, {
     "TC12_GetInstances_ByOrgNumber: Get instance for party. Status is 200": (
