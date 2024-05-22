@@ -31,14 +31,14 @@ export function postInstance(token, partyId, org, app, serializedInstance) {
 //Api call to Storage:Instances to get an instance by id and return response
 export function getInstanceById(token, instanceId) {
   var endpoint = config.buildInstanceUrl(instanceId, "", "instanceid");
-  var params = apiHelper.buildHeaderWithBearer(token, "platform");
+  var params = apiHelper.buildHeaderWithBearer(token);
   return http.get(endpoint, params);
 }
 //Api call to Storage:Instances to get instances based on filter parameters and return response
 export function getInstances(token, filters) {
   var endpoint = config.platformStorage["instances"];
   endpoint += apiHelper.buildQueryParametersForEndpoint(filters);
-  var params = apiHelper.buildHeaderWithBearer(token, "platform");
+  var params = apiHelper.buildHeaderWithBearer(token);
   return http.get(endpoint, params);
 }
 
