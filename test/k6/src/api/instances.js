@@ -46,7 +46,7 @@ export function getInstances(token, filters) {
 export function getInstanceByInstanceOwnerIdentifier(token, instanceOwnerIdentifierValue, org, app) {
   var appId = org + "/" + app;
   var endpoint = config.platformStorage["instances"] + "?appId=" + appId;
-  var params = apiHelper.buildHeaderWithBearerAndInstanceOwnerIdentifier(token, instanceOwnerIdentifierValue);
+  var params = apiHelper.buildHeaderWithBearer(token, { instanceOwnerIdentifierValue: instanceOwnerIdentifierValue });
   return http.get(endpoint, params);
 }
 

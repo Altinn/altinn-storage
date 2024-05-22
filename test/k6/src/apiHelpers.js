@@ -22,27 +22,17 @@ export function buildQueryParametersForEndpoint(queryparams) {
   return query;
 }
 
-export function buildHeaderWithBearer(token) {
-  var params = {
-    headers: {
-      Authorization: "Bearer " + token,
-      "Ocp-Apim-Subscription-Key": subscriptionKey,
-    },
+export function buildHeaderWithBearer(token, options = {}) {
+  var headers = {
+    Authorization: "Bearer " + token,
+    "Ocp-Apim-Subscription-Key": subscriptionKey,
   };
 
-  return params;
-}
+  if (options.instanceOwnerIdentifierValue) {
+    headers["X-Ai-InstanceOwnerIdentifier"] = options.instanceOwnerIdentifierValue;
+  }
 
-export function buildHeaderWithBearerAndInstanceOwnerIdentifier(token, instanceOwnerIdentifierValue) {
-  var params = {
-    headers: {
-      Authorization: "Bearer " + token,
-      "Ocp-Apim-Subscription-Key": subscriptionKey,
-      "X-Ai-InstanceOwnerIdentifier": instanceOwnerIdentifierValue,
-    },
-  };
-
-  return params;
+  return { headers };
 }
 
 export function buildHeaderWithContentType(contentType) {
