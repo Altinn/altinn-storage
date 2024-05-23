@@ -301,15 +301,17 @@ function TC11_GetInstances_ByPersonNumber(data) {
     dataBody.count > 0,
   });
   addErrorCount(success);
-  
-  const firstInstance = dataBody.instances[0];
-  const instanceIdSplit = firstInstance["id"].split("/");
 
-  success = check(res, {
-    "TC11_GetInstances_ByPersonNumber: Get instance for party. InstanceId has expected format":
-      instanceIdSplit.length === 2,
-  });
-  addErrorCount(success);
+  if (dataBody.count > 0) { // If instance(s) exists
+    const firstInstance = dataBody.instances[0];
+    const instanceIdSplit = firstInstance["id"].split("/");
+
+    success = check(res, {
+      "TC11_GetInstances_ByPersonNumber: Get instance for party. InstanceId has expected format":
+        instanceIdSplit.length === 2,
+    });
+    addErrorCount(success);
+  }
 }
 
 //TC12 - Get all instances for party looked up with an organisation number
@@ -333,17 +335,19 @@ function TC12_GetInstances_ByOrgNumber(data) {
   });
   addErrorCount(success);
 
-  const firstInstance = dataBody.instances[0];
-  const orgNumber = firstInstance.instanceOwner.organisationNumber;
-  const instanceIdSplit = firstInstance["id"].split("/");
+  if (dataBody.count > 0) { // If instance(s) exists
+    const firstInstance = dataBody.instances[0];
+    const orgNumber = firstInstance.instanceOwner.organisationNumber;
+    const instanceIdSplit = firstInstance["id"].split("/");
 
-  success = check(res, {
-    "TC12_GetInstances_ByOrgNumber: Get instance for party. InstanceId has expected format":
-      instanceIdSplit.length === 2,
-      "TC12_GetInstances_ByOrgNumber: Get instance for party. Organisation number matches instanceOwner.organisationNumber":
-      orgNumber === data.orgNumber,
-  });
-  addErrorCount(success);
+    success = check(res, {
+      "TC12_GetInstances_ByOrgNumber: Get instance for party. InstanceId has expected format":
+        instanceIdSplit.length === 2,
+        "TC12_GetInstances_ByOrgNumber: Get instance for party. Organisation number matches instanceOwner.organisationNumber":
+        orgNumber === data.orgNumber,
+    });
+    addErrorCount(success);
+  }
 }
 
 // Here we are deleting instances,
