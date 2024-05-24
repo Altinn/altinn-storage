@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v2(
+CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v3(
     _appId TEXT DEFAULT NULL,
     _appIds TEXT[] DEFAULT NULL,
     _archiveReference TEXT DEFAULT NULL,
@@ -31,6 +31,7 @@ CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v2(
     _process_ended_lt TEXT DEFAULT NULL,
     _process_ended_lte TEXT DEFAULT NULL,
     _process_isComplete BOOLEAN DEFAULT NULL,
+    _search_string TEXT DEFAULT NULL,
     _size INTEGER DEFAULT 100,
     _sort_ascending BOOLEAN DEFAULT FALSE,
     _status_isActiveOrSoftDeleted BOOLEAN  DEFAULT NULL,
@@ -62,7 +63,6 @@ BEGIN
                 (_continue_idx > 0 AND _sort_ascending = true  AND (i.lastchanged > _lastChanged_idx OR (i.lastchanged = _lastChanged_idx AND i.id > _continue_idx))) OR
                 (_continue_idx > 0 AND _sort_ascending = false AND (i.lastchanged < _lastChanged_idx OR (i.lastchanged = _lastChanged_idx AND i.id < _continue_idx))))
             AND (_appId IS NULL OR i.appid = _appId)
-            AND (_appIds IS NULL OR i.appid = ANY(_appIds))
             AND (_archiveReference IS NULL OR i.instance ->> 'Id' like '%' || _archiveReference)		
             AND (_created_gte IS NULL OR i.created >= _created_gte)
             AND (_created_gt  IS NULL OR i.created >  _created_gt)
@@ -90,6 +90,7 @@ BEGIN
             AND (_process_ended_lt  IS NULL OR i.instance -> 'Process' ->> 'Ended' <  _process_ended_lt)
             AND (_process_ended_eq  IS NULL OR i.instance -> 'Process' ->> 'Ended' =  _process_ended_eq)
             AND (_process_isComplete IS NULL OR (_process_isComplete = TRUE AND i.instance -> 'Process' -> 'Ended' IS NOT NULL) OR (_process_isComplete = FALSE AND i.instance -> 'Process' -> 'CurrentTask' IS NOT NULL))
+            AND (_search_string IS NULL OR (i.appid = ANY(_appIds) OR (EXISTS (SELECT value FROM jsonb_each_text(i.instance -> 'PresentationTexts') WHERE value ilike _search_string))))
             AND ((_status_isActiveOrSoftDeleted IS NULL OR _status_isActiveOrSoftDeleted = false) OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = false OR (i.instance -> 'Status' -> 'IsSoftDeleted')::boolean = true))           
             AND (_status_isArchived IS NULL OR  (i.instance -> 'Status' -> 'IsArchived')::boolean = _status_isArchived)
             AND ((_status_isArchivedOrSoftDeleted IS NULL OR _status_isArchivedOrSoftDeleted = false) OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = true OR (i.instance -> 'Status' -> 'IsSoftDeleted')::boolean = true))                
