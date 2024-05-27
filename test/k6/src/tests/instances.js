@@ -82,7 +82,7 @@ function TC01_PostInstance(data) {
   };
 
   var res = instancesApi.postInstance(
-    data.userToken,
+    data.orgToken,
     data.partyId,
     data.org,
     data.app,
@@ -287,15 +287,15 @@ function TC10_SoftDeleteInstance(data) {
 
 //TC11 - Get all instances for party looked up with a person number
 function TC11_GetInstances_ByPersonNumber(data) {
-  var instanceOwnerIdentifier = "Person:" + data.personNumber;
+  var instanceOwnerIdentifier = `Person:${data.personNumber}`;
   var filters = {
-    "appId": data.org + "/" + data.app,
+    "appId": `${data.org}/${data.app}`,
   };
   var options = {
     "instanceOwnerIdentifier" : instanceOwnerIdentifier,
   };
-  // var res = instancesApi.getInstances(data.userToken, filters, options);
-  var res = instancesApi.getInstances(data.userToken, filters, options);
+
+  var res = instancesApi.getInstances(data.orgToken, filters, options);
 
   var dataBody = JSON.parse(res.body);
   var success = check(res, {
@@ -321,14 +321,14 @@ function TC11_GetInstances_ByPersonNumber(data) {
 
 //TC12 - Get all instances for party looked up with an organisation number
 function TC12_GetInstances_ByOrgNumber(data) {
-  var instanceOwnerIdentifier = "Organisation:" + data.orgNumber;
+  var instanceOwnerIdentifier = `Organisation:${data.orgNumber}`;
   var filters = {
-    "appId": data.org + "/" + data.app,
+    "appId": `${data.org}/${data.app}`,
   };
   var options = {
     "instanceOwnerIdentifier" : instanceOwnerIdentifier,
   };
-  var res = instancesApi.getInstances(data.userToken, filters, options);
+  var res = instancesApi.getInstances(data.orgToken, filters, options);
 
   var dataBody = JSON.parse(res.body);
   var success = check(res, {
