@@ -28,7 +28,7 @@ export function postInstance(token, partyId, org, app, serializedInstance, optio
   if ( options.personNumber ) {
     instanceJson.instanceOwner.personNumber = options.personNumber
   } else if ( options.orgNumber ) {
-    instanceJson.instanceOwner.orgNumber = options.orgNumber
+    instanceJson.instanceOwner.organisationNumber = options.orgNumber
   }
 
   const requestbody = JSON.stringify(instanceJson);
