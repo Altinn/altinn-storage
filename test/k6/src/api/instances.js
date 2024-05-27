@@ -13,17 +13,18 @@ import { stopIterationOnFail } from "../errorhandler.js";
  * @returns {JSON} Json object including response apiHelperss, body, timings
  */
 export function postInstance(token, partyId, org, app, serializedInstance) {
-  var appId = org + "/" + app;
-  var endpoint = config.platformStorage["instances"] + "?appId=" + appId;
+  const appId = `${org}/${app}`;
+  const endpoint = `${config.platformStorage.instances}?appId=${appId}`;
 
-  var params = apiHelper.buildHeaderWithBearerAndContentType(
+  const params = apiHelper.buildHeaderWithBearerAndContentType(
     token,
     "application/json"
   );
 
-  var requestbody = JSON.stringify(
-    buildInstanceInputJson(serializedInstance, appId, partyId)
-  );
+  const instanceJson = JSON.parse(serializedInstance);
+  instanceJson.instanceOwner.partyId = partyId;
+  instanceJson.appId = appId;
+  const requestbody = JSON.stringify(instanceJson);
 
   return http.post(endpoint, requestbody, params);
 }
@@ -98,12 +99,4 @@ export function putSubstatus(token, instanceId, substatus) {
   var params = apiHelper.buildHeaderWithBearerAndContentType(token, "application/json");
 
   return http.put(endpoint, JSON.stringify(substatus), params);
-}
-
-//Function to build input json for creation of instance with app, instanceOwner details and returns a JSON object
-function buildInstanceInputJson(instanceJson, appId, partyId) {
-  instanceJson = JSON.parse(instanceJson);
-  instanceJson.instanceOwner.partyId = partyId;
-  instanceJson.appId = appId;
-  return instanceJson;
 }
