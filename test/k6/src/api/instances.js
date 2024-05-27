@@ -12,7 +12,7 @@ import { stopIterationOnFail } from "../errorhandler.js";
  * @param {JSON} serializedInstance instance json metadata sent in request body
  * @returns {JSON} Json object including response apiHelperss, body, timings
  */
-export function postInstance(token, partyId, org, app, serializedInstance) {
+export function postInstance(token, partyId, org, app, serializedInstance, options = {}) {
   const appId = `${org}/${app}`;
   const endpoint = `${config.platformStorage.instances}?appId=${appId}`;
 
@@ -24,6 +24,13 @@ export function postInstance(token, partyId, org, app, serializedInstance) {
   const instanceJson = JSON.parse(serializedInstance);
   instanceJson.instanceOwner.partyId = partyId;
   instanceJson.appId = appId;
+
+  if ( options.personNumber ) {
+    instanceJson.instanceOwner.personNumber = options.personNumber
+  } else if ( options.orgNumber ) {
+    instanceJson.instanceOwner.orgNumber = options.orgNumber
+  }
+
   const requestbody = JSON.stringify(instanceJson);
 
   return http.post(endpoint, requestbody, params);

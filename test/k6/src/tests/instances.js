@@ -77,12 +77,17 @@ export function setup() {
 
 // TC01 - POST instance
 function TC01_PostInstance(data) {
+  const options = {
+    "personNumber": data.personNumber
+  };
+
   var res = instancesApi.postInstance(
     data.userToken,
     data.partyId,
     data.org,
     data.app,
-    serializedInstance
+    serializedInstance,
+    options
   );
 
   var success = check(res, {
@@ -254,7 +259,7 @@ function TC09_CompleteConfirmInstance(data) {
     false
   );
 
-  console.log(res);
+
   var success = check(res, {
     "TC09_CompleteConfirmInstance: Complete confirm instance. Status is 200": (
       r
