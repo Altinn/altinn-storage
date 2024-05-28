@@ -396,10 +396,6 @@ function TC12_GetInstances_ByOrgNumber(data) {
   }
 }
 
-// Here we are deleting instances,
-// hereby it would be better to
-// put/call this function at
-// the end of call chain 
 function TC99_HardDeleteInstance(data) {
   var res = instancesApi.deleteInstanceById(
     data.userToken,
