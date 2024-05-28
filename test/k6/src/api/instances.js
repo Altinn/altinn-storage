@@ -12,17 +12,17 @@ import { stopIterationOnFail } from "../errorhandler.js";
  * @param {JSON} serializedInstance instance json metadata sent in request body
  * @returns {JSON} Json object including response apiHelperss, body, timings
  */
-export function postInstance(token, partyId, org, app, serializedInstance, options = {}) {
-  const appId = `${org}/${app}`;
+export function postInstance(options = {}) {
+  const appId = `${options.org}/${options.app}`;
   const endpoint = `${config.platformStorage.instances}?appId=${appId}`;
 
   const params = apiHelper.buildHeaderWithBearerAndContentType(
-    token,
+    options.token,
     "application/json"
   );
 
-  const instanceJson = JSON.parse(serializedInstance);
-  instanceJson.instanceOwner.partyId = partyId;
+  const instanceJson = JSON.parse(options.serializedInstance);
+  instanceJson.instanceOwner.partyId = options.partyId;
   instanceJson.appId = appId;
 
   if ( options.personNumber ) {
