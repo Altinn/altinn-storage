@@ -70,6 +70,7 @@ export function setup() {
     partyId: partyId,
     personNumber: pid,
     orgNumber: orgNumber,
+    orgPartyId: orgPartyId,
     org: org,
     app: app,
   };
@@ -331,7 +332,7 @@ function TC12_GetInstances_ByOrgNumber(data) {
 
   const instanciationResult = instancesApi.postInstance(
     data.orgToken,
-    data.partyId,
+    data.orgPartyId,
     data.org,
     data.app,
     serializedInstance,
