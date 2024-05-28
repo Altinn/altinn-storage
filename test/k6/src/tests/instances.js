@@ -311,7 +311,6 @@ function TC11_GetInstances_ByPersonNumber(data) {
   if (dataBody.count > 0) { // If instance(s) exists
     const firstInstance = dataBody.instances[0];
     const personNumber = firstInstance.instanceOwner.personNumber;
-    const instanceIdSplit = firstInstance["id"].split("/");
 
     const success = check(res, {
       "TC11_GetInstances_ByPersonNumber: Get instance for party. Person number matches instanceOwner.personNumber":

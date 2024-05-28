@@ -12,7 +12,7 @@ const environment = __ENV.env.toLowerCase();
  * @returns altinn token with the provided scopes for an org
  */
 export function getAltinnTokenForOrg(scopes, org = "ttd", orgNo = "991825827") {
-  if ((environment == "prod" || environment == "tt02") && org == "ttd") {
+  if ((environment == "prod") && org == "ttd") {
     var accessToken = maskinporten.generateAccessToken(scopes);
     return authentication.exchangeToAltinnToken(accessToken, true);
   }
