@@ -5,12 +5,15 @@ import { stopIterationOnFail } from "../errorhandler.js";
 
 /**
  * Api call to Storage:Instances to create an app instance and returns response
- * @param {*} token token value to be sent in apiHelper for authentication
- * @param {*} partyId party id of the user to whom instance is to be created
- * @param {*} org short name of ap owner
- * @param {*} app app name
- * @param {JSON} serializedInstance instance json metadata sent in request body
- * @returns {JSON} Json object including response apiHelperss, body, timings
+ * @param {Object} options Object containing the parameters for the API call.
+ * @param {string} options.token Token value to be sent in apiHelper for authentication.
+ * @param {string} options.partyId Party ID of the user to whom the instance is to be created.
+ * @param {string} options.org Short name of the app owner.
+ * @param {string} options.app App name.
+ * @param {JSON} options.serializedInstance Instance JSON metadata sent in the request body.
+ * @param {string} [options.personNumber] Optional person number to be included in the instance owner.
+ * @param {string} [options.orgNumber] Optional organization number to be included in the instance owner.
+ * @returns {JSON} JSON object including response status, body, and timings.
  */
 export function postInstance(options = {}) {
   const appId = `${options.org}/${options.app}`;
@@ -25,16 +28,17 @@ export function postInstance(options = {}) {
   instanceJson.instanceOwner.partyId = options.partyId;
   instanceJson.appId = appId;
 
-  if ( options.personNumber ) {
-    instanceJson.instanceOwner.personNumber = options.personNumber
-  } else if ( options.orgNumber ) {
-    instanceJson.instanceOwner.organisationNumber = options.orgNumber
+  if (options.personNumber) {
+    instanceJson.instanceOwner.personNumber = options.personNumber;
+  } else if (options.orgNumber) {
+    instanceJson.instanceOwner.organisationNumber = options.orgNumber;
   }
 
-  const requestbody = JSON.stringify(instanceJson);
+  const requestBody = JSON.stringify(instanceJson);
 
-  return http.post(endpoint, requestbody, params);
+  return http.post(endpoint, requestBody, params);
 }
+
 
 //Api call to Storage:Instances to get an instance by id and return response
 export function getInstanceById(token, instanceId) {
