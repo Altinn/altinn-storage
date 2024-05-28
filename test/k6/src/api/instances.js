@@ -5,33 +5,33 @@ import { stopIterationOnFail } from "../errorhandler.js";
 
 /**
  * Api call to Storage:Instances to create an app instance and returns response
- * @param {Object} options Object containing the parameters for the API call.
- * @param {string} options.token Token value to be sent in apiHelper for authentication.
- * @param {string} options.partyId Party ID of the user to whom the instance is to be created.
- * @param {string} options.org Short name of the app owner.
- * @param {string} options.app App name.
- * @param {JSON} options.serializedInstance Instance JSON metadata sent in the request body.
- * @param {string} [options.personNumber] Optional person number to be included in the instance owner.
- * @param {string} [options.orgNumber] Optional organization number to be included in the instance owner.
+ * @param {Object} instanciationOptions Object containing the parameters for the API call.
+ * @param {string} instanciationOptions.token Token value to be sent in apiHelper for authentication.
+ * @param {string} instanciationOptions.partyId Party ID of the user to whom the instance is to be created.
+ * @param {string} instanciationOptions.org Short name of the app owner.
+ * @param {string} instanciationOptions.app App name.
+ * @param {JSON} instanciationOptions.serializedInstance Instance JSON metadata sent in the request body.
+ * @param {string} [instanciationOptions.personNumber] Optional person number to be included in the instance owner.
+ * @param {string} [instanciationOptions.orgNumber] Optional organization number to be included in the instance owner.
  * @returns {JSON} JSON object including response status, body, and timings.
  */
-export function postInstance(options = {}) {
-  const appId = `${options.org}/${options.app}`;
+export function postInstance(instanciationOptions = {}) {
+  const appId = `${instanciationOptions.org}/${instanciationOptions.app}`;
   const endpoint = `${config.platformStorage.instances}?appId=${appId}`;
 
   const params = apiHelper.buildHeaderWithBearerAndContentType(
-    options.token,
+    instanciationOptions.token,
     "application/json"
   );
 
-  const instanceJson = JSON.parse(options.serializedInstance);
-  instanceJson.instanceOwner.partyId = options.partyId;
+  const instanceJson = JSON.parse(instanciationOptions.serializedInstance);
+  instanceJson.instanceOwner.partyId = instanciationOptions.partyId;
   instanceJson.appId = appId;
 
-  if (options.personNumber) {
-    instanceJson.instanceOwner.personNumber = options.personNumber;
-  } else if (options.orgNumber) {
-    instanceJson.instanceOwner.organisationNumber = options.orgNumber;
+  if (instanciationOptions.personNumber) {
+    instanceJson.instanceOwner.personNumber = instanciationOptions.personNumber;
+  } else if (instanciationOptions.orgNumber) {
+    instanceJson.instanceOwner.organisationNumber = instanciationOptions.orgNumber;
   }
 
   const requestBody = JSON.stringify(instanceJson);
