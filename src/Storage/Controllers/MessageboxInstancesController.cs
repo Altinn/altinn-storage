@@ -422,9 +422,9 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (queryModel.ToCreated != null)
             {
-                if (queryParams.TryGetValue("msgBoxInterval", out StringValues createdValues))
+                if (queryParams.TryGetValue("msgBoxInterval", out StringValues msgBoxIntervalValues))
                 {
-                    queryParams["msgBoxInterval"] = StringValues.Concat(createdValues, $"lte:{queryModel.ToCreated?.ToString(dateTimeFormat)}");
+                    queryParams["msgBoxInterval"] = StringValues.Concat(msgBoxIntervalValues, $"lte:{queryModel.ToCreated?.ToString(dateTimeFormat)}");
                 }
                 else
                 {
