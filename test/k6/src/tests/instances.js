@@ -326,8 +326,8 @@ function TC12_GetInstances_ByOrgNumber(data) {
   // Creating the instances against the organisation number
   const instanciationOptions = {
     "orgNumber": data.orgNumber,
-    "token": data.userToken,
-    "partyId": data.partyId,
+    "token": data.orgToken,
+    "partyId": data.orgPartyId,
     "org": data.org,
     "app": data.app,
     "serializedInstance": serializedInstance,
@@ -383,7 +383,7 @@ function TC12_GetInstances_ByOrgNumber(data) {
   
     // Hard deleting the instances created against the organisation number
     const hardDeletionResult = instancesApi.deleteInstanceById(
-      data.userToken,
+      data.orgToken,
       instanceId,
       true
     );
