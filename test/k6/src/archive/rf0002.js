@@ -51,8 +51,16 @@ export default function () {
   const partyId = data['orgPartyId'];
   instanceId = '';
 
-  //Test to create an instance with storage api and validate the response
-  res = instances.postInstance(runtimeToken, partyId, appOwner, level2App, instanceJson);
+  //Test to create an instance with storage api and validate the response // token, partyId, org, app, serializedInstance
+  res = instances.postInstance(
+    {
+      "token": runtimeToken,
+      "partyId": partyId,
+      "org": appOwner,
+      "app": level2App,
+      "serializedInstance": instanceJson
+    }
+  );
   success = check(res, {
     'POST Create Instance status is 201': (r) => r.status === 201,
     'POST Create Instance Instance Id is not null': (r) => JSON.parse(r.body).id != null,
