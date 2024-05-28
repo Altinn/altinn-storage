@@ -417,18 +417,18 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (queryModel.FromCreated != null)
             {
-                queryParams.Add("created", $"gte:{queryModel.FromCreated?.ToString(dateTimeFormat)}");
+                queryParams.Add("msgBoxInterval", $"gte:{queryModel.FromCreated?.ToString(dateTimeFormat)}");
             }
 
             if (queryModel.ToCreated != null)
             {
-                if (queryParams.TryGetValue("created", out StringValues createdValues))
+                if (queryParams.TryGetValue("msgBoxInterval", out StringValues createdValues))
                 {
-                    queryParams["created"] = StringValues.Concat(createdValues, $"lte:{queryModel.ToCreated?.ToString(dateTimeFormat)}");
+                    queryParams["msgBoxInterval"] = StringValues.Concat(createdValues, $"lte:{queryModel.ToCreated?.ToString(dateTimeFormat)}");
                 }
                 else
                 {
-                    queryParams.Add("created", $"lte:{queryModel.ToCreated?.ToString(dateTimeFormat)}");
+                    queryParams.Add("msgBoxInterval", $"lte:{queryModel.ToCreated?.ToString(dateTimeFormat)}");
                 }
             }
 
