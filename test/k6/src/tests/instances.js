@@ -81,17 +81,15 @@ export function setup() {
 // TC01 - POST instance
 function TC01_PostInstance(data) {
   const options = {
-    "personNumber": data.personNumber
+    "personNumber": data.personNumber,
+    "token": data.userToken,
+    "partyId": data.partyId,
+    "org": data.org,
+    "app": data.app,
+    "serializedInstance": serializedInstance,
   };
 
-  var res = instancesApi.postInstance(
-    data.userToken,
-    data.partyId,
-    data.org,
-    data.app,
-    serializedInstance,
-    options
-  );
+  var res = instancesApi.postInstance(options);
 
   var success = check(res, {
     "TC01_PostInstance: Create new instance. Status is 201": (r) =>
@@ -327,17 +325,15 @@ function TC11_GetInstances_ByPersonNumber(data) {
 function TC12_GetInstances_ByOrgNumber(data) {
   // Creating the instances against the organisation number
   const instanciationOptions = {
-    "orgNumber": data.orgNumber
+    "orgNumber": data.orgNumber,
+    "token": data.userToken,
+    "partyId": data.partyId,
+    "org": data.org,
+    "app": data.app,
+    "serializedInstance": serializedInstance,
   };
 
-  const instanciationResult = instancesApi.postInstance(
-    data.orgToken,
-    data.orgPartyId,
-    data.org,
-    data.app,
-    serializedInstance,
-    instanciationOptions
-  );
+  const instanciationResult = instancesApi.postInstance(instanciationOptions);
 
   const instanciationResultSuccess = check(instanciationResult, {
     "TC12_GetInstances_ByOrgNumber: Create new instance for organisation number. Status is 201": (r) =>
