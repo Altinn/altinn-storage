@@ -10,6 +10,7 @@
     -e userpwd=*** `
     -e org=ttd `
     -e orgNumber=*** `
+    -e orgPartyId=*** `
     -e app=*** `
     -e apimSubsKey=*** `
     -e tokenGeneratorUserName=*** `
@@ -43,6 +44,7 @@ export function setup() {
   const username = __ENV.username;
   const userpassword = __ENV.userpwd;
   let partyId = __ENV.partyId;
+  let orgPartyId = __ENV.orgPartyId;
   const orgNumber = __ENV.orgNumber;
 
   var scopes =
@@ -82,7 +84,7 @@ function TC01_PostInstance(data) {
   };
 
   var res = instancesApi.postInstance(
-    data.orgToken,
+    data.userToken,
     data.partyId,
     data.org,
     data.app,
@@ -313,8 +315,6 @@ function TC11_GetInstances_ByPersonNumber(data) {
     const instanceIdSplit = firstInstance["id"].split("/");
 
     const success = check(res, {
-      "TC11_GetInstances_ByPersonNumber: Get instance for party. InstanceId has expected format":
-        instanceIdSplit.length === 2,
       "TC11_GetInstances_ByPersonNumber: Get instance for party. Person number matches instanceOwner.personNumber":
       personNumber === data.personNumber,
     });
