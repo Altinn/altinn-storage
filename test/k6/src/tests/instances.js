@@ -296,7 +296,7 @@ function TC11_GetInstances_ByPersonNumber(data) {
     "instanceOwnerIdentifier" : instanceOwnerIdentifier,
   };
 
-  const res = instancesApi.getInstances(data.orgToken, filters, options);
+  const res = instancesApi.getInstances(data.userToken, filters, options);
 
   const dataBody = JSON.parse(res.body);
   const instantiationResultSuccess = check(res, {
