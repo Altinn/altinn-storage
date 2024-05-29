@@ -311,9 +311,9 @@ function TC11_SoftDeleteInstance(data) {
   );
 
   var success = check(res, {
-    "TC10_SoftDeleteInstance: Soft delete instance. Status is 200": (r) =>
+    "TC11_SoftDeleteInstance: Soft delete instance. Status is 200": (r) =>
       r.status === 200,
-    "TC10_SoftDeleteInstance: Soft delete instance. Soft DELETE date populated":
+    "TC11_SoftDeleteInstance: Soft delete instance. Soft DELETE date populated":
       (r) => JSON.parse(r.body).status.softDeleted != null,
   });
 
