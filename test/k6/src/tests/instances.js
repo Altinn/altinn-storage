@@ -269,7 +269,41 @@ function TC09_CompleteConfirmInstance(data) {
   addErrorCount(success);
 }
 
-function TC10_SoftDeleteInstance(data) {
+//TC10 - Get all instances for party looked up with a person number
+function TC10_GetInstances_ByPersonNumber(data) {
+  const instanceOwnerIdentifier = `Person:${data.personNumber}`;
+  const filters = {
+    "appId": `${data.org}/${data.app}`,
+  };
+  const options = {
+    "instanceOwnerIdentifier" : instanceOwnerIdentifier,
+  };
+
+  const res = instancesApi.getInstances(data.userToken, filters, options);
+
+  const dataBody = JSON.parse(res.body);
+  const instantiationResultSuccess = check(res, {
+    "TC10_GetInstances_ByPersonNumber: Get instance for party. Status is 200": (
+      r
+    ) => r.status === 200,
+    "TC10_GetInstances_ByPersonNumber: Instances exists for party.": 
+    dataBody.count > 0,
+  });
+  addErrorCount(instantiationResultSuccess);
+
+  if (dataBody.count > 0) { // If instance(s) exists
+    const firstInstance = dataBody.instances[0];
+    const personNumber = firstInstance.instanceOwner.personNumber;
+
+    const success = check(res, {
+      "TC10_GetInstances_ByPersonNumber: Get instance for party. Person number matches instanceOwner.personNumber":
+      personNumber === data.personNumber,
+    });
+    addErrorCount(success);
+  }
+}
+
+function TC11_SoftDeleteInstance(data) {
   var res = instancesApi.deleteInstanceById(
     data.userToken,
     data.instanceId,
@@ -284,40 +318,6 @@ function TC10_SoftDeleteInstance(data) {
   });
 
   addErrorCount(success);
-}
-
-//TC11 - Get all instances for party looked up with a person number
-function TC11_GetInstances_ByPersonNumber(data) {
-  const instanceOwnerIdentifier = `Person:${data.personNumber}`;
-  const filters = {
-    "appId": `${data.org}/${data.app}`,
-  };
-  const options = {
-    "instanceOwnerIdentifier" : instanceOwnerIdentifier,
-  };
-
-  const res = instancesApi.getInstances(data.userToken, filters, options);
-
-  const dataBody = JSON.parse(res.body);
-  const instantiationResultSuccess = check(res, {
-    "TC11_GetInstances_ByPersonNumber: Get instance for party. Status is 200": (
-      r
-    ) => r.status === 200,
-    "TC11_GetInstances_ByPersonNumber: Instances exists for party.": 
-    dataBody.count > 0,
-  });
-  addErrorCount(instantiationResultSuccess);
-
-  if (dataBody.count > 0) { // If instance(s) exists
-    const firstInstance = dataBody.instances[0];
-    const personNumber = firstInstance.instanceOwner.personNumber;
-
-    const success = check(res, {
-      "TC11_GetInstances_ByPersonNumber: Get instance for party. Person number matches instanceOwner.personNumber":
-      personNumber === data.personNumber,
-    });
-    addErrorCount(success);
-  }
 }
 
 //TC12 - Get all instances for party looked up with an organisation number
@@ -436,8 +436,8 @@ export default function (data) {
       TC07_SetDataValues(data);
       TC08_SetSubStatus(data);
       TC09_CompleteConfirmInstance(data);
-      TC10_SoftDeleteInstance(data);
-      TC11_GetInstances_ByPersonNumber(data);
+      TC10_GetInstances_ByPersonNumber(data);
+      TC11_SoftDeleteInstance(data);
       TC12_GetInstances_ByOrgNumber(data);
       TC99_HardDeleteInstance(data);
     } else {
@@ -446,7 +446,7 @@ export default function (data) {
       data.instanceId = instanceId;
       TC02_GetInstanceById(data);
       TC03_GetInstances_PartyFilter(data);
-      TC11_GetInstances_ByPersonNumber(data);
+      TC10_GetInstances_ByPersonNumber(data);
       TC99_HardDeleteInstance(data);
     }
   } catch (error) {
