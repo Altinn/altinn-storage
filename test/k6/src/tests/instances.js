@@ -8,9 +8,9 @@
     -e pid=*** `
     -e username=*** `
     -e userpwd=*** `
-    -e org=ttd `
     -e orgNumber=*** `
     -e orgPartyId=*** `
+    -e org=ttd `
     -e app=*** `
     -e apimSubsKey=*** `
     -e tokenGeneratorUserName=*** `
