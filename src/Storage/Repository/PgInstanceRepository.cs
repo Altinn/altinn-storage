@@ -21,7 +21,7 @@ namespace Altinn.Platform.Storage.Repository
     /// </summary>
     public class PgInstanceRepository: IInstanceRepository
     {
-        private const string _readSqlFilteredInitial = "select * from storage.readinstancefromquery_v3 (";
+        private const string _readSqlFilteredInitial = "select * from storage.readinstancefromquery_v4 (";
         private readonly string _deleteSql = "select * from storage.deleteinstance ($1)";
         private readonly string _insertSql = "call storage.insertinstance ($1, $2, $3, $4, $5, $6, $7, $8)";
         private readonly string _updateSql = "select * from storage.updateinstance_v2 (@_alternateid, @_toplevelsimpleprops, @_datavalues, @_completeconfirmations, @_presentationtexts, @_status, @_substatus, @_process, @_lastchanged, @_taskid)";
@@ -193,7 +193,7 @@ namespace Altinn.Platform.Storage.Repository
                     {
                         NpgsqlDbType.Text => $"'{value}'",
                         NpgsqlDbType.Bigint => $"{value}",
-                        NpgsqlDbType.TimestampTz => $"{((DateTime)value != DateTime.MinValue ? "'" + ((DateTime)value).ToString(DateTimeHelper.Iso8601UtcFormat, CultureInfo.InvariantCulture) + "'" : "NULL")}",
+                        NpgsqlDbType.TimestampTz => $"{((DateTime)value != DateTime.MinValue ? "'" + ((DateTime)value).ToString(DateTimeHelper.Iso8601UtcFormat, CultureInfo.InvariantCulture) + "'::timestamptz" : "NULL")}",
                         NpgsqlDbType.Integer => $"{value}",
                         NpgsqlDbType.Boolean => $"{value}",
                         NpgsqlDbType.Text | NpgsqlDbType.Array => ArrayVariableFromText((string[])value),
@@ -482,6 +482,7 @@ namespace Altinn.Platform.Storage.Repository
                         break;
                     case "lastChanged":
                     case "created":
+                    case "msgBoxInterval":
                         AddDateParam(queryParameter, queryValues, postgresParams, false);
                         break;
                     case "visibleAfter":
@@ -559,6 +560,11 @@ namespace Altinn.Platform.Storage.Repository
             { "_lastChanged_idx", NpgsqlDbType.TimestampTz },
             { "_lastChanged_lt", NpgsqlDbType.TimestampTz },
             { "_lastChanged_lte", NpgsqlDbType.TimestampTz },
+            { "_msgBoxInterval_eq", NpgsqlDbType.TimestampTz },
+            { "_msgBoxInterval_gt", NpgsqlDbType.TimestampTz },
+            { "_msgBoxInterval_gte", NpgsqlDbType.TimestampTz },
+            { "_msgBoxInterval_lt", NpgsqlDbType.TimestampTz },
+            { "_msgBoxInterval_lte", NpgsqlDbType.TimestampTz },
             { "_org", NpgsqlDbType.Text },
             { "_process_currentTask", NpgsqlDbType.Text },
             { "_process_ended_eq", NpgsqlDbType.Text },

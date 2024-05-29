@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v3(
+CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v4(
     _appId TEXT DEFAULT NULL,
     _appIds TEXT[] DEFAULT NULL,
     _archiveReference TEXT DEFAULT NULL,
@@ -23,6 +23,11 @@ CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v3(
     _lastChanged_idx TIMESTAMPTZ DEFAULT NULL,
     _lastChanged_lt TIMESTAMPTZ DEFAULT NULL,
     _lastChanged_lte TIMESTAMPTZ DEFAULT NULL,
+    _msgBoxInterval_eq TIMESTAMPTZ DEFAULT NULL,
+    _msgBoxInterval_gt TIMESTAMPTZ DEFAULT NULL,
+    _msgBoxInterval_gte TIMESTAMPTZ DEFAULT NULL,
+    _msgBoxInterval_lt TIMESTAMPTZ DEFAULT NULL,
+    _msgBoxInterval_lte TIMESTAMPTZ DEFAULT NULL,
     _org TEXT DEFAULT NULL,
     _process_currentTask TEXT DEFAULT NULL,
     _process_ended_eq TEXT DEFAULT NULL,
@@ -82,6 +87,11 @@ BEGIN
             AND (_lastChanged_lte IS NULL OR i.lastchanged <= _lastChanged_lte)
             AND (_lastChanged_lt  IS NULL OR i.lastchanged <  _lastChanged_lt)
             AND (_lastChanged_eq  IS NULL OR i.lastchanged =  _lastChanged_eq)
+            AND (_msgBoxInterval_gte IS NULL OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = false AND i.created >= _msgBoxInterval_gte OR (i.instance -> 'Status' -> 'IsArchived')::boolean = true  AND i.lastchanged >= _msgBoxInterval_gte))
+            AND (_msgBoxInterval_gt  IS NULL OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = false AND i.created >  _msgBoxInterval_gt  OR (i.instance -> 'Status' -> 'IsArchived')::boolean = true  AND i.lastchanged >  _msgBoxInterval_gt))
+            AND (_msgBoxInterval_lte IS NULL OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = false AND i.created <= _msgBoxInterval_lte OR (i.instance -> 'Status' -> 'IsArchived')::boolean = true  AND i.lastchanged <= _msgBoxInterval_lte))
+            AND (_msgBoxInterval_lt  IS NULL OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = false AND i.created <  _msgBoxInterval_lt  OR (i.instance -> 'Status' -> 'IsArchived')::boolean = true  AND i.lastchanged <  _msgBoxInterval_lt))
+            AND (_msgBoxInterval_eq  IS NULL OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = false AND i.created =  _msgBoxInterval_eq  OR (i.instance -> 'Status' -> 'IsArchived')::boolean = true  AND i.lastchanged =  _msgBoxInterval_eq))
             AND (_org IS NULL OR i.org = _org)
             AND (_process_currentTask IS NULL OR i.instance -> 'Process' -> 'CurrentTask' ->> 'ElementId' = _process_currentTask)
             AND (_process_ended_gte IS NULL OR i.instance -> 'Process' ->> 'Ended' >= _process_ended_gte)
