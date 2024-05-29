@@ -5,52 +5,40 @@ import { stopIterationOnFail } from "../errorhandler.js";
 
 /**
  * Api call to Storage:Instances to create an app instance and returns response
- * @param {Object} instantiationOptions Object containing the parameters for the API call.
- * @param {string} instantiationOptions.token Token value to be sent in apiHelper for authentication.
- * @param {string} instantiationOptions.partyId Party ID of the user to whom the instance is to be created.
- * @param {string} instantiationOptions.org Short name of the app owner.
- * @param {string} instantiationOptions.app App name.
- * @param {JSON} instantiationOptions.serializedInstance Instance JSON metadata sent in the request body.
- * @param {string} [instantiationOptions.personNumber] Optional person number to be included in the instance owner.
- * @param {string} [instantiationOptions.orgNumber] Optional organization number to be included in the instance owner.
- * @returns {JSON} JSON object including response status, body, and timings.
+ * @param {*} token token value to be sent in apiHelper for authentication
+ * @param {*} partyId party id of the user to whom instance is to be created
+ * @param {*} org short name of ap owner
+ * @param {*} app app name
+ * @param {JSON} serializedInstance instance json metadata sent in request body
+ * @returns {JSON} Json object including response apiHelperss, body, timings
  */
-export function postInstance(instantiationOptions = {}) {
-  const appId = `${instantiationOptions.org}/${instantiationOptions.app}`;
-  const endpoint = `${config.platformStorage.instances}?appId=${appId}`;
+export function postInstance(token, partyId, org, app, serializedInstance) {
+  var appId = org + "/" + app;
+  var endpoint = config.platformStorage["instances"] + "?appId=" + appId;
 
-  const params = apiHelper.buildHeaderWithBearerAndContentType(
-    instantiationOptions.token,
+  var params = apiHelper.buildHeaderWithBearerAndContentType(
+    token,
     "application/json"
   );
 
-  const instanceJson = JSON.parse(instantiationOptions.serializedInstance);
-  instanceJson.instanceOwner.partyId = instantiationOptions.partyId;
-  instanceJson.appId = appId;
+  var requestbody = JSON.stringify(
+    buildInstanceInputJson(serializedInstance, appId, partyId)
+  );
 
-  if (instantiationOptions.personNumber) {
-    instanceJson.instanceOwner.personNumber = instantiationOptions.personNumber;
-  } else if (instantiationOptions.orgNumber) {
-    instanceJson.instanceOwner.organisationNumber = instantiationOptions.orgNumber;
-  }
-
-  const requestBody = JSON.stringify(instanceJson);
-
-  return http.post(endpoint, requestBody, params);
+  return http.post(endpoint, requestbody, params);
 }
-
 
 //Api call to Storage:Instances to get an instance by id and return response
 export function getInstanceById(token, instanceId) {
   var endpoint = config.buildInstanceUrl(instanceId, "", "instanceid");
-  var params = apiHelper.buildHeaderWithBearer(token);
+  var params = apiHelper.buildHeaderWithBearer(token, "platform");
   return http.get(endpoint, params);
 }
 //Api call to Storage:Instances to get instances based on filter parameters and return response
-export function getInstances(token, filters, options = {}) {
+export function getInstances(token, filters) {
   var endpoint = config.platformStorage["instances"];
   endpoint += apiHelper.buildQueryParametersForEndpoint(filters);
-  var params = apiHelper.buildHeaderWithBearer(token, options);
+  var params = apiHelper.buildHeaderWithBearer(token, "platform");
   return http.get(endpoint, params);
 }
 
@@ -110,4 +98,12 @@ export function putSubstatus(token, instanceId, substatus) {
   var params = apiHelper.buildHeaderWithBearerAndContentType(token, "application/json");
 
   return http.put(endpoint, JSON.stringify(substatus), params);
+}
+
+//Function to build input json for creation of instance with app, instanceOwner details and returns a JSON object
+function buildInstanceInputJson(instanceJson, appId, partyId) {
+  instanceJson = JSON.parse(instanceJson);
+  instanceJson.instanceOwner.partyId = partyId;
+  instanceJson.appId = appId;
+  return instanceJson;
 }
