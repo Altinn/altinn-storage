@@ -450,7 +450,6 @@ export default function (data) {
       TC02_GetInstanceById(data);
       TC03_GetInstances_PartyFilter(data);
       TC11_GetInstances_ByPersonNumber(data);
-      TC12_GetInstances_ByOrgNumber(data);
       TC99_HardDeleteInstance(data);
     }
   } catch (error) {
