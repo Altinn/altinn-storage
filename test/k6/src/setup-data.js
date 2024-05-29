@@ -9,15 +9,13 @@ const processJson = JSON.parse(open("./data/process-task2.json"));
 let pdfAttachment = open("./data/apps-test.pdf", "b");
 
 export function getInstanceForTest(token, partyId, org, app) {
-  const instanceOptions = {
-    "token": token,
-    "partyId": partyId,
-    "org": org,
-    "app": app,
-    "serializedInstance": serializedInstance,
-  };
-
-  var res = instancesApi.postInstance(instanceOptions);
+  var res = instancesApi.postInstance(
+    token,
+    partyId,
+    org,
+    app,
+    serializedInstance
+  );
 
   var success = check(res, {
     "// Setup // Generating instance for test": (r) => r.status === 201,
