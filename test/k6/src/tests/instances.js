@@ -8,6 +8,8 @@
     -e pid=*** `
     -e username=*** `
     -e userpwd=*** `
+    -e orgNumber=*** `
+    -e orgPartyId=*** `
     -e org=ttd `
     -e app=*** `
     -e apimSubsKey=*** `
@@ -42,6 +44,8 @@ export function setup() {
   const username = __ENV.username;
   const userpassword = __ENV.userpwd;
   let partyId = __ENV.partyId;
+  let orgPartyId = __ENV.orgPartyId;
+  const orgNumber = __ENV.orgNumber;
 
   var scopes =
     "altinn:serviceowner/instances.read altinn:serviceowner/instances.write";
@@ -64,6 +68,9 @@ export function setup() {
     userToken: userToken,
     orgToken: orgToken,
     partyId: partyId,
+    personNumber: pid,
+    orgNumber: orgNumber,
+    orgPartyId: orgPartyId,
     org: org,
     app: app,
   };
@@ -73,13 +80,16 @@ export function setup() {
 
 // TC01 - POST instance
 function TC01_PostInstance(data) {
-  var res = instancesApi.postInstance(
-    data.userToken,
-    data.partyId,
-    data.org,
-    data.app,
-    serializedInstance
-  );
+  const options = {
+    "personNumber": data.personNumber,
+    "token": data.userToken,
+    "partyId": data.partyId,
+    "org": data.org,
+    "app": data.app,
+    "serializedInstance": serializedInstance,
+  };
+
+  var res = instancesApi.postInstance(options);
 
   var success = check(res, {
     "TC01_PostInstance: Create new instance. Status is 201": (r) =>
@@ -250,7 +260,7 @@ function TC09_CompleteConfirmInstance(data) {
     false
   );
 
-  console.log(res);
+
   var success = check(res, {
     "TC09_CompleteConfirmInstance: Complete confirm instance. Status is 200": (
       r
@@ -259,7 +269,41 @@ function TC09_CompleteConfirmInstance(data) {
   addErrorCount(success);
 }
 
-function TC10_SoftDeleteInstance(data) {
+//TC10 - Get all instances for party looked up with a person number
+function TC10_GetInstances_ByPersonNumber(data) {
+  const instanceOwnerIdentifier = `Person:${data.personNumber}`;
+  const filters = {
+    "appId": `${data.org}/${data.app}`,
+  };
+  const options = {
+    "instanceOwnerIdentifier" : instanceOwnerIdentifier,
+  };
+
+  const res = instancesApi.getInstances(data.userToken, filters, options);
+
+  const dataBody = JSON.parse(res.body);
+  const instantiationResultSuccess = check(res, {
+    "TC10_GetInstances_ByPersonNumber: Get instance for party. Status is 200": (
+      r
+    ) => r.status === 200,
+    "TC10_GetInstances_ByPersonNumber: Instances exists for party.": 
+    dataBody.count > 0,
+  });
+  addErrorCount(instantiationResultSuccess);
+
+  if (dataBody.count > 0) { // If instance(s) exists
+    const firstInstance = dataBody.instances[0];
+    const personNumber = firstInstance.instanceOwner.personNumber;
+
+    const success = check(res, {
+      "TC10_GetInstances_ByPersonNumber: Get instance for party. Person number matches instanceOwner.personNumber":
+      personNumber === data.personNumber,
+    });
+    addErrorCount(success);
+  }
+}
+
+function TC11_SoftDeleteInstance(data) {
   var res = instancesApi.deleteInstanceById(
     data.userToken,
     data.instanceId,
@@ -267,16 +311,89 @@ function TC10_SoftDeleteInstance(data) {
   );
 
   var success = check(res, {
-    "TC10_SoftDeleteInstance: Soft delete instance. Status is 200": (r) =>
+    "TC11_SoftDeleteInstance: Soft delete instance. Status is 200": (r) =>
       r.status === 200,
-    "TC10_SoftDeleteInstance: Soft delete instance. Soft DELETE date populated":
+    "TC11_SoftDeleteInstance: Soft delete instance. Soft DELETE date populated":
       (r) => JSON.parse(r.body).status.softDeleted != null,
   });
 
   addErrorCount(success);
 }
 
-function TC11_HardDeleteInstance(data) {
+//TC12 - Get all instances for party looked up with an organisation number
+function TC12_GetInstances_ByOrgNumber(data) {
+  // Creating the instances against the organisation number
+  const instantiationOptions = {
+    "orgNumber": data.orgNumber,
+    "token": data.orgToken,
+    "partyId": data.orgPartyId,
+    "org": data.org,
+    "app": data.app,
+    "serializedInstance": serializedInstance,
+  };
+
+  const instantiationResult = instancesApi.postInstance(instantiationOptions);
+
+  const instantiationResultSuccess = check(instantiationResult, {
+    "TC12_GetInstances_ByOrgNumber: Create new instance for organisation number. Status is 201": (r) =>
+      r.status === 201,
+    "TC12_GetInstances_ByOrgNumber: Create new instance for organisation number. Instance Id is not null": (r) =>
+      JSON.parse(r.body).id != null,
+  });
+  addErrorCount(instantiationResultSuccess);
+
+  if (instantiationResultSuccess) {
+    const instanceId = JSON.parse(instantiationResult.body)["id"];
+
+    const instanceOwnerIdentifier = `Organisation:${data.orgNumber}`;
+    const filters = {
+      "appId": `${data.org}/${data.app}`,
+    };
+    const options = {
+      "instanceOwnerIdentifier" : instanceOwnerIdentifier,
+    };
+  
+    const res = instancesApi.getInstances(data.orgToken, filters, options);
+  
+    const dataBody = JSON.parse(res.body);
+
+    const hasInstances = check(res, {
+      "TC12_GetInstances_ByOrgNumber: Get instance for party. Status is 200": (
+        r
+      ) => r.status === 200,
+      "TC12_GetInstances_ByOrgNumber: Instances exists for party.":
+      dataBody.count > 0,
+    });
+    addErrorCount(hasInstances);
+  
+    if (dataBody.count > 0) { // If instance(s) exists
+      const firstInstance = dataBody.instances[0];
+      const orgNumber = firstInstance.instanceOwner.organisationNumber;
+
+      const successResponse = check(res, {
+          "TC12_GetInstances_ByOrgNumber: Get instance for party. Organisation number matches instanceOwner.organisationNumber":
+          orgNumber === data.orgNumber,
+      });
+      addErrorCount(successResponse);
+    }
+  
+    // Hard deleting the instances created against the organisation number
+    const hardDeletionResult = instancesApi.deleteInstanceById(
+      data.orgToken,
+      instanceId,
+      true
+    );
+  
+    const successHardDelete = check(hardDeletionResult, {
+      "TC12_GetInstances_ByOrgNumber: Hard delete instance for organisation. Status is 200": (r) =>
+        r.status === 200,
+    });
+  
+    addErrorCount(successHardDelete);
+  }
+}
+
+function TC99_HardDeleteInstance(data) {
   var res = instancesApi.deleteInstanceById(
     data.userToken,
     data.instanceId,
@@ -284,7 +401,7 @@ function TC11_HardDeleteInstance(data) {
   );
 
   var success = check(res, {
-    "TC11_HardDeleteInstance: Hard delete instance. Status is 200": (r) =>
+    "TC99_HardDeleteInstance: Hard delete instance. Status is 200": (r) =>
       r.status === 200,
   });
 
@@ -302,7 +419,9 @@ function TC11_HardDeleteInstance(data) {
  * TC08_SetSubStatus
  * TC09_CompleteConfirmInstance
  * TC10_SoftDeleteInstance
- * TC11_HardDeleteInstance
+ * TC11_GetInstances_ByPersonNumber
+ * TC12_GetInstances_ByOrgNumber
+ * TC99_HardDeleteInstance
  */
 export default function (data) {
   try {
@@ -317,15 +436,18 @@ export default function (data) {
       TC07_SetDataValues(data);
       TC08_SetSubStatus(data);
       TC09_CompleteConfirmInstance(data);
-      TC10_SoftDeleteInstance(data);
-      TC11_HardDeleteInstance(data);
+      TC10_GetInstances_ByPersonNumber(data);
+      TC11_SoftDeleteInstance(data);
+      TC12_GetInstances_ByOrgNumber(data);
+      TC99_HardDeleteInstance(data);
     } else {
       // Limited test set for use case tests
       var instanceId = TC01_PostInstance(data);
       data.instanceId = instanceId;
       TC02_GetInstanceById(data);
       TC03_GetInstances_PartyFilter(data);
-      TC11_HardDeleteInstance(data);
+      TC10_GetInstances_ByPersonNumber(data);
+      TC99_HardDeleteInstance(data);
     }
   } catch (error) {
     addErrorCount(false);
