@@ -51,7 +51,7 @@ export default function () {
   const partyId = data['orgPartyId'];
   instanceId = '';
 
-  //Test to create an instance with storage api and validate the response // token, partyId, org, app, serializedInstance
+  //Test to create an instance with storage api and validate the response
   res = instances.postInstance(
     {
       "token": runtimeToken,

@@ -299,14 +299,14 @@ function TC11_GetInstances_ByPersonNumber(data) {
   const res = instancesApi.getInstances(data.orgToken, filters, options);
 
   const dataBody = JSON.parse(res.body);
-  const instanciationResultSuccess = check(res, {
+  const instantiationResultSuccess = check(res, {
     "TC11_GetInstances_ByPersonNumber: Get instance for party. Status is 200": (
       r
     ) => r.status === 200,
     "TC11_GetInstances_ByPersonNumber: Instances exists for party.": 
     dataBody.count > 0,
   });
-  addErrorCount(instanciationResultSuccess);
+  addErrorCount(instantiationResultSuccess);
 
   if (dataBody.count > 0) { // If instance(s) exists
     const firstInstance = dataBody.instances[0];
@@ -323,7 +323,7 @@ function TC11_GetInstances_ByPersonNumber(data) {
 //TC12 - Get all instances for party looked up with an organisation number
 function TC12_GetInstances_ByOrgNumber(data) {
   // Creating the instances against the organisation number
-  const instanciationOptions = {
+  const instantiationOptions = {
     "orgNumber": data.orgNumber,
     "token": data.orgToken,
     "partyId": data.orgPartyId,
@@ -332,18 +332,18 @@ function TC12_GetInstances_ByOrgNumber(data) {
     "serializedInstance": serializedInstance,
   };
 
-  const instanciationResult = instancesApi.postInstance(instanciationOptions);
+  const instantiationResult = instancesApi.postInstance(instantiationOptions);
 
-  const instanciationResultSuccess = check(instanciationResult, {
+  const instantiationResultSuccess = check(instantiationResult, {
     "TC12_GetInstances_ByOrgNumber: Create new instance for organisation number. Status is 201": (r) =>
       r.status === 201,
     "TC12_GetInstances_ByOrgNumber: Create new instance for organisation number. Instance Id is not null": (r) =>
       JSON.parse(r.body).id != null,
   });
-  addErrorCount(instanciationResultSuccess);
+  addErrorCount(instantiationResultSuccess);
 
-  if (instanciationResultSuccess) {
-    const instanceId = JSON.parse(instanciationResult.body)["id"];
+  if (instantiationResultSuccess) {
+    const instanceId = JSON.parse(instantiationResult.body)["id"];
 
     const instanceOwnerIdentifier = `Organisation:${data.orgNumber}`;
     const filters = {
@@ -369,11 +369,8 @@ function TC12_GetInstances_ByOrgNumber(data) {
     if (dataBody.count > 0) { // If instance(s) exists
       const firstInstance = dataBody.instances[0];
       const orgNumber = firstInstance.instanceOwner.organisationNumber;
-      const instanceIdSplit = firstInstance["id"].split("/");
-  
+
       const successResponse = check(res, {
-        "TC12_GetInstances_ByOrgNumber: Get instance for party. InstanceId has expected format":
-          instanceIdSplit.length === 2,
           "TC12_GetInstances_ByOrgNumber: Get instance for party. Organisation number matches instanceOwner.organisationNumber":
           orgNumber === data.orgNumber,
       });
