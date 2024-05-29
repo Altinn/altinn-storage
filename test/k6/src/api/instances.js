@@ -5,33 +5,33 @@ import { stopIterationOnFail } from "../errorhandler.js";
 
 /**
  * Api call to Storage:Instances to create an app instance and returns response
- * @param {Object} instanciationOptions Object containing the parameters for the API call.
- * @param {string} instanciationOptions.token Token value to be sent in apiHelper for authentication.
- * @param {string} instanciationOptions.partyId Party ID of the user to whom the instance is to be created.
- * @param {string} instanciationOptions.org Short name of the app owner.
- * @param {string} instanciationOptions.app App name.
- * @param {JSON} instanciationOptions.serializedInstance Instance JSON metadata sent in the request body.
- * @param {string} [instanciationOptions.personNumber] Optional person number to be included in the instance owner.
- * @param {string} [instanciationOptions.orgNumber] Optional organization number to be included in the instance owner.
+ * @param {Object} instantiationOptions Object containing the parameters for the API call.
+ * @param {string} instantiationOptions.token Token value to be sent in apiHelper for authentication.
+ * @param {string} instantiationOptions.partyId Party ID of the user to whom the instance is to be created.
+ * @param {string} instantiationOptions.org Short name of the app owner.
+ * @param {string} instantiationOptions.app App name.
+ * @param {JSON} instantiationOptions.serializedInstance Instance JSON metadata sent in the request body.
+ * @param {string} [instantiationOptions.personNumber] Optional person number to be included in the instance owner.
+ * @param {string} [instantiationOptions.orgNumber] Optional organization number to be included in the instance owner.
  * @returns {JSON} JSON object including response status, body, and timings.
  */
-export function postInstance(instanciationOptions = {}) {
-  const appId = `${instanciationOptions.org}/${instanciationOptions.app}`;
+export function postInstance(instantiationOptions = {}) {
+  const appId = `${instantiationOptions.org}/${instantiationOptions.app}`;
   const endpoint = `${config.platformStorage.instances}?appId=${appId}`;
 
   const params = apiHelper.buildHeaderWithBearerAndContentType(
-    instanciationOptions.token,
+    instantiationOptions.token,
     "application/json"
   );
 
-  const instanceJson = JSON.parse(instanciationOptions.serializedInstance);
-  instanceJson.instanceOwner.partyId = instanciationOptions.partyId;
+  const instanceJson = JSON.parse(instantiationOptions.serializedInstance);
+  instanceJson.instanceOwner.partyId = instantiationOptions.partyId;
   instanceJson.appId = appId;
 
-  if (instanciationOptions.personNumber) {
-    instanceJson.instanceOwner.personNumber = instanciationOptions.personNumber;
-  } else if (instanciationOptions.orgNumber) {
-    instanceJson.instanceOwner.organisationNumber = instanciationOptions.orgNumber;
+  if (instantiationOptions.personNumber) {
+    instanceJson.instanceOwner.personNumber = instantiationOptions.personNumber;
+  } else if (instantiationOptions.orgNumber) {
+    instanceJson.instanceOwner.organisationNumber = instantiationOptions.orgNumber;
   }
 
   const requestBody = JSON.stringify(instanceJson);
