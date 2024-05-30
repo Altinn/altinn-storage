@@ -22,6 +22,7 @@ export function getAltinnTokenForOrg(scopes, org = "ttd", orgNo = "991825827") {
     scopes: scopes.replace(/ /gi, ","),
     org: org,
     orgNo: orgNo,
+    
   };
 
   return tokenGenerator.generateEnterpriseToken(queryParams);
