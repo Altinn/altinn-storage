@@ -117,7 +117,7 @@ function TC03_SearchInstances(data) {
     language: "nb",
     instanceOwnerPartyIdList: [data.partyId],
     fromCreated: setupData.todayDateInISO(),
-    toLastChanged: new Date().toISOString(),
+    toCreated: "9999-12-31T23:59:59Z",
   };
 
   var res = msgboxApi.searchInstances(data.userToken, queryModel);
