@@ -96,7 +96,7 @@ namespace Altinn.Platform.Storage.Interface.Models
         public List<string> Tags { get; set; } = new List<string>();
 
         /// <summary>
-        /// Gets or sets a list of key-value pairs that can be used to store metadata.
+        /// Gets or sets a list of key-value pairs that can be used to store metadata. Can be used in custom app code to store custom metadata.
         /// </summary>
         [JsonProperty(PropertyName = "metadata")]
         public List<KeyValueEntry> Metadata { get; set; }
