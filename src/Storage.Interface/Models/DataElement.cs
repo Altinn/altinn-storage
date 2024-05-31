@@ -96,6 +96,12 @@ namespace Altinn.Platform.Storage.Interface.Models
         public List<string> Tags { get; set; } = new List<string>();
 
         /// <summary>
+        /// Gets or sets a list of key-value pairs that can be used to store metadata. Can be used in custom app code to store custom metadata.
+        /// </summary>
+        [JsonProperty(PropertyName = "metadata")]
+        public List<KeyValueEntry> Metadata { get; set; }
+
+        /// <summary>
         /// Gets or sets the delete status of the data element.
         /// </summary>
         [JsonProperty(PropertyName = "deleteStatus")]
@@ -152,5 +158,23 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// </summary>
         [JsonProperty(PropertyName = "dataElements")]
         public List<DataElement> DataElements { get; set; }
+    }
+
+    /// <summary>
+    /// Represents a key-value pair.
+    /// </summary>
+    public class KeyValueEntry
+    {
+        /// <summary>
+        /// The key. Must be unique within the list.
+        /// </summary>
+        [JsonProperty(PropertyName = "key")]
+        public string Key { get; set; }
+        
+        /// <summary>
+        /// The value.
+        /// </summary>
+        [JsonProperty(PropertyName = "value")]
+        public string Value { get; set; }
     }
 }
