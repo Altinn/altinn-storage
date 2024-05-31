@@ -124,11 +124,11 @@ function TC03_SearchInstances(data) {
   var instances = JSON.parse(res.body);
 
   var success = check([res, instances], {
-    "TC03_SearchInstances: POST search instances (created, lastChanged). Status is 200":
+    "TC03_SearchInstances: POST search instances created today. Status is 200":
       (r) => r[0].status === 200,
-    "TC03_SearchInstances: POST search instances (created, lastChanged). Count is more than 0":
+    "TC03_SearchInstances: POST search instances created today. Count is more than 0":
       (r) => r[1].length > 0,
-    "TC03_SearchInstances: POST search instances (created, lastChanged). Created date is greater than today":
+    "TC03_SearchInstances: POST search instances created today. Created date is greater than today":
       (r) => {
         return r[1].every(
           (instance) => instance.createdDateTime > setupData.todayDateInISO()
