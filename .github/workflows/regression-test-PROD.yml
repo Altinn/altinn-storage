@@ -21,7 +21,7 @@ jobs:
       uses: grafana/k6-action@v0.3.1
       with:
         filename: test/k6/src/tests/instances.js
-        flags: -e runFullTestSet=true -e env=${{ vars.ENV }} -e pid=${{ secrets.PERSON_NUMBER }} -e orgNumber=${{ secrets.ORG_NUMBER }} -e orgPartyId=${{ secrets.ORG_PARTY_ID }} -e org=${{ vars.ORG }} -e app=${{ vars.APP }} -e userName=${{ secrets.REGRESSION_USER_NAME}} -e userPassword=${{ secrets.REGRESSION_USER_PASSWORD}} -e apimSubsKey=${{ secrets.APIM_SUBSKEY }} -e mpClientId=${{ secrets.MP_CLIENT_ID }} -e mpKid=${{ secrets.MP_KID }} -e encodedJwk=${{ secrets.MP_ENCODEDJWK }}
+        flags: -e runFullTestSet=true -e env=${{ vars.ENV }} -e pid=${{ secrets.REGRESSION_PERSON_NUMBER }} -e orgNumber=${{ secrets.ORG_NUMBER }} -e orgPartyId=${{ secrets.ORG_PARTY_ID }} -e org=${{ vars.ORG }} -e app=${{ vars.APP }} -e userName=${{ secrets.REGRESSION_USER_NAME}} -e userPassword=${{ secrets.REGRESSION_USER_PASSWORD}} -e apimSubsKey=${{ secrets.APIM_SUBSKEY }} -e mpClientId=${{ secrets.MP_CLIENT_ID }} -e mpKid=${{ secrets.MP_KID }} -e encodedJwk=${{ secrets.MP_ENCODEDJWK }}
 
     - name: Run regression tests for endpoint 'instances/sbl'
       if: always()
