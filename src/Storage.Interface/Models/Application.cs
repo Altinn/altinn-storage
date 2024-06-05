@@ -110,6 +110,12 @@ namespace Altinn.Platform.Storage.Interface.Models
 
         public CopyInstanceSettings CopyInstanceSettings { get; set; }
 
+        /// <summary>
+        /// Gets or sets the instantiation config of the app.
+        /// </summary>
+        [JsonProperty(PropertyName = "instantiation")]
+        public InstantiationConfig Instantiation { get; set; }
+
         /// <inheritdoc/>
         public override string ToString()
         {
