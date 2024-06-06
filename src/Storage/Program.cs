@@ -1,8 +1,9 @@
 using System;
+using System.IdentityModel.Tokens.Jwt;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
-
 using Altinn.Common.AccessToken;
 using Altinn.Common.AccessToken.Configuration;
 using Altinn.Common.AccessToken.Services;
@@ -12,7 +13,6 @@ using Altinn.Common.PEP.Clients;
 using Altinn.Common.PEP.Configuration;
 using Altinn.Common.PEP.Implementation;
 using Altinn.Common.PEP.Interfaces;
-
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
@@ -23,12 +23,9 @@ using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.Wrappers;
 using Altinn.Platform.Telemetry;
-
 using AltinnCore.Authentication.JwtCookie;
-
 using Azure.Identity;
 using Azure.Security.KeyVault.Secrets;
-
 using Microsoft.ApplicationInsights.AspNetCore.Extensions;
 using Microsoft.ApplicationInsights.Channel;
 using Microsoft.ApplicationInsights.Extensibility;
@@ -40,16 +37,57 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Yuniql.AspNetCore;
 using Yuniql.PostgreSql;
 
+try
+{
+    string token = File.ReadAllText(@"token.txt");
+    TokenValidationParameters validationParameters = new();
+    ConfigurationManager<OpenIdConnectConfiguration> configurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
+       "https://platform.yt01.altinn.cloud/authentication/api/v1/openid/.well-known/openid-configuration",
+       new OpenIdConnectConfigurationRetriever(),
+       new HttpDocumentRetriever());
+    OpenIdConnectConfiguration configuration = await configurationManager.GetConfigurationAsync();
+    if (configuration != null)
+    {
+        var issuers = new[] { configuration.Issuer };
+        validationParameters.ValidIssuers = validationParameters.ValidIssuers?.Concat(issuers) ?? issuers;
+        validationParameters.IssuerSigningKeys = validationParameters.IssuerSigningKeys?.Concat(configuration.SigningKeys) ?? configuration.SigningKeys;
+    }
+
+    validationParameters.NameClaimType = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name";
+    validationParameters.RoleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
+    validationParameters.ValidateAudience = false;
+    System.Diagnostics.Stopwatch sw = new();
+    sw.Start();
+    bool error = false;
+    for (int i = 0; i < 100000; i++)
+    {
+        var principal = new JwtSecurityTokenHandler().ValidateToken(token, validationParameters, out SecurityToken validatedToken);
+        if (!principal.Identity.IsAuthenticated)
+        {
+            error = true;
+        }
+    }
+
+    sw.Stop();
+    Console.WriteLine("Validatedebug time used " + sw.ElapsedMilliseconds.ToString("N0"));
+}
+catch (Exception ex)
+{
+    Console.WriteLine("Validatedebug error " + ex.Message);
+}
+
 ILogger logger;
 
 string vaultApplicationInsightsKey = "ApplicationInsights--InstrumentationKey";
 
-string applicationInsightsConnectionString = string.Empty;
+string applicationInsightsConnectionString = "InstrumentationKey=cbb06f9f-3eca-4c10-a8e8-bc823d1df73d";
 
 var builder = WebApplication.CreateBuilder(args);
 
