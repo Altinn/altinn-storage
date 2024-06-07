@@ -352,13 +352,11 @@ void Configure(IConfiguration config)
             IsDebug = true
         });
 
-    app.UseSwagger(o => o.RouteTemplate = "storage/swagger/{documentName}/swagger.json");
-
-    app.UseSwaggerUI(c =>
+    if (app.Environment.IsDevelopment())
     {
-        c.SwaggerEndpoint("/storage/swagger/v1/swagger.json", "Altinn Platform Storage API");
-        c.RoutePrefix = "storage/swagger";
-    });
+        app.UseSwagger();
+        app.UseSwaggerUI();
+    }
 
     app.UseRouting();
     app.UseAuthentication();
