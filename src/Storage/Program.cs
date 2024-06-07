@@ -109,7 +109,7 @@ logger.LogInformation("// Running...");
 
 string s = builder.Configuration.GetValue<string>("PlatformSettings:ApiAuthorizationEndpoint");
 Console.WriteLine("PlatformSettings:ApiAuthorizationEndpoint: " + s);
-System.IO.File.WriteAllText("ApiAuthorizationEndpointValue.txt", s);
+////System.IO.File.WriteAllText("ApiAuthorizationEndpointValue.txt", s);
 
 app.Run();
 
