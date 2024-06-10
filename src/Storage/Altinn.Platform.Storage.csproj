@@ -54,10 +54,17 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-  
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-	  <Exec Command="$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools $(TargetDir)../../../Migration" Condition="Exists('$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools') or Exists('$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools.exe')" />
-	  <Exec Command="/app_tools/DbTools ./Migration" Condition="Exists('/app_tools/DbTools')" />
-  </Target>  
 
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <PropertyGroup>
+			<DbToolsExecuted>false</DbToolsExecuted>
+		</PropertyGroup>
+
+	  <Exec Command="/app_tools/DbTools ./Migration" Condition="Exists('/app_tools/DbTools')" />
+		<PropertyGroup Condition="Exists('/app_tools/DbTools')">
+			<DbToolsExecuted>true</DbToolsExecuted>
+		</PropertyGroup>
+
+    <Exec Command="$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools $(TargetDir)../../../Migration" Condition="'$(DbToolsExecuted)' != 'true' and (Exists('$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools') or Exists('$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools.exe'))" />
+	</Target>
 </Project>
