@@ -33,12 +33,12 @@ Run test suite by specifying filename.
 
 For example:
 
-  >$> docker-compose run k6 run /src/tests/data.js  -e env=***  -e userId=*** -e partyId=*** -e pid=*** -e org=ttd -e app=*** -e apimSubsKey=*** -e tokenGeneratorUserName=*** -e tokenGeneratorUserPwd=*** -e runFullTestSet=true -e useTestTokenGenerator=true
+  >$> podman compose run k6 run /src/tests/data.js  -e env=***  -e userId=*** -e partyId=*** -e pid=*** -e org=ttd -e app=*** -e apimSubsKey=*** -e tokenGeneratorUserName=*** -e tokenGeneratorUserPwd=*** -e runFullTestSet=true -e useTestTokenGenerator=true
 
 
 The command consists of three sections
 
-`docker-compose run` to run the test in a docker container
+`podman compose run` to run the test in a docker container
 
 `k6 run {path to test file}` pointing to the test file you want to run e.g. /src/tests/data.js
 
