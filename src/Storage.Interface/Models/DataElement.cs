@@ -94,13 +94,25 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// </summary>
         [JsonProperty(PropertyName = "tags")]
         public List<string> Tags { get; set; } = new List<string>();
+        
+        /// <summary>
+        /// Gets or sets user-defined metadata associated with the data element.
+        /// </summary>
+        /// <remarks>
+        /// Changeable by the end user, like tags, and is not suitable to store system-controlled metadata.
+        /// </remarks>
+        [JsonProperty(PropertyName = "userDefinedMetadata")]
+        public List<KeyValueEntry> UserDefinedMetadata { get; set; }
 
         /// <summary>
-        /// Gets or sets a list of key-value pairs that can be used to store metadata. Can be used in custom app code to store custom metadata.
+        /// Gets or sets application-defined metadata associated with the data element.
         /// </summary>
+        /// <remarks>
+        ///  Meant to be used in custom backend code. This field should not be changeable by the end user.
+        /// </remarks>
         [JsonProperty(PropertyName = "metadata")]
         public List<KeyValueEntry> Metadata { get; set; }
-
+        
         /// <summary>
         /// Gets or sets the delete status of the data element.
         /// </summary>
