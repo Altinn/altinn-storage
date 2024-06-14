@@ -111,10 +111,12 @@ namespace Altinn.Platform.Storage.Interface.Models
         public CopyInstanceSettings CopyInstanceSettings { get; set; }
 
         /// <summary>
-        /// Gets or sets the instantiation config of the app.
+        /// Gets or sets the list of allowed instantiators for this app, and limits it to orgs/service owners.
+        /// The "urn:altinn:org" claim of the current identity must match one of the values in this list.
+        /// If the list is null, any org/service owner or user can instantiate.
         /// </summary>
-        [JsonProperty(PropertyName = "instantiation")]
-        public InstantiationConfig Instantiation { get; set; }
+        [JsonProperty(PropertyName = "instantiationAllowedBy")]
+        public List<string> InstantiationAllowedBy { get; set; }
 
         /// <inheritdoc/>
         public override string ToString()
