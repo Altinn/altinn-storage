@@ -119,5 +119,12 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// </summary>
         [JsonProperty(PropertyName = "enabledFileValidators")]
         public List<string> EnabledFileValidators { get; set; } = new List<string>();
+        
+        /// <summary>
+        /// Gets or sets a list of allowed keys for user defined metadata.
+        /// If null or empty, all user defined metadata keys are allowed.
+        /// </summary>
+        [JsonProperty(PropertyName = "allowedKeysForUserDefinedMetadata")]
+        public List<string> AllowedKeysForUserDefinedMetadata { get; set; }
     }
 }
