@@ -59,13 +59,11 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="p2">the instance guid</param>
         /// <param name="language"> language id en, nb, nn-NO"</param>
         /// <returns>list of instances</returns>
-        [HttpGet("{p1:int}/{p2:int}")]
-        public async Task<ActionResult> GetMessageBoxInstance(
-            int p1,
-            int p2,
-            [FromQuery] string language)
+        [AllowAnonymous]
+        [HttpGet]
+        public async Task<ActionResult> Test()
         {
-            return Ok($"Hello world {p1}{p2}");
+            return Ok($"Hello world");
         }
     }
 }
