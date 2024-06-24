@@ -502,48 +502,8 @@ namespace Altinn.Platform.Storage.Controllers
         private async Task<(Stream Stream, DataElement DataElement)> ReadRequestAndCreateDataElementAsync(HttpRequest request, string elementType, List<Guid> refs, string generatedForTask, Instance instance)
         {
             DateTime creationTime = DateTime.UtcNow;
-            Stream theStream;
 
-            string contentType;
-            string contentFileName = null;
-            long fileSize = 0;
-
-            if (MultipartRequestHelper.IsMultipartContentType(request.ContentType))
-            {
-                // Only read the first section of the Multipart message.
-                MediaTypeHeaderValue mediaType = MediaTypeHeaderValue.Parse(request.ContentType);
-                string boundary = MultipartRequestHelper.GetBoundary(mediaType, _defaultFormOptions.MultipartBoundaryLengthLimit);
-
-                MultipartReader reader = new(boundary, request.Body);
-                MultipartSection section = await reader.ReadNextSectionAsync();
-
-                theStream = section.Body;
-                contentType = section.ContentType;
-
-                bool hasContentDisposition = ContentDispositionHeaderValue.TryParse(section.ContentDisposition, out ContentDispositionHeaderValue contentDisposition);
-
-                if (hasContentDisposition)
-                {
-                    contentFileName = HttpUtility.UrlDecode(contentDisposition.GetFilename());
-                    fileSize = contentDisposition.Size ?? 0;
-                }
-            }
-            else
-            {
-                theStream = request.Body;
-                if (request.Headers.TryGetValue("Content-Disposition", out StringValues headerValues))
-                {
-                    bool hasContentDisposition = ContentDispositionHeaderValue.TryParse(headerValues.ToString(), out ContentDispositionHeaderValue contentDisposition);
-
-                    if (hasContentDisposition)
-                    {
-                        contentFileName = HttpUtility.UrlDecode(contentDisposition.GetFilename());
-                        fileSize = contentDisposition.Size ?? 0;
-                    }
-                }
-
-                contentType = request.ContentType;
-            }
+            (Stream theStream, string contentType, string contentFileName, long fileSize) = await DataElementHelper.GetStream(request, _defaultFormOptions.MultipartBoundaryLengthLimit);
 
             string user = User.GetUserOrOrgId();
 

@@ -88,7 +88,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesFromQuery(queryParams, null, 100, false);
 
-            AddQueryModelToTelemetry(queryModel);
+            AddQueryModelToTelemetry(queryModel, queryResponse?.Count ?? 0);
 
             if (queryResponse?.Exception != null)
             {
@@ -493,7 +493,7 @@ namespace Altinn.Platform.Storage.Controllers
             return Ok(authorizedInstances);
         }
 
-        private void AddQueryModelToTelemetry(MessageBoxQueryModel queryModel)
+        private void AddQueryModelToTelemetry(MessageBoxQueryModel queryModel, int count)
         {
             RequestTelemetry requestTelemetry = HttpContext.Features.Get<RequestTelemetry>();
 
@@ -503,6 +503,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             requestTelemetry.Properties.Add("search.queryModel", JsonSerializer.Serialize(queryModel));
+            requestTelemetry.Properties.Add("search.countBeforeAuth", count.ToString());
         }
     }
 }
