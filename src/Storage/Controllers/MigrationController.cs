@@ -191,6 +191,10 @@ namespace Altinn.Platform.Storage.Controllers
                 {
                     (dataElement.Size, _) = await _blobRepository.WriteBlob("ttd" /* instance.Org */, theStream, dataElement.BlobStoragePath);
                 }
+                else
+                {
+                    dataElement.BlobStoragePath = "on-demand";
+                }
 
                 storedDataElement = await _dataRepository.Create(dataElement, instanceId);
 

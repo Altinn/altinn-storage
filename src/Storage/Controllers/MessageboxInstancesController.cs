@@ -88,8 +88,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesFromQuery(queryParams, null, 100, false);
 
-            AddQueryModelToTelemetry(queryModel, queryResponse?.Count ?? 0);
-            Console.WriteLine("Count " + (queryResponse?.Count ?? 0) + "model " + JsonSerializer.Serialize(queryModel));
+            AddQueryModelToTelemetry(queryModel);
 
             if (queryResponse?.Exception != null)
             {
@@ -491,11 +490,10 @@ namespace Altinn.Platform.Storage.Controllers
             List<TextResource> texts = await _textRepository.Get(appIds, languageId);
             InstanceHelper.ReplaceTextKeys(authorizedInstances, texts, languageId);
 
-            Console.WriteLine("Authcount " + authorizedInstances.Count);
             return Ok(authorizedInstances);
         }
 
-        private void AddQueryModelToTelemetry(MessageBoxQueryModel queryModel, int count)
+        private void AddQueryModelToTelemetry(MessageBoxQueryModel queryModel)
         {
             RequestTelemetry requestTelemetry = HttpContext.Features.Get<RequestTelemetry>();
 
@@ -505,7 +503,6 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             requestTelemetry.Properties.Add("search.queryModel", JsonSerializer.Serialize(queryModel));
-            requestTelemetry.Properties.Add("search.countBeforeAuth", count.ToString());
         }
     }
 }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
@@ -191,6 +192,13 @@ namespace Altinn.Platform.Storage.Controllers
                     return NotFound($"Unable to read data element from blob storage for {dataGuid}");
                 }
 
+                return File(dataStream, dataElement.ContentType, dataElement.Filename);
+            }
+            else if (dataElement.BlobStoragePath == "on-demand")
+            {
+                string content = dataElement.ContentType.EndsWith("pdf") ? "%PDF-1.\r\n1 0 obj<</Pages<</Kids<<>>/Count 1>>>>endobj\r\ntrailer <</Root 1 0 R>>"
+                    : $"{DateTime.Now} Dynamic content for content type {dataElement.ContentType}";
+                Stream dataStream = new MemoryStream(Encoding.UTF8.GetBytes(content));
                 return File(dataStream, dataElement.ContentType, dataElement.Filename);
             }
 
