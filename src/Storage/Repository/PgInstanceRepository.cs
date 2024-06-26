@@ -129,7 +129,7 @@ namespace Altinn.Platform.Storage.Repository
                 {
                     Instance i = reader.GetFieldValue<Instance>("instance");
                     if ((i.CompleteConfirmations != null && i.CompleteConfirmations.Exists(c => c.StakeholderId.ToLower().Equals(i.Org) && c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7)))
-                                           || !i.Status.IsArchived)
+                    || !i.Status.IsArchived)
                     {
                         instances.Add(i);
                     }
