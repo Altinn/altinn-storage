@@ -17,7 +17,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
     public class DataLockControllerUnitTests
     {
         private static readonly List<string> _forbiddenUpdateProps = new List<string>()
-            { "/created", "/createdBy", "/id", "/instanceGuid", "/blobStoragePath", "/dataType", "/contentType", "/filename", "/lastChangedBy", "/lastChanged", "/refs", "/size", "/fileScanResult", "/tags", "/deleteStatus", };
+            { "/created", "/createdBy", "/id", "/instanceGuid", "/blobStoragePath", "/dataType", "/contentType", "/filename", "/lastChangedBy", "/lastChanged", "/refs", "/size", "/fileScanResult", "/tags", "userDefinedMetadata", "metadata", "/deleteStatus", };
 
         private readonly string _org = "ttd";
         private readonly string _appId = "ttd/apps-test";
