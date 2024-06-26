@@ -73,7 +73,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         public async Task Update_VerifyDataRepositoryUpdateInput()
         {
             // Arrange
-            List<string> expectedPropertiesForPatch = new() { "/locked", "/refs", "/references", "/tags", "userDefinedMetadata", "/metadata", "/deleteStatus", "/lastChanged", "/lastChangedBy" };
+            List<string> expectedPropertiesForPatch = new() { "/locked", "/refs", "/references", "/tags", "/userDefinedMetadata", "/metadata", "/deleteStatus", "/lastChanged", "/lastChangedBy" };
 
             (DataController testController, Mock<IDataRepository> dataRepositoryMock) = GetTestController(expectedPropertiesForPatch, true);
 
