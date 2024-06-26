@@ -128,8 +128,8 @@ namespace Altinn.Platform.Storage.Repository
                 while (await reader.ReadAsync())
                 {
                     Instance i = reader.GetFieldValue<Instance>("instance");
-                    if (i.CompleteConfirmations != null && (i.CompleteConfirmations.Exists(c => c.StakeholderId.ToLower().Equals(i.Org) && c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7))
-                        || !i.Status.IsArchived))
+                    if ((i.CompleteConfirmations != null && i.CompleteConfirmations.Exists(c => c.StakeholderId.ToLower().Equals(i.Org) && c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7)))
+                    || !i.Status.IsArchived)
                     {
                         instances.Add(i);
                     }
