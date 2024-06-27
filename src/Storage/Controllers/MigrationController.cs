@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Pipes;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 
@@ -17,6 +19,12 @@ using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
+
+using Azure;
+using Azure.Storage;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
+using Azure.Storage.Blobs.Specialized;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -43,12 +51,14 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IDataRepository _dataRepository;
         private readonly IBlobRepository _blobRepository;
         private readonly IApplicationRepository _applicationRepository;
+        private readonly ITextRepository _textRepository;
         private readonly IPartiesWithInstancesClient _partiesWithInstancesClient;
         private readonly ILogger _logger;
         private readonly IAuthorization _authorizationService;
         private readonly IInstanceEventService _instanceEventService;
         private readonly string _storageBaseAndHost;
         private readonly GeneralSettings _generalSettings;
+        private readonly AzureStorageConfiguration _azureStorageSettings;
         private readonly IRegisterService _registerService;
 
         /// <summary>
@@ -59,30 +69,35 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataRepository">the data element repository handler</param>
         /// <param name="blobRepository">the blob repository handler</param>
         /// <param name="applicationRepository">the application repository handler</param>
+        /// <param name="textRepository">the text repository handler</param>
         /// <param name="partiesWithInstancesClient">An implementation of <see cref="IPartiesWithInstancesClient"/> that can be used to send information to SBL.</param>
         /// <param name="logger">the logger</param>
         /// <param name="authorizationService">the authorization service.</param>
         /// <param name="instanceEventService">the instance event service.</param>
         /// <param name="registerService">the instance register service.</param>
         /// <param name="settings">the general settings.</param>
+        /// <param name="azureStorageSettings">the azureStorage settings.</param>
         public MigrationController(
             IInstanceRepository instanceRepository,
             IInstanceEventRepository instanceEventRepository,
             IDataRepository dataRepository,
             IBlobRepository blobRepository,
             IApplicationRepository applicationRepository,
+            ITextRepository textRepository,
             IPartiesWithInstancesClient partiesWithInstancesClient,
             ILogger<MigrationController> logger,
             IAuthorization authorizationService,
             IInstanceEventService instanceEventService,
             IRegisterService registerService,
-            IOptions<GeneralSettings> settings)
+            IOptions<GeneralSettings> settings,
+            IOptions<AzureStorageConfiguration> azureStorageSettings)
         {
             _instanceRepository = instanceRepository;
             _instanceEventRepository = instanceEventRepository;
             _dataRepository = dataRepository;
             _blobRepository = blobRepository;
             _applicationRepository = applicationRepository;
+            _textRepository = textRepository;
             _partiesWithInstancesClient = partiesWithInstancesClient;
             _logger = logger;
             _storageBaseAndHost = $"{settings.Value.Hostname}/storage/api/v1/";
@@ -90,6 +105,7 @@ namespace Altinn.Platform.Storage.Controllers
             _instanceEventService = instanceEventService;
             _registerService = registerService;
             _generalSettings = settings.Value;
+            _azureStorageSettings = azureStorageSettings.Value;
         }
 
         /// <summary>
@@ -234,6 +250,66 @@ namespace Altinn.Platform.Storage.Controllers
                 _logger.LogError(storageException, "Unable to create migrated altinn ii instance events");
                 return StatusCode(500, $"Unable to create migrated instance events due to {storageException.Message}");
             }
+        }
+
+        /// <summary>
+        /// Inserts new application
+        /// </summary>
+        /// <param name="application">The application to store.</param>
+        /// <returns>The stored application.</returns>
+        [AllowAnonymous]
+        [HttpPost("application")]
+        [Consumes("application/json")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [Produces("application/json")]
+        public async Task<ActionResult<Instance>> CreateApplication([FromBody] Application application)
+        {
+            Application storedApplication = null;
+            try
+            {
+                storedApplication = await _applicationRepository.Create(application);
+                foreach (var kvp in application.Title.Where(k => new List<string> { "nb", "nn", "en" }.Contains(k.Key)))
+                {
+                    await _textRepository.Create(application.Org, application.Id.Split('/')[1], new TextResource()
+                    {
+                        Id = application.Id,
+                        Language = kvp.Key,
+                        Org = application.Org,
+                        Resources = new() { new TextResourceElement() { Id = "ServiceName", Value = kvp.Value } }
+                    });
+                }
+
+                return Created((string)null, storedApplication);
+            }
+            catch (Exception storageException)
+            {
+                _logger.LogError(storageException, "Unable to create migrated altinn ii app");
+                return StatusCode(500, $"Unable to create migrated app due to {storageException.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Upload policy.xml
+        /// </summary>
+        /// <param name="org">Org</param>
+        /// <param name="app">App</param>
+        /// <returns>Ok</returns>
+        [AllowAnonymous]
+        [HttpPost("policy/{org}/{app}")]
+        [DisableFormValueModelBinding]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [Produces("application/json")]
+        public async Task<ActionResult> CreatePolicy([FromRoute] string org, [FromRoute] string app)
+        {
+            StorageSharedKeyCredential metadataCredentials = new StorageSharedKeyCredential(_azureStorageSettings.AccountName, _azureStorageSettings.AccountKey);
+            BlobServiceClient metadataServiceClient = new BlobServiceClient(new Uri(_azureStorageSettings.BlobEndPoint), metadataCredentials);
+            var metadataContainerClient = metadataServiceClient.GetBlobContainerClient("metadata");
+            BlobClient blobClient =
+                metadataContainerClient.GetBlobClient($"{org}/{app}/policy.xml");
+            await blobClient.UploadAsync(Request.Body, true);
+            return Ok();
         }
     }
 }
