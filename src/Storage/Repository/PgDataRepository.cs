@@ -132,8 +132,16 @@ namespace Altinn.Platform.Storage.Repository
                     case "/refs": element.Refs = (List<Guid>)kvp.Value; elementProperties.Add(nameof(DataElement.Refs)); break;
                     case "/references": element.References = (List<Reference>)kvp.Value; elementProperties.Add(nameof(DataElement.References)); break;
                     case "/tags": element.Tags = (List<string>)kvp.Value; elementProperties.Add(nameof(DataElement.Tags)); break;
-                    case "/userDefinedMetadata": element.UserDefinedMetadata = (List<KeyValueEntry>)kvp.Value; elementProperties.Add(nameof(DataElement.UserDefinedMetadata)); break;
-                    case "/metadata": element.Metadata = (List<KeyValueEntry>)kvp.Value; elementProperties.Add(nameof(DataElement.Metadata)); break;
+                    case "/userDefinedMetadata": element.UserDefinedMetadata = (List<KeyValueEntry>)kvp.Value;
+                        elementProperties.Add(nameof(DataElement.UserDefinedMetadata));
+                        elementProperties.Add(nameof(KeyValueEntry.Key));
+                        elementProperties.Add(nameof(KeyValueEntry.Value));
+                        break;
+                    case "/metadata": element.Metadata = (List<KeyValueEntry>)kvp.Value;
+                        elementProperties.Add(nameof(DataElement.Metadata));
+                        elementProperties.Add(nameof(KeyValueEntry.Key));
+                        elementProperties.Add(nameof(KeyValueEntry.Value));
+                        break;
                     case "/deleteStatus": element.DeleteStatus = (DeleteStatus)kvp.Value; elementProperties.Add(nameof(DataElement.DeleteStatus)); break;
                     case "/lastChanged": element.LastChanged = (DateTime?)kvp.Value; elementProperties.Add(nameof(DataElement.LastChanged)); instanceProperties.Add(nameof(Instance.LastChanged)); break;
                     case "/lastChangedBy": element.LastChangedBy = (string)kvp.Value; elementProperties.Add(nameof(DataElement.LastChangedBy)); instanceProperties.Add(nameof(Instance.LastChangedBy)); break;
