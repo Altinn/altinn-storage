@@ -36,10 +36,16 @@ jobs:
        ports:
          - 5432:5432
     steps:
+      - name: Install psql
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+      - run: psql -c 'SHOW max_connections;'
       - name: Increase max_connections
         run: |
           docker exec -i postgres_container bash << EOF
           sed -i -e 's/max_connections = 100/max_connections = 1000/' /var/lib/postgresql/data/postgresql.conf
+          EOF
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
