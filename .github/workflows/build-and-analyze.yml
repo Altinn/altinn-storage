@@ -27,6 +27,7 @@ jobs:
          POSTGRES_USER: platform_storage_admin
          POSTGRES_PASSWORD: Password
          POSTGRES_DB: storagedb
+         POSTGRES_MAX_CONNECTIONS: 200
        options: >-
          --health-cmd pg_isready
          --health-interval 10s
