@@ -24,6 +24,7 @@ jobs:
      postgres:
        image: postgres:15
        env:
+         PGHOST: localhost
          POSTGRES_USER: platform_storage_admin
          POSTGRES_PASSWORD: Password
          POSTGRES_DB: storagedb
@@ -52,6 +53,9 @@ jobs:
         run: |
             chmod +x dbsetup.sh
             ./dbsetup.sh
+      - name: Restart database to enable config changes
+        run: |
+          docker restart $(docker ps -q)
       - name: Cache SonarCloud packages
         uses: actions/cache@v4
         with:
