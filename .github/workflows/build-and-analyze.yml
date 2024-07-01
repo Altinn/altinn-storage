@@ -53,9 +53,8 @@ jobs:
         run: |
             chmod +x dbsetup.sh
             ./dbsetup.sh
-      - name: Restart database
+      - name: Restart database to enable config changes
         run: |
-          docker ps
           docker restart $(docker ps -q)
       - name: Cache SonarCloud packages
         uses: actions/cache@v4
