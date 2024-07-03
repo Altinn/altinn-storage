@@ -115,6 +115,10 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// The "urn:altinn:org" claim of the current identity must match one of the values in this list.
         /// If the list is null, any org/service owner or user can instantiate.
         /// </summary>
+        /// <remarks>
+        /// Note that this configuration only affects production environment (to make testing easier),
+        /// and requires authentication as a system user or Maskinporten client.
+        /// </remarks>
         [JsonProperty(PropertyName = "instantiationAllowedBy")]
         public List<string> InstantiationAllowedBy { get; set; }
 
