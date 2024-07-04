@@ -111,16 +111,16 @@ namespace Altinn.Platform.Storage.Interface.Models
         public CopyInstanceSettings CopyInstanceSettings { get; set; }
 
         /// <summary>
-        /// Gets or sets the list of allowed instantiators for this app, and limits it to orgs/service owners.
-        /// The "urn:altinn:org" claim of the current identity must match one of the values in this list.
-        /// If the list is null, any org/service owner or user can instantiate.
+        /// Gets or sets a boolean value indicating if users (user tokens) are disallowed from instantiating.
+        /// Default value is <c>false</c>.
         /// </summary>
         /// <remarks>
-        /// Note that this configuration only affects production environment (to make testing easier),
-        /// and requires authentication as a system user or Maskinporten client.
+        /// If set to true, only organisations/system users can instantiate apps, but users
+        /// can still copy their own instances.
+        /// Note that this configuration only affects production environment (to make testing easier).
         /// </remarks>
-        [JsonProperty(PropertyName = "instantiationAllowedBy")]
-        public List<string> InstantiationAllowedBy { get; set; }
+        [JsonProperty(PropertyName = "disallowUserInstantiation")]
+        public bool DisallowUserInstantiation { get; set; }
 
         /// <inheritdoc/>
         public override string ToString()
