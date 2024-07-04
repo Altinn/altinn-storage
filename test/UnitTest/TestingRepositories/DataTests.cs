@@ -33,7 +33,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             Instance newInstance = _dataElementFixture.InstanceRepo.Create(instance).Result;
             (_instance, _instanceInternalId) = _dataElementFixture.InstanceRepo.GetOne(Guid.Parse(newInstance.Id.Split('/').Last()), false).Result;
         }
-
+        
         /// <summary>
         /// Test create and change instance read status
         /// </summary>
@@ -82,7 +82,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             Assert.Equal(1, dataCount);
             Assert.Equal(1, instanceCount);
         }
-
+        
         /// <summary>
         /// Test update, insert metadata
         /// </summary>
@@ -338,6 +338,26 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             int count = await PostgresUtil.RunCountQuery(sql);
             Assert.Equal(0, count);
             Assert.True(deleted);
+        }
+        
+        /// <summary>
+        /// Test update, fail if too many properties
+        /// </summary>
+        [Fact]
+        public async Task DataElement_Update_Too_Many_Properties_Throws_Exception()
+        {
+            // Arrange
+            DataElement dataElement = await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement1), _instanceInternalId);
+            const int numberOfAllowedProperties = 14;
+            
+            Dictionary<string, object> tooManyPropertiesDictionary = Enumerable.Range(1, numberOfAllowedProperties + 1) // Add one extra property to make it fail.
+                .ToDictionary(i => $"Key{i}", i => (object)$"Value{i}");
+            
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
+            {
+                await _dataElementFixture.DataRepo.Update(Guid.Empty, Guid.Parse(dataElement.Id), tooManyPropertiesDictionary);
+            });
         }
     }
 
