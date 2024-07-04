@@ -116,7 +116,7 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// </summary>
         /// <remarks>
         /// If set to true, only organisations/system users can instantiate apps, but users
-        /// can still copy their own instances.
+        /// can still copy their own instances (if copying is enabled in the app).
         /// Note that this configuration only affects production environment (to make testing easier).
         /// </remarks>
         [JsonProperty(PropertyName = "disallowUserInstantiation")]
