@@ -110,6 +110,18 @@ namespace Altinn.Platform.Storage.Interface.Models
 
         public CopyInstanceSettings CopyInstanceSettings { get; set; }
 
+        /// <summary>
+        /// Gets or sets a boolean value indicating if users (user tokens) are disallowed from instantiating.
+        /// Default value is <c>false</c>.
+        /// </summary>
+        /// <remarks>
+        /// If set to true, only organisations/system users can instantiate apps, but users
+        /// can still copy their own instances (if copying is enabled in the app).
+        /// Note that this configuration only affects production environment (to make testing easier).
+        /// </remarks>
+        [JsonProperty(PropertyName = "disallowUserInstantiation")]
+        public bool DisallowUserInstantiation { get; set; }
+
         /// <inheritdoc/>
         public override string ToString()
         {
