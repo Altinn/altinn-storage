@@ -9,9 +9,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Altinn.Common.AccessToken" Version="4.4.2" />
-    <PackageReference Include="Altinn.Common.AccessTokenClient" Version="3.0.3" />
-    <PackageReference Include="Altinn.Platform.Models" Version="1.6.0" />
+	<!--<ProjectReference Include="..\..\..\altinn-accesstoken\src\Altinn.Common.AccessToken\Altinn.Common.AccessToken.csproj" />-->
+	<PackageReference Include="Altinn.Common.AccessToken" Version="4.4.2" />
+	  
+	<PackageReference Include="Altinn.Common.AccessTokenClient" Version="3.0.3" />
+	<PackageReference Include="Altinn.Platform.Models" Version="1.6.0" />	  
     <PackageReference Include="Altinn.Platform.Storage.Interface" Version="3.26.0" />
     <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.3.1" />
     <PackageReference Include="Azure.Identity" Version="1.11.4" />
@@ -19,7 +21,10 @@
     <PackageReference Include="Azure.Storage.Blobs" Version="12.20.0" />
     <PackageReference Include="Altinn.Common.PEP" Version="4.0.0" />
     <PackageReference Include="Azure.Storage.Queues" Version="12.18.0" />
+
+<!--	  <ProjectReference Include="..\..\..\altinn-authentication\src\jwtcookie\Authentication\Altinn.Common.Authentication.csproj" />	  -->
     <PackageReference Include="JWTCookieAuthentication" Version="3.0.1" />
+	  
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.22.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
     <PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="6.6.2" />
@@ -29,6 +34,9 @@
     <PackageReference Include="Npgsql.DependencyInjection" Version="8.0.3" />
     <PackageReference Include="Yuniql.AspNetCore" Version="1.2.25" />
     <PackageReference Include="Yuniql.PostgreSql" Version="1.3.15" />
+
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
+    <PackageReference Include="System.Drawing.Common" Version="8.0.6" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)'=='Debug'">
@@ -53,18 +61,14 @@
     <None Update="Altinn.Platform.Storage.Interface.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="token.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
-
+  
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <PropertyGroup>
-			<DbToolsExecuted>false</DbToolsExecuted>
-		</PropertyGroup>
-
+	  <Exec Command="$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools $(TargetDir)../../../Migration" Condition="Exists('$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools') or Exists('$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools.exe')" />
 	  <Exec Command="/app_tools/DbTools ./Migration" Condition="Exists('/app_tools/DbTools')" />
-		<PropertyGroup Condition="Exists('/app_tools/DbTools')">
-			<DbToolsExecuted>true</DbToolsExecuted>
-		</PropertyGroup>
+  </Target>  
 
-    <Exec Command="$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools $(TargetDir)../../../Migration" Condition="'$(DbToolsExecuted)' != 'true' and (Exists('$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools') or Exists('$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools.exe'))" />
-	</Target>
 </Project>

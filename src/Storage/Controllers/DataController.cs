@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -143,7 +144,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
         /// <param name="dataGuid">The id of the data element to retrieve.</param>
         /// <returns>The data file as a stream.</returns>
-        [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
+        ////[Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)] !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         [HttpGet("data/{dataGuid:guid}")]
         [RequestSizeLimit(RequestSizeLimit)]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -196,10 +197,11 @@ namespace Altinn.Platform.Storage.Controllers
             }
             else if (dataElement.BlobStoragePath == "on-demand")
             {
-                string content = dataElement.ContentType.EndsWith("pdf") ? "%PDF-1.\r\n1 0 obj<</Pages<</Kids<<>>/Count 1>>>>endobj\r\ntrailer <</Root 1 0 R>>"
-                    : $"{DateTime.Now} Dynamic content for content type {dataElement.ContentType}";
-                Stream dataStream = new MemoryStream(Encoding.UTF8.GetBytes(content));
-                return File(dataStream, dataElement.ContentType, dataElement.Filename);
+                System.Net.Http.HttpClient client = new() { BaseAddress = new Uri($"{Request.Scheme}://{Request.Host}/storage/api/v1/ondemand") };
+                ////string content = dataElement.ContentType.EndsWith("pdf") ? "%PDF-1.\r\n1 0 obj<</Pages<</Kids<<>>/Count 1>>>>endobj\r\ntrailer <</Root 1 0 R>>"
+                ////    : $"{DateTime.Now} Dynamic content for content type {dataElement.ContentType}";
+                ////Stream dataStream = new MemoryStream(Encoding.UTF8.GetBytes(content));
+                return File(await client.GetStreamAsync("ondemand/html" /*dataElement.BlobStoragePath*/), dataElement.ContentType, dataElement.Filename);
             }
 
             return NotFound("Unable to find requested data item");

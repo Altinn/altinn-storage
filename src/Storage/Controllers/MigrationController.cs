@@ -209,7 +209,7 @@ namespace Altinn.Platform.Storage.Controllers
                 }
                 else
                 {
-                    dataElement.BlobStoragePath = "on-demand";
+                    dataElement.BlobStoragePath = "ondemand/html";
                 }
 
                 storedDataElement = await _dataRepository.Create(dataElement, instanceId);
