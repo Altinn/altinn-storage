@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
@@ -32,7 +33,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             Instance newInstance = _dataElementFixture.InstanceRepo.Create(instance).Result;
             (_instance, _instanceInternalId) = _dataElementFixture.InstanceRepo.GetOne(Guid.Parse(newInstance.Id.Split('/').Last()), false).Result;
         }
-
+        
         /// <summary>
         /// Test create and change instance read status
         /// </summary>
@@ -80,6 +81,117 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             int instanceCount = await PostgresUtil.RunCountQuery(sql);
             Assert.Equal(1, dataCount);
             Assert.Equal(1, instanceCount);
+        }
+        
+        /// <summary>
+        /// Test update, insert metadata
+        /// </summary>
+        [Fact]
+        public async Task DataElement_Update_Metadata_Insert_Ok()
+        {
+            // Arrange
+            List<KeyValueEntry> metadata = new() { { new() { Key = "key1", Value = "value1" } }, { new() { Key = "key2", Value = "value2" } } };
+            DataElement dataElement = await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement1), _instanceInternalId);
+
+            // Act
+            DataElement updatedElement = await _dataElementFixture.DataRepo.Update(Guid.Empty, Guid.Parse(dataElement.Id), new Dictionary<string, object>() { { "/metadata", metadata } });
+
+            // Assert
+            Assert.Equal(JsonSerializer.Serialize(metadata), JsonSerializer.Serialize(updatedElement.Metadata));
+        }
+
+        /// <summary>
+        /// Test update, replace metadata
+        /// </summary>
+        [Fact]
+        public async Task DataElement_Update_Metadata_Replace_Ok()
+        {
+            // Arrange
+            List<KeyValueEntry> orgMetadata = new() { { new() { Key = "key1", Value = "value1" } }, { new() { Key = "key2", Value = "value2" } } };
+            List<KeyValueEntry> replacedMetadata = new() { { new() { Key = "key3", Value = "value3" } }, { new() { Key = "key4", Value = "value4" } } };
+            DataElement initialDataElement = TestDataUtil.GetDataElement(DataElement1);
+            initialDataElement.Metadata = orgMetadata;
+            DataElement dataElement = await _dataElementFixture.DataRepo.Create(initialDataElement, _instanceInternalId);
+            
+            // Act
+            DataElement updatedElement = await _dataElementFixture.DataRepo.Update(Guid.Empty, Guid.Parse(dataElement.Id), new Dictionary<string, object>() { { "/metadata", replacedMetadata } });
+
+            // Assert
+            Assert.Equal(JsonSerializer.Serialize(replacedMetadata), JsonSerializer.Serialize(updatedElement.Metadata));
+        }
+        
+        /// <summary>
+        /// Test update, insert metadata
+        /// </summary>
+        [Fact]
+        public async Task DataElement_Update_UserDefinedMetadata_Insert_Ok()
+        {
+            // Arrange
+            List<KeyValueEntry> userDefinedMetadata = new() { { new() { Key = "key1", Value = "value1" } }, { new() { Key = "key2", Value = "value2" } } };
+            DataElement dataElement = await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement1), _instanceInternalId);
+
+            // Act
+            DataElement updatedElement = await _dataElementFixture.DataRepo.Update(Guid.Empty, Guid.Parse(dataElement.Id), new Dictionary<string, object>() { { "/userDefinedMetadata", userDefinedMetadata } });
+
+            // Assert
+            Assert.Equal(JsonSerializer.Serialize(userDefinedMetadata), JsonSerializer.Serialize(updatedElement.UserDefinedMetadata));
+        }
+
+        /// <summary>
+        /// Test update, replace metadata
+        /// </summary>
+        [Fact]
+        public async Task DataElement_Update_UserDefinedMetadata_Replace_Ok()
+        {
+            // Arrange
+            List<KeyValueEntry> originalUserDefinedMetadata = new() { { new() { Key = "key1", Value = "value1" } }, { new() { Key = "key2", Value = "value2" } } };
+            List<KeyValueEntry> replacedUserDefinedMetadata = new() { { new() { Key = "key3", Value = "value3" } }, { new() { Key = "key4", Value = "value4" } } };
+            DataElement initialDataElement = TestDataUtil.GetDataElement(DataElement1);
+            initialDataElement.UserDefinedMetadata = originalUserDefinedMetadata;
+            DataElement dataElement = await _dataElementFixture.DataRepo.Create(initialDataElement, _instanceInternalId);
+            
+            // Act
+            DataElement updatedElement = await _dataElementFixture.DataRepo.Update(Guid.Empty, Guid.Parse(dataElement.Id), new Dictionary<string, object>() { { "/userDefinedMetadata", replacedUserDefinedMetadata } });
+
+            // Assert
+            Assert.Equal(JsonSerializer.Serialize(replacedUserDefinedMetadata), JsonSerializer.Serialize(updatedElement.UserDefinedMetadata));
+        }
+
+        /// <summary>
+        /// Test update, insert tags
+        /// </summary>
+        [Fact]
+        public async Task DataElement_Update_Tags_Insert_Ok()
+        {
+            // Arrange
+            List<string> tags = new() { "s1", "s2" };
+            DataElement dataElement = await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement1), _instanceInternalId);
+
+            // Act
+            DataElement updatedElement = await _dataElementFixture.DataRepo.Update(Guid.Empty, Guid.Parse(dataElement.Id), new Dictionary<string, object>() { { "/tags", tags } });
+
+            // Assert
+            Assert.Equal(JsonSerializer.Serialize(tags), JsonSerializer.Serialize(updatedElement.Tags));
+        }
+
+        /// <summary>
+        /// Test update, replace tags
+        /// </summary>
+        [Fact]
+        public async Task DataElement_Update_Tags_Replace_Ok()
+        {
+            // Arrange
+            List<string> orgTags = new() { "s1", "s2" };
+            List<string> replacedTags = new() { "s3", "s4" };
+            DataElement initialDataElement = TestDataUtil.GetDataElement(DataElement1);
+            initialDataElement.Tags = orgTags;
+            DataElement dataElement = await _dataElementFixture.DataRepo.Create(initialDataElement, _instanceInternalId);
+
+            // Act
+            DataElement updatedElement = await _dataElementFixture.DataRepo.Update(Guid.Empty, Guid.Parse(dataElement.Id), new Dictionary<string, object>() { { "/tags", replacedTags } });
+
+            // Assert
+            Assert.Equal(JsonSerializer.Serialize(replacedTags), JsonSerializer.Serialize(updatedElement.Tags));
         }
 
         /// <summary>
@@ -226,6 +338,26 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             int count = await PostgresUtil.RunCountQuery(sql);
             Assert.Equal(0, count);
             Assert.True(deleted);
+        }
+        
+        /// <summary>
+        /// Test update, fail if too many properties
+        /// </summary>
+        [Fact]
+        public async Task DataElement_Update_Too_Many_Properties_Throws_Exception()
+        {
+            // Arrange
+            DataElement dataElement = await _dataElementFixture.DataRepo.Create(TestDataUtil.GetDataElement(DataElement1), _instanceInternalId);
+            const int numberOfAllowedProperties = 14;
+            
+            Dictionary<string, object> tooManyPropertiesDictionary = Enumerable.Range(1, numberOfAllowedProperties + 1) // Add one extra property to make it fail.
+                .ToDictionary(i => $"Key{i}", i => (object)$"Value{i}");
+            
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
+            {
+                await _dataElementFixture.DataRepo.Update(Guid.Empty, Guid.Parse(dataElement.Id), tooManyPropertiesDictionary);
+            });
         }
     }
 
