@@ -1,22 +1,17 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Pipes;
 using System.Linq;
-using System.Text.RegularExpressions;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 
-using Altinn.Authorization.ABAC.Xacml.JsonProfile;
-using Altinn.Common.PEP.Helpers;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
-using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 
@@ -26,16 +21,19 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
 
+using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.WebUtilities;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Net.Http.Headers;
 
 namespace Altinn.Platform.Storage.Controllers
 {
@@ -51,6 +49,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IDataRepository _dataRepository;
         private readonly IBlobRepository _blobRepository;
         private readonly IApplicationRepository _applicationRepository;
+        private readonly IA2Repository _a2Repository;
         private readonly ITextRepository _textRepository;
         private readonly IPartiesWithInstancesClient _partiesWithInstancesClient;
         private readonly ILogger _logger;
@@ -69,6 +68,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataRepository">the data element repository handler</param>
         /// <param name="blobRepository">the blob repository handler</param>
         /// <param name="applicationRepository">the application repository handler</param>
+        /// <param name="a2repository">the a2repository handler</param>
         /// <param name="textRepository">the text repository handler</param>
         /// <param name="partiesWithInstancesClient">An implementation of <see cref="IPartiesWithInstancesClient"/> that can be used to send information to SBL.</param>
         /// <param name="logger">the logger</param>
@@ -83,6 +83,7 @@ namespace Altinn.Platform.Storage.Controllers
             IDataRepository dataRepository,
             IBlobRepository blobRepository,
             IApplicationRepository applicationRepository,
+            IA2Repository a2repository,
             ITextRepository textRepository,
             IPartiesWithInstancesClient partiesWithInstancesClient,
             ILogger<MigrationController> logger,
@@ -97,6 +98,7 @@ namespace Altinn.Platform.Storage.Controllers
             _dataRepository = dataRepository;
             _blobRepository = blobRepository;
             _applicationRepository = applicationRepository;
+            _a2Repository = a2repository;
             _textRepository = textRepository;
             _partiesWithInstancesClient = partiesWithInstancesClient;
             _logger = logger;
@@ -159,6 +161,8 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceGuid">The instanceGuid.</param>
         /// <param name="timestampTicks">Element timestamp ticks</param>
         /// <param name="dataType">Element data type</param>
+        /// <param name="formid">A2 form id</param>
+        /// <param name="lformid">A2 logical form id</param>
         /// <returns>The stored data element.</returns>
         [AllowAnonymous]
         [HttpPost("dataelement/{instanceGuid:guid}")]
@@ -169,7 +173,9 @@ namespace Altinn.Platform.Storage.Controllers
         public async Task<ActionResult<DataElement>> CreateDataElement(
             [FromRoute]Guid instanceGuid,
             [FromQuery(Name = "timestampticks")]long timestampTicks,
-            [FromQuery(Name = "datatype")]string dataType)
+            [FromQuery(Name = "datatype")]string dataType,
+            [FromQuery(Name = "formid")]string formid,
+            [FromQuery(Name = "lformid")]string lformid)
         {
             DateTime timestamp = new DateTime(timestampTicks, DateTimeKind.Utc).ToLocalTime();
 
@@ -197,7 +203,12 @@ namespace Altinn.Platform.Storage.Controllers
                     IsRead = true,
                     LastChanged = timestamp,
                     LastChangedBy = instance.LastChangedBy, // TODO: Find out what to populate here
-                    BlobStoragePath = DataElementHelper.DataFileName(instance.AppId, instanceGuid.ToString(), dataElementId)
+                    BlobStoragePath = DataElementHelper.DataFileName(instance.AppId, instanceGuid.ToString(), dataElementId),
+                    Metadata = formid == null ? null : new()
+                    {
+                        new() { Key = "formid", Value = formid },
+                        new() { Key = "lformid", Value = lformid }
+                    }
                 };
 
                 (Stream theStream, dataElement.ContentType, dataElement.Filename, _) = await DataElementHelper.GetStream(Request, FormOptions.DefaultMultipartBoundaryLengthLimit);
@@ -295,6 +306,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="org">Org</param>
         /// <param name="app">App</param>
         /// <returns>Ok</returns>
+        [ServiceFilter(typeof(ClientIpCheckActionFilter))]
         [AllowAnonymous]
         [HttpPost("policy/{org}/{app}")]
         [DisableFormValueModelBinding]
@@ -310,6 +322,109 @@ namespace Altinn.Platform.Storage.Controllers
                 metadataContainerClient.GetBlobClient($"{org}/{app}/policy.xml");
             await blobClient.UploadAsync(Request.Body, true);
             return Ok();
+        }
+
+        /// <summary>
+        /// Upload xls
+        /// </summary>
+        /// <param name="name">Name</param>
+        /// <param name="language">Language</param>
+        /// <param name="version">Version</param>
+        /// <returns>Ok</returns>
+        [AllowAnonymous]
+        [HttpPost("codelist/{name}/{language}/{version}")]
+        [DisableFormValueModelBinding]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [Produces("application/json")]
+        public async Task<ActionResult> CreateCodelist([FromRoute] string name, [FromRoute] string language, [FromRoute] int version)
+        {
+            using var reader = new StreamReader(Request.Body);
+            await _a2Repository.CreateCodelist(name, language, version, await reader.ReadToEndAsync());
+            return Created();
+        }
+
+        /// <summary>
+        /// Upload image
+        /// </summary>
+        /// <returns>Ok</returns>
+        [AllowAnonymous]
+        [HttpPost("pdfimage")]
+        [DisableFormValueModelBinding]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [Produces("application/json")]
+        public async Task<ActionResult> CreateImage()
+        {
+            string filename = HttpUtility.UrlDecode(ContentDispositionHeaderValue.Parse(Request.Headers["Content-Disposition"].ToString()).GetFilename());
+            using var reader = new StreamReader(Request.Body);
+            byte[] buffer = new byte[(int)Request.ContentLength];
+            await Request.Body.ReadAsync(buffer);
+            await _a2Repository.CreateImage(filename, buffer);
+            return Created();
+        }
+
+        /// <summary>
+        /// Upload xls
+        /// </summary>
+        /// <param name="org">Org</param>
+        /// <param name="app">App</param>
+        /// <param name="lformid">A2 logical form id</param>
+        /// <param name="pagenumber">Page number</param>
+        /// <param name="language">Language</param>
+        /// <returns>Ok</returns>
+        [AllowAnonymous]
+        [HttpPost("xsl/{org}/{app}/{lformid}/{pagenumber}/{language}")]
+        [DisableFormValueModelBinding]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [Produces("application/json")]
+        public async Task<ActionResult> CreateXsl([FromRoute] string org, [FromRoute] string app, [FromRoute] int lformid, [FromRoute] int pagenumber, [FromRoute] string language)
+        {
+            using var reader = new StreamReader(Request.Body);
+            await _a2Repository.CreateXsl(org, app, lformid, language, pagenumber, await reader.ReadToEndAsync());
+            return Created();
+        }
+    }
+
+    /// <summary>
+    /// ClientIpCheckActionFilter
+    /// </summary>
+    public class ClientIpCheckActionFilter : ActionFilterAttribute
+    {
+        private readonly ILogger _logger;
+        private readonly string _safelist;
+
+        /// <summary>
+        /// ClientIpCheckActionFilter
+        /// </summary>
+        /// <param name="safelist">safelist</param>
+        public ClientIpCheckActionFilter(string safelist)
+        {
+            _safelist = safelist;
+        }
+
+        /// <summary>
+        /// OnActionExecuting
+        /// </summary>
+        /// <param name="context">context</param>
+        public override void OnActionExecuting(ActionExecutingContext context)
+        {
+            RequestTelemetry requestTelemetry = context.HttpContext.Features.Get<RequestTelemetry>();
+            string ipAddressList;
+            bool validIp = true;
+            if (requestTelemetry != null && (ipAddressList = requestTelemetry.Properties["ipAddress"]) != null)
+            {
+                validIp = _safelist.Contains(ipAddressList.Split(';')[0]);
+            }
+
+            if (!validIp)
+            {
+                context.Result = new ForbidResult();
+                return;
+            }
+
+            base.OnActionExecuting(context);
         }
     }
 }

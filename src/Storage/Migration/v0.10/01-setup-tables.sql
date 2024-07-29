@@ -1,0 +1,40 @@
+CREATE TABLE IF NOT EXISTS storage.a2xsls
+(
+	id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+	parentid BIGINT NULL,
+	app TEXT NOT NULL,
+	org TEXT NOT NULL,
+	applicationinternalid BIGINT NOT NULL REFERENCES storage.applications(id) ON DELETE CASCADE,
+	lformid INT NOT NULL,
+	language TEXT NOT NULL,
+	pagenumber INT NOT NULL,
+	xsl TEXT NULL,
+	CONSTRAINT a2xslsalternateid UNIQUE (app, org, lformid, pagenumber, language)
+)
+TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS storage.a2codelists
+(
+	id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+	name TEXT NOT NULL,
+	language TEXT NOT NULL,
+	version INT NOT NULL,
+	codelist TEXT NOT NULL,
+	CONSTRAINT codelistalternateid UNIQUE (name, language, version)
+)
+TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS storage.a2images
+(
+	id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+	parentid BIGINT NULL,
+	name TEXT NOT NULL,
+	image BYTEA NULL,
+	CONSTRAINT a2imagesalternateid UNIQUE (name)	
+)
+TABLESPACE pg_default;
+
+GRANT SELECT,INSERT,UPDATE,REFERENCES,DELETE,TRUNCATE,REFERENCES,TRIGGER ON ALL TABLES IN SCHEMA storage TO platform_storage;
+GRANT SELECT,INSERT,UPDATE,REFERENCES,DELETE,TRUNCATE,REFERENCES,TRIGGER ON ALL TABLES IN SCHEMA storage TO platform_storage_admin;
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA storage TO platform_storage;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA storage TO platform_storage;

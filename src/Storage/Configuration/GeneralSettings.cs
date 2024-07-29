@@ -47,5 +47,10 @@ namespace Altinn.Platform.Storage.Configuration
         /// Gets or sets the cache lifetime for application metadata document.
         /// </summary>
         public int AppMetadataCacheLifeTimeInSeconds { get; set; }
+
+        /// <summary>
+        /// Gets or sets a semicolon separated white list of IP addresses for the migration controller
+        /// </summary>
+        public string MigrationIpWhiteList { get; set; } = "89.250.123.17;89.250.123.58;40.68.3.113;52.234.36.38;10.211.49.188";
     }
 }

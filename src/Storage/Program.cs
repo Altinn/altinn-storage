@@ -16,6 +16,7 @@ using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Filters;
 using Altinn.Platform.Storage.Health;
 using Altinn.Platform.Storage.Helpers;
@@ -233,6 +234,11 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
         .AddPolicy(AuthzConstants.POLICY_STUDIO_DESIGNER, policy => policy.Requirements.Add(new ClaimAccessRequirement("urn:altinn:app", "studio.designer")))
         .AddPolicy("PlatformAccess", policy => policy.Requirements.Add(new AccessTokenRequirement()));
 
+    services.AddScoped<ClientIpCheckActionFilter>(container =>
+    {
+        return new ClientIpCheckActionFilter(generalSettings.MigrationIpWhiteList);
+    });
+
     services.AddHttpContextAccessor();
     services.AddSingleton<IClaimsPrincipalProvider, ClaimsPrincipalProvider>();
 
@@ -254,6 +260,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddTransient<IInstanceService, InstanceService>();
     services.AddTransient<IInstanceEventService, InstanceEventService>();
     services.AddSingleton<IApplicationService, ApplicationService>();
+    services.AddSingleton<IA2OndemandFormattingService, A2OndemandFormattingService>();
 
     services.AddHttpClient<IPartiesWithInstancesClient, PartiesWithInstancesClient>();
 

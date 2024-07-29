@@ -3,36 +3,22 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Pipes;
 using System.Linq;
+using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Web;
 
-using Altinn.Authorization.ABAC.Xacml.JsonProfile;
-using Altinn.Common.PEP.Helpers;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
-using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
-using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 
-using Azure;
-using Azure.Storage;
-using Azure.Storage.Blobs;
-using Azure.Storage.Blobs.Models;
-using Azure.Storage.Blobs.Specialized;
-
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Extensions;
-using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -42,7 +28,7 @@ namespace Altinn.Platform.Storage.Controllers
     /// <summary>
     /// Implements endpoints on demand content generation
     /// </summary>
-    [Route("storage/api/v1/ondemand")]
+    [Route("storage/api/v1/ondemand/{org}/{app}/{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
     [ApiExplorerSettings(IgnoreApi = true)]
     [ApiController]
     public class ContentOnDemandController : ControllerBase
@@ -52,6 +38,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IDataRepository _dataRepository;
         private readonly IBlobRepository _blobRepository;
         private readonly IApplicationRepository _applicationRepository;
+        private readonly IA2Repository _a2Repository;
         private readonly ITextRepository _textRepository;
         private readonly IPartiesWithInstancesClient _partiesWithInstancesClient;
         private readonly ILogger _logger;
@@ -61,6 +48,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly GeneralSettings _generalSettings;
         private readonly AzureStorageConfiguration _azureStorageSettings;
         private readonly IRegisterService _registerService;
+        private readonly IA2OndemandFormattingService _a2OndemandFormattingService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ContentOnDemandController"/> class
@@ -70,6 +58,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataRepository">the data element repository handler</param>
         /// <param name="blobRepository">the blob repository handler</param>
         /// <param name="applicationRepository">the application repository handler</param>
+        /// <param name="a2Repository">the a2 repository handler</param>
         /// <param name="textRepository">the text repository handler</param>
         /// <param name="partiesWithInstancesClient">An implementation of <see cref="IPartiesWithInstancesClient"/> that can be used to send information to SBL.</param>
         /// <param name="logger">the logger</param>
@@ -84,6 +73,7 @@ namespace Altinn.Platform.Storage.Controllers
             IDataRepository dataRepository,
             IBlobRepository blobRepository,
             IApplicationRepository applicationRepository,
+            IA2Repository a2Repository,
             ITextRepository textRepository,
             IPartiesWithInstancesClient partiesWithInstancesClient,
             ILogger<MigrationController> logger,
@@ -91,13 +81,15 @@ namespace Altinn.Platform.Storage.Controllers
             IInstanceEventService instanceEventService,
             IRegisterService registerService,
             IOptions<GeneralSettings> settings,
-            IOptions<AzureStorageConfiguration> azureStorageSettings)
+            IOptions<AzureStorageConfiguration> azureStorageSettings,
+            IA2OndemandFormattingService a2OndemandFormattingService)
         {
             _instanceRepository = instanceRepository;
             _instanceEventRepository = instanceEventRepository;
             _dataRepository = dataRepository;
             _blobRepository = blobRepository;
             _applicationRepository = applicationRepository;
+            _a2Repository = a2Repository;
             _textRepository = textRepository;
             _partiesWithInstancesClient = partiesWithInstancesClient;
             _logger = logger;
@@ -107,27 +99,51 @@ namespace Altinn.Platform.Storage.Controllers
             _registerService = registerService;
             _generalSettings = settings.Value;
             _azureStorageSettings = azureStorageSettings.Value;
+            _a2OndemandFormattingService = a2OndemandFormattingService;
         }
 
         /// <summary>
-        /// Gets all instances in a given state for a given instance owner.
+        /// Gets the formatted content
         /// </summary>
-        /// <param name="p1">the instance owner id</param>
-        /// <param name="p2">the instance guid</param>
-        /// <param name="language"> language id en, nb, nn-NO"</param>
-        /// <returns>list of instances</returns>
+        /// <param name="org">org</param>
+        /// <param name="app">app/param>
+        /// <param name="instanceGuid">instanceGuid</param>
+        /// <param name="dataGuid">dataGuid</param>
+        /// <returns>The formatted content</returns>
         [AllowAnonymous]
-        [HttpGet("html")]
-        public async Task<Stream> GetHtml()
+        ////[HttpGet("html")]
+        [HttpGet("{dataGuid:guid}/html")]
+        public async Task<Stream> GetHtml([FromRoute]string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid)
         {
             // TODO, xsl (avg 74k) in db with lang, codelist in db with lang, pdfimage in db with mapping
+            // To manually insert xsl in db single quote must be escaped with an extra single quote
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
+            DataElement htmlElement = instance.Data.First(d => d.Id == dataGuid.ToString());
+            DataElement xmlElement = instance.Data.First(d => d.Metadata.First(m => m.Key == "formid").Value == htmlElement.Metadata.First(m => m.Key == "formid").Value && d.Id != htmlElement.Id);
             PrintViewXslBEList xsls = new PrintViewXslBEList();
-            xsls.Add(new PrintViewXslBE() { PrintViewXsl = System.IO.File.ReadAllText(@"c:\temp\1.xsl") });
-            xsls.Add(new PrintViewXslBE() { PrintViewXsl = System.IO.File.ReadAllText(@"c:\temp\2.xsl") });
-            xsls.Add(new PrintViewXslBE() { PrintViewXsl = System.IO.File.ReadAllText(@"c:\temp\3.xsl") });
-            xsls.Add(new PrintViewXslBE() { PrintViewXsl = System.IO.File.ReadAllText(@"c:\temp\4.xsl") });
+            foreach (var xsl in await _a2Repository.GetXsls(
+                org,
+                app,
+                int.Parse(xmlElement.Metadata.First(m => m.Key == "lformid").Value),
+                //// TODO handle language
+                "nb"))
+            {
+                xsls.Add(new PrintViewXslBE() { PrintViewXsl = xsl });
+            }
 
-            return new A2Print(new Microsoft.Extensions.Configuration.ConfigurationBuilder().AddJsonFile(@"C:\Repos\AltinnTools\A2Print\PrintTestApp\appsettings.json").Build()).GetPrintHTML(xsls, System.IO.File.ReadAllText(@"c:\temp\1.xml"), DateTime.Now.ToString(), 1044);
+            // TODO remove hard coding of ttd below
+            return _a2OndemandFormattingService.GetHTML(
+                xsls,
+                //// await _blobRepository.ReadBlob(org, $"{org}/{app}/{instanceGuid}/data/{xmlElement.Id}"),
+                await _blobRepository.ReadBlob("ttd", $"ttd/{app}/{instanceGuid}/data/{xmlElement.Id}"),
+                xmlElement.Created.ToString(),
+                1044);
+
+            ////MemoryStream ms = new MemoryStream();
+            ////HtmlConverter.ConvertToPdf(x, ms);
+            ////PdfDocument pdf = PdfGenerator.GeneratePdf(new StreamReader(x).ReadToEnd(), PdfSharp.PageSize.A4);
+            ////pdf.Save(@"c:\temp\hn.pdf");
+            ////return ms;
         }
     }
 }

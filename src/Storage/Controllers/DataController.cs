@@ -144,7 +144,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
         /// <param name="dataGuid">The id of the data element to retrieve.</param>
         /// <returns>The data file as a stream.</returns>
-        ////[Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)] !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)] !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         [HttpGet("data/{dataGuid:guid}")]
         [RequestSizeLimit(RequestSizeLimit)]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -184,6 +184,12 @@ namespace Altinn.Platform.Storage.Controllers
 
             string storageFileName = DataElementHelper.DataFileName(instance.AppId, instanceGuid.ToString(), dataGuid.ToString());
 
+            // TODO remove hard coding of ttd below
+            if (instance.AppId.Contains(@"/a2-"))
+            {
+                storageFileName = $"ttd/{instance.AppId.Split('/')[1]}/{instanceGuid}/data/{dataGuid}";
+            }
+
             if (string.Equals(dataElement.BlobStoragePath, storageFileName))
             {
                 Stream dataStream = await _blobRepository.ReadBlob(instance.Org, storageFileName);
@@ -195,13 +201,11 @@ namespace Altinn.Platform.Storage.Controllers
 
                 return File(dataStream, dataElement.ContentType, dataElement.Filename);
             }
-            else if (dataElement.BlobStoragePath == "on-demand")
+            else if (dataElement.BlobStoragePath.StartsWith("ondemand"))
             {
-                System.Net.Http.HttpClient client = new() { BaseAddress = new Uri($"{Request.Scheme}://{Request.Host}/storage/api/v1/ondemand") };
-                ////string content = dataElement.ContentType.EndsWith("pdf") ? "%PDF-1.\r\n1 0 obj<</Pages<</Kids<<>>/Count 1>>>>endobj\r\ntrailer <</Root 1 0 R>>"
-                ////    : $"{DateTime.Now} Dynamic content for content type {dataElement.ContentType}";
-                ////Stream dataStream = new MemoryStream(Encoding.UTF8.GetBytes(content));
-                return File(await client.GetStreamAsync("ondemand/html" /*dataElement.BlobStoragePath*/), dataElement.ContentType, dataElement.Filename);
+                // TODO: avoid new client for each call
+                HttpClient client = new() { BaseAddress = new Uri($"{Request.Scheme}://{Request.Host}/storage/api/v1/") };
+                return File(await client.GetStreamAsync($"ondemand/{instance.AppId}/{instanceOwnerPartyId}/{instanceGuid}/{dataGuid}/{dataElement.BlobStoragePath.Split('/')[1]}"), dataElement.ContentType, dataElement.Filename);
             }
 
             return NotFound("Unable to find requested data item");
