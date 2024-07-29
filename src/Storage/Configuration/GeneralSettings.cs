@@ -56,6 +56,6 @@ namespace Altinn.Platform.Storage.Configuration
         /// <summary>
         /// Gets or sets the URI for the ondemand API
         /// </summary>
-        public string OndemandEndpoint { get; set; } = "http://altinn-storage.default.svc.cluster.local/storage/api/v1/";
+        public string OndemandEndpoint { get; set; } = "http://internal.platform.at22.altinn.cloud/storage/api/v1/";
     }
 }
