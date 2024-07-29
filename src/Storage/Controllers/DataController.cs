@@ -183,15 +183,18 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             string storageFileName = DataElementHelper.DataFileName(instance.AppId, instanceGuid.ToString(), dataGuid.ToString());
+            string debug = "debuginit";
 
             // TODO remove hard coding of ttd below
             if (instance.AppId.Contains(@"/a2-"))
             {
+                debug += ";1";
                 storageFileName = $"ttd/{instance.AppId.Split('/')[1]}/{instanceGuid}/data/{dataGuid}";
             }
 
             if (string.Equals(dataElement.BlobStoragePath, storageFileName))
             {
+                debug += ";2";
                 Stream dataStream = await _blobRepository.ReadBlob(instance.Org, storageFileName);
 
                 if (dataStream == null)
@@ -203,12 +206,13 @@ namespace Altinn.Platform.Storage.Controllers
             }
             else if (dataElement.BlobStoragePath.StartsWith("ondemand"))
             {
-                // TODO: avoid new client for each call
+                debug += ";3";
+                //// TODO: avoid new client for each call
                 HttpClient client = new() { BaseAddress = new Uri($"{Request.Scheme}://{Request.Host}/storage/api/v1/") };
                 return File(await client.GetStreamAsync($"ondemand/{instance.AppId}/{instanceOwnerPartyId}/{instanceGuid}/{dataGuid}/{dataElement.BlobStoragePath.Split('/')[1]}"), dataElement.ContentType, dataElement.Filename);
             }
 
-            return NotFound("Unable to find requested data item");
+            return NotFound("Unable to find requested data item" + ", filename: " + storageFileName + ", debug: " + debug);
         }
 
         /// <summary>
