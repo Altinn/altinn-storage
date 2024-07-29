@@ -42,6 +42,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Net.Http.Headers;
 using Microsoft.OpenApi.Models;
 using Yuniql.AspNetCore;
 using Yuniql.PostgreSql;
@@ -263,6 +264,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddSingleton<IA2OndemandFormattingService, A2OndemandFormattingService>();
 
     services.AddHttpClient<IPartiesWithInstancesClient, PartiesWithInstancesClient>();
+    services.AddHttpClient<IOndemandClient, OndemandClient>();
 
     if (!string.IsNullOrEmpty(applicationInsightsConnectionString))
     {
