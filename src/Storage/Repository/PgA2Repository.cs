@@ -39,6 +39,7 @@ namespace Altinn.Platform.Storage.Repository
         private readonly string _cacheKey = "allAppTitles";
         private readonly NpgsqlDataSource _dataSource;
         private readonly TelemetryClient _telemetryClient;
+        private readonly ILogger<PgA2Repository> _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PgA2Repository"/> class.
@@ -46,11 +47,13 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="generalSettings">the general settings</param>
         /// <param name="memoryCache">the memory cache</param>
         /// <param name="dataSource">The npgsql data source.</param>
+        /// <param name="logger">Logger</param>
         /// <param name="telemetryClient">Telemetry client</param>
         public PgA2Repository(
             IOptions<GeneralSettings> generalSettings,
             IMemoryCache memoryCache,
             NpgsqlDataSource dataSource,
+            ILogger<PgA2Repository> logger,
             TelemetryClient telemetryClient = null)
         {
             _dataSource = dataSource;
@@ -62,6 +65,7 @@ namespace Altinn.Platform.Storage.Repository
             _cacheEntryOptionsMetadata = new MemoryCacheEntryOptions()
               .SetPriority(CacheItemPriority.High)
               .SetAbsoluteExpiration(new TimeSpan(0, 0, generalSettings.Value.AppMetadataCacheLifeTimeInSeconds));
+            _logger = logger;
         }
 
         /// <inheritdoc/>
@@ -149,6 +153,7 @@ namespace Altinn.Platform.Storage.Repository
                 }
 
                 tracker.Track();
+                _logger.LogError($"Debug get image, lookup: {name}, returned size: {image.Length}");
                 return image;
             }
             catch (Exception ex)
