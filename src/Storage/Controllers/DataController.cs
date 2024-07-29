@@ -208,8 +208,16 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 debug += ";3";
                 //// TODO: avoid new client for each call
-                HttpClient client = new() { BaseAddress = new Uri($"{Request.Scheme}://{Request.Host}/storage/api/v1/") };
-                return File(await client.GetStreamAsync($"ondemand/{instance.AppId}/{instanceOwnerPartyId}/{instanceGuid}/{dataGuid}/{dataElement.BlobStoragePath.Split('/')[1]}"), dataElement.ContentType, dataElement.Filename);
+                try
+                {
+                    HttpClient client = new() { BaseAddress = new Uri($"{Request.Scheme}://{Request.Host}/storage/api/v1/") };
+                    return File(await client.GetStreamAsync($"ondemand/{instance.AppId}/{instanceOwnerPartyId}/{instanceGuid}/{dataGuid}/{dataElement.BlobStoragePath.Split('/')[1]}"), dataElement.ContentType, dataElement.Filename);
+                }
+                catch (Exception ex)
+                {
+                    return NotFound("Crash: Unable to find requested data item" + ", filename: " + storageFileName + ", debug: " +
+                        debug + ", base: " + $"{Request.Scheme}://{Request.Host}/storage/api/v1/" + ", rest: " + $"ondemand/{instance.AppId}/{instanceOwnerPartyId}/{instanceGuid}/{dataGuid}/{dataElement.BlobStoragePath.Split('/')[1]}");
+                }
             }
 
             return NotFound("Unable to find requested data item" + ", filename: " + storageFileName + ", debug: " + debug);
