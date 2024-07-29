@@ -9,6 +9,7 @@ using System.Xml;
 using System.Xml.Xsl;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Repository;
+using Microsoft.Extensions.Logging;
 
 namespace Altinn.Platform.Storage.Services
 {
@@ -18,13 +19,15 @@ namespace Altinn.Platform.Storage.Services
     public class A2OndemandFormattingService : IA2OndemandFormattingService
     {
         private readonly IA2Repository _a2Repository;
+        private readonly ILogger<A2OndemandFormattingService> _logger;
 
         /// <summary>
         /// Default constructor
         /// </summary>
-        public A2OndemandFormattingService(IA2Repository a2Repository)
+        public A2OndemandFormattingService(IA2Repository a2Repository, ILogger<A2OndemandFormattingService> logger)
         {
             _a2Repository = a2Repository;
+            _logger = logger;
         }
 
         /// <inheritdoc/>
@@ -787,13 +790,15 @@ namespace Altinn.Platform.Storage.Services
                         XmlAttribute src = imageNode.Attributes["src"];
                         if (src != null && !src.InnerText.StartsWith("res://infopath.exe"))
                         {
+                            _logger.LogError("Image convert debug1: " + src.InnerText);
                             src.InnerText = ConvertImageToBase64HtmlEmbeddedImageString(src.InnerText);
+                            _logger.LogError("Image convert debug2: " + src.InnerText);
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    //AltinnLogger.LogError("Feil ved konvertering av bilde til base64 string", ex);
+                    _logger.LogError(ex, "Error converting image to base64 string");
                 }
             }
         }
