@@ -153,7 +153,7 @@ namespace Altinn.Platform.Storage.Repository
                 }
 
                 tracker.Track();
-                _logger.LogError($"Debug get image, lookup: {name}, returned size: {image.Length}");
+                _logger.LogError($"Debug get image, lookup: {name}, returned size: {image?.Length ?? -1}");
                 return image;
             }
             catch (Exception ex)

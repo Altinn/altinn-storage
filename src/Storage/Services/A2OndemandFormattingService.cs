@@ -745,12 +745,8 @@ namespace Altinn.Platform.Storage.Services
 
             using (MemoryStream ms = new MemoryStream(imagebytes))
             {
-                using (Image img = Image.FromStream(ms))
-                {
-                    ImageFormat imgFormat = GetImageFormatFromImageFileName(imageName);
-                    img.Save(ms, imgFormat);
-                    return "data:image/" + imgFormat.ToString().ToLower() + ";base64," + Convert.ToBase64String(ms.ToArray());
-                }
+                string imgFormat = GetImageFormatFromImageFileName(imageName);
+                return "data:image/" + imgFormat.ToString().ToLower() + ";base64," + Convert.ToBase64String(ms.ToArray());
             }
         }
 
@@ -759,23 +755,23 @@ namespace Altinn.Platform.Storage.Services
         /// </summary>
         /// <param name="imageFileName">Image file name</param>
         /// <returns>Image format</returns>
-        private static ImageFormat GetImageFormatFromImageFileName(string imageFileName)
+        private static string GetImageFormatFromImageFileName(string imageFileName)
         {
             switch (imageFileName.Substring(imageFileName.LastIndexOf(".") + 1))
             {
                 case "bmp":
-                    return ImageFormat.Bmp;
+                    return "bmp";
                 case "gif":
-                    return ImageFormat.Gif;
+                    return "gif";
                 case "jpg":
                 case "jpeg":
-                    return ImageFormat.Jpeg;
+                    return "jpeg";
                 case "png":
-                    return ImageFormat.Png;
+                    return "png";
                 case "tif":
-                    return ImageFormat.Tiff;
+                    return "tiff";
                 default:
-                    return ImageFormat.Wmf;
+                    return "wmf";
             }
         }
 
