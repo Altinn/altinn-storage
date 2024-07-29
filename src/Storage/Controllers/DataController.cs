@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
-
+using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
@@ -44,6 +44,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IApplicationRepository _applicationRepository;
         private readonly IDataService _dataService;
         private readonly IInstanceEventService _instanceEventService;
+        private readonly IOndemandClient _ondemandClient;
         private readonly string _storageBaseAndHost;
 
         /// <summary>
@@ -56,6 +57,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataService">A data service with data element related business logic.</param>
         /// <param name="instanceEventService">An instance event service with event related business logic.</param>
         /// <param name="generalSettings">the general settings.</param>
+        /// <param name="ondemandClient">the ondemand client</param>
         public DataController(
             IDataRepository dataRepository,
             IBlobRepository blobRepository,
@@ -63,7 +65,8 @@ namespace Altinn.Platform.Storage.Controllers
             IApplicationRepository applicationRepository,
             IDataService dataService,
             IInstanceEventService instanceEventService,
-            IOptions<GeneralSettings> generalSettings)
+            IOptions<GeneralSettings> generalSettings,
+            IOndemandClient ondemandClient)
         {
             _dataRepository = dataRepository;
             _blobRepository = blobRepository;
@@ -72,6 +75,7 @@ namespace Altinn.Platform.Storage.Controllers
             _dataService = dataService;
             _instanceEventService = instanceEventService;
             _storageBaseAndHost = $"{generalSettings.Value.Hostname}/storage/api/v1/";
+            _ondemandClient = ondemandClient;
         }
 
         /// <summary>
@@ -210,13 +214,13 @@ namespace Altinn.Platform.Storage.Controllers
                 //// TODO: avoid new client for each call
                 try
                 {
-                    HttpClient client = new() { BaseAddress = new Uri($"{Request.Scheme}://{Request.Host}/storage/api/v1/") };
-                    return File(await client.GetStreamAsync($"ondemand/{instance.AppId}/{instanceOwnerPartyId}/{instanceGuid}/{dataGuid}/{dataElement.BlobStoragePath.Split('/')[1]}"), dataElement.ContentType, dataElement.Filename);
+                    return File(await _ondemandClient.GetStreamAsync($"ondemand/{instance.AppId}/{instanceOwnerPartyId}/{instanceGuid}/{dataGuid}/{dataElement.BlobStoragePath.Split('/')[1]}"), dataElement.ContentType, dataElement.Filename);
                 }
                 catch (Exception ex)
                 {
                     return NotFound("Crash: Unable to find requested data item" + ", filename: " + storageFileName + ", debug: " +
-                        debug + ", base: " + $"{Request.Scheme}://{Request.Host}/storage/api/v1/" + ", rest: " + $"ondemand/{instance.AppId}/{instanceOwnerPartyId}/{instanceGuid}/{dataGuid}/{dataElement.BlobStoragePath.Split('/')[1]}");
+                        debug + ", base: " + $"{Request.Scheme}://{Request.Host}/storage/api/v1/" + ", rest: " + $"ondemand/{instance.AppId}/{instanceOwnerPartyId}/{instanceGuid}/{dataGuid}/{dataElement.BlobStoragePath.Split('/')[1]}" +
+                        ", e: " + ex.Message);
                 }
             }
 
