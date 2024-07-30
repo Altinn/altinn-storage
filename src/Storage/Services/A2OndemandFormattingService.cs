@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Xml;
@@ -745,8 +744,7 @@ namespace Altinn.Platform.Storage.Services
 
             using (MemoryStream ms = new MemoryStream(imagebytes))
             {
-                string imgFormat = GetImageFormatFromImageFileName(imageName);
-                return "data:image/" + imgFormat.ToString().ToLower() + ";base64," + Convert.ToBase64String(ms.ToArray());
+                return $"data:image/{GetImageFormatFromImageFileName(imageName)};base64,{Convert.ToBase64String(ms.ToArray())}";
             }
         }
 
@@ -757,19 +755,16 @@ namespace Altinn.Platform.Storage.Services
         /// <returns>Image format</returns>
         private static string GetImageFormatFromImageFileName(string imageFileName)
         {
-            switch (imageFileName.Substring(imageFileName.LastIndexOf(".") + 1))
+            string extention = imageFileName.Split('.').Last().ToLower();
+            switch (extention)
             {
                 case "bmp":
-                    return "bmp";
                 case "gif":
-                    return "gif";
                 case "jpg":
                 case "jpeg":
-                    return "jpeg";
                 case "png":
-                    return "png";
                 case "tif":
-                    return "tiff";
+                    return extention;
                 default:
                     return "wmf";
             }
@@ -786,9 +781,7 @@ namespace Altinn.Platform.Storage.Services
                         XmlAttribute src = imageNode.Attributes["src"];
                         if (src != null && !src.InnerText.StartsWith("res://infopath.exe"))
                         {
-                            _logger.LogError("Image convert debug1: " + src.InnerText);
                             src.InnerText = ConvertImageToBase64HtmlEmbeddedImageString(src.InnerText);
-                            _logger.LogError("Image convert debug2: " + src.InnerText);
                         }
                     }
                 }

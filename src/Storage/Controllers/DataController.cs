@@ -187,18 +187,15 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             string storageFileName = DataElementHelper.DataFileName(instance.AppId, instanceGuid.ToString(), dataGuid.ToString());
-            string debug = "debuginit";
 
             // TODO remove hard coding of ttd below
             if (instance.AppId.Contains(@"/a2-"))
             {
-                debug += ";1";
                 storageFileName = $"ttd/{instance.AppId.Split('/')[1]}/{instanceGuid}/data/{dataGuid}";
             }
 
             if (string.Equals(dataElement.BlobStoragePath, storageFileName))
             {
-                debug += ";2";
                 Stream dataStream = await _blobRepository.ReadBlob(instance.Org, storageFileName);
 
                 if (dataStream == null)
@@ -210,21 +207,10 @@ namespace Altinn.Platform.Storage.Controllers
             }
             else if (dataElement.BlobStoragePath.StartsWith("ondemand"))
             {
-                debug += ";3";
-                //// TODO: avoid new client for each call
-                try
-                {
-                    return File(await _ondemandClient.GetStreamAsync($"ondemand/{instance.AppId}/{instanceOwnerPartyId}/{instanceGuid}/{dataGuid}/{dataElement.BlobStoragePath.Split('/')[1]}"), dataElement.ContentType, dataElement.Filename);
-                }
-                catch (Exception ex)
-                {
-                    return NotFound("Crash: Unable to find requested data item" + ", filename: " + storageFileName + ", debug: " +
-                        debug + ", base: " + $"{Request.Scheme}://{Request.Host}/storage/api/v1/" + ", rest: " + $"ondemand/{instance.AppId}/{instanceOwnerPartyId}/{instanceGuid}/{dataGuid}/{dataElement.BlobStoragePath.Split('/')[1]}" +
-                        ", e: " + ex.Message);
-                }
+                return File(await _ondemandClient.GetStreamAsync($"ondemand/{instance.AppId}/{instanceOwnerPartyId}/{instanceGuid}/{dataGuid}/{dataElement.BlobStoragePath.Split('/')[1]}"), dataElement.ContentType, dataElement.Filename);
             }
 
-            return NotFound("Unable to find requested data item" + ", filename: " + storageFileName + ", debug: " + debug);
+            return NotFound("Unable to find requested data item");
         }
 
         /// <summary>

@@ -135,7 +135,7 @@ namespace Altinn.Platform.Storage.Controllers
             return _a2OndemandFormattingService.GetHTML(
                 xsls,
                 //// await _blobRepository.ReadBlob(org, $"{org}/{app}/{instanceGuid}/data/{xmlElement.Id}"),
-                await _blobRepository.ReadBlob("ttd", $"ttd/{app}/{instanceGuid}/data/{xmlElement.Id}"),
+                await _blobRepository.ReadBlob("ttd", $"{org}/{app}/{instanceGuid}/data/{xmlElement.Id}"),
                 xmlElement.Created.ToString(),
                 1044);
 
