@@ -191,7 +191,7 @@ namespace Altinn.Platform.Storage.Controllers
             // TODO remove hard coding of ttd below
             if (instance.AppId.Contains(@"/a2-"))
             {
-                storageFileName = $"ttd/{instance.AppId.Split('/')[1]}/{instanceGuid}/data/{dataGuid}";
+                instance.Org = "ttd";
             }
 
             if (string.Equals(dataElement.BlobStoragePath, storageFileName))

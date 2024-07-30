@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.IO.Pipes;
 using System.Linq;
 using System.Net;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -28,7 +30,7 @@ namespace Altinn.Platform.Storage.Controllers
     /// <summary>
     /// Implements endpoints on demand content generation
     /// </summary>
-    [Route("storage/api/v1/ondemand/{org}/{app}/{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
+    [Route("storage/api/v1/ondemand/{org}/{app}/{instanceOwnerPartyId:int}/{instanceGuid:guid}/{dataGuid:guid}")]
     [ApiExplorerSettings(IgnoreApi = true)]
     [ApiController]
     public class ContentOnDemandController : ControllerBase
@@ -111,12 +113,41 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataGuid">dataGuid</param>
         /// <returns>The formatted content</returns>
         [AllowAnonymous]
-        ////[HttpGet("html")]
-        [HttpGet("{dataGuid:guid}/html")]
-        public async Task<Stream> GetHtml([FromRoute]string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid)
+        [HttpGet("signature")]
+        public async Task<Stream> GetSignatureAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid)
         {
-            // TODO, xsl (avg 74k) in db with lang, codelist in db with lang, pdfimage in db with mapping
-            // To manually insert xsl in db single quote must be escaped with an extra single quote
+            // TODO Replace with proper formatting
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
+            DataElement signatureElement = instance.Data.First(d => d.DataType == "signature-data");
+
+            // TODO remove hard coding of ttd below, replace "ttd" with org
+            using (StreamReader reader = new(await _blobRepository.ReadBlob("ttd", $"{org}/{app}/{instanceGuid}/data/{signatureElement.Id}")))
+            {
+                string line = null;
+                while ((line = await reader.ReadLineAsync()) != null)
+                {
+                    if (line.Contains("SignatureText"))
+                    {
+                        return new MemoryStream(Encoding.UTF8.GetBytes($"<html>Dette er generert dynamisk<div>{line.Split(':')[1].TrimStart().Replace("\"", null)}</div></html>"));
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Gets the formatted content
+        /// </summary>
+        /// <param name="org">org</param>
+        /// <param name="app">app/param>
+        /// <param name="instanceGuid">instanceGuid</param>
+        /// <param name="dataGuid">dataGuid</param>
+        /// <returns>The formatted content</returns>
+        [AllowAnonymous]
+        [HttpGet("formdata")]
+        public async Task<Stream> GetFormdataAsHtml([FromRoute]string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid)
+        {
             (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
             DataElement htmlElement = instance.Data.First(d => d.Id == dataGuid.ToString());
             DataElement xmlElement = instance.Data.First(d => d.Metadata.First(m => m.Key == "formid").Value == htmlElement.Metadata.First(m => m.Key == "formid").Value && d.Id != htmlElement.Id);
