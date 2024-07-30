@@ -139,7 +139,17 @@ namespace Altinn.Platform.Storage.Controllers
         {
             // Open: what about createdby and lastchangedby?
 
-            // TODO: Check from state table and delete all related stuff if existing
+            // TODO: Check from state table and delete all related stuff if existing. For now the test is done without a state table
+            Dictionary<string, StringValues> queryParams = new()
+            {
+                { "appId", new StringValues(instance.AppId) },
+                { "instanceOwner.partyId", new StringValues(instance.InstanceOwner.PartyId) },
+            };
+            InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesFromQuery(queryParams, null, 100, false);
+            foreach (Instance oldInstance in queryResponse.Instances.Where(i => i.DataValues["A3ArchRef"] == instance.DataValues["A3ArchRef"]))
+            {
+                await Cleanup(oldInstance);
+            }
 
             Instance storedInstance = null;
             try
@@ -384,6 +394,20 @@ namespace Altinn.Platform.Storage.Controllers
             using var reader = new StreamReader(Request.Body);
             await _a2Repository.CreateXsl(org, app, lformid, language, pagenumber, await reader.ReadToEndAsync());
             return Created();
+        }
+
+        private async Task Cleanup(Instance instance)
+        {
+            // TODO: Remove patch of ttd below:
+            instance.Org = "ttd";
+
+            string orgInstanceId = instance.Id;
+            instance.Id = instance.Id.Split('/')[^1];
+            await _blobRepository.DeleteDataBlobs(instance);
+            instance.Id = orgInstanceId;
+            await _dataRepository.DeleteForInstance(instance.Id.Split('/')[^1]);
+            await _instanceEventRepository.DeleteAllInstanceEvents(instance.Id);
+            await _instanceRepository.Delete(instance);
         }
     }
 
