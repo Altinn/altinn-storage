@@ -46,6 +46,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IInstanceEventService _instanceEventService;
         private readonly IOndemandClient _ondemandClient;
         private readonly string _storageBaseAndHost;
+        private readonly GeneralSettings _generalSettings;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DataController"/> class
@@ -76,6 +77,7 @@ namespace Altinn.Platform.Storage.Controllers
             _instanceEventService = instanceEventService;
             _storageBaseAndHost = $"{generalSettings.Value.Hostname}/storage/api/v1/";
             _ondemandClient = ondemandClient;
+            _generalSettings = generalSettings.Value;
         }
 
         /// <summary>
@@ -188,8 +190,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             string storageFileName = DataElementHelper.DataFileName(instance.AppId, instanceGuid.ToString(), dataGuid.ToString());
 
-            // TODO remove hard coding of ttd below
-            if (instance.AppId.Contains(@"/a2-"))
+            if (instance.AppId.Contains(@"/a2-") && _generalSettings.A2UseTtdAsServiceOwner)
             {
                 instance.Org = "ttd";
             }

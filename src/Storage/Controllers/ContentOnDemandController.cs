@@ -69,6 +69,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="registerService">the instance register service.</param>
         /// <param name="settings">the general settings.</param>
         /// <param name="azureStorageSettings">the azureStorage settings.</param>
+        /// <param name="a2OndemandFormattingService">a2OndemandFormattingService</param>
         public ContentOnDemandController(
             IInstanceRepository instanceRepository,
             IInstanceEventRepository instanceEventRepository,
@@ -78,7 +79,7 @@ namespace Altinn.Platform.Storage.Controllers
             IA2Repository a2Repository,
             ITextRepository textRepository,
             IPartiesWithInstancesClient partiesWithInstancesClient,
-            ILogger<MigrationController> logger,
+            ILogger<ContentOnDemandController> logger,
             IAuthorization authorizationService,
             IInstanceEventService instanceEventService,
             IRegisterService registerService,
@@ -120,8 +121,7 @@ namespace Altinn.Platform.Storage.Controllers
             (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
             DataElement signatureElement = instance.Data.First(d => d.DataType == "signature-data");
 
-            // TODO remove hard coding of ttd below, replace "ttd" with org
-            using (StreamReader reader = new(await _blobRepository.ReadBlob("ttd", $"{org}/{app}/{instanceGuid}/data/{signatureElement.Id}")))
+            using (StreamReader reader = new(await _blobRepository.ReadBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : org)}", $"{org}/{app}/{instanceGuid}/data/{signatureElement.Id}")))
             {
                 string line = null;
                 while ((line = await reader.ReadLineAsync()) != null)
@@ -162,11 +162,9 @@ namespace Altinn.Platform.Storage.Controllers
                 xsls.Add(new PrintViewXslBE() { PrintViewXsl = xsl });
             }
 
-            // TODO remove hard coding of ttd below
             return _a2OndemandFormattingService.GetHTML(
                 xsls,
-                //// await _blobRepository.ReadBlob(org, $"{org}/{app}/{instanceGuid}/data/{xmlElement.Id}"),
-                await _blobRepository.ReadBlob("ttd", $"{org}/{app}/{instanceGuid}/data/{xmlElement.Id}"),
+                await _blobRepository.ReadBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : org)}", $"{org}/{app}/{instanceGuid}/data/{xmlElement.Id}"),
                 xmlElement.Created.ToString(),
                 1044);
 

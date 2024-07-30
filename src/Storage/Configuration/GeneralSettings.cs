@@ -59,5 +59,11 @@ namespace Altinn.Platform.Storage.Configuration
         /// </summary>
         /// TODO: Move hard coding to ops
         public string OndemandEndpoint { get; set; } = "http://altinn-storage.default.svc.cluster.local/storage/api/v1/";
+
+        /// <summary>
+        /// Gets or sets whether to use Ttd as service owner for environements without "normal" service owners
+        /// </summary>
+        /// TODO: Move hard coding to ops
+        public bool A2UseTtdAsServiceOwner { get; set; } = true;
     }
 }

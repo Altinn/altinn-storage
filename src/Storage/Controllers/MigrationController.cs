@@ -223,10 +223,9 @@ namespace Altinn.Platform.Storage.Controllers
 
                 (Stream theStream, dataElement.ContentType, dataElement.Filename, _) = await DataElementHelper.GetStream(Request, FormOptions.DefaultMultipartBoundaryLengthLimit);
 
-                // TODO: Remove hard coding of ttd below
                 if (Request.ContentLength > 0)
                 {
-                    (dataElement.Size, _) = await _blobRepository.WriteBlob("ttd" /* instance.Org */, theStream, dataElement.BlobStoragePath);
+                    (dataElement.Size, _) = await _blobRepository.WriteBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}", theStream, dataElement.BlobStoragePath);
                 }
                 else
                 {
@@ -398,8 +397,10 @@ namespace Altinn.Platform.Storage.Controllers
 
         private async Task Cleanup(Instance instance)
         {
-            // TODO: Remove patch of ttd below:
-            instance.Org = "ttd";
+            if (_generalSettings.A2UseTtdAsServiceOwner)
+            {
+                instance.Org = "ttd";
+            }
 
             string orgInstanceId = instance.Id;
             instance.Id = instance.Id.Split('/')[^1];
