@@ -122,12 +122,21 @@ namespace Altinn.Platform.Storage.Controllers
         [HttpGet("formdatapdf")]
         public async Task<Stream> GetFormdataAsPdf([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid)
         {
-            using var playwright = await Playwright.CreateAsync();
-            await using var browser = await playwright.Chromium.LaunchAsync();
-            var page = await browser.NewPageAsync();
-            await page.GotoAsync($"{Request.Scheme}://{Request.Host}{Request.PathBase}{Request.Path}{Request.QueryString}".Replace("formdatapdf", "formdatahtml"));
-            return new MemoryStream(await page.PdfAsync());
-            ////return new MemoryStream(Encoding.UTF8.GetBytes(DummyPdf.Pdf));
+            //// TODO: The playwright code below works in the dev environment. There are two issues:
+            //// 1. Playwright is not supported out of the box on alpine linux
+            //// 2. Rather then LaunchAsync we should use ConnectAsync to connect to a component running a browser
+            try
+            {
+                using var playwright = await Playwright.CreateAsync();
+                await using var browser = await playwright.Chromium.LaunchAsync();
+                var page = await browser.NewPageAsync();
+                await page.GotoAsync($"{Request.Scheme}://{Request.Host}{Request.PathBase}{Request.Path}{Request.QueryString}".Replace("formdatapdf", "formdatahtml"));
+                return new MemoryStream(await page.PdfAsync());
+            }
+            catch (Exception)
+            {
+                return new MemoryStream(Encoding.UTF8.GetBytes(DummyPdf.Pdf));
+            }
         }
 
         /// <summary>
