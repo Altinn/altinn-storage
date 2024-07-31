@@ -229,7 +229,13 @@ namespace Altinn.Platform.Storage.Controllers
                 }
                 else
                 {
-                    dataElement.BlobStoragePath = dataElement.DataType == "signature-presentation" ? "ondemand/signature" : "ondemand/formdata";
+                    switch (dataElement.DataType)
+                    {
+                        case "signature-presentation": dataElement.BlobStoragePath = "ondemand/signature"; break;
+                        case "ref-data-as-pdf": dataElement.BlobStoragePath = "ondemand/formdata"; break;
+                        case "payment-presentation": dataElement.BlobStoragePath = "ondemand/payment"; break;
+                        default: throw new ArgumentException(dataElement.DataType);
+                    }
                 }
 
                 storedDataElement = await _dataRepository.Create(dataElement, instanceId);

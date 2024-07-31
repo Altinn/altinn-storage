@@ -128,12 +128,28 @@ namespace Altinn.Platform.Storage.Controllers
                 {
                     if (line.Contains("SignatureText"))
                     {
-                        return new MemoryStream(Encoding.UTF8.GetBytes($"<html>Dette er generert dynamisk<div>{line.Split(':')[1].TrimStart().Replace("\"", null)}</div></html>"));
+                        return new MemoryStream(Encoding.UTF8.GetBytes($"<html>Dette er generert dynamisk<br><br><div>{line.Split(':')[1].TrimStart().Replace("\"", null)}</div></html>"));
                     }
                 }
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Gets the formatted content
+        /// </summary>
+        /// <param name="org">org</param>
+        /// <param name="app">app/param>
+        /// <param name="instanceGuid">instanceGuid</param>
+        /// <param name="dataGuid">dataGuid</param>
+        /// <returns>The formatted content</returns>
+        [AllowAnonymous]
+        [HttpGet("payment")]
+        public async Task<Stream> GetPaymentAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid)
+        {
+            // TODO Replace with proper formatting
+            return new MemoryStream(Encoding.UTF8.GetBytes($"<html>Dette er generert dynamisk<br><br><div>Not yet implemented</div></html>"));
         }
 
         /// <summary>
