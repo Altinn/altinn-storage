@@ -19,6 +19,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Playwright;
 
 namespace Altinn.Platform.Storage.Controllers
 {
@@ -119,10 +120,14 @@ namespace Altinn.Platform.Storage.Controllers
         /// <returns>The formatted content</returns>
         [AllowAnonymous]
         [HttpGet("formdatapdf")]
-        public async Task<Stream> GetPaymentAsPdf([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid)
+        public async Task<Stream> GetFormdataAsPdf([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid)
         {
-            // TODO Call playwright or puppeteer with a reference to GetFormdataAsHtml and return the content
-            return new MemoryStream(Encoding.UTF8.GetBytes(DummyPdf.Pdf));
+            using var playwright = await Playwright.CreateAsync();
+            await using var browser = await playwright.Chromium.LaunchAsync();
+            var page = await browser.NewPageAsync();
+            await page.GotoAsync($"{Request.Scheme}://{Request.Host}{Request.PathBase}{Request.Path}{Request.QueryString}".Replace("formdatapdf", "formdatahtml"));
+            return new MemoryStream(await page.PdfAsync());
+            ////return new MemoryStream(Encoding.UTF8.GetBytes(DummyPdf.Pdf));
         }
 
         /// <summary>
