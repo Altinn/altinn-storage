@@ -173,6 +173,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataType">Element data type</param>
         /// <param name="formid">A2 form id</param>
         /// <param name="lformid">A2 logical form id</param>
+        /// <param name="presenationText">A2 presentation text</param>
         /// <returns>The stored data element.</returns>
         [AllowAnonymous]
         [HttpPost("dataelement/{instanceGuid:guid}")]
@@ -185,7 +186,8 @@ namespace Altinn.Platform.Storage.Controllers
             [FromQuery(Name = "timestampticks")]long timestampTicks,
             [FromQuery(Name = "datatype")]string dataType,
             [FromQuery(Name = "formid")]string formid,
-            [FromQuery(Name = "lformid")]string lformid)
+            [FromQuery(Name = "lformid")]string lformid,
+            [FromQuery(Name = "prestext")]string presenationText)
         {
             DateTime timestamp = new DateTime(timestampTicks, DateTimeKind.Utc).ToLocalTime();
 
@@ -220,6 +222,10 @@ namespace Altinn.Platform.Storage.Controllers
                         new() { Key = "lformid", Value = lformid }
                     }
                 };
+                if (presenationText != null)
+                {
+                    dataElement.Metadata.Add(new() { Key = "A2PresVal", Value = HttpUtility.UrlDecode(presenationText) });
+                }
 
                 (Stream theStream, dataElement.ContentType, dataElement.Filename, _) = await DataElementHelper.GetStream(Request, FormOptions.DefaultMultipartBoundaryLengthLimit);
 
@@ -232,7 +238,8 @@ namespace Altinn.Platform.Storage.Controllers
                     switch (dataElement.DataType)
                     {
                         case "signature-presentation": dataElement.BlobStoragePath = "ondemand/signature"; break;
-                        case "ref-data-as-pdf": dataElement.BlobStoragePath = "ondemand/formdata"; break;
+                        case "ref-data-as-pdf": dataElement.BlobStoragePath = "ondemand/formdatapdf"; break;
+                        case "ref-data-as-html": dataElement.BlobStoragePath = "ondemand/formdatahtml"; break;
                         case "payment-presentation": dataElement.BlobStoragePath = "ondemand/payment"; break;
                         default: throw new ArgumentException(dataElement.DataType);
                     }
