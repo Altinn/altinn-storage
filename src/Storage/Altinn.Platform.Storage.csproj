@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Altinn.Common.AccessToken" Version="4.5.0.preview" />
+    <PackageReference Include="Altinn.Common.AccessToken" Version="4.4.5-preview.0.2" />
     <PackageReference Include="Altinn.Common.AccessTokenClient" Version="3.0.6" />
     <PackageReference Include="Altinn.Platform.Models" Version="1.6.1" />
     <PackageReference Include="Altinn.Platform.Storage.Interface" Version="3.30.0" />
