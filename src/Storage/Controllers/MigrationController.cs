@@ -42,6 +42,7 @@ namespace Altinn.Platform.Storage.Controllers
     /// </summary>
     [Route("storage/api/v1/migration")]
     [ApiController]
+    [ServiceFilter(typeof(ClientIpCheckActionFilter))]
     public class MigrationController : ControllerBase
     {
         private readonly IInstanceRepository _instanceRepository;
@@ -296,7 +297,6 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="org">Org</param>
         /// <param name="app">App</param>
         /// <returns>Ok</returns>
-        [ServiceFilter(typeof(ClientIpCheckActionFilter))]
         [AllowAnonymous]
         [HttpPost("policy/{org}/{app}")]
         [DisableFormValueModelBinding]
