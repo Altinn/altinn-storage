@@ -417,7 +417,7 @@ namespace Altinn.Platform.Storage.Controllers
         public override void OnActionExecuting(ActionExecutingContext context)
         {
             RequestTelemetry requestTelemetry = context.HttpContext.Features.Get<RequestTelemetry>();
-            string ipAddressList;
+            string ipAddressList = null;
             bool validIp = true;
             if (requestTelemetry != null && (ipAddressList = requestTelemetry.Properties["ipAddress"]) != null)
             {
@@ -426,6 +426,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (!validIp)
             {
+                _logger.LogError("Migration ip check, ipAddressList: {IpAddressList}, {Safelist}", ipAddressList, _safelist);
                 context.Result = new ForbidResult();
                 return;
             }
