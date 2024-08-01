@@ -416,12 +416,20 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="context">context</param>
         public override void OnActionExecuting(ActionExecutingContext context)
         {
-            RequestTelemetry requestTelemetry = context.HttpContext.Features.Get<RequestTelemetry>();
-            string ipAddressList = null;
-            bool validIp = true;
-            if (requestTelemetry != null && (ipAddressList = requestTelemetry.Properties["ipAddress"]) != null)
+            string ipAddressList = context.HttpContext?.Request.Headers["X-Forwarded-For"].ToString();
+            ////RequestTelemetry requestTelemetry = context.HttpContext.Features.Get<RequestTelemetry>();
+            bool validIp = false;
+            ////if (requestTelemetry != null && (ipAddressList = requestTelemetry.Properties["ipAddress"]) != null)
+            if (!string.IsNullOrEmpty(ipAddressList))
             {
-                validIp = _safelist.Contains(ipAddressList.Split(';')[0]);
+                foreach (string ipAddress in _safelist.Split(';'))
+                {
+                    if (ipAddressList.Contains(ipAddress))
+                    {
+                        validIp = true;
+                        break;
+                    }
+                }
             }
 
             if (!validIp)
