@@ -11,7 +11,10 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Xml;
 using System.Xml.XPath;
+using System.Xml.Xsl;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Services;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Altinn.Platform.Storage.Helpers
 {
@@ -26,7 +29,7 @@ namespace Altinn.Platform.Storage.Helpers
         /// Internal Map of replacement pattern values
         /// </summary>
         private Map[] _map;
-        private Dictionary<string, CodeListBE> _codelists = [];
+        private readonly Dictionary<string, CodeListBE> _codelists = [];
 
         #endregion
 
@@ -44,6 +47,11 @@ namespace Altinn.Platform.Storage.Helpers
         /// A2Repository
         /// </summary>
         public IA2Repository A2Repository { get; set; }
+
+        /// <summary>
+        /// Memory cache
+        /// </summary>
+        public IMemoryCache MemoryCache { get; set; }
 
         /// <summary>
         /// Gets the main DOM.
@@ -70,19 +78,18 @@ namespace Altinn.Platform.Storage.Helpers
         {
             string str = DateCalculationArgumentHelper(date);
             string str2 = DateCalculationArgumentHelper(days);
-            string str3;
             if (!string.IsNullOrEmpty(str) && !string.IsNullOrEmpty(str2))
             {
-                if (DateCalculationHelper(str, str2, false, out str3))
+                if (DateCalculationHelper(str, str2, false, out string str3))
                 {
                     if (str.IndexOf('T') != -1)
                     {
                         return str3;
                     }
 
-                    if (str.IndexOf(":", StringComparison.Ordinal) == -1)
+                    if (str.IndexOf(':', StringComparison.Ordinal) == -1)
                     {
-                        return str3.Substring(0, str3.IndexOf('T'));
+                        return str3[..str3.IndexOf('T')];
                     }
 
                     return "#ERR?";
@@ -139,7 +146,7 @@ namespace Altinn.Platform.Storage.Helpers
             }
 
             int startIndex = str3.IndexOf('T') + 1;
-            return str3.Substring(startIndex, str3.Length - startIndex);
+            return str3[startIndex..];
         }
 
         /// <summary>
@@ -155,21 +162,20 @@ namespace Altinn.Platform.Storage.Helpers
         {
             double sum = 0.0;
             int count = 0;
-            XmlDocument xdoc = new XmlDocument();
+            XmlDocument xdoc = new();
             XmlElement elem = xdoc.CreateElement("a");
             xdoc.AppendChild(elem);
 
             while (nodeIterator.MoveNext())
             {
                 XPathNavigator navigator = nodeIterator.Current;
-                double currentValue;
                 string str = navigator.Value;
                 if (string.IsNullOrEmpty(str))
                 {
                     continue;
                 }
 
-                if (double.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture.NumberFormat, out currentValue))
+                if (double.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture.NumberFormat, out double currentValue))
                 {
                     sum += currentValue;
                     count++;
@@ -180,12 +186,9 @@ namespace Altinn.Platform.Storage.Helpers
                 }
             }
 
-            if (!elem.InnerText.Equals(double.NaN.ToString()))
+            if (!elem.InnerText.Equals(double.NaN.ToString()) && count > 0)
             {
-                if (count > 0)
-                {
-                    elem.InnerText = (sum / count).ToString(CultureInfo.InvariantCulture.NumberFormat);
-                }
+                elem.InnerText = (sum / count).ToString(CultureInfo.InvariantCulture.NumberFormat);
             }
 
             return xdoc.CreateNavigator().Select("a");
@@ -202,84 +205,90 @@ namespace Altinn.Platform.Storage.Helpers
         /// </returns>
         public XmlDocument GetDOM(string wsInputParams)
         {
-            //string key = "pa:" + wsInputParams;
-            //return AltinnCache.GetObjectFromCacheOrMethod(AltinnCache.Id.CodeListDOM, key, () =>
-            //{
-            const string XMLStart =
-                @"<dfs:myFields xmlns:my=""http://schemas.microsoft.com/office/infopath/2003/myXSD/2010-03-20T09:04:26"" xmlns:tns=""http://www.altinn.no/services/ServiceEngine/ServiceMetaData/2009/10"" xmlns:q1=""http://schemas.altinn.no/services/ServiceEngine/ServiceMetaData/2009/10"" xmlns:dfs=""http://schemas.microsoft.com/office/infopath/2003/dataFormSolution"" xmlns:xd=""http://schemas.microsoft.com/office/infopath/2003""><dfs:queryFields><tns:GetCodeList><tns:codeListName/><tns:codeListVersion/><tns:languageID/></tns:GetCodeList></dfs:queryFields><dfs:dataFields><tns:GetCodeListResponse><tns:GetCodeListResult><q1:CodeListID/><q1:CodeListName/><q1:CodeListRows>";
-            const string XMLEnd =
-                @"</q1:CodeListRows><q1:CodeListVersion/><q1:LanguageTypeID/></tns:GetCodeListResult></tns:GetCodeListResponse></dfs:dataFields><xd:SchemaInfo LocalName=""myFields"" NamespaceURI=""http://schemas.microsoft.com/office/infopath/2003/dataFormSolution""><xd:Namespaces><xd:Namespace LocalName=""myFields"" NamespaceURI=""http://schemas.microsoft.com/office/infopath/2003/dataFormSolution""/></xd:Namespaces><xd:RequiredAnys/></xd:SchemaInfo></dfs:myFields>";
-            const string CoderowXml =
-                @"<q1:CodeListRow><q1:Code>{0}</q1:Code><q1:Value1>{1}</q1:Value1><q1:Value2>{2}</q1:Value2><q1:Value3>{3}</q1:Value3></q1:CodeListRow>";
-            const string XMLStartFiltered =
-                @"<dfs:myFields xmlns:my=""http://schemas.microsoft.com/office/infopath/2003/myXSD/2010-03-20T09:04:26"" xmlns:tns=""http://www.altinn.no/services/ServiceEngine/ServiceMetaData/2009/10"" xmlns:q1=""http://schemas.altinn.no/services/ServiceEngine/ServiceMetaData/2009/10"" xmlns:dfs=""http://schemas.microsoft.com/office/infopath/2003/dataFormSolution"" xmlns:xd=""http://schemas.microsoft.com/office/infopath/2003"">
+            string cacheKey = $"pa:{wsInputParams}";
+            if (!MemoryCache.TryGetValue(cacheKey, out XmlDocument xdoc))
+            {
+                const string XMLStart =
+                    @"<dfs:myFields xmlns:my=""http://schemas.microsoft.com/office/infopath/2003/myXSD/2010-03-20T09:04:26"" xmlns:tns=""http://www.altinn.no/services/ServiceEngine/ServiceMetaData/2009/10"" xmlns:q1=""http://schemas.altinn.no/services/ServiceEngine/ServiceMetaData/2009/10"" xmlns:dfs=""http://schemas.microsoft.com/office/infopath/2003/dataFormSolution"" xmlns:xd=""http://schemas.microsoft.com/office/infopath/2003""><dfs:queryFields><tns:GetCodeList><tns:codeListName/><tns:codeListVersion/><tns:languageID/></tns:GetCodeList></dfs:queryFields><dfs:dataFields><tns:GetCodeListResponse><tns:GetCodeListResult><q1:CodeListID/><q1:CodeListName/><q1:CodeListRows>";
+                const string XMLEnd =
+                    @"</q1:CodeListRows><q1:CodeListVersion/><q1:LanguageTypeID/></tns:GetCodeListResult></tns:GetCodeListResponse></dfs:dataFields><xd:SchemaInfo LocalName=""myFields"" NamespaceURI=""http://schemas.microsoft.com/office/infopath/2003/dataFormSolution""><xd:Namespaces><xd:Namespace LocalName=""myFields"" NamespaceURI=""http://schemas.microsoft.com/office/infopath/2003/dataFormSolution""/></xd:Namespaces><xd:RequiredAnys/></xd:SchemaInfo></dfs:myFields>";
+                const string CoderowXml =
+                    @"<q1:CodeListRow><q1:Code>{0}</q1:Code><q1:Value1>{1}</q1:Value1><q1:Value2>{2}</q1:Value2><q1:Value3>{3}</q1:Value3></q1:CodeListRow>";
+                const string XMLStartFiltered =
+                    @"<dfs:myFields xmlns:my=""http://schemas.microsoft.com/office/infopath/2003/myXSD/2010-03-20T09:04:26"" xmlns:tns=""http://www.altinn.no/services/ServiceEngine/ServiceMetaData/2009/10"" xmlns:q1=""http://schemas.altinn.no/services/ServiceEngine/ServiceMetaData/2009/10"" xmlns:dfs=""http://schemas.microsoft.com/office/infopath/2003/dataFormSolution"" xmlns:xd=""http://schemas.microsoft.com/office/infopath/2003"">
                                                 <dfs:queryFields><tns:GetFilteredCodeList><tns:codeListName/><tns:codeListVersion/><tns:languageID/>
                                                 <tns:code/><tns:value1Filter/><tns:value2Filter/><tns:value3Filter/><tns:filterMatchType/></tns:GetFilteredCodeList>
                                                 </dfs:queryFields><dfs:dataFields><tns:GetFilteredCodeListResponse><tns:GetFilteredCodeListResult><q1:CodeListID/><q1:CodeListName/><q1:CodeListRows>";
-            const string XMLEndFiltered =
-                @"</q1:CodeListRows><q1:CodeListVersion/><q1:LanguageTypeID/></tns:GetFilteredCodeListResult></tns:GetFilteredCodeListResponse></dfs:dataFields><xd:SchemaInfo LocalName=""myFields"" NamespaceURI=""http://schemas.microsoft.com/office/infopath/2003/dataFormSolution""><xd:Namespaces><xd:Namespace LocalName=""myFields"" NamespaceURI=""http://schemas.microsoft.com/office/infopath/2003/dataFormSolution""/></xd:Namespaces><xd:RequiredAnys/></xd:SchemaInfo></dfs:myFields>";
-            const string CoderowXmlFiltered =
-                @"<q1:CodeListRow><q1:Code>{0}</q1:Code><q1:Value1>{1}</q1:Value1><q1:Value2>{2}</q1:Value2><q1:Value3>{3}</q1:Value3></q1:CodeListRow>";
-            StringBuilder xml = new StringBuilder();
-            string[] wsParams = wsInputParams.Split(";".ToCharArray());
-            if (wsParams.Length > 3)
-            {
-                xml.Append(XMLStartFiltered);
-            }
-            else
-            {
-                xml.Append(XMLStart);
-            }
-
-            try
-            {
-                //ServiceMetaDataSI ws = new ServiceMetaDataSI();
-                CodeListBE codelist;
+                const string XMLEndFiltered =
+                    @"</q1:CodeListRows><q1:CodeListVersion/><q1:LanguageTypeID/></tns:GetFilteredCodeListResult></tns:GetFilteredCodeListResponse></dfs:dataFields><xd:SchemaInfo LocalName=""myFields"" NamespaceURI=""http://schemas.microsoft.com/office/infopath/2003/dataFormSolution""><xd:Namespaces><xd:Namespace LocalName=""myFields"" NamespaceURI=""http://schemas.microsoft.com/office/infopath/2003/dataFormSolution""/></xd:Namespaces><xd:RequiredAnys/></xd:SchemaInfo></dfs:myFields>";
+                const string CoderowXmlFiltered =
+                    @"<q1:CodeListRow><q1:Code>{0}</q1:Code><q1:Value1>{1}</q1:Value1><q1:Value2>{2}</q1:Value2><q1:Value3>{3}</q1:Value3></q1:CodeListRow>";
+                StringBuilder xml = new();
+                string[] wsParams = wsInputParams.Split(";".ToCharArray());
                 if (wsParams.Length > 3)
                 {
-                    codelist = GetFilteredCodeList(wsParams[0], int.Parse(wsParams[1]), int.Parse(wsParams[2]), wsParams[3], wsParams[4], wsParams[5], wsParams[6], (FilterMatchType)Enum.Parse(typeof(FilterMatchType), wsParams[7]));
-                    foreach (CodeRowBE row in codelist.CodeListRows)
-                    {
-                        xml.AppendFormat(
-                            CoderowXmlFiltered,
-                            EscapeXmlEntities(row.Code),
-                            EscapeXmlEntities(row.Value1),
-                            EscapeXmlEntities(row.Value2),
-                            EscapeXmlEntities(row.Value3));
-                    }
+                    xml.Append(XMLStartFiltered);
                 }
                 else
                 {
-                    codelist = GetCodeList(wsParams[0], int.Parse(wsParams[1]), int.Parse(wsParams[2]));
-                    foreach (CodeRowBE row in codelist.CodeListRows)
+                    xml.Append(XMLStart);
+                }
+
+                try
+                {
+                    CodeListBE codelist;
+                    if (wsParams.Length > 3)
                     {
-                        xml.AppendFormat(
-                            CoderowXml,
-                            EscapeXmlEntities(row.Code),
-                            EscapeXmlEntities(row.Value1),
-                            EscapeXmlEntities(row.Value2),
-                            EscapeXmlEntities(row.Value3));
+                        codelist = GetFilteredCodeList(wsParams[0], int.Parse(wsParams[1]), int.Parse(wsParams[2]), wsParams[3], wsParams[4], wsParams[5], wsParams[6], (FilterMatchType)Enum.Parse(typeof(FilterMatchType), wsParams[7]));
+                        foreach (CodeRowBE row in codelist.CodeListRows)
+                        {
+                            xml.AppendFormat(
+                                CoderowXmlFiltered,
+                                EscapeXmlEntities(row.Code),
+                                EscapeXmlEntities(row.Value1),
+                                EscapeXmlEntities(row.Value2),
+                                EscapeXmlEntities(row.Value3));
+                        }
+                    }
+                    else
+                    {
+                        codelist = GetCodeList(wsParams[0], int.Parse(wsParams[1]), int.Parse(wsParams[2]));
+                        foreach (CodeRowBE row in codelist.CodeListRows)
+                        {
+                            xml.AppendFormat(
+                                CoderowXml,
+                                EscapeXmlEntities(row.Code),
+                                EscapeXmlEntities(row.Value1),
+                                EscapeXmlEntities(row.Value2),
+                                EscapeXmlEntities(row.Value3));
+                        }
                     }
                 }
-            }
-            catch
-            {
-                // If ws call fails, return an empty xml
+                catch
+                {
+                    // If ws call fails, return an empty xml
+                }
+
+                if (wsParams.Length > 3)
+                {
+                    xml.Append(XMLEndFiltered);
+                }
+                else
+                {
+                    xml.Append(XMLEnd);
+                }
+
+                xdoc = new();
+                xdoc.LoadXml(xml.ToString());
+
+                MemoryCacheEntryOptions cacheEntryOptions = new MemoryCacheEntryOptions()
+               .SetPriority(CacheItemPriority.Normal)
+               .SetAbsoluteExpiration(new TimeSpan(0, 0, 300));
+
+                MemoryCache.Set(cacheKey, xdoc, cacheEntryOptions);
             }
 
-            if (wsParams.Length > 3)
-            {
-                xml.Append(XMLEndFiltered);
-            }
-            else
-            {
-                xml.Append(XMLEnd);
-            }
-
-            XmlDocument xdoc = new XmlDocument();
-            xdoc.LoadXml(xml.ToString());
             return xdoc;
-            ////});
         }
 
         [SuppressMessage("Microsoft.StyleCop.CSharp.MaintainabilityRules", "SA1408:ConditionalExpressionsMustDeclarePrecedence", Justification = "Old code")]
@@ -295,8 +304,8 @@ namespace Altinn.Platform.Storage.Helpers
         {
             CodeListBE codeList = GetCodeListInternal(codeListName, codeListVersion, languageID);
 
-            CodeListBE filteredCodeList = new CodeListBE();
-            CodeRowBEList codeRowListFinal = new CodeRowBEList();
+            CodeListBE filteredCodeList = new();
+            CodeRowBEList codeRowListFinal = [];
 
             if (codeList != null && codeList.CodeListRows != null && codeList.CodeListRows.Count > 0)
             {
@@ -370,17 +379,18 @@ namespace Altinn.Platform.Storage.Helpers
             if (!_codelists.ContainsKey(codeListName))
             {
                 // Declare the CodeListBE to populate with CodeList details retrieved from the DB, and this BE is returned from this method
-                CodeListBE codeList = new CodeListBE();
-                ////codeList.CodeListID = Convert.ToInt32(reader["CodeListID_PK"]);
-                codeList.CodeListName = codeListName;
-                codeList.CodeListVersion = codeListVersion;
-                codeList.LanguageTypeID = language;
+                CodeListBE codeList = new()
+                {
+                    CodeListName = codeListName,
+                    CodeListVersion = codeListVersion,
+                    LanguageTypeID = language
+                };
 
                 string codeListContent = GetCodeListXml(codeListName, language);
 
                 if (!string.IsNullOrEmpty(codeListContent))
                 {
-                    XmlDocument codeListXml = new XmlDocument();
+                    XmlDocument codeListXml = new();
                     codeListXml.LoadXml(codeListContent);
 
                     // get Collection of CodeList Row
@@ -388,10 +398,10 @@ namespace Altinn.Platform.Storage.Helpers
 
                     if (codeRowCollection != null)
                     {
-                        codeList.CodeListRows = new CodeRowBEList();
+                        codeList.CodeListRows = [];
                         foreach (XmlNode codeListRow in codeRowCollection)
                         {
-                            CodeRowBE codeRow = new CodeRowBE();
+                            CodeRowBE codeRow = new();
 
                             // This should not happen but in case if values are not provided in TUL                                    
                             if (codeListRow.SelectSingleNode("Code") != null)
@@ -428,15 +438,13 @@ namespace Altinn.Platform.Storage.Helpers
 
         private string GetCodeListXml(string name, int lang)
         {
-            string language;
-            switch (lang)
+            string language = lang switch
             {
-                case 1044: language = "nb"; break;
-                case 2068: language = "nn"; break;
-                case 1033: language = "en"; break;
-                default: language = "nb"; break;
-            }
-
+                1044 => "nb",
+                2068 => "nn",
+                1033 => "en",
+                _ => "nb",
+            };
             return A2Repository.GetCodelist(name, language).Result;
         }
 
@@ -454,11 +462,11 @@ namespace Altinn.Platform.Storage.Helpers
         /// </returns>
         public bool Match(string value, string pattern)
         {
-            _map = new[]
-            {
+            _map =
+            [
                 new Map('c', @"\p{_xmlC}"), new Map('C', @"\P{_xmlC}"), new Map('d', @"\p{_xmlD}"), new Map('D', @"\P{_xmlD}"),
                 new Map('i', @"\p{_xmlI}"), new Map('I', @"\P{_xmlI}"), new Map('w', @"\p{_xmlW}"), new Map('W', @"\P{_xmlW}")
-            };
+            ];
 
             bool isMatch = Regex.IsMatch(value, Preprocess(pattern), RegexOptions.None);
             return isMatch;
@@ -477,21 +485,20 @@ namespace Altinn.Platform.Storage.Helpers
         {
             double maxValue = 0.0;
             int count = 0;
-            XmlDocument xdoc = new XmlDocument();
+            XmlDocument xdoc = new();
             XmlElement elem = xdoc.CreateElement("a");
             xdoc.AppendChild(elem);
 
             while (nodeIterator.MoveNext())
             {
                 XPathNavigator navigator = nodeIterator.Current;
-                double currentValue;
                 string str = navigator.Value;
                 if (string.IsNullOrEmpty(str))
                 {
                     continue;
                 }
 
-                if (double.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture.NumberFormat, out currentValue))
+                if (double.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture.NumberFormat, out double currentValue))
                 {
                     if (currentValue > maxValue)
                     {
@@ -511,12 +518,9 @@ namespace Altinn.Platform.Storage.Helpers
                 count++;
             }
 
-            if (!elem.InnerText.Equals(double.NaN.ToString()))
+            if (!elem.InnerText.Equals(double.NaN.ToString()) && count > 0)
             {
-                if (count > 0)
-                {
-                    elem.InnerText = maxValue.ToString(CultureInfo.InvariantCulture.NumberFormat);
-                }
+                elem.InnerText = maxValue.ToString(CultureInfo.InvariantCulture.NumberFormat);
             }
 
             return xdoc.CreateNavigator().Select("a");
@@ -535,21 +539,20 @@ namespace Altinn.Platform.Storage.Helpers
         {
             double minValue = 0.0;
             int count = 0;
-            XmlDocument xdoc = new XmlDocument();
+            XmlDocument xdoc = new();
             XmlElement elem = xdoc.CreateElement("a");
             xdoc.AppendChild(elem);
 
             while (nodeIterator.MoveNext())
             {
                 XPathNavigator navigator = nodeIterator.Current;
-                double currentValue;
                 string str = navigator.Value;
                 if (string.IsNullOrEmpty(str))
                 {
                     continue;
                 }
 
-                if (double.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture.NumberFormat, out currentValue))
+                if (double.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture.NumberFormat, out double currentValue))
                 {
                     if (currentValue < minValue)
                     {
@@ -569,12 +572,9 @@ namespace Altinn.Platform.Storage.Helpers
                 count++;
             }
 
-            if (!elem.InnerText.Equals(double.NaN.ToString()))
+            if (!elem.InnerText.Equals(double.NaN.ToString()) && count > 0)
             {
-                if (count > 0)
-                {
-                    elem.InnerText = minValue.ToString(CultureInfo.InvariantCulture.NumberFormat);
-                }
+                elem.InnerText = minValue.ToString(CultureInfo.InvariantCulture.NumberFormat);
             }
 
             return xdoc.CreateNavigator().Select("a");
@@ -650,14 +650,14 @@ namespace Altinn.Platform.Storage.Helpers
 
                 format = format.TrimEnd(";".ToCharArray());
                 string[] formatArray = format.Split(";".ToCharArray());
-                Hashtable formatParams = new Hashtable();
+                Hashtable formatParams = [];
 
                 for (int i = 0; i < formatArray.Length; i++)
                 {
-                    if (formatArray[i].IndexOf(":") > -1)
+                    if (formatArray[i].IndexOf(':') > -1)
                     {
-                        string key = formatArray[i].Substring(0, formatArray[i].IndexOf(":"));
-                        string value = formatArray[i].Substring(formatArray[i].IndexOf(":") + 1);
+                        string key = formatArray[i][..formatArray[i].IndexOf(':')];
+                        string value = formatArray[i][(formatArray[i].IndexOf(':') + 1)..];
                         formatParams[key] = value;
                     }
                 }
@@ -755,7 +755,7 @@ namespace Altinn.Platform.Storage.Helpers
                         {
                             if (formatParams["numDigits"].Equals("auto"))
                             {
-                                numinfo.NumberDecimalDigits = str.IndexOf(".") > 0 ? str.Substring(str.IndexOf(".") + 1).Length : 0;
+                                numinfo.NumberDecimalDigits = str.IndexOf('.') > 0 ? str[(str.IndexOf('.') + 1)..].Length : 0;
                             }
                             else
                             {
@@ -818,8 +818,8 @@ namespace Altinn.Platform.Storage.Helpers
         /// </returns>
         internal string Preprocess(string pattern)
         {
-            StringBuilder builder = new StringBuilder();
-            builder.Append("^");
+            StringBuilder builder = new();
+            builder.Append('^');
             char[] charArray = pattern.ToCharArray();
             int length = pattern.Length;
             int startIndex = 0;
@@ -866,7 +866,7 @@ namespace Altinn.Platform.Storage.Helpers
                         builder.Append(charArray, startIndex, length - startIndex);
                     }
 
-                    builder.Append("$");
+                    builder.Append('$');
                     return builder.ToString();
                 }
 
@@ -885,9 +885,8 @@ namespace Altinn.Platform.Storage.Helpers
         /// </returns>
         private static string DateCalculationArgumentHelper(object argument)
         {
-            if (argument is double)
+            if (argument is double num)
             {
-                double num = (double)argument;
                 return num.ToString(NumberFormatInfo.CurrentInfo);
             }
 
@@ -915,9 +914,8 @@ namespace Altinn.Platform.Storage.Helpers
         private static bool DateCalculationHelper(string absolute, string increment, bool seconds, out string output)
         {
             int num;
-            DateTime time;
             output = null;
-            if (DateTime.TryParse(absolute, CultureInfo.InvariantCulture, DateTimeStyles.None, out time))
+            if (DateTime.TryParse(absolute, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime time))
             {
                 if (increment.Length != 0)
                 {
@@ -947,7 +945,7 @@ namespace Altinn.Platform.Storage.Helpers
         /// </summary>
         /// <param name="str">The string to be escaped.</param>
         /// <returns>XML entities</returns>
-        private string EscapeXmlEntities(string str)
+        private static string EscapeXmlEntities(string str)
         {
             if (string.IsNullOrEmpty(str))
             {
@@ -991,5 +989,4 @@ namespace Altinn.Platform.Storage.Helpers
             }
         }
     }
-
 }

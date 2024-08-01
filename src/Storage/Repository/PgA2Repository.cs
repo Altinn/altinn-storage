@@ -33,10 +33,6 @@ namespace Altinn.Platform.Storage.Repository
         private static readonly string _readCodelistSql = "select * from storage.reada2codelist (@_name, @_language)";
         private static readonly string _readImageSql = "select * from storage.reada2image (@_name)";
 
-        private readonly IMemoryCache _memoryCache;
-        private readonly MemoryCacheEntryOptions _cacheEntryOptionsTitles;
-        private readonly MemoryCacheEntryOptions _cacheEntryOptionsMetadata;
-        private readonly string _cacheKey = "allAppTitles";
         private readonly NpgsqlDataSource _dataSource;
         private readonly TelemetryClient _telemetryClient;
         private readonly ILogger<PgA2Repository> _logger;
@@ -45,26 +41,17 @@ namespace Altinn.Platform.Storage.Repository
         /// Initializes a new instance of the <see cref="PgA2Repository"/> class.
         /// </summary>
         /// <param name="generalSettings">the general settings</param>
-        /// <param name="memoryCache">the memory cache</param>
         /// <param name="dataSource">The npgsql data source.</param>
         /// <param name="logger">Logger</param>
         /// <param name="telemetryClient">Telemetry client</param>
         public PgA2Repository(
             IOptions<GeneralSettings> generalSettings,
-            IMemoryCache memoryCache,
             NpgsqlDataSource dataSource,
             ILogger<PgA2Repository> logger,
             TelemetryClient telemetryClient = null)
         {
             _dataSource = dataSource;
             _telemetryClient = telemetryClient;
-            _memoryCache = memoryCache;
-            _cacheEntryOptionsTitles = new MemoryCacheEntryOptions()
-                .SetPriority(CacheItemPriority.High)
-                .SetAbsoluteExpiration(new TimeSpan(0, 0, generalSettings.Value.AppTitleCacheLifeTimeInSeconds));
-            _cacheEntryOptionsMetadata = new MemoryCacheEntryOptions()
-              .SetPriority(CacheItemPriority.High)
-              .SetAbsoluteExpiration(new TimeSpan(0, 0, generalSettings.Value.AppMetadataCacheLifeTimeInSeconds));
             _logger = logger;
         }
 

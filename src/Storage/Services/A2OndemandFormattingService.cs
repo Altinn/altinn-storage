@@ -3,115 +3,89 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Xml;
 using System.Xml.Xsl;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Repository;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
 namespace Altinn.Platform.Storage.Services
 {
     /// <summary>
     /// A2OndemandFormatting
+    /// The code below is based on copy/paste from legacy code
     /// </summary>
     public class A2OndemandFormattingService : IA2OndemandFormattingService
     {
         private readonly IA2Repository _a2Repository;
         private readonly ILogger<A2OndemandFormattingService> _logger;
+        private readonly IMemoryCache _memoryCache;
 
         /// <summary>
-        /// Default constructor
+        /// Initializes a new instance of the <see cref="A2OndemandFormattingService"/> class
         /// </summary>
-        public A2OndemandFormattingService(IA2Repository a2Repository, ILogger<A2OndemandFormattingService> logger)
+        public A2OndemandFormattingService(IA2Repository a2Repository, ILogger<A2OndemandFormattingService> logger, IMemoryCache memoryCache)
         {
             _a2Repository = a2Repository;
             _logger = logger;
+            _memoryCache = memoryCache;
         }
 
         /// <inheritdoc/>
-        public Stream GetHTML(PrintViewXslBEList printXslList, Stream xmlData, string archiveStamp, int languageID)
+        public Stream GetFormdataHtml(PrintViewXslBEList printXslList, Stream xmlData, string archiveStamp)
         {
-            return new MemoryStream(Encoding.UTF8.GetBytes(GeneratePrint(xmlData, printXslList, languageID, archiveStamp)));
+            return new MemoryStream(Encoding.UTF8.GetBytes(GetFormdataHtmlInternal(xmlData, printXslList, archiveStamp)));
         }
 
-        /// <summary>
-        /// Generates the HTML print.
-        /// </summary>
-        /// <param name="formData">The form data.</param>
-        /// <param name="printViewXslBEList">The information path view XSL be list.</param>
-        /// <param name="languageID">Language ID</param>
-        /// <returns>The print data as byte array (HTML or PDF)</returns>
-        private string GeneratePrint(
+        private string GetFormdataHtmlInternal(
             Stream formData,
             PrintViewXslBEList printViewXslBEList,
-            int languageID,
             string archiveStamp)
         {
-            string css = "<style>div, h1, h2, h3, h4, h5, h6, span, html, body, table, tr, td { box-sizing: border-box !important;}\r\ntr { background-color: transparent !important; color: inherit !important;}\r\nbody {margin-left: 0px !important; margin-right: 0px !important; margin-top: 15px !important;}\r\nspan.xdTextBox, span.xdExpressionBox {-webkit-user-modify:read-write; }\r\nspan.xdTextBox:not([style*=\"DISPLAY: none\"]), span.xdExpressionBox:not([style*=\"DISPLAY: none\"]) { display: inline-block !important }\r\nspan.xdTextBox {text-overflow: clip !important;}\r\nspan.xdTextBox[style*=\"WIDTH: 100%\"], div.xdDTPicker { width: 99% !important }\r\nthead.xdTableHeader {background-color : inherit !important;}\r\n.xdRepeatingSection, .xdExpressionBox, .xdSection.xdRepeating { height: auto !important; }\r\n[style*=\"FONT-SIZE: xx-small\"] { font-size: 7.5pt !important }\r\n[style*=\"FONT-SIZE: x-small\"] { font-size: 10pt !important }\r\n[style*=\"FONT-SIZE: small\"] { font-size: 12pt !important }\r\n[style*=\"FONT-SIZE: medium\"] { font-size: 13.5pt !important }\r\n[style*=\"FONT-SIZE: large\"] { font-size: 18pt !important }\r\n[style*=\"FONT-SIZE: x-large\"] { font-size: 24pt !important }\r\n[style*=\"FONT-SIZE: xx-large\"] { font-size: 36pt !important }\r\ndiv.xdSection.xdRepeating[style*=\"WIDTH: 100%\"] { width: auto !important }\r\nspan.xdDTText, div.xdDTPicker { display: inline-block !important }\r\ninput[type='radio'] { -webkit-appearance: none; width: 12px; height: 12px; border: 1px solid darkgray; border-radius: 50%; outline: none; background-color: white; }\r\ninput[type='radio']:before { content: ''; display: block; width: 60%; height: 60%; margin-left: 25%; margin-top: 20%; border-radius: 50%; }\r\ninput[type='radio']:checked:before { background: black; }\r\n</style>";
-            XmlDocument xmlDoc = new XmlDocument();
+            XmlDocument xmlDoc = new();
             xmlDoc.Load(formData);
 
-            StringBuilder htmlString = new StringBuilder();
+            StringBuilder htmlString = new();
 
             foreach (PrintViewXslBE printViewXslBE in printViewXslBEList)
             {
                 string htmlToTranslate = null;
 
                 // Add formatting object to perform stringFormat of dates.
-                FormServerXslFunction obj = new FormServerXslFunction { MainDomDocument = xmlDoc, A2Repository = _a2Repository };
-                XsltArgumentList xslArg = new XsltArgumentList();
+                FormServerXslFunction obj = new() { MainDomDocument = xmlDoc, A2Repository = _a2Repository, MemoryCache = _memoryCache };
+                XsltArgumentList xslArg = new();
                 xslArg.AddExtensionObject("http://schemas.microsoft.com/office/infopath/2003/xslt/formatting", obj);
                 xslArg.AddExtensionObject("http://schemas.microsoft.com/office/infopath/2003/xslt/xDocument", obj);
                 xslArg.AddExtensionObject("http://schemas.microsoft.com/office/infopath/2003/xslt/Math", obj);
                 xslArg.AddExtensionObject("http://schemas.microsoft.com/office/infopath/2003/xslt/Util", obj);
                 xslArg.AddExtensionObject("http://schemas.microsoft.com/office/infopath/2003/xslt/Date", obj);
 
-                XslCompiledTransform xslCompiledTransform = GetXslCompiledTransformForPrint(printViewXslBE, xmlDoc, xslArg, htmlToTranslate);
-
-                if (htmlToTranslate == null)
+                string cacheKey = $"xslt:{printViewXslBE.Id}";
+                if (!_memoryCache.TryGetValue(cacheKey, out XslCompiledTransform xslCompiledTransform))
                 {
-                    using (StringWriter htmlWriterOutput = new StringWriter())
-                    {
-                        xslCompiledTransform.Transform(xmlDoc, xslArg, htmlWriterOutput);
-                        htmlToTranslate = htmlWriterOutput.ToString();
-                    }
+                    xslCompiledTransform = GetXslCompiledTransformForPrint(printViewXslBE, xmlDoc, xslArg);
+
+                    MemoryCacheEntryOptions cacheEntryOptions = new MemoryCacheEntryOptions()
+                   .SetPriority(CacheItemPriority.Normal)
+                   .SetAbsoluteExpiration(new TimeSpan(0, 0, 300));
+
+                    _memoryCache.Set(cacheKey, xslCompiledTransform, cacheEntryOptions);
                 }
 
-                // Storing the generated html string and PDF modification parameters so that it could be used to generate the PDF
-                //PdfMofificationParametersBE pdfModificationParams = AltinnCache.Get(AltinnCache.Id.PdfMofificationParameters, printViewXslBE.FormPageLocalizedId.ToString()) as PdfMofificationParametersBE;
-                //printViewXslBE.printViewHtml = htmlToTranslate;
-                //printViewXslBE.PdfModificationParams = pdfModificationParams;
-
-                //htmlToTranslate = htmlToTranslate.Replace("</head>", css);
+                using (StringWriter htmlWriterOutput = new())
+                {
+                    xslCompiledTransform.Transform(xmlDoc, xslArg, htmlWriterOutput);
+                    htmlToTranslate = htmlWriterOutput.ToString();
+                }
 
                 // Add the archive time stamp and the list of attachments
                 htmlToTranslate = SetArchiveTimeStampToHtml(archiveStamp, htmlToTranslate);
 
                 htmlString.Append(htmlToTranslate);
             }
-
-            //byte[] resultArray = null;
-
-            //if (printType == PrintMethodType.PDF)
-            //{
-            //    using (PdfEngineProxy pdfEngine = new PdfEngineProxy())
-            //    {
-            //        resultArray = pdfEngine.GeneratePdfV2(
-            //            printViewXslBEList,
-            //            pdfSource,
-            //            htmlHeaderText,
-            //            htmlAttachmentInformation,
-            //            languageID,
-            //            createPdfa);
-            //    }
-            //}
-            //else
-            //{
-            //resultArray = Encoding.UTF8.GetBytes(SetHtmlAttachmentsToHtml(htmlString.ToString(), htmlAttachmentInformation, languageID));
-            //}
-
-            //htmlString = SetHtmlAttachmentsToHtml
 
             return htmlString.ToString();
         }
@@ -121,9 +95,9 @@ namespace Altinn.Platform.Storage.Services
         /// </summary>
         /// <param name="htmlMain">Main HTML file</param>
         /// <returns>Converted HTML file</returns>
-        private string SetHtmlAdjustments(string htmlMain)
+        private static string SetHtmlAdjustments(string htmlMain)
         {
-            //Doctype for HTML5
+            // Doctype for HTML5
             htmlMain = htmlMain.Replace("<html", "<!DOCTYPE html><html");
             htmlMain = htmlMain.Replace("<META http-equiv=\"Content-Type\" content=\"text/html; charset=utf-16\">", "<META charset=\"utf-8\">");
 
@@ -152,33 +126,21 @@ namespace Altinn.Platform.Storage.Services
         /// <param name="htmlHeaderText">Archive time stamp information</param>
         /// <param name="htmlMain">Main html string</param>
         /// <returns>Main html string after changes</returns>
-        private string SetArchiveTimeStampToHtml(string htmlHeaderText, string htmlMain)
+        private static string SetArchiveTimeStampToHtml(string htmlHeaderText, string htmlMain)
         {
             // Make adjustments to the HTML
             htmlMain = SetHtmlAdjustments(htmlMain);
 
             string cssClassForPrintAll = string.Empty;
-            ////if (isPrintAllSelected)
-            ////{
-            ////    cssClassForPrintAll = "class='printAllStyle'";
-            ////}
-
             if (!string.IsNullOrEmpty(htmlHeaderText))
             {
                 // Appending html header text as html header and footer
-                ////if (pdfSource == PDFType.ServiceArchive || pdfSource == PDFType.ReporteeArchive)
-                {
-                    // Replacing the semi colon with a space
-                    ////string[] archiveTextElements = htmlHeaderText.Split(";".ToCharArray());
-                    ////htmlHeaderText = archiveTextElements[0] + " " + archiveTextElements[1];
+                // Header and Footer tags for the archive time stamp
+                string htmlHeader = "<header id='pageHeader'" + cssClassForPrintAll + ">" + htmlHeaderText + "</header>";
+                string htmlFooter = "<footer id='pageFooter'" + cssClassForPrintAll + ">" + htmlHeaderText + "</footer>";
 
-                    // Header and Footer tags for the archive time stamp
-                    string htmlHeader = "<header id='pageHeader'" + cssClassForPrintAll + ">" + htmlHeaderText + "</header>";
-                    string htmlFooter = "<footer id='pageFooter'" + cssClassForPrintAll + ">" + htmlHeaderText + "</footer>";
-
-                    // Adding the same archive time stamp as Header and footer for the HTML page
-                    htmlMain = htmlMain.Replace("</body>", htmlHeader + htmlFooter + "</body>");
-                }
+                // Adding the same archive time stamp as Header and footer for the HTML page
+                htmlMain = htmlMain.Replace("</body>", htmlHeader + htmlFooter + "</body>");
             }
 
             return htmlMain;
@@ -190,13 +152,11 @@ namespace Altinn.Platform.Storage.Services
         /// <param name="printViewXslBE">print view XSL details</param>
         /// <param name="xmlDoc">Form data as XML document</param>
         /// <param name="xslArg">XSL argument list</param>
-        /// <param name="htmlToTranslate">HTML that needs to be translated</param>
         /// <returns>Complied and transformed XSL</returns>
         private XslCompiledTransform GetXslCompiledTransformForPrint(
             PrintViewXslBE printViewXslBE,
             XmlDocument xmlDoc,
-            XsltArgumentList xslArg,
-            string htmlToTranslate)
+            XsltArgumentList xslArg)
         {
             // Remove the DatePicker button. It should not be visible in HTML and PDF.
             printViewXslBE.PrintViewXsl = printViewXslBE.PrintViewXsl.Replace(".xdDTButton{", ".xdDTButton{display:none;");
@@ -206,23 +166,16 @@ namespace Altinn.Platform.Storage.Services
 
             // Rename get-DOM() to GetMainDOM() to support for filtering on values from main data source in xpath expressions.
             printViewXslBE.PrintViewXsl = printViewXslBE.PrintViewXsl.Replace("xdXDocument:get-DOM()", "xdXDocument:GetMainDOM()");
+            printViewXslBE.PrintViewXsl = printViewXslBE.PrintViewXsl.Replace(".langFont {", ".langFont{display:none;");
+            printViewXslBE.PrintViewXsl = printViewXslBE.PrintViewXsl.Replace(".optionalPlaceholder {", ".optionalPlaceholder{display:none;");
 
-            // Check UseAutomaticCustomization flag for new services
-            //if (useAutomaticCustomization)
-            {
-                printViewXslBE.PrintViewXsl = printViewXslBE.PrintViewXsl.Replace(".langFont {", ".langFont{display:none;");
-                printViewXslBE.PrintViewXsl = printViewXslBE.PrintViewXsl.Replace(".optionalPlaceholder {", ".optionalPlaceholder{display:none;");
-            }
-
-            PdfMofificationParametersBE pdfModParamBE = new PdfMofificationParametersBE();
+            PdfMofificationParametersBE pdfModParamBE = new();
             int extraFirstDivPadding = 0;
-            string backColor = "#ffffff";
-
             string xsl = printViewXslBE.PrintViewXsl;
 
             try
             {
-                XmlDocument xslDoc = new XmlDocument();
+                XmlDocument xslDoc = new();
                 xslDoc.LoadXml(xsl);
 
                 XmlNode apos = xslDoc.CreateElement("xsl", "variable", "http://www.w3.org/1999/XSL/Transform");
@@ -238,12 +191,11 @@ namespace Altinn.Platform.Storage.Services
                     string color = bodyStyleNode.InnerXml.Substring(bodyStyleNode.InnerXml.IndexOf("BACKGROUND-COLOR: ") + 18, 7);
                     if (!color.Equals("#ffffff"))
                     {
-                        backColor = color;
                         pdfModParamBE.BackgroundColor = color;
                     }
                 }
 
-                //Forcing all views to be printed as centered on the page. This gives the best result with the new Winnovative webkit version.
+                // Forcing all views to be printed as centered on the page. This gives the best result with the new Winnovative webkit version.
                 XmlNodeList firstDivs = xslDoc.SelectNodes("//body/div");
                 if (firstDivs.Count == 0)
                 {
@@ -292,7 +244,7 @@ namespace Altinn.Platform.Storage.Services
                                     try
                                     {
                                         int start = -1;
-                                        if (style.IndexOf("PADDING-LEFT:") == 0)
+                                        if (style.StartsWith("PADDING-LEFT:"))
                                         {
                                             start = style.IndexOf("PADDING-LEFT:") + 13;
                                         }
@@ -326,7 +278,7 @@ namespace Altinn.Platform.Storage.Services
                                     }
                                     catch
                                     {
-                                        //Ignore exception
+                                        // Ignore exception
                                     }
                                 }
                             }
@@ -340,29 +292,26 @@ namespace Altinn.Platform.Storage.Services
                     foreach (XmlNode tnode in tables)
                     {
                         XmlAttribute tableclass = tnode.Attributes["class"];
-                        if (tableclass != null)
+                        if (tableclass != null && tableclass.Value.Contains("xdRepeatingTable"))
                         {
-                            if (tableclass.Value.Contains("xdRepeatingTable"))
+                            XmlNodeList tr = tnode.SelectNodes("tbody/tr");
+                            if (tr != null)
                             {
-                                XmlNodeList tr = tnode.SelectNodes("tbody/tr");
-                                if (tr != null)
+                                foreach (XmlNode node in tr)
                                 {
-                                    foreach (XmlNode node in tr)
+                                    XmlAttribute style = node.Attributes["style"];
+                                    if (style != null)
                                     {
-                                        XmlAttribute style = node.Attributes["style"];
-                                        if (style != null)
+                                        if (!style.Value.Contains("page-break-inside: avoid"))
                                         {
-                                            if (!style.Value.Contains("page-break-inside: avoid"))
-                                            {
-                                                style.Value = string.Format("{0};page-break-inside: avoid", style.Value);
-                                            }
+                                            style.Value = string.Format("{0};page-break-inside: avoid", style.Value);
                                         }
-                                        else
-                                        {
-                                            XmlAttribute styleAtt = xslDoc.CreateAttribute("style");
-                                            styleAtt.Value = "page-break-inside: avoid";
-                                            node.Attributes.Append(styleAtt);
-                                        }
+                                    }
+                                    else
+                                    {
+                                        XmlAttribute styleAtt = xslDoc.CreateAttribute("style");
+                                        styleAtt.Value = "page-break-inside: avoid";
+                                        node.Attributes.Append(styleAtt);
                                     }
                                 }
                             }
@@ -370,28 +319,21 @@ namespace Altinn.Platform.Storage.Services
                     }
                 }
 
-                // Check UseAutomaticCustomization flag for new services
-                //if (useAutomaticCustomization)
+                XmlNodeList selectnodelist = xslDoc.SelectNodes("//select");
+                if (selectnodelist != null)
                 {
-                    XmlNodeList selectnodelist = xslDoc.SelectNodes("//select");
-                    if (selectnodelist != null)
-                    {
-                        // Styling and other attributes to the xdTextBox, xdComboBox, etc
-                        SelectNodeProcessing(xslDoc, selectnodelist);
-                    }
+                    // Styling and other attributes to the xdTextBox, xdComboBox, etc
+                    SelectNodeProcessing(xslDoc, selectnodelist);
                 }
 
-                //if (printType == PrintMethodType.HTML)
+                XmlNodeList imageNodeList = xslDoc.SelectNodes("//img");
+                if (imageNodeList != null)
                 {
-                    XmlNodeList imageNodeList = xslDoc.SelectNodes("//img");
-                    if (imageNodeList != null)
-                    {
-                        // Processing, embedding and converting the images to base64
-                        ImageNodeProcessing(xslDoc, imageNodeList);
-                    }
+                    // Processing, embedding and converting the images to base64
+                    ImageNodeProcessing(imageNodeList);
                 }
 
-                XmlNamespaceManager nsmgr = new XmlNamespaceManager(xslDoc.NameTable);
+                XmlNamespaceManager nsmgr = new(xslDoc.NameTable);
                 if (!nsmgr.HasNamespace("xd"))
                 {
                     nsmgr.AddNamespace("xd", "http://schemas.microsoft.com/office/infopath/2003");
@@ -461,19 +403,15 @@ namespace Altinn.Platform.Storage.Services
                     }
 
                     XmlNode styleNode = xslDoc.SelectSingleNode("//style");
-                    if (styleNode != null)
+                    if (styleNode != null && !styleNode.InnerText.ToLower().Contains("thead {display: table-header-group;text-align: left;} th{ font-weight:normal;}"))
                     {
-                        if (!styleNode.InnerText.ToLower().Contains("thead {display: table-header-group;text-align: left;} th{ font-weight:normal;}"))
-                        {
-                            styleNode.InnerText += " thead {display: table-header-group;text-align: left;} th{ font-weight:normal;} ";
-                        }
+                        styleNode.InnerText += " thead {display: table-header-group;text-align: left;} th{ font-weight:normal;} ";
                     }
                 }
 
                 XmlNodeList stylenodes = xslDoc.SelectNodes("//@style");
                 if (stylenodes != null)
                 {
-                    //int htmlwidth = 0;
                     foreach (XmlNode node in stylenodes)
                     {
                         string style = node.InnerText;
@@ -516,7 +454,7 @@ namespace Altinn.Platform.Storage.Services
                             }
                             catch
                             {
-                                //Ignore exception
+                                // Ignore exception
                             }
                         }
                     }
@@ -524,20 +462,7 @@ namespace Altinn.Platform.Storage.Services
 
                 pdfModParamBE.HtmlViewerWidth += extraFirstDivPadding;
 
-                //AltinnCache.Insert(AltinnCache.Id.PdfMofificationParameters, printViewXslBE.FormPageLocalizedId.ToString(), pdfModParamBE);
-
                 xsl = xslDoc.OuterXml;
-
-                // If print type is PDF then the stylesheet path would be different and base reference for pdf images would be set
-                //if (printType == PrintMethodType.PDF)
-                //{
-                //    string directory = Directory.GetDirectoryRoot(Directory.GetCurrentDirectory());
-                //    string folderPath = directory + STYLESHEET_FOR_PDF;
-                //    string imgFolder = AltinnConfiguration.FormEngine_PDF_ImageFolder;
-                //    string kernSetting = AltinnConfiguration.FormEngine_PDF_EO_Use_Kerning ? @"<style>*{text-rendering: geometricPrecision !important; -webkit-font-feature-settings: ""kern"" !important }</style>" : null;
-                //    xsl = xsl.Replace("</head>", @"<link rel='stylesheet' type='text/css' href='" + folderPath + @"' /> <BASE HREF='" + imgFolder + @"'/>" + kernSetting + @"</head>");
-                //}
-
                 xsl = xsl.Replace("MIN-HEIGHT:", "HEIGHT:");
             }
             catch
@@ -545,20 +470,17 @@ namespace Altinn.Platform.Storage.Services
                 // Ignore error and show unmodified html string
             }
 
-            XslCompiledTransform xslCompiledTransform = new XslCompiledTransform();
-            using (StringReader stringReader = new StringReader(xsl))
+            XslCompiledTransform xslCompiledTransform = new();
+            using (StringReader stringReader = new(xsl))
             {
                 xslCompiledTransform.Load(new XmlTextReader(stringReader));
             }
 
             // Make sure to do the first Transform() before putting into the cache because the first Transform() is expensive
-            using (StringWriter htmlWriterOutput = new StringWriter())
+            using (StringWriter htmlWriterOutput = new())
             {
-                //using (new PerformanceTracer("Transform"))
-                {
-                    xslCompiledTransform.Transform(xmlDoc, xslArg, htmlWriterOutput);
-                    htmlToTranslate = htmlWriterOutput.ToString();
-                }
+                xslCompiledTransform.Transform(xmlDoc, xslArg, htmlWriterOutput);
+                string dummy = htmlWriterOutput.ToString();
             }
 
             return xslCompiledTransform;
@@ -573,138 +495,126 @@ namespace Altinn.Platform.Storage.Services
                     XmlAttribute selectClass = selectNode.Attributes["class"];
                     XmlNode styleNode = null;
                     bool codelistWhenNode = false;
-                    XmlNamespaceManager nsManager = new XmlNamespaceManager(xslDoc.NameTable);
+                    XmlNamespaceManager nsManager = new(xslDoc.NameTable);
                     nsManager.AddNamespace("xd", "http://schemas.microsoft.com/office/infopath/2003");
                     nsManager.AddNamespace("xsl", "http://www.w3.org/1999/XSL/Transform");
 
-                    if (selectClass != null)
+                    if (selectClass != null && selectClass.Value.Contains("xdComboBox"))
                     {
-                        if (selectClass.Value.Contains("xdComboBox"))
+                        XmlAttribute selectStyle = selectNode.Attributes["style"];
+                        styleNode = selectNode.SelectSingleNode("xsl:attribute[@name='style']", nsManager);
+
+                        Dictionary<string, string> spanAttributes = [];
+                        if (selectStyle != null)
                         {
-                            XmlAttribute selectStyle = selectNode.Attributes["style"];
-                            styleNode = selectNode.SelectSingleNode("xsl:attribute[@name='style']", nsManager);
+                            spanAttributes.Add("style", selectStyle.Value);
+                        }
 
-                            Dictionary<string, string> spanAttributes = new Dictionary<string, string>();
-                            if (selectStyle != null)
-                            {
-                                spanAttributes.Add("style", selectStyle.Value);
-                            }
+                        spanAttributes.Add("class", "xdTextBox");
+                        XmlNode spanTag = xslDoc.CreateElement("span");
+                        foreach (KeyValuePair<string, string> attribute in spanAttributes)
+                        {
+                            XmlAttribute xmlAttribute = xslDoc.CreateAttribute(attribute.Key);
+                            xmlAttribute.Value = attribute.Value;
+                            spanTag.Attributes.Append(xmlAttribute);
+                        }
 
-                            spanAttributes.Add("class", "xdTextBox");
-                            XmlNode spanTag = xslDoc.CreateElement("span");
-                            foreach (KeyValuePair<string, string> attribute in spanAttributes)
+                        XmlNodeList optionNodes = selectNode.SelectNodes("./option", nsManager);
+                        if (optionNodes != null)
+                        {
+                            foreach (XmlNode optionNode in optionNodes)
                             {
-                                XmlAttribute xmlAttribute = xslDoc.CreateAttribute(attribute.Key);
-                                xmlAttribute.Value = attribute.Value;
-                                spanTag.Attributes.Append(xmlAttribute);
-                            }
-
-                            XmlNodeList optionNodes = selectNode.SelectNodes("./option", nsManager);
-                            if (optionNodes != null)
-                            {
-                                foreach (XmlNode optionNode in optionNodes)
+                                XmlNode ifNode = optionNode.SelectSingleNode("./xsl:if", nsManager);
+                                if (ifNode != null)
                                 {
-                                    XmlNode ifNode = optionNode.SelectSingleNode("./xsl:if", nsManager);
-                                    if (ifNode != null)
+                                    ifNode.InnerXml = string.Empty;
+
+                                    string displayValue = string.Empty;
+                                    displayValue = optionNode.InnerText;
+
+                                    Dictionary<string, string> xslVOAttributes = [];
+                                    if (displayValue.Contains('\''))
                                     {
-                                        ifNode.InnerXml = string.Empty;
-
-                                        string displayValue = string.Empty;
-                                        displayValue = optionNode.InnerText;
-
-                                        Dictionary<string, string> xslVOAttributes = new Dictionary<string, string>();
-                                        if (displayValue.Contains("'"))
-                                        {
-                                            xslVOAttributes.Add("select", "concat(" + "'" + displayValue.Replace("'", "',$aposVariable,'") + "')");
-                                        }
-                                        else
-                                        {
-                                            xslVOAttributes.Add("select", "'" + displayValue + "'");
-                                        }
-
-                                        XmlNode xslVONode = CreateXslNodeElement(xslDoc, xslVOAttributes, "value-of", "xsl", "http://www.w3.org/1999/XSL/Transform");
-                                        ifNode.AppendChild(xslVONode);
-                                        spanTag.AppendChild(ifNode);
+                                        xslVOAttributes.Add("select", "concat(" + "'" + displayValue.Replace("'", "',$aposVariable,'") + "')");
                                     }
-                                }
-                            }
-
-                            XmlNodeList whenNodeList = selectNode.SelectNodes("//xsl:when[@test]", nsManager);
-                            foreach (XmlNode node in whenNodeList)
-                            {
-                                if (node.Attributes["test"].Value == "function-available('xdXDocument:GetDOM')")
-                                {
-                                    codelistWhenNode = true;
-                                }
-                            }
-
-                            if (codelistWhenNode)
-                            {
-                                if (!spanTag.HasChildNodes)
-                                {
-                                    XmlNodeList chooseNodes = selectNode.SelectNodes("./xsl:choose", nsManager);
-                                    XmlNode chooseWhenNode = null;
-                                    foreach (XmlNode chooseNode in chooseNodes)
+                                    else
                                     {
-                                        chooseWhenNode = chooseNode.SelectSingleNode("./xsl:when[@test]", nsManager);
-                                        if (chooseWhenNode != null && chooseWhenNode.Attributes["test"] != null)
-                                        {
-                                            if (chooseWhenNode.Attributes["test"].Value == "function-available('xdXDocument:GetDOM')")
-                                            {
-                                                XmlNode emptyOptionNode = chooseWhenNode.SelectSingleNode("./option", nsManager);
-                                                if (emptyOptionNode != null)
-                                                {
-                                                    chooseWhenNode.RemoveChild(emptyOptionNode);
-                                                }
+                                        xslVOAttributes.Add("select", "'" + displayValue + "'");
+                                    }
 
-                                                XmlNode foreachNode = chooseWhenNode.SelectSingleNode("./xsl:for-each", nsManager);
-                                                if (foreachNode != null)
-                                                {
-                                                    XmlNode foreachOptionNode = foreachNode.SelectSingleNode("./option", nsManager);
-                                                    if (foreachOptionNode != null)
-                                                    {
-                                                        XmlNode ifTestNode = foreachOptionNode.SelectSingleNode("./xsl:if", nsManager);
-                                                        XmlNode optionValueNode = foreachOptionNode.SelectSingleNode("./xsl:value-of", nsManager);
-                                                        if (ifTestNode != null && optionValueNode != null)
-                                                        {
-                                                            ifTestNode.InnerXml = string.Empty;
-                                                            ifTestNode.AppendChild(optionValueNode);
-                                                            foreachNode.ReplaceChild(ifTestNode, foreachOptionNode);
-                                                        }
-                                                    }
-                                                }
+                                    XmlNode xslVONode = CreateXslNodeElement(xslDoc, xslVOAttributes, "value-of", "xsl", "http://www.w3.org/1999/XSL/Transform");
+                                    ifNode.AppendChild(xslVONode);
+                                    spanTag.AppendChild(ifNode);
+                                }
+                            }
+                        }
+
+                        XmlNodeList whenNodeList = selectNode.SelectNodes("//xsl:when[@test]", nsManager);
+                        foreach (XmlNode node in whenNodeList)
+                        {
+                            if (node.Attributes["test"].Value == "function-available('xdXDocument:GetDOM')")
+                            {
+                                codelistWhenNode = true;
+                            }
+                        }
+
+                        if (codelistWhenNode && !spanTag.HasChildNodes)
+                        {
+                            XmlNodeList chooseNodes = selectNode.SelectNodes("./xsl:choose", nsManager);
+                            XmlNode chooseWhenNode = null;
+                            foreach (XmlNode chooseNode in chooseNodes)
+                            {
+                                chooseWhenNode = chooseNode.SelectSingleNode("./xsl:when[@test]", nsManager);
+                                if (chooseWhenNode != null && chooseWhenNode.Attributes["test"] != null && chooseWhenNode.Attributes["test"].Value == "function-available('xdXDocument:GetDOM')")
+                                {
+                                    XmlNode emptyOptionNode = chooseWhenNode.SelectSingleNode("./option", nsManager);
+                                    if (emptyOptionNode != null)
+                                    {
+                                        chooseWhenNode.RemoveChild(emptyOptionNode);
+                                    }
+
+                                    XmlNode foreachNode = chooseWhenNode.SelectSingleNode("./xsl:for-each", nsManager);
+                                    if (foreachNode != null)
+                                    {
+                                        XmlNode foreachOptionNode = foreachNode.SelectSingleNode("./option", nsManager);
+                                        if (foreachOptionNode != null)
+                                        {
+                                            XmlNode ifTestNode = foreachOptionNode.SelectSingleNode("./xsl:if", nsManager);
+                                            XmlNode optionValueNode = foreachOptionNode.SelectSingleNode("./xsl:value-of", nsManager);
+                                            if (ifTestNode != null && optionValueNode != null)
+                                            {
+                                                ifTestNode.InnerXml = string.Empty;
+                                                ifTestNode.AppendChild(optionValueNode);
+                                                foreachNode.ReplaceChild(ifTestNode, foreachOptionNode);
                                             }
                                         }
-
-                                        spanTag.AppendChild(chooseNode);
                                     }
                                 }
-                            }
 
-                            if (styleNode != null)
-                            {
-                                spanTag.PrependChild(styleNode);
+                                spanTag.AppendChild(chooseNode);
                             }
+                        }
 
-                            XmlNode parentNode = selectNode.ParentNode;
-                            if (parentNode != null)
-                            {
-                                parentNode.AppendChild(spanTag);
-                                parentNode.RemoveChild(selectNode);
-                            }
+                        if (styleNode != null)
+                        {
+                            spanTag.PrependChild(styleNode);
+                        }
 
-                            XmlNodeList optionNodeList = spanTag.SelectNodes(".//option", nsManager);
-                            if (optionNodeList != null)
+                        XmlNode parentNode = selectNode.ParentNode;
+                        if (parentNode != null)
+                        {
+                            parentNode.AppendChild(spanTag);
+                            parentNode.RemoveChild(selectNode);
+                        }
+
+                        XmlNodeList optionNodeList = spanTag.SelectNodes(".//option", nsManager);
+                        if (optionNodeList != null)
+                        {
+                            foreach (XmlNode optionNode in optionNodeList)
                             {
-                                foreach (XmlNode optionNode in optionNodeList)
-                                {
-                                    XmlNode newNode = xslDoc.CreateElement("span");
-                                    newNode.InnerXml = optionNode.InnerXml;
-                                    if (optionNode.ParentNode != null)
-                                    {
-                                        optionNode.ParentNode.ReplaceChild(newNode, optionNode);
-                                    }
-                                }
+                                XmlNode newNode = xslDoc.CreateElement("span");
+                                newNode.InnerXml = optionNode.InnerXml;
+                                optionNode.ParentNode?.ReplaceChild(newNode, optionNode);
                             }
                         }
                     }
@@ -712,11 +622,11 @@ namespace Altinn.Platform.Storage.Services
             }
             catch
             {
-                //Ignore exception and show unmodified DropDown.
+                // Ignore exception and show unmodified DropDown.
             }
         }
 
-        private XmlNode CreateXslNodeElement(XmlDocument xDoc, Dictionary<string, string> attributes, string nodeName, string prefix, string nsUrl)
+        private static XmlNode CreateXslNodeElement(XmlDocument xDoc, Dictionary<string, string> attributes, string nodeName, string prefix, string nsUrl)
         {
             XmlNode node = xDoc.CreateElement(prefix, nodeName, nsUrl);
             foreach (KeyValuePair<string, string> attribute in attributes)
@@ -742,10 +652,8 @@ namespace Altinn.Platform.Storage.Services
                 return string.Empty;
             }
 
-            using (MemoryStream ms = new MemoryStream(imagebytes))
-            {
-                return $"data:image/{GetImageFormatFromImageFileName(imageName)};base64,{Convert.ToBase64String(ms.ToArray())}";
-            }
+            using MemoryStream ms = new(imagebytes);
+            return $"data:image/{GetImageFormatFromImageFileName(imageName)};base64,{Convert.ToBase64String(ms.ToArray())}";
         }
 
         /// <summary>
@@ -756,21 +664,14 @@ namespace Altinn.Platform.Storage.Services
         private static string GetImageFormatFromImageFileName(string imageFileName)
         {
             string extention = imageFileName.Split('.').Last().ToLower();
-            switch (extention)
+            return extention switch
             {
-                case "bmp":
-                case "gif":
-                case "jpg":
-                case "jpeg":
-                case "png":
-                case "tif":
-                    return extention;
-                default:
-                    return "wmf";
-            }
+                "bmp" or "gif" or "jpg" or "jpeg" or "png" or "tif" => extention,
+                _ => "wmf",
+            };
         }
 
-        private void ImageNodeProcessing(XmlDocument xslDoc, XmlNodeList imageNodeList)
+        private void ImageNodeProcessing(XmlNodeList imageNodeList)
         {
             foreach (XmlNode imageNode in imageNodeList)
             {
@@ -791,7 +692,6 @@ namespace Altinn.Platform.Storage.Services
                 }
             }
         }
-
     }
 
     /// <summary>
@@ -806,7 +706,7 @@ namespace Altinn.Platform.Storage.Services
         /// Gets or sets Identifier used to identify Logical Form in the Form Set Collection
         /// </summary>
         [DataMember]
-        public int FormPageLocalizedId { get; set; }
+        public string Id { get; set; }
 
         /// <summary>
         /// Gets or sets Identifier used to identify Logical Form Name in the Form Set Collection

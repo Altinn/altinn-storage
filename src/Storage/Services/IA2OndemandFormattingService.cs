@@ -6,7 +6,7 @@ using Altinn.Platform.Storage.Models;
 namespace Altinn.Platform.Storage.Services
 {
     /// <summary>
-    /// This interface describes the required methods and features of a application service implementation.
+    /// This interface describes the required methods for getting ondemand content
     /// </summary>
     public interface IA2OndemandFormattingService
     {
@@ -15,9 +15,8 @@ namespace Altinn.Platform.Storage.Services
         /// </summary>
         /// <param name="printXslList">printXslList</param>
         /// <param name="xmlData">xmlData</param>
-        /// <param name="archiveStamp">archiveStamp</param>
-        /// <param name="languageID">languageID</param>
+        /// <param name="archiveStamp">Timestamp used for water mark</param>
         /// <returns>Html as stream</returns>
-        Stream GetHTML(PrintViewXslBEList printXslList, Stream xmlData, string archiveStamp, int languageID);
+        Stream GetFormdataHtml(PrintViewXslBEList printXslList, Stream xmlData, string archiveStamp);
     }
 }

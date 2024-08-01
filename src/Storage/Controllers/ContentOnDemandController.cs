@@ -26,7 +26,7 @@ namespace Altinn.Platform.Storage.Controllers
     /// <summary>
     /// Implements endpoints on demand content generation
     /// </summary>
-    [Route("storage/api/v1/ondemand/{org}/{app}/{instanceOwnerPartyId:int}/{instanceGuid:guid}/{dataGuid:guid}")]
+    [Route("storage/api/v1/ondemand/{org}/{app}/{instanceOwnerPartyId:int}/{instanceGuid:guid}/{dataGuid:guid}/{language}")]
     [ApiExplorerSettings(IgnoreApi = true)]
     [ApiController]
     public class ContentOnDemandController : ControllerBase
@@ -67,27 +67,26 @@ namespace Altinn.Platform.Storage.Controllers
         /// Gets the formatted content
         /// </summary>
         /// <param name="org">org</param>
-        /// <param name="app">app/param>
+        /// <param name="app">app</param>
         /// <param name="instanceGuid">instanceGuid</param>
         /// <param name="dataGuid">dataGuid</param>
+        /// <param name="language">language</param>
         /// <returns>The formatted content</returns>
         [AllowAnonymous]
         [HttpGet("signature")]
-        public async Task<Stream> GetSignatureAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid)
+        public async Task<Stream> GetSignatureAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
             // TODO Replace with proper formatting
             (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
             DataElement signatureElement = instance.Data.First(d => d.DataType == "signature-data");
 
-            using (StreamReader reader = new(await _blobRepository.ReadBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : org)}", $"{org}/{app}/{instanceGuid}/data/{signatureElement.Id}")))
+            using StreamReader reader = new(await _blobRepository.ReadBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : org)}", $"{org}/{app}/{instanceGuid}/data/{signatureElement.Id}"));
+            string line = null;
+            while ((line = await reader.ReadLineAsync()) != null)
             {
-                string line = null;
-                while ((line = await reader.ReadLineAsync()) != null)
+                if (line.Contains("SignatureText"))
                 {
-                    if (line.Contains("SignatureText"))
-                    {
-                        return new MemoryStream(Encoding.UTF8.GetBytes($"<html>Dette er generert dynamisk<br><br><div>{line.Split(':')[1].TrimStart().Replace("\"", null)}</div></html>"));
-                    }
+                    return new MemoryStream(Encoding.UTF8.GetBytes($"<html>Dette er generert dynamisk<br><br><div>{line.Split(':')[1].TrimStart().Replace("\"", null)}</div></html>"));
                 }
             }
 
@@ -98,13 +97,14 @@ namespace Altinn.Platform.Storage.Controllers
         /// Gets the formatted content
         /// </summary>
         /// <param name="org">org</param>
-        /// <param name="app">app/param>
+        /// <param name="app">app</param>
         /// <param name="instanceGuid">instanceGuid</param>
         /// <param name="dataGuid">dataGuid</param>
+        /// <param name="language">language</param>
         /// <returns>The formatted content</returns>
         [AllowAnonymous]
         [HttpGet("payment")]
-        public async Task<Stream> GetPaymentAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid)
+        public async Task<Stream> GetPaymentAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
             // TODO Replace with proper formatting
             return new MemoryStream(Encoding.UTF8.GetBytes($"<html>Dette er generert dynamisk<br><br><div>Not yet implemented</div></html>"));
@@ -114,13 +114,14 @@ namespace Altinn.Platform.Storage.Controllers
         /// Gets the formatted content
         /// </summary>
         /// <param name="org">org</param>
-        /// <param name="app">app/param>
+        /// <param name="app">app</param>
         /// <param name="instanceGuid">instanceGuid</param>
         /// <param name="dataGuid">dataGuid</param>
+        /// <param name="language">language</param>
         /// <returns>The formatted content</returns>
         [AllowAnonymous]
         [HttpGet("formdatapdf")]
-        public async Task<Stream> GetFormdataAsPdf([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid)
+        public async Task<Stream> GetFormdataAsPdf([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
             //// TODO: The playwright code below works in the dev environment. There are two issues:
             //// 1. Playwright is not supported out of the box on alpine linux
@@ -143,33 +144,30 @@ namespace Altinn.Platform.Storage.Controllers
         /// Gets the formatted content
         /// </summary>
         /// <param name="org">org</param>
-        /// <param name="app">app/param>
+        /// <param name="app">app</param>
         /// <param name="instanceGuid">instanceGuid</param>
         /// <param name="dataGuid">dataGuid</param>
+        /// <param name="language">language</param>
         /// <returns>The formatted content</returns>
         [AllowAnonymous]
         [HttpGet("formdatahtml")]
-        public async Task<Stream> GetFormdataAsHtml([FromRoute]string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid)
+        public async Task<Stream> GetFormdataAsHtml([FromRoute]string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
             (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
             DataElement htmlElement = instance.Data.First(d => d.Id == dataGuid.ToString());
             DataElement xmlElement = instance.Data.First(d => d.Metadata.First(m => m.Key == "formid").Value == htmlElement.Metadata.First(m => m.Key == "formid").Value && d.Id != htmlElement.Id);
-            PrintViewXslBEList xsls = new PrintViewXslBEList();
-            foreach (var xsl in await _a2Repository.GetXsls(
-                org,
-                app,
-                int.Parse(xmlElement.Metadata.First(m => m.Key == "lformid").Value),
-                //// TODO handle language
-                "nb"))
+            PrintViewXslBEList xsls = [];
+            int lformid = int.Parse(xmlElement.Metadata.First(m => m.Key == "lformid").Value);
+            int pageNumber = 0;
+            foreach (var xsl in await _a2Repository.GetXsls(org, app, lformid, language))
             {
-                xsls.Add(new PrintViewXslBE() { PrintViewXsl = xsl });
+                xsls.Add(new PrintViewXslBE() { PrintViewXsl = xsl, Id = $"{lformid}-{pageNumber++}{language}" });
             }
 
-            return _a2OndemandFormattingService.GetHTML(
+            return _a2OndemandFormattingService.GetFormdataHtml(
                 xsls,
                 await _blobRepository.ReadBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : org)}", $"{org}/{app}/{instanceGuid}/data/{xmlElement.Id}"),
-                xmlElement.Created.ToString(),
-                1044);
+                xmlElement.Created.ToString());
         }
     }
 

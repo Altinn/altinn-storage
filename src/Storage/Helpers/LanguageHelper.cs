@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Http;
 
 namespace Altinn.Platform.Storage.Helpers
 {
@@ -20,6 +21,35 @@ namespace Altinn.Platform.Storage.Helpers
             }
 
             return Regex.IsMatch(language, "^[A-Za-z]{2}$");
+        }
+
+        /// <summary>
+        /// Get the current user's language from cookie or default nb (if
+        /// not invoked from browser)
+        /// </summary>
+        /// <param name="request">The current http request</param>
+        /// <returns>Language code</returns>
+        public static string GetCurrentUserLanguage(HttpRequest request)
+        {
+            string cookieValue = request.Cookies["altinnPersistentContext"];
+            if (string.IsNullOrEmpty(cookieValue))
+            {
+                return "nb";
+            }
+            else if (cookieValue.Contains("UL=1033"))
+            {
+                return "en";
+            }
+            else if (cookieValue.Contains("UL=1044"))
+            {
+                return "nb";
+            }
+            else if (cookieValue.Contains("UL=2068"))
+            {
+                return "nn";
+            }
+
+            return "nb";
         }
     }
 }

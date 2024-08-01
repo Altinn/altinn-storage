@@ -51,14 +51,9 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IApplicationRepository _applicationRepository;
         private readonly IA2Repository _a2Repository;
         private readonly ITextRepository _textRepository;
-        private readonly IPartiesWithInstancesClient _partiesWithInstancesClient;
         private readonly ILogger _logger;
-        private readonly IAuthorization _authorizationService;
-        private readonly IInstanceEventService _instanceEventService;
-        private readonly string _storageBaseAndHost;
         private readonly GeneralSettings _generalSettings;
         private readonly AzureStorageConfiguration _azureStorageSettings;
-        private readonly IRegisterService _registerService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MigrationController"/> class
@@ -70,11 +65,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="applicationRepository">the application repository handler</param>
         /// <param name="a2repository">the a2repository handler</param>
         /// <param name="textRepository">the text repository handler</param>
-        /// <param name="partiesWithInstancesClient">An implementation of <see cref="IPartiesWithInstancesClient"/> that can be used to send information to SBL.</param>
         /// <param name="logger">the logger</param>
-        /// <param name="authorizationService">the authorization service.</param>
-        /// <param name="instanceEventService">the instance event service.</param>
-        /// <param name="registerService">the instance register service.</param>
         /// <param name="settings">the general settings.</param>
         /// <param name="azureStorageSettings">the azureStorage settings.</param>
         public MigrationController(
@@ -85,11 +76,7 @@ namespace Altinn.Platform.Storage.Controllers
             IApplicationRepository applicationRepository,
             IA2Repository a2repository,
             ITextRepository textRepository,
-            IPartiesWithInstancesClient partiesWithInstancesClient,
             ILogger<MigrationController> logger,
-            IAuthorization authorizationService,
-            IInstanceEventService instanceEventService,
-            IRegisterService registerService,
             IOptions<GeneralSettings> settings,
             IOptions<AzureStorageConfiguration> azureStorageSettings)
         {
@@ -100,28 +87,9 @@ namespace Altinn.Platform.Storage.Controllers
             _applicationRepository = applicationRepository;
             _a2Repository = a2repository;
             _textRepository = textRepository;
-            _partiesWithInstancesClient = partiesWithInstancesClient;
             _logger = logger;
-            _storageBaseAndHost = $"{settings.Value.Hostname}/storage/api/v1/";
-            _authorizationService = authorizationService;
-            _instanceEventService = instanceEventService;
-            _registerService = registerService;
             _generalSettings = settings.Value;
             _azureStorageSettings = azureStorageSettings.Value;
-        }
-
-        /// <summary>
-        /// Gets all instances in a given state for a given instance owner.
-        /// </summary>
-        /// <param name="p1">the instance owner id</param>
-        /// <param name="p2">the instance guid</param>
-        /// <param name="language"> language id en, nb, nn-NO"</param>
-        /// <returns>list of instances</returns>
-        [AllowAnonymous]
-        [HttpGet]
-        public async Task<ActionResult> Test()
-        {
-            return Ok($"Hello world");
         }
 
         /// <summary>
@@ -193,7 +161,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             // Open: what about createdby and lastchangedby?
 
-            // TODO: Check from state table and delete all related stuff if existing
+            //// TODO: Check from state table and delete all related stuff if existing
 
             (Instance instance, long instanceId) = await _instanceRepository.GetOne(instanceGuid, false);
             if (instanceId == 0)
@@ -201,13 +169,13 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest("Instance not found");
             }
 
-            DataElement storedDataElement = null;
+            DataElement storedDataElement;
             try
             {
-                string dataElementId;
+                string dataElementId = Guid.NewGuid().ToString();
                 DataElement dataElement = new()
                 {
-                    Id = dataElementId = Guid.NewGuid().ToString(),
+                    Id = dataElementId,
                     Created = timestamp,
                     CreatedBy = instance.CreatedBy,
                     DataType = dataType,
@@ -235,14 +203,14 @@ namespace Altinn.Platform.Storage.Controllers
                 }
                 else
                 {
-                    switch (dataElement.DataType)
+                    dataElement.BlobStoragePath = dataElement.DataType switch
                     {
-                        case "signature-presentation": dataElement.BlobStoragePath = "ondemand/signature"; break;
-                        case "ref-data-as-pdf": dataElement.BlobStoragePath = "ondemand/formdatapdf"; break;
-                        case "ref-data-as-html": dataElement.BlobStoragePath = "ondemand/formdatahtml"; break;
-                        case "payment-presentation": dataElement.BlobStoragePath = "ondemand/payment"; break;
-                        default: throw new ArgumentException(dataElement.DataType);
-                    }
+                        "signature-presentation" => "ondemand/signature",
+                        "ref-data-as-pdf" => "ondemand/formdatapdf",
+                        "ref-data-as-html" => "ondemand/formdatahtml",
+                        "payment-presentation" => "ondemand/payment",
+                        _ => throw new ArgumentException(dataElement.DataType),
+                    };
                 }
 
                 storedDataElement = await _dataRepository.Create(dataElement, instanceId);
@@ -309,7 +277,7 @@ namespace Altinn.Platform.Storage.Controllers
                         Id = application.Id,
                         Language = kvp.Key,
                         Org = application.Org,
-                        Resources = new() { new TextResourceElement() { Id = "ServiceName", Value = kvp.Value } }
+                        Resources = [new TextResourceElement() { Id = "ServiceName", Value = kvp.Value }]
                     });
                 }
 
@@ -337,8 +305,8 @@ namespace Altinn.Platform.Storage.Controllers
         [Produces("application/json")]
         public async Task<ActionResult> CreatePolicy([FromRoute] string org, [FromRoute] string app)
         {
-            StorageSharedKeyCredential metadataCredentials = new StorageSharedKeyCredential(_azureStorageSettings.AccountName, _azureStorageSettings.AccountKey);
-            BlobServiceClient metadataServiceClient = new BlobServiceClient(new Uri(_azureStorageSettings.BlobEndPoint), metadataCredentials);
+            StorageSharedKeyCredential metadataCredentials = new(_azureStorageSettings.AccountName, _azureStorageSettings.AccountKey);
+            BlobServiceClient metadataServiceClient = new(new Uri(_azureStorageSettings.BlobEndPoint), metadataCredentials);
             var metadataContainerClient = metadataServiceClient.GetBlobContainerClient("metadata");
             BlobClient blobClient =
                 metadataContainerClient.GetBlobClient($"{org}/{app}/policy.xml");
@@ -378,7 +346,7 @@ namespace Altinn.Platform.Storage.Controllers
         [Produces("application/json")]
         public async Task<ActionResult> CreateImage()
         {
-            string filename = HttpUtility.UrlDecode(ContentDispositionHeaderValue.Parse(Request.Headers["Content-Disposition"].ToString()).GetFilename());
+            string filename = HttpUtility.UrlDecode(ContentDispositionHeaderValue.Parse(Request.Headers.ContentDisposition.ToString()).GetFilename());
             using var reader = new StreamReader(Request.Body);
             byte[] buffer = new byte[(int)Request.ContentLength];
             await Request.Body.ReadAsync(buffer);
