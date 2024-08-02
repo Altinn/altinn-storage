@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Hashing;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Web;
@@ -417,8 +418,26 @@ namespace Altinn.Platform.Storage.Controllers
         public override void OnActionExecuting(ActionExecutingContext context)
         {
             string ipAddressList = context.HttpContext?.Request.Headers["X-Forwarded-For"].ToString();
-            ////RequestTelemetry requestTelemetry = context.HttpContext.Features.Get<RequestTelemetry>();
+            RequestTelemetry requestTelemetry = context.HttpContext.Features.Get<RequestTelemetry>();
+            string prop = null;
+            if (requestTelemetry != null && requestTelemetry.Properties != null)
+            {
+                if (requestTelemetry.Properties.ContainsKey("ipAddress"))
+                {
+                    prop = requestTelemetry.Properties["ipAddress"];
+                }
+                else
+                {
+                    foreach (string key in requestTelemetry.Properties.Keys)
+                    {
+                        prop += key + "::";
+                    }
+                }
+            }
+
             bool validIp = false;
+            Console.WriteLine($"\r\n\r\nMigration ip check, requestTelemetry: {requestTelemetry}, properties: {prop}\r\n\r\n");
+
             ////if (requestTelemetry != null && (ipAddressList = requestTelemetry.Properties["ipAddress"]) != null)
             if (!string.IsNullOrEmpty(ipAddressList))
             {
@@ -434,8 +453,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (!validIp)
             {
-                Console.WriteLine($"Migration ip check, ipAddressList: {ipAddressList}, {_safelist}", ipAddressList, _safelist);
-                _logger.LogError("Migration ip check, ipAddressList: {IpAddressList}, {Safelist}", ipAddressList, _safelist);
+                Console.WriteLine($"\r\n\r\nMigration ip check, ipAddressList: {ipAddressList}, safelist: {_safelist}\r\n\r\n");
                 context.Result = new ForbidResult();
                 return;
             }

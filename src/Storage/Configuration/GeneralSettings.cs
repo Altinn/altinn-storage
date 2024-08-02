@@ -52,7 +52,7 @@ namespace Altinn.Platform.Storage.Configuration
         /// Gets or sets a semicolon separated white list of IP addresses for the migration controller
         /// </summary>
         /// TODO: Move hard coding to ops
-        public string MigrationIpWhiteList { get; set; } = "89.250.123.17;89.250.123.58;40.68.3.113;52.234.36.38;10.211.49.188";
+        public string MigrationIpWhiteList { get; set; } = "89.250.123.17;89.250.123.58;40.68.3.113;52.234.36.38;10.211.49.188;51.120.0.114";
 
         /// <summary>
         /// Gets or sets the URI for the ondemand API
