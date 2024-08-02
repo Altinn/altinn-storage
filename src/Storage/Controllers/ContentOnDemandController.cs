@@ -73,7 +73,6 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataGuid">dataGuid</param>
         /// <param name="language">language</param>
         /// <returns>The formatted content</returns>
-        ////[AllowAnonymous]
         [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
         [HttpGet("signature")]
         public async Task<Stream> GetSignatureAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
@@ -104,7 +103,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataGuid">dataGuid</param>
         /// <param name="language">language</param>
         /// <returns>The formatted content</returns>
-        [AllowAnonymous]
+        [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
         [HttpGet("payment")]
         public async Task<Stream> GetPaymentAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
@@ -121,13 +120,14 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataGuid">dataGuid</param>
         /// <param name="language">language</param>
         /// <returns>The formatted content</returns>
-        [AllowAnonymous]
+        [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
         [HttpGet("formdatapdf")]
         public async Task<Stream> GetFormdataAsPdf([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
-            //// TODO: The playwright code below works in the dev environment. There are two issues:
+            //// TODO: The playwright code below works in the dev environment. There are three issues:
             //// 1. Playwright is not supported out of the box on alpine linux
             //// 2. Rather then LaunchAsync we should use ConnectAsync to connect to a component running a browser
+            //// 3. How to authorize
             try
             {
                 using var playwright = await Playwright.CreateAsync();
@@ -151,7 +151,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataGuid">dataGuid</param>
         /// <param name="language">language</param>
         /// <returns>The formatted content</returns>
-        [AllowAnonymous]
+        [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
         [HttpGet("formdatahtml")]
         public async Task<Stream> GetFormdataAsHtml([FromRoute]string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
