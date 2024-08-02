@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
@@ -72,7 +73,8 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataGuid">dataGuid</param>
         /// <param name="language">language</param>
         /// <returns>The formatted content</returns>
-        [AllowAnonymous]
+        ////[AllowAnonymous]
+        [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
         [HttpGet("signature")]
         public async Task<Stream> GetSignatureAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
