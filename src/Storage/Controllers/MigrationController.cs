@@ -434,6 +434,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (!validIp)
             {
+                Console.WriteLine($"Migration ip check, ipAddressList: {ipAddressList}, {_safelist}", ipAddressList, _safelist);
                 _logger.LogError("Migration ip check, ipAddressList: {IpAddressList}, {Safelist}", ipAddressList, _safelist);
                 context.Result = new ForbidResult();
                 return;
