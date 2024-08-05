@@ -8,10 +8,18 @@ namespace Altinn.Platform.Storage.Filters
     /// </summary>
     public class ClientIpCheckActionFilterAttribute : ActionFilterAttribute
     {
+        private string[] _safeList;
+
         /// <summary>
         /// List of valid ip addresses
         /// </summary>
-        public string Safelist { get; set; }
+        public string Safelist
+        {
+            set
+            {
+                _safeList = value.Split(';');
+            }
+        }
 
         /// <summary>
         /// Authorize from ip address
@@ -24,7 +32,7 @@ namespace Altinn.Platform.Storage.Filters
             if (!string.IsNullOrEmpty(ipAddressList))
             {
                 validIp = false;
-                foreach (string ipAddress in Safelist.Split(';'))
+                foreach (string ipAddress in _safeList)
                 {
                     if (ipAddressList.Contains(ipAddress))
                     {

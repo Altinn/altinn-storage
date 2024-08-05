@@ -11,21 +11,21 @@ using Microsoft.Extensions.Options;
 namespace Altinn.Platform.Storage.Clients
 {
     /// <summary>
-    /// Represents an implementation of <see cref="IOndemandClient"/> using a HttpClient.
+    /// Represents an implementation of <see cref="IOnDemandClient"/> using a HttpClient.
     /// </summary>
-    public class OndemandClient : IOndemandClient
+    public class OnDemandClient : IOnDemandClient
     {
         private readonly HttpClient _client;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly GeneralSettings _generalSettings;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="OndemandClient"/> class with the given HttpClient and GeneralSettings.
+        /// Initializes a new instance of the <see cref="OnDemandClient"/> class with the given HttpClient and GeneralSettings.
         /// </summary>
         /// <param name="client">A HttpClient provided by a HttpClientFactory.</param>
         /// <param name="httpContextAccessor">Http context access</param>
         /// <param name="generalSettings">The general settings configured for Storage.</param>
-        public OndemandClient(HttpClient client, IHttpContextAccessor httpContextAccessor, IOptions<GeneralSettings> generalSettings)
+        public OnDemandClient(HttpClient client, IHttpContextAccessor httpContextAccessor, IOptions<GeneralSettings> generalSettings)
         {
             _client = client;
             _client.BaseAddress = new Uri(generalSettings.Value.OndemandEndpoint);

@@ -6,7 +6,7 @@ namespace Altinn.Platform.Storage.Clients
     /// <summary>
     /// Interface for ondemand access
     /// </summary>
-    public interface IOndemandClient
+    public interface IOnDemandClient
     {
         /// <summary>
         /// Get ondemand data

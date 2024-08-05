@@ -44,7 +44,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IApplicationRepository _applicationRepository;
         private readonly IDataService _dataService;
         private readonly IInstanceEventService _instanceEventService;
-        private readonly IOndemandClient _ondemandClient;
+        private readonly IOnDemandClient _onDemandClient;
         private readonly string _storageBaseAndHost;
         private readonly GeneralSettings _generalSettings;
 
@@ -58,7 +58,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataService">A data service with data element related business logic.</param>
         /// <param name="instanceEventService">An instance event service with event related business logic.</param>
         /// <param name="generalSettings">the general settings.</param>
-        /// <param name="ondemandClient">the ondemand client</param>
+        /// <param name="onDemandClient">the ondemand client</param>
         public DataController(
             IDataRepository dataRepository,
             IBlobRepository blobRepository,
@@ -67,7 +67,7 @@ namespace Altinn.Platform.Storage.Controllers
             IDataService dataService,
             IInstanceEventService instanceEventService,
             IOptions<GeneralSettings> generalSettings,
-            IOndemandClient ondemandClient)
+            IOnDemandClient onDemandClient)
         {
             _dataRepository = dataRepository;
             _blobRepository = blobRepository;
@@ -76,7 +76,7 @@ namespace Altinn.Platform.Storage.Controllers
             _dataService = dataService;
             _instanceEventService = instanceEventService;
             _storageBaseAndHost = $"{generalSettings.Value.Hostname}/storage/api/v1/";
-            _ondemandClient = ondemandClient;
+            _onDemandClient = onDemandClient;
             _generalSettings = generalSettings.Value;
         }
 
@@ -209,7 +209,7 @@ namespace Altinn.Platform.Storage.Controllers
             else if (dataElement.BlobStoragePath.StartsWith("ondemand"))
             {
                 return File(
-                    await _ondemandClient.GetStreamAsync(
+                    await _onDemandClient.GetStreamAsync(
                     $"ondemand/{instance.AppId}/{instanceOwnerPartyId}/{instanceGuid}/{dataGuid}/" +
                         $"{LanguageHelper.GetCurrentUserLanguage(Request)}/{dataElement.BlobStoragePath.Split('/')[1]}"),
                     dataElement.ContentType,

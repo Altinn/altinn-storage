@@ -262,7 +262,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddSingleton<IA2OndemandFormattingService, A2OndemandFormattingService>();
 
     services.AddHttpClient<IPartiesWithInstancesClient, PartiesWithInstancesClient>();
-    services.AddHttpClient<IOndemandClient, OndemandClient>();
+    services.AddHttpClient<IOnDemandClient, OnDemandClient>();
 
     if (!string.IsNullOrEmpty(applicationInsightsConnectionString))
     {
