@@ -1,19 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.Common;
-using System.Drawing;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
-using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Helpers;
 using Microsoft.ApplicationInsights;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -32,6 +23,12 @@ namespace Altinn.Platform.Storage.Repository
         private static readonly string _insertImageSql = "call storage.inserta2image (@_name, @_image)";
         private static readonly string _readCodelistSql = "select * from storage.reada2codelist (@_name, @_language)";
         private static readonly string _readImageSql = "select * from storage.reada2image (@_name)";
+
+        private static readonly string _readMigrationStateSql = "select * from storage.reada2migrationstate (@_a2archivereference)";
+        private static readonly string _insertMigrationStateSql = "call storage.inserta2migrationstate (@_a2archivereference)";
+        private static readonly string _updateMigrationStateStartedSql = "call storage.updatea2migrationstatestarted (@_a2archivereference, @_instanceguid)";
+        private static readonly string _updateMigrationStateCompletedSql = "call storage.updatea2migrationstatecompleted (@_instanceguid)";
+        private static readonly string _deleteMigrationStateSql = "call storage.deletea2migrationstate (@_instanceguid)";
 
         private readonly NpgsqlDataSource _dataSource;
         private readonly TelemetryClient _telemetryClient;
@@ -125,28 +122,20 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<byte[]> GetImage(string name)
         {
-            try
+            byte[] image = null;
+
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readImageSql);
+            pgcom.Parameters.AddWithValue("_name", NpgsqlDbType.Text, name);
+            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
+
+            await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
             {
-                byte[] image = null;
-
-                await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readImageSql);
-                pgcom.Parameters.AddWithValue("_name", NpgsqlDbType.Text, name);
-                using TelemetryTracker tracker = new(_telemetryClient, pgcom);
-
-                await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
-                if (await reader.ReadAsync())
-                {
-                    image = reader.GetFieldValue<byte[]>("image");
-                }
-
-                tracker.Track();
-                return image;
+                image = reader.GetFieldValue<byte[]>("image");
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Image error: " + ex.ToString());
-                throw;
-            }
+
+            tracker.Track();
+            return image;
         }
 
         /// <inheritdoc/>
@@ -173,6 +162,73 @@ namespace Altinn.Platform.Storage.Repository
             }
 
             return codelist ?? string.Empty;
+        }
+
+        /// <inheritdoc/>
+        public async Task CreateMigrationState(int a2ArchiveReference)
+        {
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertMigrationStateSql);
+            pgcom.Parameters.AddWithValue("_a2archivereference", NpgsqlDbType.Bigint, a2ArchiveReference);
+            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
+
+            await pgcom.ExecuteNonQueryAsync();
+
+            tracker.Track();
+        }
+
+        /// <inheritdoc/>
+        public async Task UpdateStartMigrationState(int a2ArchiveReference, string instanceGuid)
+        {
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateMigrationStateStartedSql);
+            pgcom.Parameters.AddWithValue("_a2archivereference", NpgsqlDbType.Bigint, a2ArchiveReference);
+            pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, new Guid(instanceGuid));
+            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
+
+            await pgcom.ExecuteNonQueryAsync();
+
+            tracker.Track();
+        }
+
+        /// <inheritdoc/>
+        public async Task UpdateCompleteMigrationState(string instanceGuid)
+        {
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateMigrationStateCompletedSql);
+            pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, new Guid(instanceGuid));
+            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
+
+            await pgcom.ExecuteNonQueryAsync();
+
+            tracker.Track();
+        }
+
+        /// <inheritdoc/>
+        public async Task DeleteMigrationState(string instanceGuid)
+        {
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteMigrationStateSql);
+            pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, new Guid(instanceGuid));
+            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
+
+            await pgcom.ExecuteNonQueryAsync();
+
+            tracker.Track();
+        }
+
+        /// <inheritdoc/>
+        public async Task<string> GetMigrationInstanceId(int a2ArchiveReference)
+        {
+            string instanceId = null;
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readMigrationStateSql);
+            pgcom.Parameters.AddWithValue("_a2archivereference", NpgsqlDbType.Bigint, a2ArchiveReference);
+            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
+
+            await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                instanceId = reader.IsDBNull("instanceguid") ? null : reader.GetFieldValue<Guid>("instanceguid").ToString();
+            }
+
+            tracker.Track();
+            return instanceId;
         }
     }
 }

@@ -23,14 +23,15 @@ namespace Altinn.Platform.Storage.Clients
         /// Initializes a new instance of the <see cref="OndemandClient"/> class with the given HttpClient and GeneralSettings.
         /// </summary>
         /// <param name="client">A HttpClient provided by a HttpClientFactory.</param>
+        /// <param name="httpContextAccessor">Http context access</param>
         /// <param name="generalSettings">The general settings configured for Storage.</param>
-        public OndemandClient(HttpClient client, IOptions<GeneralSettings> generalSettings, IHttpContextAccessor httpContextAccessor, IOptions<GeneralSettings> settings)
+        public OndemandClient(HttpClient client, IHttpContextAccessor httpContextAccessor, IOptions<GeneralSettings> generalSettings)
         {
             _client = client;
             _client.BaseAddress = new Uri(generalSettings.Value.OndemandEndpoint);
             _client.Timeout = new TimeSpan(0, 0, 30);
             _httpContextAccessor = httpContextAccessor;
-            _generalSettings = settings.Value;
+            _generalSettings = generalSettings.Value;
         }
 
         /// <inheritdoc />

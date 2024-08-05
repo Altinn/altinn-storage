@@ -1,23 +1,17 @@
 using System;
-using System.Collections.Generic;
-using System.Data;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
-using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Playwright;
@@ -77,11 +71,12 @@ namespace Altinn.Platform.Storage.Controllers
         [HttpGet("signature")]
         public async Task<Stream> GetSignatureAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
-            // TODO Replace with proper formatting
             (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
             DataElement signatureElement = instance.Data.First(d => d.DataType == "signature-data");
 
             using StreamReader reader = new(await _blobRepository.ReadBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : org)}", $"{org}/{app}/{instanceGuid}/data/{signatureElement.Id}"));
+
+            // TODO Replace with proper formatting
             string line = null;
             while ((line = await reader.ReadLineAsync()) != null)
             {

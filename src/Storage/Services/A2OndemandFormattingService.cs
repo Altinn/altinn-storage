@@ -55,7 +55,7 @@ namespace Altinn.Platform.Storage.Services
                 string htmlToTranslate = null;
 
                 // Add formatting object to perform stringFormat of dates.
-                FormServerXslFunction obj = new() { MainDomDocument = xmlDoc, A2Repository = _a2Repository, MemoryCache = _memoryCache };
+                A2FormServerXslFunction obj = new() { MainDomDocument = xmlDoc, A2Repository = _a2Repository, MemoryCache = _memoryCache };
                 XsltArgumentList xslArg = new();
                 xslArg.AddExtensionObject("http://schemas.microsoft.com/office/infopath/2003/xslt/formatting", obj);
                 xslArg.AddExtensionObject("http://schemas.microsoft.com/office/infopath/2003/xslt/xDocument", obj);

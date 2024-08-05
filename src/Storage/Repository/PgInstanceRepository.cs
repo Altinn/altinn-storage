@@ -315,7 +315,7 @@ namespace Altinn.Platform.Storage.Repository
 
             queryResponse.Count = queryResponse.Instances.Count;
             tracker.Add("Count", queryResponse.Count.ToString());
-            if (true /* tracker.ElapsedMilliseconds > 500 */)
+            if (tracker.ElapsedMilliseconds > 500)
             {
                 tracker.Add("Call", FormatManualFunctionCall(postgresParams));
             }

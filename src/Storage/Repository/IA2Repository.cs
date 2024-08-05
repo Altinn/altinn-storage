@@ -43,5 +43,31 @@ namespace Altinn.Platform.Storage.Repository
         /// </summary>
         /// <returns>Image</returns>
         Task<byte[]> GetImage(string name);
+
+        /// <summary>
+        /// Create an a2 migration state
+        /// </summary>
+        Task CreateMigrationState(int a2ArchiveReference);
+
+        /// <summary>
+        /// Update an a2 migration state
+        /// </summary>
+        Task UpdateStartMigrationState(int a2ArchiveReference, string instanceGuid);
+
+        /// <summary>
+        /// Update an a2 migration state
+        /// </summary>
+        Task UpdateCompleteMigrationState(string instanceGuid);
+
+        /// <summary>
+        /// Delete an a2 migration state
+        /// </summary>
+        Task DeleteMigrationState(string instanceGuid);
+
+        /// <summary>
+        /// Get the instance id of the migration
+        /// </summary>
+        /// <returns>The instance id of the migration</returns>
+        Task<string> GetMigrationInstanceId(int a2ArchiveReference);
     }
 }

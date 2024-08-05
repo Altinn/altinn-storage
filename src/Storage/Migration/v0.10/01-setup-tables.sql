@@ -28,9 +28,18 @@ CREATE TABLE IF NOT EXISTS storage.a2images
 (
 	id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 	parentid BIGINT NULL,
-	name TEXT NOT NULL,
-	image BYTEA NULL,
-	CONSTRAINT a2imagesalternateid UNIQUE (name)	
+	name TEXT UNIQUE NOT NULL,
+	image BYTEA NULL
+)
+TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS storage.a2migrationstate
+(
+	id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+	a2archivereference BIGINT UNIQUE NOT NULL,
+	instanceguid UUID UNIQUE NULL,
+	started TIMESTAMPTZ NULL,
+	completed TIMESTAMPTZ NULL
 )
 TABLESPACE pg_default;
 

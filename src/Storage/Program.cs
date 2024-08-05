@@ -16,7 +16,6 @@ using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
-using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Filters;
 using Altinn.Platform.Storage.Health;
 using Altinn.Platform.Storage.Helpers;
@@ -42,7 +41,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.Net.Http.Headers;
 using Microsoft.OpenApi.Models;
 using Yuniql.AspNetCore;
 using Yuniql.PostgreSql;
@@ -235,9 +233,9 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
         .AddPolicy(AuthzConstants.POLICY_STUDIO_DESIGNER, policy => policy.Requirements.Add(new ClaimAccessRequirement("urn:altinn:app", "studio.designer")))
         .AddPolicy("PlatformAccess", policy => policy.Requirements.Add(new AccessTokenRequirement()));
 
-    services.AddScoped<ClientIpCheckActionFilter>(container =>
+    services.AddSingleton<ClientIpCheckActionFilterAttribute>(container =>
     {
-        return new ClientIpCheckActionFilter(generalSettings.MigrationIpWhiteList);
+        return new ClientIpCheckActionFilterAttribute() { Safelist = generalSettings.MigrationIpWhiteList };
     });
 
     services.AddHttpContextAccessor();

@@ -12,7 +12,7 @@ namespace Altinn.Platform.Storage.Clients
         /// Get ondemand data
         /// </summary>
         /// <param name="path">The path to access ondemand data</param>
-        /// <returns>Nothing is returned.</returns>
+        /// <returns>The on demand data content</returns>
         Task<Stream> GetStreamAsync(string path);
     }
 }

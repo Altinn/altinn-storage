@@ -31,25 +31,14 @@ namespace Altinn.Platform.Storage.Helpers
         /// <returns>Language code</returns>
         public static string GetCurrentUserLanguage(HttpRequest request)
         {
-            string cookieValue = request.Cookies["altinnPersistentContext"];
-            if (string.IsNullOrEmpty(cookieValue))
+            return request.Cookies["altinnPersistentContext"] switch
             {
-                return "nb";
-            }
-            else if (cookieValue.Contains("UL=1033"))
-            {
-                return "en";
-            }
-            else if (cookieValue.Contains("UL=1044"))
-            {
-                return "nb";
-            }
-            else if (cookieValue.Contains("UL=2068"))
-            {
-                return "nn";
-            }
-
-            return "nb";
+                string em when string.IsNullOrEmpty(em) => "nb",
+                string en when en.Contains("UL=1033") => "en",
+                string nb when nb.Contains("UL=1044") => "nb",
+                string nn when nn.Contains("UL=2068") => "nn",
+                _ => "nb"
+            };
         }
     }
 }

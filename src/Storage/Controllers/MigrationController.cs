@@ -1,35 +1,24 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Hashing;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Web;
 
-using Altinn.Platform.Storage.Authorization;
-using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Extensions;
+using Altinn.Platform.Storage.Filters;
 using Altinn.Platform.Storage.Helpers;
-using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
-using Altinn.Platform.Storage.Services;
 
-using Azure;
 using Azure.Storage;
 using Azure.Storage.Blobs;
-using Azure.Storage.Blobs.Models;
-using Azure.Storage.Blobs.Specialized;
 
-using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.AspNetCore.WebUtilities;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -43,7 +32,7 @@ namespace Altinn.Platform.Storage.Controllers
     /// </summary>
     [Route("storage/api/v1/migration")]
     [ApiController]
-    [ServiceFilter(typeof(ClientIpCheckActionFilter))]
+    [ClientIpCheckActionFilter]
     public class MigrationController : ControllerBase
     {
         private readonly IInstanceRepository _instanceRepository;
@@ -103,29 +92,25 @@ namespace Altinn.Platform.Storage.Controllers
         [HttpPost("instance")]
         [Consumes("application/json")]
         [ProducesResponseType(StatusCodes.Status201Created)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [Produces("application/json")]
         public async Task<ActionResult<Instance>> CreateInstance([FromBody] Instance instance)
         {
-            // Open: what about createdby and lastchangedby?
-
-            // TODO: Check from state table and delete all related stuff if existing. For now the test is done without a state table
-            Dictionary<string, StringValues> queryParams = new()
-            {
-                { "appId", new StringValues(instance.AppId) },
-                { "instanceOwner.partyId", new StringValues(instance.InstanceOwner.PartyId) },
-            };
-            InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesFromQuery(queryParams, null, 100, false);
-            foreach (Instance oldInstance in queryResponse.Instances.Where(i => i.DataValues["A3ArchRef"] == instance.DataValues["A3ArchRef"]))
-            {
-                await Cleanup(oldInstance);
-            }
+            //// TODO Open issue: what about createdby and lastchangedby?
 
             Instance storedInstance = null;
             try
             {
-                storedInstance = await _instanceRepository.Create(instance);
+                int a2ArchiveReference = int.Parse(instance.DataValues["A2ArchRef"]);
+                string instanceId = await _a2Repository.GetMigrationInstanceId(a2ArchiveReference);
+                if (instanceId != null)
+                {
+                    await CleanupOldMigration(instanceId);
+                }
 
+                await _a2Repository.CreateMigrationState(a2ArchiveReference);
+                storedInstance = await _instanceRepository.Create(instance);
+                await _a2Repository.UpdateStartMigrationState(a2ArchiveReference, storedInstance.Id.Split('/')[^1]);
                 return Created((string)null, storedInstance);
             }
             catch (Exception storageException)
@@ -150,6 +135,7 @@ namespace Altinn.Platform.Storage.Controllers
         [DisableFormValueModelBinding]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [Produces("application/json")]
         public async Task<ActionResult<DataElement>> CreateDataElement(
             [FromRoute]Guid instanceGuid,
@@ -161,9 +147,7 @@ namespace Altinn.Platform.Storage.Controllers
         {
             DateTime timestamp = new DateTime(timestampTicks, DateTimeKind.Utc).ToLocalTime();
 
-            // Open: what about createdby and lastchangedby?
-
-            //// TODO: Check from state table and delete all related stuff if existing
+            // TODO Open issue: what about createdby and lastchangedby? Ref. instance
 
             (Instance instance, long instanceId) = await _instanceRepository.GetOne(instanceGuid, false);
             if (instanceId == 0)
@@ -235,7 +219,7 @@ namespace Altinn.Platform.Storage.Controllers
         [HttpPost("instanceevents")]
         [Consumes("application/json")]
         [ProducesResponseType(StatusCodes.Status201Created)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [Produces("application/json")]
         public async Task<ActionResult<List<InstanceEvent>>> CreateInstanceEvents([FromBody] List<InstanceEvent> instanceEvents)
         {
@@ -246,6 +230,7 @@ namespace Altinn.Platform.Storage.Controllers
                     await _instanceEventRepository.InsertInstanceEvent(instanceEvent);
                 }
 
+                await _a2Repository.UpdateCompleteMigrationState(instanceEvents[0].InstanceId);
                 return Created();
             }
             catch (Exception storageException)
@@ -264,7 +249,7 @@ namespace Altinn.Platform.Storage.Controllers
         [HttpPost("application")]
         [Consumes("application/json")]
         [ProducesResponseType(StatusCodes.Status201Created)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [Produces("application/json")]
         public async Task<ActionResult<Instance>> CreateApplication([FromBody] Application application)
         {
@@ -302,7 +287,7 @@ namespace Altinn.Platform.Storage.Controllers
         [HttpPost("policy/{org}/{app}")]
         [DisableFormValueModelBinding]
         [ProducesResponseType(StatusCodes.Status201Created)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [Produces("application/json")]
         public async Task<ActionResult> CreatePolicy([FromRoute] string org, [FromRoute] string app)
         {
@@ -312,7 +297,7 @@ namespace Altinn.Platform.Storage.Controllers
             BlobClient blobClient =
                 metadataContainerClient.GetBlobClient($"{org}/{app}/policy.xml");
             await blobClient.UploadAsync(Request.Body, true);
-            return Ok();
+            return Created();
         }
 
         /// <summary>
@@ -326,7 +311,6 @@ namespace Altinn.Platform.Storage.Controllers
         [HttpPost("codelist/{name}/{language}/{version}")]
         [DisableFormValueModelBinding]
         [ProducesResponseType(StatusCodes.Status201Created)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [Produces("application/json")]
         public async Task<ActionResult> CreateCodelist([FromRoute] string name, [FromRoute] string language, [FromRoute] int version)
         {
@@ -343,7 +327,6 @@ namespace Altinn.Platform.Storage.Controllers
         [HttpPost("pdfimage")]
         [DisableFormValueModelBinding]
         [ProducesResponseType(StatusCodes.Status201Created)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [Produces("application/json")]
         public async Task<ActionResult> CreateImage()
         {
@@ -368,7 +351,6 @@ namespace Altinn.Platform.Storage.Controllers
         [HttpPost("xsl/{org}/{app}/{lformid}/{pagenumber}/{language}")]
         [DisableFormValueModelBinding]
         [ProducesResponseType(StatusCodes.Status201Created)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [Produces("application/json")]
         public async Task<ActionResult> CreateXsl([FromRoute] string org, [FromRoute] string app, [FromRoute] int lformid, [FromRoute] int pagenumber, [FromRoute] string language)
         {
@@ -377,67 +359,20 @@ namespace Altinn.Platform.Storage.Controllers
             return Created();
         }
 
-        private async Task Cleanup(Instance instance)
+        private async Task CleanupOldMigration(string instanceId)
         {
+            (Instance instance, _) = await _instanceRepository.GetOne(new Guid(instanceId), false);
             if (_generalSettings.A2UseTtdAsServiceOwner)
             {
                 instance.Org = "ttd";
             }
 
-            string orgInstanceId = instance.Id;
-            instance.Id = instance.Id.Split('/')[^1];
+            instance.Id = instanceId;
             await _blobRepository.DeleteDataBlobs(instance);
-            instance.Id = orgInstanceId;
-            await _dataRepository.DeleteForInstance(instance.Id.Split('/')[^1]);
-            await _instanceEventRepository.DeleteAllInstanceEvents(instance.Id);
+            await _dataRepository.DeleteForInstance(instanceId);
+            await _instanceEventRepository.DeleteAllInstanceEvents(instanceId);
             await _instanceRepository.Delete(instance);
-        }
-    }
-
-    /// <summary>
-    /// ClientIpCheckActionFilter
-    /// </summary>
-    public class ClientIpCheckActionFilter : ActionFilterAttribute
-    {
-        private readonly ILogger _logger;
-        private readonly string _safelist;
-
-        /// <summary>
-        /// ClientIpCheckActionFilter
-        /// </summary>
-        /// <param name="safelist">safelist</param>
-        public ClientIpCheckActionFilter(string safelist)
-        {
-            _safelist = safelist;
-        }
-
-        /// <summary>
-        /// OnActionExecuting
-        /// </summary>
-        /// <param name="context">context</param>
-        public override void OnActionExecuting(ActionExecutingContext context)
-        {
-            string ipAddressList = context.HttpContext?.Request.Headers["X-Forwarded-For"].ToString();
-            bool validIp = false;
-            if (!string.IsNullOrEmpty(ipAddressList))
-            {
-                foreach (string ipAddress in _safelist.Split(';'))
-                {
-                    if (ipAddressList.Contains(ipAddress))
-                    {
-                        validIp = true;
-                        break;
-                    }
-                }
-            }
-
-            if (!validIp)
-            {
-                context.Result = new ForbidResult();
-                return;
-            }
-
-            base.OnActionExecuting(context);
+            await _a2Repository.DeleteMigrationState(instanceId);
         }
     }
 }
