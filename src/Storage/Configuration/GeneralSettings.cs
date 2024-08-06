@@ -47,5 +47,20 @@ namespace Altinn.Platform.Storage.Configuration
         /// Gets or sets the cache lifetime for application metadata document.
         /// </summary>
         public int AppMetadataCacheLifeTimeInSeconds { get; set; }
+
+        /// <summary>
+        /// Gets or sets a semicolon separated white list of IP addresses for the migration controller
+        /// </summary>
+        public string MigrationIpWhiteList { get; set; }
+
+        /// <summary>
+        /// Gets or sets the URI for the ondemand API
+        /// </summary>
+        public string OndemandEndpoint { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether to use Ttd as service owner for environements without "normal" service owners
+        /// </summary>
+        public bool A2UseTtdAsServiceOwner { get; set; }
     }
 }

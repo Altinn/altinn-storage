@@ -233,6 +233,11 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
         .AddPolicy(AuthzConstants.POLICY_STUDIO_DESIGNER, policy => policy.Requirements.Add(new ClaimAccessRequirement("urn:altinn:app", "studio.designer")))
         .AddPolicy("PlatformAccess", policy => policy.Requirements.Add(new AccessTokenRequirement()));
 
+    services.AddSingleton<ClientIpCheckActionFilterAttribute>(container =>
+    {
+        return new ClientIpCheckActionFilterAttribute() { Safelist = generalSettings.MigrationIpWhiteList };
+    });
+
     services.AddHttpContextAccessor();
     services.AddSingleton<IClaimsPrincipalProvider, ClaimsPrincipalProvider>();
 
@@ -254,8 +259,10 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddTransient<IInstanceService, InstanceService>();
     services.AddTransient<IInstanceEventService, InstanceEventService>();
     services.AddSingleton<IApplicationService, ApplicationService>();
+    services.AddSingleton<IA2OndemandFormattingService, A2OndemandFormattingService>();
 
     services.AddHttpClient<IPartiesWithInstancesClient, PartiesWithInstancesClient>();
+    services.AddHttpClient<IOnDemandClient, OnDemandClient>();
 
     if (!string.IsNullOrEmpty(applicationInsightsConnectionString))
     {

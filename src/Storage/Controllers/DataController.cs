@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
-
+using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
@@ -42,7 +44,9 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IApplicationRepository _applicationRepository;
         private readonly IDataService _dataService;
         private readonly IInstanceEventService _instanceEventService;
+        private readonly IOnDemandClient _onDemandClient;
         private readonly string _storageBaseAndHost;
+        private readonly GeneralSettings _generalSettings;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DataController"/> class
@@ -54,6 +58,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataService">A data service with data element related business logic.</param>
         /// <param name="instanceEventService">An instance event service with event related business logic.</param>
         /// <param name="generalSettings">the general settings.</param>
+        /// <param name="onDemandClient">the ondemand client</param>
         public DataController(
             IDataRepository dataRepository,
             IBlobRepository blobRepository,
@@ -61,7 +66,8 @@ namespace Altinn.Platform.Storage.Controllers
             IApplicationRepository applicationRepository,
             IDataService dataService,
             IInstanceEventService instanceEventService,
-            IOptions<GeneralSettings> generalSettings)
+            IOptions<GeneralSettings> generalSettings,
+            IOnDemandClient onDemandClient)
         {
             _dataRepository = dataRepository;
             _blobRepository = blobRepository;
@@ -70,6 +76,8 @@ namespace Altinn.Platform.Storage.Controllers
             _dataService = dataService;
             _instanceEventService = instanceEventService;
             _storageBaseAndHost = $"{generalSettings.Value.Hostname}/storage/api/v1/";
+            _onDemandClient = onDemandClient;
+            _generalSettings = generalSettings.Value;
         }
 
         /// <summary>
@@ -182,6 +190,11 @@ namespace Altinn.Platform.Storage.Controllers
 
             string storageFileName = DataElementHelper.DataFileName(instance.AppId, instanceGuid.ToString(), dataGuid.ToString());
 
+            if (instance.AppId.Contains(@"/a2-") && _generalSettings.A2UseTtdAsServiceOwner)
+            {
+                instance.Org = "ttd";
+            }
+
             if (string.Equals(dataElement.BlobStoragePath, storageFileName))
             {
                 Stream dataStream = await _blobRepository.ReadBlob(instance.Org, storageFileName);
@@ -192,6 +205,15 @@ namespace Altinn.Platform.Storage.Controllers
                 }
 
                 return File(dataStream, dataElement.ContentType, dataElement.Filename);
+            }
+            else if (dataElement.BlobStoragePath.StartsWith("ondemand"))
+            {
+                return File(
+                    await _onDemandClient.GetStreamAsync(
+                    $"ondemand/{instance.AppId}/{instanceOwnerPartyId}/{instanceGuid}/{dataGuid}/" +
+                        $"{LanguageHelper.GetCurrentUserLanguage(Request)}/{dataElement.BlobStoragePath.Split('/')[1]}"),
+                    dataElement.ContentType,
+                    dataElement.Filename);
             }
 
             return NotFound("Unable to find requested data item");
@@ -504,48 +526,8 @@ namespace Altinn.Platform.Storage.Controllers
         private async Task<(Stream Stream, DataElement DataElement)> ReadRequestAndCreateDataElementAsync(HttpRequest request, string elementType, List<Guid> refs, string generatedForTask, Instance instance)
         {
             DateTime creationTime = DateTime.UtcNow;
-            Stream theStream;
 
-            string contentType;
-            string contentFileName = null;
-            long fileSize = 0;
-
-            if (MultipartRequestHelper.IsMultipartContentType(request.ContentType))
-            {
-                // Only read the first section of the Multipart message.
-                MediaTypeHeaderValue mediaType = MediaTypeHeaderValue.Parse(request.ContentType);
-                string boundary = MultipartRequestHelper.GetBoundary(mediaType, _defaultFormOptions.MultipartBoundaryLengthLimit);
-
-                MultipartReader reader = new(boundary, request.Body);
-                MultipartSection section = await reader.ReadNextSectionAsync();
-
-                theStream = section.Body;
-                contentType = section.ContentType;
-
-                bool hasContentDisposition = ContentDispositionHeaderValue.TryParse(section.ContentDisposition, out ContentDispositionHeaderValue contentDisposition);
-
-                if (hasContentDisposition)
-                {
-                    contentFileName = HttpUtility.UrlDecode(contentDisposition.GetFilename());
-                    fileSize = contentDisposition.Size ?? 0;
-                }
-            }
-            else
-            {
-                theStream = request.Body;
-                if (request.Headers.TryGetValue("Content-Disposition", out StringValues headerValues))
-                {
-                    bool hasContentDisposition = ContentDispositionHeaderValue.TryParse(headerValues.ToString(), out ContentDispositionHeaderValue contentDisposition);
-
-                    if (hasContentDisposition)
-                    {
-                        contentFileName = HttpUtility.UrlDecode(contentDisposition.GetFilename());
-                        fileSize = contentDisposition.Size ?? 0;
-                    }
-                }
-
-                contentType = request.ContentType;
-            }
+            (Stream theStream, string contentType, string contentFileName, long fileSize) = await DataElementHelper.GetStream(request, _defaultFormOptions.MultipartBoundaryLengthLimit);
 
             string user = User.GetUserOrOrgId();
 

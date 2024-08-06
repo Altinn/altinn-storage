@@ -251,7 +251,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                      applicationRepositoryMock.Object,
                      dataServiceMock.Object,
                      instanceEventServiceMock.Object,
-                     generalSettings)
+                     generalSettings,
+                     null)
             {
                 ControllerContext = controllerContext
             };
