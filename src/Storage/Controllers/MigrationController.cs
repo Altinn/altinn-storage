@@ -32,7 +32,7 @@ namespace Altinn.Platform.Storage.Controllers
     /// </summary>
     [Route("storage/api/v1/migration")]
     [ApiController]
-    [ClientIpCheckActionFilter]
+    [ServiceFilter(typeof(ClientIpCheckActionFilterAttribute))]
     public class MigrationController : ControllerBase
     {
         private readonly IInstanceRepository _instanceRepository;
