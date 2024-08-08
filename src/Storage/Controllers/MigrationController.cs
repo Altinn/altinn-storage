@@ -105,7 +105,7 @@ namespace Altinn.Platform.Storage.Controllers
                 string instanceId = await _a2Repository.GetMigrationInstanceId(a2ArchiveReference);
                 if (instanceId != null)
                 {
-                    await CleanupOldMigration(instanceId);
+                    await CleanupOldMigrationInternal(instanceId);
                 }
 
                 await _a2Repository.CreateMigrationState(a2ArchiveReference);
@@ -367,9 +367,34 @@ namespace Altinn.Platform.Storage.Controllers
             return Created();
         }
 
-        private async Task CleanupOldMigration(string instanceId)
+        /// <summary>
+        /// Delete migrated instance and releated data
+        /// </summary>
+        /// <param name="instanceGuid">Migrated instance to delete</param>
+        /// <returns>Ok</returns>
+        [AllowAnonymous]
+        [HttpPost("delete/{instanceGuid:guid}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [Produces("application/json")]
+        public async Task<ActionResult> CleanupOldMigration([FromRoute] Guid instanceGuid)
+        {
+            if (!await CleanupOldMigrationInternal(instanceGuid.ToString()))
+            {
+                return BadRequest();
+            }
+
+            return Ok();
+        }
+
+        private async Task<bool> CleanupOldMigrationInternal(string instanceId)
         {
             (Instance instance, _) = await _instanceRepository.GetOne(new Guid(instanceId), false);
+            if (instance == null || string.IsNullOrEmpty(instance.DataValues?["A2ArchRef"]))
+            {
+                return false;
+            }
+
             if (_generalSettings.A2UseTtdAsServiceOwner)
             {
                 instance.Org = "ttd";
@@ -381,6 +406,8 @@ namespace Altinn.Platform.Storage.Controllers
             await _instanceEventRepository.DeleteAllInstanceEvents(instanceId);
             await _instanceRepository.Delete(instance);
             await _a2Repository.DeleteMigrationState(instanceId);
+
+            return true;
         }
     }
 }
