@@ -129,6 +129,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="formid">A2 form id</param>
         /// <param name="lformid">A2 logical form id</param>
         /// <param name="presenationText">A2 presentation text</param>
+        /// <param name="visiblePages">Semicolon separated list of visible pages</param>
         /// <returns>The stored data element.</returns>
         [AllowAnonymous]
         [HttpPost("dataelement/{instanceGuid:guid}")]
@@ -143,7 +144,8 @@ namespace Altinn.Platform.Storage.Controllers
             [FromQuery(Name = "datatype")]string dataType,
             [FromQuery(Name = "formid")]string formid,
             [FromQuery(Name = "lformid")]string lformid,
-            [FromQuery(Name = "prestext")]string presenationText)
+            [FromQuery(Name = "prestext")]string presenationText,
+            [FromQuery(Name = "vispages")]string visiblePages)
         {
             DateTime timestamp = new DateTime(timestampTicks, DateTimeKind.Utc).ToLocalTime();
 
@@ -176,9 +178,15 @@ namespace Altinn.Platform.Storage.Controllers
                         new() { Key = "lformid", Value = lformid }
                     }
                 };
+
                 if (presenationText != null)
                 {
                     dataElement.Metadata.Add(new() { Key = "A2PresVal", Value = HttpUtility.UrlDecode(presenationText) });
+                }
+
+                if (visiblePages != null)
+                {
+                    dataElement.Metadata.Add(new() { Key = "A2VisiblePages", Value = visiblePages });
                 }
 
                 (Stream theStream, dataElement.ContentType, dataElement.Filename, _) = await DataElementHelper.GetStream(Request, FormOptions.DefaultMultipartBoundaryLengthLimit);

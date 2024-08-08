@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -67,7 +68,6 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataGuid">dataGuid</param>
         /// <param name="language">language</param>
         /// <returns>The formatted content</returns>
-        [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
         [HttpGet("signature")]
         public async Task<Stream> GetSignatureAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
@@ -98,7 +98,6 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataGuid">dataGuid</param>
         /// <param name="language">language</param>
         /// <returns>The formatted content</returns>
-        [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
         [HttpGet("payment")]
         public async Task<Stream> GetPaymentAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
@@ -115,7 +114,6 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataGuid">dataGuid</param>
         /// <param name="language">language</param>
         /// <returns>The formatted content</returns>
-        [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
         [HttpGet("formdatapdf")]
         public async Task<Stream> GetFormdataAsPdf([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
@@ -146,19 +144,27 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataGuid">dataGuid</param>
         /// <param name="language">language</param>
         /// <returns>The formatted content</returns>
-        [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
         [HttpGet("formdatahtml")]
         public async Task<Stream> GetFormdataAsHtml([FromRoute]string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
             (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
             DataElement htmlElement = instance.Data.First(d => d.Id == dataGuid.ToString());
-            DataElement xmlElement = instance.Data.First(d => d.Metadata.First(m => m.Key == "formid").Value == htmlElement.Metadata.First(m => m.Key == "formid").Value && d.Id != htmlElement.Id);
+            string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;
+            DataElement xmlElement = instance.Data.First(d => d.Metadata.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id);
+            string? visiblePagesString = xmlElement.Metadata.FirstOrDefault(m => m.Key == "A2VisiblePages")?.Value;
+            List<int> visiblePages = !string.IsNullOrEmpty(visiblePagesString) ? visiblePagesString.Split(';').Select(int.Parse).ToList() : null;
+
             PrintViewXslBEList xsls = [];
             int lformid = int.Parse(xmlElement.Metadata.First(m => m.Key == "lformid").Value);
-            int pageNumber = 0;
+            int pageNumber = 1;
             foreach (var xsl in await _a2Repository.GetXsls(org, app, lformid, language))
             {
-                xsls.Add(new PrintViewXslBE() { PrintViewXsl = xsl, Id = $"{lformid}-{pageNumber++}{language}" });
+                if (visiblePages == null || visiblePages.Contains(pageNumber))
+                {
+                    xsls.Add(new PrintViewXslBE() { PrintViewXsl = xsl, Id = $"{lformid}-{pageNumber}{language}" });
+                }
+
+                ++pageNumber;
             }
 
             return _a2OndemandFormattingService.GetFormdataHtml(
