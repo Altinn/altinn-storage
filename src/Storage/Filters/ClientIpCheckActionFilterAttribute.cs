@@ -1,3 +1,4 @@
+using System;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
@@ -9,6 +10,7 @@ namespace Altinn.Platform.Storage.Filters
     public class ClientIpCheckActionFilterAttribute : ActionFilterAttribute
     {
         private string[] _safeList;
+        private string _orgSafeList;
 
         /// <summary>
         /// List of valid ip addresses
@@ -17,6 +19,7 @@ namespace Altinn.Platform.Storage.Filters
         {
             set
             {
+                _orgSafeList = value;
                 _safeList = value.Split(';');
             }
         }
@@ -29,6 +32,8 @@ namespace Altinn.Platform.Storage.Filters
         {
             string ipAddressList = context.HttpContext?.Request.Headers["X-Forwarded-For"].ToString();
             bool validIp = true;
+            Console.WriteLine("\r\n\r\nIp addresslist: " + ipAddressList + "\r\n\r\n");
+            Console.WriteLine("\r\n\r\nSafelist: " + _orgSafeList + "\r\n\r\n");
             if (!string.IsNullOrEmpty(ipAddressList))
             {
                 validIp = false;
@@ -36,15 +41,18 @@ namespace Altinn.Platform.Storage.Filters
                 {
                     if (ipAddressList.Contains(ipAddress))
                     {
+                        Console.WriteLine("\r\n\r\nValid\r\n\r\n");
                         validIp = true;
                         break;
                     }
+
+                    Console.WriteLine("\r\n\r\nNot valid " + ipAddress + "\r\n\r\n");
                 }
             }
 
             if (!validIp)
             {
-                context.Result = new ForbidResult();
+                context.Result = new ForbidResult(ipAddressList);
                 return;
             }
 
