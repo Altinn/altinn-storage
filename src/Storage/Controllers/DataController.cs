@@ -208,12 +208,12 @@ namespace Altinn.Platform.Storage.Controllers
             }
             else if (dataElement.BlobStoragePath.StartsWith("ondemand"))
             {
+                Response.Headers.Append(HeaderNames.ContentDisposition, "inline");
                 return File(
                     await _onDemandClient.GetStreamAsync(
                     $"ondemand/{instance.AppId}/{instanceOwnerPartyId}/{instanceGuid}/{dataGuid}/" +
                         $"{LanguageHelper.GetCurrentUserLanguage(Request)}/{dataElement.BlobStoragePath.Split('/')[1]}"),
-                    dataElement.ContentType,
-                    dataElement.Filename);
+                    dataElement.ContentType);
             }
 
             return NotFound("Unable to find requested data item");

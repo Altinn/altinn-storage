@@ -32,7 +32,7 @@ namespace Altinn.Platform.Storage.Controllers
     /// </summary>
     [Route("storage/api/v1/migration")]
     [ApiController]
-    [ClientIpCheckActionFilter]
+    [ServiceFilter(typeof(ClientIpCheckActionFilterAttribute))]
     public class MigrationController : ControllerBase
     {
         private readonly IInstanceRepository _instanceRepository;
@@ -105,7 +105,7 @@ namespace Altinn.Platform.Storage.Controllers
                 string instanceId = await _a2Repository.GetMigrationInstanceId(a2ArchiveReference);
                 if (instanceId != null)
                 {
-                    await CleanupOldMigration(instanceId);
+                    await CleanupOldMigrationInternal(instanceId);
                 }
 
                 await _a2Repository.CreateMigrationState(a2ArchiveReference);
@@ -129,6 +129,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="formid">A2 form id</param>
         /// <param name="lformid">A2 logical form id</param>
         /// <param name="presenationText">A2 presentation text</param>
+        /// <param name="visiblePages">Semicolon separated list of visible pages</param>
         /// <returns>The stored data element.</returns>
         [AllowAnonymous]
         [HttpPost("dataelement/{instanceGuid:guid}")]
@@ -143,7 +144,8 @@ namespace Altinn.Platform.Storage.Controllers
             [FromQuery(Name = "datatype")]string dataType,
             [FromQuery(Name = "formid")]string formid,
             [FromQuery(Name = "lformid")]string lformid,
-            [FromQuery(Name = "prestext")]string presenationText)
+            [FromQuery(Name = "prestext")]string presenationText,
+            [FromQuery(Name = "vispages")]string visiblePages)
         {
             DateTime timestamp = new DateTime(timestampTicks, DateTimeKind.Utc).ToLocalTime();
 
@@ -176,9 +178,15 @@ namespace Altinn.Platform.Storage.Controllers
                         new() { Key = "lformid", Value = lformid }
                     }
                 };
+
                 if (presenationText != null)
                 {
                     dataElement.Metadata.Add(new() { Key = "A2PresVal", Value = HttpUtility.UrlDecode(presenationText) });
+                }
+
+                if (visiblePages != null)
+                {
+                    dataElement.Metadata.Add(new() { Key = "A2VisiblePages", Value = visiblePages });
                 }
 
                 (Stream theStream, dataElement.ContentType, dataElement.Filename, _) = await DataElementHelper.GetStream(Request, FormOptions.DefaultMultipartBoundaryLengthLimit);
@@ -359,9 +367,34 @@ namespace Altinn.Platform.Storage.Controllers
             return Created();
         }
 
-        private async Task CleanupOldMigration(string instanceId)
+        /// <summary>
+        /// Delete migrated instance and releated data
+        /// </summary>
+        /// <param name="instanceGuid">Migrated instance to delete</param>
+        /// <returns>Ok</returns>
+        [AllowAnonymous]
+        [HttpPost("delete/{instanceGuid:guid}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [Produces("application/json")]
+        public async Task<ActionResult> CleanupOldMigration([FromRoute] Guid instanceGuid)
+        {
+            if (!await CleanupOldMigrationInternal(instanceGuid.ToString()))
+            {
+                return BadRequest();
+            }
+
+            return Ok();
+        }
+
+        private async Task<bool> CleanupOldMigrationInternal(string instanceId)
         {
             (Instance instance, _) = await _instanceRepository.GetOne(new Guid(instanceId), false);
+            if (instance == null || string.IsNullOrEmpty(instance.DataValues?["A2ArchRef"]))
+            {
+                return false;
+            }
+
             if (_generalSettings.A2UseTtdAsServiceOwner)
             {
                 instance.Org = "ttd";
@@ -373,6 +406,8 @@ namespace Altinn.Platform.Storage.Controllers
             await _instanceEventRepository.DeleteAllInstanceEvents(instanceId);
             await _instanceRepository.Delete(instance);
             await _a2Repository.DeleteMigrationState(instanceId);
+
+            return true;
         }
     }
 }

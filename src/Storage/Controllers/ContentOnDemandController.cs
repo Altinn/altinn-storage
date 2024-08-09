@@ -1,9 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
+using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
@@ -32,6 +33,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly ILogger _logger;
         private readonly GeneralSettings _generalSettings;
         private readonly IA2OndemandFormattingService _a2OndemandFormattingService;
+        private readonly IPdfGeneratorClient _pdfGeneratorClient;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ContentOnDemandController"/> class
@@ -42,13 +44,15 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="logger">the logger</param>
         /// <param name="settings">the general settings.</param>
         /// <param name="a2OndemandFormattingService">a2OndemandFormattingService</param>
+        /// <param name="pdfGeneratorClient">pdfGeneratorClient</param>
         public ContentOnDemandController(
             IInstanceRepository instanceRepository,
             IBlobRepository blobRepository,
             IA2Repository a2Repository,
             ILogger<ContentOnDemandController> logger,
             IOptions<GeneralSettings> settings,
-            IA2OndemandFormattingService a2OndemandFormattingService)
+            IA2OndemandFormattingService a2OndemandFormattingService,
+            IPdfGeneratorClient pdfGeneratorClient)
         {
             _instanceRepository = instanceRepository;
             _blobRepository = blobRepository;
@@ -56,6 +60,7 @@ namespace Altinn.Platform.Storage.Controllers
             _logger = logger;
             _generalSettings = settings.Value;
             _a2OndemandFormattingService = a2OndemandFormattingService;
+            _pdfGeneratorClient = pdfGeneratorClient;
         }
 
         /// <summary>
@@ -67,7 +72,6 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataGuid">dataGuid</param>
         /// <param name="language">language</param>
         /// <returns>The formatted content</returns>
-        [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
         [HttpGet("signature")]
         public async Task<Stream> GetSignatureAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
@@ -98,7 +102,6 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataGuid">dataGuid</param>
         /// <param name="language">language</param>
         /// <returns>The formatted content</returns>
-        [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
         [HttpGet("payment")]
         public async Task<Stream> GetPaymentAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
@@ -115,10 +118,10 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataGuid">dataGuid</param>
         /// <param name="language">language</param>
         /// <returns>The formatted content</returns>
-        [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
         [HttpGet("formdatapdf")]
         public async Task<Stream> GetFormdataAsPdf([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
+            return await _pdfGeneratorClient.GeneratePdf($"{Request.Scheme}://{Request.Host}{Request.PathBase}{Request.Path}{Request.QueryString}".Replace("formdatapdf", "formdatahtml"));
             //// TODO: The playwright code below works in the dev environment. There are three issues:
             //// 1. Playwright is not supported out of the box on alpine linux
             //// 2. Rather then LaunchAsync we should use ConnectAsync to connect to a component running a browser
@@ -146,19 +149,27 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="dataGuid">dataGuid</param>
         /// <param name="language">language</param>
         /// <returns>The formatted content</returns>
-        [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
         [HttpGet("formdatahtml")]
         public async Task<Stream> GetFormdataAsHtml([FromRoute]string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
             (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
             DataElement htmlElement = instance.Data.First(d => d.Id == dataGuid.ToString());
-            DataElement xmlElement = instance.Data.First(d => d.Metadata.First(m => m.Key == "formid").Value == htmlElement.Metadata.First(m => m.Key == "formid").Value && d.Id != htmlElement.Id);
+            string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;
+            DataElement xmlElement = instance.Data.First(d => d.Metadata.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id);
+            string? visiblePagesString = xmlElement.Metadata.FirstOrDefault(m => m.Key == "A2VisiblePages")?.Value;
+            List<int> visiblePages = !string.IsNullOrEmpty(visiblePagesString) ? visiblePagesString.Split(';').Select(int.Parse).ToList() : null;
+
             PrintViewXslBEList xsls = [];
             int lformid = int.Parse(xmlElement.Metadata.First(m => m.Key == "lformid").Value);
-            int pageNumber = 0;
+            int pageNumber = 1;
             foreach (var xsl in await _a2Repository.GetXsls(org, app, lformid, language))
             {
-                xsls.Add(new PrintViewXslBE() { PrintViewXsl = xsl, Id = $"{lformid}-{pageNumber++}{language}" });
+                if (visiblePages == null || visiblePages.Contains(pageNumber))
+                {
+                    xsls.Add(new PrintViewXslBE() { PrintViewXsl = xsl, Id = $"{lformid}-{pageNumber}{language}" });
+                }
+
+                ++pageNumber;
             }
 
             return _a2OndemandFormattingService.GetFormdataHtml(

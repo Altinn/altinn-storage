@@ -263,6 +263,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
 
     services.AddHttpClient<IPartiesWithInstancesClient, PartiesWithInstancesClient>();
     services.AddHttpClient<IOnDemandClient, OnDemandClient>();
+    services.AddHttpClient<IPdfGeneratorClient, PdfGeneratorClient>();
 
     if (!string.IsNullOrEmpty(applicationInsightsConnectionString))
     {
