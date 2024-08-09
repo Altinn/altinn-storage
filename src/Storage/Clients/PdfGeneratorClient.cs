@@ -44,6 +44,7 @@ public class PdfGeneratorClient: IPdfGeneratorClient
             ex.Data.Add("responseStatusCode", httpResponseMessage.StatusCode.ToString());
             ex.Data.Add("responseReasonPhrase", httpResponseMessage.ReasonPhrase);
 
+            Console.WriteLine("\r\n\r\npdf debug uri:\r\n" + httpResponseMessage.RequestMessage.RequestUri);
             Console.WriteLine("\r\n\r\npdf debug content:\r\n" + content);
             Console.WriteLine("\r\n\r\npdf debug code:\r\n" + httpResponseMessage.StatusCode.ToString());
             Console.WriteLine("\r\n\r\npdf debug reason:\r\n" + httpResponseMessage.ReasonPhrase);
