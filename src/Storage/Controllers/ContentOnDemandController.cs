@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
+using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
@@ -33,6 +33,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly ILogger _logger;
         private readonly GeneralSettings _generalSettings;
         private readonly IA2OndemandFormattingService _a2OndemandFormattingService;
+        private readonly IPdfGeneratorClient _pdfGeneratorClient;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ContentOnDemandController"/> class
@@ -43,13 +44,15 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="logger">the logger</param>
         /// <param name="settings">the general settings.</param>
         /// <param name="a2OndemandFormattingService">a2OndemandFormattingService</param>
+        /// <param name="pdfGeneratorClient">pdfGeneratorClient</param>
         public ContentOnDemandController(
             IInstanceRepository instanceRepository,
             IBlobRepository blobRepository,
             IA2Repository a2Repository,
             ILogger<ContentOnDemandController> logger,
             IOptions<GeneralSettings> settings,
-            IA2OndemandFormattingService a2OndemandFormattingService)
+            IA2OndemandFormattingService a2OndemandFormattingService,
+            IPdfGeneratorClient pdfGeneratorClient)
         {
             _instanceRepository = instanceRepository;
             _blobRepository = blobRepository;
@@ -57,6 +60,7 @@ namespace Altinn.Platform.Storage.Controllers
             _logger = logger;
             _generalSettings = settings.Value;
             _a2OndemandFormattingService = a2OndemandFormattingService;
+            _pdfGeneratorClient = pdfGeneratorClient;
         }
 
         /// <summary>
@@ -117,6 +121,7 @@ namespace Altinn.Platform.Storage.Controllers
         [HttpGet("formdatapdf")]
         public async Task<Stream> GetFormdataAsPdf([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
+            return await _pdfGeneratorClient.GeneratePdf($"{Request.Scheme}://{Request.Host}{Request.PathBase}{Request.Path}{Request.QueryString}".Replace("formdatapdf", "formdatahtml"));
             //// TODO: The playwright code below works in the dev environment. There are three issues:
             //// 1. Playwright is not supported out of the box on alpine linux
             //// 2. Rather then LaunchAsync we should use ConnectAsync to connect to a component running a browser

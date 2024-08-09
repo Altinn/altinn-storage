@@ -59,6 +59,11 @@ namespace Altinn.Platform.Storage.Configuration
         public string OndemandEndpoint { get; set; }
 
         /// <summary>
+        /// Gets or sets the URI for the pdf generator
+        /// </summary>
+        public string PdfGeneratorEndpoint { get; set; }
+
+        /// <summary>
         /// Gets or sets whether to use Ttd as service owner for environements without "normal" service owners
         /// </summary>
         public bool A2UseTtdAsServiceOwner { get; set; }
