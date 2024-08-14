@@ -138,6 +138,7 @@ namespace Altinn.Platform.Storage.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [Produces("application/json")]
+        [DisableRequestSizeLimit]
         public async Task<ActionResult<DataElement>> CreateDataElement(
             [FromRoute]Guid instanceGuid,
             [FromQuery(Name = "timestampticks")]long timestampTicks,
