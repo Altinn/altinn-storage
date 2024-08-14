@@ -328,6 +328,7 @@ namespace Altinn.Platform.Storage.Repository
         public async Task<(Instance Instance, long InternalId)> GetOne(Guid instanceGuid, bool includeElements)
         {
             Instance instance = null;
+            List<DataElement> instanceData = [];
             long instanceInternalId = 0;
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(includeElements ? _readSql : _readSqlNoElements);
@@ -344,16 +345,15 @@ namespace Altinn.Platform.Storage.Repository
                         instanceCreated = true;
                         instance = reader.GetFieldValue<Instance>("instance");
                         instanceInternalId = reader.GetFieldValue<long>("id");
-                        instance.Data = [];
                     }
 
                     if (includeElements && !reader.IsDBNull("element"))
                     {
-                        instance.Data.Add(reader.GetFieldValue<DataElement>("element"));
+                        instanceData.Add(reader.GetFieldValue<DataElement>("element"));
                     }
                 }
 
-                if (instance == null)
+                if (instance is null)
                 {
                     tracker.Track();
                     return (null, 0);
@@ -361,6 +361,9 @@ namespace Altinn.Platform.Storage.Repository
 
                 ToExternal(instance);
             }
+
+            // Present instance data elements in chronological order
+            instance.Data = [.. instanceData.OrderBy(x => x.Created)];
 
             tracker.Track();
             return (instance, instanceInternalId);
