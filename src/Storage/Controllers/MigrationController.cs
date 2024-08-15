@@ -138,6 +138,7 @@ namespace Altinn.Platform.Storage.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [Produces("application/json")]
+        [DisableRequestSizeLimit]
         public async Task<ActionResult<DataElement>> CreateDataElement(
             [FromRoute]Guid instanceGuid,
             [FromQuery(Name = "timestampticks")]long timestampTicks,
@@ -282,6 +283,47 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 _logger.LogError(storageException, "Unable to create migrated altinn ii app");
                 return StatusCode(500, $"Unable to create migrated app due to {storageException.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Inserts new text
+        /// </summary>
+        /// <param name="org">The app owner org</param>
+        /// <param name="app">The application that owns the text resource</param>
+        /// <param name="language">Language</param>
+        /// <param name="key">Text key</param>
+        /// <returns>The stored application.</returns>
+        [AllowAnonymous]
+        [HttpPost("text/{org}/{app}/{language}/{key}")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [Produces("application/json")]
+        public async Task<ActionResult<Instance>> CreateText([FromRoute] string org, [FromRoute] string app, [FromRoute] string language, [FromRoute] string key)
+        {
+            try
+            {
+                // There is allways an existing text from the app migration
+                TextResource textResource = await _textRepository.Get(org, app, language);
+                using var reader = new StreamReader(Request.Body);
+                var resource = textResource.Resources.Find(resource => resource.Id == key);
+                if (resource == null)
+                {
+                    textResource.Resources.Add(new() { Id = key, Value = await reader.ReadToEndAsync() });
+                }
+                else
+                {
+                    resource.Value = await reader.ReadToEndAsync();
+                }
+
+                textResource = await _textRepository.Update(org, app, textResource);
+
+                return Created((string)null, textResource);
+            }
+            catch (Exception storageException)
+            {
+                _logger.LogError(storageException, "Unable to create migrated altinn ii app text");
+                return StatusCode(500, $"Unable to create migrated app text due to {storageException.Message}");
             }
         }
 
