@@ -20,6 +20,8 @@ namespace Altinn.Platform.Storage.Services
     /// </summary>
     public class A2OndemandFormattingService : IA2OndemandFormattingService
     {
+        const string _css = "<style>div, h1, h2, h3, h4, h5, h6, span, html, body, table, tr, td { box-sizing: border-box !important;}\r\ntr { background-color: transparent !important; color: inherit !important;}\r\nbody {margin-left: 0px !important; margin-right: 0px !important; margin-top: 15px !important;}\r\nspan.xdTextBox, span.xdExpressionBox {-webkit-user-modify:read-write; }\r\nspan.xdTextBox:not([style*=\"DISPLAY: none\"]), span.xdExpressionBox:not([style*=\"DISPLAY: none\"]) { display: inline-block !important }\r\nspan.xdTextBox {text-overflow: clip !important;}\r\nspan.xdTextBox[style*=\"WIDTH: 100%\"], div.xdDTPicker { width: 99% !important }\r\nthead.xdTableHeader {background-color : inherit !important;}\r\n.xdRepeatingSection, .xdExpressionBox, .xdSection.xdRepeating { height: auto !important; }\r\n[style*=\"FONT-SIZE: xx-small\"] { font-size: 7.5pt !important }\r\n[style*=\"FONT-SIZE: x-small\"] { font-size: 10pt !important }\r\n[style*=\"FONT-SIZE: small\"] { font-size: 12pt !important }\r\n[style*=\"FONT-SIZE: medium\"] { font-size: 13.5pt !important }\r\n[style*=\"FONT-SIZE: large\"] { font-size: 18pt !important }\r\n[style*=\"FONT-SIZE: x-large\"] { font-size: 24pt !important }\r\n[style*=\"FONT-SIZE: xx-large\"] { font-size: 36pt !important }\r\ndiv.xdSection.xdRepeating[style*=\"WIDTH: 100%\"] { width: auto !important }\r\nspan.xdDTText, div.xdDTPicker { display: inline-block !important }\r\ninput[type='radio'] { -webkit-appearance: none; width: 12px; height: 12px; border: 1px solid darkgray; border-radius: 50%; outline: none; background-color: white; }\r\ninput[type='radio']:before { content: ''; display: block; width: 60%; height: 60%; margin-left: 25%; margin-top: 20%; border-radius: 50%; }\r\ninput[type='radio']:checked:before { background: black; }\r\n</style>";
+
         private readonly IA2Repository _a2Repository;
         private readonly ILogger<A2OndemandFormattingService> _logger;
         private readonly IMemoryCache _memoryCache;
@@ -80,6 +82,8 @@ namespace Altinn.Platform.Storage.Services
                     xslCompiledTransform.Transform(xmlDoc, xslArg, htmlWriterOutput);
                     htmlToTranslate = htmlWriterOutput.ToString();
                 }
+
+                htmlToTranslate = htmlToTranslate.Replace("</head>", _css);
 
                 // Add the archive time stamp and the list of attachments
                 htmlToTranslate = SetArchiveTimeStampToHtml(archiveStamp, htmlToTranslate);
@@ -463,6 +467,7 @@ namespace Altinn.Platform.Storage.Services
                 pdfModParamBE.HtmlViewerWidth += extraFirstDivPadding;
 
                 xsl = xslDoc.OuterXml;
+                ////xsl = xsl.Replace("</head>", @"<link rel='stylesheet' type='text/css' href='" + folderPath + @"' /> <BASE HREF='" + imgFolder + @"'/>" + kernSetting + @"</head>");
                 xsl = xsl.Replace("MIN-HEIGHT:", "HEIGHT:");
             }
             catch
