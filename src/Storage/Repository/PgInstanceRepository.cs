@@ -363,7 +363,7 @@ namespace Altinn.Platform.Storage.Repository
             }
 
             // Present instance data elements in chronological order
-            instance.Data = [.. instanceData.OrderBy(x => x.Created)];
+            instance.Data = instanceData.OrderBy(x => x.Created).ToList();
 
             tracker.Track();
             return (instance, instanceInternalId);
