@@ -258,6 +258,20 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             Assert.True(Math.Abs(((DateTime)updatedElement.LastChanged).Ticks - lastChanged.Ticks) < TimeSpan.TicksPerMicrosecond);
         }
 
+        [Fact]
+        public async Task GetOne_InstanceNotFound_ReturnsNullAndZero()
+        {
+            // Arrange
+            Guid nonExistentInstanceGuid = Guid.NewGuid();
+
+            // Act
+            (Instance instance, long internalId) = await _dataElementFixture.InstanceRepo.GetOne(nonExistentInstanceGuid, false);
+
+            // Assert
+            Assert.Null(instance);
+            Assert.Equal(0, internalId);
+        }
+
         /// <summary>
         /// Test read
         /// </summary>
