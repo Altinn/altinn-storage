@@ -41,6 +41,20 @@ namespace Altinn.Platform.Storage.Interface.Models
         public bool AutoDeleteOnProcessEnd { get; set; }
 
         /// <summary>
+        /// Specifies whether users should be able to create data of this type.
+        /// Defaults to false if not specified.
+        /// </summary>
+        [JsonProperty(PropertyName = "allowUserCreate")]
+        public bool AllowUserCreate { get; set; }
+
+        /// <summary>
+        /// Specifies whether users should be able to delete data of this type.
+        /// Defaults to false if not specified.
+        /// </summary>
+        [JsonProperty(PropertyName = "allowUserDelete")]
+        public bool AllowUserDelete { get; set; }
+        
+        /// <summary>
         /// Gets or sets a property containing configuration for shadow fields for the data type.
         /// </summary>
         [JsonProperty(PropertyName = "shadowFields")]
