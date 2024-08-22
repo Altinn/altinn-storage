@@ -22,7 +22,6 @@ using Microsoft.AspNetCore.Mvc;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Primitives;
 using Microsoft.Net.Http.Headers;
 
 namespace Altinn.Platform.Storage.Controllers
@@ -124,7 +123,8 @@ namespace Altinn.Platform.Storage.Controllers
         /// Inserts new data element
         /// </summary>
         /// <param name="instanceGuid">The instanceGuid.</param>
-        /// <param name="timestampTicks">Element timestamp ticks</param>
+        /// <param name="createdTicks">Element created timestamp ticks</param>
+        /// <param name="changedTicks">Element last changed timestamp ticks</param>
         /// <param name="dataType">Element data type</param>
         /// <param name="formid">A2 form id</param>
         /// <param name="lformid">A2 logical form id</param>
@@ -141,14 +141,16 @@ namespace Altinn.Platform.Storage.Controllers
         [DisableRequestSizeLimit]
         public async Task<ActionResult<DataElement>> CreateDataElement(
             [FromRoute]Guid instanceGuid,
-            [FromQuery(Name = "timestampticks")]long timestampTicks,
+            [FromQuery(Name = "createdticks")]long createdTicks,
+            [FromQuery(Name = "changedticks")]long changedTicks,
             [FromQuery(Name = "datatype")]string dataType,
             [FromQuery(Name = "formid")]string formid,
             [FromQuery(Name = "lformid")]string lformid,
             [FromQuery(Name = "prestext")]string presenationText,
             [FromQuery(Name = "vispages")]string visiblePages)
         {
-            DateTime timestamp = new DateTime(timestampTicks, DateTimeKind.Utc).ToLocalTime();
+            DateTime created = new DateTime(createdTicks, DateTimeKind.Utc).ToLocalTime();
+            DateTime lastChanged = new DateTime(changedTicks, DateTimeKind.Utc).ToLocalTime();
 
             // TODO Open issue: what about createdby and lastchangedby? Ref. instance
 
@@ -165,12 +167,12 @@ namespace Altinn.Platform.Storage.Controllers
                 DataElement dataElement = new()
                 {
                     Id = dataElementId,
-                    Created = timestamp,
+                    Created = created,
                     CreatedBy = instance.CreatedBy,
                     DataType = dataType,
                     InstanceGuid = instanceGuid.ToString(),
                     IsRead = true,
-                    LastChanged = timestamp,
+                    LastChanged = lastChanged,
                     LastChangedBy = instance.LastChangedBy, // TODO: Find out what to populate here
                     BlobStoragePath = DataElementHelper.DataFileName(instance.AppId, instanceGuid.ToString(), dataElementId),
                     Metadata = formid == null ? null : new()
@@ -304,20 +306,32 @@ namespace Altinn.Platform.Storage.Controllers
         {
             try
             {
-                // There is allways an existing text from the app migration
                 TextResource textResource = await _textRepository.Get(org, app, language);
                 using var reader = new StreamReader(Request.Body);
-                var resource = textResource.Resources.Find(resource => resource.Id == key);
-                if (resource == null)
+                if (textResource == null)
                 {
-                    textResource.Resources.Add(new() { Id = key, Value = await reader.ReadToEndAsync() });
+                    textResource = await _textRepository.Create(org, app, new TextResource()
+                    {
+                        Id = (await _applicationRepository.FindOne($"{org}/{app}", org)).Id,
+                        Language = language,
+                        Org = org,
+                        Resources = [new TextResourceElement() { Id = key, Value = await reader.ReadToEndAsync() }]
+                    });
                 }
                 else
                 {
-                    resource.Value = await reader.ReadToEndAsync();
-                }
+                    var resource = textResource.Resources.Find(resource => resource.Id == key);
+                    if (resource == null)
+                    {
+                        textResource.Resources.Add(new() { Id = key, Value = await reader.ReadToEndAsync() });
+                    }
+                    else
+                    {
+                        resource.Value = await reader.ReadToEndAsync();
+                    }
 
-                textResource = await _textRepository.Update(org, app, textResource);
+                    textResource = await _textRepository.Update(org, app, textResource);
+                }
 
                 return Created((string)null, textResource);
             }
