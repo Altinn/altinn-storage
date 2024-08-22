@@ -203,6 +203,7 @@ namespace Altinn.Platform.Storage.Controllers
                         "signature-presentation" => "ondemand/signature",
                         "ref-data-as-pdf" => "ondemand/formdatapdf",
                         "ref-data-as-html" => "ondemand/formdatahtml",
+                        "ref-summary-data-as-html" => "ondemand/formsummaryhtml",
                         "payment-presentation" => "ondemand/payment",
                         _ => throw new ArgumentException(dataElement.DataType),
                     };
@@ -396,16 +397,17 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="lformid">A2 logical form id</param>
         /// <param name="pagenumber">Page number</param>
         /// <param name="language">Language</param>
+        /// <param name="xsltype">Xsl type</param>
         /// <returns>Ok</returns>
         [AllowAnonymous]
-        [HttpPost("xsl/{org}/{app}/{lformid}/{pagenumber}/{language}")]
+        [HttpPost("xsl/{org}/{app}/{lformid}/{pagenumber}/{language}/{xsltype}")]
         [DisableFormValueModelBinding]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [Produces("application/json")]
-        public async Task<ActionResult> CreateXsl([FromRoute] string org, [FromRoute] string app, [FromRoute] int lformid, [FromRoute] int pagenumber, [FromRoute] string language)
+        public async Task<ActionResult> CreateXsl([FromRoute] string org, [FromRoute] string app, [FromRoute] int lformid, [FromRoute] int pagenumber, [FromRoute] string language, [FromRoute] int xsltype)
         {
             using var reader = new StreamReader(Request.Body);
-            await _a2Repository.CreateXsl(org, app, lformid, language, pagenumber, await reader.ReadToEndAsync());
+            await _a2Repository.CreateXsl(org, app, lformid, language, pagenumber, await reader.ReadToEndAsync(), xsltype);
             return Created();
         }
 

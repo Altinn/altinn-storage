@@ -467,7 +467,6 @@ namespace Altinn.Platform.Storage.Services
                 pdfModParamBE.HtmlViewerWidth += extraFirstDivPadding;
 
                 xsl = xslDoc.OuterXml;
-                ////xsl = xsl.Replace("</head>", @"<link rel='stylesheet' type='text/css' href='" + folderPath + @"' /> <BASE HREF='" + imgFolder + @"'/>" + kernSetting + @"</head>");
                 xsl = xsl.Replace("MIN-HEIGHT:", "HEIGHT:");
             }
             catch
