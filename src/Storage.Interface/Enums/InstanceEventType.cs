@@ -88,6 +88,46 @@ namespace Altinn.Platform.Storage.Interface.Enums
         /// <summary>
         /// Instance sent to sign event.
         /// </summary>
-        SentToSign
+        SentToSign,
+
+        /// <summary>
+        /// Instance sent to payment event.
+        /// </summary>
+        SentToPayment,
+
+        /// <summary>
+        /// Instance sent to send in event.
+        /// </summary>
+        SentToSendIn,
+
+        /// <summary>
+        /// Instance sent to form filling event.
+        /// </summary>
+        SentToFormFill,
+
+        /// <summary>
+        /// Instance forwarded event.
+        /// </summary>
+        InstanceForwarded,
+
+        /// <summary>
+        /// Instance right revoked event.
+        /// </summary>
+        InstanceRightRevoked,
+
+        /// <summary>
+        /// Notification sent event.
+        /// </summary>
+        NotificationSentSms,
+
+        /// <summary>
+        /// Message archived event.
+        /// </summary>
+        MessageArchived,
+
+        /// <summary>
+        /// Message read event.
+        /// </summary>
+        MessageRead
     }
 }
