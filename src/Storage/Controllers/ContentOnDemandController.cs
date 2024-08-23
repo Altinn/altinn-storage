@@ -140,7 +140,7 @@ namespace Altinn.Platform.Storage.Controllers
             DataElement htmlElement = instance.Data.First(d => d.Id == dataGuid.ToString());
             string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;
             DataElement xmlElement = instance.Data.First(d => d.Metadata.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id);
-            string? visiblePagesString = xmlElement.Metadata.FirstOrDefault(m => m.Key == "A2VisiblePages")?.Value;
+            string visiblePagesString = xmlElement.Metadata.FirstOrDefault(m => m.Key == "A2VisiblePages")?.Value;
             List<int> visiblePages = !string.IsNullOrEmpty(visiblePagesString) ? visiblePagesString.Split(';').Select(int.Parse).ToList() : null;
 
             PrintViewXslBEList xsls = [];
@@ -178,7 +178,7 @@ namespace Altinn.Platform.Storage.Controllers
             DataElement htmlElement = instance.Data.First(d => d.Id == dataGuid.ToString());
             string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;
             DataElement xmlElement = instance.Data.First(d => d.Metadata.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id);
-            string? visiblePagesString = xmlElement.Metadata.FirstOrDefault(m => m.Key == "A2VisiblePages")?.Value;
+            string visiblePagesString = xmlElement.Metadata.FirstOrDefault(m => m.Key == "A2VisiblePages")?.Value;
             List<int> visiblePages = !string.IsNullOrEmpty(visiblePagesString) ? visiblePagesString.Split(';').Select(int.Parse).ToList() : null;
 
             PrintViewXslBEList xsls = [];

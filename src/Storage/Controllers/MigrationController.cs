@@ -97,7 +97,7 @@ namespace Altinn.Platform.Storage.Controllers
         {
             //// TODO Open issue: what about createdby and lastchangedby?
 
-            Instance storedInstance = null;
+            Instance storedInstance;
             try
             {
                 int a2ArchiveReference = int.Parse(instance.DataValues["A2ArchRef"]);
