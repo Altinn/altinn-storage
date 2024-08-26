@@ -18,7 +18,7 @@ on:
 jobs:
   build-test-analyze:
     name: Build, test & analyze
-    if: ((github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false) || github.event_name == 'push') &&  github.repository_owner == 'Altinn' && github.actor != 'dependabot[bot]'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false))
     runs-on: ubuntu-latest
     services:
      postgres:
