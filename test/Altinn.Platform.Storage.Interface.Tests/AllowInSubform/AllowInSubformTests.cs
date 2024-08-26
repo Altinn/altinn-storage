@@ -3,7 +3,7 @@ using Altinn.Platform.Storage.Interface.Models;
 using FluentAssertions;
 using Xunit;
 
-namespace Altinn.Platform.Storage.Interface.Tests.AllowUserActions;
+namespace Altinn.Platform.Storage.Interface.Tests.AllowInSubform;
 
 public class AllowInSubformTests
 {
