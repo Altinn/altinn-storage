@@ -1,8 +1,5 @@
 using System.Collections.Generic;
-using System.IO;
 using System.Threading.Tasks;
-
-using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.Platform.Storage.Repository
 {
@@ -15,12 +12,12 @@ namespace Altinn.Platform.Storage.Repository
         /// Get the stylesheets for a data element (a2 sub/main form)
         /// </summary>
         /// <returns>A list of stylesheets</returns>
-        Task<List<string>> GetXsls(string org, string app, int lformId, string language);
+        Task<List<string>> GetXsls(string org, string app, int lformId, string language, int xslType);
 
         /// <summary>
         /// Insert a stylesheet for a data element (a2 sub/main form page)
         /// </summary>
-        Task CreateXsl(string org, string app, int lformId, string language, int pageNumber, string xsl);
+        Task CreateXsl(string org, string app, int lformId, string language, int pageNumber, string xsl, int xslType);
 
         /// <summary>
         /// Insert an a2 codelist

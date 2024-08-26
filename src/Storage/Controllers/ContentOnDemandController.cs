@@ -6,16 +6,13 @@ using System.Text;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
-using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Playwright;
 
 namespace Altinn.Platform.Storage.Controllers
 {
@@ -136,17 +133,37 @@ namespace Altinn.Platform.Storage.Controllers
         [HttpGet("formdatahtml")]
         public async Task<Stream> GetFormdataAsHtml([FromRoute]string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
+            return await GetFormdataAsHtmlInternal(org, app, instanceGuid, dataGuid, language, 3);
+        }
+
+        /// <summary>
+        /// Gets the formatted content
+        /// </summary>
+        /// <param name="org">org</param>
+        /// <param name="app">app</param>
+        /// <param name="instanceGuid">instanceGuid</param>
+        /// <param name="dataGuid">dataGuid</param>
+        /// <param name="language">language</param>
+        /// <returns>The formatted content</returns>
+        [HttpGet("formsummaryhtml")]
+        public async Task<Stream> GetFormSummaryAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
+        {
+            return await GetFormdataAsHtmlInternal(org, app, instanceGuid, dataGuid, language, 2);
+        }
+
+        private async Task<Stream> GetFormdataAsHtmlInternal(string org, string app, Guid instanceGuid, Guid dataGuid, string language, int viewType)
+        {
             (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
             DataElement htmlElement = instance.Data.First(d => d.Id == dataGuid.ToString());
             string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;
             DataElement xmlElement = instance.Data.First(d => d.Metadata.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id);
-            string? visiblePagesString = xmlElement.Metadata.FirstOrDefault(m => m.Key == "A2VisiblePages")?.Value;
+            string visiblePagesString = xmlElement.Metadata.FirstOrDefault(m => m.Key == "A2VisiblePages")?.Value;
             List<int> visiblePages = !string.IsNullOrEmpty(visiblePagesString) ? visiblePagesString.Split(';').Select(int.Parse).ToList() : null;
 
             PrintViewXslBEList xsls = [];
             int lformid = int.Parse(xmlElement.Metadata.First(m => m.Key == "lformid").Value);
             int pageNumber = 1;
-            foreach (var xsl in await _a2Repository.GetXsls(org, app, lformid, language))
+            foreach (var xsl in await _a2Repository.GetXsls(org, app, lformid, language, viewType))
             {
                 if (visiblePages == null || visiblePages.Contains(pageNumber))
                 {
