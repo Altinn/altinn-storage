@@ -21,10 +21,11 @@ namespace Altinn.Platform.Storage.Repository
         private static readonly string _readSql = "select application from storage.applications";
         private static readonly string _readByOrgSql = "select application from storage.applications where org = $1";
         private static readonly string _readByIdSql = "select application from storage.applications where app = $1 and org = $2";
-        private static readonly string _deleteSql = "delete from storage.applications where app = $1 and org = $2";
+        private static readonly string _deleteSql = "delete from storage.applications where app = $1 and org = $2";   
         private static readonly string _updateSql = "update storage.applications set application = $3 where app = $1 and org = $2";
         private static readonly string _createSql = "insert into storage.applications (app, org, application) values ($1, $2, jsonb_strip_nulls($3))" +
-            " on conflict on constraint app_org do update set application = jsonb_strip_nulls($3)";
+            " on conflict on constraint app_org do update set application = jsonb_strip_nulls($3) ||" +
+            " jsonb_build_object($4, storage.applications.application->>$4) || jsonb_build_object($5, storage.applications.application->>$5)";
 
         private readonly IMemoryCache _memoryCache;
         private readonly MemoryCacheEntryOptions _cacheEntryOptionsTitles;
@@ -127,6 +128,8 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, GetAppFromAppId(item.Id));
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, item.Org);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, item);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, nameof(item.Created));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, nameof(item.CreatedBy));
 
             await pgcom.ExecuteNonQueryAsync();
 
