@@ -227,30 +227,28 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Arrange
             string org = "test";
             string appName = "app20";
-
             string getUri = $"{BasePath}/applications/{org}/{appName}";
             string postUri = $"{BasePath}/applications?appId={org}/{appName}";
 
             Application existingApp = CreateApplication(org, appName);
             existingApp.Created = DateTime.UtcNow.AddDays(-1);
             existingApp.CreatedBy = "testUser";
-            existingApp.PartyTypesAllowed = new PartyTypesAllowed { Person = true, SubUnit = true, Organisation = true, BankruptcyEstate = true };
+            existingApp.VersionId = "v1.0.0";
 
             Application newApp = CreateApplication(org, appName);
             newApp.Created = DateTime.UtcNow;
             newApp.CreatedBy = "anotherTestUser";
-            newApp.PartyTypesAllowed = new PartyTypesAllowed { Person = true, SubUnit = false, Organisation = false, BankruptcyEstate = true };
+            newApp.VersionId = "v1.0.1";
 
             Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
             applicationRepository.Setup(e => e.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(new Application
             {
-                Id = existingApp.Id,
-                Org = existingApp.Org,
+                Id = newApp.Id,
+                Org = newApp.Org,
+                VersionId = newApp.VersionId,
                 Created = existingApp.Created,
-                CreatedBy = existingApp.CreatedBy,
-                PartyTypesAllowed = newApp.PartyTypesAllowed
+                CreatedBy = existingApp.CreatedBy
             });
-
             applicationRepository.Setup(e => e.Create(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
 
             HttpClient client = GetTestClient(applicationRepository.Object);
@@ -277,10 +275,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             Assert.Equal(retrievedApp.Id, existingApp.Id);
             Assert.Equal(retrievedApp.Org, existingApp.Org);
+            Assert.Equal(retrievedApp.VersionId, newApp.VersionId);
             Assert.Equal(retrievedApp.Created, existingApp.Created);
             Assert.Equal(retrievedApp.CreatedBy, existingApp.CreatedBy);
-            Assert.Equal(retrievedApp.PartyTypesAllowed.SubUnit, newApp.PartyTypesAllowed.SubUnit);
-            Assert.Equal(retrievedApp.PartyTypesAllowed.Organisation, newApp.PartyTypesAllowed.Organisation);
         }
 
         /// <summary>
