@@ -58,7 +58,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         {
             // Arrange
             Application a = await _applicationFixture.ApplicationRepo.Create(_a1);
-            a.CreatedBy = "updatedCreator";
+            _a1.VersionId = "v1";
 
             // Act
             await _applicationFixture.ApplicationRepo.Create(a);
@@ -68,7 +68,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             int count = await PostgresUtil.RunCountQuery(sql);
             Assert.Equal(1, count);
             Assert.Equal(_a1.Id, a.Id);
-            sql = $"select count(*) from storage.applications where app = '{App1}' and org = 'ttd' and application ->> 'CreatedBy' = 'updatedCreator'";
+
+            sql = $"select count(*) from storage.applications where app = '{App1}' and org = 'ttd' and application ->> 'VersionId' = 'v1'";
             count = await PostgresUtil.RunCountQuery(sql);
             Assert.Equal(1, count);
         }
