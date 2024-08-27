@@ -215,6 +215,76 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
         /// <summary>
         /// Scenario:
+        ///   Post a valid Application instance that already exists and has different PartyTypesAllowed.
+        /// Expected result:
+        ///   Returns HttpStatus Created and the Application instance with updated PartyTypesAllowed but unchanged creation info.
+        /// Success criteria:
+        ///   The response has correct status and the returned application instance has updated PartyTypesAllowed while creation info remains unchanged.
+        /// </summary>
+        [Fact]
+        public async Task PostAndGet_ExistingApplication_ReturnsStatusCreatedAndCorrectData_CreationInfoUnchanged()
+        {
+            // Arrange
+            string org = "test";
+            string appName = "app20";
+
+            string getUri = $"{BasePath}/applications/{org}/{appName}";
+            string postUri = $"{BasePath}/applications?appId={org}/{appName}";
+
+            Application existingApp = CreateApplication(org, appName);
+            existingApp.Created = DateTime.UtcNow.AddDays(-1);
+            existingApp.CreatedBy = "testUser";
+            existingApp.PartyTypesAllowed = new PartyTypesAllowed { Person = true, SubUnit = true, Organisation = true, BankruptcyEstate = true };
+
+            Application newApp = CreateApplication(org, appName);
+            newApp.Created = DateTime.UtcNow;
+            newApp.CreatedBy = "anotherTestUser";
+            newApp.PartyTypesAllowed = new PartyTypesAllowed { Person = true, SubUnit = false, Organisation = false, BankruptcyEstate = true };
+
+            Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
+            applicationRepository.Setup(e => e.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(new Application
+            {
+                Id = existingApp.Id,
+                Org = existingApp.Org,
+                Created = existingApp.Created,
+                CreatedBy = existingApp.CreatedBy,
+                PartyTypesAllowed = newApp.PartyTypesAllowed
+            });
+
+            applicationRepository.Setup(e => e.Create(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
+
+            HttpClient client = GetTestClient(applicationRepository.Object);
+            string token = PrincipalUtil.GetAccessToken("studio.designer");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // Act
+            HttpResponseMessage postResponse = await client.PostAsync(postUri, JsonContent.Create(newApp, new MediaTypeHeaderValue("application/json")));
+            string postContent = await postResponse.Content.ReadAsStringAsync();
+            Application createdApp = JsonConvert.DeserializeObject(postContent, typeof(Application)) as Application;
+
+            HttpResponseMessage getResponse = await client.GetAsync(getUri);
+            string getContent = await getResponse.Content.ReadAsStringAsync();
+            Application retrievedApp = JsonConvert.DeserializeObject(getContent, typeof(Application)) as Application;
+
+            // Assert
+            Assert.Equal(HttpStatusCode.Created, postResponse.StatusCode);
+
+            Assert.NotNull(createdApp);
+            Assert.Empty(createdApp.DataTypes);
+            Assert.NotNull(createdApp.DataTypes);
+
+            Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+
+            Assert.Equal(retrievedApp.Id, existingApp.Id);
+            Assert.Equal(retrievedApp.Org, existingApp.Org);
+            Assert.Equal(retrievedApp.Created, existingApp.Created);
+            Assert.Equal(retrievedApp.CreatedBy, existingApp.CreatedBy);
+            Assert.Equal(retrievedApp.PartyTypesAllowed.SubUnit, newApp.PartyTypesAllowed.SubUnit);
+            Assert.Equal(retrievedApp.PartyTypesAllowed.Organisation, newApp.PartyTypesAllowed.Organisation);
+        }
+
+        /// <summary>
+        /// Scenario:
         ///   Soft delete an existing application but empty appId claim in context.
         /// Expected result:
         ///   Returns HttpStatus Forbidden and application will not be updated
