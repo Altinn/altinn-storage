@@ -215,6 +215,139 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
         /// <summary>
         /// Scenario:
+        ///   Post a valid Application instance that already exists but holds a different version ID.
+        /// Expected result:
+        ///   The response status is HttpStatusCode.Created.
+        ///   The returned Application instance reflects the updated version ID.
+        ///   The creation information (Created and CreatedBy) remains unchanged.
+        /// Success Criteria:
+        ///   The response has the correct status code.
+        ///   The returned Application instance reflects the updated version ID while retaining the original creation information.
+        /// </summary>
+        [Fact]
+        public async Task PostAndGet_ExistingApplication_ReturnsStatusCreatedAndCorrectData_CreationInfoUnchanged()
+        {
+            // Arrange
+            string org = "test";
+            string appName = "app20";
+            string getUri = $"{BasePath}/applications/{org}/{appName}";
+            string postUri = $"{BasePath}/applications?appId={org}/{appName}";
+
+            Application existingApp = CreateApplication(org, appName);
+            existingApp.Created = DateTime.UtcNow.AddDays(-10);
+            existingApp.CreatedBy = "testUser";
+            existingApp.VersionId = "v1.0.0";
+
+            Application newApp = CreateApplication(org, appName);
+            newApp.Created = DateTime.UtcNow;
+            newApp.CreatedBy = "anotherTestUser";
+            newApp.VersionId = "v1.0.1";
+
+            Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
+            applicationRepository.Setup(e => e.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(new Application
+            {
+                Id = newApp.Id,
+                Org = newApp.Org,
+                VersionId = newApp.VersionId,
+                Created = existingApp.Created,
+                CreatedBy = existingApp.CreatedBy
+            });
+            applicationRepository.Setup(e => e.Create(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
+
+            HttpClient client = GetTestClient(applicationRepository.Object);
+            string token = PrincipalUtil.GetAccessToken("studio.designer");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // Act
+            HttpResponseMessage postResponse = await client.PostAsync(postUri, JsonContent.Create(newApp, new MediaTypeHeaderValue("application/json")));
+            string postContent = await postResponse.Content.ReadAsStringAsync();
+            Application createdApp = JsonConvert.DeserializeObject(postContent, typeof(Application)) as Application;
+
+            HttpResponseMessage getResponse = await client.GetAsync(getUri);
+            string getContent = await getResponse.Content.ReadAsStringAsync();
+            Application retrievedApp = JsonConvert.DeserializeObject(getContent, typeof(Application)) as Application;
+
+            // Assert
+            Assert.Equal(HttpStatusCode.Created, postResponse.StatusCode);
+
+            Assert.NotNull(createdApp);
+            Assert.Empty(createdApp.DataTypes);
+            Assert.NotNull(createdApp.DataTypes);
+
+            Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+
+            Assert.Equal(retrievedApp.Id, newApp.Id);
+            Assert.Equal(retrievedApp.Org, newApp.Org);
+            Assert.Equal(retrievedApp.VersionId, newApp.VersionId);
+            Assert.Equal(retrievedApp.Created, existingApp.Created);
+            Assert.Equal(retrievedApp.CreatedBy, existingApp.CreatedBy);
+        }
+
+        /// <summary>
+        /// Scenario:
+        ///   Put a valid Application instance that already exists but holds a different version ID.
+        /// Expected Outcome:
+        ///   The response status is HttpStatusCode.OK.
+        ///   The returned Application instance reflects the updated version ID.
+        ///   The creation information (Created and CreatedBy) remains unchanged.
+        /// Success Criteria:
+        ///   The response has the correct status code.
+        ///   The returned Application instance reflects the updated version ID while retaining the original creation information.
+        /// </summary>
+        [Fact]
+        public async Task PutAndGet_ExistingApplication_ReturnsStatusCreatedAndCorrectData_CreationInfoUnchanged()
+        {
+            // Arrange
+            string org = "test";
+            string appName = "app20";
+            string requestUri = $"{BasePath}/applications/{org}/{appName}";
+
+            Application existingApp = CreateApplication(org, appName);
+            existingApp.Created = DateTime.UtcNow.AddDays(-15);
+            existingApp.CreatedBy = "testUser";
+            existingApp.VersionId = "v1.0.0";
+
+            Application newApp = CreateApplication(org, appName);
+            newApp.Created = DateTime.UtcNow;
+            newApp.CreatedBy = "anotherTestUser";
+            newApp.VersionId = "v1.0.1";
+
+            Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
+            applicationRepository.Setup(e => e.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(new Application
+            {
+                Id = newApp.Id,
+                Org = newApp.Org,
+                VersionId = newApp.VersionId,
+                Created = existingApp.Created,
+                CreatedBy = existingApp.CreatedBy
+            });
+            applicationRepository.Setup(e => e.Update(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
+
+            HttpClient client = GetTestClient(applicationRepository.Object);
+            string token = PrincipalUtil.GetAccessToken("studio.designer");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // Act
+            HttpResponseMessage putResponse = await client.PutAsync(requestUri, JsonContent.Create(newApp, new MediaTypeHeaderValue("application/json")));
+
+            HttpResponseMessage getResponse = await client.GetAsync(requestUri);
+            string getContent = await getResponse.Content.ReadAsStringAsync();
+            Application retrievedApp = JsonConvert.DeserializeObject(getContent, typeof(Application)) as Application;
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, putResponse.StatusCode);
+
+            Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+
+            Assert.Equal(retrievedApp.Id, newApp.Id);
+            Assert.Equal(retrievedApp.Org, newApp.Org);
+            Assert.Equal(retrievedApp.VersionId, newApp.VersionId);
+            Assert.Equal(retrievedApp.Created, existingApp.Created);
+            Assert.Equal(retrievedApp.CreatedBy, existingApp.CreatedBy);
+        }
+
+        /// <summary>
+        /// Scenario:
         ///   Soft delete an existing application but empty appId claim in context.
         /// Expected result:
         ///   Returns HttpStatus Forbidden and application will not be updated
