@@ -173,6 +173,14 @@ namespace Altinn.Platform.Storage.Controllers
                 InstanceEventType.SubstatusUpdated.ToString(),
                 InstanceEventType.Signed.ToString(),
                 InstanceEventType.SentToSign.ToString(),
+                InstanceEventType.SentToPayment.ToString(),
+                InstanceEventType.SentToSendIn.ToString(),
+                InstanceEventType.SentToFormFill.ToString(),
+                InstanceEventType.InstanceForwarded.ToString(),
+                InstanceEventType.InstanceRightRevoked.ToString(),
+                InstanceEventType.NotificationSentSms.ToString(),
+                InstanceEventType.MessageArchived.ToString(),
+                InstanceEventType.MessageRead.ToString(),
             };
 
             if (string.IsNullOrEmpty(instanceId))
