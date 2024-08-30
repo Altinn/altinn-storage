@@ -33,7 +33,7 @@ namespace Altinn.Platform.Storage.Services
         }
 
         /// <inheritdoc/>
-        public async Task StartFileScan(Instance instance, DataType dataType, DataElement dataElement, DateTimeOffset blobTimestamp, CancellationToken ct)
+        public async Task StartFileScan(Instance instance, DataType dataType, DataElement dataElement, DateTimeOffset blobTimestamp, int? storageContainerNumber, CancellationToken ct)
         {
             if (dataType.EnableFileScan)
             {
@@ -44,7 +44,8 @@ namespace Altinn.Platform.Storage.Services
                     Timestamp = blobTimestamp,
                     BlobStoragePath = dataElement.BlobStoragePath,
                     Filename = dataElement.Filename,
-                    Org = instance.Org
+                    Org = instance.Org,
+                    StorageContainerNumber = storageContainerNumber
                 };
 
                 string serialisedRequest = JsonSerializer.Serialize(

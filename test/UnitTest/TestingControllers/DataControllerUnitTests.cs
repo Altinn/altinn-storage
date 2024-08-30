@@ -217,7 +217,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 .Setup(ier => ier.DispatchEvent(It.IsAny<InstanceEventType>(), It.IsAny<Instance>(), It.IsAny<DataElement>()));
 
             dataServiceMock
-                .Setup(d => d.StartFileScan(It.IsAny<Instance>(), It.IsAny<DataType>(), It.IsAny<DataElement>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()));
+                .Setup(d => d.StartFileScan(It.IsAny<Instance>(), It.IsAny<DataType>(), It.IsAny<DataElement>(), It.IsAny<DateTimeOffset>(), null, It.IsAny<CancellationToken>()));
 
             Mock<HttpContext> httpContextMock = new();
             httpContextMock

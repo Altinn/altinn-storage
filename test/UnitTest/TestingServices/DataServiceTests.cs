@@ -32,7 +32,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             DateTimeOffset blobTimestamp = DateTimeOffset.UtcNow;
 
             // Act
-            await target.StartFileScan(instance, dataType, dataElement, blobTimestamp, CancellationToken.None);
+            await target.StartFileScan(instance, dataType, dataElement, blobTimestamp, null, CancellationToken.None);
 
             // Assert
             fileScanMock.Verify(f => f.EnqueueFileScan(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never());
@@ -54,7 +54,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             DateTimeOffset blobTimestamp = DateTimeOffset.UtcNow;
 
             // Act
-            await target.StartFileScan(instance, dataType, dataElement, blobTimestamp, CancellationToken.None);
+            await target.StartFileScan(instance, dataType, dataElement, blobTimestamp, null, CancellationToken.None);
 
             // Assert
             fileScanMock.Verify(
