@@ -42,11 +42,11 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<Stream> ReadBlob(string org, string blobStoragePath)
+        public async Task<Stream> ReadBlob(string org, string blobStoragePath, int? alternateContainerNumber)
         {
             try
             {
-                return await DownloadBlobAsync(org, blobStoragePath);
+                return await DownloadBlobAsync(org, blobStoragePath, alternateContainerNumber);
             }
             catch (RequestFailedException requestFailedException)
             {
@@ -57,7 +57,7 @@ namespace Altinn.Platform.Storage.Repository
 
                         _sasTokenProvider.InvalidateSasToken(org);
 
-                        return await DownloadBlobAsync(org, blobStoragePath);
+                        return await DownloadBlobAsync(org, blobStoragePath, alternateContainerNumber);
                     case "BlobNotFound":
                         _logger.LogWarning("Unable to find a blob based on the given information - {org}: {blobStoragePath}", org, blobStoragePath);
 
@@ -75,11 +75,11 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<(long ContentLength, DateTimeOffset LastModified)> WriteBlob(string org, Stream stream, string blobStoragePath)
+        public async Task<(long ContentLength, DateTimeOffset LastModified)> WriteBlob(string org, Stream stream, string blobStoragePath, int? alternateContainerNumber)
         {
             try
             {
-                var blobProps = await UploadFromStreamAsync(org, stream, blobStoragePath);
+                var blobProps = await UploadFromStreamAsync(org, stream, blobStoragePath, alternateContainerNumber);
                 return (blobProps.ContentLength, blobProps.LastModified);
             }
             catch (RequestFailedException requestFailedException)
@@ -100,11 +100,11 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<bool> DeleteBlob(string org, string blobStoragePath)
+        public async Task<bool> DeleteBlob(string org, string blobStoragePath, int? alternateContainerNumber)
         {
             try
             {
-                return await DeleteIfExistsAsync(org, blobStoragePath);
+                return await DeleteIfExistsAsync(org, blobStoragePath, alternateContainerNumber);
             }
             catch (RequestFailedException requestFailedException)
             {
@@ -115,7 +115,7 @@ namespace Altinn.Platform.Storage.Repository
 
                         _sasTokenProvider.InvalidateSasToken(org);
 
-                        return await DeleteIfExistsAsync(org, blobStoragePath);
+                        return await DeleteIfExistsAsync(org, blobStoragePath, alternateContainerNumber);
                     default:
                         throw;
                 }
@@ -123,9 +123,9 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<bool> DeleteDataBlobs(Instance instance)
+        public async Task<bool> DeleteDataBlobs(Instance instance, int? alternateContainerNumber)
         {
-            BlobContainerClient container = await CreateBlobClient(instance.Org);
+            BlobContainerClient container = await CreateBlobClient(instance.Org, alternateContainerNumber);
 
             if (container == null)
             {
@@ -153,9 +153,9 @@ namespace Altinn.Platform.Storage.Repository
             return true;
         }
 
-        private async Task<BlobProperties> UploadFromStreamAsync(string org, Stream stream, string fileName)
+        private async Task<BlobProperties> UploadFromStreamAsync(string org, Stream stream, string fileName, int? alternateContainerNumber)
         {
-            BlobClient blockBlob = await CreateBlobClient(org, fileName);
+            BlobClient blockBlob = await CreateBlobClient(org, fileName, alternateContainerNumber);
             BlobUploadOptions options = new()
             {
                 TransferValidation = new UploadTransferValidationOptions { ChecksumAlgorithm = StorageChecksumAlgorithm.MD5 }
@@ -166,32 +166,33 @@ namespace Altinn.Platform.Storage.Repository
             return properties;
         }
 
-        private async Task<Stream> DownloadBlobAsync(string org, string fileName)
+        private async Task<Stream> DownloadBlobAsync(string org, string fileName, int? alternateContainerNumber)
         {
-            BlobClient blockBlob = await CreateBlobClient(org, fileName);
+            BlobClient blockBlob = await CreateBlobClient(org, fileName, alternateContainerNumber);
 
             Azure.Response<BlobDownloadInfo> response = await blockBlob.DownloadAsync();
 
             return response.Value.Content;
         }
 
-        private async Task<bool> DeleteIfExistsAsync(string org, string fileName)
+        private async Task<bool> DeleteIfExistsAsync(string org, string fileName, int? alternateContainerNumber)
         {
-            BlobClient blockBlob = await CreateBlobClient(org, fileName);
+            BlobClient blockBlob = await CreateBlobClient(org, fileName, alternateContainerNumber);
 
             bool result = await blockBlob.DeleteIfExistsAsync();
 
             return result;
         }
 
-        private async Task<BlobClient> CreateBlobClient(string org, string blobName)
+        private async Task<BlobClient> CreateBlobClient(string org, string blobName, int? alternateContainerNumber)
         {
             if (!_storageConfiguration.AccountName.StartsWith("devstoreaccount1"))
             {
                 string sasToken = await _sasTokenProvider.GetSasToken(org);
 
                 string accountName = string.Format(_storageConfiguration.OrgStorageAccount, org);
-                string containerName = string.Format(_storageConfiguration.OrgStorageContainer, org);
+                string containerName = string.Format(_storageConfiguration.OrgStorageContainer, org)
+                    + (alternateContainerNumber != null ? $"-{alternateContainerNumber}" : null);
 
                 UriBuilder fullUri = new()
                 {
@@ -212,14 +213,15 @@ namespace Altinn.Platform.Storage.Repository
             return blobContainerClient.GetBlobClient(blobName);
         }
 
-        private async Task<BlobContainerClient> CreateBlobClient(string org)
+        private async Task<BlobContainerClient> CreateBlobClient(string org, int? alternateContainerNumber)
         {
             if (!_storageConfiguration.AccountName.Equals("devstoreaccount1"))
             {
                 string sasToken = await _sasTokenProvider.GetSasToken(org);
 
                 string accountName = string.Format(_storageConfiguration.OrgStorageAccount, org);
-                string containerName = string.Format(_storageConfiguration.OrgStorageContainer, org);
+                string containerName = string.Format(_storageConfiguration.OrgStorageContainer, org)
+                    + (alternateContainerNumber != null ? $"-{alternateContainerNumber}" : null);
 
                 UriBuilder fullUri = new()
                 {

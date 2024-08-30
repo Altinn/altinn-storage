@@ -123,11 +123,19 @@ namespace Altinn.Platform.Storage.Controllers
 
             Stopwatch stopwatch = Stopwatch.StartNew();
 
-            foreach (DataElement dataElement in dataElements)
+            Application app = null;
+            Instance instance = null;
+            foreach (DataElement dataElement in dataElements.OrderBy(d => d.InstanceGuid))
             {
                 try
                 {
-                    if (!await blobRepository.DeleteBlob(dataElement.BlobStoragePath.Split('/')[0], dataElement.BlobStoragePath))
+                    if (instance == null || instance.Id != dataElement.InstanceGuid)
+                    {
+                        (instance, _) = await instanceRepository.GetOne(new Guid(dataElement.InstanceGuid), false);
+                        app = await applicationRepository.FindOne(instance.AppId, instance.Org);
+                    }
+
+                    if (!await blobRepository.DeleteBlob(dataElement.BlobStoragePath.Split('/')[0], dataElement.BlobStoragePath, app.AlternateContainerNumber))
                     {
                         _logger.LogError(
                             "CleanupController // CleanupDataelements // Blob not found for dataElement Id: {dataElement.Id} Blobstoragepath: {blobStoragePath}",
@@ -176,7 +184,8 @@ namespace Altinn.Platform.Storage.Controllers
 
                 try
                 {
-                    blobsNoException = await blobRepository.DeleteDataBlobs(instance);
+                    Application app = await applicationRepository.FindOne(instance.AppId, instance.Org);
+                    blobsNoException = await blobRepository.DeleteDataBlobs(instance, app.AlternateContainerNumber);
 
                     if (blobsNoException)
                     {

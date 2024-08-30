@@ -95,8 +95,6 @@ namespace Altinn.Platform.Storage.Controllers
         [Produces("application/json")]
         public async Task<ActionResult<Instance>> CreateInstance([FromBody] Instance instance)
         {
-            //// TODO Open issue: what about createdby and lastchangedby?
-
             Instance storedInstance;
             try
             {
@@ -151,14 +149,13 @@ namespace Altinn.Platform.Storage.Controllers
         {
             DateTime created = new DateTime(createdTicks, DateTimeKind.Utc).ToLocalTime();
             DateTime lastChanged = new DateTime(changedTicks, DateTimeKind.Utc).ToLocalTime();
-
-            // TODO Open issue: what about createdby and lastchangedby? Ref. instance
-
             (Instance instance, long instanceId) = await _instanceRepository.GetOne(instanceGuid, false);
             if (instanceId == 0)
             {
                 return BadRequest("Instance not found");
             }
+
+            Application app = await _applicationRepository.FindOne(instance.AppId, instance.Org);
 
             DataElement storedDataElement;
             try
@@ -173,7 +170,7 @@ namespace Altinn.Platform.Storage.Controllers
                     InstanceGuid = instanceGuid.ToString(),
                     IsRead = true,
                     LastChanged = lastChanged,
-                    LastChangedBy = instance.LastChangedBy, // TODO: Find out what to populate here
+                    LastChangedBy = instance.LastChangedBy,
                     BlobStoragePath = DataElementHelper.DataFileName(instance.AppId, instanceGuid.ToString(), dataElementId),
                     Metadata = formid == null ? null : new()
                     {
@@ -196,7 +193,11 @@ namespace Altinn.Platform.Storage.Controllers
 
                 if (Request.ContentLength > 0)
                 {
-                    (dataElement.Size, _) = await _blobRepository.WriteBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}", theStream, dataElement.BlobStoragePath);
+                    (dataElement.Size, _) = await _blobRepository.WriteBlob(
+                        $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
+                        theStream,
+                        dataElement.BlobStoragePath,
+                        app.AlternateContainerNumber);
                 }
                 else
                 {
@@ -453,13 +454,15 @@ namespace Altinn.Platform.Storage.Controllers
                 return false;
             }
 
+            Application app = await _applicationRepository.FindOne(instance.AppId, instance.Org);
+
             if (_generalSettings.A2UseTtdAsServiceOwner)
             {
                 instance.Org = "ttd";
             }
 
             instance.Id = instanceId;
-            await _blobRepository.DeleteDataBlobs(instance);
+            await _blobRepository.DeleteDataBlobs(instance, app.AlternateContainerNumber);
             await _dataRepository.DeleteForInstance(instanceId);
             await _instanceEventRepository.DeleteAllInstanceEvents(instanceId);
             await _instanceRepository.Delete(instance);

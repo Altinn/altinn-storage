@@ -36,21 +36,25 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
 
             var dataServiceMock = new Mock<IDataService>();
             dataServiceMock.Setup(
-                dsm => dsm.GenerateSha256Hash(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<Guid>()))
+                dsm => dsm.GenerateSha256Hash(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int?>()))
                 .ReturnsAsync((Guid.NewGuid().ToString(), null));
             
             dataServiceMock.Setup(
-                dsm => dsm.UploadDataAndCreateDataElement(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<DataElement>(), 0));
+                dsm => dsm.UploadDataAndCreateDataElement(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<DataElement>(), 0, It.IsAny<int?>()));
 
             var instanceEventServiceMock = new Mock<IInstanceEventService>();
             instanceEventServiceMock.Setup(
                 esm => esm.DispatchEvent(It.Is<InstanceEventType>(ies => ies == InstanceEventType.Signed), It.IsAny<Instance>()));
 
+            var applicationRepositoryMock = new Mock<IApplicationRepository>();
+            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(new Application());
+
             var service = new InstanceService(
                 instanceRepositoryMock.Object, 
                 dataServiceMock.Object, 
                 applicationServiceMock.Object, 
-                instanceEventServiceMock.Object);
+                instanceEventServiceMock.Object,
+                applicationRepositoryMock.Object);
 
             SignRequest signRequest = new SignRequest
             {
@@ -85,11 +89,15 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             var dataServiceMock = new Mock<IDataService>();
             var instanceEventServiceMock = new Mock<IInstanceEventService>();
 
+            var applicationRepositoryMock = new Mock<IApplicationRepository>();
+            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(new Application());
+
             var service = new InstanceService(
                 instanceRepositoryMock.Object, 
                 dataServiceMock.Object, 
                 applicationServiceMock.Object, 
-                instanceEventServiceMock.Object);
+                instanceEventServiceMock.Object,
+                applicationRepositoryMock.Object);
 
             // Act
             (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), new SignRequest(), 1337);
@@ -119,11 +127,15 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             var dataServiceMock = new Mock<IDataService>();
             var instanceEventServiceMock = new Mock<IInstanceEventService>();
 
+            var applicationRepositoryMock = new Mock<IApplicationRepository>();
+            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(new Application());
+
             var service = new InstanceService(
                 instanceRepositoryMock.Object, 
                 dataServiceMock.Object, 
                 applicationServiceMock.Object, 
-                instanceEventServiceMock.Object);
+                instanceEventServiceMock.Object,
+                applicationRepositoryMock.Object);
 
             // Act
             (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), new SignRequest(), 1337);
@@ -151,9 +163,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 asm => asm.ValidateDataTypeForApp(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync((true, null));
 
+            var applicationRepositoryMock = new Mock<IApplicationRepository>();
+            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(new Application());
+
             var dataServiceMock = new Mock<IDataService>();
             dataServiceMock.Setup(
-                dsm => dsm.GenerateSha256Hash(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<Guid>()))
+                dsm => dsm.GenerateSha256Hash(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int?>()))
                 .ReturnsAsync((null, new ServiceError(404, "DataElement not found")));
 
             var instanceEventServiceMock = new Mock<IInstanceEventService>();
@@ -162,7 +177,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 instanceRepositoryMock.Object, 
                 dataServiceMock.Object, 
                 applicationServiceMock.Object, 
-                instanceEventServiceMock.Object);
+                instanceEventServiceMock.Object,
+                applicationRepositoryMock.Object);
             
             SignRequest signRequest = new SignRequest
             {

@@ -172,11 +172,11 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             });
 
             blobRepositoryMock
-                .Setup(d => d.ReadBlob(It.IsAny<string>(), It.IsAny<string>()))
+                .Setup(d => d.ReadBlob(It.IsAny<string>(), It.IsAny<string>(), null))
                 .ReturnsAsync(new MemoryStream(Encoding.UTF8.GetBytes("whatever")));
 
             blobRepositoryMock
-               .Setup(d => d.WriteBlob(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>()))
+               .Setup(d => d.WriteBlob(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), null))
                .ReturnsAsync((123145864564, DateTimeOffset.Now));
 
             instanceRepositoryMock

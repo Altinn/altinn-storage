@@ -32,7 +32,8 @@ namespace Altinn.Platform.Storage.Services
         /// <param name="org">The application owner id.</param>
         /// <param name="instanceGuid">the instance guid.</param>
         /// <param name="dataElementId">The data element guid.</param>
-        Task<(string FileHash, ServiceError ServiceError)> GenerateSha256Hash(string org, Guid instanceGuid, Guid dataElementId);
+        /// <param name="alternateContainerNumber">Alternate number to append to container name</param>
+        Task<(string FileHash, ServiceError ServiceError)> GenerateSha256Hash(string org, Guid instanceGuid, Guid dataElementId, int? alternateContainerNumber);
 
         /// <summary>
         /// Upload file and save dataElement
@@ -41,6 +42,7 @@ namespace Altinn.Platform.Storage.Services
         /// <param name="stream">Data to be written to blob storage.</param>
         /// <param name="dataElement">The data element to insert.</param>
         /// <param name="instanceInternalId">The internal id of the data element to insert.</param>
-        Task UploadDataAndCreateDataElement(string org, Stream stream, DataElement dataElement, long instanceInternalId);
+        /// <param name="alternateContainerNumber">Alternate number to append to container name</param>
+        Task UploadDataAndCreateDataElement(string org, Stream stream, DataElement dataElement, long instanceInternalId, int? alternateContainerNumber);
     }
 }
