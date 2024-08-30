@@ -111,6 +111,13 @@ namespace Altinn.Platform.Storage.Interface.Models
         public CopyInstanceSettings CopyInstanceSettings { get; set; }
 
         /// <summary>
+        /// Gets or sets an optional number to append to the storage container name
+        /// </summary>
+        [JsonProperty(PropertyName = "storageContainerNumber")]
+
+        public int? StorageContainerNumber { get; set; }
+
+        /// <summary>
         /// Gets or sets a boolean value indicating if users (user tokens) are disallowed from instantiating.
         /// Default value is <c>false</c>.
         /// </summary>
