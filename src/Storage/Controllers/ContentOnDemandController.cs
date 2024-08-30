@@ -83,7 +83,7 @@ namespace Altinn.Platform.Storage.Controllers
             using StreamReader reader = new(await _blobRepository.ReadBlob(
                 $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : org)}",
                 $"{org}/{app}/{instanceGuid}/data/{signatureElement.Id}",
-                application.AlternateContainerNumber));
+                application.StorageContainerNumber));
 
             // TODO Replace with proper formatting
             string line = null;
@@ -184,7 +184,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             return _a2OndemandFormattingService.GetFormdataHtml(
                 xsls,
-                await _blobRepository.ReadBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : org)}", $"{org}/{app}/{instanceGuid}/data/{xmlElement.Id}", application.AlternateContainerNumber),
+                await _blobRepository.ReadBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : org)}", $"{org}/{app}/{instanceGuid}/data/{xmlElement.Id}", application.StorageContainerNumber),
                 xmlElement.Created.ToString());
         }
     }

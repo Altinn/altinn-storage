@@ -199,7 +199,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (string.Equals(dataElement.BlobStoragePath, storageFileName))
             {
-                Stream dataStream = await _blobRepository.ReadBlob(instance.Org, storageFileName, app.AlternateContainerNumber);
+                Stream dataStream = await _blobRepository.ReadBlob(instance.Org, storageFileName, app.StorageContainerNumber);
 
                 if (dataStream == null)
                 {
@@ -312,11 +312,11 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             newData.Filename = HttpUtility.UrlDecode(newData.Filename);
-            (long length, DateTimeOffset blobTimestamp) = await _blobRepository.WriteBlob(instance.Org, theStream, newData.BlobStoragePath, appInfo.AlternateContainerNumber);
+            (long length, DateTimeOffset blobTimestamp) = await _blobRepository.WriteBlob(instance.Org, theStream, newData.BlobStoragePath, appInfo.StorageContainerNumber);
 
             if (length == 0L)
             {
-                await _blobRepository.DeleteBlob(instance.Org, newData.BlobStoragePath, appInfo.AlternateContainerNumber);
+                await _blobRepository.DeleteBlob(instance.Org, newData.BlobStoragePath, appInfo.StorageContainerNumber);
                 return BadRequest("Empty stream provided. Cannot persist data.");
             }
 
@@ -418,7 +418,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             DateTime changedTime = DateTime.UtcNow;
 
-            (long blobSize, DateTimeOffset blobTimestamp) = await _blobRepository.WriteBlob(instance.Org, theStream, blobStoragePathName, appInfo.AlternateContainerNumber);
+            (long blobSize, DateTimeOffset blobTimestamp) = await _blobRepository.WriteBlob(instance.Org, theStream, blobStoragePathName, appInfo.StorageContainerNumber);
 
             var updatedProperties = new Dictionary<string, object>()
             {
@@ -599,7 +599,7 @@ namespace Altinn.Platform.Storage.Controllers
         {
             string storageFileName = DataElementHelper.DataFileName(instance.AppId, dataElement.InstanceGuid, dataElement.Id);
 
-            await _blobRepository.DeleteBlob(instance.Org, storageFileName, application.AlternateContainerNumber);
+            await _blobRepository.DeleteBlob(instance.Org, storageFileName, application.StorageContainerNumber);
 
             await _dataRepository.Delete(dataElement);
 

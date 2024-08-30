@@ -113,9 +113,9 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// <summary>
         /// Gets or sets an optional alternate number to append to the storage container name
         /// </summary>
-        [JsonProperty(PropertyName = "alternateContainerNumber")]
+        [JsonProperty(PropertyName = "storageContainerNumber ")]
 
-        public int? AlternateContainerNumber { get; set; }
+        public int? StorageContainerNumber { get; set; }
 
         /// <summary>
         /// Gets or sets a boolean value indicating if users (user tokens) are disallowed from instantiating.

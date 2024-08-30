@@ -135,7 +135,7 @@ namespace Altinn.Platform.Storage.Controllers
                         app = await applicationRepository.FindOne(instance.AppId, instance.Org);
                     }
 
-                    if (!await blobRepository.DeleteBlob(dataElement.BlobStoragePath.Split('/')[0], dataElement.BlobStoragePath, app.AlternateContainerNumber))
+                    if (!await blobRepository.DeleteBlob(dataElement.BlobStoragePath.Split('/')[0], dataElement.BlobStoragePath, app.StorageContainerNumber))
                     {
                         _logger.LogError(
                             "CleanupController // CleanupDataelements // Blob not found for dataElement Id: {dataElement.Id} Blobstoragepath: {blobStoragePath}",
@@ -185,7 +185,7 @@ namespace Altinn.Platform.Storage.Controllers
                 try
                 {
                     Application app = await applicationRepository.FindOne(instance.AppId, instance.Org);
-                    blobsNoException = await blobRepository.DeleteDataBlobs(instance, app.AlternateContainerNumber);
+                    blobsNoException = await blobRepository.DeleteDataBlobs(instance, app.StorageContainerNumber);
 
                     if (blobsNoException)
                     {
