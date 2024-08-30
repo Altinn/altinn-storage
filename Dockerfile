@@ -9,6 +9,7 @@ RUN dotnet build ./DbTools.csproj -c Release -o /app_tools
 
 WORKDIR ../Storage/
 
+RUN dotnet build ./Altinn.Platform.Storage.Interface.csproj -c Release -o /app_output
 RUN dotnet build ./Altinn.Platform.Storage.csproj -c Release -o /app_output
 RUN dotnet publish ./Altinn.Platform.Storage.csproj -c Release -o /app_output
 
