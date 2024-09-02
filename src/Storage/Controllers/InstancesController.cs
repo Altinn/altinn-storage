@@ -85,60 +85,25 @@ namespace Altinn.Platform.Storage.Controllers
         /// <summary>
         /// Get all instances that match the given query parameters. Parameters can be combined. Unknown or illegal parameter values will result in 400 - bad request.
         /// </summary>
-        /// <param name="org">application owner.</param>
-        /// <param name="appId">application id.</param>
-        /// <param name="currentTaskId">Running process current task id.</param>
-        /// <param name="processIsComplete">Is process complete.</param>
-        /// <param name="processEndEvent">Process end state.</param>
-        /// <param name="processEnded">Process ended value.</param>
-        /// <param name="instanceOwnerPartyId">Instance owner id.</param>
-        /// <param name="instanceOwnerIdentifier">Instance owner identifier, i.e. Person:PersonNumber, Organisation:OrganisationNumber.</param>
-        /// <param name="lastChanged">Last changed date.</param>
-        /// <param name="created">Created time.</param>
-        /// <param name="visibleAfter">The visible after date time.</param>
-        /// <param name="dueBefore">The due before date time.</param>
-        /// <param name="excludeConfirmedBy">A string that will hide instances already confirmed by stakeholder.</param>
-        /// <param name="isSoftDeleted">Is the instance soft deleted.</param>
-        /// <param name="isHardDeleted">Is the instance hard deleted.</param>
-        /// <param name="isArchived">Is the instance archived.</param>
-        /// <param name="continuationToken">Continuation token.</param>
-        /// <param name="size">The page size.</param>
-        /// <returns>List of all instances for given instance owner.</returns>
+        /// <param name="queryParameters">The query parameters to retrieve instances data.</param>
+        /// <returns>A <seealso cref="List{T}"/> contains all instances for given instance owner.</returns>
         /// <!-- GET /instances?org=tdd or GET /instances?appId=tdd/app2 -->
         [Authorize]
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [Produces("application/json")]
-        public async Task<ActionResult<QueryResponse<Instance>>> GetInstances(
-            [FromQuery] string org,
-            [FromQuery] string appId,
-            [FromQuery(Name = "process.currentTask")] string currentTaskId,
-            [FromQuery(Name = "process.isComplete")] bool? processIsComplete,
-            [FromQuery(Name = "process.endEvent")] string processEndEvent,
-            [FromQuery(Name = "process.ended")] string processEnded,
-            [FromQuery(Name = "instanceOwner.partyId")] int? instanceOwnerPartyId,
-            [FromHeader(Name = "X-Ai-InstanceOwnerIdentifier")] string instanceOwnerIdentifier,
-            [FromQuery] string lastChanged,
-            [FromQuery] string created,
-            [FromQuery(Name = "visibleAfter")] string visibleAfter,
-            [FromQuery] string dueBefore,
-            [FromQuery] string excludeConfirmedBy,
-            [FromQuery(Name = "status.isSoftDeleted")] bool isSoftDeleted,
-            [FromQuery(Name = "status.isHardDeleted")] bool isHardDeleted,
-            [FromQuery(Name = "status.isArchived")] bool isArchived,
-            string continuationToken,
-            int? size)
+        public async Task<ActionResult<QueryResponse<Instance>>> GetInstances(InstanceQueryParameters queryParameters)
         {
-            int pageSize = size ?? 100;
             string selfContinuationToken = null;
             bool appOwnerRequestingInstances = false;
+            int pageSize = queryParameters.Size ?? 100;
 
             // if user is org
             string orgClaim = User.GetOrg();
             int? userId = User.GetUserIdAsInt();
 
-            if (instanceOwnerPartyId.HasValue && !string.IsNullOrEmpty(instanceOwnerIdentifier))
+            if (queryParameters.InstanceOwnerPartyId.HasValue && !string.IsNullOrEmpty(queryParameters.InstanceOwnerIdentifier))
             {
                 return BadRequest("Both InstanceOwner.PartyId and InstanceOwnerIdentifier cannot be present at the same time.");
             }
@@ -150,14 +115,14 @@ namespace Altinn.Platform.Storage.Controllers
                     return Forbid();
                 }
 
-                if (string.IsNullOrEmpty(org) && string.IsNullOrEmpty(appId))
+                if (string.IsNullOrEmpty(queryParameters.Org) && string.IsNullOrEmpty(queryParameters.AppId))
                 {
                     return BadRequest("Org or AppId must be defined.");
                 }
 
-                org = string.IsNullOrEmpty(org) ? appId.Split('/')[0] : org;
+                queryParameters.Org = string.IsNullOrEmpty(queryParameters.Org) ? queryParameters.AppId.Split('/')[0] : queryParameters.Org;
 
-                if (!orgClaim.Equals(org, StringComparison.InvariantCultureIgnoreCase))
+                if (!orgClaim.Equals(queryParameters.Org, StringComparison.InvariantCultureIgnoreCase))
                 {
                     return Forbid();
                 }
@@ -166,7 +131,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
             else if (userId != null)
             {
-                if (instanceOwnerPartyId == null && string.IsNullOrEmpty(instanceOwnerIdentifier))
+                if (queryParameters.InstanceOwnerPartyId == null && string.IsNullOrEmpty(queryParameters.InstanceOwnerIdentifier))
                 {
                     return BadRequest("Either InstanceOwnerPartyId or InstanceOwnerIdentifier need to be defined.");
                 }
@@ -176,9 +141,9 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest();
             }
 
-            if (!string.IsNullOrEmpty(instanceOwnerIdentifier))
+            if (!string.IsNullOrEmpty(queryParameters.InstanceOwnerIdentifier))
             {
-                (string instanceOwnerIdType, string instanceOwnerIdValue) = InstanceHelper.GetIdentifierFromInstanceOwnerIdentifier(instanceOwnerIdentifier);
+                (string instanceOwnerIdType, string instanceOwnerIdValue) = InstanceHelper.GetIdentifierFromInstanceOwnerIdentifier(queryParameters.InstanceOwnerIdentifier);
 
                 if (string.IsNullOrEmpty(instanceOwnerIdType) || string.IsNullOrEmpty(instanceOwnerIdValue))
                 {
@@ -212,9 +177,9 @@ namespace Altinn.Platform.Storage.Controllers
                     }
                 }
 
-                instanceOwnerPartyId = _registerService.PartyLookup(person, orgNo).GetAwaiter().GetResult();
+                queryParameters.InstanceOwnerPartyId = _registerService.PartyLookup(person, orgNo).GetAwaiter().GetResult();
 
-                if (instanceOwnerPartyId < 0)
+                if (queryParameters.InstanceOwnerPartyId < 0)
                 {
                     QueryResponse<Instance> response = new()
                     {
@@ -225,16 +190,16 @@ namespace Altinn.Platform.Storage.Controllers
                 }
             }
 
-            if (!string.IsNullOrEmpty(continuationToken))
+            if (!string.IsNullOrEmpty(queryParameters.ContinuationToken))
             {
-                selfContinuationToken = continuationToken;
-                continuationToken = HttpUtility.UrlDecode(continuationToken);
+                selfContinuationToken = queryParameters.ContinuationToken;
+                queryParameters.ContinuationToken = HttpUtility.UrlDecode(queryParameters.ContinuationToken);
             }
 
             Dictionary<string, StringValues> queryParams = QueryHelpers.ParseQuery(Request.QueryString.Value);
-            if (instanceOwnerPartyId > 0)
+            if (queryParameters.InstanceOwnerPartyId > 0)
             {
-                queryParams["instanceOwner.partyId"] = new StringValues(instanceOwnerPartyId.ToString());
+                queryParams["instanceOwner.partyId"] = new StringValues(queryParameters.InstanceOwnerPartyId.ToString());
             }
 
             // filter out hard deleted instances if it isn't appOwner requesting instances
@@ -268,7 +233,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             try
             {
-                InstanceQueryResponse result = await _instanceRepository.GetInstancesFromQuery(queryParams, continuationToken, pageSize, true);
+                InstanceQueryResponse result = await _instanceRepository.GetInstancesFromQuery(queryParams, queryParameters.ContinuationToken, pageSize, true);
 
                 if (!string.IsNullOrEmpty(result.Exception))
                 {
