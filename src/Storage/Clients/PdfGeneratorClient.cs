@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
@@ -39,6 +41,13 @@ public class PdfGeneratorClient: IPdfGeneratorClient
     public async Task<Stream> GeneratePdf(string url)
     {
         string requestContent = """{"url": "_url_"}""".Replace("_url_", url);
+        if (DateTime.Now.Minute > 30)
+        {
+            var request = new PdfGeneratorRequest() { Url = url };
+            request.Options = new() { Format = "A4", DisplayHeaderFooter = true };
+            requestContent = JsonSerializer.Serialize(request);
+        }
+
         var httpResponseMessage = await _httpClient.PostAsync(_httpClient.BaseAddress, new StringContent(requestContent, Encoding.UTF8, "application/json"));
 
         if (!httpResponseMessage.IsSuccessStatusCode)
@@ -59,5 +68,78 @@ public class PdfGeneratorClient: IPdfGeneratorClient
         }
 
         return await httpResponseMessage.Content.ReadAsStreamAsync();
+    }
+
+    /// <summary>
+    /// This class is created to match the input required to generate a PDF by the PDF generator service.
+    /// </summary>
+    internal class PdfGeneratorRequest
+    {
+        /// <summary>
+        /// The Url that the PDF generator will used to obtain the HTML needed to created the PDF.
+        /// </summary>
+        public string Url { get; set; } = string.Empty;
+
+        /// <summary>
+        /// PDF generator request options.
+        /// </summary>
+        public PdfGeneratorRequestOptions Options { get; set; } = new();
+    }
+
+    /// <summary>
+    /// This class is created to match the PDF generator options used by the PDF generator.
+    /// </summary>
+    internal class PdfGeneratorRequestOptions
+    {
+        /// <summary>
+        /// Indicate whether header and footer should be included.
+        /// </summary>
+        public bool DisplayHeaderFooter { get; set; } = false;
+
+        /// <summary>
+        /// Indicate wheter the background should be included.
+        /// </summary>
+        public bool PrintBackground { get; set; } = false;
+
+        /// <summary>
+        /// Defines the page size. Default is A4.
+        /// </summary>
+        public string Format { get; set; } = "A4";
+
+        /// <summary>
+        /// Whether to print in landscape orientation
+        /// </summary>
+        public bool Landscape { get; set; } = false;
+
+        /// <summary>
+        /// Defines the page margins. Default is "0.4in" on all sides.
+        /// </summary>
+        public MarginOptions Margin { get; set; } = null; //// new();
+    }
+
+    /// <summary>
+    /// This class is created to match the PDF generator marking options.
+    /// </summary>
+    internal class MarginOptions
+    {
+        /// <summary>
+        /// Top margin, accepts values labeled with units.
+        /// </summary>
+        public string Top { get; set; } = "0.75in";
+
+        /// <summary>
+        /// Left margin, accepts values labeled with units
+        /// </summary>
+        public string Left { get; set; } = "0.75in";
+
+        /// <summary>
+        /// Bottom margin, accepts values labeled with units
+        /// </summary>
+        public string Bottom { get; set; } = "0.75in";
+
+        /// <summary>
+        /// Right margin, accepts values labeled with units
+        /// </summary>
+        public string Right { get; set; } = "0.75in";
     }
 }
