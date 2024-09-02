@@ -20,6 +20,8 @@ public class PdfGeneratorClient: IPdfGeneratorClient
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger<PdfGeneratorClient> _logger;
+    private static readonly JsonSerializerOptions _jsonSerializerOptions =
+        new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PdfGeneratorClient"/> class.
@@ -41,11 +43,11 @@ public class PdfGeneratorClient: IPdfGeneratorClient
     public async Task<Stream> GeneratePdf(string url)
     {
         string requestContent = """{"url": "_url_"}""".Replace("_url_", url);
-        if (DateTime.Now.Minute > 30)
+        if (DateTime.Now.Second > 30)
         {
             var request = new PdfGeneratorRequest() { Url = url };
             request.Options = new() { Format = "A4", DisplayHeaderFooter = true };
-            requestContent = JsonSerializer.Serialize(request);
+            requestContent = JsonSerializer.Serialize(request, _jsonSerializerOptions);
         }
 
         var httpResponseMessage = await _httpClient.PostAsync(_httpClient.BaseAddress, new StringContent(requestContent, Encoding.UTF8, "application/json"));
