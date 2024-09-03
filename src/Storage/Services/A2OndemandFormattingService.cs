@@ -713,6 +713,12 @@ namespace Altinn.Platform.Storage.Services
         public string Id { get; set; }
 
         /// <summary>
+        /// Gets or sets the page number within the logical form
+        /// </summary>
+        [DataMember]
+        public int PageNumber { get; set; }
+
+        /// <summary>
         /// Gets or sets Identifier used to identify Logical Form Name in the Form Set Collection
         /// </summary>
         [DataMember]

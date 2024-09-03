@@ -128,26 +128,58 @@ namespace Altinn.Platform.Storage.Controllers
         [HttpGet("formdatapdf")]
         public async Task<Stream> GetFormdataAsPdf([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
-            using (var mergedDoc = new PdfDocument())
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
+            DataElement htmlElement = instance.Data.First(d => d.Id == dataGuid.ToString());
+            string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;
+            DataElement xmlElement = instance.Data.First(d => d.Metadata.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id);
+            string visiblePagesString = xmlElement.Metadata.FirstOrDefault(m => m.Key == "A2VisiblePages")?.Value;
+            List<int> visiblePages = !string.IsNullOrEmpty(visiblePagesString) ? visiblePagesString.Split(';').Select(int.Parse).ToList() : null;
+
+            int lformid = int.Parse(xmlElement.Metadata.First(m => m.Key == "lformid").Value);
+            PrintViewXslBEList xsls = [];
+            int pageNumber = 1;
+            foreach ((string xsl, bool isPortrait) in await _a2Repository.GetXsls(org, app, lformid, language, 3))
             {
-                for (int j = 0; j < 2; ++j)
+                if (visiblePages == null || visiblePages.Contains(pageNumber))
                 {
-                    var pdfPages = await _pdfGeneratorClient.GeneratePdf($"{Request.Scheme}://{Request.Host}{Request.PathBase}{Request.Path}{Request.QueryString}".Replace("formdatapdf", "formdatahtml"));
-                    using (var pageDoc = PdfReader.Open(pdfPages, PdfDocumentOpenMode.Import))
-                    {
-                        for (var i = 0; i < pageDoc.PageCount; i++)
-                        {
-                            mergedDoc.AddPage(pageDoc.Pages[i]);
-                        }
-                    }
+                    xsls.Add(new PrintViewXslBE() { PrintViewXsl = xsl, Id = $"{lformid}-{pageNumber}{language}", IsPortrait = isPortrait, PageNumber = pageNumber });
                 }
 
-                MemoryStream mergedPdf = new MemoryStream();
-                mergedDoc.Save(mergedPdf);
-                return mergedPdf;
+                ++pageNumber;
             }
 
-            ////return await _pdfGeneratorClient.GeneratePdf($"{Request.Scheme}://{Request.Host}{Request.PathBase}{Request.Path}{Request.QueryString}".Replace("formdatapdf", "formdatahtml"));
+            if (xsls.Count > 1 && xsls.Exists(x => x.IsPortrait) && xsls.Exists(x => !x.IsPortrait))
+            {
+                // Mix of portrait and landscape, we must generate each page and merge them
+                using (var mergedDoc = new PdfDocument())
+                {
+                    foreach (var xsl in xsls)
+                    {
+                        var pdfPages = await _pdfGeneratorClient.GeneratePdf(
+                            $"{Request.Scheme}://{Request.Host}{Request.PathBase}{Request.Path}{Request.QueryString}"
+                                .Replace("formdatapdf", $"formdatahtml/{xsl.PageNumber}"),
+                            xsl.IsPortrait);
+                        using (var pageDoc = PdfReader.Open(pdfPages, PdfDocumentOpenMode.Import))
+                        {
+                            for (var i = 0; i < pageDoc.PageCount; i++)
+                            {
+                                mergedDoc.AddPage(pageDoc.Pages[i]);
+                            }
+                        }
+                    }
+
+                    MemoryStream mergedPdf = new MemoryStream();
+                    mergedDoc.Save(mergedPdf);
+                    return mergedPdf;
+                }
+            }
+            else
+            {
+                // Generate all pages in a single operation
+                return await _pdfGeneratorClient.GeneratePdf(
+                    $"{Request.Scheme}://{Request.Host}{Request.PathBase}{Request.Path}{Request.QueryString}".Replace("formdatapdf", "formdatahtml"),
+                    xsls[0].IsPortrait);
+            }
         }
 
         /// <summary>
@@ -158,11 +190,12 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceGuid">instanceGuid</param>
         /// <param name="dataGuid">dataGuid</param>
         /// <param name="language">language</param>
+        /// <param name="singlePageNr">optional filter for a single page number</param>
         /// <returns>The formatted content</returns>
-        [HttpGet("formdatahtml")]
-        public async Task<Stream> GetFormdataAsHtml([FromRoute]string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
+        [HttpGet("formdatahtml/{singlepagenr?}")]
+        public async Task<Stream> GetFormdataAsHtml([FromRoute]string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language, [FromRoute(Name = "singlepagenr")] int singlePageNr = -1)
         {
-            return await GetFormdataAsHtmlInternal(org, app, instanceGuid, dataGuid, language, 3);
+            return await GetFormdataAsHtmlInternal(org, app, instanceGuid, dataGuid, language, 3, singlePageNr);
         }
 
         /// <summary>
@@ -180,7 +213,7 @@ namespace Altinn.Platform.Storage.Controllers
             return await GetFormdataAsHtmlInternal(org, app, instanceGuid, dataGuid, language, 2);
         }
 
-        private async Task<Stream> GetFormdataAsHtmlInternal(string org, string app, Guid instanceGuid, Guid dataGuid, string language, int viewType)
+        private async Task<Stream> GetFormdataAsHtmlInternal(string org, string app, Guid instanceGuid, Guid dataGuid, string language, int viewType, int singlePageNr = -1)
         {
             (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
             Application application = await _applicationRepository.FindOne(instance.AppId, instance.Org);
@@ -193,11 +226,11 @@ namespace Altinn.Platform.Storage.Controllers
             PrintViewXslBEList xsls = [];
             int lformid = int.Parse(xmlElement.Metadata.First(m => m.Key == "lformid").Value);
             int pageNumber = 1;
-            foreach (var xsl in await _a2Repository.GetXsls(org, app, lformid, language, viewType))
+            foreach ((string xsl, bool isPortrait) in await _a2Repository.GetXsls(org, app, lformid, language, viewType))
             {
-                if (visiblePages == null || visiblePages.Contains(pageNumber))
+                if ((singlePageNr != -1 && singlePageNr == pageNumber) || (singlePageNr == -1 && (visiblePages == null || visiblePages.Contains(pageNumber))))
                 {
-                    xsls.Add(new PrintViewXslBE() { PrintViewXsl = xsl, Id = $"{lformid}-{pageNumber}{language}" });
+                    xsls.Add(new PrintViewXslBE() { PrintViewXsl = xsl, Id = $"{lformid}-{pageNumber}{language}", IsPortrait = isPortrait, PageNumber = pageNumber });
                 }
 
                 ++pageNumber;

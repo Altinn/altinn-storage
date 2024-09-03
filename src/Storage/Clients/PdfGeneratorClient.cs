@@ -40,13 +40,13 @@ public class PdfGeneratorClient: IPdfGeneratorClient
     }
 
     /// <inheritdoc/>
-    public async Task<Stream> GeneratePdf(string url)
+    public async Task<Stream> GeneratePdf(string url, bool isPortrait)
     {
         string requestContent = """{"url": "_url_"}""".Replace("_url_", url);
         if (DateTime.Now.Second >= 0)
         {
             var request = new PdfGeneratorRequest() { Url = url };
-            request.Options = new();
+            request.Options = new() { Landscape = !isPortrait };
             requestContent = JsonSerializer.Serialize(request, _jsonSerializerOptions)
                 .Replace("footer-replace", "<div style='text-align: right;width: 297mm;font-size: 8px;'><span style='margin-right: 1cm'><span class='pageNumber'></span>tjobing</span></div>"); // Avoid escape issues with json serialization
         }
@@ -147,7 +147,7 @@ public class PdfGeneratorClient: IPdfGeneratorClient
         /// <summary>
         /// Bottom margin, accepts values labeled with units
         /// </summary>
-        public string Bottom { get; set; } = "2cm";
+        public string Bottom { get; set; } = "0cm";
 
         /// <summary>
         /// Right margin, accepts values labeled with units

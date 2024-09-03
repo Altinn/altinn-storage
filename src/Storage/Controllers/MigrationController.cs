@@ -415,14 +415,14 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="xsltype">Xsl type</param>
         /// <returns>Ok</returns>
         [AllowAnonymous]
-        [HttpPost("xsl/{org}/{app}/{lformid}/{pagenumber}/{language}/{xsltype}")]
+        [HttpPost("xsl/{org}/{app}/{lformid}/{pagenumber}/{language}/{xsltype}/{isportrait}")]
         [DisableFormValueModelBinding]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [Produces("application/json")]
-        public async Task<ActionResult> CreateXsl([FromRoute] string org, [FromRoute] string app, [FromRoute] int lformid, [FromRoute] int pagenumber, [FromRoute] string language, [FromRoute] int xsltype)
+        public async Task<ActionResult> CreateXsl([FromRoute] string org, [FromRoute] string app, [FromRoute] int lformid, [FromRoute] int pagenumber, [FromRoute] string language, [FromRoute] int xsltype, [FromRoute(Name = "isportrait")] bool isPortrait)
         {
             using var reader = new StreamReader(Request.Body);
-            await _a2Repository.CreateXsl(org, app, lformid, language, pagenumber, await reader.ReadToEndAsync(), xsltype);
+            await _a2Repository.CreateXsl(org, app, lformid, language, pagenumber, await reader.ReadToEndAsync(), xsltype, isPortrait);
             return Created();
         }
 
