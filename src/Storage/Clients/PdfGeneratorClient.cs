@@ -113,6 +113,11 @@ public class PdfGeneratorClient: IPdfGeneratorClient
         public string Format { get; set; } = "A4";
 
         /// <summary>
+        /// Linked to DisplayHeaderFooter
+        /// </summary>
+        public string FooterTemplate { get; set; } = "<div class='pageNumber'></div>";
+
+        /// <summary>
         /// Whether to print in landscape orientation
         /// </summary>
         public bool Landscape { get; set; } = false;
@@ -120,7 +125,7 @@ public class PdfGeneratorClient: IPdfGeneratorClient
         /// <summary>
         /// Defines the page margins. Default is "0.4in" on all sides.
         /// </summary>
-        public MarginOptions Margin { get; set; } = new();
+        ////public MarginOptions Margin { get; set; } = new();
     }
 
     /// <summary>
