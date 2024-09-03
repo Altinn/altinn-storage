@@ -48,7 +48,7 @@ public class PdfGeneratorClient: IPdfGeneratorClient
             var request = new PdfGeneratorRequest() { Url = url };
             request.Options = new();
             requestContent = JsonSerializer.Serialize(request, _jsonSerializerOptions)
-                .Replace("footer-replace", "<div class='pageNumber'></div>"); // Avoid escape issues with json serialization
+                .Replace("footer-replace", "<div style='text-align: right;width: 297mm;font-size: 8px;'><span style='margin-right: 1cm'><span class='pageNumber'></span>tjobing</span></div>"); // Avoid escape issues with json serialization
         }
 
         Console.WriteLine("\r\n\r\n" + requestContent + "\r\n\r\n");
@@ -137,21 +137,21 @@ public class PdfGeneratorClient: IPdfGeneratorClient
         /// <summary>
         /// Top margin, accepts values labeled with units.
         /// </summary>
-        public string Top { get; set; } = "0";
+        public string Top { get; set; } = "-1cm";
 
         /// <summary>
         /// Left margin, accepts values labeled with units
         /// </summary>
-        public string Left { get; set; } = "0";
+        public string Left { get; set; } = "-1cm";
 
         /// <summary>
         /// Bottom margin, accepts values labeled with units
         /// </summary>
-        public string Bottom { get; set; } = "0";
+        public string Bottom { get; set; } = "2cm";
 
         /// <summary>
         /// Right margin, accepts values labeled with units
         /// </summary>
-        public string Right { get; set; } = "0";
+        public string Right { get; set; } = "-1cm";
     }
 }
