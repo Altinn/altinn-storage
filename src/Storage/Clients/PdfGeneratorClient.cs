@@ -137,12 +137,12 @@ public class PdfGeneratorClient: IPdfGeneratorClient
         /// <summary>
         /// Top margin, accepts values labeled with units.
         /// </summary>
-        public string Top { get; set; } = "-1cm";
+        public string Top { get; set; } = "0cm";
 
         /// <summary>
         /// Left margin, accepts values labeled with units
         /// </summary>
-        public string Left { get; set; } = "-1cm";
+        public string Left { get; set; } = "0cm";
 
         /// <summary>
         /// Bottom margin, accepts values labeled with units
@@ -152,6 +152,6 @@ public class PdfGeneratorClient: IPdfGeneratorClient
         /// <summary>
         /// Right margin, accepts values labeled with units
         /// </summary>
-        public string Right { get; set; } = "-1cm";
+        public string Right { get; set; } = "0cm";
     }
 }
