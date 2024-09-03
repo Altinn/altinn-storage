@@ -47,7 +47,8 @@ public class PdfGeneratorClient: IPdfGeneratorClient
         {
             var request = new PdfGeneratorRequest() { Url = url };
             request.Options = new();
-            requestContent = JsonSerializer.Serialize(request, _jsonSerializerOptions);
+            requestContent = JsonSerializer.Serialize(request, _jsonSerializerOptions)
+                .Replace("footer-replace", "<div class='pageNumber'></div>"); // Avoid escape issues with json serialization
         }
 
         Console.WriteLine("\r\n\r\n" + requestContent + "\r\n\r\n");
@@ -115,7 +116,7 @@ public class PdfGeneratorClient: IPdfGeneratorClient
         /// <summary>
         /// Linked to DisplayHeaderFooter
         /// </summary>
-        public string FooterTemplate { get; set; } = "<div class='pageNumber'></div>";
+        public string FooterTemplate { get; set; } = "footer-replace";
 
         /// <summary>
         /// Whether to print in landscape orientation
@@ -125,7 +126,7 @@ public class PdfGeneratorClient: IPdfGeneratorClient
         /// <summary>
         /// Defines the page margins. Default is "0.4in" on all sides.
         /// </summary>
-        ////public MarginOptions Margin { get; set; } = new();
+        public MarginOptions Margin { get; set; } = new();
     }
 
     /// <summary>
@@ -136,21 +137,21 @@ public class PdfGeneratorClient: IPdfGeneratorClient
         /// <summary>
         /// Top margin, accepts values labeled with units.
         /// </summary>
-        public string Top { get; set; } = "0.75in";
+        public string Top { get; set; } = "0";
 
         /// <summary>
         /// Left margin, accepts values labeled with units
         /// </summary>
-        public string Left { get; set; } = "0.75in";
+        public string Left { get; set; } = "0";
 
         /// <summary>
         /// Bottom margin, accepts values labeled with units
         /// </summary>
-        public string Bottom { get; set; } = "0.75in";
+        public string Bottom { get; set; } = "0";
 
         /// <summary>
         /// Right margin, accepts values labeled with units
         /// </summary>
-        public string Right { get; set; } = "0.75in";
+        public string Right { get; set; } = "0";
     }
 }
