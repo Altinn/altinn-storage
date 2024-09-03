@@ -163,6 +163,12 @@ namespace Altinn.Platform.Storage.Controllers
                         {
                             for (var i = 0; i < pageDoc.PageCount; i++)
                             {
+                                pageDoc.Pages[i].Orientation = xsl.IsPortrait ? PdfSharp.PageOrientation.Portrait : PdfSharp.PageOrientation.Landscape;
+                                if (i > 0)
+                                {
+                                    Console.WriteLine("Unexpected page number: " + 1);
+                                }
+
                                 mergedDoc.AddPage(pageDoc.Pages[i]);
                             }
                         }
