@@ -13,6 +13,8 @@ using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using PdfSharp.Pdf;
+using PdfSharp.Pdf.IO;
 
 namespace Altinn.Platform.Storage.Controllers
 {
@@ -126,7 +128,26 @@ namespace Altinn.Platform.Storage.Controllers
         [HttpGet("formdatapdf")]
         public async Task<Stream> GetFormdataAsPdf([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
-            return await _pdfGeneratorClient.GeneratePdf($"{Request.Scheme}://{Request.Host}{Request.PathBase}{Request.Path}{Request.QueryString}".Replace("formdatapdf", "formdatahtml"));
+            using (var mergedDoc = new PdfDocument())
+            {
+                for (int j = 0; j < 2; ++j)
+                {
+                    var pdfPages = await _pdfGeneratorClient.GeneratePdf($"{Request.Scheme}://{Request.Host}{Request.PathBase}{Request.Path}{Request.QueryString}".Replace("formdatapdf", "formdatahtml"));
+                    using (var pageDoc = PdfReader.Open(pdfPages, PdfDocumentOpenMode.Import))
+                    {
+                        for (var i = 0; i < pageDoc.PageCount; i++)
+                        {
+                            mergedDoc.AddPage(pageDoc.Pages[i]);
+                        }
+                    }
+                }
+
+                MemoryStream mergedPdf = new MemoryStream();
+                mergedDoc.Save(mergedPdf);
+                return mergedPdf;
+            }
+
+            ////return await _pdfGeneratorClient.GeneratePdf($"{Request.Scheme}://{Request.Host}{Request.PathBase}{Request.Path}{Request.QueryString}".Replace("formdatapdf", "formdatahtml"));
         }
 
         /// <summary>
