@@ -43,10 +43,10 @@ public class PdfGeneratorClient: IPdfGeneratorClient
     public async Task<Stream> GeneratePdf(string url)
     {
         string requestContent = """{"url": "_url_"}""".Replace("_url_", url);
-        if (DateTime.Now.Second > 30)
+        if (DateTime.Now.Second >= 0)
         {
             var request = new PdfGeneratorRequest() { Url = url };
-            request.Options = new() { Format = "A4", DisplayHeaderFooter = true };
+            request.Options = new();
             requestContent = JsonSerializer.Serialize(request, _jsonSerializerOptions);
         }
 
@@ -100,12 +100,12 @@ public class PdfGeneratorClient: IPdfGeneratorClient
         /// <summary>
         /// Indicate whether header and footer should be included.
         /// </summary>
-        public bool DisplayHeaderFooter { get; set; } = false;
+        public bool DisplayHeaderFooter { get; set; } = true;
 
         /// <summary>
         /// Indicate wheter the background should be included.
         /// </summary>
-        public bool PrintBackground { get; set; } = false;
+        public bool PrintBackground { get; set; } = true;
 
         /// <summary>
         /// Defines the page size. Default is A4.
@@ -120,7 +120,7 @@ public class PdfGeneratorClient: IPdfGeneratorClient
         /// <summary>
         /// Defines the page margins. Default is "0.4in" on all sides.
         /// </summary>
-        ////public MarginOptions Margin { get; set; } = null; //// new();
+        public MarginOptions Margin { get; set; } = new();
     }
 
     /// <summary>
