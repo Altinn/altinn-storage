@@ -50,6 +50,8 @@ public class PdfGeneratorClient: IPdfGeneratorClient
             requestContent = JsonSerializer.Serialize(request, _jsonSerializerOptions);
         }
 
+        Console.WriteLine("\r\n\r\n" + requestContent + "\r\n\r\n");
+
         var httpResponseMessage = await _httpClient.PostAsync(_httpClient.BaseAddress, new StringContent(requestContent, Encoding.UTF8, "application/json"));
 
         if (!httpResponseMessage.IsSuccessStatusCode)
@@ -65,6 +67,8 @@ public class PdfGeneratorClient: IPdfGeneratorClient
                 content,
                 httpResponseMessage.StatusCode.ToString(),
                 httpResponseMessage.ReasonPhrase);
+
+            Console.WriteLine("Pdf error: " + httpResponseMessage.StatusCode);
 
             throw ex;
         }
@@ -116,7 +120,7 @@ public class PdfGeneratorClient: IPdfGeneratorClient
         /// <summary>
         /// Defines the page margins. Default is "0.4in" on all sides.
         /// </summary>
-        public MarginOptions Margin { get; set; } = null; //// new();
+        ////public MarginOptions Margin { get; set; } = null; //// new();
     }
 
     /// <summary>
