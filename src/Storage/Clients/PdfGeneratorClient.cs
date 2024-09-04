@@ -80,7 +80,7 @@ public class PdfGeneratorClient: IPdfGeneratorClient
     /// <summary>
     /// This class is created to match the input required to generate a PDF by the PDF generator service.
     /// </summary>
-    internal class PdfGeneratorRequest
+    public class PdfGeneratorRequest
     {
         /// <summary>
         /// The Url that the PDF generator will used to obtain the HTML needed to created the PDF.
@@ -96,7 +96,7 @@ public class PdfGeneratorClient: IPdfGeneratorClient
     /// <summary>
     /// This class is created to match the PDF generator options used by the PDF generator.
     /// </summary>
-    internal class PdfGeneratorRequestOptions
+    public class PdfGeneratorRequestOptions
     {
         /// <summary>
         /// Indicate whether header and footer should be included.
@@ -132,7 +132,7 @@ public class PdfGeneratorClient: IPdfGeneratorClient
     /// <summary>
     /// This class is created to match the PDF generator marking options.
     /// </summary>
-    internal class MarginOptions
+    public class MarginOptions
     {
         /// <summary>
         /// Top margin, accepts values labeled with units.

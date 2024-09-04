@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Text;
 using System.Threading.Tasks;
 using System.Web;
 
@@ -23,6 +26,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
+using static Altinn.Platform.Storage.Clients.PdfGeneratorClient;
 
 namespace Altinn.Platform.Storage.Controllers
 {
@@ -44,6 +48,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly ILogger _logger;
         private readonly GeneralSettings _generalSettings;
         private readonly AzureStorageConfiguration _azureStorageSettings;
+        private readonly HttpClient _httpClient;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MigrationController"/> class
@@ -58,6 +63,8 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="logger">the logger</param>
         /// <param name="settings">the general settings.</param>
         /// <param name="azureStorageSettings">the azureStorage settings.</param>
+        /// <param name="generalSettings">Settings with endpoint uri</param>
+        /// <param name="httpClient">The HttpClient to use in communication with the PDF generator service.</param>
         public MigrationController(
             IInstanceRepository instanceRepository,
             IInstanceEventRepository instanceEventRepository,
@@ -68,7 +75,9 @@ namespace Altinn.Platform.Storage.Controllers
             ITextRepository textRepository,
             ILogger<MigrationController> logger,
             IOptions<GeneralSettings> settings,
-            IOptions<AzureStorageConfiguration> azureStorageSettings)
+            IOptions<AzureStorageConfiguration> azureStorageSettings,
+            IOptions<GeneralSettings> generalSettings,
+            HttpClient httpClient)
         {
             _instanceRepository = instanceRepository;
             _instanceEventRepository = instanceEventRepository;
@@ -80,6 +89,8 @@ namespace Altinn.Platform.Storage.Controllers
             _logger = logger;
             _generalSettings = settings.Value;
             _azureStorageSettings = azureStorageSettings.Value;
+            _httpClient = httpClient;
+            _httpClient.BaseAddress = new Uri(generalSettings.Value.PdfGeneratorEndpoint);
         }
 
         /// <summary>
@@ -444,6 +455,21 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             return Ok();
+        }
+
+        /// <summary>
+        /// Proxy call to pdf generator - used for local testing
+        /// </summary>
+        /// <param name="request">Pdf request</param>
+        /// <returns>Pdf as stream</returns>
+        [AllowAnonymous]
+        [HttpPost("pdfproxy")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [Produces("application/json")]
+        public async Task<Stream> ProxyGeneratePdf([FromBody] PdfGeneratorRequest request)
+        {
+            var httpResponseMessage = await _httpClient.PostAsJsonAsync(_httpClient.BaseAddress, request);
+            return await httpResponseMessage.Content.ReadAsStreamAsync();
         }
 
         private async Task<bool> CleanupOldMigrationInternal(string instanceId)
