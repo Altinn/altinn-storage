@@ -47,6 +47,11 @@ namespace Altinn.Platform.Storage.Services
             PrintViewXslBEList printViewXslBEList,
             string archiveStamp)
         {
+            if (printViewXslBEList[0].Id.Contains("2272"))
+            {
+                return "<html>tjo bing2!<!html>";
+            }
+
             XmlDocument xmlDoc = new();
             xmlDoc.Load(formData);
 
