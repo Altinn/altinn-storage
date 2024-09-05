@@ -12,8 +12,8 @@ public class AllowUserActions
     {
         Application applicationBefore = TestdataHelper.LoadDataFromEmbeddedResourceAsType<Application>("AllowUserActions.applicationMetadata_beforeChange.json");
 
-        applicationBefore.DataTypes.First(d => d.Id == "Veileder").AppLogic.AllowUserCreate.Should().BeFalse();
-        applicationBefore.DataTypes.First(d => d.Id == "Veileder").AppLogic.AllowUserDelete.Should().BeFalse();
+        applicationBefore.DataTypes.First(d => d.Id == "Veileder").AppLogic.DisallowUserCreate.Should().BeFalse();
+        applicationBefore.DataTypes.First(d => d.Id == "Veileder").AppLogic.DisallowUserDelete.Should().BeFalse();
     }
 
     [Fact]
@@ -21,7 +21,7 @@ public class AllowUserActions
     {
         Application applicationBefore = TestdataHelper.LoadDataFromEmbeddedResourceAsType<Application>("AllowUserActions.applicationMetadata_afterChange.json");
 
-        applicationBefore.DataTypes.First(d => d.Id == "Veileder").AppLogic.AllowUserCreate.Should().BeTrue();
-        applicationBefore.DataTypes.First(d => d.Id == "Veileder").AppLogic.AllowUserDelete.Should().BeTrue();
+        applicationBefore.DataTypes.First(d => d.Id == "Veileder").AppLogic.DisallowUserCreate.Should().BeTrue();
+        applicationBefore.DataTypes.First(d => d.Id == "Veileder").AppLogic.DisallowUserDelete.Should().BeFalse();
     }
 }
