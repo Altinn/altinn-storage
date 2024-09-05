@@ -129,7 +129,7 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 try
                 {
-                    if (instance == null || instance.Id != dataElement.InstanceGuid)
+                    if (instance == null || instance.Id.Split('/')[1] != dataElement.InstanceGuid)
                     {
                         (instance, _) = await instanceRepository.GetOne(new Guid(dataElement.InstanceGuid), false);
                         app = await applicationRepository.FindOne(instance.AppId, instance.Org);
