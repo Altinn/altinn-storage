@@ -113,7 +113,7 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// <summary>
         /// Gets or sets an optional alternate number to append to the storage container name
         /// </summary>
-        [JsonProperty(PropertyName = "storageContainerNumber ")]
+        [JsonProperty(PropertyName = "storageContainerNumber")]
 
         public int? StorageContainerNumber { get; set; }
 
