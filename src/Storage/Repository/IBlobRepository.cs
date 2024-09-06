@@ -16,7 +16,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="org">The application owner id.</param>
         /// <param name="stream">Data to be written to blob storage.</param>
         /// <param name="blobStoragePath">Path to save the stream to in blob storage.</param>
-        /// <param name="storageContainerNumber">Alternate number to append to container name</param>
+        /// <param name="storageContainerNumber">Storage container number for when a Storage account has more than one container.</param>
         /// <returns>The size of the blob.</returns>
         Task<(long ContentLength, DateTimeOffset LastModified)> WriteBlob(string org, Stream stream, string blobStoragePath, int? storageContainerNumber);
 
