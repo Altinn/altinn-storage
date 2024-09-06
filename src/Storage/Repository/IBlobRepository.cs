@@ -25,7 +25,7 @@ namespace Altinn.Platform.Storage.Repository
         /// </summary>
         /// <param name="org">The application owner id.</param>
         /// <param name="blobStoragePath">Path to be file to read blob storage.</param>
-        /// <param name="storageContainerNumber">Alternate number to append to container name</param>
+        /// <param name="storageContainerNumber">Storage container number for when a Storage account has more than one container.</param>
         /// <returns>The stream with the file</returns>
         Task<Stream> ReadBlob(string org, string blobStoragePath, int? storageContainerNumber);
 
