@@ -42,7 +42,7 @@ namespace Altinn.Platform.Storage.Repository
         /// Deletes the blob elements for an instance permanently
         /// </summary>
         /// <param name="instance">The instance to delete from</param>
-        /// <param name="storageContainerNumber">Alternate number to append to container name</param>
+        /// <param name="storageContainerNumber">Storage container number for when a Storage account has more than one container.</param>
         /// <returns>A value indicating whether the delete was successful.</returns>/// 
         Task<bool> DeleteDataBlobs(Instance instance, int? storageContainerNumber);
     }
