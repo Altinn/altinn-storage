@@ -33,7 +33,7 @@ namespace Altinn.Platform.Storage.Services
         /// <param name="org">The application owner id.</param>
         /// <param name="instanceGuid">the instance guid.</param>
         /// <param name="dataElementId">The data element guid.</param>
-        /// <param name="storageContainerNumber">Alternate number to append to container name</param>
+        /// <param name="storageContainerNumber">Storage container number for when a Storage account has more than one container.</param>
         Task<(string FileHash, ServiceError ServiceError)> GenerateSha256Hash(string org, Guid instanceGuid, Guid dataElementId, int? storageContainerNumber);
 
         /// <summary>
