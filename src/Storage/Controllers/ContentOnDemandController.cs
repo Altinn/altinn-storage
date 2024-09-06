@@ -28,7 +28,6 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IBlobRepository _blobRepository;
         private readonly IA2Repository _a2Repository;
         private readonly IApplicationRepository _applicationRepository;
-        private readonly ILogger _logger;
         private readonly GeneralSettings _generalSettings;
         private readonly IA2OndemandFormattingService _a2OndemandFormattingService;
         private readonly IPdfGeneratorClient _pdfGeneratorClient;
@@ -40,7 +39,6 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="blobRepository">the blob repository handler</param>
         /// <param name="a2Repository">the a2 repository handler</param>
         /// <param name="applicationRepository">the application repository handler</param>
-        /// <param name="logger">the logger</param>
         /// <param name="settings">the general settings.</param>
         /// <param name="a2OndemandFormattingService">a2OndemandFormattingService</param>
         /// <param name="pdfGeneratorClient">pdfGeneratorClient</param>
@@ -49,7 +47,6 @@ namespace Altinn.Platform.Storage.Controllers
             IBlobRepository blobRepository,
             IA2Repository a2Repository,
             IApplicationRepository applicationRepository,
-            ILogger<ContentOnDemandController> logger,
             IOptions<GeneralSettings> settings,
             IA2OndemandFormattingService a2OndemandFormattingService,
             IPdfGeneratorClient pdfGeneratorClient)
@@ -58,7 +55,6 @@ namespace Altinn.Platform.Storage.Controllers
             _blobRepository = blobRepository;
             _a2Repository = a2Repository;
             _applicationRepository = applicationRepository;
-            _logger = logger;
             _generalSettings = settings.Value;
             _a2OndemandFormattingService = a2OndemandFormattingService;
             _pdfGeneratorClient = pdfGeneratorClient;
