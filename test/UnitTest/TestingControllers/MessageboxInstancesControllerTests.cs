@@ -915,7 +915,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
             Assert.NotNull(actual.AppIds);
-            Assert.Equal(expectedCount, actual.AppIds.Count());
+            Assert.Equal(expectedCount, actual.AppIds.Length);
             instanceRepositoryMock.VerifyAll();
         }
 

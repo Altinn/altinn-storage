@@ -205,7 +205,11 @@ namespace Altinn.Platform.Storage.Models
         /// <exception cref="ArgumentNullException">request</exception>
         public void PopulatePropertiesFromRequest(HttpRequest request)
         {
-            var query = request?.Query ?? throw new ArgumentNullException();
+            var query = request?.Query;
+            if (query == null)
+            {
+                return;
+            }
 
             AppId = GetQueryValue(query, _appIdParameterName, AppId);
             AppIds = GetQueryValue(query, _appIdsParameterName, AppIds);

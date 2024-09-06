@@ -686,7 +686,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             return instance;
         }
 
-        private InstanceQueryParameters GetDateQueryParams(string fromYear, string toYear)
+        private static InstanceQueryParameters GetDateQueryParams(string fromYear, string toYear)
         {
             return new InstanceQueryParameters
             {
