@@ -43,7 +43,7 @@ namespace Altinn.Platform.Storage.Services
         /// <param name="stream">Data to be written to blob storage.</param>
         /// <param name="dataElement">The data element to insert.</param>
         /// <param name="instanceInternalId">The internal id of the data element to insert.</param>
-        /// <param name="storageContainerNumber">Alternate number to append to container name</param>
+        /// <param name="storageContainerNumber">Storage container number for when a Storage account has more than one container.</param>
         Task UploadDataAndCreateDataElement(string org, Stream stream, DataElement dataElement, long instanceInternalId, int? storageContainerNumber);
     }
 }
