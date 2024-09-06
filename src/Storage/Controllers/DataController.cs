@@ -140,7 +140,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             dataElement.LastChangedBy = User.GetUserOrOrgId();
-            return await DeleteImmediately(instance, dataElement, application);
+            return await DeleteImmediately(instance, dataElement, application.StorageContainerNumber);
         }
 
         /// <summary>
@@ -595,11 +595,11 @@ namespace Altinn.Platform.Storage.Controllers
             return Ok(updatedDateElement);
         }
 
-        private async Task<ActionResult<DataElement>> DeleteImmediately(Instance instance, DataElement dataElement, Application application)
+        private async Task<ActionResult<DataElement>> DeleteImmediately(Instance instance, DataElement dataElement, int? storageContainerNumber)
         {
             string storageFileName = DataElementHelper.DataFileName(instance.AppId, dataElement.InstanceGuid, dataElement.Id);
 
-            await _blobRepository.DeleteBlob(instance.Org, storageFileName, application.StorageContainerNumber);
+            await _blobRepository.DeleteBlob(instance.Org, storageFileName, storageContainerNumber);
 
             await _dataRepository.Delete(dataElement);
 
