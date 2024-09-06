@@ -22,7 +22,7 @@ namespace Altinn.Platform.Storage.Services
         /// </param>
         /// <param name="dataElement">The data element metadata document.</param>
         /// <param name="blobTimestamp">Timestamp when blob upload completed.</param>
-        /// <param name="storageContainerNumber">Alternate number to append to container name</param>
+        /// <param name="storageContainerNumber">Storage container number for when a Storage account has more than one container.</param>
         /// <param name="ct">A cancellation token should the request be cancelled.</param>
         /// <returns>A task representing the asynconous call to file scan service.</returns>
         Task StartFileScan(Instance instance, DataType dataType, DataElement dataElement, DateTimeOffset blobTimestamp, int? storageContainerNumber, CancellationToken ct);
