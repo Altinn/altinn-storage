@@ -14,6 +14,7 @@ using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.Tests.Mocks;
@@ -633,7 +634,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Arrange
             string requestUri = $"{BasePath}";
             int partyId = 1337;
-            string expectedResponseMessage = "Organisation number needs to be exactly 9 digits.";
+            string expectedResponseMessage = "Organization number needs to be exactly 9 digits.";
 
             HttpClient client = GetTestClient(null, null);
             string token = PrincipalUtil.GetToken(3, partyId);
@@ -711,9 +712,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             irm
             .Setup(irm =>
             irm.GetInstancesFromQuery(
-                It.Is<Dictionary<string, StringValues>>(
-                    dict => dict.GetValueOrDefault("status.isHardDeleted").Single(v => v.Equals("false")) != null),
-                It.IsAny<string>(),
+                It.Is<InstanceQueryParameters>(e => e.IsHardDeleted == false),
                 It.IsAny<int>(),
                 It.IsAny<bool>()))
             .ReturnsAsync(new InstanceQueryResponse { Instances = new() });
@@ -742,9 +741,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             irm
             .Setup(irm =>
             irm.GetInstancesFromQuery(
-                It.Is<Dictionary<string, StringValues>>(
-                    dict => dict.GetValueOrDefault("status.isHardDeleted").Single(v => v.Equals("false")) != null),
-                It.IsAny<string>(),
+                It.Is<InstanceQueryParameters>(e => e.IsHardDeleted == false),
                 It.IsAny<int>(),
                 It.IsAny<bool>()))
             .ReturnsAsync(new InstanceQueryResponse { Instances = new() });

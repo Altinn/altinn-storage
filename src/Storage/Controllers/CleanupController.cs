@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 
 using Microsoft.AspNetCore.Http;
@@ -85,12 +86,17 @@ namespace Altinn.Platform.Storage.Controllers
             int successfullyDeleted = 0;
             int processed = 0;
             InstanceQueryResponse instancesResponse = new() { ContinuationToken = null };
-            Dictionary<string, StringValues> options = new() { { "appId", appId } };
 
             Stopwatch stopwatch = Stopwatch.StartNew();
             do
             {
-                instancesResponse = await instanceRepository.GetInstancesFromQuery(options, instancesResponse.ContinuationToken, 5000, true);
+                InstanceQueryParameters queryParameters = new()
+                {
+                    AppId = appId,
+                    ContinuationToken = instancesResponse.ContinuationToken
+                };
+
+                instancesResponse = await instanceRepository.GetInstancesFromQuery(queryParameters, 5000, true);
                 successfullyDeleted += await CleanupInstancesInternal(instancesResponse.Instances, []);
                 processed += (int)instancesResponse.Count;
             }

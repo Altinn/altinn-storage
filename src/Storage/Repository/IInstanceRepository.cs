@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+
 using Altinn.Platform.Storage.Interface.Models;
-using Microsoft.Extensions.Primitives;
+using Altinn.Platform.Storage.Models;
 
 namespace Altinn.Platform.Storage.Repository
 {
@@ -12,14 +13,13 @@ namespace Altinn.Platform.Storage.Repository
     public interface IInstanceRepository
     {
         /// <summary>
-        /// Gets all the instances that satisfy given query parameters
+        /// Gets all instances that satisfy given query parameters
         /// </summary>
         /// <param name="queryParams">the query params</param>
-        /// <param name="continuationToken">a token to get the next page, more performant than using page</param>
         /// <param name="size">The number of items per page</param>
-        /// <param name="includeDataelements">Whether to include data elements</param>
+        /// <param name="includeDataElements">Whether to include data elements</param>
         /// <returns>The query response including the list of instances</returns>
-        Task<InstanceQueryResponse> GetInstancesFromQuery(Dictionary<string, StringValues> queryParams, string continuationToken, int size, bool includeDataelements);
+        Task<InstanceQueryResponse> GetInstancesFromQuery(InstanceQueryParameters queryParams, int size, bool includeDataElements);
 
         /// <summary>
         /// Get an instance for a given instance id
