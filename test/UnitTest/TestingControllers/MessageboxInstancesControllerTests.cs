@@ -38,6 +38,7 @@ using Moq;
 using Newtonsoft.Json;
 
 using Xunit;
+using static Microsoft.ApplicationInsights.MetricDimensionNames.TelemetryContext;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 {
@@ -555,8 +556,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             queryModel.AppId = "ttd/complete-test";
             queryModel.Language = "en";
 
-            int expectedCount = 1;
-
             // Act
             HttpResponseMessage responseMessage = await client.PostAsync(
                 $"{BasePath}/sbl/instances/search",
@@ -567,7 +566,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-            Assert.Equal(expectedCount, actualResult.Count);
+            Assert.Single(actualResult);
         }
 
         /// <summary>
@@ -612,8 +611,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 .Callback<InstanceQueryParameters, int, bool>((query, size, includeDataelements) => { actual = query; })
                 .ReturnsAsync((InstanceQueryResponse)null);
 
-            bool expectedIsSoftDeleted = false;
-            bool expectedIsArchived = false;
             HttpClient client = GetTestClient(instanceRepositoryMock);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
             MessageBoxQueryModel queryModel = GetMessageBoxQueryModel(1606);
@@ -625,9 +622,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
             Assert.NotNull(actual.SortBy);
+            Assert.False(actual.IsArchived);
+            Assert.False(actual.IsSoftDeleted);
             Assert.NotNull(actual.InstanceOwnerPartyIdList);
-            Assert.Equal(expectedIsArchived, actual.IsArchived);
-            Assert.Equal(expectedIsSoftDeleted, actual.IsSoftDeleted);
         }
 
         /// <summary>
@@ -649,8 +646,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 .Callback<InstanceQueryParameters, int, bool>((query, size, includeDataelements) => { actual = query; })
                 .ReturnsAsync((InstanceQueryResponse)null);
 
-            bool expectedIsSoftDeleted = false;
-            bool expectedIsArchived = true;
 
             HttpClient client = GetTestClient(instanceRepositoryMock);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
@@ -663,9 +658,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
+            Assert.True(actual.IsArchived);
+            Assert.False(actual.IsSoftDeleted);
             Assert.NotNull(actual.InstanceOwnerPartyIdList);
-            Assert.Equal(expectedIsArchived, actual.IsArchived);
-            Assert.Equal(expectedIsSoftDeleted, actual.IsSoftDeleted);
         }
 
         /// <summary>
@@ -793,8 +788,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<int>(), It.IsAny<bool>()))
                 .ReturnsAsync((InstanceQueryResponse)null);
 
-            int expectedCount = 0;
-
             HttpClient client = GetTestClient(instanceRepositoryMock);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
 
@@ -809,7 +802,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-            Assert.Equal(expectedCount, actual.Count);
+            Assert.Empty(actual);
         }
 
         /// <summary>
@@ -829,8 +822,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<int>(), It.IsAny<bool>()))
                 .ReturnsAsync((InstanceQueryResponse)null);
 
-            int expectedCount = 0;
-
             HttpClient client = GetTestClient(instanceRepositoryMock);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
 
@@ -844,7 +835,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-            Assert.Equal(expectedCount, actual.Count);
+            Assert.Empty(actual);
         }
 
         /// <summary>
@@ -1165,6 +1156,30 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Single(actual.Where(e => e.User.UserId == 1337));
             Assert.NotEmpty(actual.Where(e => e.CreatedDateTime == DateTime.Parse("1994-06-16T11:07:59.0851832Z")));
             repoMock.VerifyAll();
+        }
+
+        /// <summary>
+        /// Scenario:
+        ///  Verify that the GetMessageBoxInstanceEvents method can handle and return a large number of events correctly.
+        /// </summary>
+        [Fact]
+        public async Task GetMessageBoxInstanceEvents_LargeNumberOfEvents_ReturnsAllEvents()
+        {
+            // Arrange
+            var largeNumberOfEvents = Enumerable.Range(1, 1000).Select(i => new InstanceEvent { Created = DateTime.UtcNow, EventType = "Event", User = new() { UserId = i } }).ToList();
+            var repoMock = new Mock<IInstanceEventRepository>();
+            repoMock
+                .Setup(rm => rm.ListInstanceEvents(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<DateTime?>(), It.IsAny<DateTime?>()))
+                .ReturnsAsync(largeNumberOfEvents);
+
+            var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null);
+
+            // Act
+            var response = await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid()) as OkObjectResult;
+            var actual = response.Value as List<SblInstanceEvent>;
+
+            // Assert
+            Assert.Equal(largeNumberOfEvents.Count, actual.Count);
         }
 
         private static MessageBoxQueryModel GetMessageBoxQueryModel(int instanceOwnerPartyId)
