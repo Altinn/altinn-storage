@@ -12,7 +12,7 @@ using Microsoft.Extensions.Primitives;
 namespace Altinn.Platform.Storage.Models
 {
     /// <summary>
-    /// Represents query parameters to retrieve instances data.
+    /// Represents members to filter, sort, and manage instances.
     /// </summary>
     public class InstanceQueryParameters
     {
