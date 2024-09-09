@@ -515,7 +515,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 .ReturnsAsync(de);
 
             blobRepositoryMock
-                .Setup(dr => dr.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), null))
+                .Setup(dr => dr.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()))
                 .ReturnsAsync(true);
 
             dataRepositoryMock
@@ -669,11 +669,11 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             Mock<IBlobRepository> repoMock = new();
             repoMock.
-                Setup(r => r.WriteBlob(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), null))
+                Setup(r => r.WriteBlob(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<int?>()))
                 .ReturnsAsync((0, DateTime.UtcNow));
 
             repoMock
-                .Setup(r => r.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), null))
+                .Setup(r => r.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()))
                 .ReturnsAsync(true);
 
             HttpClient client = GetTestClient(null, repoMock, null);

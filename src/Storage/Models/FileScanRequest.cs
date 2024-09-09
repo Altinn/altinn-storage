@@ -42,7 +42,7 @@ namespace Altinn.Platform.Storage.Models
         public string Org { get; set; }
 
         /// <summary>
-        /// Gets or sets an optional alternate number to append to the storage container name
+        /// Gets or sets an optional container number for when the application owner have more than one storage container
         /// </summary>
         public int? StorageContainerNumber { get; set; }
     }

@@ -150,7 +150,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
             Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
             blobRepositoryMock.Setup(
-                drm => drm.WriteBlob(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), null))
+                drm => drm.WriteBlob(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<int?>()))
                 .ReturnsAsync((666, DateTimeOffset.Now));
 
             DataElement dataElement = new DataElement

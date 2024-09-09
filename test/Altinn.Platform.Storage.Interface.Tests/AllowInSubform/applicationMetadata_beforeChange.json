@@ -23,8 +23,8 @@
             "appLogic": {
                 "autoCreate": true,
                 "classRef": "Altinn.App.Models.StarteBedrift",
-                "allowUserCreate": true,
-                "allowUserDelete": true
+                "disallowUserCreate": false,
+                "disallowUserDelete": false
             },
             "taskId": "Task_1",
             "maxCount": 1,

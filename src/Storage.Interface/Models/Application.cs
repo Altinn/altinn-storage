@@ -111,9 +111,9 @@ namespace Altinn.Platform.Storage.Interface.Models
         public CopyInstanceSettings CopyInstanceSettings { get; set; }
 
         /// <summary>
-        /// Gets or sets an optional alternate number to append to the storage container name
+        /// Gets or sets an optional container number to use a different storage container than the default.
         /// </summary>
-        [JsonProperty(PropertyName = "storageContainerNumber ")]
+        [JsonProperty(PropertyName = "storageContainerNumber")]
 
         public int? StorageContainerNumber { get; set; }
 

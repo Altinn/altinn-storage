@@ -41,18 +41,18 @@ namespace Altinn.Platform.Storage.Interface.Models
         public bool AutoDeleteOnProcessEnd { get; set; }
 
         /// <summary>
-        /// Specifies whether users should be able to create data of this type.
+        /// Specifies whether users should be unable to create data of this type.
         /// Defaults to false if not specified.
         /// </summary>
-        [JsonProperty(PropertyName = "allowUserCreate")]
-        public bool AllowUserCreate { get; set; }
+        [JsonProperty(PropertyName = "disallowUserCreate")]
+        public bool DisallowUserCreate { get; set; }
 
         /// <summary>
-        /// Specifies whether users should be able to delete data of this type.
+        /// Specifies whether users should be unable to delete data of this type.
         /// Defaults to false if not specified.
         /// </summary>
-        [JsonProperty(PropertyName = "allowUserDelete")]
-        public bool AllowUserDelete { get; set; }
+        [JsonProperty(PropertyName = "disallowUserDelete")]
+        public bool DisallowUserDelete { get; set; }
 
         /// <summary>
         /// Specifies whether the data type is compatible with sub form usage.

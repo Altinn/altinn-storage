@@ -9,9 +9,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Altinn.Common.AccessToken" Version="4.5.0" />
+    <PackageReference Include="Altinn.Common.AccessToken" Version="4.5.1" />
   
-    <PackageReference Include="Altinn.Common.AccessTokenClient" Version="3.0.6" />
+    <PackageReference Include="Altinn.Common.AccessTokenClient" Version="3.0.7" />
     <PackageReference Include="Altinn.Platform.Models" Version="1.6.1" /> 
     <PackageReference Include="Altinn.Platform.Storage.Interface" Version="3.34.0" />
     <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.3.2" />
@@ -26,9 +26,8 @@
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.22.0" />
 
     <PackageReference Include="PDFsharp" Version="6.1.1" />
-
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.7.2" />
-    <PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="6.7.2" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.7.3" />
+    <PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="6.7.3" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
     <PackageReference Include="Npgsql" Version="8.0.3" />
