@@ -40,5 +40,10 @@ namespace Altinn.Platform.Storage.Models
         /// Gets or sets the application owner identifier
         /// </summary>
         public string Org { get; set; }
+
+        /// <summary>
+        /// Gets or sets an optional container number for when the application owner have more than one storage container
+        /// </summary>
+        public int? StorageContainerNumber { get; set; }
     }
 }

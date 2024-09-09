@@ -16,6 +16,7 @@ namespace Altinn.Platform.Storage.Services
     public class InstanceService : IInstanceService
     {
         private readonly IInstanceRepository _instanceRepository;
+        private readonly IApplicationRepository _applicationRepository;
         private readonly IDataService _dataService;
         private readonly IApplicationService _applicationService;
         private readonly IInstanceEventService _instanceEventService;
@@ -23,12 +24,13 @@ namespace Altinn.Platform.Storage.Services
         /// <summary>
         /// Initializes a new instance of the <see cref="InstanceService"/> class.
         /// </summary>
-        public InstanceService(IInstanceRepository instanceRepository, IDataService dataService, IApplicationService applicationService, IInstanceEventService instanceEventService)
+        public InstanceService(IInstanceRepository instanceRepository, IDataService dataService, IApplicationService applicationService, IInstanceEventService instanceEventService, IApplicationRepository applicationRepository)
         {
             _instanceRepository = instanceRepository;
             _dataService = dataService;
             _applicationService = applicationService;
             _instanceEventService = instanceEventService;
+            _applicationRepository = applicationRepository;
         }
 
         /// <inheritdoc/>
@@ -39,7 +41,9 @@ namespace Altinn.Platform.Storage.Services
             {
                 return (false, new ServiceError(404, "Instance not found"));
             }
-            
+
+            Application app = await _applicationRepository.FindOne(instance.AppId, instance.Org);
+
             (bool validDataType, ServiceError serviceError) = await _applicationService.ValidateDataTypeForApp(instance.Org, instance.AppId, signRequest.SignatureDocumentDataType, instance.Process.CurrentTask?.ElementId);
             if (!validDataType)
             {
@@ -50,7 +54,7 @@ namespace Altinn.Platform.Storage.Services
 
             foreach (SignRequest.DataElementSignature dataElementSignature in signRequest.DataElementSignatures)
             {
-                (string base64Sha256Hash, serviceError) = await _dataService.GenerateSha256Hash(instance.Org, instanceGuid, Guid.Parse(dataElementSignature.DataElementId));
+                (string base64Sha256Hash, serviceError) = await _dataService.GenerateSha256Hash(instance.Org, instanceGuid, Guid.Parse(dataElementSignature.DataElementId), app.StorageContainerNumber);
                 if (string.IsNullOrEmpty(base64Sha256Hash))
                 {
                     return (false, serviceError);
@@ -79,7 +83,7 @@ namespace Altinn.Platform.Storage.Services
         
             using (MemoryStream fileStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(signDocument, Formatting.Indented))))
             {
-                await _dataService.UploadDataAndCreateDataElement(instance.Org, fileStream, dataElement, instanceInternalId);
+                await _dataService.UploadDataAndCreateDataElement(instance.Org, fileStream, dataElement, instanceInternalId, app.StorageContainerNumber);
             }
             
             await _instanceEventService.DispatchEvent(InstanceEventType.Signed, instance);

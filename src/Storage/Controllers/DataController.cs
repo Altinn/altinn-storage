@@ -115,6 +115,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return NotFound();
             }
 
+            (Application application, ActionResult applicationError) = await GetApplicationAsync(instance.AppId, instance.Org);
             if (delay)
             {
                 if (appOwnerDeletingElement && dataElement.DeleteStatus?.IsHardDeleted == true)
@@ -122,7 +123,6 @@ namespace Altinn.Platform.Storage.Controllers
                     return dataElement;
                 }
 
-                (Application application, ActionResult applicationError) = await GetApplicationAsync(instance.AppId, instance.Org);
                 if (application == null)
                 {
                     return applicationError;
@@ -140,7 +140,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             dataElement.LastChangedBy = User.GetUserOrOrgId();
-            return await DeleteImmediately(instance, dataElement);
+            return await DeleteImmediately(instance, dataElement, application.StorageContainerNumber);
         }
 
         /// <summary>
@@ -170,6 +170,8 @@ namespace Altinn.Platform.Storage.Controllers
                 return instanceError;
             }
 
+            Application app = await _applicationRepository.FindOne(instance.AppId, instance.Org);
+
             (DataElement dataElement, ActionResult dataElementError) = await GetDataElementAsync(instanceGuid, dataGuid);
             if (dataElement == null)
             {
@@ -197,7 +199,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (string.Equals(dataElement.BlobStoragePath, storageFileName))
             {
-                Stream dataStream = await _blobRepository.ReadBlob(instance.Org, storageFileName);
+                Stream dataStream = await _blobRepository.ReadBlob(instance.Org, storageFileName, app.StorageContainerNumber);
 
                 if (dataStream == null)
                 {
@@ -310,11 +312,11 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             newData.Filename = HttpUtility.UrlDecode(newData.Filename);
-            (long length, DateTimeOffset blobTimestamp) = await _blobRepository.WriteBlob(instance.Org, theStream, newData.BlobStoragePath);
+            (long length, DateTimeOffset blobTimestamp) = await _blobRepository.WriteBlob(instance.Org, theStream, newData.BlobStoragePath, appInfo.StorageContainerNumber);
 
             if (length == 0L)
             {
-                await _blobRepository.DeleteBlob(instance.Org, newData.BlobStoragePath);
+                await _blobRepository.DeleteBlob(instance.Org, newData.BlobStoragePath, appInfo.StorageContainerNumber);
                 return BadRequest("Empty stream provided. Cannot persist data.");
             }
 
@@ -328,7 +330,7 @@ namespace Altinn.Platform.Storage.Controllers
             DataElement dataElement = await _dataRepository.Create(newData, instanceInternalId);
             dataElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
 
-            await _dataService.StartFileScan(instance, dataTypeDefinition, dataElement, blobTimestamp, CancellationToken.None);
+            await _dataService.StartFileScan(instance, dataTypeDefinition, dataElement, blobTimestamp, appInfo.StorageContainerNumber, CancellationToken.None);
 
             await _instanceEventService.DispatchEvent(InstanceEventType.Created, instance, dataElement);
 
@@ -416,7 +418,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             DateTime changedTime = DateTime.UtcNow;
 
-            (long blobSize, DateTimeOffset blobTimestamp) = await _blobRepository.WriteBlob(instance.Org, theStream, blobStoragePathName);
+            (long blobSize, DateTimeOffset blobTimestamp) = await _blobRepository.WriteBlob(instance.Org, theStream, blobStoragePathName, appInfo.StorageContainerNumber);
 
             var updatedProperties = new Dictionary<string, object>()
             {
@@ -444,7 +446,7 @@ namespace Altinn.Platform.Storage.Controllers
 
                 updatedElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
 
-                await _dataService.StartFileScan(instance, dataTypeDefinition, dataElement, blobTimestamp, CancellationToken.None);
+                await _dataService.StartFileScan(instance, dataTypeDefinition, dataElement, blobTimestamp, appInfo.StorageContainerNumber, CancellationToken.None);
 
                 await _instanceEventService.DispatchEvent(InstanceEventType.Saved, instance, updatedElement);
 
@@ -593,11 +595,11 @@ namespace Altinn.Platform.Storage.Controllers
             return Ok(updatedDateElement);
         }
 
-        private async Task<ActionResult<DataElement>> DeleteImmediately(Instance instance, DataElement dataElement)
+        private async Task<ActionResult<DataElement>> DeleteImmediately(Instance instance, DataElement dataElement, int? storageContainerNumber)
         {
             string storageFileName = DataElementHelper.DataFileName(instance.AppId, dataElement.InstanceGuid, dataElement.Id);
 
-            await _blobRepository.DeleteBlob(instance.Org, storageFileName);
+            await _blobRepository.DeleteBlob(instance.Org, storageFileName, storageContainerNumber);
 
             await _dataRepository.Delete(dataElement);
 

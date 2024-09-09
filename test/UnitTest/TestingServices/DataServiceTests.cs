@@ -32,7 +32,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             DateTimeOffset blobTimestamp = DateTimeOffset.UtcNow;
 
             // Act
-            await target.StartFileScan(instance, dataType, dataElement, blobTimestamp, CancellationToken.None);
+            await target.StartFileScan(instance, dataType, dataElement, blobTimestamp, null, CancellationToken.None);
 
             // Assert
             fileScanMock.Verify(f => f.EnqueueFileScan(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never());
@@ -54,7 +54,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             DateTimeOffset blobTimestamp = DateTimeOffset.UtcNow;
 
             // Act
-            await target.StartFileScan(instance, dataType, dataElement, blobTimestamp, CancellationToken.None);
+            await target.StartFileScan(instance, dataType, dataElement, blobTimestamp, null, CancellationToken.None);
 
             // Assert
             fileScanMock.Verify(
@@ -84,13 +84,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             
             dataRepositoryMock.Setup(drm => drm.Read(It.IsAny<Guid>(), It.IsAny<Guid>())).ReturnsAsync(dataElement);
             blobRepositoryMock.Setup(
-                drm => drm.ReadBlob(It.IsAny<string>(), blobStoragePath))
+                drm => drm.ReadBlob(It.IsAny<string>(), blobStoragePath, null))
                 .ReturnsAsync(new MemoryStream(blobStorageBytes));
 
             DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object);
             
             // Act
-            (string fileHash, ServiceError serviceError) = await dataService.GenerateSha256Hash("ttd", Guid.NewGuid(), id);
+            (string fileHash, ServiceError serviceError) = await dataService.GenerateSha256Hash("ttd", Guid.NewGuid(), id, null);
 
             // Assert
             Assert.Equal(fileHash, expectedHashResult);
@@ -109,7 +109,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object);
 
             // Act
-            (string fileHash, ServiceError serviceError) = await dataService.GenerateSha256Hash("ttd", Guid.NewGuid(), Guid.NewGuid());
+            (string fileHash, ServiceError serviceError) = await dataService.GenerateSha256Hash("ttd", Guid.NewGuid(), Guid.NewGuid(), null);
 
             // Assert
             Assert.Null(fileHash);
@@ -135,7 +135,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object);
 
             // Act
-            (string fileHash, ServiceError serviceError) = await dataService.GenerateSha256Hash("ttd", Guid.NewGuid(), Guid.NewGuid());
+            (string fileHash, ServiceError serviceError) = await dataService.GenerateSha256Hash("ttd", Guid.NewGuid(), Guid.NewGuid(), null);
 
             // Assert
             Assert.Null(fileHash);
@@ -150,7 +150,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
             Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
             blobRepositoryMock.Setup(
-                drm => drm.WriteBlob(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>()))
+                drm => drm.WriteBlob(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<int?>()))
                 .ReturnsAsync((666, DateTimeOffset.Now));
 
             DataElement dataElement = new DataElement
@@ -162,7 +162,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object);
 
             // Act
-            await dataService.UploadDataAndCreateDataElement("ttd", new MemoryStream(Encoding.UTF8.GetBytes("whatever")), dataElement, 0);
+            await dataService.UploadDataAndCreateDataElement("ttd", new MemoryStream(Encoding.UTF8.GetBytes("whatever")), dataElement, 0, null);
 
             // Assert
             dataRepositoryMock.VerifyAll();

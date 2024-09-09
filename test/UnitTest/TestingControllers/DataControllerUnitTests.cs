@@ -172,11 +172,11 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             });
 
             blobRepositoryMock
-                .Setup(d => d.ReadBlob(It.IsAny<string>(), It.IsAny<string>()))
+                .Setup(d => d.ReadBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()))
                 .ReturnsAsync(new MemoryStream(Encoding.UTF8.GetBytes("whatever")));
 
             blobRepositoryMock
-               .Setup(d => d.WriteBlob(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>()))
+               .Setup(d => d.WriteBlob(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<int?>()))
                .ReturnsAsync((123145864564, DateTimeOffset.Now));
 
             instanceRepositoryMock
@@ -217,7 +217,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 .Setup(ier => ier.DispatchEvent(It.IsAny<InstanceEventType>(), It.IsAny<Instance>(), It.IsAny<DataElement>()));
 
             dataServiceMock
-                .Setup(d => d.StartFileScan(It.IsAny<Instance>(), It.IsAny<DataType>(), It.IsAny<DataElement>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()));
+                .Setup(d => d.StartFileScan(It.IsAny<Instance>(), It.IsAny<DataType>(), It.IsAny<DataElement>(), It.IsAny<DateTimeOffset>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()));
 
             Mock<HttpContext> httpContextMock = new();
             httpContextMock

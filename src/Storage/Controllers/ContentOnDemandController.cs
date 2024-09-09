@@ -27,7 +27,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IInstanceRepository _instanceRepository;
         private readonly IBlobRepository _blobRepository;
         private readonly IA2Repository _a2Repository;
-        private readonly ILogger _logger;
+        private readonly IApplicationRepository _applicationRepository;
         private readonly GeneralSettings _generalSettings;
         private readonly IA2OndemandFormattingService _a2OndemandFormattingService;
         private readonly IPdfGeneratorClient _pdfGeneratorClient;
@@ -38,7 +38,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceRepository">the instance repository handler</param>
         /// <param name="blobRepository">the blob repository handler</param>
         /// <param name="a2Repository">the a2 repository handler</param>
-        /// <param name="logger">the logger</param>
+        /// <param name="applicationRepository">the application repository handler</param>
         /// <param name="settings">the general settings.</param>
         /// <param name="a2OndemandFormattingService">a2OndemandFormattingService</param>
         /// <param name="pdfGeneratorClient">pdfGeneratorClient</param>
@@ -46,7 +46,7 @@ namespace Altinn.Platform.Storage.Controllers
             IInstanceRepository instanceRepository,
             IBlobRepository blobRepository,
             IA2Repository a2Repository,
-            ILogger<ContentOnDemandController> logger,
+            IApplicationRepository applicationRepository,
             IOptions<GeneralSettings> settings,
             IA2OndemandFormattingService a2OndemandFormattingService,
             IPdfGeneratorClient pdfGeneratorClient)
@@ -54,7 +54,7 @@ namespace Altinn.Platform.Storage.Controllers
             _instanceRepository = instanceRepository;
             _blobRepository = blobRepository;
             _a2Repository = a2Repository;
-            _logger = logger;
+            _applicationRepository = applicationRepository;
             _generalSettings = settings.Value;
             _a2OndemandFormattingService = a2OndemandFormattingService;
             _pdfGeneratorClient = pdfGeneratorClient;
@@ -73,9 +73,13 @@ namespace Altinn.Platform.Storage.Controllers
         public async Task<Stream> GetSignatureAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
             (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
+            Application application = await _applicationRepository.FindOne(instance.AppId, instance.Org);
             DataElement signatureElement = instance.Data.First(d => d.DataType == "signature-data");
 
-            using StreamReader reader = new(await _blobRepository.ReadBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : org)}", $"{org}/{app}/{instanceGuid}/data/{signatureElement.Id}"));
+            using StreamReader reader = new(await _blobRepository.ReadBlob(
+                $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : org)}",
+                $"{org}/{app}/{instanceGuid}/data/{signatureElement.Id}",
+                application.StorageContainerNumber));
 
             // TODO Replace with proper formatting
             string line = null;
@@ -154,6 +158,7 @@ namespace Altinn.Platform.Storage.Controllers
         private async Task<Stream> GetFormdataAsHtmlInternal(string org, string app, Guid instanceGuid, Guid dataGuid, string language, int viewType)
         {
             (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
+            Application application = await _applicationRepository.FindOne(instance.AppId, instance.Org);
             DataElement htmlElement = instance.Data.First(d => d.Id == dataGuid.ToString());
             string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;
             DataElement xmlElement = instance.Data.First(d => d.Metadata.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id);
@@ -175,7 +180,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             return _a2OndemandFormattingService.GetFormdataHtml(
                 xsls,
-                await _blobRepository.ReadBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : org)}", $"{org}/{app}/{instanceGuid}/data/{xmlElement.Id}"),
+                await _blobRepository.ReadBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : org)}", $"{org}/{app}/{instanceGuid}/data/{xmlElement.Id}", application.StorageContainerNumber),
                 xmlElement.Created.ToString());
         }
     }
