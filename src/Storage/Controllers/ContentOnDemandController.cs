@@ -148,6 +148,8 @@ namespace Altinn.Platform.Storage.Controllers
                 ++pageNumber;
             }
 
+            xsls[^1].LastPage = true;
+
             if (xsls.Count > 1 && xsls.Exists(x => x.IsPortrait) && xsls.Exists(x => !x.IsPortrait))
             {
                 // Mix of portrait and landscape, we must generate each page and merge them
@@ -164,11 +166,6 @@ namespace Altinn.Platform.Storage.Controllers
                             for (var i = 0; i < pageDoc.PageCount; i++)
                             {
                                 pageDoc.Pages[i].Orientation = xsl.IsPortrait ? PdfSharp.PageOrientation.Portrait : PdfSharp.PageOrientation.Landscape;
-                                if (i > 0)
-                                {
-                                    Console.WriteLine("Unexpected page number: " + 1);
-                                }
-
                                 mergedDoc.AddPage(pageDoc.Pages[i]);
                             }
                         }
@@ -241,6 +238,8 @@ namespace Altinn.Platform.Storage.Controllers
 
                 ++pageNumber;
             }
+
+            xsls[^1].LastPage = true;
 
             return _a2OndemandFormattingService.GetFormdataHtml(
                 xsls,

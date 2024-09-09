@@ -42,17 +42,9 @@ public class PdfGeneratorClient: IPdfGeneratorClient
     /// <inheritdoc/>
     public async Task<Stream> GeneratePdf(string url, bool isPortrait)
     {
-        string requestContent = """{"url": "_url_"}""".Replace("_url_", url);
-        if (DateTime.Now.Second >= 0)
-        {
-            var request = new PdfGeneratorRequest() { Url = url };
-            request.Options = new() { Landscape = !isPortrait };
-            requestContent = JsonSerializer.Serialize(request, _jsonSerializerOptions)
-                .Replace("footer-replace", "<div style='text-align: right;width: 297mm;font-size: 8px;'><span style='margin-right: 1cm'><span class='pageNumber'></span>tjobing</span></div>"); // Avoid escape issues with json serialization
-        }
-
-        Console.WriteLine("\r\n\r\n" + requestContent + "\r\n\r\n");
-
+        var request = new PdfGeneratorRequest() { Url = url };
+        request.Options = new() { Landscape = !isPortrait };
+        string requestContent = JsonSerializer.Serialize(request, _jsonSerializerOptions);
         var httpResponseMessage = await _httpClient.PostAsync(_httpClient.BaseAddress, new StringContent(requestContent, Encoding.UTF8, "application/json"));
 
         if (!httpResponseMessage.IsSuccessStatusCode)
@@ -68,8 +60,6 @@ public class PdfGeneratorClient: IPdfGeneratorClient
                 content,
                 httpResponseMessage.StatusCode.ToString(),
                 httpResponseMessage.ReasonPhrase);
-
-            Console.WriteLine("Pdf error: " + httpResponseMessage.StatusCode);
 
             throw ex;
         }
@@ -99,11 +89,6 @@ public class PdfGeneratorClient: IPdfGeneratorClient
     public class PdfGeneratorRequestOptions
     {
         /// <summary>
-        /// Indicate whether header and footer should be included.
-        /// </summary>
-        public bool DisplayHeaderFooter { get; set; } = true;
-
-        /// <summary>
         /// Indicate wheter the background should be included.
         /// </summary>
         public bool PrintBackground { get; set; } = true;
@@ -114,14 +99,9 @@ public class PdfGeneratorClient: IPdfGeneratorClient
         public string Format { get; set; } = "A4";
 
         /// <summary>
-        /// Linked to DisplayHeaderFooter
-        /// </summary>
-        public string FooterTemplate { get; set; } = "footer-replace";
-
-        /// <summary>
         /// Whether to print in landscape orientation
         /// </summary>
-        public bool Landscape { get; set; } = false;
+        public bool Landscape { get; set; }
 
         /// <summary>
         /// Defines the page margins. Default is "0.4in" on all sides.
