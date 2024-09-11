@@ -47,7 +47,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             throw new NotImplementedException();
         }
 
-        public Task<InstanceQueryResponse> GetInstancesFromQuery(InstanceQueryParameters queryParams, int size, bool includeDataelements)
+        public Task<InstanceQueryResponse> GetInstancesFromQuery(InstanceQueryParameters queryParams, bool includeDataelements)
         {
             InstanceQueryResponse response = new InstanceQueryResponse();
             List<Instance> instances = new List<Instance>();

@@ -439,13 +439,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_2.Clone());
             await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_3.Clone());
 
-            InstanceQueryParameters queryParams = new();
+            InstanceQueryParameters queryParams = new() { Size = 100 };
 
             // Act
-            var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, 100, true);
+            var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
 
             queryParams.InstanceOwnerPartyId = Convert.ToInt32(TestData.Instance_1_3.InstanceOwner.PartyId);
-            var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, 100, true);
+            var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
 
             // Assert
             Assert.Equal(3, instances3.Count);
@@ -468,15 +468,18 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             };
 
             // Act
-            var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, 1, true);
+            queryParams.Size = 1;
+            var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
             string contToken1 = instances1.ContinuationToken;
             queryParams.ContinuationToken = contToken1;
 
-            var instances2 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, 1, true);
+            queryParams.Size = 1;
+            var instances2 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
             string contToken2 = instances2.ContinuationToken;
             queryParams.ContinuationToken = contToken2;
 
-            var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, 2, true);
+            queryParams.Size = 2;
+            var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
             string contToken3 = instances3.ContinuationToken;
 
             // Assert
@@ -499,11 +502,14 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             // Arrange
             await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone());
 
-            InstanceQueryParameters queryParams = new();
-            queryParams.AppId = "ttd/test-applikasjon-1";
+            InstanceQueryParameters queryParams = new()
+            {
+                Size = 100,
+                AppId = "ttd/test-applikasjon-1"
+            };
 
             // Act
-            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, 100, true);
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
 
             // Assert
             Assert.Equal(1, instances.Count);
@@ -522,12 +528,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
 
             InstanceQueryParameters queryParams = new()
             {
+                Size = 100,
                 SearchString = "nomatchj",
                 AppIds = []
             };
 
             // Act
-            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, 100, true);
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
 
             // Assert
             Assert.Equal(0, instances.Count);
@@ -546,12 +553,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
 
             InstanceQueryParameters queryParams = new()
             {
+                Size = 100,
                 SearchString = "bing",
                 AppIds = []
             };
 
             // Act
-            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, 100, true);
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
 
             // Assert
             Assert.Equal(1, instances.Count);
@@ -570,12 +578,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
 
             InstanceQueryParameters queryParams = new()
             {
+                Size = 100,
                 SearchString = "nomatch",
-                AppIds = new List<string>() { "ttd/test-applikasjon-1", "ttd/test-applikasjon-2" }.ToArray()
+                AppIds = ["ttd/test-applikasjon-1", "ttd/test-applikasjon-2"]
             };
 
             // Act
-            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, 100, true);
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
 
             // Assert
             Assert.Equal(1, instances.Count);
@@ -597,12 +606,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
 
             InstanceQueryParameters queryParams = new()
             {
+                Size = 100,
                 SearchString = "ing",
                 AppIds = new List<string>() { "ttd/test-applikasjon-3", "ttd/test-applikasjon-2" }.ToArray()
             };
 
             // Act
-            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, 100, true);
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
 
             // Assert
             Assert.Equal(2, instances.Count);
@@ -618,12 +628,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             await PrepareDateSearch();
 
             // Act
-            var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2021", "2021"), 100, true);
-            var instances2 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2022", "2022"), 100, true);
-            var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2023", "2023"), 100, true);
-            var instances4 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2024", "2024"), 100, true);
-            var instances5 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2019", "2019"), 100, true);
-            var instances6 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2021", "2024"), 100, true);
+            var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2021", "2021"), true);
+            var instances2 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2022", "2022"), true);
+            var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2023", "2023"), true);
+            var instances4 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2024", "2024"), true);
+            var instances5 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2019", "2019"), true);
+            var instances6 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2021", "2024"), true);
 
             // Assert
             Assert.Equal(1, instances1.Count);
@@ -647,12 +657,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
 
             InstanceQueryParameters queryParams = new()
             {
+                Size = 100,
                 InstanceOwnerPartyId = Convert.ToInt32(TestData.Instance_1_3.InstanceOwner.PartyId),
                 ProcessEnded = "true"
             };
 
             // Act
-            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, 100, true);
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
 
             // Assert
             Assert.Equal(0, instances.Count);
@@ -690,7 +701,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         {
             return new InstanceQueryParameters
             {
-                MsgBoxInterval = new List<string>() { $"gt:{fromYear}-01-01T23:00:00.000Z", $"lt:{toYear}-01-12T23:00:00.000Z" }.ToArray()
+                Size = 100,
+                MsgBoxInterval = [$"gt:{fromYear}-01-01T23:00:00.000Z", $"lt:{toYear}-01-12T23:00:00.000Z"]
             };
         }
 

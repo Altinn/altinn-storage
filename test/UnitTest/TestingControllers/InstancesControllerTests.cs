@@ -713,7 +713,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             .Setup(irm =>
             irm.GetInstancesFromQuery(
                 It.Is<InstanceQueryParameters>(e => e.IsHardDeleted == false),
-                It.IsAny<int>(),
                 It.IsAny<bool>()))
             .ReturnsAsync(new InstanceQueryResponse { Instances = new() });
 
@@ -742,7 +741,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             .Setup(irm =>
             irm.GetInstancesFromQuery(
                 It.Is<InstanceQueryParameters>(e => e.IsHardDeleted == false),
-                It.IsAny<int>(),
                 It.IsAny<bool>()))
             .ReturnsAsync(new InstanceQueryResponse { Instances = new() });
 

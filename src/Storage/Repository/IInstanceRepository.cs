@@ -16,10 +16,9 @@ namespace Altinn.Platform.Storage.Repository
         /// Gets all instances that satisfy given query parameters
         /// </summary>
         /// <param name="queryParams">the query params</param>
-        /// <param name="size">The number of items per page</param>
         /// <param name="includeDataElements">Whether to include data elements</param>
         /// <returns>The query response including the list of instances</returns>
-        Task<InstanceQueryResponse> GetInstancesFromQuery(InstanceQueryParameters queryParams, int size, bool includeDataElements);
+        Task<InstanceQueryResponse> GetInstancesFromQuery(InstanceQueryParameters queryParams, bool includeDataElements);
 
         /// <summary>
         /// Get an instance for a given instance id

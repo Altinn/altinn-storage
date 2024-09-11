@@ -92,11 +92,12 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 InstanceQueryParameters queryParameters = new()
                 {
+                    Size = 5000,
                     AppId = appId,
                     ContinuationToken = instancesResponse.ContinuationToken
                 };
 
-                instancesResponse = await instanceRepository.GetInstancesFromQuery(queryParameters, 5000, true);
+                instancesResponse = await instanceRepository.GetInstancesFromQuery(queryParameters, true);
                 successfullyDeleted += await CleanupInstancesInternal(instancesResponse.Instances, []);
                 processed += (int)instancesResponse.Count;
             }

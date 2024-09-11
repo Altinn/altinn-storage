@@ -607,8 +607,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             InstanceQueryParameters actual = new InstanceQueryParameters();
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
             instanceRepositoryMock
-                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<int>(), It.IsAny<bool>()))
-                .Callback<InstanceQueryParameters, int, bool>((query, size, includeDataelements) => { actual = query; })
+                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>()))
+                .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
                 .ReturnsAsync((InstanceQueryResponse)null);
 
             HttpClient client = GetTestClient(instanceRepositoryMock);
@@ -642,8 +642,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             InstanceQueryParameters actual = new InstanceQueryParameters();
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
             instanceRepositoryMock
-                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<int>(), It.IsAny<bool>()))
-                .Callback<InstanceQueryParameters, int, bool>((query, size, includeDataelements) => { actual = query; })
+                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>()))
+                .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
                 .ReturnsAsync((InstanceQueryResponse)null);
 
             HttpClient client = GetTestClient(instanceRepositoryMock);
@@ -677,8 +677,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             InstanceQueryParameters actual = new InstanceQueryParameters();
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
             instanceRepositoryMock
-                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<int>(), It.IsAny<bool>()))
-                .Callback<InstanceQueryParameters, int, bool>((query, size, includeDataelements) => { actual = query; })
+                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>()))
+                .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
                 .ReturnsAsync((InstanceQueryResponse)null);
 
             HttpClient client = GetTestClient(instanceRepositoryMock);
@@ -712,8 +712,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             InstanceQueryParameters actual = new InstanceQueryParameters();
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
             instanceRepositoryMock
-                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<int>(), It.IsAny<bool>()))
-                .Callback<InstanceQueryParameters, int, bool>((query, size, includeDataelements) => { actual = query; })
+                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>()))
+                .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
                 .ReturnsAsync((InstanceQueryResponse)null);
 
             string expectedSortBy = "desc:lastChanged";
@@ -750,8 +750,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             InstanceQueryParameters actual = new InstanceQueryParameters();
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
             instanceRepositoryMock
-                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<int>(), It.IsAny<bool>()))
-                .Callback<InstanceQueryParameters, int, bool>((query, size, includeDataelements) => { actual = query; })
+                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>()))
+                .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
                 .ReturnsAsync((InstanceQueryResponse)null);
 
             HttpClient client = GetTestClient(instanceRepositoryMock);
@@ -784,7 +784,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Arrange
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
             instanceRepositoryMock
-                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<int>(), It.IsAny<bool>()))
+                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>()))
                 .ReturnsAsync((InstanceQueryResponse)null);
 
             HttpClient client = GetTestClient(instanceRepositoryMock);
@@ -818,7 +818,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Arrange
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
             instanceRepositoryMock
-                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<int>(), It.IsAny<bool>()))
+                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>()))
                 .ReturnsAsync((InstanceQueryResponse)null);
 
             HttpClient client = GetTestClient(instanceRepositoryMock);
@@ -852,8 +852,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             InstanceQueryParameters actual = new InstanceQueryParameters();
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
             instanceRepositoryMock
-                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<int>(), It.IsAny<bool>()))
-                .Callback<InstanceQueryParameters, int, bool>((query, size, includeDataelements) => { actual = query; })
+                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>()))
+                .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
                 .ReturnsAsync((InstanceQueryResponse)null);
             string expectedAppId = "tdd/endring-av-navn";
 
@@ -888,8 +888,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             InstanceQueryParameters actual = new InstanceQueryParameters();
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
             instanceRepositoryMock
-                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<int>(), It.IsAny<bool>()))
-                .Callback<InstanceQueryParameters, int, bool>((query, size, includeDataelements) => { actual = query; })
+                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>()))
+                .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
                 .ReturnsAsync((InstanceQueryResponse)null);
             int expectedCount = 3;
 
@@ -958,8 +958,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             InstanceQueryParameters actual = new InstanceQueryParameters();
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
             instanceRepositoryMock
-                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<int>(), It.IsAny<bool>()))
-                .Callback<InstanceQueryParameters, int, bool>((query, size, includeDataelements) => { actual = query; })
+                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>()))
+                .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
                 .ReturnsAsync((InstanceQueryResponse)null);
 
             HttpClient client = GetTestClient(instanceRepositoryMock);
@@ -992,8 +992,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             InstanceQueryParameters actual = new InstanceQueryParameters();
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
             instanceRepositoryMock
-                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<int>(), It.IsAny<bool>()))
-                .Callback<InstanceQueryParameters, int, bool>((query, size, includeDataelements) => { actual = query; })
+                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>()))
+                .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
                 .ReturnsAsync((InstanceQueryResponse)null);
 
             HttpClient client = GetTestClient(instanceRepositoryMock);

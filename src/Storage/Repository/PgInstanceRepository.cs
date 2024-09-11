@@ -100,11 +100,11 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<InstanceQueryResponse> GetInstancesFromQuery(InstanceQueryParameters queryParams, int size, bool includeDataElements)
+        public async Task<InstanceQueryResponse> GetInstancesFromQuery(InstanceQueryParameters queryParams, bool includeDataElements)
         {
             try
             {
-                return await GetInstancesInternal(queryParams, size, includeDataElements);
+                return await GetInstancesInternal(queryParams, includeDataElements);
             }
             catch (Exception e)
             {
@@ -245,7 +245,6 @@ namespace Altinn.Platform.Storage.Repository
 
         private async Task<InstanceQueryResponse> GetInstancesInternal(
             InstanceQueryParameters queryParams,
-            int size,
             bool includeDataelements)
         {
             DateTime lastChanged = DateTime.MinValue;
@@ -259,7 +258,7 @@ namespace Altinn.Platform.Storage.Repository
             Dictionary<string, object> postgresParams = queryParams.GeneratePostgreSQLParameters();
             postgresParams.Add("_continue_idx", continueIdx);
             postgresParams.Add("_lastChanged_idx", lastChangeIdx);
-            postgresParams.Add("_size", size);
+            postgresParams.Add("_size", queryParams.Size);
             postgresParams.Add("_includeElements", includeDataelements);
             foreach (string name in _paramTypes.Keys)
             {
@@ -306,7 +305,7 @@ namespace Altinn.Platform.Storage.Repository
                     ToExternal(instance);
                 }
 
-                queryResponse.ContinuationToken = queryResponse.Instances.Count == size ? $"{lastChanged.Ticks};{id}" : null;
+                queryResponse.ContinuationToken = queryResponse.Instances.Count == queryParams.Size ? $"{lastChanged.Ticks};{id}" : null;
             }
 
             queryResponse.Count = queryResponse.Instances.Count;

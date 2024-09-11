@@ -211,11 +211,11 @@ namespace Altinn.Platform.Storage.Controllers
                 queryParameters.SortBy = "desc:lastChanged";
             }
 
-            int pageSize = queryParameters.Size ?? 100;
+            queryParameters.Size = queryParameters.Size ?? 100;
 
             try
             {
-                InstanceQueryResponse result = await _instanceRepository.GetInstancesFromQuery(queryParameters, pageSize, true);
+                InstanceQueryResponse result = await _instanceRepository.GetInstancesFromQuery(queryParameters, true);
 
                 if (!string.IsNullOrEmpty(result.Exception))
                 {

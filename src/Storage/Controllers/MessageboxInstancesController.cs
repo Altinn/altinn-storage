@@ -79,6 +79,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             InstanceQueryParameters queryParams = GetQueryParams(queryModel);
             GetStatusFromQueryParams(queryModel.IncludeActive, queryModel.IncludeArchived, queryModel.IncludeDeleted, queryParams);
+            queryParams.Size = 100;
             queryParams.IsHardDeleted = false;
             queryParams.SortBy = "desc:lastChanged";
 
@@ -87,7 +88,7 @@ namespace Altinn.Platform.Storage.Controllers
                 queryParams.AppIds = await MatchStringToAppTitle(queryModel.SearchString);
             }
 
-            InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesFromQuery(queryParams, 100, false);
+            InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesFromQuery(queryParams, false);
 
             AddQueryModelToTelemetry(queryModel);
 
