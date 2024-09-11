@@ -129,31 +129,31 @@ namespace Altinn.Platform.Storage.Models
         /// <summary>
         /// Gets or sets the instance owner party identifier.
         /// </summary>
-        [FromHeader(Name = _instanceOwnerPartyIdParameterName)]
+        [FromQuery(Name = _instanceOwnerPartyIdParameterName)]
         public int? InstanceOwnerPartyId { get; set; }
 
         /// <summary>
-        /// Gets or sets a list of instance owner party identifier.
+        /// Gets or sets the list of instance owner party IDs.
         /// </summary>
-        [FromHeader(Name = _instanceOwnerPartyIdParameterName)]
+        [FromQuery(Name = _instanceOwnerPartyIdParameterName)]
         public List<int?> InstanceOwnerPartyIdList { get; set; }
 
         /// <summary>
         /// Gets or sets the last changed date.
         /// </summary>
-        [FromHeader(Name = _lastChangedParameterName)]
+        [FromQuery(Name = _lastChangedParameterName)]
         public string LastChanged { get; set; }
 
         /// <summary>
         /// Gets or sets the message box interval.
         /// </summary>
-        [FromHeader(Name = _messageBoxIntervalParameterName)]
+        [FromQuery(Name = _messageBoxIntervalParameterName)]
         public string[] MsgBoxInterval { get; set; }
 
         /// <summary>
         /// Gets or sets the organization.
         /// </summary>
-        [FromHeader(Name = _orgParameterName)]
+        [FromQuery(Name = _orgParameterName)]
         public string Org { get; set; }
 
         /// <summary>
@@ -245,37 +245,41 @@ namespace Altinn.Platform.Storage.Models
         /// <exception cref="ArgumentNullException">request</exception>
         public void PopulatePropertiesFromRequest(HttpRequest request)
         {
-            var query = request?.Query;
-            if (query == null)
+            var headers = request?.Headers;
+            if (headers != null)
             {
-                return;
+                InstanceOwnerIdentifier = GetHeaderValue(headers, _instanceOwnerIdentifierHeaderName, InstanceOwnerIdentifier);
             }
 
-            AppId = GetQueryValue(query, _appIdParameterName, AppId);
-            AppIds = GetQueryValue(query, _appIdsParameterName, AppIds);
-            ArchiveReference = GetQueryValue(query, _archiveReferenceParameterName, ArchiveReference);
-            ContinuationToken = GetQueryValue(query, _continuationTokenParameterName, ContinuationToken);
-            Created = GetQueryValue(query, _creationDateParameterName, Created);
-            CurrentTaskId = GetQueryValue(query, _currentTaskParameterName, CurrentTaskId);
-            DueBefore = GetQueryValue(query, _dueBeforeParameterName, DueBefore);
-            ExcludeConfirmedBy = GetQueryValue(query, _excludeConfirmedByParameterName, ExcludeConfirmedBy);
-            InstanceOwnerIdentifier = GetQueryValue(query, _instanceOwnerIdentifierHeaderName, InstanceOwnerIdentifier);
-            IsActiveOrSoftDeleted = GetQueryValue(query, _statusIsActiveOrSoftDeletedParameterName, IsActiveOrSoftDeleted);
-            IsArchived = GetQueryValue(query, _statusIsArchivedParameterName, IsArchived);
-            IsArchivedOrSoftDeleted = GetQueryValue(query, _statusIsArchivedOrSoftDeletedParameterName, IsArchivedOrSoftDeleted);
-            IsHardDeleted = GetQueryValue(query, _statusIsHardDeletedParameterName, IsHardDeleted);
-            IsSoftDeleted = GetQueryValue(query, _statusIsSoftDeletedParameterName, IsSoftDeleted);
-            LastChanged = GetQueryValue(query, _lastChangedParameterName, LastChanged);
-            MsgBoxInterval = GetQueryValue(query, _messageBoxIntervalParameterName, MsgBoxInterval);
-            Org = GetQueryValue(query, _orgParameterName, Org);
-            ProcessEndEvent = GetQueryValue(query, _processEndEventParameterName, ProcessEndEvent);
-            ProcessEnded = GetQueryValue(query, _processEndedParameterName, ProcessEnded);
-            ProcessIsComplete = GetQueryValue(query, _processIsCompleteParameterName, ProcessIsComplete);
-            SearchString = GetQueryValue(query, _searchStringParameterName, SearchString);
-            SetInstanceOwnerPartyId(query);
-            Size = GetQueryValue(query, _sizeParameterName, Size);
-            SortBy = GetQueryValue(query, _sortByParameterName, SortBy);
-            VisibleAfter = GetQueryValue(query, _visibleAfterParameterName, VisibleAfter);
+            var query = request?.Query;
+            if (query != null)
+            {
+                AppId = GetQueryValue(query, _appIdParameterName, AppId);
+                AppIds = GetQueryValue(query, _appIdsParameterName, AppIds);
+                ArchiveReference = GetQueryValue(query, _archiveReferenceParameterName, ArchiveReference);
+                ContinuationToken = GetQueryValue(query, _continuationTokenParameterName, ContinuationToken);
+                Created = GetQueryValue(query, _creationDateParameterName, Created);
+                CurrentTaskId = GetQueryValue(query, _currentTaskParameterName, CurrentTaskId);
+                DueBefore = GetQueryValue(query, _dueBeforeParameterName, DueBefore);
+                ExcludeConfirmedBy = GetQueryValue(query, _excludeConfirmedByParameterName, ExcludeConfirmedBy);
+                IsActiveOrSoftDeleted = GetQueryValue(query, _statusIsActiveOrSoftDeletedParameterName, IsActiveOrSoftDeleted);
+                IsArchived = GetQueryValue(query, _statusIsArchivedParameterName, IsArchived);
+                IsArchivedOrSoftDeleted = GetQueryValue(query, _statusIsArchivedOrSoftDeletedParameterName, IsArchivedOrSoftDeleted);
+                IsHardDeleted = GetQueryValue(query, _statusIsHardDeletedParameterName, IsHardDeleted);
+                IsSoftDeleted = GetQueryValue(query, _statusIsSoftDeletedParameterName, IsSoftDeleted);
+                LastChanged = GetQueryValue(query, _lastChangedParameterName, LastChanged);
+                MsgBoxInterval = GetQueryValue(query, _messageBoxIntervalParameterName, MsgBoxInterval);
+                Org = GetQueryValue(query, _orgParameterName, Org);
+                ProcessEndEvent = GetQueryValue(query, _processEndEventParameterName, ProcessEndEvent);
+                ProcessEnded = GetQueryValue(query, _processEndedParameterName, ProcessEnded);
+                ProcessIsComplete = GetQueryValue(query, _processIsCompleteParameterName, ProcessIsComplete);
+                SearchString = GetQueryValue(query, _searchStringParameterName, SearchString);
+                Size = GetQueryValue(query, _sizeParameterName, Size);
+                SortBy = GetQueryValue(query, _sortByParameterName, SortBy);
+                VisibleAfter = GetQueryValue(query, _visibleAfterParameterName, VisibleAfter);
+
+                SetInstanceOwnerPartyId(query);
+            }
         }
 
         /// <summary>
@@ -284,7 +288,7 @@ namespace Altinn.Platform.Storage.Models
         /// <returns>Dictionary with PostgreSQL parameters</returns>
         public Dictionary<string, object> GeneratePostgreSQLParameters()
         {
-            Dictionary<string, object> postgresParams = new Dictionary<string, object>();
+            Dictionary<string, object> postgresParams = [];
 
             if (InstanceOwnerPartyId != null)
             {
@@ -434,7 +438,7 @@ namespace Altinn.Platform.Storage.Models
         }
 
         /// <summary>
-        /// Gets an array of exclude confirmed by values from the query values.
+        /// Retrieves an array of exclude confirmed by values from the query values.
         /// </summary>
         /// <param name="queryValues">The query values containing stakeholder IDs.</param>
         /// <returns>An array of exclude confirmed by values.</returns>
@@ -451,7 +455,7 @@ namespace Altinn.Platform.Storage.Models
         }
 
         /// <summary>
-        /// Gets an integer value from the query collection.
+        /// Retrieves an integer value from the query collection.
         /// </summary>
         /// <param name="query">The collection of query parameters.</param>
         /// <param name="key">The key to look for in the query collection.</param>
@@ -465,7 +469,7 @@ namespace Altinn.Platform.Storage.Models
         }
 
         /// <summary>
-        /// Gets a boolean value from the query collection.
+        /// Retrieves a boolean value from the query collection.
         /// </summary>
         /// <param name="query">The collection of query parameters.</param>
         /// <param name="key">The key to look for in the query collection.</param>
@@ -479,7 +483,7 @@ namespace Altinn.Platform.Storage.Models
         }
 
         /// <summary>
-        /// Gets a string value from the query collection.
+        /// Retrieves a string value from the query collection.
         /// </summary>
         /// <param name="query">The collection of query parameters.</param>
         /// <param name="key">The key to look for in the query collection.</param>
@@ -491,7 +495,7 @@ namespace Altinn.Platform.Storage.Models
         }
 
         /// <summary>
-        /// Gets an array of string values from the query collection.
+        /// Retrieves an array of string values from the query collection.
         /// </summary>
         /// <param name="query">The collection of query parameters.</param>
         /// <param name="key">The key to look for in the query collection.</param>
@@ -521,6 +525,18 @@ namespace Altinn.Platform.Storage.Models
                     InstanceOwnerPartyId = null;
                 }
             }
+        }
+
+        /// <summary>
+        /// Retrieves the header value from the provided headers dictionary.
+        /// </summary>
+        /// <param name="headers">The headers dictionary to search.</param>
+        /// <param name="key">The key of the header to retrieve.</param>
+        /// <param name="currentValue">The current value to return if the header is not found or is empty.</param>
+        /// <returns>The header value if found and not empty; otherwise, the current value.</returns>
+        private static string GetHeaderValue(IHeaderDictionary headers, string key, string currentValue)
+        {
+            return string.IsNullOrEmpty(currentValue) && headers.TryGetValue(key, out StringValues value) ? value.LastOrDefault() : currentValue;
         }
     }
 }

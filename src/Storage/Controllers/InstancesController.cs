@@ -88,9 +88,10 @@ namespace Altinn.Platform.Storage.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [Produces("application/json")]
-        public async Task<ActionResult<QueryResponse<Instance>>> GetInstances([FromQuery] InstanceQueryParameters queryParameters)
+        public async Task<ActionResult<QueryResponse<Instance>>> GetInstances()
         {
-            queryParameters.PopulatePropertiesFromRequest(Request);
+            var queryParameters = new InstanceQueryParameters();
+            queryParameters.PopulatePropertiesFromRequest(HttpContext.Request);
 
             if ((queryParameters.InstanceOwnerPartyId.HasValue || queryParameters.InstanceOwnerPartyIdList != null) && !string.IsNullOrEmpty(queryParameters.InstanceOwnerIdentifier))
             {
