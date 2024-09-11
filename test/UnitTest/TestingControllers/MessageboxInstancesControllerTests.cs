@@ -646,7 +646,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 .Callback<InstanceQueryParameters, int, bool>((query, size, includeDataelements) => { actual = query; })
                 .ReturnsAsync((InstanceQueryResponse)null);
 
-
             HttpClient client = GetTestClient(instanceRepositoryMock);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
 

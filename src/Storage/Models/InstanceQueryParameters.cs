@@ -199,6 +199,46 @@ namespace Altinn.Platform.Storage.Models
         public string VisibleAfter { get; set; }
 
         /// <summary>
+        /// Builds a query string from the properties of the instance.
+        /// </summary>
+        /// <returns>A query string constructed from the instance properties.</returns>
+        /// <remarks>
+        /// The method filters properties that have either <see cref="FromQueryAttribute"/> or <see cref="FromHeaderAttribute"/>.
+        /// It then constructs key-value pairs from these properties and uses <see cref="QueryBuilder"/> to build the query string.
+        /// </remarks>
+        public string BuildQueryString()
+        {
+            var properties = GetType().GetProperties()
+                .Where(prop => Attribute.IsDefined(prop, typeof(FromQueryAttribute)) || Attribute.IsDefined(prop, typeof(FromHeaderAttribute)))
+                .Where(prop => prop.CanRead && prop.GetValue(this) != null)
+                .SelectMany(prop =>
+                {
+                    string name = null;
+                    var value = prop.GetValue(this);
+
+                    if (Attribute.IsDefined(prop, typeof(FromQueryAttribute)))
+                    {
+                        name = ((FromQueryAttribute)Attribute.GetCustomAttribute(prop, typeof(FromQueryAttribute))).Name;
+                    }
+                    else if (Attribute.IsDefined(prop, typeof(FromHeaderAttribute)))
+                    {
+                        name = ((FromHeaderAttribute)Attribute.GetCustomAttribute(prop, typeof(FromHeaderAttribute))).Name;
+                    }
+
+                    if (value is IEnumerable<string> enumerable)
+                    {
+                        return enumerable.Select(valuePair => new KeyValuePair<string, string>(name, valuePair));
+                    }
+
+                    return [new KeyValuePair<string, string>(name, Convert.ToString(value))];
+                }).ToList();
+
+            var queryBuilder = new QueryBuilder(properties);
+
+            return queryBuilder.ToQueryString().Value;
+        }
+
+        /// <summary>
         /// Populates the instance properties from a request.
         /// </summary>
         /// <param name="request">The request.</param>
@@ -236,35 +276,6 @@ namespace Altinn.Platform.Storage.Models
             Size = GetQueryValue(query, _sizeParameterName, Size);
             SortBy = GetQueryValue(query, _sortByParameterName, SortBy);
             VisibleAfter = GetQueryValue(query, _visibleAfterParameterName, VisibleAfter);
-        }
-
-        /// <summary>
-        /// Builds a query string with one replaced parameter.
-        /// </summary>
-        /// <param name="queryParamName">The name of the query parameter to be replaced.</param>
-        /// <param name="newParamValue">The new value for the specified query parameter.</param>
-        /// <returns>A query string with the specified parameter replaced.</returns>
-        public string BuildQueryString(string queryParamName, string newParamValue)
-        {
-            var properties = GetType().GetProperties().Where(prop => prop.CanRead && prop.GetValue(this) != null).SelectMany(prop =>
-            {
-                var value = prop.GetValue(this);
-                if (value is IEnumerable<string> enumerable)
-                {
-                    return enumerable.Select(v => new KeyValuePair<string, string>(prop.Name, v));
-                }
-
-                return [new KeyValuePair<string, string>(prop.Name, value.ToString())];
-            }).ToList();
-
-            properties.RemoveAll(x => x.Key == queryParamName);
-
-            var queryBuilder = new QueryBuilder(properties)
-            {
-                { queryParamName, newParamValue }
-            };
-
-            return queryBuilder.ToQueryString().Value;
         }
 
         /// <summary>
