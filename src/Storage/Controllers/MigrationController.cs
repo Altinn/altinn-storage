@@ -424,6 +424,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="pagenumber">Page number</param>
         /// <param name="language">Language</param>
         /// <param name="xsltype">Xsl type</param>
+        /// <param name="isPortrait">Format: portrait vs landscape</param>
         /// <returns>Ok</returns>
         [AllowAnonymous]
         [HttpPost("xsl/{org}/{app}/{lformid}/{pagenumber}/{language}/{xsltype}/{isportrait}")]
