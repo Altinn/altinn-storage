@@ -239,50 +239,6 @@ namespace Altinn.Platform.Storage.Models
         }
 
         /// <summary>
-        /// Populates the instance properties from a request.
-        /// </summary>
-        /// <param name="request">The request.</param>
-        /// <exception cref="ArgumentNullException">request</exception>
-        public void PopulatePropertiesFromRequest(HttpRequest request)
-        {
-            var headers = request?.Headers;
-            if (headers != null)
-            {
-                InstanceOwnerIdentifier = GetHeaderValue(headers, _instanceOwnerIdentifierHeaderName, InstanceOwnerIdentifier);
-            }
-
-            var query = request?.Query;
-            if (query != null)
-            {
-                AppId = GetQueryValue(query, _appIdParameterName, AppId);
-                AppIds = GetQueryValue(query, _appIdsParameterName, AppIds);
-                ArchiveReference = GetQueryValue(query, _archiveReferenceParameterName, ArchiveReference);
-                ContinuationToken = GetQueryValue(query, _continuationTokenParameterName, ContinuationToken);
-                Created = GetQueryValue(query, _creationDateParameterName, Created);
-                CurrentTaskId = GetQueryValue(query, _currentTaskParameterName, CurrentTaskId);
-                DueBefore = GetQueryValue(query, _dueBeforeParameterName, DueBefore);
-                ExcludeConfirmedBy = GetQueryValue(query, _excludeConfirmedByParameterName, ExcludeConfirmedBy);
-                IsActiveOrSoftDeleted = GetQueryValue(query, _statusIsActiveOrSoftDeletedParameterName, IsActiveOrSoftDeleted);
-                IsArchived = GetQueryValue(query, _statusIsArchivedParameterName, IsArchived);
-                IsArchivedOrSoftDeleted = GetQueryValue(query, _statusIsArchivedOrSoftDeletedParameterName, IsArchivedOrSoftDeleted);
-                IsHardDeleted = GetQueryValue(query, _statusIsHardDeletedParameterName, IsHardDeleted);
-                IsSoftDeleted = GetQueryValue(query, _statusIsSoftDeletedParameterName, IsSoftDeleted);
-                LastChanged = GetQueryValue(query, _lastChangedParameterName, LastChanged);
-                MsgBoxInterval = GetQueryValue(query, _messageBoxIntervalParameterName, MsgBoxInterval);
-                Org = GetQueryValue(query, _orgParameterName, Org);
-                ProcessEndEvent = GetQueryValue(query, _processEndEventParameterName, ProcessEndEvent);
-                ProcessEnded = GetQueryValue(query, _processEndedParameterName, ProcessEnded);
-                ProcessIsComplete = GetQueryValue(query, _processIsCompleteParameterName, ProcessIsComplete);
-                SearchString = GetQueryValue(query, _searchStringParameterName, SearchString);
-                Size = GetQueryValue(query, _sizeParameterName, Size);
-                SortBy = GetQueryValue(query, _sortByParameterName, SortBy);
-                VisibleAfter = GetQueryValue(query, _visibleAfterParameterName, VisibleAfter);
-
-                SetInstanceOwnerPartyId(query);
-            }
-        }
-
-        /// <summary>
         /// Generates the PostgreSQL parameters from the query parameters
         /// </summary>
         /// <returns>Dictionary with PostgreSQL parameters</returns>
@@ -331,6 +287,11 @@ namespace Altinn.Platform.Storage.Models
             if (!string.IsNullOrEmpty(ArchiveReference))
             {
                 postgresParams.Add(GetPgParamName(_archiveReferenceParameterName), ArchiveReference.ToLower());
+            }
+
+            if (Size != null)
+            {
+                postgresParams.Add(GetPgParamName(_sizeParameterName), Size);
             }
 
             if (IsArchived != null)

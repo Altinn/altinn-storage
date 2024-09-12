@@ -88,11 +88,8 @@ namespace Altinn.Platform.Storage.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [Produces("application/json")]
-        public async Task<ActionResult<QueryResponse<Instance>>> GetInstances()
+        public async Task<ActionResult<QueryResponse<Instance>>> GetInstances(InstanceQueryParameters queryParameters)
         {
-            var queryParameters = new InstanceQueryParameters();
-            queryParameters.PopulatePropertiesFromRequest(HttpContext.Request);
-
             if ((queryParameters.InstanceOwnerPartyId.HasValue || queryParameters.InstanceOwnerPartyIdList != null) && !string.IsNullOrEmpty(queryParameters.InstanceOwnerIdentifier))
             {
                 return BadRequest("Both InstanceOwner.PartyId and InstanceOwnerIdentifier cannot be present at the same time.");
