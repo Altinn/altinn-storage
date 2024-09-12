@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 
 using Altinn.Platform.Storage.Helpers;
 
@@ -197,119 +196,40 @@ namespace Altinn.Platform.Storage.Models
         /// <returns>Dictionary with PostgreSQL parameters</returns>
         public Dictionary<string, object> GeneratePostgreSQLParameters()
         {
-            Dictionary<string, object> postgresParams = [];
+            var postgresParams = new Dictionary<string, object>();
 
-            if (InstanceOwnerPartyId != null)
-            {
-                postgresParams.Add(GetPgParamName(_instanceOwnerPartyIdParameterName), InstanceOwnerPartyId);
-            }
-            else if (InstanceOwnerPartyIds != null && InstanceOwnerPartyIds.Count > 0)
-            {
-                postgresParams.Add(GetPgParamName(_instanceOwnerPartyIdsParameterName), InstanceOwnerPartyIds.ToArray());
-            }
+            AddParamIfNotNull(postgresParams, _sizeParameterName, Size);
+            AddParamIfNotNull(postgresParams, _appIdParameterName, AppId);
+            AddParamIfNotNull(postgresParams, _statusIsArchivedParameterName, IsArchived);
+            AddParamIfNotNull(postgresParams, _statusIsSoftDeletedParameterName, IsSoftDeleted);
+            AddParamIfNotNull(postgresParams, _statusIsHardDeletedParameterName, IsHardDeleted);
+            AddParamIfNotNull(postgresParams, _processIsCompleteParameterName, ProcessIsComplete);
+            AddParamIfNotNull(postgresParams, _instanceOwnerPartyIdParameterName, InstanceOwnerPartyId);
+            AddParamIfNotNull(postgresParams, _statusIsActiveOrSoftDeletedParameterName, IsActiveOrSoftDeleted);
+            AddParamIfNotNull(postgresParams, _statusIsArchivedOrSoftDeletedParameterName, IsArchivedOrSoftDeleted);
 
-            if (AppId != null)
-            {
-                postgresParams.Add(GetPgParamName(_appIdParameterName), AppId);
-            }
-            else if (AppIds != null && AppIds.Length > 0)
-            {
-                postgresParams.Add(GetPgParamName(_appIdsParameterName), AppIds.ToArray());
-            }
+            AddParamIfNotEmpty(postgresParams, _orgParameterName, Org);
+            AddParamIfNotEmpty(postgresParams, _appIdsParameterName, AppIds);
+            AddParamIfNotEmpty(postgresParams, _currentTaskParameterName, ProcessCurrentTask);
+            AddParamIfNotEmpty(postgresParams, _archiveReferenceParameterName, ArchiveReference?.ToLower());
+            AddParamIfNotEmpty(postgresParams, _instanceOwnerPartyIdsParameterName, InstanceOwnerPartyIds?.ToArray());
+            AddParamIfNotEmpty(postgresParams, _excludeConfirmedByParameterName, GetExcludeConfirmedBy(ExcludeConfirmedBy));
 
-            if (!string.IsNullOrEmpty(ExcludeConfirmedBy))
-            {
-                postgresParams.Add(GetPgParamName(_excludeConfirmedByParameterName), GetExcludeConfirmedBy(ExcludeConfirmedBy));
-            }
-
-            if (!string.IsNullOrEmpty(Org))
-            {
-                postgresParams.Add(GetPgParamName(_orgParameterName), Org);
-            }
-
-            if (!string.IsNullOrEmpty(ProcessCurrentTask))
-            {
-                postgresParams.Add(GetPgParamName(_currentTaskParameterName), ProcessCurrentTask);
-            }
-
-            if (!string.IsNullOrEmpty(SearchString))
-            {
-                postgresParams.Add(_searchStringParameterName, $"%{SearchString}%");
-            }
-
-            if (!string.IsNullOrEmpty(ArchiveReference))
-            {
-                postgresParams.Add(GetPgParamName(_archiveReferenceParameterName), ArchiveReference.ToLower());
-            }
-
-            if (Size != null)
-            {
-                postgresParams.Add(GetPgParamName(_sizeParameterName), Size);
-            }
-
-            if (IsArchived != null)
-            {
-                postgresParams.Add(GetPgParamName(_statusIsArchivedParameterName), IsArchived);
-            }
-
-            if (IsSoftDeleted != null)
-            {
-                postgresParams.Add(GetPgParamName(_statusIsSoftDeletedParameterName), IsSoftDeleted);
-            }
-
-            if (IsHardDeleted != null)
-            {
-                postgresParams.Add(GetPgParamName(_statusIsHardDeletedParameterName), IsHardDeleted);
-            }
-
-            if (ProcessIsComplete != null)
-            {
-                postgresParams.Add(GetPgParamName(_processIsCompleteParameterName), ProcessIsComplete);
-            }
-
-            if (IsArchivedOrSoftDeleted != null)
-            {
-                postgresParams.Add(GetPgParamName(_statusIsArchivedOrSoftDeletedParameterName), IsArchivedOrSoftDeleted);
-            }
-
-            if (IsActiveOrSoftDeleted != null)
-            {
-                postgresParams.Add(GetPgParamName(_statusIsActiveOrSoftDeletedParameterName), IsActiveOrSoftDeleted);
-            }
+            AddDateParamIfNotNull(postgresParams, _dueBeforeParameterName, DueBefore);
+            AddDateParamIfNotNull(postgresParams, _creationDateParameterName, Created);
+            AddDateParamIfNotNull(postgresParams, _lastChangedParameterName, LastChanged);
+            AddDateParamIfNotNull(postgresParams, _visibleAfterParameterName, VisibleAfter);
+            AddDateParamIfNotNull(postgresParams, _processEndedParameterName, ProcessEnded);
+            AddDateParamIfNotNull(postgresParams, _messageBoxIntervalParameterName, MsgBoxInterval);
 
             if (!string.IsNullOrEmpty(SortBy))
             {
                 postgresParams.Add(_sortAscendingParameterName, !SortBy.StartsWith("desc:", StringComparison.OrdinalIgnoreCase));
             }
 
-            if (LastChanged != null)
+            if (!string.IsNullOrEmpty(SearchString))
             {
-                AddDateParam(_lastChangedParameterName, LastChanged, postgresParams, false);
-            }
-
-            if (Created != null)
-            {
-                AddDateParam(_creationDateParameterName, Created, postgresParams, false);
-            }
-
-            if (MsgBoxInterval != null)
-            {
-                AddDateParam(_messageBoxIntervalParameterName, MsgBoxInterval, postgresParams, false);
-            }
-
-            if (!string.IsNullOrEmpty(VisibleAfter))
-            {
-                AddDateParam(_visibleAfterParameterName, VisibleAfter, postgresParams, false);
-            }
-
-            if (!string.IsNullOrEmpty(DueBefore))
-            {
-                AddDateParam(_dueBeforeParameterName, DueBefore, postgresParams, false);
-            }
-
-            if (!string.IsNullOrEmpty(ProcessEnded))
-            {
-                AddDateParam(_processEndedParameterName, ProcessEnded, postgresParams, false);
+                postgresParams.Add(_searchStringParameterName, $"%{SearchString}%");
             }
 
             if (string.IsNullOrEmpty(ContinuationToken))
@@ -319,11 +239,55 @@ namespace Altinn.Platform.Storage.Models
             }
             else
             {
-                postgresParams.Add(_continueIndexParameterName, long.Parse(ContinuationToken.Split(';')[1]));
-                postgresParams.Add(_lastChangedIndexParameterName, new DateTime(long.Parse(ContinuationToken.Split(';')[0]), DateTimeKind.Utc));
+                var tokens = ContinuationToken.Split(';');
+                postgresParams.Add(_continueIndexParameterName, long.Parse(tokens[1]));
+                postgresParams.Add(_lastChangedIndexParameterName, new DateTime(long.Parse(tokens[0]), DateTimeKind.Utc));
             }
 
             return postgresParams;
+        }
+
+        /// <summary>
+        /// Adds a parameter to the dictionary if the value is not null or empty.
+        /// </summary>
+        /// <param name="postgresParams">The dictionary to add the parameter to.</param>
+        /// <param name="paramName">The name of the parameter.</param>
+        /// <param name="value">The value of the parameter.</param>
+        private static void AddParamIfNotEmpty(Dictionary<string, object> postgresParams, string paramName, object value)
+        {
+            var valueAsString = value?.ToString();
+            if (!string.IsNullOrEmpty(valueAsString))
+            {
+                postgresParams.Add(GetPgParamName(paramName), value);
+            }
+        }
+
+        /// <summary>
+        /// Adds a parameter to the dictionary if the value is not null.
+        /// </summary>
+        /// <param name="postgresParams">The dictionary to add the parameter to.</param>
+        /// <param name="paramName">The name of the parameter.</param>
+        /// <param name="value">The value of the parameter.</param>
+        private static void AddParamIfNotNull(Dictionary<string, object> postgresParams, string paramName, object value)
+        {
+            if (value != null)
+            {
+                postgresParams.Add(GetPgParamName(paramName), value);
+            }
+        }
+
+        /// <summary>
+        /// Adds a date parameter to the dictionary if the query values are not null or empty.
+        /// </summary>
+        /// <param name="postgresParams">The dictionary to add the parameter to.</param>
+        /// <param name="paramName">The name of the parameter.</param>
+        /// <param name="queryValues">The query values containing the date.</param>
+        private static void AddDateParamIfNotNull(Dictionary<string, object> postgresParams, string paramName, StringValues queryValues)
+        {
+            if (!StringValues.IsNullOrEmpty(queryValues))
+            {
+                AddDateParam(paramName, queryValues, postgresParams, false);
+            }
         }
 
         /// <summary>
