@@ -249,15 +249,11 @@ namespace Altinn.Platform.Storage.Repository
         {
             DateTime lastChanged = DateTime.MinValue;
             InstanceQueryResponse queryResponse = new() { Count = 0, Instances = [] };
-            long continueIdx = string.IsNullOrEmpty(queryParams.ContinuationToken) ? -1 : long.Parse(queryParams.ContinuationToken.Split(';')[1]);
-            DateTime lastChangeIdx = string.IsNullOrEmpty(queryParams.ContinuationToken) ? DateTime.MinValue : new DateTime(long.Parse(queryParams.ContinuationToken.Split(';')[0]), DateTimeKind.Utc);
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSqlFiltered);
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
             Dictionary<string, object> postgresParams = queryParams.GeneratePostgreSQLParameters();
-            postgresParams.Add("_continue_idx", continueIdx);
-            postgresParams.Add("_lastChanged_idx", lastChangeIdx);
             postgresParams.Add("_includeElements", includeDataelements);
             foreach (string name in _paramTypes.Keys)
             {

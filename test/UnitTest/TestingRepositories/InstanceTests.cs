@@ -464,16 +464,15 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_3.Clone());
             InstanceQueryParameters queryParams = new()
             {
+                Size = 1,
                 SortBy = "asc:"
             };
 
             // Act
-            queryParams.Size = 1;
             var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
             string contToken1 = instances1.ContinuationToken;
             queryParams.ContinuationToken = contToken1;
 
-            queryParams.Size = 1;
             var instances2 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
             string contToken2 = instances2.ContinuationToken;
             queryParams.ContinuationToken = contToken2;

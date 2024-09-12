@@ -4,7 +4,6 @@ using System.Linq;
 
 using Altinn.Platform.Storage.Helpers;
 
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
@@ -26,177 +25,172 @@ namespace Altinn.Platform.Storage.Models
         private const string _excludeConfirmedByParameterName = "excludeConfirmedBy";
         private const string _instanceOwnerIdentifierHeaderName = "X-Ai-InstanceOwnerIdentifier";
         private const string _instanceOwnerPartyIdParameterName = "instanceOwner.partyId";
+        private const string _instanceOwnerPartyIdsParameterName = "instanceOwner.partyIds";
         private const string _lastChangedParameterName = "lastChanged";
         private const string _messageBoxIntervalParameterName = "msgBoxInterval";
         private const string _orgParameterName = "org";
         private const string _processEndEventParameterName = "process.endEvent";
         private const string _processEndedParameterName = "process.ended";
         private const string _processIsCompleteParameterName = "process.isComplete";
-        private const string _searchStringParameterName = "searchString";
         private const string _sizeParameterName = "size";
-        private const string _sortByParameterName = "sortBy";
         private const string _statusIsActiveOrSoftDeletedParameterName = "status.isActiveOrSoftDeleted";
         private const string _statusIsArchivedOrSoftDeletedParameterName = "status.isArchivedOrSoftDeleted";
         private const string _statusIsArchivedParameterName = "status.isArchived";
         private const string _statusIsHardDeletedParameterName = "status.isHardDeleted";
         private const string _statusIsSoftDeletedParameterName = "status.isSoftDeleted";
         private const string _visibleAfterParameterName = "visibleAfter";
+        private const string _searchStringParameterName = "_search_string";
+        private const string _sortAscendingParameterName = "_sort_ascending";
+        private const string _continueIndxParameterName = "_continue_idx";
+        private const string _lastChangedIndxParameterName = "_lastChanged_idx";
 
         /// <summary>
-        /// Gets or sets the application identifier.
-        /// </summary>
-        [FromQuery(Name = _appIdParameterName)]
-        public string AppId { get; set; }
-
-        /// <summary>
-        /// Gets or sets an array of application identifiers.
-        /// </summary>
-        [FromQuery(Name = _appIdsParameterName)]
-        public string[] AppIds { get; set; }
-
-        /// <summary>
-        /// Gets or sets the archive reference.
-        /// </summary>
-        [FromQuery(Name = _archiveReferenceParameterName)]
-        public string ArchiveReference { get; set; }
-
-        /// <summary>
-        /// Gets or sets the continuation token.
-        /// </summary>
-        [FromQuery(Name = _continuationTokenParameterName)]
-        public string ContinuationToken { get; set; }
-
-        /// <summary>
-        /// Gets or sets the creation date.
-        /// </summary>
-        [FromQuery(Name = _creationDateParameterName)]
-        public string Created { get; set; }
-
-        /// <summary>
-        /// Gets or sets the current task identifier.
-        /// </summary>
-        [FromQuery(Name = _currentTaskParameterName)]
-        public string CurrentTaskId { get; set; }
-
-        /// <summary>
-        /// Gets or sets the due before date.
-        /// </summary>
-        [FromQuery(Name = _dueBeforeParameterName)]
-        public string DueBefore { get; set; }
-
-        /// <summary>
-        /// Gets or sets a string that will hide instances already confirmed by stakeholder.
-        /// </summary>
-        [FromQuery(Name = _excludeConfirmedByParameterName)]
-        public string ExcludeConfirmedBy { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether the status is active or soft deleted.
-        /// </summary>
-        [FromQuery(Name = _statusIsActiveOrSoftDeletedParameterName)]
-        public bool? IsActiveOrSoftDeleted { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether the status is archived.
-        /// </summary>
-        [FromQuery(Name = _statusIsArchivedParameterName)]
-        public bool? IsArchived { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether the status is archived or soft deleted.
-        /// </summary>
-        [FromQuery(Name = _statusIsArchivedOrSoftDeletedParameterName)]
-        public bool? IsArchivedOrSoftDeleted { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether the status is hard deleted.
-        /// </summary>
-        [FromQuery(Name = _statusIsHardDeletedParameterName)]
-        public bool? IsHardDeleted { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether the status is soft deleted.
-        /// </summary>
-        [FromQuery(Name = _statusIsSoftDeletedParameterName)]
-        public bool? IsSoftDeleted { get; set; }
-
-        /// <summary>
-        /// Gets or sets the instance owner identifier.
-        /// </summary>
-        [FromHeader(Name = _instanceOwnerIdentifierHeaderName)]
-        public string InstanceOwnerIdentifier { get; set; }
-
-        /// <summary>
-        /// Gets or sets the instance owner party identifier.
-        /// </summary>
-        [FromQuery(Name = _instanceOwnerPartyIdParameterName)]
-        public int? InstanceOwnerPartyId { get; set; }
-
-        /// <summary>
-        /// Gets or sets the list of instance owner party IDs.
-        /// </summary>
-        [FromQuery(Name = _instanceOwnerPartyIdParameterName)]
-        public List<int?> InstanceOwnerPartyIdList { get; set; }
-
-        /// <summary>
-        /// Gets or sets the last changed date.
-        /// </summary>
-        [FromQuery(Name = _lastChangedParameterName)]
-        public string LastChanged { get; set; }
-
-        /// <summary>
-        /// Gets or sets the message box interval.
-        /// </summary>
-        [FromQuery(Name = _messageBoxIntervalParameterName)]
-        public string[] MsgBoxInterval { get; set; }
-
-        /// <summary>
-        /// Gets or sets the organization.
+        /// The organization identifier.
         /// </summary>
         [FromQuery(Name = _orgParameterName)]
         public string Org { get; set; }
 
         /// <summary>
-        /// Gets or sets the process ended value.
+        /// The application identifier.
         /// </summary>
-        [FromQuery(Name = _processEndedParameterName)]
-        public string ProcessEnded { get; set; }
+        [FromQuery(Name = _appIdParameterName)]
+        public string AppId { get; set; }
 
         /// <summary>
-        /// Gets or sets the process end state.
+        /// The current task identifier.
         /// </summary>
-        [FromQuery(Name = _processEndEventParameterName)]
-        public string ProcessEndEvent { get; set; }
+        [FromQuery(Name = _currentTaskParameterName)]
+        public string ProcessCurrentTask { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether the process is completed.
+        /// A value indicating whether the process is completed.
         /// </summary>
         [FromQuery(Name = _processIsCompleteParameterName)]
         public bool? ProcessIsComplete { get; set; }
 
         /// <summary>
-        /// Gets or sets the search string.
+        /// The process end state.
         /// </summary>
-        [FromQuery(Name = _searchStringParameterName)]
-        public string SearchString { get; set; }
+        [FromQuery(Name = _processEndEventParameterName)]
+        public string ProcessEndEvent { get; set; }
 
         /// <summary>
-        /// Gets or sets the page size.
+        /// The process ended value.
+        /// </summary>
+        [FromQuery(Name = _processEndedParameterName)]
+        public string ProcessEnded { get; set; }
+
+        /// <summary>
+        /// The instance owner party identifier.
+        /// </summary>
+        [FromQuery(Name = _instanceOwnerPartyIdParameterName)]
+        public int? InstanceOwnerPartyId { get; set; }
+
+        /// <summary>
+        /// The last changed date.
+        /// </summary>
+        [FromQuery(Name = _lastChangedParameterName)]
+        public string LastChanged { get; set; }
+
+        /// <summary>
+        /// The creation date.
+        /// </summary>
+        [FromQuery(Name = _creationDateParameterName)]
+        public string Created { get; set; }
+
+        /// <summary>
+        /// The visible after date time.
+        /// </summary>
+        [FromQuery(Name = _visibleAfterParameterName)]
+        public string VisibleAfter { get; set; }
+
+        /// <summary>
+        /// The due before date time.
+        /// </summary>
+        [FromQuery(Name = _dueBeforeParameterName)]
+        public string DueBefore { get; set; }
+
+        /// <summary>
+        /// A string that will hide instances already confirmed by stakeholder.
+        /// </summary>
+        [FromQuery(Name = _excludeConfirmedByParameterName)]
+        public string ExcludeConfirmedBy { get; set; }
+
+        /// <summary>
+        /// A value indicating whether the instance is soft deleted.
+        /// </summary>
+        [FromQuery(Name = _statusIsSoftDeletedParameterName)]
+        public bool? IsSoftDeleted { get; set; }
+
+        /// <summary>
+        /// A value indicating whether the instance is hard deleted.
+        /// </summary>
+        [FromQuery(Name = _statusIsHardDeletedParameterName)]
+        public bool? IsHardDeleted { get; set; }
+
+        /// <summary>
+        /// A value indicating whether the instance is archived.
+        /// </summary>
+        [FromQuery(Name = _statusIsArchivedParameterName)]
+        public bool? IsArchived { get; set; }
+
+        /// <summary>
+        /// The continuation token.
+        /// </summary>
+        [FromQuery(Name = _continuationTokenParameterName)]
+        public string ContinuationToken { get; set; }
+
+        /// <summary>
+        /// The page size.
         /// </summary>
         [FromQuery(Name = _sizeParameterName)]
         public int? Size { get; set; }
 
         /// <summary>
-        /// Gets or sets the value by which the result will be sorted.
+        /// The instance owner identifier.
         /// </summary>
-        [FromQuery(Name = _sortByParameterName)]
-        public string SortBy { get; set; }
+        [FromHeader(Name = _instanceOwnerIdentifierHeaderName)]
+        public string InstanceOwnerIdentifier { get; set; }
 
         /// <summary>
-        /// Gets or sets the visible after date.
+        /// Gets or sets an array of application identifiers.
         /// </summary>
-        [FromQuery(Name = _visibleAfterParameterName)]
-        public string VisibleAfter { get; set; }
+        public string[] AppIds { get; set; }
+
+        /// <summary>
+        /// Gets or sets the archive reference.
+        /// </summary>
+        public string ArchiveReference { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the status is active or soft deleted.
+        /// </summary>
+        public bool? IsActiveOrSoftDeleted { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the status is archived or soft deleted.
+        /// </summary>
+        public bool? IsArchivedOrSoftDeleted { get; set; }
+
+        /// <summary>
+        /// Gets or sets the list of instance owner party IDs.
+        /// </summary>
+        public List<int?> InstanceOwnerPartyIdList { get; set; }
+
+        /// <summary>
+        /// Gets or sets the message box interval.
+        /// </summary>
+        public string[] MsgBoxInterval { get; set; }
+
+        /// <summary>
+        /// Gets or sets the search string.
+        /// </summary>
+        public string SearchString { get; set; }
+
+        /// <summary>
+        /// Gets or sets the value by which the result will be sorted.
+        /// </summary>
+        public string SortBy { get; set; }
 
         /// <summary>
         /// Builds a query string from the properties of the instance.
@@ -252,14 +246,14 @@ namespace Altinn.Platform.Storage.Models
             }
             else if (InstanceOwnerPartyIdList?.Count > 0)
             {
-                postgresParams.Add(GetPgParamName(_instanceOwnerPartyIdParameterName), InstanceOwnerPartyIdList.ToArray());
+                postgresParams.Add(GetPgParamName(_instanceOwnerPartyIdsParameterName), InstanceOwnerPartyIdList.ToArray());
             }
 
             if (AppId != null)
             {
                 postgresParams.Add(GetPgParamName(_appIdParameterName), AppId);
             }
-            else if (AppIds != null)
+            else if (AppIds != null && AppIds.Length > 0)
             {
                 postgresParams.Add(GetPgParamName(_appIdsParameterName), AppIds.ToArray());
             }
@@ -274,14 +268,14 @@ namespace Altinn.Platform.Storage.Models
                 postgresParams.Add(GetPgParamName(_orgParameterName), Org);
             }
 
-            if (!string.IsNullOrEmpty(CurrentTaskId))
+            if (!string.IsNullOrEmpty(ProcessCurrentTask))
             {
-                postgresParams.Add(GetPgParamName(_currentTaskParameterName), CurrentTaskId);
+                postgresParams.Add(GetPgParamName(_currentTaskParameterName), ProcessCurrentTask);
             }
 
             if (!string.IsNullOrEmpty(SearchString))
             {
-                postgresParams.Add("_search_string", $"%{SearchString}%");
+                postgresParams.Add(_searchStringParameterName, $"%{SearchString}%");
             }
 
             if (!string.IsNullOrEmpty(ArchiveReference))
@@ -326,7 +320,7 @@ namespace Altinn.Platform.Storage.Models
 
             if (!string.IsNullOrEmpty(SortBy))
             {
-                postgresParams.Add("_sort_ascending", !SortBy.StartsWith("desc:", StringComparison.OrdinalIgnoreCase));
+                postgresParams.Add(_sortAscendingParameterName, !SortBy.StartsWith("desc:", StringComparison.OrdinalIgnoreCase));
             }
 
             if (LastChanged != null)
@@ -357,6 +351,17 @@ namespace Altinn.Platform.Storage.Models
             if (!string.IsNullOrEmpty(ProcessEnded))
             {
                 AddDateParam(_processEndedParameterName, ProcessEnded, postgresParams, false);
+            }
+
+            if (string.IsNullOrEmpty(ContinuationToken))
+            {
+                postgresParams.Add(_continueIndxParameterName, -1);
+                postgresParams.Add(_lastChangedIndxParameterName, DateTime.MinValue);
+            }
+            else
+            {
+                postgresParams.Add(_continueIndxParameterName, long.Parse(ContinuationToken.Split(';')[1]));
+                postgresParams.Add(_lastChangedIndxParameterName, new DateTime(long.Parse(ContinuationToken.Split(';')[0]), DateTimeKind.Utc));
             }
 
             return postgresParams;
@@ -413,91 +418,6 @@ namespace Altinn.Platform.Storage.Models
             }
 
             return [.. confirmations];
-        }
-
-        /// <summary>
-        /// Retrieves an integer value from the query collection.
-        /// </summary>
-        /// <param name="query">The collection of query parameters.</param>
-        /// <param name="key">The key to look for in the query collection.</param>
-        /// <param name="currentValue">The current value to return if the key is not found or invalid.</param>
-        /// <returns>An integer value from the query collection if found and valid; otherwise, the current value.</returns>
-        private static int? GetQueryValue(IQueryCollection query, string key, int? currentValue)
-        {
-            return currentValue == null && query.TryGetValue(key, out StringValues value) && int.TryParse(value.LastOrDefault(), out int result)
-                ? result
-                : currentValue;
-        }
-
-        /// <summary>
-        /// Retrieves a boolean value from the query collection.
-        /// </summary>
-        /// <param name="query">The collection of query parameters.</param>
-        /// <param name="key">The key to look for in the query collection.</param>
-        /// <param name="currentValue">The current value to return if the key is not found or invalid.</param>
-        /// <returns>A boolean value from the query collection if found and valid; otherwise, the current value.</returns>
-        private static bool? GetQueryValue(IQueryCollection query, string key, bool? currentValue)
-        {
-            return currentValue == null && query.TryGetValue(key, out StringValues value) && bool.TryParse(value.LastOrDefault(), out bool result)
-                ? result
-                : currentValue;
-        }
-
-        /// <summary>
-        /// Retrieves a string value from the query collection.
-        /// </summary>
-        /// <param name="query">The collection of query parameters.</param>
-        /// <param name="key">The key to look for in the query collection.</param>
-        /// <param name="currentValue">The current value to return if the key is not found or invalid.</param>
-        /// <returns>A string value from the query collection if found; otherwise, the current value.</returns>
-        private static string GetQueryValue(IQueryCollection query, string key, string currentValue)
-        {
-            return string.IsNullOrEmpty(currentValue) && query.TryGetValue(key, out StringValues value) ? value.LastOrDefault() : currentValue;
-        }
-
-        /// <summary>
-        /// Retrieves an array of string values from the query collection.
-        /// </summary>
-        /// <param name="query">The collection of query parameters.</param>
-        /// <param name="key">The key to look for in the query collection.</param>
-        /// <param name="currentValue">The current array of values to return if the key is not found or invalid.</param>
-        /// <returns>An array of values from the query collection if found; otherwise, the current value.</returns>
-        private static string[] GetQueryValue(IQueryCollection query, string key, string[] currentValue)
-        {
-            return currentValue == null && query.TryGetValue(key, out StringValues value) ? [.. value] : currentValue;
-        }
-
-        /// <summary>
-        /// Sets the instance owner party identifier(s) from the query collection.
-        /// </summary>
-        /// <param name="query">The query collection.</param>
-        private void SetInstanceOwnerPartyId(IQueryCollection query)
-        {
-            if (query.TryGetValue(_instanceOwnerPartyIdParameterName, out StringValues instanceOwnerPartyId))
-            {
-                if (InstanceOwnerPartyId == null && instanceOwnerPartyId.Count == 1)
-                {
-                    InstanceOwnerPartyId = int.TryParse(instanceOwnerPartyId.LastOrDefault(), out int partyId) ? partyId : null;
-                    InstanceOwnerPartyIdList = null;
-                }
-                else if (InstanceOwnerPartyIdList == null && instanceOwnerPartyId.Count > 1)
-                {
-                    InstanceOwnerPartyIdList = instanceOwnerPartyId.Select(id => int.TryParse(id, out int partyId) ? (int?)partyId : null).ToList();
-                    InstanceOwnerPartyId = null;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Retrieves the header value from the provided headers dictionary.
-        /// </summary>
-        /// <param name="headers">The headers dictionary to search.</param>
-        /// <param name="key">The key of the header to retrieve.</param>
-        /// <param name="currentValue">The current value to return if the header is not found or is empty.</param>
-        /// <returns>The header value if found and not empty; otherwise, the current value.</returns>
-        private static string GetHeaderValue(IHeaderDictionary headers, string key, string currentValue)
-        {
-            return string.IsNullOrEmpty(currentValue) && headers.TryGetValue(key, out StringValues value) ? value.LastOrDefault() : currentValue;
         }
     }
 }
