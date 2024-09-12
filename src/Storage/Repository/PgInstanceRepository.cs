@@ -258,7 +258,6 @@ namespace Altinn.Platform.Storage.Repository
             Dictionary<string, object> postgresParams = queryParams.GeneratePostgreSQLParameters();
             postgresParams.Add("_continue_idx", continueIdx);
             postgresParams.Add("_lastChanged_idx", lastChangeIdx);
-            postgresParams.Add("_size", queryParams.Size);
             postgresParams.Add("_includeElements", includeDataelements);
             foreach (string name in _paramTypes.Keys)
             {
