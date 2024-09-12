@@ -4,7 +4,6 @@ using System.Linq;
 
 using Altinn.Platform.Storage.Helpers;
 
-using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
 
@@ -41,8 +40,8 @@ namespace Altinn.Platform.Storage.Models
         private const string _visibleAfterParameterName = "visibleAfter";
         private const string _searchStringParameterName = "_search_string";
         private const string _sortAscendingParameterName = "_sort_ascending";
-        private const string _continueIndxParameterName = "_continue_idx";
-        private const string _lastChangedIndxParameterName = "_lastChanged_idx";
+        private const string _continueIndexParameterName = "_continue_idx";
+        private const string _lastChangedIndexParameterName = "_lastChanged_idx";
 
         /// <summary>
         /// The organization identifier.
@@ -175,7 +174,7 @@ namespace Altinn.Platform.Storage.Models
         /// <summary>
         /// Gets or sets the list of instance owner party IDs.
         /// </summary>
-        public List<int?> InstanceOwnerPartyIdList { get; set; }
+        public List<int?> InstanceOwnerPartyIds { get; set; }
 
         /// <summary>
         /// Gets or sets the message box interval.
@@ -193,46 +192,6 @@ namespace Altinn.Platform.Storage.Models
         public string SortBy { get; set; }
 
         /// <summary>
-        /// Builds a query string from the properties of the instance.
-        /// </summary>
-        /// <returns>A query string constructed from the instance properties.</returns>
-        /// <remarks>
-        /// The method filters properties that have either <see cref="FromQueryAttribute"/> or <see cref="FromHeaderAttribute"/>.
-        /// It then constructs key-value pairs from these properties and uses <see cref="QueryBuilder"/> to build the query string.
-        /// </remarks>
-        public string BuildQueryString()
-        {
-            var properties = GetType().GetProperties()
-                .Where(prop => Attribute.IsDefined(prop, typeof(FromQueryAttribute)) || Attribute.IsDefined(prop, typeof(FromHeaderAttribute)))
-                .Where(prop => prop.CanRead && prop.GetValue(this) != null)
-                .SelectMany(prop =>
-                {
-                    string name = null;
-                    var value = prop.GetValue(this);
-
-                    if (Attribute.IsDefined(prop, typeof(FromQueryAttribute)))
-                    {
-                        name = ((FromQueryAttribute)Attribute.GetCustomAttribute(prop, typeof(FromQueryAttribute))).Name;
-                    }
-                    else if (Attribute.IsDefined(prop, typeof(FromHeaderAttribute)))
-                    {
-                        name = ((FromHeaderAttribute)Attribute.GetCustomAttribute(prop, typeof(FromHeaderAttribute))).Name;
-                    }
-
-                    if (value is IEnumerable<string> enumerable)
-                    {
-                        return enumerable.Select(valuePair => new KeyValuePair<string, string>(name, valuePair));
-                    }
-
-                    return [new KeyValuePair<string, string>(name, Convert.ToString(value))];
-                }).ToList();
-
-            var queryBuilder = new QueryBuilder(properties);
-
-            return queryBuilder.ToQueryString().Value;
-        }
-
-        /// <summary>
         /// Generates the PostgreSQL parameters from the query parameters
         /// </summary>
         /// <returns>Dictionary with PostgreSQL parameters</returns>
@@ -244,9 +203,9 @@ namespace Altinn.Platform.Storage.Models
             {
                 postgresParams.Add(GetPgParamName(_instanceOwnerPartyIdParameterName), InstanceOwnerPartyId);
             }
-            else if (InstanceOwnerPartyIdList?.Count > 0)
+            else if (InstanceOwnerPartyIds != null && InstanceOwnerPartyIds.Count > 0)
             {
-                postgresParams.Add(GetPgParamName(_instanceOwnerPartyIdsParameterName), InstanceOwnerPartyIdList.ToArray());
+                postgresParams.Add(GetPgParamName(_instanceOwnerPartyIdsParameterName), InstanceOwnerPartyIds.ToArray());
             }
 
             if (AppId != null)
@@ -355,13 +314,13 @@ namespace Altinn.Platform.Storage.Models
 
             if (string.IsNullOrEmpty(ContinuationToken))
             {
-                postgresParams.Add(_continueIndxParameterName, -1);
-                postgresParams.Add(_lastChangedIndxParameterName, DateTime.MinValue);
+                postgresParams.Add(_continueIndexParameterName, -1);
+                postgresParams.Add(_lastChangedIndexParameterName, DateTime.MinValue);
             }
             else
             {
-                postgresParams.Add(_continueIndxParameterName, long.Parse(ContinuationToken.Split(';')[1]));
-                postgresParams.Add(_lastChangedIndxParameterName, new DateTime(long.Parse(ContinuationToken.Split(';')[0]), DateTimeKind.Utc));
+                postgresParams.Add(_continueIndexParameterName, long.Parse(ContinuationToken.Split(';')[1]));
+                postgresParams.Add(_lastChangedIndexParameterName, new DateTime(long.Parse(ContinuationToken.Split(';')[0]), DateTimeKind.Utc));
             }
 
             return postgresParams;
@@ -394,16 +353,6 @@ namespace Altinn.Platform.Storage.Models
         }
 
         /// <summary>
-        /// Converts a query parameter name to a PostgreSQL parameter name.
-        /// </summary>
-        /// <param name="queryParameter">The query parameter name.</param>
-        /// <returns>The PostgreSQL parameter name.</returns>
-        private static string GetPgParamName(string queryParameter)
-        {
-            return "_" + queryParameter.Replace(".", "_");
-        }
-
-        /// <summary>
         /// Retrieves an array of exclude confirmed by values from the query values.
         /// </summary>
         /// <param name="queryValues">The query values containing stakeholder IDs.</param>
@@ -418,6 +367,16 @@ namespace Altinn.Platform.Storage.Models
             }
 
             return [.. confirmations];
+        }
+
+        /// <summary>
+        /// Converts a query parameter name to a PostgreSQL parameter name.
+        /// </summary>
+        /// <param name="queryParameter">The query parameter name.</param>
+        /// <returns>The PostgreSQL parameter name.</returns>
+        private static string GetPgParamName(string queryParameter)
+        {
+            return "_" + queryParameter.Replace(".", "_");
         }
     }
 }

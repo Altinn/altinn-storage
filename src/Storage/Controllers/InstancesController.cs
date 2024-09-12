@@ -18,10 +18,13 @@ using Altinn.Platform.Storage.Services;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
-
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
+
 using Newtonsoft.Json;
 
 using Substatus = Altinn.Platform.Storage.Interface.Models.Substatus;
@@ -90,7 +93,7 @@ namespace Altinn.Platform.Storage.Controllers
         [Produces("application/json")]
         public async Task<ActionResult<QueryResponse<Instance>>> GetInstances(InstanceQueryParameters queryParameters)
         {
-            if ((queryParameters.InstanceOwnerPartyId.HasValue || queryParameters.InstanceOwnerPartyIdList != null) && !string.IsNullOrEmpty(queryParameters.InstanceOwnerIdentifier))
+            if ((queryParameters.InstanceOwnerPartyId.HasValue || queryParameters.InstanceOwnerPartyIds != null) && !string.IsNullOrEmpty(queryParameters.InstanceOwnerIdentifier))
             {
                 return BadRequest("Both InstanceOwner.PartyId and InstanceOwnerIdentifier cannot be present at the same time.");
             }
@@ -179,9 +182,10 @@ namespace Altinn.Platform.Storage.Controllers
                 }
             }
 
-            string selfContinuationToken = queryParameters.ContinuationToken;
+            string selfContinuationToken = null;
             if (!string.IsNullOrEmpty(queryParameters.ContinuationToken))
             {
+                selfContinuationToken = queryParameters.ContinuationToken;
                 queryParameters.ContinuationToken = HttpUtility.UrlDecode(queryParameters.ContinuationToken);
             }
 
@@ -190,17 +194,14 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 if (queryParameters.IsHardDeleted.HasValue && queryParameters.IsHardDeleted.Value)
                 {
-                    queryParameters.ContinuationToken = selfContinuationToken;
                     return new QueryResponse<Instance>()
                     {
                         Instances = [],
-                        Self = BuildRequestLink(queryParameters)
+                        Self = BuildRequestLink(selfContinuationToken)
                     };
                 }
-                else
-                {
-                    queryParameters.IsHardDeleted ??= false;
-                }
+
+                queryParameters.IsHardDeleted = false;
             }
 
             if (string.IsNullOrEmpty(queryParameters.SortBy))
@@ -208,7 +209,7 @@ namespace Altinn.Platform.Storage.Controllers
                 queryParameters.SortBy = "desc:lastChanged";
             }
 
-            queryParameters.Size = queryParameters.Size ?? 100;
+            queryParameters.Size ??= 100;
 
             try
             {
@@ -232,19 +233,17 @@ namespace Altinn.Platform.Storage.Controllers
 
                 string nextContinuationToken = HttpUtility.UrlEncode(result.ContinuationToken);
                 result.ContinuationToken = null;
-                queryParameters.ContinuationToken = selfContinuationToken;
 
                 QueryResponse<Instance> response = new()
                 {
                     Instances = result.Instances,
                     Count = result.Instances.Count,
-                    Self = BuildRequestLink(queryParameters)
+                    Self = BuildRequestLink(selfContinuationToken)
                 };
 
                 if (!string.IsNullOrEmpty(nextContinuationToken))
                 {
-                    queryParameters.ContinuationToken = nextContinuationToken;
-                    response.Next = BuildRequestLink(queryParameters);
+                    response.Next = BuildRequestLink(nextContinuationToken);
                 }
 
                 // add self links to platform
@@ -798,13 +797,25 @@ namespace Altinn.Platform.Storage.Controllers
             return User.GetUserOrOrgId();
         }
 
-        private string BuildRequestLink(InstanceQueryParameters queryParams)
+        private string BuildRequestLink(string continuationToken)
         {
-            string host = $"https://platform.{_generalSettings.Hostname}";
             string url = Request.Path;
-            string selfQueryString = queryParams.BuildQueryString();
+            string queryString = Request.QueryString.Value;
+            string host = $"https://platform.{_generalSettings.Hostname}";
 
-            return $"{host}{url}{selfQueryString}";
+            if (string.IsNullOrEmpty(continuationToken))
+            {
+                return $"{host}{url}{queryString}";
+            }
+
+            Dictionary<string, StringValues> queryParams = QueryHelpers.ParseQuery(queryString);
+            List<KeyValuePair<string, string>> items = queryParams.SelectMany(x => x.Value, (col, value) => new KeyValuePair<string, string>(col.Key, value)).ToList();
+            items.RemoveAll(x => x.Key == "continuationToken");
+            var qb = new QueryBuilder(items)
+                        {
+                            { "continuationToken", continuationToken }
+                        };
+            return qb.ToQueryString().Value;
         }
 
         /// <summary>

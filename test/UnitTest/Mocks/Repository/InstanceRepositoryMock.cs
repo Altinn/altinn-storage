@@ -81,9 +81,9 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             {
                 instances.RemoveAll(i => queryParams.InstanceOwnerPartyId != Convert.ToInt32(i.InstanceOwner.PartyId));
             }
-            else if (queryParams.InstanceOwnerPartyIdList != null && queryParams.InstanceOwnerPartyIdList.Count > 0)
+            else if (queryParams.InstanceOwnerPartyIds != null && queryParams.InstanceOwnerPartyIds.Count > 0)
             {
-                instances.RemoveAll(i => !queryParams.InstanceOwnerPartyIdList.Contains(Convert.ToInt32(i.InstanceOwner.PartyId)));
+                instances.RemoveAll(i => !queryParams.InstanceOwnerPartyIds.Contains(Convert.ToInt32(i.InstanceOwner.PartyId)));
             }
 
             if (!string.IsNullOrEmpty(queryParams.ArchiveReference))

@@ -624,7 +624,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.NotNull(actual.SortBy);
             Assert.False(actual.IsArchived);
             Assert.False(actual.IsSoftDeleted);
-            Assert.NotNull(actual.InstanceOwnerPartyIdList);
+            Assert.NotNull(actual.InstanceOwnerPartyIds);
         }
 
         /// <summary>
@@ -659,7 +659,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
             Assert.True(actual.IsArchived);
             Assert.False(actual.IsSoftDeleted);
-            Assert.NotNull(actual.InstanceOwnerPartyIdList);
+            Assert.NotNull(actual.InstanceOwnerPartyIds);
         }
 
         /// <summary>
@@ -694,7 +694,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-            Assert.NotNull(actual.InstanceOwnerPartyIdList);
+            Assert.NotNull(actual.InstanceOwnerPartyIds);
         }
 
         /// <summary>
@@ -730,7 +730,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-            Assert.NotNull(actual.InstanceOwnerPartyIdList);
+            Assert.NotNull(actual.InstanceOwnerPartyIds);
             Assert.Equal(expectedSortBy, actual.SortBy);
             Assert.True(actual.IsArchivedOrSoftDeleted);
         }
@@ -766,7 +766,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-            Assert.NotNull(actual.InstanceOwnerPartyIdList);
+            Assert.NotNull(actual.InstanceOwnerPartyIds);
             Assert.True(actual.IsActiveOrSoftDeleted);
         }
 
@@ -973,7 +973,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-            Assert.NotNull(actual.InstanceOwnerPartyIdList);
+            Assert.NotNull(actual.InstanceOwnerPartyIds);
             Assert.True(actual.IsArchivedOrSoftDeleted);
         }
 
@@ -1009,7 +1009,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-            Assert.NotNull(actual.InstanceOwnerPartyIdList);
+            Assert.NotNull(actual.InstanceOwnerPartyIds);
             Assert.True(actual.IsSoftDeleted);
         }
 
