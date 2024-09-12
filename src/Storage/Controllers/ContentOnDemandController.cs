@@ -106,7 +106,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="language">language</param>
         /// <returns>The formatted content</returns>
         [HttpGet("payment")]
-        public async Task<Stream> GetPaymentAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
+        public Stream GetPaymentAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
             // TODO Replace with proper formatting
             return new MemoryStream(Encoding.UTF8.GetBytes($"<html>Dette er generert dynamisk<br><br><div>Not yet implemented</div></html>"));
