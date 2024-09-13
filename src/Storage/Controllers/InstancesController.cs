@@ -808,14 +808,19 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             Dictionary<string, StringValues> queryParams = QueryHelpers.ParseQuery(queryString);
-            List<KeyValuePair<string, string>> items = queryParams.SelectMany(x => x.Value, (col, value) => new KeyValuePair<string, string>(col.Key, value)).ToList();
-            items.RemoveAll(x => x.Key == "continuationToken");
-            var qb = new QueryBuilder(items)
-                        {
-                            { "continuationToken", continuationToken }
-                        };
-            var selfQueryString = qb.ToQueryString().Value;
-            return $"{host}{url}{selfQueryString}";
+
+            var flattenedQueryParams = queryParams.SelectMany(x => x.Value, (col, value) => new KeyValuePair<string, string>(col.Key, value)).Where(e => e.Key != "continuationToken");
+
+            var queryBuilder = new QueryBuilder(flattenedQueryParams)
+            {
+                {
+                    "continuationToken", continuationToken
+                }
+            };
+
+            var newQueryString = queryBuilder.ToQueryString().Value;
+
+            return $"{host}{url}{newQueryString}";
         }
 
         /// <summary>
