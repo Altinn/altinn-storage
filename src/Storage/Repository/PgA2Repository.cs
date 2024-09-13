@@ -18,7 +18,7 @@ namespace Altinn.Platform.Storage.Repository
     public class PgA2Repository : IA2Repository
     {
         private static readonly string _readXslSql = "select * from storage.reada2xsls (@_org, @_app, @_lformid, @_language, @_xsltype)";
-        private static readonly string _insertXslSql = "call storage.inserta2xsl (@_org, @_app, @_lformid, @_language, @_pagenumber, @_xsl, @_xsltype)";
+        private static readonly string _insertXslSql = "call storage.inserta2xsl (@_org, @_app, @_lformid, @_language, @_pagenumber, @_xsl, @_xsltype, @_isportrait)";
         private static readonly string _insertCodelistSql = "call storage.inserta2codelist (@_name, @_language, @_version, @_codelist)";
         private static readonly string _insertImageSql = "call storage.inserta2image (@_name, @_image)";
         private static readonly string _readCodelistSql = "select * from storage.reada2codelist (@_name, @_language)";
@@ -53,7 +53,7 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task CreateXsl(string org, string app, int lformId, string language, int pageNumber, string xsl, int xslType)
+        public async Task CreateXsl(string org, string app, int lformId, string language, int pageNumber, string xsl, int xslType, bool isPortrait)
         {
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertXslSql);
             pgcom.Parameters.AddWithValue("_org", NpgsqlDbType.Text, org);
@@ -63,6 +63,7 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue("_pagenumber", NpgsqlDbType.Integer, pageNumber);
             pgcom.Parameters.AddWithValue("_xsl", NpgsqlDbType.Text, xsl);
             pgcom.Parameters.AddWithValue("_xsltype", NpgsqlDbType.Integer, xslType);
+            pgcom.Parameters.AddWithValue("_isportrait", NpgsqlDbType.Boolean, isPortrait);
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
             await pgcom.ExecuteNonQueryAsync();
@@ -99,9 +100,9 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<List<string>> GetXsls(string org, string app, int lformId, string language, int xslType)
+        public async Task<List<(string Xsl, bool IsPortrait)>> GetXsls(string org, string app, int lformId, string language, int xslType)
         {
-            List<string> xsls = [];
+            List<(string Xsl, bool IsPortraitl)> xsls = [];
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readXslSql);
             pgcom.Parameters.AddWithValue("_org",      NpgsqlDbType.Text, org);
@@ -114,7 +115,7 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
-                xsls.Add(reader.GetFieldValue<string>("xsl"));
+                xsls.Add((reader.GetFieldValue<string>("xsl"), reader.GetFieldValue<bool>("isportrait")));
             }
 
             tracker.Track();

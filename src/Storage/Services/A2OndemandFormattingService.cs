@@ -215,7 +215,7 @@ namespace Altinn.Platform.Storage.Services
                         if (firstDiv.Attributes != null)
                         {
                             // First-Non-null div for every page will be the main div of that page
-                            if (count == firstDivs.Count)
+                            if (count == firstDivs.Count && !printViewXslBE.LastPage)
                             {
                                 if (firstDiv.Attributes["class"] != null)
                                 {
@@ -713,6 +713,12 @@ namespace Altinn.Platform.Storage.Services
         public string Id { get; set; }
 
         /// <summary>
+        /// Gets or sets the page number within the logical form
+        /// </summary>
+        [DataMember]
+        public int PageNumber { get; set; }
+
+        /// <summary>
         /// Gets or sets Identifier used to identify Logical Form Name in the Form Set Collection
         /// </summary>
         [DataMember]
@@ -723,6 +729,12 @@ namespace Altinn.Platform.Storage.Services
         /// </summary>
         [DataMember]
         public bool IsPortrait { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this page is the last page to show to the user in a form
+        /// </summary>
+        [DataMember]
+        public bool LastPage { get; set; }
 
         /// <summary>
         /// Gets or sets print form data as a HTML string
@@ -796,7 +808,6 @@ namespace Altinn.Platform.Storage.Services
             thead.xdTableHeader { background-color: inherit !important; }
             td div font img { float: right; }
             div.attachmentInfo { text-align: left; margin-left: 310px; }
-            @page { size: 210mm 297mm !important; margin: 5mm !important; }
             #pageHeader { -webkit-transform: rotate(-90deg); -webkit-transform-origin: right bottom; -moz-transform: rotate(-90deg); -moz-transform-origin: right bottom; -o-transform: rotate(-90deg); -o-transform-origin: right bottom; -ms-transform: rotate(-90deg); -ms-transform-origin: right bottom; position: fixed; top: 5px; right: 10px; color: red; border: 1px solid red; padding: 1px; }
             #pageFooter { -webkit-transform: rotate(90deg); -webkit-transform-origin: right bottom; -moz-transform: rotate(90deg); -moz-transform-origin: right bottom; -o-transform: rotate(90deg); -o-transform-origin: right bottom; -ms-transform: rotate(90deg); -ms-transform-origin: right bottom; position: fixed; bottom: 15px; left: 10px; color: red; border: 1px solid red; padding: 1px; margin-left: -215px; }
             footer.printAllStyle { margin-left: -165px !important; }

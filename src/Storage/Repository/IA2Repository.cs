@@ -12,12 +12,12 @@ namespace Altinn.Platform.Storage.Repository
         /// Get the stylesheets for a data element (a2 sub/main form)
         /// </summary>
         /// <returns>A list of stylesheets</returns>
-        Task<List<string>> GetXsls(string org, string app, int lformId, string language, int xslType);
+        Task<List<(string Xsl, bool IsPortrait)>> GetXsls(string org, string app, int lformId, string language, int xslType);
 
         /// <summary>
         /// Insert a stylesheet for a data element (a2 sub/main form page)
         /// </summary>
-        Task CreateXsl(string org, string app, int lformId, string language, int pageNumber, string xsl, int xslType);
+        Task CreateXsl(string org, string app, int lformId, string language, int pageNumber, string xsl, int xslType, bool isPortrait);
 
         /// <summary>
         /// Insert an a2 codelist

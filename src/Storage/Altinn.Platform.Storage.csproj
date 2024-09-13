@@ -25,6 +25,7 @@
 
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.22.0" />
 
+    <PackageReference Include="PDFsharp" Version="6.1.1" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.7.3" />
     <PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="6.7.3" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
