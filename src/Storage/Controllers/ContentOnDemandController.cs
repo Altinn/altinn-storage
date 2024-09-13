@@ -154,7 +154,7 @@ namespace Altinn.Platform.Storage.Controllers
                     foreach (var xsl in xsls)
                     {
                         var pdfPages = await _pdfGeneratorClient.GeneratePdf(
-                            $"{Request.Scheme}://{Request.Host}{Request.PathBase}{Request.Path}{Request.QueryString}"
+                            $"{Request.Scheme}://{Request.Host}{Request.PathBase}{Request.Path}"
                                 .Replace("formdatapdf", $"formdatahtml/{xsl.PageNumber}"),
                             xsl.IsPortrait);
                         using (var pageDoc = PdfReader.Open(pdfPages, PdfDocumentOpenMode.Import))
@@ -176,7 +176,7 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 // Generate all pages in a single operation
                 return await _pdfGeneratorClient.GeneratePdf(
-                    $"{Request.Scheme}://{Request.Host}{Request.PathBase}{Request.Path}{Request.QueryString}".Replace("formdatapdf", "formdatahtml"),
+                    $"{Request.Scheme}://{Request.Host}{Request.PathBase}{Request.Path}".Replace("formdatapdf", "formdatahtml"),
                     xsls[0].IsPortrait);
             }
         }
