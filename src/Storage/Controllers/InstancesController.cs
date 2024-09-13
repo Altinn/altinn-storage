@@ -326,6 +326,7 @@ namespace Altinn.Platform.Storage.Controllers
         [Produces("application/json")]
         public async Task<ActionResult<Instance>> Get(int instanceOwnerPartyId, Guid instanceGuid)
         {
+            Console.WriteLine("Ip address from InstancesController: " + Request?.Headers?["x-forwarded-for"]);
             try
             {
                 (Instance result, _) = await _instanceRepository.GetOne(instanceGuid, true);

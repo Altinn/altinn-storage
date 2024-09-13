@@ -159,6 +159,7 @@ namespace Altinn.Platform.Storage.Controllers
         [Produces("application/json")]
         public async Task<ActionResult> Get(int instanceOwnerPartyId, Guid instanceGuid, Guid dataGuid)
         {
+            Console.WriteLine("Ip address from DataController: " + Request?.Headers?["x-forwarded-for"]);
             if (instanceOwnerPartyId == 0)
             {
                 return BadRequest("Missing parameter value: instanceOwnerPartyId can not be empty");
