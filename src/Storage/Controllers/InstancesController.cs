@@ -93,7 +93,7 @@ namespace Altinn.Platform.Storage.Controllers
         [Produces("application/json")]
         public async Task<ActionResult<QueryResponse<Instance>>> GetInstances(InstanceQueryParameters queryParameters)
         {
-            if ((queryParameters.InstanceOwnerPartyId.HasValue || queryParameters.InstanceOwnerPartyIds != null) && !string.IsNullOrEmpty(queryParameters.InstanceOwnerIdentifier))
+            if (queryParameters.IsInvalidInstanceOwnerCombination())
             {
                 return BadRequest("Both InstanceOwner.PartyId and InstanceOwnerIdentifier cannot be present at the same time.");
             }
@@ -232,7 +232,6 @@ namespace Altinn.Platform.Storage.Controllers
                 }
 
                 string nextContinuationToken = HttpUtility.UrlEncode(result.ContinuationToken);
-                result.ContinuationToken = null;
 
                 QueryResponse<Instance> response = new()
                 {
@@ -247,7 +246,7 @@ namespace Altinn.Platform.Storage.Controllers
                 }
 
                 // add self links to platform
-                result.Instances.ForEach(i => i.SetPlatformSelfLinks(_storageBaseAndHost));
+                response.Instances.ForEach(i => i.SetPlatformSelfLinks(_storageBaseAndHost));
 
                 return Ok(response);
             }
@@ -815,7 +814,8 @@ namespace Altinn.Platform.Storage.Controllers
                         {
                             { "continuationToken", continuationToken }
                         };
-            return qb.ToQueryString().Value;
+            var selfQueryString = qb.ToQueryString().Value;
+            return $"{host}{url}{selfQueryString}";
         }
 
         /// <summary>

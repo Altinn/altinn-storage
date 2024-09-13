@@ -49,8 +49,8 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
 
         public Task<InstanceQueryResponse> GetInstancesFromQuery(InstanceQueryParameters queryParams, bool includeDataelements)
         {
-            InstanceQueryResponse response = new InstanceQueryResponse();
-            List<Instance> instances = new List<Instance>();
+            List<Instance> instances = [];
+            InstanceQueryResponse response = new();
 
             string instancesPath = GetInstancesPath();
 
@@ -81,7 +81,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             {
                 instances.RemoveAll(i => queryParams.InstanceOwnerPartyId != Convert.ToInt32(i.InstanceOwner.PartyId));
             }
-            else if (queryParams.InstanceOwnerPartyIds != null && queryParams.InstanceOwnerPartyIds.Count > 0)
+            else if (queryParams.InstanceOwnerPartyIds != null && queryParams.InstanceOwnerPartyIds.Length > 0)
             {
                 instances.RemoveAll(i => !queryParams.InstanceOwnerPartyIds.Contains(Convert.ToInt32(i.InstanceOwner.PartyId)));
             }

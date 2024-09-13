@@ -173,7 +173,7 @@ namespace Altinn.Platform.Storage.Models
         /// <summary>
         /// Gets or sets the list of instance owner party IDs.
         /// </summary>
-        public List<int?> InstanceOwnerPartyIds { get; set; }
+        public int?[] InstanceOwnerPartyIds { get; set; }
 
         /// <summary>
         /// Gets or sets the message box interval.
@@ -211,8 +211,8 @@ namespace Altinn.Platform.Storage.Models
             AddParamIfNotEmpty(postgresParams, _orgParameterName, Org);
             AddParamIfNotEmpty(postgresParams, _appIdsParameterName, AppIds);
             AddParamIfNotEmpty(postgresParams, _currentTaskParameterName, ProcessCurrentTask);
+            AddParamIfNotEmpty(postgresParams, _instanceOwnerPartyIdsParameterName, InstanceOwnerPartyIds);
             AddParamIfNotEmpty(postgresParams, _archiveReferenceParameterName, ArchiveReference?.ToLower());
-            AddParamIfNotEmpty(postgresParams, _instanceOwnerPartyIdsParameterName, InstanceOwnerPartyIds?.ToArray());
             AddParamIfNotEmpty(postgresParams, _excludeConfirmedByParameterName, GetExcludeConfirmedBy(ExcludeConfirmedBy));
 
             AddDateParamIfNotNull(postgresParams, _dueBeforeParameterName, DueBefore);
@@ -237,7 +237,7 @@ namespace Altinn.Platform.Storage.Models
                 postgresParams.Add(_continueIndexParameterName, -1);
                 postgresParams.Add(_lastChangedIndexParameterName, DateTime.MinValue);
             }
-            else
+            else if (ContinuationToken.Contains(';'))
             {
                 var tokens = ContinuationToken.Split(';');
                 postgresParams.Add(_continueIndexParameterName, long.Parse(tokens[1]));
@@ -245,6 +245,17 @@ namespace Altinn.Platform.Storage.Models
             }
 
             return postgresParams;
+        }
+
+        /// <summary>
+        /// Checks if the combination of InstanceOwnerPartyId, InstanceOwnerPartyIds, and InstanceOwnerIdentifier in the query parameters is invalid.
+        /// </summary>
+        /// <returns>
+        /// <c>true</c> if both InstanceOwnerPartyId (or InstanceOwnerPartyIds) and InstanceOwnerIdentifier are present; otherwise, <c>false</c>.
+        /// </returns>
+        public bool IsInvalidInstanceOwnerCombination()
+        {
+            return (InstanceOwnerPartyId.HasValue || InstanceOwnerPartyIds != null) && !string.IsNullOrEmpty(InstanceOwnerIdentifier);
         }
 
         /// <summary>
@@ -256,10 +267,12 @@ namespace Altinn.Platform.Storage.Models
         private static void AddParamIfNotEmpty(Dictionary<string, object> postgresParams, string paramName, object value)
         {
             var valueAsString = value?.ToString();
-            if (!string.IsNullOrEmpty(valueAsString))
+            if (string.IsNullOrEmpty(valueAsString))
             {
-                postgresParams.Add(GetPgParamName(paramName), value);
+                return;
             }
+
+            postgresParams.Add(GetPgParamName(paramName), value);
         }
 
         /// <summary>
@@ -270,10 +283,12 @@ namespace Altinn.Platform.Storage.Models
         /// <param name="value">The value of the parameter.</param>
         private static void AddParamIfNotNull(Dictionary<string, object> postgresParams, string paramName, object value)
         {
-            if (value != null)
+            if (value == null)
             {
-                postgresParams.Add(GetPgParamName(paramName), value);
+                return;
             }
+
+            postgresParams.Add(GetPgParamName(paramName), value);
         }
 
         /// <summary>
@@ -284,10 +299,12 @@ namespace Altinn.Platform.Storage.Models
         /// <param name="queryValues">The query values containing the date.</param>
         private static void AddDateParamIfNotNull(Dictionary<string, object> postgresParams, string paramName, StringValues queryValues)
         {
-            if (!StringValues.IsNullOrEmpty(queryValues))
+            if (StringValues.IsNullOrEmpty(queryValues))
             {
-                AddDateParam(paramName, queryValues, postgresParams, false);
+                return;
             }
+
+            AddDateParam(paramName, queryValues, postgresParams);
         }
 
         /// <summary>
@@ -296,9 +313,8 @@ namespace Altinn.Platform.Storage.Models
         /// <param name="dateParam">The date parameter name.</param>
         /// <param name="queryValues">The query values containing date expressions.</param>
         /// <param name="postgresParams">The dictionary to add PostgreSQL parameters to.</param>
-        /// <param name="valueAsString">Indicates whether to add the value as a string.</param>
         /// <exception cref="ArgumentException">Thrown when the date expression is invalid.</exception>
-        private static void AddDateParam(string dateParam, StringValues queryValues, Dictionary<string, object> postgresParams, bool valueAsString)
+        private static void AddDateParam(string dateParam, StringValues queryValues, Dictionary<string, object> postgresParams)
         {
             foreach (string value in queryValues)
             {
@@ -307,7 +323,7 @@ namespace Altinn.Platform.Storage.Models
                     string @operator = value.Split(':')[0];
                     string dateValue = value[(@operator.Length + 1)..];
                     string postgresParamName = GetPgParamName($"{dateParam}_{@operator}");
-                    postgresParams.Add(postgresParamName, valueAsString ? dateValue : DateTimeHelper.ParseAndConvertToUniversalTime(dateValue));
+                    postgresParams.Add(postgresParamName, DateTimeHelper.ParseAndConvertToUniversalTime(dateValue));
                 }
                 catch
                 {

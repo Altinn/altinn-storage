@@ -393,7 +393,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             InstanceQueryParameters queryParams = new()
             {
-                InstanceOwnerPartyIds = queryModel.InstanceOwnerPartyIdList.Select(i => (int?)i).ToList(),
+                InstanceOwnerPartyIds = queryModel.InstanceOwnerPartyIdList.Select(id => (int?)id).ToArray(),
             };
 
             if (!string.IsNullOrEmpty(queryModel.AppId))
