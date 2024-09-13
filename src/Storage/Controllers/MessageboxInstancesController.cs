@@ -61,6 +61,7 @@ namespace Altinn.Platform.Storage.Controllers
         [HttpPost("search")]
         public async Task<ActionResult> SearchMessageBoxInstances([FromBody] MessageBoxQueryModel queryModel)
         {
+            Console.WriteLine("Ip address: " + Request?.Headers?["x-forwarded-for"]);
             if (!string.IsNullOrEmpty(queryModel.ArchiveReference))
             {
                 if ((queryModel.IncludeActive == queryModel.IncludeArchived) && (queryModel.IncludeActive == queryModel.IncludeDeleted))
