@@ -153,42 +153,42 @@ namespace Altinn.Platform.Storage.Models
         /// <summary>
         /// Gets or sets an array of application identifiers.
         /// </summary>
-        public string[] AppIds { get; set; }
+        internal string[] AppIds { get; set; }
 
         /// <summary>
         /// Gets or sets the archive reference.
         /// </summary>
-        public string ArchiveReference { get; set; }
+        internal string ArchiveReference { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether the status is active or soft deleted.
         /// </summary>
-        public bool? IsActiveOrSoftDeleted { get; set; }
+        internal bool? IsActiveOrSoftDeleted { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether the status is archived or soft deleted.
         /// </summary>
-        public bool? IsArchivedOrSoftDeleted { get; set; }
+        internal bool? IsArchivedOrSoftDeleted { get; set; }
 
         /// <summary>
         /// Gets or sets the list of instance owner party IDs.
         /// </summary>
-        public int?[] InstanceOwnerPartyIds { get; set; }
+        internal int?[] InstanceOwnerPartyIds { get; set; }
 
         /// <summary>
         /// Gets or sets the message box interval.
         /// </summary>
-        public string[] MsgBoxInterval { get; set; }
+        internal string[] MsgBoxInterval { get; set; }
 
         /// <summary>
         /// Gets or sets the search string.
         /// </summary>
-        public string SearchString { get; set; }
+        internal string SearchString { get; set; }
 
         /// <summary>
         /// Gets or sets the value by which the result will be sorted.
         /// </summary>
-        public string SortBy { get; set; }
+        internal string SortBy { get; set; }
 
         /// <summary>
         /// Generates the PostgreSQL parameters from the query parameters
