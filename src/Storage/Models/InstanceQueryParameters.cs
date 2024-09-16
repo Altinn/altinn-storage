@@ -25,6 +25,8 @@ namespace Altinn.Platform.Storage.Models
         private const string _instanceOwnerPartyIdParameterName = "instanceOwner.partyId";
         private const string _instanceOwnerPartyIdsParameterName = "instanceOwner.partyIds";
         private const string _lastChangedParameterName = "lastChanged";
+        private const string _mainVersionExcludeParameterName = "mainVersionExclude";
+        private const string _mainVersionIncludeParameterName = "mainVersionInclude";
         private const string _messageBoxIntervalParameterName = "msgBoxInterval";
         private const string _orgParameterName = "org";
         private const string _processEndEventParameterName = "process.endEvent";
@@ -151,6 +153,18 @@ namespace Altinn.Platform.Storage.Models
         public string InstanceOwnerIdentifier { get; set; }
 
         /// <summary>
+        /// Gets or sets altinn version to include
+        /// </summary>
+        [FromHeader(Name = _mainVersionIncludeParameterName)]
+        public int? MainVersionInclude { get; set; }
+
+        /// <summary>
+        /// Gets or sets altinn version to exclude
+        /// </summary>
+        [FromHeader(Name = _mainVersionExcludeParameterName)]
+        public int? MainVersionExclude { get; set; }
+
+        /// <summary>
         /// Gets or sets an array of application identifiers.
         /// </summary>
         internal string[] AppIds { get; set; }
@@ -207,6 +221,8 @@ namespace Altinn.Platform.Storage.Models
             AddParamIfNotNull(postgresParams, _instanceOwnerPartyIdParameterName, InstanceOwnerPartyId);
             AddParamIfNotNull(postgresParams, _statusIsActiveOrSoftDeletedParameterName, IsActiveOrSoftDeleted);
             AddParamIfNotNull(postgresParams, _statusIsArchivedOrSoftDeletedParameterName, IsArchivedOrSoftDeleted);
+            AddParamIfNotNull(postgresParams, _mainVersionExcludeParameterName, MainVersionExclude);
+            AddParamIfNotNull(postgresParams, _mainVersionIncludeParameterName, MainVersionInclude);
 
             AddParamIfNotEmpty(postgresParams, _orgParameterName, Org);
             AddParamIfNotEmpty(postgresParams, _appIdsParameterName, AppIds);

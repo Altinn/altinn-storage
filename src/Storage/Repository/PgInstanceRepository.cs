@@ -22,7 +22,7 @@ namespace Altinn.Platform.Storage.Repository
     /// </summary>
     public class PgInstanceRepository : IInstanceRepository
     {
-        private const string _readSqlFilteredInitial = "select * from storage.readinstancefromquery_v4 (";
+        private const string _readSqlFilteredInitial = "select * from storage.readinstancefromquery_v5 (";
         private readonly string _deleteSql = "select * from storage.deleteinstance ($1)";
         private readonly string _insertSql = "call storage.insertinstance ($1, $2, $3, $4, $5, $6, $7, $8)";
         private readonly string _updateSql = "select * from storage.updateinstance_v2 (@_alternateid, @_toplevelsimpleprops, @_datavalues, @_completeconfirmations, @_presentationtexts, @_status, @_substatus, @_process, @_lastchanged, @_taskid)";
@@ -192,11 +192,12 @@ namespace Altinn.Platform.Storage.Repository
                         NpgsqlDbType.Bigint => $"{value}",
                         NpgsqlDbType.TimestampTz => $"{((DateTime)value != DateTime.MinValue ? "'" + ((DateTime)value).ToString(DateTimeHelper.Iso8601UtcFormat, CultureInfo.InvariantCulture) + "'::timestamptz" : "NULL")}",
                         NpgsqlDbType.Integer => $"{value}",
+                        NpgsqlDbType.Smallint => $"{value}",
                         NpgsqlDbType.Boolean => $"{value}",
                         NpgsqlDbType.Text | NpgsqlDbType.Array => ArrayVariableFromText((string[])value),
                         NpgsqlDbType.Jsonb | NpgsqlDbType.Array => ArrayVariableFromJsonText((string[])value),
                         NpgsqlDbType.Integer | NpgsqlDbType.Array => ArrayVariableFromInteger((int[])value),
-                        _ => throw new NotImplementedException()
+                        _ => throw new NotImplementedException(_paramTypes[name].ToString())
                     };
                 }
                 else
@@ -436,6 +437,8 @@ namespace Altinn.Platform.Storage.Repository
             { "_lastChanged_idx", NpgsqlDbType.TimestampTz },
             { "_lastChanged_lt", NpgsqlDbType.TimestampTz },
             { "_lastChanged_lte", NpgsqlDbType.TimestampTz },
+            { "_mainVersionInclude", NpgsqlDbType.Smallint },
+            { "_mainVersionExclude", NpgsqlDbType.Smallint },
             { "_msgBoxInterval_eq", NpgsqlDbType.TimestampTz },
             { "_msgBoxInterval_gt", NpgsqlDbType.TimestampTz },
             { "_msgBoxInterval_gte", NpgsqlDbType.TimestampTz },
