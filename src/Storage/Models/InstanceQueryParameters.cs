@@ -266,7 +266,12 @@ namespace Altinn.Platform.Storage.Models
         /// <param name="value">The value of the parameter.</param>
         private static void AddParamIfNotEmpty(Dictionary<string, object> postgresParams, string paramName, object value)
         {
-            var valueAsString = value?.ToString();
+            if (value == null)
+            {
+                return;
+            }
+
+            var valueAsString = value.ToString();
             if (string.IsNullOrEmpty(valueAsString))
             {
                 return;
@@ -304,30 +309,23 @@ namespace Altinn.Platform.Storage.Models
                 return;
             }
 
-            AddDateParam(paramName, queryValues, postgresParams);
-        }
-
-        /// <summary>
-        /// Adds date parameters to the PostgreSQL parameters dictionary.
-        /// </summary>
-        /// <param name="dateParam">The date parameter name.</param>
-        /// <param name="queryValues">The query values containing date expressions.</param>
-        /// <param name="postgresParams">The dictionary to add PostgreSQL parameters to.</param>
-        /// <exception cref="ArgumentException">Thrown when the date expression is invalid.</exception>
-        private static void AddDateParam(string dateParam, StringValues queryValues, Dictionary<string, object> postgresParams)
-        {
             foreach (string value in queryValues)
             {
                 try
                 {
+                    if (!value.Contains(':'))
+                    {
+                        continue;
+                    }
+
                     string @operator = value.Split(':')[0];
                     string dateValue = value[(@operator.Length + 1)..];
-                    string postgresParamName = GetPgParamName($"{dateParam}_{@operator}");
+                    string postgresParamName = GetPgParamName($"{paramName}_{@operator}");
                     postgresParams.Add(postgresParamName, DateTimeHelper.ParseAndConvertToUniversalTime(dateValue));
                 }
                 catch
                 {
-                    throw new ArgumentException($"Invalid date expression: {value} for query key: {dateParam}");
+                    throw new ArgumentException($"Invalid date expression: {value} for query key: {paramName}");
                 }
             }
         }
@@ -339,14 +337,19 @@ namespace Altinn.Platform.Storage.Models
         /// <returns>An array of exclude confirmed by values.</returns>
         private static string[] GetExcludeConfirmedBy(StringValues queryValues)
         {
-            List<string> confirmations = [];
-
-            foreach (var queryParameter in queryValues)
+            if (StringValues.IsNullOrEmpty(queryValues))
             {
-                confirmations.Add($"[{{\"StakeholderId\":\"{queryParameter}\"}}]");
+                return null;
             }
 
-            return [.. confirmations];
+            string[] confirmations = new string[queryValues.Count];
+
+            for (int i = 0; i < queryValues.Count; i++)
+            {
+                confirmations[i] = $"[{{\"StakeholderId\":\"{queryValues[i]}\"}}]";
+            }
+
+            return confirmations;
         }
 
         /// <summary>
