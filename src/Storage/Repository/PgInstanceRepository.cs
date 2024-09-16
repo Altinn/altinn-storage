@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Microsoft.ApplicationInsights;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
@@ -99,15 +100,11 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<InstanceQueryResponse> GetInstancesFromQuery(
-            Dictionary<string, StringValues> queryParams,
-            string continuationToken,
-            int size,
-            bool includeDataelements)
+        public async Task<InstanceQueryResponse> GetInstancesFromQuery(InstanceQueryParameters queryParams, bool includeDataElements)
         {
             try
             {
-                return await GetInstancesInternal(queryParams, continuationToken, size, includeDataelements);
+                return await GetInstancesInternal(queryParams, includeDataElements);
             }
             catch (Exception e)
             {
@@ -247,23 +244,16 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         private async Task<InstanceQueryResponse> GetInstancesInternal(
-            Dictionary<string, StringValues> queryParams,
-            string continuationToken,
-            int size,
+            InstanceQueryParameters queryParams,
             bool includeDataelements)
         {
             DateTime lastChanged = DateTime.MinValue;
             InstanceQueryResponse queryResponse = new() { Count = 0, Instances = [] };
-            long continueIdx = string.IsNullOrEmpty(continuationToken) ? -1 : long.Parse(continuationToken.Split(';')[1]);
-            DateTime lastChangeIdx = string.IsNullOrEmpty(continuationToken) ? DateTime.MinValue : new DateTime(long.Parse(continuationToken.Split(';')[0]), DateTimeKind.Utc);
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSqlFiltered);
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
-            Dictionary<string, object> postgresParams = AddParametersFromQueryParams(queryParams);
-            postgresParams.Add("_continue_idx", continueIdx);
-            postgresParams.Add("_lastChanged_idx", lastChangeIdx);
-            postgresParams.Add("_size", size);
+            Dictionary<string, object> postgresParams = queryParams.GeneratePostgreSQLParameters();
             postgresParams.Add("_includeElements", includeDataelements);
             foreach (string name in _paramTypes.Keys)
             {
@@ -310,7 +300,7 @@ namespace Altinn.Platform.Storage.Repository
                     ToExternal(instance);
                 }
 
-                queryResponse.ContinuationToken = queryResponse.Instances.Count == size ? $"{lastChanged.Ticks};{id}" : null;
+                queryResponse.ContinuationToken = queryResponse.Instances.Count == queryParams.Size ? $"{lastChanged.Ticks};{id}" : null;
             }
 
             queryResponse.Count = queryResponse.Instances.Count;
@@ -417,122 +407,6 @@ namespace Altinn.Platform.Storage.Repository
             }
 
             return instance;
-        }
-
-        /// <summary>
-        /// Add postgres parameters from query parameters
-        /// </summary>
-        /// <param name="queryParams">queryParams</param>
-        /// <returns>Dictionary with postgres parameters</returns>
-        private static Dictionary<string, object> AddParametersFromQueryParams(Dictionary<string, StringValues> queryParams)
-        {
-            Dictionary<string, object> postgresParams = [];
-            foreach (KeyValuePair<string, StringValues> param in queryParams)
-            {
-                string queryParameter = param.Key;
-                StringValues queryValues = param.Value;
-
-                switch (queryParameter)
-                {
-                    case "instanceOwner.partyId":
-                        if (queryValues.Count == 1)
-                        {
-                            postgresParams.Add($"{GetPgParamName(queryParameter)}", int.Parse(queryValues[0]));
-                        }
-                        else
-                        {
-                            postgresParams.Add($"{GetPgParamName(queryParameter)}s", queryValues.Select(p => int.Parse(p)).ToArray());
-                        }
-
-                        break;
-                    case "size":
-                    case "continuationToken":
-                        // handled outside this method
-                        break;
-                    case "appId":
-                        postgresParams.Add($"{GetPgParamName(queryParameter)}", queryValues[0]);
-                        break;
-                    case "appIds":
-                        postgresParams.Add($"{GetPgParamName(queryParameter)}", queryValues.ToArray());
-                        break;
-                    case "excludeConfirmedBy":
-                        postgresParams.Add(GetPgParamName(queryParameter), GetExcludeConfirmedBy(queryValues));
-                        break;
-                    case "org":
-                    case "process.currentTask":
-                        postgresParams.Add(GetPgParamName(queryParameter), queryValues[0]);
-                        break;
-                    case "searchString":
-                        postgresParams.Add("_search_string", $"%{queryValues[0]}%");
-                        break;
-                    case "archiveReference":
-                        postgresParams.Add(GetPgParamName(queryParameter), queryValues[0].ToLower());
-                        break;
-                    case "status.isArchived":
-                    case "status.isSoftDeleted":
-                    case "status.isHardDeleted":
-                    case "process.isComplete":
-                    case "status.isArchivedOrSoftDeleted":
-                    case "status.isActiveOrSoftDeleted":
-                        postgresParams.Add(GetPgParamName(queryParameter), bool.Parse(queryValues[0]));
-                        break;
-                    case "sortBy":
-                        postgresParams.Add("_sort_ascending", !queryValues[0].StartsWith("desc:", StringComparison.OrdinalIgnoreCase));
-                        break;
-                    case "process.endEvent":
-                    case "language":
-                        break;
-                    case "lastChanged":
-                    case "created":
-                    case "msgBoxInterval":
-                        AddDateParam(queryParameter, queryValues, postgresParams, false);
-                        break;
-                    case "visibleAfter":
-                    case "dueBefore":
-                    case "process.ended":
-                        AddDateParam(queryParameter, queryValues, postgresParams, true);
-                        break;
-                    default:
-                        throw new ArgumentException($"Unknown query parameter: {queryParameter}");
-                }
-            }
-
-            return postgresParams;
-        }
-
-        private static string[] GetExcludeConfirmedBy(StringValues queryValues)
-        {
-            List<string> confirmations = [];
-
-            foreach (var queryParameter in queryValues)
-            {
-                confirmations.Add($"[{{\"StakeholderId\":\"{queryParameter}\"}}]");
-            }
-
-            return [.. confirmations];
-        }
-
-        private static void AddDateParam(string dateParam, StringValues queryValues, Dictionary<string, object> postgresParams, bool valueAsString)
-        {
-            foreach (string value in queryValues)
-            {
-                try
-                {
-                    string @operator = value.Split(':')[0];
-                    string dateValue = value[(@operator.Length + 1)..];
-                    string postgresParamName = GetPgParamName($"{dateParam}_{@operator}");
-                    postgresParams.Add(postgresParamName, valueAsString ? dateValue : DateTimeHelper.ParseAndConvertToUniversalTime(dateValue));
-                }
-                catch
-                {
-                    throw new ArgumentException($"Invalid date expression: {value} for query key: {dateParam}");
-                }
-            }
-        }
-
-        private static string GetPgParamName(string queryParameter)
-        {
-            return "_" + queryParameter.Replace(".", "_");
         }
 
         private static readonly Dictionary<string, NpgsqlDbType> _paramTypes = new()

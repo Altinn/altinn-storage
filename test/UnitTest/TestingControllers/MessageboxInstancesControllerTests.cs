@@ -32,13 +32,13 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Primitives;
 
 using Moq;
 
 using Newtonsoft.Json;
 
 using Xunit;
+using static Microsoft.ApplicationInsights.MetricDimensionNames.TelemetryContext;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 {
@@ -556,8 +556,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             queryModel.AppId = "ttd/complete-test";
             queryModel.Language = "en";
 
-            int expectedCount = 1;
-
             // Act
             HttpResponseMessage responseMessage = await client.PostAsync(
                 $"{BasePath}/sbl/instances/search",
@@ -568,7 +566,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-            Assert.Equal(expectedCount, actualResult.Count);
+            Assert.Single(actualResult);
         }
 
         /// <summary>
@@ -606,16 +604,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         public async Task Post_Search_IncludeActive_OriginalQuerySuccesfullyConverted()
         {
             // Arrange
-            Dictionary<string, StringValues> actual = new Dictionary<string, StringValues>();
+            InstanceQueryParameters actual = new InstanceQueryParameters();
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
             instanceRepositoryMock
-                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<Dictionary<string, StringValues>>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<bool>()))
-                .Callback<Dictionary<string, StringValues>, string, int, bool>((query, cont, size, includeDataelements) => { actual = query; })
+                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>()))
+                .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
                 .ReturnsAsync((InstanceQueryResponse)null);
 
-            string expectedIsSoftDeleted = "false";
-            string expectedIsArchived = "false";
-            int expectedParamCount = 5;
             HttpClient client = GetTestClient(instanceRepositoryMock);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
             MessageBoxQueryModel queryModel = GetMessageBoxQueryModel(1606);
@@ -626,13 +621,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-            Assert.True(actual.ContainsKey("instanceOwner.partyId"));
-            Assert.True(actual.ContainsKey("sortBy"));
-            actual.TryGetValue("status.isSoftDeleted", out StringValues actualIsSoftDeleted);
-            Assert.Equal(expectedIsSoftDeleted, actualIsSoftDeleted[0]);
-            actual.TryGetValue("status.isArchived", out StringValues actualIsArchived);
-            Assert.Equal(expectedIsArchived, actualIsArchived[0]);
-            Assert.Equal(expectedParamCount, actual.Keys.Count);
+            Assert.NotNull(actual.SortBy);
+            Assert.False(actual.IsArchived);
+            Assert.False(actual.IsSoftDeleted);
+            Assert.NotNull(actual.InstanceOwnerPartyIds);
         }
 
         /// <summary>
@@ -647,16 +639,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         public async Task Post_Search_IncludeArchived_OriginalQuerySuccesfullyConverted()
         {
             // Arrange
-            Dictionary<string, StringValues> actual = new Dictionary<string, StringValues>();
+            InstanceQueryParameters actual = new InstanceQueryParameters();
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
             instanceRepositoryMock
-                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<Dictionary<string, StringValues>>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<bool>()))
-                .Callback<Dictionary<string, StringValues>, string, int, bool>((query, cont, size, includeDataelements) => { actual = query; })
+                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>()))
+                .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
                 .ReturnsAsync((InstanceQueryResponse)null);
-
-            string expectedIsSoftDeleted = "false";
-            string expectedIsArchived = "true";
-            int expectedParamCount = 5;
 
             HttpClient client = GetTestClient(instanceRepositoryMock);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
@@ -669,12 +657,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-            Assert.True(actual.ContainsKey("instanceOwner.partyId"));
-            actual.TryGetValue("status.isSoftDeleted", out StringValues actualIsSoftDeleted);
-            Assert.Equal(expectedIsSoftDeleted, actualIsSoftDeleted[0]);
-            actual.TryGetValue("status.isArchived", out StringValues actualIsArchived);
-            Assert.Equal(expectedIsArchived, actualIsArchived[0]);
-            Assert.Equal(expectedParamCount, actual.Keys.Count);
+            Assert.True(actual.IsArchived);
+            Assert.False(actual.IsSoftDeleted);
+            Assert.NotNull(actual.InstanceOwnerPartyIds);
         }
 
         /// <summary>
@@ -689,13 +674,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         public async Task Post_Search_IncludeAllStates_OriginalQuerySuccesfullyConverted()
         {
             // Arrange
-            Dictionary<string, StringValues> actual = new Dictionary<string, StringValues>();
+            InstanceQueryParameters actual = new InstanceQueryParameters();
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
             instanceRepositoryMock
-                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<Dictionary<string, StringValues>>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<bool>()))
-                .Callback<Dictionary<string, StringValues>, string, int, bool>((query, cont, size, includeDataelements) => { actual = query; })
+                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>()))
+                .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
                 .ReturnsAsync((InstanceQueryResponse)null);
-            int expectedParamCount = 3;
 
             HttpClient client = GetTestClient(instanceRepositoryMock);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
@@ -710,8 +694,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-            Assert.True(actual.ContainsKey("instanceOwner.partyId"));
-            Assert.Equal(expectedParamCount, actual.Keys.Count);
+            Assert.NotNull(actual.InstanceOwnerPartyIds);
         }
 
         /// <summary>
@@ -726,14 +709,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         public async Task Post_Search_IncludeArchivedAndDeleted_OriginalQuerySuccesfullyConverted()
         {
             // Arrange
-            Dictionary<string, StringValues> actual = new Dictionary<string, StringValues>();
+            InstanceQueryParameters actual = new InstanceQueryParameters();
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
             instanceRepositoryMock
-                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<Dictionary<string, StringValues>>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<bool>()))
-                .Callback<Dictionary<string, StringValues>, string, int, bool>((query, cont, size, includeDataelements) => { actual = query; })
+                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>()))
+                .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
                 .ReturnsAsync((InstanceQueryResponse)null);
 
-            int expectedParamCount = 4;
             string expectedSortBy = "desc:lastChanged";
 
             HttpClient client = GetTestClient(instanceRepositoryMock);
@@ -748,12 +730,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-            Assert.True(actual.ContainsKey("instanceOwner.partyId"));
-            actual.TryGetValue("status.isArchivedOrSoftDeleted", out StringValues actualIsArchivedOrSoftDeleted);
-            Assert.True(bool.Parse(actualIsArchivedOrSoftDeleted[0]));
-            actual.TryGetValue("sortBy", out StringValues actualSortBy);
-            Assert.Equal(expectedSortBy, actualSortBy[0]);
-            Assert.Equal(expectedParamCount, actual.Keys.Count);
+            Assert.NotNull(actual.InstanceOwnerPartyIds);
+            Assert.Equal(expectedSortBy, actual.SortBy);
+            Assert.True(actual.IsArchivedOrSoftDeleted);
         }
 
         /// <summary>
@@ -768,14 +747,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         public async Task Post_Search_IncludeActivedAndDeleted_OriginalQuerySuccesfullyConverted()
         {
             // Arrange
-            Dictionary<string, StringValues> actual = new Dictionary<string, StringValues>();
+            InstanceQueryParameters actual = new InstanceQueryParameters();
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
             instanceRepositoryMock
-                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<Dictionary<string, StringValues>>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<bool>()))
-                .Callback<Dictionary<string, StringValues>, string, int, bool>((query, cont, size, includeDataelements) => { actual = query; })
+                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>()))
+                .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
                 .ReturnsAsync((InstanceQueryResponse)null);
-
-            int expectedParamCount = 4;
 
             HttpClient client = GetTestClient(instanceRepositoryMock);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
@@ -789,10 +766,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-            Assert.True(actual.ContainsKey("instanceOwner.partyId"));
-            actual.TryGetValue("status.isActiveOrSoftDeleted", out StringValues actualIsArchivedOrSoftDeleted);
-            Assert.True(bool.Parse(actualIsArchivedOrSoftDeleted[0]));
-            Assert.Equal(expectedParamCount, actual.Keys.Count);
+            Assert.NotNull(actual.InstanceOwnerPartyIds);
+            Assert.True(actual.IsActiveOrSoftDeleted);
         }
 
         /// <summary>
@@ -809,10 +784,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Arrange
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
             instanceRepositoryMock
-                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<Dictionary<string, StringValues>>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<bool>()))
+                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>()))
                 .ReturnsAsync((InstanceQueryResponse)null);
-
-            int expectedCount = 0;
 
             HttpClient client = GetTestClient(instanceRepositoryMock);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
@@ -828,7 +801,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-            Assert.Equal(expectedCount, actual.Count);
+            Assert.Empty(actual);
         }
 
         /// <summary>
@@ -845,10 +818,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Arrange
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
             instanceRepositoryMock
-                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<Dictionary<string, StringValues>>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<bool>()))
+                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>()))
                 .ReturnsAsync((InstanceQueryResponse)null);
-
-            int expectedCount = 0;
 
             HttpClient client = GetTestClient(instanceRepositoryMock);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
@@ -863,7 +834,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-            Assert.Equal(expectedCount, actual.Count);
+            Assert.Empty(actual);
         }
 
         /// <summary>
@@ -878,11 +849,11 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         public async Task Post_Search_MatchFoundForSearchString_OriginalQuerySuccesfullyConverted()
         {
             // Arrange
-            Dictionary<string, StringValues> actual = new Dictionary<string, StringValues>();
+            InstanceQueryParameters actual = new InstanceQueryParameters();
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
             instanceRepositoryMock
-                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<Dictionary<string, StringValues>>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<bool>()))
-                .Callback<Dictionary<string, StringValues>, string, int, bool>((query, cont, size, includeDataelements) => { actual = query; })
+                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>()))
+                .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
                 .ReturnsAsync((InstanceQueryResponse)null);
             string expectedAppId = "tdd/endring-av-navn";
 
@@ -897,9 +868,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-            Assert.True(actual.ContainsKey("appIds"));
-            actual.TryGetValue("appIds", out StringValues actualAppid);
-            Assert.Equal(expectedAppId, actualAppid[0]);
+            Assert.NotNull(actual.AppIds);
+            Assert.Equal(expectedAppId, actual.AppIds.First());
             instanceRepositoryMock.VerifyAll();
         }
 
@@ -915,11 +885,11 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         public async Task Post_Search_MultipleMatchesFoundForSearchString_OriginalQuerySuccesfullyConverted()
         {
             // Arrange
-            Dictionary<string, StringValues> actual = new Dictionary<string, StringValues>();
+            InstanceQueryParameters actual = new InstanceQueryParameters();
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
             instanceRepositoryMock
-                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<Dictionary<string, StringValues>>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<bool>()))
-                .Callback<Dictionary<string, StringValues>, string, int, bool>((query, cont, size, includeDataelements) => { actual = query; })
+                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>()))
+                .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
                 .ReturnsAsync((InstanceQueryResponse)null);
             int expectedCount = 3;
 
@@ -934,9 +904,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-            Assert.True(actual.ContainsKey("appIds"));
-            actual.TryGetValue("appIds", out StringValues actualAppid);
-            Assert.Equal(expectedCount, actualAppid.Count);
+            Assert.NotNull(actual.AppIds);
+            Assert.Equal(expectedCount, actual.AppIds.Length);
             instanceRepositoryMock.VerifyAll();
         }
 
@@ -986,11 +955,11 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         public async Task Post_Search_ArchiveReferenceNoStateFilter_OriginalQuerySuccesfullyConverted()
         {
             // Arrange
-            Dictionary<string, StringValues> actual = new Dictionary<string, StringValues>();
+            InstanceQueryParameters actual = new InstanceQueryParameters();
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
             instanceRepositoryMock
-                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<Dictionary<string, StringValues>>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<bool>()))
-                .Callback<Dictionary<string, StringValues>, string, int, bool>((query, cont, size, includeDataelements) => { actual = query; })
+                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>()))
+                .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
                 .ReturnsAsync((InstanceQueryResponse)null);
 
             HttpClient client = GetTestClient(instanceRepositoryMock);
@@ -1004,9 +973,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-            Assert.True(actual.ContainsKey("instanceOwner.partyId"));
-            actual.TryGetValue("status.isArchivedOrSoftDeleted", out StringValues actualIsArchivedOrSoftDeleted);
-            Assert.True(bool.Parse(actualIsArchivedOrSoftDeleted[0]));
+            Assert.NotNull(actual.InstanceOwnerPartyIds);
+            Assert.True(actual.IsArchivedOrSoftDeleted);
         }
 
         /// <summary>
@@ -1021,11 +989,11 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         public async Task Post_Search_ArchiveReferenceIncludeActiveAndSoftDeleted_OriginalQuerySuccesfullyConverted()
         {
             // Arrange
-            Dictionary<string, StringValues> actual = new Dictionary<string, StringValues>();
+            InstanceQueryParameters actual = new InstanceQueryParameters();
             Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
             instanceRepositoryMock
-                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<Dictionary<string, StringValues>>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<bool>()))
-                .Callback<Dictionary<string, StringValues>, string, int, bool>((query, cont, size, includeDataelements) => { actual = query; })
+                .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>()))
+                .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
                 .ReturnsAsync((InstanceQueryResponse)null);
 
             HttpClient client = GetTestClient(instanceRepositoryMock);
@@ -1041,9 +1009,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-            Assert.True(actual.ContainsKey("instanceOwner.partyId"));
-            actual.TryGetValue("status.isSoftDeleted", out StringValues actualIsArchived);
-            Assert.True(bool.Parse(actualIsArchived[0]));
+            Assert.NotNull(actual.InstanceOwnerPartyIds);
+            Assert.True(actual.IsSoftDeleted);
         }
 
         /// <summary>
@@ -1188,6 +1155,30 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Single(actual.Where(e => e.User.UserId == 1337));
             Assert.NotEmpty(actual.Where(e => e.CreatedDateTime == DateTime.Parse("1994-06-16T11:07:59.0851832Z")));
             repoMock.VerifyAll();
+        }
+
+        /// <summary>
+        /// Scenario:
+        ///  Verify that the GetMessageBoxInstanceEvents method can handle and return a large number of events correctly.
+        /// </summary>
+        [Fact]
+        public async Task GetMessageBoxInstanceEvents_LargeNumberOfEvents_ReturnsAllEvents()
+        {
+            // Arrange
+            var largeNumberOfEvents = Enumerable.Range(1, 1000).Select(i => new InstanceEvent { Created = DateTime.UtcNow, EventType = "Event", User = new() { UserId = i } }).ToList();
+            var repoMock = new Mock<IInstanceEventRepository>();
+            repoMock
+                .Setup(rm => rm.ListInstanceEvents(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<DateTime?>(), It.IsAny<DateTime?>()))
+                .ReturnsAsync(largeNumberOfEvents);
+
+            var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null);
+
+            // Act
+            var response = await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid()) as OkObjectResult;
+            var actual = response.Value as List<SblInstanceEvent>;
+
+            // Assert
+            Assert.Equal(largeNumberOfEvents.Count, actual.Count);
         }
 
         private static MessageBoxQueryModel GetMessageBoxQueryModel(int instanceOwnerPartyId)

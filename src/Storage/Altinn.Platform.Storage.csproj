@@ -60,6 +60,12 @@
     </None>
   </ItemGroup>
   
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>Altinn.Platform.Storage.UnitTest</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+  
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <Exec Command="$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools $(TargetDir)../../../Migration" Condition="Exists('$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools') or Exists('$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools.exe')" />
     <Exec Command="/app_tools/DbTools ./Migration" Condition="Exists('/app_tools/DbTools')" />
