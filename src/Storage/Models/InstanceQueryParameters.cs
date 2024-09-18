@@ -155,13 +155,13 @@ namespace Altinn.Platform.Storage.Models
         /// <summary>
         /// Gets or sets altinn version to include
         /// </summary>
-        [FromHeader(Name = _mainVersionIncludeParameterName)]
+        [FromQuery(Name = _mainVersionIncludeParameterName)]
         public int? MainVersionInclude { get; set; }
 
         /// <summary>
         /// Gets or sets altinn version to exclude
         /// </summary>
-        [FromHeader(Name = _mainVersionExcludeParameterName)]
+        [FromQuery(Name = _mainVersionExcludeParameterName)]
         public int? MainVersionExclude { get; set; }
 
         /// <summary>
