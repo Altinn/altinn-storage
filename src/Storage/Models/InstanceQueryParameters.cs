@@ -313,11 +313,6 @@ namespace Altinn.Platform.Storage.Models
             {
                 try
                 {
-                    if (!value.Contains(':'))
-                    {
-                        continue;
-                    }
-
                     string @operator = value.Split(':')[0];
                     string dateValue = value[(@operator.Length + 1)..];
                     string postgresParamName = GetPgParamName($"{paramName}_{@operator}");

@@ -657,8 +657,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             InstanceQueryParameters queryParams = new()
             {
                 Size = 100,
-                InstanceOwnerPartyId = Convert.ToInt32(TestData.Instance_1_3.InstanceOwner.PartyId),
-                ProcessEnded = "true"
+                ProcessEnded = "true",
+                InstanceOwnerPartyId = Convert.ToInt32(TestData.Instance_1_3.InstanceOwner.PartyId)
             };
 
             // Act
