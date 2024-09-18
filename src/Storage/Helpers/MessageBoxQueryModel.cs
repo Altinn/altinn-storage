@@ -82,5 +82,11 @@ namespace Altinn.Platform.Storage.Helpers
         /// </summary>
         [JsonPropertyName("language")]
         public string Language { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether to filter migrated a1/a2 elements
+        /// </summary>
+        [JsonPropertyName("filterMigrated")]
+        public bool? FilterMigrated { get; set; }
     }
 }

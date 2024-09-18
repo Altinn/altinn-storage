@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v4(
+CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v5(
     _appId TEXT DEFAULT NULL,
     _appIds TEXT[] DEFAULT NULL,
     _archiveReference TEXT DEFAULT NULL,
@@ -23,6 +23,8 @@ CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v4(
     _lastChanged_idx TIMESTAMPTZ DEFAULT NULL,
     _lastChanged_lt TIMESTAMPTZ DEFAULT NULL,
     _lastChanged_lte TIMESTAMPTZ DEFAULT NULL,
+    _mainVersionInclude SMALLINT DEFAULT NULL,
+    _mainVersionExclude SMALLINT DEFAULT NULL,
     _msgBoxInterval_eq TIMESTAMPTZ DEFAULT NULL,
     _msgBoxInterval_gt TIMESTAMPTZ DEFAULT NULL,
     _msgBoxInterval_gte TIMESTAMPTZ DEFAULT NULL,
@@ -87,6 +89,8 @@ BEGIN
             AND (_lastChanged_lte IS NULL OR i.lastchanged <= _lastChanged_lte)
             AND (_lastChanged_lt  IS NULL OR i.lastchanged <  _lastChanged_lt)
             AND (_lastChanged_eq  IS NULL OR i.lastchanged =  _lastChanged_eq)
+            AND (_mainVersionInclude IS NULL OR i.altinnmainversion = _mainVersionInclude)
+            AND (_mainVersionExclude IS NULL OR i.altinnmainversion <> _mainVersionExclude)
             AND (_msgBoxInterval_gte IS NULL OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = false AND i.created >= _msgBoxInterval_gte OR (i.instance -> 'Status' -> 'IsArchived')::boolean = true  AND i.lastchanged >= _msgBoxInterval_gte))
             AND (_msgBoxInterval_gt  IS NULL OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = false AND i.created >  _msgBoxInterval_gt  OR (i.instance -> 'Status' -> 'IsArchived')::boolean = true  AND i.lastchanged >  _msgBoxInterval_gt))
             AND (_msgBoxInterval_lte IS NULL OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = false AND i.created <= _msgBoxInterval_lte OR (i.instance -> 'Status' -> 'IsArchived')::boolean = true  AND i.lastchanged <= _msgBoxInterval_lte))

@@ -451,6 +451,11 @@ namespace Altinn.Platform.Storage.Controllers
                 queryParams.ArchiveReference = queryModel.ArchiveReference;
             }
 
+            if (queryModel.FilterMigrated ?? false)
+            {
+                queryParams.MainVersionInclude = 3;
+            }
+
             return queryParams;
         }
 
