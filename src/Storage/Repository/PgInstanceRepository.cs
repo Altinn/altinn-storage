@@ -5,14 +5,17 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
+
 using Microsoft.ApplicationInsights;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Primitives;
+
 using Npgsql;
 using NpgsqlTypes;
+
 using static Altinn.Platform.Storage.Repository.JsonHelper;
 
 namespace Altinn.Platform.Storage.Repository
@@ -196,7 +199,7 @@ namespace Altinn.Platform.Storage.Repository
                         NpgsqlDbType.Boolean => $"{value}",
                         NpgsqlDbType.Text | NpgsqlDbType.Array => ArrayVariableFromText((string[])value),
                         NpgsqlDbType.Jsonb | NpgsqlDbType.Array => ArrayVariableFromJsonText((string[])value),
-                        NpgsqlDbType.Integer | NpgsqlDbType.Array => ArrayVariableFromInteger((int[])value),
+                        NpgsqlDbType.Integer | NpgsqlDbType.Array => ArrayVariableFromInteger((int?[])value),
                         _ => throw new NotImplementedException(_paramTypes[name].ToString())
                     };
                 }
@@ -233,10 +236,10 @@ namespace Altinn.Platform.Storage.Repository
             return value.ToString()[..^2] + "]::jsonb[]";
         }
 
-        private static string ArrayVariableFromInteger(int[] arr)
+        private static string ArrayVariableFromInteger(int?[] arr)
         {
             StringBuilder value = new("'{");
-            foreach (int param in arr)
+            foreach (int? param in arr)
             {
                 value.Append($"{param}, ");
             }

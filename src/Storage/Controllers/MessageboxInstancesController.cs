@@ -391,10 +391,16 @@ namespace Altinn.Platform.Storage.Controllers
         {
             string dateTimeFormat = "yyyy-MM-ddTHH:mm:ss";
 
-            InstanceQueryParameters queryParams = new()
+            InstanceQueryParameters queryParams = new();
+
+            if (queryModel.InstanceOwnerPartyIdList.Count == 1)
             {
-                InstanceOwnerPartyIds = queryModel.InstanceOwnerPartyIdList.Select(id => (int?)id).ToArray(),
-            };
+                queryParams.InstanceOwnerPartyId = queryModel.InstanceOwnerPartyIdList.First();
+            }
+            else
+            {
+                queryParams.InstanceOwnerPartyIds = queryModel.InstanceOwnerPartyIdList.Cast<int?>().ToArray();
+            }
 
             if (!string.IsNullOrEmpty(queryModel.AppId))
             {
