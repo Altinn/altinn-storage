@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
@@ -11,7 +11,6 @@ using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PdfSharp.Pdf;
 using PdfSharp.Pdf.IO;
@@ -24,7 +23,7 @@ namespace Altinn.Platform.Storage.Controllers
     [Route("storage/api/v1/ondemand/{org}/{app}/{instanceOwnerPartyId:int}/{instanceGuid:guid}/{dataGuid:guid}/{language}")]
     [ApiExplorerSettings(IgnoreApi = true)]
     [ApiController]
-    public class ContentOnDemandController : ControllerBase
+    public class ContentOnDemandController : Controller
     {
         private readonly IInstanceRepository _instanceRepository;
         private readonly IBlobRepository _blobRepository;
@@ -72,28 +71,19 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="language">language</param>
         /// <returns>The formatted content</returns>
         [HttpGet("signature")]
-        public async Task<Stream> GetSignatureAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
+        public async Task<ActionResult> GetSignatureAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
             (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
             Application application = await _applicationRepository.FindOne(instance.AppId, instance.Org);
             DataElement signatureElement = instance.Data.First(d => d.DataType == "signature-data");
 
-            using StreamReader reader = new(await _blobRepository.ReadBlob(
-                $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : org)}",
-                $"{org}/{app}/{instanceGuid}/data/{signatureElement.Id}",
-                application.StorageContainerNumber));
+            List<SignatureView> view = await JsonSerializer.DeserializeAsync<List<SignatureView>>(
+                await _blobRepository.ReadBlob(
+                    $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : org)}",
+                    $"{org}/{app}/{instanceGuid}/data/{signatureElement.Id}",
+                    application.StorageContainerNumber));
 
-            // TODO Replace with proper formatting
-            string line = null;
-            while ((line = await reader.ReadLineAsync()) != null)
-            {
-                if (line.Contains("SignatureText"))
-                {
-                    return new MemoryStream(Encoding.UTF8.GetBytes($"<html>Dette er generert dynamisk<br><br><div>{line.Split(':')[1].TrimStart().Replace("\"", null)}</div></html>"));
-                }
-            }
-
-            return null;
+            return View("Signature", view);
         }
 
         /// <summary>
@@ -106,10 +96,19 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="language">language</param>
         /// <returns>The formatted content</returns>
         [HttpGet("payment")]
-        public Stream GetPaymentAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
+        public async Task<ActionResult> GetPaymentAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
-            // TODO Replace with proper formatting
-            return new MemoryStream(Encoding.UTF8.GetBytes($"<html>Dette er generert dynamisk<br><br><div>Not yet implemented</div></html>"));
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
+            Application application = await _applicationRepository.FindOne(instance.AppId, instance.Org);
+            DataElement paymentElement = instance.Data.First(d => d.DataType == "payment-data");
+
+            PaymentView view = await JsonSerializer.DeserializeAsync<PaymentView>(
+                await _blobRepository.ReadBlob(
+                    $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : org)}",
+                    $"{org}/{app}/{instanceGuid}/data/{paymentElement.Id}",
+                    application.StorageContainerNumber));
+
+            return View("Payment", view);
         }
 
         /// <summary>
@@ -245,81 +244,175 @@ namespace Altinn.Platform.Storage.Controllers
     }
 
     /// <summary>
-    /// Dummy class to host dummy pdf content
+    /// View for signature data
     /// </summary>
-    public static class DummyPdf
+    public class SignatureView
     {
         /// <summary>
-        /// Dummy pdf content
+        /// Gets or sets The unique identifier for Signature.
         /// </summary>
-        public const string Pdf =
-$@"%PDF-1.7
-1 0 obj  % entry point
-<<
-  /Type /Catalog
-  /Pages 2 0 R
->>
-endobj
+        public int SignatureID { get; set; }
 
-2 0 obj
-<<
-  /Type /Pages
-  /MediaBox [ 0 0 200 200 ]
-  /Count 1
-  /Kids [ 3 0 R ]
->>
-endobj
+        /// <summary>
+        /// Gets or sets The party id for the person who has signed.
+        /// </summary>
+        public int SignedByUser { get; set; }
 
-3 0 obj
-<<
-  /Type /Page
-  /Parent 2 0 R
-  /Resources <<
-    /Font <<
-      /F1 4 0 R 
-    >>
-  >>
-  /Contents 5 0 R
->>
-endobj
+        /// <summary>
+        /// Gets or sets The user ssn/org number for the signee.
+        /// </summary>
+        public string SignedByUserSSN { get; set; }
 
-4 0 obj
-<<
-  /Type /Font
-  /Subtype /Type1
-  /BaseFont /Times-Roman
->>
-endobj
+        /// <summary>
+        /// Gets or sets The user name for the person who has signed.
+        /// </summary>
+        public string SignedByUserName { get; set; }
 
-5 0 obj  % page content
-<<
-  /Length 44
->>
-stream
-BT
-70 50 TD
-/F1 12 Tf
-(Under construction) Tj
-ET
-endstream
-endobj
+        /// <summary>
+        /// Gets or sets The date and time at which the signature was created.
+        /// </summary>
+        public DateTime CreatedDateTime { get; set; }
 
-xref
-0 6
-0000000000 65535 f 
-0000000010 00000 n 
-0000000079 00000 n 
-0000000173 00000 n 
-0000000301 00000 n 
-0000000380 00000 n 
-trailer
-<<
-  /Size 6
-  /Root 1 0 R
->>
-startxref
-492
-%%EOF
-";
+        /// <summary>
+        /// Gets or sets The signature stored in binary format.
+        /// </summary>
+        public byte[] Signature { get; set; }
+
+        /// <summary>
+        /// Gets or sets The text for that signature.
+        /// </summary>
+        public string SignatureText { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether this signing is done for all the items in  the form
+        /// 1=Group signing is set, 2=Group signing not set, 3=Group signing defined at each form level
+        /// </summary>
+        ////public int IsSigningAllRequired { get; set; }
+
+        /// <summary>
+        /// Gets or sets The authentication level attached with that signature.
+        /// </summary>
+        public int AuthenticationLevelID { get; set; }
+
+        /// <summary>
+        /// Gets or sets A Key that represents what level the user has when the entry was made
+        /// </summary>
+        public int AuthenticationMethod { get; set; }
+
+        /// <summary>
+        /// Gets or sets The name by which certificate was issued.
+        /// </summary>
+        public string CertificateIssuedByName { get; set; }
+
+        /// <summary>
+        /// Gets or sets The name for whom the signature was issued.
+        /// </summary>
+        public string CertificateIssuedForName { get; set; }
+
+        /// <summary>
+        /// Gets or sets Date and time from which the signature will be valid.
+        /// </summary>
+        public DateTime CertificateValidFrom { get; set; }
+
+        /// <summary>
+        /// Gets or sets Date and time till which the signature will be valid.
+        /// </summary>
+        public DateTime CertificateValidTo { get; set; }
+
+        /// <summary>
+        /// Gets or sets List of signed attachments.
+        /// </summary>
+        public List<int> SignedAttachmentList { get; set; }
+
+        /// <summary>
+        /// Gets or sets List of signed forms.
+        /// </summary>
+        public List<int> SignedFromList { get; set; }
+
+        /// <summary>
+        /// Gets or sets Step for which the Signature is added
+        /// </summary>
+        public int ProcessStepID { get; set; }
+
+        /// <summary>
+        /// List of attachment ids in a3 format
+        /// </summary>
+        public List<string> SignedAttachmentDataIds { get; set; }
+
+        /// <summary>
+        /// List of form ids in a3 format
+        /// </summary>
+        public List<string> SignedFormDataIds { get; set; }
+    }
+
+    /// <summary>
+    /// Entity for holding information about a payment, reflects PaymentInfo DB table.
+    /// </summary>
+    public class PaymentView
+    {
+        /// <summary>
+        /// Gets or sets PaymentID
+        /// </summary>
+        public int PaymentID { get; set; }
+
+        /// <summary>
+        /// Gets or sets reference to Payment Metadata ID
+        /// </summary>
+        public int PaymentMetadataID_FK { get; set; }
+
+        /// <summary>
+        /// Gets or sets Payment Sum
+        /// </summary>
+        public int PaymentSum { get; set; }
+
+        /// <summary>
+        /// Gets or sets Description for the payment
+        /// </summary>
+        public string Description { get; set; }
+
+        /// <summary>
+        /// Gets or sets the TransactionID
+        /// </summary>
+        public string TransactionId { get; set; }
+
+        /// <summary>
+        /// Gets or sets the OrderID
+        /// </summary>
+        public string OrderId { get; set; }
+
+        /// <summary>
+        /// Gets or sets reference to ReporteeElementID
+        /// </summary>
+        public int ReporteeElementId { get; set; }
+
+        /// <summary>
+        /// Gets or sets Created Date
+        /// </summary>
+        public DateTime CreatedDate { get; set; }
+
+        /// <summary>
+        /// Gets or sets Last Update Date
+        /// </summary>
+        public DateTime LastUpdatedDate { get; set; }
+
+        /// <summary>
+        /// Gets or sets the Status for the payment
+        /// </summary>
+        public int Status { get; set; }
+
+        /// <summary>
+        /// Gets or sets ClientIP
+        /// </summary>
+        public string ClientIP { get; set; }
+
+        /// <summary>
+        /// Gets or sets PartyID
+        /// </summary>
+        public int PartyId { get; set; }
+
+        /// <summary>
+        /// Gets or sets Reference
+        /// </summary>
+        public string Reference { get; set; }
     }
 }
