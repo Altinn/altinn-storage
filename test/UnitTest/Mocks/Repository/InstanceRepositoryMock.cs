@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 
 using Microsoft.Extensions.Primitives;
@@ -46,43 +47,10 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             throw new NotImplementedException();
         }
 
-        public Task<InstanceQueryResponse> GetInstancesFromQuery(Dictionary<string, StringValues> queryParams, string continuationToken, int size, bool includeDataelements)
+        public Task<InstanceQueryResponse> GetInstancesFromQuery(InstanceQueryParameters queryParams, bool includeDataelements)
         {
-            List<string> validQueryParams = new List<string>
-            {
-                "org",
-                "appId",
-                "process.currentTask",
-                "process.isComplete",
-                "process.endEvent",
-                "process.ended",
-                "instanceOwner.partyId",
-                "lastChanged",
-                "created",
-                "visibleAfter",
-                "dueBefore",
-                "excludeConfirmedBy",
-                "size",
-                "language",
-                "status.isSoftDeleted",
-                "status.isArchived",
-                "status.isHardDeleted",
-                "status.isArchivedOrSoftDeleted",
-                "status.isActiveorSoftDeleted",
-                "sortBy",
-                "archiveReference"
-            };
-
-            InstanceQueryResponse response = new InstanceQueryResponse();
-
-            string invalidKey = queryParams.FirstOrDefault(q => !validQueryParams.Contains(q.Key)).Key;
-            if (!string.IsNullOrEmpty(invalidKey))
-            {
-                response.Exception = $"Unknown query parameter: {invalidKey}";
-                return Task.FromResult(response);
-            }
-
-            List<Instance> instances = new List<Instance>();
+            List<Instance> instances = [];
+            InstanceQueryResponse response = new();
 
             string instancesPath = GetInstancesPath();
 
@@ -99,44 +67,43 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
                 }
             }
 
-            if (queryParams.ContainsKey("org"))
+            if (!string.IsNullOrEmpty(queryParams.Org))
             {
-                string org = queryParams.GetValueOrDefault("org").ToString();
-                instances.RemoveAll(i => !i.Org.Equals(org, StringComparison.OrdinalIgnoreCase));
+                instances.RemoveAll(i => !i.Org.Equals(queryParams.Org, StringComparison.OrdinalIgnoreCase));
             }
 
-            if (queryParams.ContainsKey("appId"))
+            if (!string.IsNullOrEmpty(queryParams.AppId))
             {
-                string appId = queryParams.GetValueOrDefault("appId").ToString();
-                instances.RemoveAll(i => !i.AppId.Equals(appId, StringComparison.OrdinalIgnoreCase));
+                instances.RemoveAll(i => !i.AppId.Equals(queryParams.AppId, StringComparison.OrdinalIgnoreCase));
             }
 
-            if (queryParams.ContainsKey("instanceOwner.partyId"))
+            if (queryParams.InstanceOwnerPartyId.HasValue)
             {
-                instances.RemoveAll(i => !queryParams["instanceOwner.partyId"].Contains(i.InstanceOwner.PartyId));
+                instances.RemoveAll(i => queryParams.InstanceOwnerPartyId != Convert.ToInt32(i.InstanceOwner.PartyId));
+            }
+            else if (queryParams.InstanceOwnerPartyIds != null && queryParams.InstanceOwnerPartyIds.Length > 0)
+            {
+                instances.RemoveAll(i => !queryParams.InstanceOwnerPartyIds.Contains(Convert.ToInt32(i.InstanceOwner.PartyId)));
             }
 
-            if (queryParams.ContainsKey("archiveReference"))
+            if (!string.IsNullOrEmpty(queryParams.ArchiveReference))
             {
-                string archiveRef = queryParams.GetValueOrDefault("archiveReference").ToString();
-                instances.RemoveAll(i => !i.Id.EndsWith(archiveRef.ToLower()));
+                instances.RemoveAll(i => !i.Id.EndsWith(queryParams.ArchiveReference.ToLower()));
             }
 
-            bool match;
-
-            if (queryParams.ContainsKey("status.isArchived") && bool.TryParse(queryParams.GetValueOrDefault("status.isArchived"), out match))
+            if (queryParams.IsArchived.HasValue)
             {
-                instances.RemoveAll(i => i.Status.IsArchived != match);
+                instances.RemoveAll(i => i.Status.IsArchived != queryParams.IsArchived);
             }
 
-            if (queryParams.ContainsKey("status.isHardDeleted") && bool.TryParse(queryParams.GetValueOrDefault("status.isHardDeleted"), out match))
+            if (queryParams.IsHardDeleted.HasValue)
             {
-                instances.RemoveAll(i => i.Status.IsHardDeleted != match);
+                instances.RemoveAll(i => i.Status.IsHardDeleted != queryParams.IsHardDeleted);
             }
 
-            if (queryParams.ContainsKey("status.isSoftDeleted") && bool.TryParse(queryParams.GetValueOrDefault("status.isSoftDeleted"), out match))
+            if (queryParams.IsSoftDeleted.HasValue)
             {
-                instances.RemoveAll(i => i.Status.IsSoftDeleted != match);
+                instances.RemoveAll(i => i.Status.IsSoftDeleted != queryParams.IsSoftDeleted);
             }
 
             instances.RemoveAll(i => i.Status.IsHardDeleted);

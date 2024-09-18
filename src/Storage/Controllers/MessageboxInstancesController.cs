@@ -8,6 +8,7 @@ using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 
 using Microsoft.ApplicationInsights.DataContracts;
@@ -76,17 +77,18 @@ namespace Altinn.Platform.Storage.Controllers
                 queryModel.IncludeActive = false;
             }
 
-            Dictionary<string, StringValues> queryParams = GetQueryParams(queryModel);
+            InstanceQueryParameters queryParams = GetQueryParams(queryModel);
             GetStatusFromQueryParams(queryModel.IncludeActive, queryModel.IncludeArchived, queryModel.IncludeDeleted, queryParams);
-            queryParams.Add("sortBy", "desc:lastChanged");
-            queryParams.Add("status.isHardDeleted", "false");
+            queryParams.Size = 100;
+            queryParams.IsHardDeleted = false;
+            queryParams.SortBy = "desc:lastChanged";
 
             if (!string.IsNullOrEmpty(queryModel.SearchString))
             {
-                queryParams.Add("appIds", await MatchStringToAppTitle(queryModel.SearchString));
+                queryParams.AppIds = await MatchStringToAppTitle(queryModel.SearchString);
             }
 
-            InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesFromQuery(queryParams, null, 100, false);
+            InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesFromQuery(queryParams, false);
 
             AddQueryModelToTelemetry(queryModel);
 
@@ -333,7 +335,7 @@ namespace Altinn.Platform.Storage.Controllers
            bool includeActive,
            bool includeArchived,
            bool includeDeleted,
-           Dictionary<string, StringValues> queryParams)
+           InstanceQueryParameters queryParams)
         {
             if ((includeActive == includeArchived) && (includeActive == includeDeleted))
             {
@@ -341,34 +343,30 @@ namespace Altinn.Platform.Storage.Controllers
             }
             else if (!includeArchived && !includeDeleted)
             {
-                queryParams.Add("status.isArchived", "false");
-                queryParams.Add("status.isSoftDeleted", "false");
+                queryParams.IsArchived = false;
+                queryParams.IsSoftDeleted = false;
             }
             else if (!includeActive && !includeDeleted)
             {
-                queryParams.Add("status.isArchived", "true");
-                queryParams.Add("status.isSoftDeleted", "false");
+                queryParams.IsArchived = true;
+                queryParams.IsSoftDeleted = false;
             }
             else if (!includeActive && !includeArchived)
             {
-                queryParams.Add("status.isSoftDeleted", "true");
+                queryParams.IsSoftDeleted = true;
             }
             else if (includeActive && includeArchived)
             {
-                queryParams.Add("status.isSoftDeleted", "false");
+                queryParams.IsSoftDeleted = false;
             }
             else if (includeArchived)
             {
-                queryParams.Add("status.isArchivedOrSoftDeleted", "true");
+                queryParams.IsArchivedOrSoftDeleted = true;
             }
             else
             {
-                queryParams.Add("status.isActiveOrSoftDeleted", "true");
+                queryParams.IsActiveOrSoftDeleted = true;
             }
-
-            queryParams.Remove(nameof(includeActive));
-            queryParams.Remove(nameof(includeArchived));
-            queryParams.Remove(nameof(includeDeleted));
         }
 
         private async Task RemoveHiddenInstances(List<Instance> instances)
@@ -389,65 +387,68 @@ namespace Altinn.Platform.Storage.Controllers
             }
         }
 
-        private static Dictionary<string, StringValues> GetQueryParams(MessageBoxQueryModel queryModel)
+        private static InstanceQueryParameters GetQueryParams(MessageBoxQueryModel queryModel)
         {
             string dateTimeFormat = "yyyy-MM-ddTHH:mm:ss";
 
-            Dictionary<string, StringValues> queryParams = new Dictionary<string, StringValues>();
+            InstanceQueryParameters queryParams = new();
 
-            queryParams.Add("instanceOwner.partyId", queryModel.InstanceOwnerPartyIdList.Select(i => i.ToString()).ToArray());
+            if (queryModel.InstanceOwnerPartyIdList.Count == 1)
+            {
+                queryParams.InstanceOwnerPartyId = queryModel.InstanceOwnerPartyIdList.First();
+            }
+            else
+            {
+                queryParams.InstanceOwnerPartyIds = queryModel.InstanceOwnerPartyIdList.Cast<int?>().ToArray();
+            }
 
             if (!string.IsNullOrEmpty(queryModel.AppId))
             {
-                queryParams.Add("appId", queryModel.AppId);
+                queryParams.AppId = queryModel.AppId;
             }
-
-            queryParams.Add("includeActive", queryModel.IncludeActive.ToString());
-            queryParams.Add("includeArchived", queryModel.IncludeArchived.ToString());
-            queryParams.Add("includeDeleted", queryModel.IncludeDeleted.ToString());
 
             if (queryModel.FromLastChanged != null)
             {
-                queryParams.Add("lastChanged", $"gte:{queryModel.FromLastChanged?.ToString(dateTimeFormat)}");
+                queryParams.LastChanged = $"gte:{queryModel.FromLastChanged?.ToString(dateTimeFormat)}";
             }
 
             if (queryModel.ToLastChanged != null)
             {
-                if (queryParams.TryGetValue("lastChanged", out StringValues lastChangedValues))
+                if (string.IsNullOrEmpty(queryParams.LastChanged))
                 {
-                    queryParams["lastChanged"] = StringValues.Concat(lastChangedValues, $"lte:{queryModel.ToLastChanged?.ToString(dateTimeFormat)}");
+                    queryParams.LastChanged = $"lte:{queryModel.ToLastChanged?.ToString(dateTimeFormat)}";
                 }
                 else
                 {
-                    queryParams.Add("lastChanged", $"lte:{queryModel.ToLastChanged?.ToString(dateTimeFormat)}");
+                    queryParams.LastChanged = string.Concat(queryParams.LastChanged, $"lte:{queryModel.ToLastChanged?.ToString(dateTimeFormat)}");
                 }
             }
 
             if (queryModel.FromCreated != null)
             {
-                queryParams.Add("msgBoxInterval", $"gte:{queryModel.FromCreated?.ToString(dateTimeFormat)}");
+                queryParams.MsgBoxInterval = [$"gte:{queryModel.FromCreated?.ToString(dateTimeFormat)}"];
             }
 
             if (queryModel.ToCreated != null)
             {
-                if (queryParams.TryGetValue("msgBoxInterval", out StringValues msgBoxIntervalValues))
+                if (queryParams.MsgBoxInterval == null || queryParams.MsgBoxInterval.Length == 0)
                 {
-                    queryParams["msgBoxInterval"] = StringValues.Concat(msgBoxIntervalValues, $"lte:{queryModel.ToCreated?.ToString(dateTimeFormat)}");
+                    queryParams.MsgBoxInterval = [$"lte:{queryModel.ToCreated?.ToString(dateTimeFormat)}"];
                 }
                 else
                 {
-                    queryParams.Add("msgBoxInterval", $"lte:{queryModel.ToCreated?.ToString(dateTimeFormat)}");
+                    queryParams.MsgBoxInterval = queryParams.MsgBoxInterval.Concat([$"lte:{queryModel.ToCreated?.ToString(dateTimeFormat)}"]).ToArray();
                 }
             }
 
             if (!string.IsNullOrEmpty(queryModel.SearchString))
             {
-                queryParams.Add("searchString", queryModel.SearchString);
+                queryParams.SearchString = queryModel.SearchString;
             }
 
             if (!string.IsNullOrEmpty(queryModel.ArchiveReference))
             {
-                queryParams.Add("archiveReference", queryModel.ArchiveReference);
+                queryParams.ArchiveReference = queryModel.ArchiveReference;
             }
 
             return queryParams;

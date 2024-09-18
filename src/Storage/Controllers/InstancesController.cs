@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 
@@ -22,7 +21,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
-
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -83,65 +81,26 @@ namespace Altinn.Platform.Storage.Controllers
         }
 
         /// <summary>
-        /// Get all instances that match the given query parameters. Parameters can be combined. Unknown or illegal parameter values will result in 400 - bad request.
+        /// Retrieves all instances that match the specified query parameters. Parameters can be combined. Invalid or unknown parameter values will result in a 400 Bad Request response.
         /// </summary>
-        /// <param name="org">application owner.</param>
-        /// <param name="appId">application id.</param>
-        /// <param name="currentTaskId">Running process current task id.</param>
-        /// <param name="processIsComplete">Is process complete.</param>
-        /// <param name="processEndEvent">Process end state.</param>
-        /// <param name="processEnded">Process ended value.</param>
-        /// <param name="instanceOwnerPartyId">Instance owner id.</param>
-        /// <param name="instanceOwnerIdentifier">Instance owner identifier, i.e. Person:PersonNumber, Organisation:OrganisationNumber.</param>
-        /// <param name="lastChanged">Last changed date.</param>
-        /// <param name="created">Created time.</param>
-        /// <param name="visibleAfter">The visible after date time.</param>
-        /// <param name="dueBefore">The due before date time.</param>
-        /// <param name="excludeConfirmedBy">A string that will hide instances already confirmed by stakeholder.</param>
-        /// <param name="isSoftDeleted">Is the instance soft deleted.</param>
-        /// <param name="isHardDeleted">Is the instance hard deleted.</param>
-        /// <param name="isArchived">Is the instance archived.</param>
-        /// <param name="continuationToken">Continuation token.</param>
-        /// <param name="size">The page size.</param>
-        /// <returns>List of all instances for given instance owner.</returns>
+        /// <param name="queryParameters">The query parameters to retrieve instance data.</param>
+        /// <returns>A <seealso cref="List{T}"/> contains all instances for given instance owner.</returns>
         /// <!-- GET /instances?org=tdd or GET /instances?appId=tdd/app2 -->
         [Authorize]
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [Produces("application/json")]
-        public async Task<ActionResult<QueryResponse<Instance>>> GetInstances(
-            [FromQuery] string org,
-            [FromQuery] string appId,
-            [FromQuery(Name = "process.currentTask")] string currentTaskId,
-            [FromQuery(Name = "process.isComplete")] bool? processIsComplete,
-            [FromQuery(Name = "process.endEvent")] string processEndEvent,
-            [FromQuery(Name = "process.ended")] string processEnded,
-            [FromQuery(Name = "instanceOwner.partyId")] int? instanceOwnerPartyId,
-            [FromHeader(Name = "X-Ai-InstanceOwnerIdentifier")] string instanceOwnerIdentifier,
-            [FromQuery] string lastChanged,
-            [FromQuery] string created,
-            [FromQuery(Name = "visibleAfter")] string visibleAfter,
-            [FromQuery] string dueBefore,
-            [FromQuery] string excludeConfirmedBy,
-            [FromQuery(Name = "status.isSoftDeleted")] bool isSoftDeleted,
-            [FromQuery(Name = "status.isHardDeleted")] bool isHardDeleted,
-            [FromQuery(Name = "status.isArchived")] bool isArchived,
-            string continuationToken,
-            int? size)
+        public async Task<ActionResult<QueryResponse<Instance>>> GetInstances(InstanceQueryParameters queryParameters)
         {
-            int pageSize = size ?? 100;
-            string selfContinuationToken = null;
-            bool appOwnerRequestingInstances = false;
-
-            // if user is org
-            string orgClaim = User.GetOrg();
-            int? userId = User.GetUserIdAsInt();
-
-            if (instanceOwnerPartyId.HasValue && !string.IsNullOrEmpty(instanceOwnerIdentifier))
+            if (queryParameters.IsInvalidInstanceOwnerCombination())
             {
                 return BadRequest("Both InstanceOwner.PartyId and InstanceOwnerIdentifier cannot be present at the same time.");
             }
+
+            string orgClaim = User.GetOrg();
+            int? userId = User.GetUserIdAsInt();
+            bool appOwnerRequestingInstances = false;
 
             if (orgClaim != null)
             {
@@ -150,14 +109,17 @@ namespace Altinn.Platform.Storage.Controllers
                     return Forbid();
                 }
 
-                if (string.IsNullOrEmpty(org) && string.IsNullOrEmpty(appId))
+                if (string.IsNullOrEmpty(queryParameters.Org) && string.IsNullOrEmpty(queryParameters.AppId))
                 {
                     return BadRequest("Org or AppId must be defined.");
                 }
 
-                org = string.IsNullOrEmpty(org) ? appId.Split('/')[0] : org;
+                if (string.IsNullOrEmpty(queryParameters.Org))
+                {
+                    queryParameters.Org = queryParameters.AppId.Split('/')[0];
+                }
 
-                if (!orgClaim.Equals(org, StringComparison.InvariantCultureIgnoreCase))
+                if (!orgClaim.Equals(queryParameters.Org, StringComparison.InvariantCultureIgnoreCase))
                 {
                     return Forbid();
                 }
@@ -166,7 +128,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
             else if (userId != null)
             {
-                if (instanceOwnerPartyId == null && string.IsNullOrEmpty(instanceOwnerIdentifier))
+                if (queryParameters.InstanceOwnerPartyId == null && string.IsNullOrEmpty(queryParameters.InstanceOwnerIdentifier))
                 {
                     return BadRequest("Either InstanceOwnerPartyId or InstanceOwnerIdentifier need to be defined.");
                 }
@@ -176,99 +138,82 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest();
             }
 
-            if (!string.IsNullOrEmpty(instanceOwnerIdentifier))
+            if (!string.IsNullOrEmpty(queryParameters.InstanceOwnerIdentifier))
             {
-                (string instanceOwnerIdType, string instanceOwnerIdValue) = InstanceHelper.GetIdentifierFromInstanceOwnerIdentifier(instanceOwnerIdentifier);
+                (string instanceOwnerIdType, string instanceOwnerIdValue) = InstanceHelper.GetIdentifierFromInstanceOwnerIdentifier(queryParameters.InstanceOwnerIdentifier);
 
                 if (string.IsNullOrEmpty(instanceOwnerIdType) || string.IsNullOrEmpty(instanceOwnerIdValue))
                 {
                     return BadRequest("Invalid InstanceOwnerIdentifier.");
                 }
 
-                string person = null;
                 string orgNo = null;
+                string person = null;
 
-                if (Enum.TryParse<PartyType>(instanceOwnerIdType, true, out PartyType partyType))
+                if (Enum.TryParse(instanceOwnerIdType, true, out PartyType partyType))
                 {
-                    if (partyType == PartyType.Person)
+                    switch (partyType)
                     {
-                        Regex regex = InstanceOwnerIdRegExHelper.ElevenDigitRegex();
-                        if (!regex.IsMatch(instanceOwnerIdValue))
-                        {
-                            return BadRequest("Person number needs to be exactly 11 digits.");
-                        }
+                        case PartyType.Person:
+                            if (!InstanceOwnerIdRegExHelper.ElevenDigitRegex().IsMatch(instanceOwnerIdValue))
+                            {
+                                return BadRequest("Person number needs to be exactly 11 digits.");
+                            }
 
-                        person = instanceOwnerIdValue;
-                    }
-                    else if (partyType == PartyType.Organisation)
-                    {
-                        Regex regex = InstanceOwnerIdRegExHelper.NineDigitRegex();
-                        if (!regex.IsMatch(instanceOwnerIdValue))
-                        {
-                            return BadRequest("Organisation number needs to be exactly 9 digits.");
-                        }
+                            person = instanceOwnerIdValue;
+                            break;
 
-                        orgNo = instanceOwnerIdValue;
+                        case PartyType.Organisation:
+                            if (!InstanceOwnerIdRegExHelper.NineDigitRegex().IsMatch(instanceOwnerIdValue))
+                            {
+                                return BadRequest("Organization number needs to be exactly 9 digits.");
+                            }
+
+                            orgNo = instanceOwnerIdValue;
+                            break;
                     }
                 }
 
-                instanceOwnerPartyId = _registerService.PartyLookup(person, orgNo).GetAwaiter().GetResult();
+                queryParameters.InstanceOwnerPartyId = await _registerService.PartyLookup(person, orgNo);
 
-                if (instanceOwnerPartyId < 0)
+                if (queryParameters.InstanceOwnerPartyId < 0)
                 {
-                    QueryResponse<Instance> response = new()
-                    {
-                        Instances = new List<Instance>()
-                    };
-
-                    return Ok(response);
+                    return Ok(new QueryResponse<Instance> { Instances = [] });
                 }
             }
 
-            if (!string.IsNullOrEmpty(continuationToken))
+            string selfContinuationToken = null;
+            if (!string.IsNullOrEmpty(queryParameters.ContinuationToken))
             {
-                selfContinuationToken = continuationToken;
-                continuationToken = HttpUtility.UrlDecode(continuationToken);
+                selfContinuationToken = queryParameters.ContinuationToken;
+                queryParameters.ContinuationToken = HttpUtility.UrlDecode(queryParameters.ContinuationToken);
             }
 
-            Dictionary<string, StringValues> queryParams = QueryHelpers.ParseQuery(Request.QueryString.Value);
-            if (instanceOwnerPartyId > 0)
-            {
-                queryParams["instanceOwner.partyId"] = new StringValues(instanceOwnerPartyId.ToString());
-            }
-
-            // filter out hard deleted instances if it isn't appOwner requesting instances
+            // filter out hard deleted instances if it isn't the appOwner requesting instances
             if (!appOwnerRequestingInstances)
             {
-                bool requestingHardDeleted = false;
-
-                if (queryParams.TryGetValue("status.isHardDeleted", out StringValues hardDeletedQueryValue))
-                {
-                    _ = bool.TryParse(hardDeletedQueryValue.Single(), out requestingHardDeleted);
-                }
-
-                if (requestingHardDeleted)
+                if (queryParameters.IsHardDeleted.HasValue && queryParameters.IsHardDeleted.Value)
                 {
                     return new QueryResponse<Instance>()
                     {
-                        Instances = new(),
+                        Instances = [],
                         Self = BuildRequestLink(selfContinuationToken)
                     };
                 }
-                else if (!queryParams.ContainsKey("status.isHardDeleted"))
-                {
-                    queryParams["status.isHardDeleted"] = "false";
-                }
+
+                queryParameters.IsHardDeleted = false;
             }
 
-            if (!queryParams.ContainsKey("sortBy"))
+            if (string.IsNullOrEmpty(queryParameters.SortBy))
             {
-                queryParams.Add("sortBy", "desc:lastChanged");
+                queryParameters.SortBy = "desc:lastChanged";
             }
+
+            queryParameters.Size ??= 100;
 
             try
             {
-                InstanceQueryResponse result = await _instanceRepository.GetInstancesFromQuery(queryParams, continuationToken, pageSize, true);
+                InstanceQueryResponse result = await _instanceRepository.GetInstancesFromQuery(queryParameters, true);
 
                 if (!string.IsNullOrEmpty(result.Exception))
                 {
@@ -287,22 +232,21 @@ namespace Altinn.Platform.Storage.Controllers
                 }
 
                 string nextContinuationToken = HttpUtility.UrlEncode(result.ContinuationToken);
-                result.ContinuationToken = null;
 
                 QueryResponse<Instance> response = new()
                 {
                     Instances = result.Instances,
                     Count = result.Instances.Count,
-                    Self = BuildRequestLink(selfContinuationToken, queryParams)
+                    Self = BuildRequestLink(selfContinuationToken)
                 };
 
                 if (!string.IsNullOrEmpty(nextContinuationToken))
                 {
-                    response.Next = BuildRequestLink(nextContinuationToken, queryParams);
+                    response.Next = BuildRequestLink(nextContinuationToken);
                 }
 
                 // add self links to platform
-                result.Instances.ForEach(i => i.SetPlatformSelfLinks(_storageBaseAndHost));
+                response.Instances.ForEach(i => i.SetPlatformSelfLinks(_storageBaseAndHost));
 
                 return Ok(response);
             }
@@ -330,8 +274,7 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 (Instance result, _) = await _instanceRepository.GetOne(instanceGuid, true);
 
-                bool appOwnerRequestingElement = User.GetOrg() == result.Org;
-                if (!appOwnerRequestingElement)
+                if (User.GetOrg() != result.Org)
                 {
                     FilterOutDeletedDataElements(result);
                 }
@@ -840,30 +783,11 @@ namespace Altinn.Platform.Storage.Controllers
             return (appInfo, errorResult);
         }
 
-        private static string BuildQueryStringWithOneReplacedParameter(Dictionary<string, StringValues> q, string queryParamName, string newParamValue)
-        {
-            List<KeyValuePair<string, string>> items = q.SelectMany(
-                x => x.Value,
-                (col, value) => new KeyValuePair<string, string>(col.Key, value))
-                .ToList();
-
-            items.RemoveAll(x => x.Key == queryParamName);
-
-            var qb = new QueryBuilder(items)
-                        {
-                            { queryParamName, newParamValue }
-                        };
-
-            string nextQueryString = qb.ToQueryString().Value;
-
-            return nextQueryString;
-        }
-
         private static void FilterOutDeletedDataElements(Instance instance)
         {
-            if (instance.Data != null)
+            if (instance?.Data != null)
             {
-                instance.Data = instance.Data.Where(d => d.DeleteStatus?.IsHardDeleted != true).ToList();
+                instance.Data = instance.Data.Where(e => e.DeleteStatus?.IsHardDeleted != true).ToList();
             }
         }
 
@@ -872,28 +796,31 @@ namespace Altinn.Platform.Storage.Controllers
             return User.GetUserOrOrgId();
         }
 
-        private string BuildRequestLink(string continuationToken = null, Dictionary<string, StringValues> queryParams = null)
+        private string BuildRequestLink(string continuationToken)
         {
-            string host = $"https://platform.{_generalSettings.Hostname}";
             string url = Request.Path;
-            string query = Request.QueryString.Value;
+            string queryString = Request.QueryString.Value;
+            string host = $"https://platform.{_generalSettings.Hostname}";
 
-            if (continuationToken == null)
+            if (string.IsNullOrEmpty(continuationToken))
             {
-                string selfUrl = $"{host}{url}{query}";
-                return selfUrl;
+                return $"{host}{url}{queryString}";
             }
-            else
+
+            Dictionary<string, StringValues> queryParams = QueryHelpers.ParseQuery(queryString);
+
+            var flattenedQueryParams = queryParams.SelectMany(x => x.Value, (col, value) => new KeyValuePair<string, string>(col.Key, value)).Where(e => e.Key != "continuationToken");
+
+            var queryBuilder = new QueryBuilder(flattenedQueryParams)
             {
-                string selfQueryString = BuildQueryStringWithOneReplacedParameter(
-                    queryParams,
-                    "continuationToken",
-                    continuationToken);
+                {
+                    "continuationToken", continuationToken
+                }
+            };
 
-                string selfUrl = $"{host}{url}{selfQueryString}";
+            var newQueryString = queryBuilder.ToQueryString().Value;
 
-                return selfUrl;
-            }
+            return $"{host}{url}{newQueryString}";
         }
 
         /// <summary>
