@@ -1,0 +1,24 @@
+﻿@model List<Altinn.Platform.Storage.Controllers.SignatureView>
+<style>
+    table, th, td {
+        border: 1px solid black;
+    }
+</style>
+<h1>Signeringsinformasjon</h1>
+<table>
+    <tr>
+        <th>Brukernavn</th>
+        <th>Signaturtekst</th>
+        <th>Dato</th>
+    </tr>
+    @{
+        foreach (var signature in Model)
+        {
+            <tr>
+                <td>@signature.SignedByUserName</td>
+                <td>@signature.SignatureText</td>
+                <td>@signature.CreatedDateTime</td>
+            </tr>
+        }
+    }
+</table>

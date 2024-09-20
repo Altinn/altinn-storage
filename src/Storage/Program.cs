@@ -180,7 +180,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
 {
     logger.LogInformation("Program // ConfigureServices");
 
-    services.AddControllers().AddNewtonsoftJson();
+    services.AddControllersWithViews().AddNewtonsoftJson();
     services.AddMemoryCache();
     services.AddHealthChecks().AddCheck<HealthCheck>("storage_health_check");
 

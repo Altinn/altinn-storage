@@ -1,0 +1,19 @@
+﻿@model Altinn.Platform.Storage.Controllers.PaymentView
+<style>
+    table, th, td {
+        border: 1px solid black;
+    }
+</style>
+<h1>Betalingsinformasjon</h1>
+<table>
+    <tr>
+        <th>Beskrivelse</th>
+        <th>Sum</th>
+        <th>Dato</th>
+    </tr>
+    <tr>
+        <td>@Model.Description</td>
+        <td>@Model.PaymentSum</td>
+        <td>@Model.CreatedDate</td>
+    </tr>
+</table>
