@@ -231,12 +231,13 @@ namespace Altinn.Platform.Storage.Models
             AddParamIfNotEmpty(postgresParams, _archiveReferenceParameterName, ArchiveReference?.ToLower());
             AddParamIfNotEmpty(postgresParams, _excludeConfirmedByParameterName, GetExcludeConfirmedBy(ExcludeConfirmedBy));
 
-            AddDateParamIfNotNull(postgresParams, _dueBeforeParameterName, DueBefore);
-            AddDateParamIfNotNull(postgresParams, _creationDateParameterName, Created);
-            AddDateParamIfNotNull(postgresParams, _lastChangedParameterName, LastChanged);
-            AddDateParamIfNotNull(postgresParams, _visibleAfterParameterName, VisibleAfter);
-            AddDateParamIfNotNull(postgresParams, _processEndedParameterName, ProcessEnded);
-            AddDateParamIfNotNull(postgresParams, _messageBoxIntervalParameterName, MsgBoxInterval);
+            AddDateParamIfNotNull(postgresParams, _creationDateParameterName, Created, false);
+            AddDateParamIfNotNull(postgresParams, _lastChangedParameterName, LastChanged, false);
+            AddDateParamIfNotNull(postgresParams, _messageBoxIntervalParameterName, MsgBoxInterval, false);
+
+            AddDateParamIfNotNull(postgresParams, _dueBeforeParameterName, DueBefore, true);
+            AddDateParamIfNotNull(postgresParams, _visibleAfterParameterName, VisibleAfter, true);
+            AddDateParamIfNotNull(postgresParams, _processEndedParameterName, ProcessEnded, true);
 
             if (!string.IsNullOrEmpty(SortBy))
             {
@@ -318,7 +319,8 @@ namespace Altinn.Platform.Storage.Models
         /// <param name="postgresParams">The dictionary to add the parameter to.</param>
         /// <param name="paramName">The name of the parameter.</param>
         /// <param name="queryValues">The query values containing the date.</param>
-        private static void AddDateParamIfNotNull(Dictionary<string, object> postgresParams, string paramName, StringValues queryValues)
+        /// <param name="useStringValue">Indicates whether to use the date value as a string.</param>
+        private static void AddDateParamIfNotNull(Dictionary<string, object> postgresParams, string paramName, StringValues queryValues, bool useStringValue)
         {
             if (StringValues.IsNullOrEmpty(queryValues))
             {
@@ -332,7 +334,7 @@ namespace Altinn.Platform.Storage.Models
                     string @operator = value.Split(':')[0];
                     string dateValue = value[(@operator.Length + 1)..];
                     string postgresParamName = GetPgParamName($"{paramName}_{@operator}");
-                    postgresParams.Add(postgresParamName, DateTimeHelper.ParseAndConvertToUniversalTime(dateValue));
+                    postgresParams.Add(postgresParamName, useStringValue ? dateValue : DateTimeHelper.ParseAndConvertToUniversalTime(dateValue));
                 }
                 catch
                 {
