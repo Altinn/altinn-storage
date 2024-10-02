@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -409,35 +410,35 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (queryModel.FromLastChanged != null)
             {
-                queryParams.LastChanged = $"gte:{queryModel.FromLastChanged?.ToString(dateTimeFormat)}";
+                queryParams.LastChanged = $"gte:{queryModel.FromLastChanged?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}";
             }
 
             if (queryModel.ToLastChanged != null)
             {
                 if (string.IsNullOrEmpty(queryParams.LastChanged))
                 {
-                    queryParams.LastChanged = $"lte:{queryModel.ToLastChanged?.ToString(dateTimeFormat)}";
+                    queryParams.LastChanged = $"lte:{queryModel.ToLastChanged?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}";
                 }
                 else
                 {
-                    queryParams.LastChanged = string.Concat(queryParams.LastChanged, $"lte:{queryModel.ToLastChanged?.ToString(dateTimeFormat)}");
+                    queryParams.LastChanged = string.Concat(queryParams.LastChanged, $"lte:{queryModel.ToLastChanged?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}");
                 }
             }
 
             if (queryModel.FromCreated != null)
             {
-                queryParams.MsgBoxInterval = [$"gte:{queryModel.FromCreated?.ToString(dateTimeFormat)}"];
+                queryParams.MsgBoxInterval = [$"gte:{queryModel.FromCreated?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}"];
             }
 
             if (queryModel.ToCreated != null)
             {
                 if (queryParams.MsgBoxInterval == null || queryParams.MsgBoxInterval.Length == 0)
                 {
-                    queryParams.MsgBoxInterval = [$"lte:{queryModel.ToCreated?.ToString(dateTimeFormat)}"];
+                    queryParams.MsgBoxInterval = [$"lte:{queryModel.ToCreated?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}"];
                 }
                 else
                 {
-                    queryParams.MsgBoxInterval = queryParams.MsgBoxInterval.Concat([$"lte:{queryModel.ToCreated?.ToString(dateTimeFormat)}"]).ToArray();
+                    queryParams.MsgBoxInterval = queryParams.MsgBoxInterval.Concat([$"lte:{queryModel.ToCreated?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}"]).ToArray();
                 }
             }
 
