@@ -105,11 +105,6 @@ namespace Altinn.Platform.Storage.Repository
             List<(string Xsl, bool IsPortraitl)> xsls = [];
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readXslSql);
-            pgcom.Parameters.AddWithValue("_org",      NpgsqlDbType.Text, org);
-            pgcom.Parameters.AddWithValue("_app",      NpgsqlDbType.Text, app);
-            pgcom.Parameters.AddWithValue("_lformid",   NpgsqlDbType.Integer, lformId);
-            pgcom.Parameters.AddWithValue("_language", NpgsqlDbType.Text, language);
-            pgcom.Parameters.AddWithValue("_xsltype", NpgsqlDbType.Integer, xslType);
 
             // Loop until language match
             foreach (string languageToTry in GetOrderedLanguages(language))
