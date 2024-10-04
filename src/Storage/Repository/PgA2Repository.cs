@@ -105,20 +105,31 @@ namespace Altinn.Platform.Storage.Repository
             List<(string Xsl, bool IsPortraitl)> xsls = [];
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readXslSql);
-            pgcom.Parameters.AddWithValue("_org",      NpgsqlDbType.Text, org);
-            pgcom.Parameters.AddWithValue("_app",      NpgsqlDbType.Text, app);
-            pgcom.Parameters.AddWithValue("_lformid",   NpgsqlDbType.Integer, lformId);
-            pgcom.Parameters.AddWithValue("_language", NpgsqlDbType.Text, language);
-            pgcom.Parameters.AddWithValue("_xsltype", NpgsqlDbType.Integer, xslType);
-            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
-            await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
+            // Loop until language match
+            foreach (string languageToTry in GetOrderedLanguages(language))
             {
-                xsls.Add((reader.GetFieldValue<string>("xsl"), reader.GetFieldValue<bool>("isportrait")));
+                pgcom.Parameters.Clear();
+                pgcom.Parameters.AddWithValue("_org", NpgsqlDbType.Text, org);
+                pgcom.Parameters.AddWithValue("_app", NpgsqlDbType.Text, app);
+                pgcom.Parameters.AddWithValue("_lformid", NpgsqlDbType.Integer, lformId);
+                pgcom.Parameters.AddWithValue("_language", NpgsqlDbType.Text, languageToTry);
+                pgcom.Parameters.AddWithValue("_xsltype", NpgsqlDbType.Integer, xslType);
+                using TelemetryTracker tracker = new(_telemetryClient, pgcom);
+
+                await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    xsls.Add((reader.GetFieldValue<string>("xsl"), reader.GetFieldValue<bool>("isportrait")));
+                }
+
+                tracker.Track();
+                if (xsls.Count > 0)
+                {
+                    return xsls;
+                }
             }
 
-            tracker.Track();
             return xsls;
         }
 
@@ -232,6 +243,17 @@ namespace Altinn.Platform.Storage.Repository
 
             tracker.Track();
             return instanceId;
+        }
+
+        private static List<string> GetOrderedLanguages(string language)
+        {
+            switch (language)
+            {
+                case "nb": return new List<string> { "nb", "nn", "en" };
+                case "nn": return new List<string> { "nn", "nb", "en" };
+                case "en": return new List<string> { "en", "nb", "nn" };
+                default: return new List<string> { "nb", "nn", "en" };
+            }
         }
     }
 }
