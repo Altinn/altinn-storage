@@ -62,7 +62,7 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             if (await reader.ReadAsync())
             {
-                instanceEvent = reader.GetFieldValue<InstanceEvent>("event");
+                instanceEvent = await reader.GetFieldValueAsync<InstanceEvent>("event");
             }
 
             tracker.Track();
@@ -88,7 +88,7 @@ namespace Altinn.Platform.Storage.Repository
             {
                 while (await reader.ReadAsync())
                 {
-                    events.Add(reader.GetFieldValue<InstanceEvent>("event"));
+                    events.Add(await reader.GetFieldValueAsync<InstanceEvent>("event"));
                 }
             }
 

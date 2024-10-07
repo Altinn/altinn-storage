@@ -70,7 +70,7 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
-                applications.Add(reader.GetFieldValue<Application>("application"));
+                applications.Add(await reader.GetFieldValueAsync<Application>("application"));
             }
 
             tracker.Track();
@@ -88,7 +88,7 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
-                applications.Add(reader.GetFieldValue<Application>("application"));
+                applications.Add(await reader.GetFieldValueAsync<Application>("application"));
             }
 
             tracker.Track();
@@ -108,7 +108,7 @@ namespace Altinn.Platform.Storage.Repository
                 await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
                 if (await reader.ReadAsync())
                 {
-                    application = reader.GetFieldValue<Application>("application");
+                    application = await reader.GetFieldValueAsync<Application>("application");
                     _memoryCache.Set(cacheKey, application, _cacheEntryOptionsMetadata);
                 }
                 else
