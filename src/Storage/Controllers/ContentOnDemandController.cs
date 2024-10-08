@@ -148,28 +148,24 @@ namespace Altinn.Platform.Storage.Controllers
             if (xsls.Count > 1 && xsls.Exists(x => x.IsPortrait) && xsls.Exists(x => !x.IsPortrait))
             {
                 // Mix of portrait and landscape, we must generate each page and merge them
-                using (var mergedDoc = new PdfDocument())
+                using var mergedDoc = new PdfDocument();
+                foreach (var xsl in xsls)
                 {
-                    foreach (var xsl in xsls)
+                    var pdfPages = await _pdfGeneratorClient.GeneratePdf(
+                        $"{Request.Scheme}://{Request.Host}{Request.PathBase}{Request.Path}"
+                            .Replace("formdatapdf", $"formdatahtml/{xsl.PageNumber}"),
+                        xsl.IsPortrait);
+                    using var pageDoc = PdfReader.Open(pdfPages, PdfDocumentOpenMode.Import);
+                    for (var i = 0; i < pageDoc.PageCount; i++)
                     {
-                        var pdfPages = await _pdfGeneratorClient.GeneratePdf(
-                            $"{Request.Scheme}://{Request.Host}{Request.PathBase}{Request.Path}"
-                                .Replace("formdatapdf", $"formdatahtml/{xsl.PageNumber}"),
-                            xsl.IsPortrait);
-                        using (var pageDoc = PdfReader.Open(pdfPages, PdfDocumentOpenMode.Import))
-                        {
-                            for (var i = 0; i < pageDoc.PageCount; i++)
-                            {
-                                pageDoc.Pages[i].Orientation = xsl.IsPortrait ? PdfSharp.PageOrientation.Portrait : PdfSharp.PageOrientation.Landscape;
-                                mergedDoc.AddPage(pageDoc.Pages[i]);
-                            }
-                        }
+                        pageDoc.Pages[i].Orientation = xsl.IsPortrait ? PdfSharp.PageOrientation.Portrait : PdfSharp.PageOrientation.Landscape;
+                        mergedDoc.AddPage(pageDoc.Pages[i]);
                     }
-
-                    MemoryStream mergedPdf = new MemoryStream();
-                    mergedDoc.Save(mergedPdf);
-                    return mergedPdf;
                 }
+
+                MemoryStream mergedPdf = new();
+                mergedDoc.Save(mergedPdf);
+                return mergedPdf;
             }
             else
             {
@@ -287,7 +283,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// Gets or sets whether this signing is done for all the items in  the form
         /// 1=Group signing is set, 2=Group signing not set, 3=Group signing defined at each form level
         /// </summary>
-        ////public int IsSigningAllRequired { get; set; }
+        public int IsSigningAllRequired { get; set; }
 
         /// <summary>
         /// Gets or sets The authentication level attached with that signature.

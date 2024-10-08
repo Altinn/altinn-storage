@@ -127,7 +127,7 @@ namespace Altinn.Platform.Storage.Repository
             {
                 while (await reader.ReadAsync())
                 {
-                    Instance i = reader.GetFieldValue<Instance>("instance");
+                    Instance i = await reader.GetFieldValueAsync<Instance>("instance");
                     if ((i.CompleteConfirmations != null && i.CompleteConfirmations.Exists(c => c.StakeholderId.ToLower().Equals(i.Org) && c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7)))
                     || !i.Status.IsArchived)
                     {
@@ -154,10 +154,10 @@ namespace Altinn.Platform.Storage.Repository
                 bool currentInstanceAllowsDelete = false;
                 while (await reader.ReadAsync())
                 {
-                    id = reader.GetFieldValue<long>("id");
+                    id = await reader.GetFieldValueAsync<long>("id");
                     if (id != previousId)
                     {
-                        Instance instance = reader.GetFieldValue<Instance>("instance");
+                        Instance instance = await reader.GetFieldValueAsync<Instance>("instance");
                         currentInstanceAllowsDelete =
                             instance.CompleteConfirmations != null &&
                             instance.CompleteConfirmations.Exists(c => c.StakeholderId.Equals(instance.Org, StringComparison.OrdinalIgnoreCase) &&
@@ -167,7 +167,7 @@ namespace Altinn.Platform.Storage.Repository
 
                     if (currentInstanceAllowsDelete)
                     {
-                        elements.Add(reader.GetFieldValue<DataElement>("element"));
+                        elements.Add(await reader.GetFieldValueAsync<DataElement>("element"));
                     }
                 }
 
@@ -278,7 +278,7 @@ namespace Altinn.Platform.Storage.Repository
                 Instance instance = new(); // make sonarcloud happy
                 while (await reader.ReadAsync())
                 {
-                    id = reader.GetFieldValue<long>("id");
+                    id = await reader.GetFieldValueAsync<long>("id");
                     if (id != previousId)
                     {
                         if (previousId != -1)
@@ -286,7 +286,7 @@ namespace Altinn.Platform.Storage.Repository
                             ToExternal(instance);
                         }
 
-                        instance = reader.GetFieldValue<Instance>("instance");
+                        instance = await reader.GetFieldValueAsync<Instance>("instance");
                         lastChanged = instance.LastChanged ?? DateTime.MinValue;
                         queryResponse.Instances.Add(instance);
                         instance.Data = [];
@@ -295,7 +295,7 @@ namespace Altinn.Platform.Storage.Repository
 
                     if (!reader.IsDBNull("element"))
                     {
-                        instance.Data.Add(reader.GetFieldValue<DataElement>("element"));
+                        instance.Data.Add(await reader.GetFieldValueAsync<DataElement>("element"));
                     }
                 }
 
@@ -337,13 +337,13 @@ namespace Altinn.Platform.Storage.Repository
                     if (!instanceCreated)
                     {
                         instanceCreated = true;
-                        instance = reader.GetFieldValue<Instance>("instance");
-                        instanceInternalId = reader.GetFieldValue<long>("id");
+                        instance = await reader.GetFieldValueAsync<Instance>("instance");
+                        instanceInternalId = await reader.GetFieldValueAsync<long>("id");
                     }
 
                     if (includeElements && !reader.IsDBNull("element"))
                     {
-                        instanceData.Add(reader.GetFieldValue<DataElement>("element"));
+                        instanceData.Add(await reader.GetFieldValueAsync<DataElement>("element"));
                     }
                 }
 
@@ -387,7 +387,7 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             if (await reader.ReadAsync())
             {
-                instance = reader.GetFieldValue<Instance>("updatedInstance");
+                instance = await reader.GetFieldValueAsync<Instance>("updatedInstance");
             }
 
             instance.Data = dataElements;

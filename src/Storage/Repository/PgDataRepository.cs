@@ -52,7 +52,7 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             if (await reader.ReadAsync())
             {
-                dataElement = reader.GetFieldValue<DataElement>("updatedElement");
+                dataElement = await reader.GetFieldValueAsync<DataElement>("updatedElement");
             }
 
             tracker.Track();
@@ -104,7 +104,7 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             if (await reader.ReadAsync())
             {
-                dataElement = reader.GetFieldValue<DataElement>("element");
+                dataElement = await reader.GetFieldValueAsync<DataElement>("element");
             }
 
             tracker.Track();
@@ -168,7 +168,7 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             if (await reader.ReadAsync())
             {
-                element = reader.GetFieldValue<DataElement>("updatedElement");
+                element = await reader.GetFieldValueAsync<DataElement>("updatedElement");
             }
 
             tracker.Track();

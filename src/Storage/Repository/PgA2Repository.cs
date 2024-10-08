@@ -15,7 +15,14 @@ namespace Altinn.Platform.Storage.Repository
     /// <summary>
     /// Handles a2 repository.
     /// </summary>
-    public class PgA2Repository : IA2Repository
+    /// <remarks>
+    /// Initializes a new instance of the <see cref="PgA2Repository"/> class.
+    /// </remarks>
+    /// <param name="dataSource">The npgsql data source.</param>
+    /// <param name="telemetryClient">Telemetry client</param>
+    public class PgA2Repository(
+        NpgsqlDataSource dataSource,
+        TelemetryClient telemetryClient = null) : IA2Repository
     {
         private static readonly string _readXslSql = "select * from storage.reada2xsls (@_org, @_app, @_lformid, @_language, @_xsltype)";
         private static readonly string _insertXslSql = "call storage.inserta2xsl (@_org, @_app, @_lformid, @_language, @_pagenumber, @_xsl, @_xsltype, @_isportrait)";
@@ -30,27 +37,8 @@ namespace Altinn.Platform.Storage.Repository
         private static readonly string _updateMigrationStateCompletedSql = "call storage.updatea2migrationstatecompleted (@_instanceguid)";
         private static readonly string _deleteMigrationStateSql = "call storage.deletea2migrationstate (@_instanceguid)";
 
-        private readonly NpgsqlDataSource _dataSource;
-        private readonly TelemetryClient _telemetryClient;
-        private readonly ILogger<PgA2Repository> _logger;
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="PgA2Repository"/> class.
-        /// </summary>
-        /// <param name="generalSettings">the general settings</param>
-        /// <param name="dataSource">The npgsql data source.</param>
-        /// <param name="logger">Logger</param>
-        /// <param name="telemetryClient">Telemetry client</param>
-        public PgA2Repository(
-            IOptions<GeneralSettings> generalSettings,
-            NpgsqlDataSource dataSource,
-            ILogger<PgA2Repository> logger,
-            TelemetryClient telemetryClient = null)
-        {
-            _dataSource = dataSource;
-            _telemetryClient = telemetryClient;
-            _logger = logger;
-        }
+        private readonly NpgsqlDataSource _dataSource = dataSource;
+        private readonly TelemetryClient _telemetryClient = telemetryClient;
 
         /// <inheritdoc/>
         public async Task CreateXsl(string org, string app, int lformId, string language, int pageNumber, string xsl, int xslType, bool isPortrait)
@@ -120,7 +108,7 @@ namespace Altinn.Platform.Storage.Repository
                 await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
                 while (await reader.ReadAsync())
                 {
-                    xsls.Add((reader.GetFieldValue<string>("xsl"), reader.GetFieldValue<bool>("isportrait")));
+                    xsls.Add((await reader.GetFieldValueAsync<string>("xsl"), await reader.GetFieldValueAsync<bool>("isportrait")));
                 }
 
                 tracker.Track();
@@ -145,7 +133,7 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             if (await reader.ReadAsync())
             {
-                image = reader.GetFieldValue<byte[]>("image");
+                image = await reader.GetFieldValueAsync<byte[]>("image");
             }
 
             tracker.Track();
@@ -169,7 +157,7 @@ namespace Altinn.Platform.Storage.Repository
                 await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
                 if (await reader.ReadAsync())
                 {
-                    codelist = reader.GetFieldValue<string>("codelist");
+                    codelist = await reader.GetFieldValueAsync<string>("codelist");
                 }
 
                 tracker.Track();
@@ -238,7 +226,7 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             if (await reader.ReadAsync())
             {
-                instanceId = reader.IsDBNull("instanceguid") ? null : reader.GetFieldValue<Guid>("instanceguid").ToString();
+                instanceId = await reader.IsDBNullAsync("instanceguid") ? null : (await reader.GetFieldValueAsync<Guid>("instanceguid")).ToString();
             }
 
             tracker.Track();
@@ -247,13 +235,13 @@ namespace Altinn.Platform.Storage.Repository
 
         private static List<string> GetOrderedLanguages(string language)
         {
-            switch (language)
+            return language switch
             {
-                case "nb": return new List<string> { "nb", "nn", "en" };
-                case "nn": return new List<string> { "nn", "nb", "en" };
-                case "en": return new List<string> { "en", "nb", "nn" };
-                default: return new List<string> { "nb", "nn", "en" };
-            }
+                "nb" => ["nb", "nn", "en"],
+                "nn" => ["nn", "nb", "en"],
+                "en" => ["en", "nb", "nn"],
+                _ => ["nb", "nn", "en"],
+            };
         }
     }
 }

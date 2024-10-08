@@ -75,7 +75,7 @@ namespace Altinn.Platform.Storage.Repository
                 await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
                 if (await reader.ReadAsync())
                 {
-                    textResource = PostProcess(org, app, language, reader.GetFieldValue<TextResource>("textResource"));
+                    textResource = PostProcess(org, app, language, await reader.GetFieldValueAsync<TextResource>("textResource"));
                 }
                 else
                 {
@@ -129,7 +129,7 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlDataReader reader = await pgcomReadApp.ExecuteReaderAsync();
             if (await reader.ReadAsync())
             {
-                applicationInternalId = reader.GetFieldValue<int>("id");
+                applicationInternalId = await reader.GetFieldValueAsync<int>("id");
             }
             else
             {
