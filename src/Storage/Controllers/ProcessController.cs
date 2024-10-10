@@ -69,48 +69,39 @@ namespace Altinn.Platform.Storage.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [Produces("application/json")]
         public async Task<ActionResult<Instance>> PutProcess(
-                int instanceOwnerPartyId,
-                Guid instanceGuid,
-                [FromBody] ProcessState processState)
+            int instanceOwnerPartyId,
+            Guid instanceGuid,
+            [FromBody] ProcessState processState)
         {
             (Instance existingInstance, _) = await _instanceRepository.GetOne(instanceGuid, true);
 
-            if (existingInstance == null)
+            if (existingInstance is null)
             {
                 return NotFound();
             }
 
-            string altinnTaskType = existingInstance.Process?.CurrentTask?.AltinnTaskType;
             string taskId = null;
+            string altinnTaskType = existingInstance.Process?.CurrentTask?.AltinnTaskType;
 
-            var moveNextFlows = new[] { "CompleteCurrentMoveToNext", "AbandonCurrentMoveToNext" };
-            if (processState?.CurrentTask?.FlowType is not null && !moveNextFlows.Contains(processState.CurrentTask.FlowType))
+            if (processState?.CurrentTask?.FlowType == "AbandonCurrentMoveToNext")
+            {
+                altinnTaskType = "reject";
+            }
+            else if (processState?.CurrentTask?.FlowType is not null
+                && processState.CurrentTask.FlowType != "CompleteCurrentMoveToNext")
             {
                 altinnTaskType = processState.CurrentTask.AltinnTaskType;
                 taskId = processState.CurrentTask.ElementId;
             }
 
-            string action;
-
-            switch (altinnTaskType)
+            string action = altinnTaskType switch
             {
-                case "data":
-                case "feedback":
-                    action = "write";
-                    break;
-                case "payment":
-                    action = "pay";
-                    break;
-                case "confirmation":
-                    action = "confirm";
-                    break;
-                case "signing":
-                    action = "sign";
-                    break;
-                default:
-                    action = altinnTaskType;
-                    break;
-            }
+                "data" or "feedback" => "write",
+                "payment" => "pay",
+                "confirmation" => "confirm",
+                "signing" => "sign",
+                _ => altinnTaskType,
+            };
 
             bool authorized = await _authorizationService.AuthorizeInstanceAction(existingInstance, action, taskId);
 
@@ -125,7 +116,7 @@ namespace Altinn.Platform.Storage.Controllers
                 nameof(existingInstance.LastChanged),
                 nameof(existingInstance.LastChangedBy)
             ];
-            if (existingInstance.Process.Ended == null && processState?.Ended != null)
+            if (existingInstance.Process?.Ended is null && processState?.Ended is not null)
             {
                 existingInstance.Status ??= new InstanceStatus();
                 existingInstance.Status.IsArchived = true;
@@ -139,9 +130,7 @@ namespace Altinn.Platform.Storage.Controllers
             existingInstance.LastChangedBy = User.GetUserOrOrgId();
             existingInstance.LastChanged = DateTime.UtcNow;
 
-            Instance updatedInstance;
-
-            updatedInstance = await _instanceRepository.Update(existingInstance, updateProperties);
+            Instance updatedInstance = await _instanceRepository.Update(existingInstance, updateProperties);
 
             if (processState?.CurrentTask?.AltinnTaskType == "signing")
             {
