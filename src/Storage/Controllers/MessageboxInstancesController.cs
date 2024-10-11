@@ -80,7 +80,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             InstanceQueryParameters queryParams = GetQueryParams(queryModel);
             GetStatusFromQueryParams(queryModel.IncludeActive, queryModel.IncludeArchived, queryModel.IncludeDeleted, queryParams);
-            queryParams.Size = 100;
+            queryParams.Size = 5000;
             queryParams.IsHardDeleted = false;
             queryParams.SortBy = "desc:lastChanged";
 
