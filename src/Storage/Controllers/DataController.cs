@@ -192,7 +192,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             string storageFileName = DataElementHelper.DataFileName(instance.AppId, instanceGuid.ToString(), dataGuid.ToString());
 
-            if (instance.AppId.Contains(@"/a2-") && _generalSettings.A2UseTtdAsServiceOwner)
+            if ((instance.AppId.Contains(@"/a1-") || instance.AppId.Contains(@"/a2-")) && _generalSettings.A2UseTtdAsServiceOwner)
             {
                 instance.Org = "ttd";
             }

@@ -42,22 +42,32 @@ namespace Altinn.Platform.Storage.Repository
         Task<byte[]> GetImage(string name);
 
         /// <summary>
+        /// Create an a1 migration state
+        /// </summary>
+        Task CreateA1MigrationState(int a1ArchiveReference);
+
+        /// <summary>
         /// Create an a2 migration state
         /// </summary>
-        Task CreateMigrationState(int a2ArchiveReference);
+        Task CreateA2MigrationState(int a2ArchiveReference);
+
+        /// <summary>
+        /// Update an a1 migration state
+        /// </summary>
+        Task UpdateStartA1MigrationState(int a1ArchiveReference, string instanceGuid);
 
         /// <summary>
         /// Update an a2 migration state
         /// </summary>
-        Task UpdateStartMigrationState(int a2ArchiveReference, string instanceGuid);
+        Task UpdateStartA2MigrationState(int a2ArchiveReference, string instanceGuid);
 
         /// <summary>
-        /// Update an a2 migration state
+        /// Update an a1/a2 migration state
         /// </summary>
         Task UpdateCompleteMigrationState(string instanceGuid);
 
         /// <summary>
-        /// Delete an a2 migration state
+        /// Delete an a1/a2 migration state
         /// </summary>
         Task DeleteMigrationState(string instanceGuid);
 
@@ -65,6 +75,12 @@ namespace Altinn.Platform.Storage.Repository
         /// Get the instance id of the migration
         /// </summary>
         /// <returns>The instance id of the migration</returns>
-        Task<string> GetMigrationInstanceId(int a2ArchiveReference);
+        Task<string> GetA1MigrationInstanceId(int a1ArchiveReference);
+
+        /// <summary>
+        /// Get the instance id of the migration
+        /// </summary>
+        /// <returns>The instance id of the migration</returns>
+        Task<string> GetA2MigrationInstanceId(int a2ArchiveReference);
     }
 }
