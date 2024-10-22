@@ -7,6 +7,7 @@ using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Models;
 
 using Azure;
+using Azure.Identity;
 using Azure.Storage;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
@@ -199,10 +200,10 @@ namespace Altinn.Platform.Storage.Repository
                     Scheme = "https",
                     Host = $"{accountName}.blob.core.windows.net",
                     Path = $"{containerName}/{blobName}",
-                    Query = sasToken
+                    ////Query = sasToken
                 };
 
-                return new BlobClient(fullUri.Uri);
+                return new BlobClient(fullUri.Uri, new DefaultAzureCredential());
             }
 
             StorageSharedKeyCredential storageCredentials = new(_storageConfiguration.AccountName, _storageConfiguration.AccountKey);
