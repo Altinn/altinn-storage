@@ -58,6 +58,7 @@ namespace Altinn.Platform.Storage.Repository
                         _logger.LogWarning("Authentication failed. Invalidating credentials and retrying download operation.");
 
                         _memoryCache.Remove(_credsCacheKey);
+                        _memoryCache.Remove(GetClientCacheKey(org, storageContainerNumber));
 
                         return await DownloadBlobAsync(org, blobStoragePath, storageContainerNumber);
                     case "BlobNotFound":
@@ -92,6 +93,7 @@ namespace Altinn.Platform.Storage.Repository
                         _logger.LogWarning("Authentication failed. Invalidating credentials.");
 
                         _memoryCache.Remove(_credsCacheKey);
+                        _memoryCache.Remove(GetClientCacheKey(org, storageContainerNumber));
 
                         // No use retrying upload as the original stream can't be reset back to start.
                         throw;
@@ -116,6 +118,7 @@ namespace Altinn.Platform.Storage.Repository
                         _logger.LogWarning("Authentication failed. Invalidating credentials and retrying delete operation.");
 
                         _memoryCache.Remove(_credsCacheKey);
+                        _memoryCache.Remove(GetClientCacheKey(org, storageContainerNumber));
 
                         return await DeleteIfExistsAsync(org, blobStoragePath, storageContainerNumber);
                     default:
@@ -127,7 +130,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<bool> DeleteDataBlobs(Instance instance, int? storageContainerNumber)
         {
-            BlobContainerClient container = CreateBlobClient(instance.Org, storageContainerNumber);
+            BlobContainerClient container = CreateContainerClient(instance.Org, storageContainerNumber);
 
             if (container == null)
             {
@@ -144,7 +147,6 @@ namespace Altinn.Platform.Storage.Repository
             }
             catch (Exception e)
             {
-                _memoryCache.Remove(_credsCacheKey);
                 _logger.LogError(
                     e,
                     "BlobService // DeleteDataBlobs // Org: {Instance}",
@@ -188,14 +190,14 @@ namespace Altinn.Platform.Storage.Repository
 
         private BlobClient CreateBlobClient(string org, string blobName, int? storageContainerNumber)
         {
-            return CreateBlobClient(org, storageContainerNumber).GetBlobClient(blobName);
+            return CreateContainerClient(org, storageContainerNumber).GetBlobClient(blobName);
         }
 
-        private BlobContainerClient CreateBlobClient(string org, int? storageContainerNumber)
+        private BlobContainerClient CreateContainerClient(string org, int? storageContainerNumber)
         {
             if (!_storageConfiguration.AccountName.Equals("devstoreaccount1"))
             {
-                string cacheKey = $"blob-{org}-{storageContainerNumber}";
+                string cacheKey = GetClientCacheKey(org, storageContainerNumber);
                 if (!_memoryCache.TryGetValue(cacheKey, out BlobContainerClient client))
                 {
                     string accountName = string.Format(_storageConfiguration.OrgStorageAccount, org);
@@ -232,6 +234,11 @@ namespace Altinn.Platform.Storage.Repository
             }
 
             return creds;
+        }
+
+        private static string GetClientCacheKey(string org, int? storageContainerNumber)
+        {
+            return $"blob-{org}-{storageContainerNumber}";
         }
     }
 }
