@@ -2,15 +2,16 @@
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Models;
 
 using Azure;
+using Azure.Core;
+using Azure.Identity;
 using Azure.Storage;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
-
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -19,27 +20,28 @@ namespace Altinn.Platform.Storage.Repository
     /// <summary>
     /// Represents an implementation of <see cref="IBlobRepository"/>.
     /// </summary>
-    public class BlobRepository : IBlobRepository
+    /// <remarks>
+    /// Initializes a new instance of the <see cref="BlobRepository"/> class.
+    /// </remarks>
+    /// <param name="memoryCache">Memory cache</param>
+    /// <param name="storageConfiguration">the storage configuration for azure blob storage.</param>
+    /// <param name="logger">The logger to use when writing to logs.</param>
+    public class BlobRepository(
+        IMemoryCache memoryCache,
+        IOptions<AzureStorageConfiguration> storageConfiguration,
+        ILogger<BlobRepository> logger) : IBlobRepository
     {
-        private readonly AzureStorageConfiguration _storageConfiguration;
-        private readonly ISasTokenProvider _sasTokenProvider;
-        private readonly ILogger<PgDataRepository> _logger;
+        private const string _credsCacheKey = "creds";
+        private readonly AzureStorageConfiguration _storageConfiguration = storageConfiguration.Value;
+        private readonly IMemoryCache _memoryCache = memoryCache;
+        private readonly ILogger<BlobRepository> _logger = logger;
+        private static readonly MemoryCacheEntryOptions _cacheEntryOptionsCreds = new MemoryCacheEntryOptions()
+            .SetPriority(CacheItemPriority.High)
+            .SetAbsoluteExpiration(new TimeSpan(10, 0, 0));
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="BlobRepository"/> class.
-        /// </summary>
-        /// <param name="sasTokenProvider">A provider that can be asked for SAS tokens.</param>
-        /// <param name="storageConfiguration">the storage configuration for azure blob storage.</param>
-        /// <param name="logger">The logger to use when writing to logs.</param>
-        public BlobRepository(
-            ISasTokenProvider sasTokenProvider,
-            IOptions<AzureStorageConfiguration> storageConfiguration,
-            ILogger<PgDataRepository> logger)
-        {
-            _storageConfiguration = storageConfiguration.Value;
-            _sasTokenProvider = sasTokenProvider;
-            _logger = logger;
-        }
+        private static readonly MemoryCacheEntryOptions _cacheEntryOptionsBlobClient = new MemoryCacheEntryOptions()
+            .SetPriority(CacheItemPriority.High)
+            .SetAbsoluteExpiration(new TimeSpan(10, 0, 0));
 
         /// <inheritdoc/>
         public async Task<Stream> ReadBlob(string org, string blobStoragePath, int? storageContainerNumber)
@@ -53,18 +55,18 @@ namespace Altinn.Platform.Storage.Repository
                 switch (requestFailedException.ErrorCode)
                 {
                     case "AuthenticationFailed":
-                        _logger.LogWarning("Authentication failed. Invalidating SAS token and retrying download operation.");
+                        _logger.LogWarning("Authentication failed. Invalidating credentials and retrying download operation.");
 
-                        _sasTokenProvider.InvalidateSasToken(org);
+                        _memoryCache.Remove(_credsCacheKey);
 
                         return await DownloadBlobAsync(org, blobStoragePath, storageContainerNumber);
                     case "BlobNotFound":
-                        _logger.LogWarning("Unable to find a blob based on the given information - {org}: {blobStoragePath}", org, blobStoragePath);
+                        _logger.LogWarning("Unable to find a blob based on the given information - {Org}: {BlobStoragePath}", org, blobStoragePath);
 
                         // Returning null because the blob does not exist.
                         return null;
                     case "InvalidRange":
-                        _logger.LogWarning("Found possibly empty blob in storage for {org}: {blobStoragePath}", org, blobStoragePath);
+                        _logger.LogWarning("Found possibly empty blob in storage for {Org}: {BlobStoragePath}", org, blobStoragePath);
 
                         // Returning empty stream because the blob does exist, but it is empty.
                         return new MemoryStream();
@@ -87,9 +89,9 @@ namespace Altinn.Platform.Storage.Repository
                 switch (requestFailedException.ErrorCode)
                 {
                     case "AuthenticationFailed":
-                        _logger.LogWarning("Authentication failed. Invalidating SAS token.");
+                        _logger.LogWarning("Authentication failed. Invalidating credentials.");
 
-                        _sasTokenProvider.InvalidateSasToken(org);
+                        _memoryCache.Remove(_credsCacheKey);
 
                         // No use retrying upload as the original stream can't be reset back to start.
                         throw;
@@ -111,9 +113,9 @@ namespace Altinn.Platform.Storage.Repository
                 switch (requestFailedException.ErrorCode)
                 {
                     case "AuthenticationFailed":
-                        _logger.LogWarning("Authentication failed. Invalidating SAS token and retrying delete operation.");
+                        _logger.LogWarning("Authentication failed. Invalidating credentials and retrying delete operation.");
 
-                        _sasTokenProvider.InvalidateSasToken(org);
+                        _memoryCache.Remove(_credsCacheKey);
 
                         return await DeleteIfExistsAsync(org, blobStoragePath, storageContainerNumber);
                     default:
@@ -125,7 +127,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task<bool> DeleteDataBlobs(Instance instance, int? storageContainerNumber)
         {
-            BlobContainerClient container = await CreateBlobClient(instance.Org, storageContainerNumber);
+            BlobContainerClient container = CreateBlobClient(instance.Org, storageContainerNumber);
 
             if (container == null)
             {
@@ -137,15 +139,15 @@ namespace Altinn.Platform.Storage.Repository
             {
                 await foreach (BlobItem item in container.GetBlobsAsync(BlobTraits.None, BlobStates.None, $"{instance.AppId}/{instance.Id}", CancellationToken.None))
                 {
-                    container.DeleteBlobIfExists(item.Name, DeleteSnapshotsOption.IncludeSnapshots);
+                    await container.DeleteBlobIfExistsAsync(item.Name, DeleteSnapshotsOption.IncludeSnapshots);
                 }
             }
             catch (Exception e)
             {
-                _sasTokenProvider.InvalidateSasToken(instance.Org);
+                _memoryCache.Remove(_credsCacheKey);
                 _logger.LogError(
                     e,
-                    "BlobService // DeleteDataBlobs // Org: {instance}",
+                    "BlobService // DeleteDataBlobs // Org: {Instance}",
                     instance.Org);
                 return false;
             }
@@ -155,7 +157,7 @@ namespace Altinn.Platform.Storage.Repository
 
         private async Task<BlobProperties> UploadFromStreamAsync(string org, Stream stream, string fileName, int? storageContainerNumber)
         {
-            BlobClient blockBlob = await CreateBlobClient(org, fileName, storageContainerNumber);
+            BlobClient blockBlob = CreateBlobClient(org, fileName, storageContainerNumber);
             BlobUploadOptions options = new()
             {
                 TransferValidation = new UploadTransferValidationOptions { ChecksumAlgorithm = StorageChecksumAlgorithm.MD5 }
@@ -168,7 +170,7 @@ namespace Altinn.Platform.Storage.Repository
 
         private async Task<Stream> DownloadBlobAsync(string org, string fileName, int? storageContainerNumber)
         {
-            BlobClient blockBlob = await CreateBlobClient(org, fileName, storageContainerNumber);
+            BlobClient blockBlob = CreateBlobClient(org, fileName, storageContainerNumber);
 
             Azure.Response<BlobDownloadInfo> response = await blockBlob.DownloadAsync();
 
@@ -177,61 +179,41 @@ namespace Altinn.Platform.Storage.Repository
 
         private async Task<bool> DeleteIfExistsAsync(string org, string fileName, int? storageContainerNumber)
         {
-            BlobClient blockBlob = await CreateBlobClient(org, fileName, storageContainerNumber);
+            BlobClient blockBlob = CreateBlobClient(org, fileName, storageContainerNumber);
 
             bool result = await blockBlob.DeleteIfExistsAsync();
 
             return result;
         }
 
-        private async Task<BlobClient> CreateBlobClient(string org, string blobName, int? storageContainerNumber)
+        private BlobClient CreateBlobClient(string org, string blobName, int? storageContainerNumber)
         {
-            if (!_storageConfiguration.AccountName.StartsWith("devstoreaccount1"))
-            {
-                string sasToken = await _sasTokenProvider.GetSasToken(org);
-
-                string accountName = string.Format(_storageConfiguration.OrgStorageAccount, org);
-                string containerName = string.Format(_storageConfiguration.OrgStorageContainer, org)
-                    + (storageContainerNumber != null ? $"-{storageContainerNumber}" : null);
-
-                UriBuilder fullUri = new()
-                {
-                    Scheme = "https",
-                    Host = $"{accountName}.blob.core.windows.net",
-                    Path = $"{containerName}/{blobName}",
-                    Query = sasToken
-                };
-
-                return new BlobClient(fullUri.Uri);
-            }
-
-            StorageSharedKeyCredential storageCredentials = new(_storageConfiguration.AccountName, _storageConfiguration.AccountKey);
-            Uri storageUrl = new(_storageConfiguration.BlobEndPoint);
-            BlobServiceClient commonBlobClient = new(storageUrl, storageCredentials);
-            BlobContainerClient blobContainerClient = commonBlobClient.GetBlobContainerClient(_storageConfiguration.StorageContainer);
-
-            return blobContainerClient.GetBlobClient(blobName);
+            return CreateBlobClient(org, storageContainerNumber).GetBlobClient(blobName);
         }
 
-        private async Task<BlobContainerClient> CreateBlobClient(string org, int? storageContainerNumber)
+        private BlobContainerClient CreateBlobClient(string org, int? storageContainerNumber)
         {
             if (!_storageConfiguration.AccountName.Equals("devstoreaccount1"))
             {
-                string sasToken = await _sasTokenProvider.GetSasToken(org);
-
-                string accountName = string.Format(_storageConfiguration.OrgStorageAccount, org);
-                string containerName = string.Format(_storageConfiguration.OrgStorageContainer, org)
-                    + (storageContainerNumber != null ? $"-{storageContainerNumber}" : null);
-
-                UriBuilder fullUri = new()
+                string cacheKey = $"blob-{org}-{storageContainerNumber}";
+                if (!_memoryCache.TryGetValue(cacheKey, out BlobContainerClient client))
                 {
-                    Scheme = "https",
-                    Host = $"{accountName}.blob.core.windows.net",
-                    Path = $"{containerName}",
-                    Query = sasToken,
-                };
+                    string accountName = string.Format(_storageConfiguration.OrgStorageAccount, org);
+                    string containerName = string.Format(_storageConfiguration.OrgStorageContainer, org)
+                        + (storageContainerNumber != null ? $"-{storageContainerNumber}" : null);
 
-                return new BlobContainerClient(fullUri.Uri, null);
+                    UriBuilder fullUri = new()
+                    {
+                        Scheme = "https",
+                        Host = $"{accountName}.blob.core.windows.net",
+                        Path = $"{containerName}"
+                    };
+
+                    client = new BlobContainerClient(fullUri.Uri, GetCachedCredentials());
+                    _memoryCache.Set(cacheKey, client, _cacheEntryOptionsBlobClient);
+                }
+
+                return client;
             }
 
             StorageSharedKeyCredential storageCredentials = new(_storageConfiguration.OrgStorageAccount, _storageConfiguration.AccountKey);
@@ -239,6 +221,17 @@ namespace Altinn.Platform.Storage.Repository
             BlobServiceClient commonBlobClient = new(storageUrl, storageCredentials);
             BlobContainerClient blobContainerClient = commonBlobClient.GetBlobContainerClient(string.Format(_storageConfiguration.OrgStorageContainer, org));
             return blobContainerClient;
+        }
+
+        private TokenCredential GetCachedCredentials()
+        {
+            if (!_memoryCache.TryGetValue(_credsCacheKey, out DefaultAzureCredential creds))
+            {
+                creds = new();
+                _memoryCache.Set(_credsCacheKey, creds, _cacheEntryOptionsCreds);
+            }
+
+            return creds;
         }
     }
 }
