@@ -1672,7 +1672,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         private HttpClient GetTestClient(Mock<IInstanceRepository> repositoryMock = null, Mock<IRegisterService> registerService = null)
         {
             // No setup required for these services. They are not in use by the InstanceController
-            Mock<ISasTokenProvider> sasTokenProvider = new Mock<ISasTokenProvider>();
             Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
 
             HttpClient client = _factory.WithWebHostBuilder(builder =>
@@ -1697,7 +1696,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                         services.AddSingleton(registerService.Object);
                     }
 
-                    services.AddSingleton(sasTokenProvider.Object);
                     services.AddSingleton(keyVaultWrapper.Object);
 
                     services.AddSingleton<IPartiesWithInstancesClient, PartiesWithInstancesClientMock>();

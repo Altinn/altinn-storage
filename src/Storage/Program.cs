@@ -244,7 +244,6 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     PostgreSqlSettings postgresSettings = config.GetSection("PostgreSqlSettings").Get<PostgreSqlSettings>();
     services.AddRepositoriesPostgreSQL(string.Format(postgresSettings.ConnectionString, postgresSettings.StorageDbPwd), postgresSettings.LogParameters);
 
-    services.AddSingleton<ISasTokenProvider, SasTokenProvider>();
     services.AddSingleton<IKeyVaultClientWrapper, KeyVaultClientWrapper>();
     services.AddSingleton<IPDP, PDPAppSI>();
     services.AddSingleton<IFileScanQueueClient, FileScanQueueClient>();

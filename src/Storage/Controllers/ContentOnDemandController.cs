@@ -79,8 +79,8 @@ namespace Altinn.Platform.Storage.Controllers
 
             List<SignatureView> view = await JsonSerializer.DeserializeAsync<List<SignatureView>>(
                 await _blobRepository.ReadBlob(
-                    $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : org)}",
-                    $"{org}/{app}/{instanceGuid}/data/{signatureElement.Id}",
+                    $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
+                    $"{instance.Org}/{app}/{instanceGuid}/data/{signatureElement.Id}",
                     application.StorageContainerNumber));
 
             return View("Signature", view);
@@ -104,8 +104,8 @@ namespace Altinn.Platform.Storage.Controllers
 
             PaymentView view = await JsonSerializer.DeserializeAsync<PaymentView>(
                 await _blobRepository.ReadBlob(
-                    $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : org)}",
-                    $"{org}/{app}/{instanceGuid}/data/{paymentElement.Id}",
+                    $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
+                    $"{instance.Org}/{app}/{instanceGuid}/data/{paymentElement.Id}",
                     application.StorageContainerNumber));
 
             return View("Payment", view);
@@ -133,7 +133,7 @@ namespace Altinn.Platform.Storage.Controllers
             int lformid = int.Parse(xmlElement.Metadata.First(m => m.Key == "lformid").Value);
             PrintViewXslBEList xsls = [];
             int pageNumber = 1;
-            foreach ((string xsl, bool isPortrait) in await _a2Repository.GetXsls(org, app, lformid, language, 3))
+            foreach ((string xsl, bool isPortrait) in await _a2Repository.GetXsls(instance.Org, app, lformid, language, 3))
             {
                 if (visiblePages == null || visiblePages.Contains(pageNumber))
                 {
@@ -220,7 +220,7 @@ namespace Altinn.Platform.Storage.Controllers
             PrintViewXslBEList xsls = [];
             int lformid = int.Parse(xmlElement.Metadata.First(m => m.Key == "lformid").Value);
             int pageNumber = 1;
-            foreach ((string xsl, bool isPortrait) in await _a2Repository.GetXsls(org, app, lformid, language, viewType))
+            foreach ((string xsl, bool isPortrait) in await _a2Repository.GetXsls(instance.Org, app, lformid, language, viewType))
             {
                 if ((singlePageNr != -1 && singlePageNr == pageNumber) || (singlePageNr == -1 && (visiblePages == null || visiblePages.Contains(pageNumber))))
                 {
@@ -234,7 +234,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             return _a2OndemandFormattingService.GetFormdataHtml(
                 xsls,
-                await _blobRepository.ReadBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : org)}", $"{org}/{app}/{instanceGuid}/data/{xmlElement.Id}", application.StorageContainerNumber),
+                await _blobRepository.ReadBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}", $"{instance.Org}/{app}/{instanceGuid}/data/{xmlElement.Id}", application.StorageContainerNumber),
                 xmlElement.Created.ToString());
         }
     }
