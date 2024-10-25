@@ -33,7 +33,7 @@ namespace Altinn.Platform.Storage.Services
         }
 
         /// <inheritdoc/>
-        public async Task StartFileScan(Instance instance, DataType dataType, DataElement dataElement, DateTimeOffset blobTimestamp, int? storageContainerNumber, CancellationToken ct)
+        public async Task StartFileScan(Instance instance, DataType dataType, DataElement dataElement, DateTimeOffset blobTimestamp, int? storageAccountNumber, CancellationToken ct)
         {
             if (dataType.EnableFileScan)
             {
@@ -45,7 +45,7 @@ namespace Altinn.Platform.Storage.Services
                     BlobStoragePath = dataElement.BlobStoragePath,
                     Filename = dataElement.Filename,
                     Org = instance.Org,
-                    StorageContainerNumber = storageContainerNumber
+                    StorageContainerNumber = storageAccountNumber
                 };
 
                 string serialisedRequest = JsonSerializer.Serialize(
@@ -56,7 +56,7 @@ namespace Altinn.Platform.Storage.Services
         }
 
         /// <inheritdoc/>
-        public async Task<(string FileHash, ServiceError ServiceError)> GenerateSha256Hash(string org, Guid instanceGuid, Guid dataElementId, int? storageContainerNumber)
+        public async Task<(string FileHash, ServiceError ServiceError)> GenerateSha256Hash(string org, Guid instanceGuid, Guid dataElementId, int? storageAccountNumber)
         {
             DataElement dataElement = await _dataRepository.Read(instanceGuid, dataElementId);
             if (dataElement == null)
@@ -64,7 +64,7 @@ namespace Altinn.Platform.Storage.Services
                 return (null, new ServiceError(404, $"DataElement not found, dataElementId: {dataElementId}"));
             }
 
-            Stream filestream = await _blobRepository.ReadBlob(org, dataElement.BlobStoragePath, storageContainerNumber);
+            Stream filestream = await _blobRepository.ReadBlob(org, dataElement.BlobStoragePath, storageAccountNumber);
             if (filestream == null || !filestream.CanRead)
             {
                 return (null, new ServiceError(404, $"Failed reading file, dataElementId: {dataElementId}"));
@@ -76,9 +76,9 @@ namespace Altinn.Platform.Storage.Services
         }
 
         /// <inheritdoc/>
-        public async Task UploadDataAndCreateDataElement(string org, Stream stream, DataElement dataElement, long instanceInternalId, int? storageContainerNumber)
+        public async Task UploadDataAndCreateDataElement(string org, Stream stream, DataElement dataElement, long instanceInternalId, int? storageAccountNumber)
         {
-            (long length, _) = await _blobRepository.WriteBlob(org, stream, dataElement.BlobStoragePath, storageContainerNumber);
+            (long length, _) = await _blobRepository.WriteBlob(org, stream, dataElement.BlobStoragePath, storageAccountNumber);
             dataElement.Size = length;
             
             await _dataRepository.Create(dataElement, instanceInternalId);
