@@ -200,9 +200,12 @@ namespace Altinn.Platform.Storage.Repository
                 string cacheKey = GetClientCacheKey(org, storageContainerNumber);
                 if (!_memoryCache.TryGetValue(cacheKey, out BlobContainerClient client))
                 {
+                    string containerName = string.Format(_storageConfiguration.OrgStorageContainer, org);
                     string accountName = string.Format(_storageConfiguration.OrgStorageAccount, org);
-                    string containerName = string.Format(_storageConfiguration.OrgStorageContainer, org)
-                        + (storageContainerNumber != null ? $"-{storageContainerNumber}" : null);
+                    if (storageContainerNumber != null)
+                    {
+                        accountName = accountName.Substring(0, accountName.Length - 2) + ((int)storageContainerNumber).ToString("D2");
+                    }
 
                     UriBuilder fullUri = new()
                     {
