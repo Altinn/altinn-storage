@@ -132,7 +132,7 @@ namespace Altinn.Platform.Storage.Controllers
                     await _a2Repository.CreateA2MigrationState(a2ArchiveReference);
                 }
 
-                storedInstance = await _instanceRepository.Create(instance);
+                storedInstance = await _instanceRepository.Create(instance, isA1 ? 1 : 2);
 
                 if (isA1)
                 {

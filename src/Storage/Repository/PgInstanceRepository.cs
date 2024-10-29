@@ -27,7 +27,7 @@ namespace Altinn.Platform.Storage.Repository
     {
         private const string _readSqlFilteredInitial = "select * from storage.readinstancefromquery_v5 (";
         private readonly string _deleteSql = "select * from storage.deleteinstance ($1)";
-        private readonly string _insertSql = "call storage.insertinstance ($1, $2, $3, $4, $5, $6, $7, $8)";
+        private readonly string _insertSql = "call storage.insertinstance_v2 (@_partyid, @_alternateid, @_instance, @_created, @_lastchanged, @_org, @_appid, @_taskid, @_altinnmainversion)";
         private readonly string _updateSql = "select * from storage.updateinstance_v2 (@_alternateid, @_toplevelsimpleprops, @_datavalues, @_completeconfirmations, @_presentationtexts, @_status, @_substatus, @_process, @_lastchanged, @_taskid)";
         private readonly string _readSql = "select * from storage.readinstance ($1)";
         private readonly string _readSqlFiltered = _readSqlFilteredInitial;
@@ -63,7 +63,7 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<Instance> Create(Instance instance)
+        public async Task<Instance> Create(Instance instance, int altinnMainVersion = 3)
         {
             // Remove last decimal digit to make postgres TIMESTAMPTZ equal to json serialized DateTime
             instance.LastChanged = instance.LastChanged != null ? new DateTime((((DateTime)instance.LastChanged).Ticks / 10) * 10, DateTimeKind.Utc) : null;
@@ -73,14 +73,15 @@ namespace Altinn.Platform.Storage.Repository
             instance.Data = null;
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Bigint, long.Parse(instance.InstanceOwner.PartyId));
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instance.Id));
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, instance);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, instance.Created ?? DateTime.UtcNow);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, instance.LastChanged ?? DateTime.UtcNow);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, instance.Org);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, instance.AppId);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, instance.Process?.CurrentTask?.ElementId ?? (object)DBNull.Value);
+            pgcom.Parameters.AddWithValue("_partyid", NpgsqlDbType.Bigint, long.Parse(instance.InstanceOwner.PartyId));
+            pgcom.Parameters.AddWithValue("_alternateid", NpgsqlDbType.Uuid, new Guid(instance.Id));
+            pgcom.Parameters.AddWithValue("_instance", NpgsqlDbType.Jsonb, instance);
+            pgcom.Parameters.AddWithValue("_created", NpgsqlDbType.TimestampTz, instance.Created ?? DateTime.UtcNow);
+            pgcom.Parameters.AddWithValue("_lastchanged", NpgsqlDbType.TimestampTz, instance.LastChanged ?? DateTime.UtcNow);
+            pgcom.Parameters.AddWithValue("_org", NpgsqlDbType.Text, instance.Org);
+            pgcom.Parameters.AddWithValue("_appid", NpgsqlDbType.Text, instance.AppId);
+            pgcom.Parameters.AddWithValue("_taskid", NpgsqlDbType.Text, instance.Process?.CurrentTask?.ElementId ?? (object)DBNull.Value);
+            pgcom.Parameters.AddWithValue("_altinnmainversion", NpgsqlDbType.Integer, altinnMainVersion);
 
             await pgcom.ExecuteNonQueryAsync();
             tracker.Track();

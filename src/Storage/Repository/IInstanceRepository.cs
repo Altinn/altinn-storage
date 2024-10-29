@@ -32,8 +32,9 @@ namespace Altinn.Platform.Storage.Repository
         /// insert new instance into collection
         /// </summary>
         /// <param name="instance">the instance to base the new one on</param>
+        /// <param name="altinnMainVersion">the altinn main version</param>
         /// <returns>The instance id</returns>
-        Task<Instance> Create(Instance instance);
+        Task<Instance> Create(Instance instance, int altinnMainVersion = 3);
 
         /// <summary>
         /// update existing instance
