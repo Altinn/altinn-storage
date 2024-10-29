@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -36,6 +37,7 @@ namespace Altinn.Platform.Storage.Controllers
     [Route("storage/api/v1/migration")]
     [ApiController]
     [ServiceFilter(typeof(ClientIpCheckActionFilterAttribute))]
+    [ExcludeFromCodeCoverage]
     public class MigrationController : ControllerBase
     {
         private readonly IInstanceRepository _instanceRepository;
