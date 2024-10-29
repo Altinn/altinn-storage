@@ -237,7 +237,7 @@ namespace Altinn.Platform.Storage.Controllers
                         $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
                         theStream,
                         dataElement.BlobStoragePath,
-                        app.StorageContainerNumber);
+                        app.StorageAccountNumber);
                 }
                 else
                 {
@@ -518,7 +518,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             instance.Id = instanceId;
-            await _blobRepository.DeleteDataBlobs(instance, app.StorageContainerNumber);
+            await _blobRepository.DeleteDataBlobs(instance, app.StorageAccountNumber);
             await _dataRepository.DeleteForInstance(instanceId);
             await _instanceEventRepository.DeleteAllInstanceEvents(instanceId);
             await _instanceRepository.Delete(instance);

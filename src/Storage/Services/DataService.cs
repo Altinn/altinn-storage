@@ -45,7 +45,7 @@ namespace Altinn.Platform.Storage.Services
                     BlobStoragePath = dataElement.BlobStoragePath,
                     Filename = dataElement.Filename,
                     Org = instance.Org,
-                    StorageContainerNumber = storageAccountNumber
+                    StorageAccountNumber = storageAccountNumber
                 };
 
                 string serialisedRequest = JsonSerializer.Serialize(

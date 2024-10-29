@@ -42,8 +42,8 @@ namespace Altinn.Platform.Storage.Models
         public string Org { get; set; }
 
         /// <summary>
-        /// Gets or sets an optional container number for when the application owner have more than one storage container
+        /// Gets or sets an optional account number for when the application owner have more than one storage account
         /// </summary>
-        public int? StorageContainerNumber { get; set; }
+        public int? StorageAccountNumber { get; set; }
     }
 }
