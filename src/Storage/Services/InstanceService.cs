@@ -54,7 +54,7 @@ namespace Altinn.Platform.Storage.Services
 
             foreach (SignRequest.DataElementSignature dataElementSignature in signRequest.DataElementSignatures)
             {
-                (string base64Sha256Hash, serviceError) = await _dataService.GenerateSha256Hash(instance.Org, instanceGuid, Guid.Parse(dataElementSignature.DataElementId), app.StorageContainerNumber);
+                (string base64Sha256Hash, serviceError) = await _dataService.GenerateSha256Hash(instance.Org, instanceGuid, Guid.Parse(dataElementSignature.DataElementId), app.StorageAccountNumber);
                 if (string.IsNullOrEmpty(base64Sha256Hash))
                 {
                     return (false, serviceError);
@@ -83,7 +83,7 @@ namespace Altinn.Platform.Storage.Services
         
             using (MemoryStream fileStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(signDocument, Formatting.Indented))))
             {
-                await _dataService.UploadDataAndCreateDataElement(instance.Org, fileStream, dataElement, instanceInternalId, app.StorageContainerNumber);
+                await _dataService.UploadDataAndCreateDataElement(instance.Org, fileStream, dataElement, instanceInternalId, app.StorageAccountNumber);
             }
             
             await _instanceEventService.DispatchEvent(InstanceEventType.Signed, instance);

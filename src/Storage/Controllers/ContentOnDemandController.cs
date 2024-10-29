@@ -81,7 +81,7 @@ namespace Altinn.Platform.Storage.Controllers
                 await _blobRepository.ReadBlob(
                     $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
                     $"{instance.Org}/{app}/{instanceGuid}/data/{signatureElement.Id}",
-                    application.StorageContainerNumber));
+                    application.StorageAccountNumber));
 
             return View("Signature", view);
         }
@@ -106,7 +106,7 @@ namespace Altinn.Platform.Storage.Controllers
                 await _blobRepository.ReadBlob(
                     $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
                     $"{instance.Org}/{app}/{instanceGuid}/data/{paymentElement.Id}",
-                    application.StorageContainerNumber));
+                    application.StorageAccountNumber));
 
             return View("Payment", view);
         }
@@ -234,7 +234,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             return _a2OndemandFormattingService.GetFormdataHtml(
                 xsls,
-                await _blobRepository.ReadBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}", $"{instance.Org}/{app}/{instanceGuid}/data/{xmlElement.Id}", application.StorageContainerNumber),
+                await _blobRepository.ReadBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}", $"{instance.Org}/{app}/{instanceGuid}/data/{xmlElement.Id}", application.StorageAccountNumber),
                 xmlElement.Created.ToString());
         }
     }
