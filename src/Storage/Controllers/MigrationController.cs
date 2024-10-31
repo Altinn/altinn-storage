@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -36,6 +37,7 @@ namespace Altinn.Platform.Storage.Controllers
     [Route("storage/api/v1/migration")]
     [ApiController]
     [ServiceFilter(typeof(ClientIpCheckActionFilterAttribute))]
+    [ExcludeFromCodeCoverage]
     public class MigrationController : ControllerBase
     {
         private readonly IInstanceRepository _instanceRepository;
@@ -109,16 +111,40 @@ namespace Altinn.Platform.Storage.Controllers
             Instance storedInstance;
             try
             {
-                int a2ArchiveReference = int.Parse(instance.DataValues["A2ArchRef"]);
-                string instanceId = await _a2Repository.GetMigrationInstanceId(a2ArchiveReference);
+                int a1ArchiveReference = instance.DataValues.ContainsKey("A1ArchRef") ? int.Parse(instance.DataValues["A1ArchRef"]) : -1;
+                int a2ArchiveReference = instance.DataValues.ContainsKey("A2ArchRef") ? int.Parse(instance.DataValues["A2ArchRef"]) : -1;
+                bool isA1 = a1ArchiveReference > -1;
+                if (!isA1 && a2ArchiveReference == -1)
+                {
+                    throw new Exception($"Internal error - no archive reference found for {instance.Id}");
+                }
+
+                string instanceId = isA1 ? await _a2Repository.GetA1MigrationInstanceId(a1ArchiveReference) : await _a2Repository.GetA2MigrationInstanceId(a2ArchiveReference);
                 if (instanceId != null)
                 {
                     await CleanupOldMigrationInternal(instanceId);
                 }
 
-                await _a2Repository.CreateMigrationState(a2ArchiveReference);
-                storedInstance = await _instanceRepository.Create(instance);
-                await _a2Repository.UpdateStartMigrationState(a2ArchiveReference, storedInstance.Id.Split('/')[^1]);
+                if (isA1)
+                {
+                    await _a2Repository.CreateA1MigrationState(a1ArchiveReference);
+                }
+                else
+                {
+                    await _a2Repository.CreateA2MigrationState(a2ArchiveReference);
+                }
+
+                storedInstance = await _instanceRepository.Create(instance, isA1 ? 1 : 2);
+
+                if (isA1)
+                {
+                    await _a2Repository.UpdateStartA1MigrationState(a1ArchiveReference, storedInstance.Id.Split('/')[^1]);
+                }
+                else
+                {
+                    await _a2Repository.UpdateStartA2MigrationState(a2ArchiveReference, storedInstance.Id.Split('/')[^1]);
+                }
+
                 return Created((string)null, storedInstance);
             }
             catch (Exception storageException)
@@ -167,6 +193,11 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             Application app = await _applicationRepository.FindOne(instance.AppId, instance.Org);
+            bool isA2 = app.Id.Contains("/a2-");
+            if (!isA2 && !app.Id.Contains("/a1-"))
+            {
+                throw new Exception($"Internal error. Can't determine app type for {app.Id}");
+            }
 
             DataElement storedDataElement;
             try
@@ -185,14 +216,14 @@ namespace Altinn.Platform.Storage.Controllers
                     BlobStoragePath = DataElementHelper.DataFileName(instance.AppId, instanceGuid.ToString(), dataElementId),
                     Metadata = formid == null ? null : new()
                     {
-                        new() { Key = "formid", Value = formid },
-                        new() { Key = "lformid", Value = lformid }
+                        new() { Key = isA2 ? "formid" : "dataformid", Value = formid },
+                        lformid != null ? new() { Key = "lformid", Value = lformid } : null
                     }
                 };
 
                 if (presenationText != null)
                 {
-                    dataElement.Metadata.Add(new() { Key = "A2PresVal", Value = HttpUtility.UrlDecode(presenationText) });
+                    dataElement.Metadata.Add(new() { Key = isA2 ? "A2PresVal" : "A1PresVal", Value = HttpUtility.UrlDecode(presenationText) });
                 }
 
                 if (visiblePages != null)
@@ -476,7 +507,7 @@ namespace Altinn.Platform.Storage.Controllers
         private async Task<bool> CleanupOldMigrationInternal(string instanceId)
         {
             (Instance instance, _) = await _instanceRepository.GetOne(new Guid(instanceId), false);
-            if (instance == null || string.IsNullOrEmpty(instance.DataValues?["A2ArchRef"]))
+            if (instance == null || (!instance.DataValues.ContainsKey("A1ArchRef") && !instance.DataValues.ContainsKey("A2ArchRef")))
             {
                 return false;
             }

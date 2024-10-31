@@ -31,11 +31,14 @@ namespace Altinn.Platform.Storage.Repository
         private static readonly string _readCodelistSql = "select * from storage.reada2codelist (@_name, @_language)";
         private static readonly string _readImageSql = "select * from storage.reada2image (@_name)";
 
-        private static readonly string _readMigrationStateSql = "select * from storage.reada2migrationstate (@_a2archivereference)";
-        private static readonly string _insertMigrationStateSql = "call storage.inserta2migrationstate (@_a2archivereference)";
-        private static readonly string _updateMigrationStateStartedSql = "call storage.updatea2migrationstatestarted (@_a2archivereference, @_instanceguid)";
-        private static readonly string _updateMigrationStateCompletedSql = "call storage.updatea2migrationstatecompleted (@_instanceguid)";
-        private static readonly string _deleteMigrationStateSql = "call storage.deletea2migrationstate (@_instanceguid)";
+        private static readonly string _readA1MigrationStateSql = "select * from storage.reada1migrationstate (@_a1archivereference)";
+        private static readonly string _readA2MigrationStateSql = "select * from storage.reada2migrationstate (@_a2archivereference)";
+        private static readonly string _insertA1MigrationStateSql = "call storage.inserta1migrationstate (@_a1archivereference)";
+        private static readonly string _insertA2MigrationStateSql = "call storage.inserta2migrationstate (@_a2archivereference)";
+        private static readonly string _updateA1MigrationStateStartedSql = "call storage.updatea1migrationstatestarted (@_a1archivereference, @_instanceguid)";
+        private static readonly string _updateA2MigrationStateStartedSql = "call storage.updatea2migrationstatestarted (@_a2archivereference, @_instanceguid)";
+        private static readonly string _updateMigrationStateCompletedSql = "call storage.updatemigrationstatecompleted (@_instanceguid)";
+        private static readonly string _deleteMigrationStateSql = "call storage.deletemigrationstate (@_instanceguid)";
 
         private readonly NpgsqlDataSource _dataSource = dataSource;
         private readonly TelemetryClient _telemetryClient = telemetryClient;
@@ -167,9 +170,21 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task CreateMigrationState(int a2ArchiveReference)
+        public async Task CreateA1MigrationState(int a1ArchiveReference)
         {
-            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertMigrationStateSql);
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertA1MigrationStateSql);
+            pgcom.Parameters.AddWithValue("_a1archivereference", NpgsqlDbType.Bigint, a1ArchiveReference);
+            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
+
+            await pgcom.ExecuteNonQueryAsync();
+
+            tracker.Track();
+        }
+
+        /// <inheritdoc/>
+        public async Task CreateA2MigrationState(int a2ArchiveReference)
+        {
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertA2MigrationStateSql);
             pgcom.Parameters.AddWithValue("_a2archivereference", NpgsqlDbType.Bigint, a2ArchiveReference);
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
@@ -179,9 +194,22 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task UpdateStartMigrationState(int a2ArchiveReference, string instanceGuid)
+        public async Task UpdateStartA1MigrationState(int a1ArchiveReference, string instanceGuid)
         {
-            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateMigrationStateStartedSql);
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateA1MigrationStateStartedSql);
+            pgcom.Parameters.AddWithValue("_a1archivereference", NpgsqlDbType.Bigint, a1ArchiveReference);
+            pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, new Guid(instanceGuid));
+            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
+
+            await pgcom.ExecuteNonQueryAsync();
+
+            tracker.Track();
+        }
+
+        /// <inheritdoc/>
+        public async Task UpdateStartA2MigrationState(int a2ArchiveReference, string instanceGuid)
+        {
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateA2MigrationStateStartedSql);
             pgcom.Parameters.AddWithValue("_a2archivereference", NpgsqlDbType.Bigint, a2ArchiveReference);
             pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, new Guid(instanceGuid));
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
@@ -216,10 +244,28 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<string> GetMigrationInstanceId(int a2ArchiveReference)
+        public async Task<string> GetA1MigrationInstanceId(int a1ArchiveReference)
         {
             string instanceId = null;
-            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readMigrationStateSql);
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readA1MigrationStateSql);
+            pgcom.Parameters.AddWithValue("_a1archivereference", NpgsqlDbType.Bigint, a1ArchiveReference);
+            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
+
+            await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                instanceId = await reader.IsDBNullAsync("instanceguid") ? null : (await reader.GetFieldValueAsync<Guid>("instanceguid")).ToString();
+            }
+
+            tracker.Track();
+            return instanceId;
+        }
+
+        /// <inheritdoc/>
+        public async Task<string> GetA2MigrationInstanceId(int a2ArchiveReference)
+        {
+            string instanceId = null;
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readA2MigrationStateSql);
             pgcom.Parameters.AddWithValue("_a2archivereference", NpgsqlDbType.Bigint, a2ArchiveReference);
             using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
