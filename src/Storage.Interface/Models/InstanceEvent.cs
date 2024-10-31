@@ -54,12 +54,24 @@ namespace Altinn.Platform.Storage.Interface.Models
         public PlatformUser User { get; set; }
 
         /// <summary>
+        /// A user that is related to the event
+        /// </summary>
+        [JsonProperty(PropertyName = "relatedUser")]
+        public PlatformUser RelatedUser { get; set; }
+
+        /// <summary>
         /// More information about the process event.
         /// Contains a snapshot of the changed currentTask element of the instance.
         /// If event type does not start with process: this field is not present.
         /// </summary>
         [JsonProperty(PropertyName = "processInfo")]
         public ProcessState ProcessInfo { get; set; }
+
+        /// <summary>
+        /// Additional information describing the event
+        /// </summary>
+        [JsonProperty(PropertyName = "additionalInfo")]
+        public string AdditionalInfo { get; set; }
 
         /// <inheritdoc/>
         public override string ToString()
