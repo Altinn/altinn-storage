@@ -24,7 +24,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             WriteIndented = true
         };
 
-        public async Task<Instance> Create(Instance instance)
+        public async Task<Instance> Create(Instance instance, int altinnMainVersion = 3)
         {
             string partyId = instance.InstanceOwner.PartyId;
             Guid instanceGuid = Guid.NewGuid();
