@@ -14,6 +14,6 @@ namespace Altinn.Platform.Storage.Clients
         /// Generates a PDF.
         /// </summary>
         /// <returns>A stream with the binary content of the generated PDF</returns>
-        Task<Stream> GeneratePdf(string url, bool isPortrait);
+        Task<Stream> GeneratePdf(string html, bool isPortrait);
     }
 }
