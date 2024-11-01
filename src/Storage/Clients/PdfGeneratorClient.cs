@@ -21,7 +21,7 @@ public class PdfGeneratorClient: IPdfGeneratorClient
     private readonly HttpClient _httpClient;
     private readonly ILogger<PdfGeneratorClient> _logger;
     private static readonly JsonSerializerOptions _jsonSerializerOptions =
-        new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PdfGeneratorClient"/> class.
@@ -40,10 +40,13 @@ public class PdfGeneratorClient: IPdfGeneratorClient
     }
 
     /// <inheritdoc/>
-    public async Task<Stream> GeneratePdf(string url, bool isPortrait)
+    public async Task<Stream> GeneratePdf(string html, bool isPortrait)
     {
-        var request = new PdfGeneratorRequest() { Url = url };
-        request.Options = new() { Landscape = !isPortrait };
+        var request = new PdfGeneratorRequest
+        {
+            Html = html,
+            Options = new() { Landscape = !isPortrait }
+        };
         string requestContent = JsonSerializer.Serialize(request, _jsonSerializerOptions);
         var httpResponseMessage = await _httpClient.PostAsync(_httpClient.BaseAddress, new StringContent(requestContent, Encoding.UTF8, "application/json"));
 
@@ -73,9 +76,15 @@ public class PdfGeneratorClient: IPdfGeneratorClient
     public class PdfGeneratorRequest
     {
         /// <summary>
-        /// The Url that the PDF generator will used to obtain the HTML needed to created the PDF.
+        /// The Url that the PDF generator will used to obtain the HTML needed to created the PDF
+        /// if Html is not specified. Don't use both!
         /// </summary>
-        public string Url { get; set; } = string.Empty;
+        public string Url { get; set; }
+
+        /// <summary>
+        /// The html that is input to the PDF generator if Url is not specified. Don't use both!
+        /// </summary>
+        public string Html { get; set; }
 
         /// <summary>
         /// PDF generator request options.

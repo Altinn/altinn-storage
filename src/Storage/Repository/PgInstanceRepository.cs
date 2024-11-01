@@ -294,7 +294,7 @@ namespace Altinn.Platform.Storage.Repository
                         previousId = id;
                     }
 
-                    if (!reader.IsDBNull("element"))
+                    if (!await reader.IsDBNullAsync("element"))
                     {
                         instance.Data.Add(await reader.GetFieldValueAsync<DataElement>("element"));
                     }
@@ -342,7 +342,7 @@ namespace Altinn.Platform.Storage.Repository
                         instanceInternalId = await reader.GetFieldValueAsync<long>("id");
                     }
 
-                    if (includeElements && !reader.IsDBNull("element"))
+                    if (includeElements && !await reader.IsDBNullAsync("element"))
                     {
                         instanceData.Add(await reader.GetFieldValueAsync<DataElement>("element"));
                     }

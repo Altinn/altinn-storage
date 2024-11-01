@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Models;
@@ -151,10 +153,8 @@ namespace Altinn.Platform.Storage.Controllers
                 using var mergedDoc = new PdfDocument();
                 foreach (var xsl in xsls)
                 {
-                    var pdfPages = await _pdfGeneratorClient.GeneratePdf(
-                        $"{Request.Scheme}://{Request.Host}{Request.PathBase}{Request.Path}"
-                            .Replace("formdatapdf", $"formdatahtml/{xsl.PageNumber}"),
-                        xsl.IsPortrait);
+                    string html = await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, 3, xsl.PageNumber);
+                    var pdfPages = await _pdfGeneratorClient.GeneratePdf(html, xsl.IsPortrait);
                     using var pageDoc = PdfReader.Open(pdfPages, PdfDocumentOpenMode.Import);
                     for (var i = 0; i < pageDoc.PageCount; i++)
                     {
@@ -170,9 +170,8 @@ namespace Altinn.Platform.Storage.Controllers
             else
             {
                 // Generate all pages in a single operation
-                return await _pdfGeneratorClient.GeneratePdf(
-                    $"{Request.Scheme}://{Request.Host}{Request.PathBase}{Request.Path}".Replace("formdatapdf", "formdatahtml"),
-                    xsls[0].IsPortrait);
+                string html = await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, 3);
+                return await _pdfGeneratorClient.GeneratePdf(html, xsls[0].IsPortrait);
             }
         }
 
@@ -189,7 +188,7 @@ namespace Altinn.Platform.Storage.Controllers
         [HttpGet("formdatahtml/{singlepagenr?}")]
         public async Task<Stream> GetFormdataAsHtml([FromRoute]string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language, [FromRoute(Name = "singlepagenr")] int singlePageNr = -1)
         {
-            return await GetFormdataAsHtmlInternal(org, app, instanceGuid, dataGuid, language, 3, singlePageNr);
+            return await GetFormdataAsHtmlStream(app, instanceGuid, dataGuid, language, 3, singlePageNr);
         }
 
         /// <summary>
@@ -204,10 +203,15 @@ namespace Altinn.Platform.Storage.Controllers
         [HttpGet("formsummaryhtml")]
         public async Task<Stream> GetFormSummaryAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
-            return await GetFormdataAsHtmlInternal(org, app, instanceGuid, dataGuid, language, 2);
+            return await GetFormdataAsHtmlStream(app, instanceGuid, dataGuid, language, 2);
         }
 
-        private async Task<Stream> GetFormdataAsHtmlInternal(string org, string app, Guid instanceGuid, Guid dataGuid, string language, int viewType, int singlePageNr = -1)
+        private async Task<Stream> GetFormdataAsHtmlStream(string app, Guid instanceGuid, Guid dataGuid, string language, int viewType, int singlePageNr = -1)
+        {
+            return new MemoryStream(Encoding.UTF8.GetBytes(await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, viewType, singlePageNr)));
+        }
+
+        private async Task<string> GetFormdataAsHtmlString(string app, Guid instanceGuid, Guid dataGuid, string language, int viewType, int singlePageNr = -1)
         {
             (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
             Application application = await _applicationRepository.FindOne(instance.AppId, instance.Org);

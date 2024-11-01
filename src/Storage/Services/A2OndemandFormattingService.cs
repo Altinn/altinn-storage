@@ -37,9 +37,9 @@ namespace Altinn.Platform.Storage.Services
         }
 
         /// <inheritdoc/>
-        public Stream GetFormdataHtml(PrintViewXslBEList printXslList, Stream xmlData, string archiveStamp)
+        public string GetFormdataHtml(PrintViewXslBEList printXslList, Stream xmlData, string archiveStamp)
         {
-            return new MemoryStream(Encoding.UTF8.GetBytes(GetFormdataHtmlInternal(xmlData, printXslList, archiveStamp)));
+            return GetFormdataHtmlInternal(xmlData, printXslList, archiveStamp);
         }
 
         private string GetFormdataHtmlInternal(
