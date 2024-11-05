@@ -1,3 +1,4 @@
+using System;
 using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.Interface.Models
@@ -59,6 +60,7 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// Defaults to false if not specified.
         /// </summary>
         [JsonProperty(PropertyName = "allowInSubform")]
+        [Obsolete("This property is no longer in use and will be removed in the future.")]
         public bool AllowInSubform { get; set; }
 
         /// <summary>
