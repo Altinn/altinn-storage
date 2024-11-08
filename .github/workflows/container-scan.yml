@@ -22,8 +22,15 @@ jobs:
     - name: Build the Docker image
       run: docker build . --tag altinn-storage:${{github.sha}}
 
-    - uses: Azure/container-scan@v0.1
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@0.28.0
       with:
-        image-name: altinn-storage:${{ github.sha }}
+        image-ref: 'altinn-storage:${{ github.sha }}'
+        format: 'table'
+        exit-code: '1'
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        severity: 'CRITICAL,HIGH'
       env:
-        DOCKLE_HOST: "unix:///var/run/docker.sock"
+        TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db,aquasec/trivy-db,ghcr.io/aquasecurity/trivy-db
+        TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db,aquasec/trivy-java-db,ghcr.io/aquasecurity/trivy-java-db
