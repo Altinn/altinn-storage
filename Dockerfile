@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0.404-alpine3.20 AS build
+FROM mcr.microsoft.com/dotnet/sdk:9.0.100-alpine3.20 AS build
 
 COPY src/Storage ./Storage
 COPY src/DbTools ./DbTools
