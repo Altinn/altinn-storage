@@ -55,7 +55,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             string token, 
             string instanceId = null, 
             IInstanceRepository instanceRepository = null,
-            IInstanceEventService instanceEventService = null,
             Action<ProcessState> configure = null)
         {
             instanceId ??= "1337/20b1353e-91cf-44d6-8ff7-f68993638ffe";
@@ -76,7 +75,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 jsonString = JsonContent.Create(state, new MediaTypeHeaderValue("application/json"));
             }
 
-            HttpClient client = GetTestClient(instanceRepository, instanceEventService);
+            HttpClient client = GetTestClient(instanceRepository);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             // Act
@@ -268,7 +267,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             
             Mock<IInstanceRepository> repositoryMock = new Mock<IInstanceRepository>();
             repositoryMock.Setup(ir => ir.GetOne(It.IsAny<Guid>(), true)).ReturnsAsync((testInstance, 0));
-            repositoryMock.Setup(ir => ir.Update(It.IsAny<Instance>(), It.IsAny<List<string>>())).ReturnsAsync((Instance i, List<string> props) => i);
+            repositoryMock.Setup(ir => ir.Update(It.IsAny<Instance>(), It.IsAny<List<string>>())).ReturnsAsync((Instance i, List<string> _) => i);
+            repositoryMock.Setup(ir => ir.Update(It.IsAny<Instance>(), It.IsAny<List<string>>(), It.IsAny<List<InstanceEvent>>())).ReturnsAsync((Instance i, List<string> _, List<InstanceEvent> _) => i);
 
             // Act
             using var response = await SendUpdateRequest(
@@ -301,15 +301,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         {
             // Arrange
             string token = PrincipalUtil.GetToken(3, 1337, 3);
-            var serviceMock = new Mock<IInstanceEventService>();
-            serviceMock.Setup(m => m.DispatchEvent(It.Is<InstanceEventType>(t => t == InstanceEventType.SentToSign), It.IsAny<Instance>()));
 
             // Act
             using var response = await SendUpdateRequest(
                 useBatchEndpoint, 
                 token: token, 
                 instanceId: "1337/20a1353e-91cf-44d6-8ff7-f68993638ffe",
-                instanceEventService: serviceMock.Object,
                 configure: state =>
                 {
                     state.CurrentTask = new ProcessElementInfo
@@ -322,20 +319,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            serviceMock.VerifyAll();
         }
 
-        private HttpClient GetTestClient(IInstanceRepository instanceRepository = null, IInstanceEventService instanceEventService = null)
+        private HttpClient GetTestClient(IInstanceRepository instanceRepository = null)
         {
             // No setup required for these services. They are not in use by the ApplicationController
             Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
             Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
-
-            if (instanceEventService == null)
-            {
-                var mock = new Mock<IInstanceEventService>();
-                instanceEventService = mock.Object;
-            }
 
             HttpClient client = _factory.WithWebHostBuilder(builder =>
             {
@@ -356,7 +346,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                     services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
                     services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
                     services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
-                    services.AddSingleton(instanceEventService);
+                    services.AddSingleton<IInstanceEventRepository, InstanceEventRepositoryMock>();
 
                     if (instanceRepository != null)
                     {

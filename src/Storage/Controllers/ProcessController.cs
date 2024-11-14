@@ -80,28 +80,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return NotFound();
             }
 
-            string taskId = null;
-            string altinnTaskType = existingInstance.Process?.CurrentTask?.AltinnTaskType;
-
-            if (processState?.CurrentTask?.FlowType == "AbandonCurrentMoveToNext")
-            {
-                altinnTaskType = "reject";
-            }
-            else if (processState?.CurrentTask?.FlowType is not null
-                && processState.CurrentTask.FlowType != "CompleteCurrentMoveToNext")
-            {
-                altinnTaskType = processState.CurrentTask.AltinnTaskType;
-                taskId = processState.CurrentTask.ElementId;
-            }
-
-            string action = altinnTaskType switch
-            {
-                "data" or "feedback" => "write",
-                "payment" => "pay",
-                "confirmation" => "confirm",
-                "signing" => "sign",
-                _ => altinnTaskType,
-            };
+            var (action, taskId) = ActionMapping(processState, existingInstance);
 
             bool authorized = await _authorizationService.AuthorizeInstanceAction(existingInstance, action, taskId);
 
@@ -144,6 +123,34 @@ namespace Altinn.Platform.Storage.Controllers
             existingInstance.LastChangedBy = User.GetUserOrOrgId();
             existingInstance.LastChanged = DateTime.UtcNow;
         }
+
+        private (string Action, string TaskId) ActionMapping(ProcessState processState, Instance existingInstance)
+        {
+            string taskId = null;
+            string altinnTaskType = existingInstance.Process?.CurrentTask?.AltinnTaskType;
+
+            if (processState?.CurrentTask?.FlowType == "AbandonCurrentMoveToNext")
+            {
+                altinnTaskType = "reject";
+            }
+            else if (processState?.CurrentTask?.FlowType is not null
+                && processState.CurrentTask.FlowType != "CompleteCurrentMoveToNext")
+            {
+                altinnTaskType = processState.CurrentTask.AltinnTaskType;
+                taskId = processState.CurrentTask.ElementId;
+            }
+
+            var action = altinnTaskType switch
+            {
+                "data" or "feedback" => "write",
+                "payment" => "pay",
+                "confirmation" => "confirm",
+                "signing" => "sign",
+                _ => altinnTaskType,
+            };
+
+            return (action, taskId);
+        }
         
         /// <summary>
         /// Updates the process state of an instance.
@@ -172,9 +179,10 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             var processState = processStateUpdate.State;
-            var action = processStateUpdate.Action ?? processState.CurrentTask?.AltinnTaskType; // TODO: figure out action
 
-            bool authorized = await _authorizationService.AuthorizeInstanceAction(existingInstance, action, processState.CurrentTask?.ElementId);
+            var (action, taskId) = ActionMapping(processState, existingInstance);
+
+            bool authorized = await _authorizationService.AuthorizeInstanceAction(existingInstance, action, taskId);
 
             if (!authorized)
             {
@@ -182,7 +190,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             UpdateInstance(existingInstance, processState, out var updateProperties);
-            List<InstanceEvent> events = processStateUpdate.Events;
+            List<InstanceEvent> events = processStateUpdate.Events ?? [];
             if (processState?.CurrentTask?.AltinnTaskType == "signing")
             {
                 var instanceEvent = _instanceEventService.BuildInstanceEvent(InstanceEventType.SentToSign, existingInstance);
