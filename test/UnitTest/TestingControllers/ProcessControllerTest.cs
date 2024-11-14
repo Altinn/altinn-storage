@@ -4,8 +4,9 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Runtime.Intrinsics.X86;
 using System.Threading.Tasks;
-
+using Altinn.Common.AccessToken.Configuration;
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Clients;
@@ -48,6 +49,46 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         {
             _factory = factory;
         }
+
+        private async Task<HttpResponseMessage> SendUpdateRequest(
+            bool useBatchEndpoint, 
+            string token, 
+            string instanceId = null, 
+            IInstanceRepository instanceRepository = null,
+            IInstanceEventService instanceEventService = null,
+            Action<ProcessState> configure = null)
+        {
+            instanceId ??= "1337/20b1353e-91cf-44d6-8ff7-f68993638ffe";
+            var requestUri = $"storage/api/v1/instances/{instanceId}/process/";
+            JsonContent jsonString;
+            if (useBatchEndpoint)
+            {
+                requestUri += "batch/";
+                ProcessStateUpdate update = new();
+                var state = update.State = new ProcessState();
+                configure?.Invoke(state);
+                jsonString = JsonContent.Create(update, new MediaTypeHeaderValue("application/json"));
+            }
+            else 
+            {
+                ProcessState state = new();
+                configure?.Invoke(state);
+                jsonString = JsonContent.Create(state, new MediaTypeHeaderValue("application/json"));
+            }
+
+            HttpClient client = GetTestClient(instanceRepository, instanceEventService);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // Act
+            return await client.PutAsync(requestUri, jsonString);
+        }
+
+        public static TheoryData<bool> UpdateTestParameters =>
+            new()
+            {
+                { true },
+                { false },
+            };
 
         /// <summary>
         /// Test case: User has to low authentication level. 
@@ -118,21 +159,15 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Test case: User has to low authentication level. 
         /// Expected: Returns status forbidden.
         /// </summary>
-        [Fact]
-        public async Task PutProcess_UserHasToLowAuthLv_ReturnStatusForbidden()
+        [Theory]
+        [MemberData(nameof(UpdateTestParameters))]
+        public async Task PutProcess_UserHasToLowAuthLv_ReturnStatusForbidden(bool useBatchEndpoint)
         {
             // Arrange
-            string requestUri = $"storage/api/v1/instances/1337/ae3fe2fa-1fcb-42b4-8e63-69a42d4e3502/process/";
-
-            ProcessState state = new ProcessState();
-            JsonContent jsonString = JsonContent.Create(state, new MediaTypeHeaderValue("application/json"));
-
-            HttpClient client = GetTestClient();
             string token = PrincipalUtil.GetToken(3, 1337, 1);
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             // Act
-            HttpResponseMessage response = await client.PutAsync(requestUri, jsonString);
+            using var response = await SendUpdateRequest(useBatchEndpoint, token: token, instanceId: "1337/ae3fe2fa-1fcb-42b4-8e63-69a42d4e3502");
 
             // Assert
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -142,21 +177,15 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Test case: Response is deny. 
         /// Expected: Returns status forbidden.
         /// </summary>
-        [Fact]
-        public async Task PutProcess_PDPResponseIsDeny_ReturnStatusForbidden()
+        [Theory]
+        [MemberData(nameof(UpdateTestParameters))]
+        public async Task PutProcess_PDPResponseIsDeny_ReturnStatusForbidden(bool useBatchEndpoint)
         {
             // Arrange
-            string requestUri = $"storage/api/v1/instances/1337/ae3fe2fa-1fcb-42b4-8e63-69a42d4e3502/process/";
-
-            ProcessState state = new ProcessState();
-            JsonContent jsonString = JsonContent.Create(state, new MediaTypeHeaderValue("application/json"));
-
-            HttpClient client = GetTestClient();
             string token = PrincipalUtil.GetToken(-1, 1);
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             // Act
-            HttpResponseMessage response = await client.PutAsync(requestUri, jsonString);
+            using var response = await SendUpdateRequest(useBatchEndpoint, token: token, instanceId: "1337/ae3fe2fa-1fcb-42b4-8e63-69a42d4e3502");
 
             // Assert
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -166,20 +195,15 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Test case: User is Authorized
         /// Expected: Returns status ok. 
         /// </summary>
-        [Fact]
-        public async Task PutProcess_UserIsAuthorized_ReturnStatusOK()
+        [Theory]
+        [MemberData(nameof(UpdateTestParameters))]
+        public async Task PutProcess_UserIsAuthorized_ReturnStatusOK(bool useBatchEndpoint)
         {
-            // Arrange 
-            string requestUri = $"storage/api/v1/instances/1337/20a1353e-91cf-44d6-8ff7-f68993638ffe/process/";
-            ProcessState state = new ProcessState();
-            JsonContent jsonString = JsonContent.Create(state, new MediaTypeHeaderValue("application/json"));
-
-            HttpClient client = GetTestClient();
+            // Arrange
             string token = PrincipalUtil.GetToken(3, 1337, 3);
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             // Act
-            HttpResponseMessage response = await client.PutAsync(requestUri, jsonString);
+            using var response = await SendUpdateRequest(useBatchEndpoint, token: token, instanceId: "1337/20a1353e-91cf-44d6-8ff7-f68993638ffe");
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -189,24 +213,23 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Test case: Uses want to go back to a earlier state
         /// Expected: Returns status ok. 
         /// </summary>
-        [Fact]
-        public async Task PutProcessGatewayReturn_UserIsAuthorized_ReturnStatusOK()
+        [Theory]
+        [MemberData(nameof(UpdateTestParameters))]
+        public async Task PutProcessGatewayReturn_UserIsAuthorized_ReturnStatusOK(bool useBatchEndpoint)
         {
-            // Arrange 
-            string requestUri = $"storage/api/v1/instances/1337/20b1353e-91cf-44d6-8ff7-f68993638ffe/process/";
-            ProcessState state = new ProcessState();
-            state.CurrentTask = new ProcessElementInfo();
-            state.CurrentTask.ElementId = "Task_1";
-            state.CurrentTask.FlowType = "AbandonCurrentReturnToNext";
-            state.CurrentTask.AltinnTaskType = "data";
-            JsonContent jsonString = JsonContent.Create(state, new MediaTypeHeaderValue("application/json"));
-
-            HttpClient client = GetTestClient();
+            // Arrange
             string token = PrincipalUtil.GetToken(3, 1337, 3);
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             // Act
-            HttpResponseMessage response = await client.PutAsync(requestUri, jsonString);
+            using var response = await SendUpdateRequest(useBatchEndpoint, token: token, instanceId: "1337/20b1353e-91cf-44d6-8ff7-f68993638ffe", configure: state =>
+            {
+                state.CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_1",
+                    FlowType = "AbandonCurrentReturnToNext",
+                    AltinnTaskType = "data",
+                };
+            });
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -216,20 +239,15 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Test case: User wants to updates process on confirimation task. User does not have role required
         /// Expected: Returns forbidden. 
         /// </summary>
-        [Fact]
-        public async Task PutProcessConfirm_UserIsNotAuthorized_ReturnDenied()
+        [Theory]
+        [MemberData(nameof(UpdateTestParameters))]
+        public async Task PutProcessConfirm_UserIsNotAuthorized_ReturnDenied(bool useBatchEndpoint)
         {
-            // Arrange 
-            string requestUri = $"storage/api/v1/instances/1337/20b1353e-91cf-44d6-8ff7-f68993638ffe/process/";
-            ProcessState state = new ProcessState();
-            JsonContent jsonString = JsonContent.Create(state, new MediaTypeHeaderValue("application/json"));
-
-            HttpClient client = GetTestClient();
+            // Arrange
             string token = PrincipalUtil.GetToken(3, 1337, 3);
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             // Act
-            HttpResponseMessage response = await client.PutAsync(requestUri, jsonString);
+            using var response = await SendUpdateRequest(useBatchEndpoint, token: token, instanceId: "1337/20b1353e-91cf-44d6-8ff7-f68993638ffe");
 
             // Assert
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -239,37 +257,37 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Test case: User is Authorized
         /// Expected: Returns status ok. 
         /// </summary>
-        [Fact]
-        public async Task PutProcess_EndProcess_EnsureArchivedStateIsSet()
+        [Theory]
+        [MemberData(nameof(UpdateTestParameters))]
+        public async Task PutProcess_EndProcess_EnsureArchivedStateIsSet(bool useBatchEndpoint)
         {
             // Arrange
-            string requestUri = $"storage/api/v1/instances/1337/377efa97-80ee-4cc6-8d48-09de12cc273d/process/";
+            string token = PrincipalUtil.GetToken(3, 1337, 3);
             Instance testInstance = TestDataUtil.GetInstance(new Guid("377efa97-80ee-4cc6-8d48-09de12cc273d"));
             testInstance.Id = $"{testInstance.InstanceOwner.PartyId}/{testInstance.Id}";
-            ProcessState state = new ProcessState
-            {
-                Started = DateTime.Parse("2020-04-29T13:53:01.7020218Z"),
-                StartEvent = "StartEvent_1",
-                Ended = DateTime.UtcNow,
-                EndEvent = "EndEvent_1"
-            };
-
-            JsonContent jsonString = JsonContent.Create(state, new MediaTypeHeaderValue("application/json"));
-
+            
             Mock<IInstanceRepository> repositoryMock = new Mock<IInstanceRepository>();
             repositoryMock.Setup(ir => ir.GetOne(It.IsAny<Guid>(), true)).ReturnsAsync((testInstance, 0));
             repositoryMock.Setup(ir => ir.Update(It.IsAny<Instance>(), It.IsAny<List<string>>())).ReturnsAsync((Instance i, List<string> props) => i);
 
-            HttpClient client = GetTestClient(repositoryMock.Object);
-            string token = PrincipalUtil.GetToken(3, 1337, 3);
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
             // Act
-            HttpResponseMessage response = await client.PutAsync(requestUri, jsonString);
-            string responseContent = await response.Content.ReadAsStringAsync();
-            Instance actual = (Instance)JsonConvert.DeserializeObject(responseContent, typeof(Instance));
+            using var response = await SendUpdateRequest(
+                useBatchEndpoint, 
+                token: token, 
+                instanceId: "1337/377efa97-80ee-4cc6-8d48-09de12cc273d", 
+                instanceRepository: repositoryMock.Object, 
+                configure: state =>
+                {
+                    state.Started = DateTime.Parse("2020-04-29T13:53:01.7020218Z");
+                    state.StartEvent = "StartEvent_1";
+                    state.Ended = DateTime.UtcNow;
+                    state.EndEvent = "EndEvent_1";
+                });
 
             // Assert
+            string responseContent = await response.Content.ReadAsStringAsync();
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Instance actual = (Instance)JsonConvert.DeserializeObject(responseContent, typeof(Instance));
             Assert.True(actual.Status.IsArchived);
         }
 
@@ -277,32 +295,30 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Test case: User pushes process to signing step.
         /// Expected: An instance event of type "sentToSign" is registered.
         /// </summary>
-        [Fact]
-        public async Task PutProcess_MoveToSigning_SentToSignEventGenerated()
+        [Theory]
+        [MemberData(nameof(UpdateTestParameters))]
+        public async Task PutProcess_MoveToSigning_SentToSignEventGenerated(bool useBatchEndpoint)
         {
-            // Arrange 
-            string requestUri = $"storage/api/v1/instances/1337/20a1353e-91cf-44d6-8ff7-f68993638ffe/process/";
-            ProcessState state = new()
-            {
-                CurrentTask = new()
-                {
-                    ElementId = "Task_2",
-                    AltinnTaskType = "signing",
-                    FlowType = "CompleteCurrentMoveToNext"
-                }
-            };
-
-            JsonContent jsonString = JsonContent.Create(state, new MediaTypeHeaderValue("application/json"));
-
+            // Arrange
+            string token = PrincipalUtil.GetToken(3, 1337, 3);
             var serviceMock = new Mock<IInstanceEventService>();
             serviceMock.Setup(m => m.DispatchEvent(It.Is<InstanceEventType>(t => t == InstanceEventType.SentToSign), It.IsAny<Instance>()));
 
-            HttpClient client = GetTestClient(instanceEventService: serviceMock.Object);
-            string token = PrincipalUtil.GetToken(3, 1337, 3);
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
             // Act
-            HttpResponseMessage response = await client.PutAsync(requestUri, jsonString);
+            using var response = await SendUpdateRequest(
+                useBatchEndpoint, 
+                token: token, 
+                instanceId: "1337/20a1353e-91cf-44d6-8ff7-f68993638ffe",
+                instanceEventService: serviceMock.Object,
+                configure: state =>
+                {
+                    state.CurrentTask = new ProcessElementInfo
+                    {
+                        ElementId = "Task_2",
+                        AltinnTaskType = "signing",
+                        FlowType = "CompleteCurrentMoveToNext"
+                    };
+                });
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -332,6 +348,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 builder.ConfigureTestServices(services =>
                 {
                     services.AddMockRepositories();
+
+                    services.Configure<AccessTokenSettings>(s => s.DisableAccessTokenVerification = true);
 
                     services.AddSingleton(keyVaultWrapper.Object);
                     services.AddSingleton(partiesWrapper.Object);

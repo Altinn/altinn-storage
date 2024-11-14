@@ -110,8 +110,22 @@ namespace Altinn.Platform.Storage.Controllers
                 return Forbid();
             }
 
+            UpdateInstance(existingInstance, processState, out var updateProperties);
+            Instance updatedInstance = await _instanceRepository.Update(existingInstance, updateProperties);
+
+            if (processState?.CurrentTask?.AltinnTaskType == "signing")
+            {
+                await _instanceEventService.DispatchEvent(InstanceEventType.SentToSign, updatedInstance);
+            }
+
+            updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+            return Ok(updatedInstance);
+        }
+
+        private void UpdateInstance(Instance existingInstance, ProcessState processState, out List<string> updateProperties)
+        {
             // Archiving instance if process was ended
-            List<string> updateProperties = [
+            updateProperties = [
                 nameof(existingInstance.Process),
                 nameof(existingInstance.LastChanged),
                 nameof(existingInstance.LastChangedBy)
@@ -129,13 +143,53 @@ namespace Altinn.Platform.Storage.Controllers
             existingInstance.Process = processState;
             existingInstance.LastChangedBy = User.GetUserOrOrgId();
             existingInstance.LastChanged = DateTime.UtcNow;
+        }
+        
+        /// <summary>
+        /// Updates the process state of an instance.
+        /// </summary>
+        /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
+        /// <param name="instanceGuid">The id of the instance that should have its process updated.</param>
+        /// <param name="processStateUpdate">The new process state of the instance (including instance events).</param>
+        /// <returns></returns>
+        [Authorize(Policy = AuthzConstants.POLICY_PLATFORM_ACCESS)]
+        [HttpPut("batch")]
+        [Consumes("application/json")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [Produces("application/json")]
+        public async Task<ActionResult<Instance>> PutProcessBatch(
+            int instanceOwnerPartyId,
+            Guid instanceGuid,
+            [FromBody] ProcessStateUpdate processStateUpdate)
+        {
+            (Instance existingInstance, _) = await _instanceRepository.GetOne(instanceGuid, true);
 
-            Instance updatedInstance = await _instanceRepository.Update(existingInstance, updateProperties);
+            if (existingInstance is null)
+            {
+                return NotFound();
+            }
 
+            var processState = processStateUpdate.State;
+            var action = processStateUpdate.Action ?? processState.CurrentTask?.AltinnTaskType; // TODO: figure out action
+
+            bool authorized = await _authorizationService.AuthorizeInstanceAction(existingInstance, action, processState.CurrentTask?.ElementId);
+
+            if (!authorized)
+            {
+                return Forbid();
+            }
+
+            UpdateInstance(existingInstance, processState, out var updateProperties);
+            List<InstanceEvent> events = processStateUpdate.Events;
             if (processState?.CurrentTask?.AltinnTaskType == "signing")
             {
-                await _instanceEventService.DispatchEvent(InstanceEventType.SentToSign, updatedInstance);
+                var instanceEvent = _instanceEventService.BuildInstanceEvent(InstanceEventType.SentToSign, existingInstance);
+                events.Add(instanceEvent);
             }
+
+            Instance updatedInstance = await _instanceRepository.Update(existingInstance, updateProperties, events);
 
             updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
             return Ok(updatedInstance);

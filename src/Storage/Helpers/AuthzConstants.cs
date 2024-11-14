@@ -44,5 +44,10 @@ namespace Altinn.Platform.Storage.Helpers
         /// Policy tag for authorizing designer access
         /// </summary>
         public const string POLICY_STUDIO_DESIGNER = "StudioDesignerAccess";
+
+        /// <summary>
+        /// Policy tag for authorizing based on platform access token 
+        /// </summary>
+        public const string POLICY_PLATFORM_ACCESS = "PlatformAccess";
     }
 }
