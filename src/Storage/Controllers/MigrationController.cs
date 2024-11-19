@@ -233,7 +233,7 @@ namespace Altinn.Platform.Storage.Controllers
 
                 (Stream theStream, dataElement.ContentType, dataElement.Filename, _) = await DataElementHelper.GetStream(Request, FormOptions.DefaultMultipartBoundaryLengthLimit);
 
-                if (Request.ContentLength > 0)
+                if (Request.ContentLength > 0 || dataElement.DataType == "binary-data")
                 {
                     (dataElement.Size, _) = await _blobRepository.WriteBlob(
                         $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
