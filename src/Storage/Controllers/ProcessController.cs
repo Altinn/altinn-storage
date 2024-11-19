@@ -140,7 +140,7 @@ namespace Altinn.Platform.Storage.Controllers
                 taskId = processState.CurrentTask.ElementId;
             }
 
-            var action = altinnTaskType switch
+            string action = altinnTaskType switch
             {
                 "data" or "feedback" => "write",
                 "payment" => "pay",
@@ -159,7 +159,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceGuid">The id of the instance that should have its process updated.</param>
         /// <param name="processStateUpdate">The new process state of the instance (including instance events).</param>
         /// <returns></returns>
-        [Authorize(Policy = AuthzConstants.POLICY_PLATFORM_ACCESS)]
+        [Authorize]
         [HttpPut("batch")]
         [Consumes("application/json")]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -178,7 +178,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return NotFound();
             }
 
-            var processState = processStateUpdate.State;
+            ProcessState processState = processStateUpdate.State;
 
             var (action, taskId) = ActionMapping(processState, existingInstance);
 
@@ -193,7 +193,7 @@ namespace Altinn.Platform.Storage.Controllers
             List<InstanceEvent> events = processStateUpdate.Events ?? [];
             if (processState?.CurrentTask?.AltinnTaskType == "signing")
             {
-                var instanceEvent = _instanceEventService.BuildInstanceEvent(InstanceEventType.SentToSign, existingInstance);
+                InstanceEvent instanceEvent = _instanceEventService.BuildInstanceEvent(InstanceEventType.SentToSign, existingInstance);
                 events.Add(instanceEvent);
             }
 

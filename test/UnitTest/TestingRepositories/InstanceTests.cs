@@ -121,7 +121,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             // Assert
             if (instanceEvents.Count > 0)
             {
-                var ids = string.Join(", ", instanceEvents.Select(e => $"'{e.Id}'"));
+                string ids = string.Join(", ", instanceEvents.Select(e => $"'{e.Id}'"));
                 string sql = $"select count(*) from storage.instanceevents where alternateid in ({ids}) AND instance = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
                 int count = await PostgresUtil.RunCountQuery(sql);
                 Assert.Equal(instanceEvents.Count, count);

@@ -52,7 +52,7 @@ namespace Altinn.Platform.Storage.Services
         /// <inheritdoc/>
         public async Task DispatchEvent(InstanceEventType eventType, Instance instance)
         {
-            var instanceEvent = BuildInstanceEvent(eventType, instance);
+            InstanceEvent instanceEvent = BuildInstanceEvent(eventType, instance);
 
             await _repository.InsertInstanceEvent(instanceEvent);
         }

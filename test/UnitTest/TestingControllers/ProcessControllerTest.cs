@@ -4,17 +4,14 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Runtime.Intrinsics.X86;
 using System.Threading.Tasks;
 using Altinn.Common.AccessToken.Configuration;
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Controllers;
-using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
-using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.Tests.Mocks;
 using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Mocks;
@@ -58,13 +55,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Action<ProcessState> configure = null)
         {
             instanceId ??= "1337/20b1353e-91cf-44d6-8ff7-f68993638ffe";
-            var requestUri = $"storage/api/v1/instances/{instanceId}/process/";
+            string requestUri = $"storage/api/v1/instances/{instanceId}/process/";
             JsonContent jsonString;
             if (useBatchEndpoint)
             {
                 requestUri += "batch/";
                 ProcessStateUpdate update = new();
-                var state = update.State = new ProcessState();
+                ProcessState state = update.State = new();
                 configure?.Invoke(state);
                 jsonString = JsonContent.Create(update, new MediaTypeHeaderValue("application/json"));
             }
@@ -104,7 +101,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             // Act
-            HttpResponseMessage response = await client.GetAsync(requestUri);
+            using HttpResponseMessage response = await client.GetAsync(requestUri);
 
             // Assert
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -124,7 +121,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             // Act
-            HttpResponseMessage response = await client.GetAsync(requestUri);
+            using HttpResponseMessage response = await client.GetAsync(requestUri);
 
             // Assert
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -145,7 +142,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             // Act
-            HttpResponseMessage response = await client.GetAsync(requestUri);
+            using HttpResponseMessage response = await client.GetAsync(requestUri);
             string responseString = await response.Content.ReadAsStringAsync();
             ProcessHistoryList processHistory = JsonConvert.DeserializeObject<ProcessHistoryList>(responseString);
 
@@ -166,7 +163,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             string token = PrincipalUtil.GetToken(3, 1337, 1);
 
             // Act
-            using var response = await SendUpdateRequest(useBatchEndpoint, token: token, instanceId: "1337/ae3fe2fa-1fcb-42b4-8e63-69a42d4e3502");
+            using HttpResponseMessage response = await SendUpdateRequest(useBatchEndpoint, token: token, instanceId: "1337/ae3fe2fa-1fcb-42b4-8e63-69a42d4e3502");
 
             // Assert
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -184,7 +181,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             string token = PrincipalUtil.GetToken(-1, 1);
 
             // Act
-            using var response = await SendUpdateRequest(useBatchEndpoint, token: token, instanceId: "1337/ae3fe2fa-1fcb-42b4-8e63-69a42d4e3502");
+            using HttpResponseMessage response = await SendUpdateRequest(useBatchEndpoint, token: token, instanceId: "1337/ae3fe2fa-1fcb-42b4-8e63-69a42d4e3502");
 
             // Assert
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -202,7 +199,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             string token = PrincipalUtil.GetToken(3, 1337, 3);
 
             // Act
-            using var response = await SendUpdateRequest(useBatchEndpoint, token: token, instanceId: "1337/20a1353e-91cf-44d6-8ff7-f68993638ffe");
+            using HttpResponseMessage response = await SendUpdateRequest(useBatchEndpoint, token: token, instanceId: "1337/20a1353e-91cf-44d6-8ff7-f68993638ffe");
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -220,7 +217,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             string token = PrincipalUtil.GetToken(3, 1337, 3);
 
             // Act
-            using var response = await SendUpdateRequest(useBatchEndpoint, token: token, instanceId: "1337/20b1353e-91cf-44d6-8ff7-f68993638ffe", configure: state =>
+            using HttpResponseMessage response = await SendUpdateRequest(useBatchEndpoint, token: token, instanceId: "1337/20b1353e-91cf-44d6-8ff7-f68993638ffe", configure: state =>
             {
                 state.CurrentTask = new ProcessElementInfo
                 {
@@ -246,7 +243,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             string token = PrincipalUtil.GetToken(3, 1337, 3);
 
             // Act
-            using var response = await SendUpdateRequest(useBatchEndpoint, token: token, instanceId: "1337/20b1353e-91cf-44d6-8ff7-f68993638ffe");
+            using HttpResponseMessage response = await SendUpdateRequest(useBatchEndpoint, token: token, instanceId: "1337/20b1353e-91cf-44d6-8ff7-f68993638ffe");
 
             // Assert
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -271,7 +268,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             repositoryMock.Setup(ir => ir.Update(It.IsAny<Instance>(), It.IsAny<List<string>>(), It.IsAny<List<InstanceEvent>>())).ReturnsAsync((Instance i, List<string> _, List<InstanceEvent> _) => i);
 
             // Act
-            using var response = await SendUpdateRequest(
+            using HttpResponseMessage response = await SendUpdateRequest(
                 useBatchEndpoint, 
                 token: token, 
                 instanceId: "1337/377efa97-80ee-4cc6-8d48-09de12cc273d", 
@@ -303,7 +300,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             string token = PrincipalUtil.GetToken(3, 1337, 3);
 
             // Act
-            using var response = await SendUpdateRequest(
+            using HttpResponseMessage response = await SendUpdateRequest(
                 useBatchEndpoint, 
                 token: token, 
                 instanceId: "1337/20a1353e-91cf-44d6-8ff7-f68993638ffe",

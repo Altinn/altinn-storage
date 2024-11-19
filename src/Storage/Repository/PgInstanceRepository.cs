@@ -425,23 +425,23 @@ namespace Altinn.Platform.Storage.Repository
 
             ToInternal(instance);
             instance.Data = null;
-            await using var batch = _dataSource.CreateBatch();
+            await using NpgsqlBatch batch = _dataSource.CreateBatch();
 
-            var updateCommand = new NpgsqlBatchCommand(_updateSql);
+            NpgsqlBatchCommand updateCommand = new(_updateSql);
             BuildUpdateCommand(instance, updateProperties, updateCommand.Parameters);
             batch.BatchCommands.Add(updateCommand);
 
-            var insertEventsSql = new StringBuilder(_insertInstanceEventsSqlTemplate);
+            StringBuilder insertEventsSql = new(_insertInstanceEventsSqlTemplate);
 
             for (int i = 0; i < events.Count; i++)
             {
                 insertEventsSql.Append($"{(i == 0 ? string.Empty : ", ")}(@_{i}instance, @_{i}alternateid, jsonb_strip_nulls(@_{i}event))");
             }
 
-            var insertEventsComand = new NpgsqlBatchCommand(insertEventsSql.ToString());
+            NpgsqlBatchCommand insertEventsComand = new(insertEventsSql.ToString());
             for (int i = 0; i < events.Count; i++)
             {
-                var instanceEvent = events[i];
+                InstanceEvent instanceEvent = events[i];
                 instanceEvent.Id ??= Guid.NewGuid();
                 insertEventsComand.Parameters.AddWithValue($"_{i}instance", NpgsqlDbType.Uuid, new Guid(instanceEvent.InstanceId.Split('/').Last()));
                 insertEventsComand.Parameters.AddWithValue($"_{i}alternateid", NpgsqlDbType.Uuid, instanceEvent.Id);
@@ -450,7 +450,7 @@ namespace Altinn.Platform.Storage.Repository
 
             batch.BatchCommands.Add(insertEventsComand);
             
-            await using var reader = await batch.ExecuteReaderAsync();
+            await using NpgsqlDataReader reader = await batch.ExecuteReaderAsync();
 
             if (await reader.ReadAsync())
             {
