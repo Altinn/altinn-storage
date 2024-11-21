@@ -67,5 +67,11 @@ namespace Altinn.Platform.Storage.Configuration
         /// Gets or sets whether to use Ttd as service owner for environements without "normal" service owners
         /// </summary>
         public bool A2UseTtdAsServiceOwner { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether to disable telemetry for migration. Is true by default. Is intended to
+        /// be set to false on demand by manipulating the aks yaml config in the target environment.
+        /// </summary>
+        public bool DisableTelemetryForMigration { get; set; } = true;
     }
 }
