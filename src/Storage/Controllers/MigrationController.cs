@@ -280,7 +280,7 @@ namespace Altinn.Platform.Storage.Controllers
         {
             try
             {
-                foreach (var instanceEvent in instanceEvents)
+                foreach (var instanceEvent in instanceEvents.Where(ie => !string.IsNullOrEmpty(ie.EventType)))
                 {
                     await _instanceEventRepository.InsertInstanceEvent(instanceEvent);
                 }
