@@ -194,6 +194,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return Forbid();
             }
 
+            processStateUpdate.Events ??= [];
             UpdateInstance(existingInstance, processState, out var updateProperties);
             if (processState?.CurrentTask?.AltinnTaskType == "signing")
             {

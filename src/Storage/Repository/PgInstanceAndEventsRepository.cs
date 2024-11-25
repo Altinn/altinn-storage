@@ -21,7 +21,7 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
     private readonly TelemetryClient _telemetryClient;
     private readonly IInstanceRepository _instanceRepository;
 
-    private readonly string _insertInstanceEventsSql = "call storage.insertinstanceevents($1)";
+    private readonly string _insertInstanceEventsSql = "call storage.insertinstanceevents($1, $2)";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PgInstanceAndEventsRepository"/> class.
@@ -49,6 +49,11 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
         {
             return await _instanceRepository.Update(instance, updateProperties);
         }
+
+        foreach (var instanceEvent in events)
+        {
+            instanceEvent.Id ??= Guid.NewGuid();
+        }
         
         // Remove last decimal digit to make postgres TIMESTAMPTZ equal to json serialized DateTime
         instance.LastChanged = instance.LastChanged != null ? new DateTime((((DateTime)instance.LastChanged).Ticks / 10) * 10, DateTimeKind.Utc) : null;
@@ -63,8 +68,8 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
         batch.BatchCommands.Add(updateCommand);
 
         NpgsqlBatchCommand insertEventsComand = new(_insertInstanceEventsSql);
-        var records = events.Select(e => new InstanceEventRecord(new Guid(e.InstanceId.Split('/').Last()), e.Id, e)).ToArray();
-        insertEventsComand.Parameters.AddWithValue(NpgsqlDbType.Jsonb, records);
+        insertEventsComand.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instance.Id.Split('/').Last()));
+        insertEventsComand.Parameters.AddWithValue(NpgsqlDbType.Jsonb, events);
         batch.BatchCommands.Add(insertEventsComand);
 
         await using NpgsqlDataReader reader = await batch.ExecuteReaderAsync();
@@ -78,6 +83,4 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
 
         return PgInstanceRepository.ToExternal(instance);
     }
-
-    private sealed record InstanceEventRecord(Guid Instance, Guid? AlternateId, InstanceEvent Event);
 }
