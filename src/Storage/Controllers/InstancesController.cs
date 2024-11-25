@@ -119,11 +119,6 @@ namespace Altinn.Platform.Storage.Controllers
                     queryParameters.Org = queryParameters.AppId.Split('/')[0];
                 }
 
-                if (!orgClaim.Equals(queryParameters.Org, StringComparison.InvariantCultureIgnoreCase))
-                {
-                    return Forbid();
-                }
-
                 appOwnerRequestingInstances = true;
             }
             else if (userId != null)
