@@ -82,6 +82,54 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             Assert.Equal(newInstance.LastChangedBy, updatedInstance.LastChangedBy);
         }
 
+        /// <summary>1
+        /// Test update task with events
+        /// </summary>
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(3)]
+        public async Task Instance_Update_Task_With_Events_Ok(int eventCount)
+        {
+            // Arrange
+            Instance newInstance = TestData.Instance_1_1.Clone();
+            newInstance.Process.CurrentTask.Name = "Before update";
+            newInstance.Process.StartEvent = "s1";
+            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
+            newInstance.Process.CurrentTask.ElementId = "Task_2";
+            newInstance.Process.CurrentTask.Name = "After update";
+            newInstance.Process.StartEvent = null;
+            newInstance.Process.EndEvent = "e1";
+            newInstance.LastChanged = DateTime.UtcNow;
+            newInstance.LastChangedBy = "unittest";
+
+            List<string> updateProperties = [];
+            updateProperties.Add(nameof(newInstance.LastChanged));
+            updateProperties.Add(nameof(newInstance.LastChangedBy));
+            updateProperties.Add(nameof(newInstance.Process));
+
+            List<InstanceEvent> instanceEvents = [];
+            for (int i = 0; i < eventCount; i++)
+            {
+                InstanceEvent instanceEvent = new() { Id = Guid.NewGuid(), InstanceId = newInstance.Id, EventType = $"et{i}", Created = DateTime.Parse("1994-06-16T11:06:59.0851832Z") };
+                instanceEvents.Add(instanceEvent);
+            }
+
+            // Act
+            Instance updatedInstance = await _instanceFixture.InstanceAndEventsRepo.Update(newInstance, updateProperties, instanceEvents);
+
+            // Assert
+            if (instanceEvents.Count > 0)
+            {
+                string ids = string.Join(", ", instanceEvents.Select(e => $"'{e.Id}'"));
+                string sql = $"select count(*) from storage.instanceevents where alternateid in ({ids}) AND instance = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
+                int count = await PostgresUtil.RunCountQuery(sql);
+                Assert.Equal(instanceEvents.Count, count);
+            }
+
+            Assert.Equal("Task_2", updatedInstance.Process.CurrentTask.ElementId);
+        }
+
         /// <summary>
         /// Test update status
         /// </summary>
@@ -733,12 +781,15 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
     {
         public IInstanceRepository InstanceRepo { get; set; }
 
+        public IInstanceAndEventsRepository InstanceAndEventsRepo { get; set; }
+
         public IDataRepository DataRepo { get; set; }
 
         public InstanceFixture()
         {
-            var serviceList = ServiceUtil.GetServices(new List<Type>() { typeof(IInstanceRepository), typeof(IDataRepository) });
+            var serviceList = ServiceUtil.GetServices(new List<Type>() { typeof(IInstanceRepository), typeof(IInstanceAndEventsRepository), typeof(IDataRepository) });
             InstanceRepo = (IInstanceRepository)serviceList.First(i => i.GetType() == typeof(PgInstanceRepository));
+            InstanceAndEventsRepo = (IInstanceAndEventsRepository)serviceList.First(i => i.GetType() == typeof(PgInstanceAndEventsRepository));
             DataRepo = (IDataRepository)serviceList.First(i => i.GetType() == typeof(PgDataRepository));
         }
     }

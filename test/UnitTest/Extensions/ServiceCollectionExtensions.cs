@@ -31,6 +31,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IDataRepository, PgDataRepository>()
             .AddSingleton<IInstanceEventRepository, PgInstanceEventRepository>()
             .AddSingleton<IInstanceRepository, PgInstanceRepository>()
+            .AddSingleton<IInstanceAndEventsRepository, PgInstanceAndEventsRepository>()
             .AddSingleton<IBlobRepository, BlobRepository>()
             .AddNpgsqlDataSource(connectionString, builder => builder.EnableDynamicJson());
     }
