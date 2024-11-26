@@ -8,7 +8,7 @@
                 <xacml:AllOf>
                     <xacml:Match MatchId="urn:oasis:names:tc:xacml:3.0:function:string-equal-ignore-case">
                         <xacml:AttributeValue DataType="http://www.w3.org/2001/XMLSchema#string">sfvt</xacml:AttributeValue>
-                        <xacml:AttributeDesignator AttributeId="urn:altinn:rolecode" Category="urn:oasis:names:tc:xacml:1.0:subject-category:access-subject" DataType="http://www.w3.org/2001/XMLSchema#string" MustBePresent="false" />
+                        <xacml:AttributeDesignator AttributeId="urn:altinn:org" Category="urn:oasis:names:tc:xacml:1.0:subject-category:access-subject" DataType="http://www.w3.org/2001/XMLSchema#string" MustBePresent="false" />
                     </xacml:Match>
                 </xacml:AllOf>
             </xacml:AnyOf>
