@@ -118,8 +118,59 @@ namespace Altinn.Platform.Storage.Controllers
                 {
                     queryParameters.Org = queryParameters.AppId.Split('/')[0];
                 }
+                
+                if (!orgClaim.Equals(queryParameters.Org, StringComparison.InvariantCultureIgnoreCase))
+                {
+                    var appId = ValidateAppId(queryParameters.AppId).Split("/")[1];
+                    XacmlJsonRequestRoot request;
+                    try
+                    {
+                        var instanceOwnerPartyId = (int)queryParameters.InstanceOwnerPartyId;
+                        request = DecisionHelper.CreateDecisionRequest(queryParameters.Org, appId, HttpContext.User, "read", instanceOwnerPartyId, null);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Something went wrong during CreateDecisionRequest for application id: {appId}");
+                        throw;
+                    }
+                    
+                    XacmlJsonResponse response;
+                    try
+                    {
+                        response = await _authorizationService.GetDecisionForRequest(request);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Something went wrong during GetDecisionForRequest for application id: {appId}");
+                        throw;
+                    }
 
-                appOwnerRequestingInstances = true;
+                    if (response?.Response == null)
+                    {
+                        _logger.LogInformation("// Instances Controller // Authorization of instantiation failed with request: {request}.", JsonConvert.SerializeObject(request));
+                        return Forbid();
+                    }
+
+                    bool authorized;
+                    try
+                    {
+                        authorized = DecisionHelper.ValidatePdpDecision(response.Response, HttpContext.User);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Something went wrong during ValidatePdpDecision for application id: {appId}");
+                        throw;
+                    }
+
+                    if (!authorized)
+                    {
+                        return Forbid();
+                    }
+                }
+                else
+                {
+                    appOwnerRequestingInstances = true;
+                }
             }
             else if (userId != null)
             {
