@@ -165,7 +165,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="processStateUpdate">The new process state of the instance (including instance events).</param>
         /// <returns></returns>
         [Authorize]
-        [HttpPut("batch")]
+        [HttpPut("instanceandevents")]
         [Consumes("application/json")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
