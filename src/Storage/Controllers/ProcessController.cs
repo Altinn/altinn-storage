@@ -59,57 +59,6 @@ namespace Altinn.Platform.Storage.Controllers
             _instanceEventService = instanceEventService;
         }
 
-        private void UpdateInstance(Instance existingInstance, ProcessState processState, out List<string> updateProperties)
-        {
-            // Archiving instance if process was ended
-            updateProperties = [
-                nameof(existingInstance.Process),
-                nameof(existingInstance.LastChanged),
-                nameof(existingInstance.LastChangedBy)
-            ];
-            if (existingInstance.Process?.Ended is null && processState?.Ended is not null)
-            {
-                existingInstance.Status ??= new InstanceStatus();
-                existingInstance.Status.IsArchived = true;
-                existingInstance.Status.Archived = processState.Ended;
-                updateProperties.Add(nameof(existingInstance.Status));
-                updateProperties.Add(nameof(existingInstance.Status.IsArchived));
-                updateProperties.Add(nameof(existingInstance.Status.Archived));
-            }
-
-            existingInstance.Process = processState;
-            existingInstance.LastChangedBy = User.GetUserOrOrgId();
-            existingInstance.LastChanged = DateTime.UtcNow;
-        }
-
-        private (string Action, string TaskId) ActionMapping(ProcessState processState, Instance existingInstance)
-        {
-            string taskId = null;
-            string altinnTaskType = existingInstance.Process?.CurrentTask?.AltinnTaskType;
-
-            if (processState?.CurrentTask?.FlowType == "AbandonCurrentMoveToNext")
-            {
-                altinnTaskType = "reject";
-            }
-            else if (processState?.CurrentTask?.FlowType is not null
-                && processState.CurrentTask.FlowType != "CompleteCurrentMoveToNext")
-            {
-                altinnTaskType = processState.CurrentTask.AltinnTaskType;
-                taskId = processState.CurrentTask.ElementId;
-            }
-
-            string action = altinnTaskType switch
-            {
-                "data" or "feedback" => "write",
-                "payment" => "pay",
-                "confirmation" => "confirm",
-                "signing" => "sign",
-                _ => altinnTaskType,
-            };
-
-            return (action, taskId);
-        }
-
         /// <summary>
         /// Updates the process of an instance.
         /// </summary>
@@ -171,7 +120,7 @@ namespace Altinn.Platform.Storage.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [Produces("application/json")]
-        public async Task<ActionResult<Instance>> PutProcessBatch(
+        public async Task<ActionResult<Instance>> PutInstanceAndEvents(
             int instanceOwnerPartyId,
             Guid instanceGuid,
             [FromBody] ProcessStateUpdate processStateUpdate)
@@ -260,6 +209,57 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}: {message}");
+        }
+
+        private void UpdateInstance(Instance existingInstance, ProcessState processState, out List<string> updateProperties)
+        {
+            // Archiving instance if process was ended
+            updateProperties = [
+                nameof(existingInstance.Process),
+                nameof(existingInstance.LastChanged),
+                nameof(existingInstance.LastChangedBy)
+            ];
+            if (existingInstance.Process?.Ended is null && processState?.Ended is not null)
+            {
+                existingInstance.Status ??= new InstanceStatus();
+                existingInstance.Status.IsArchived = true;
+                existingInstance.Status.Archived = processState.Ended;
+                updateProperties.Add(nameof(existingInstance.Status));
+                updateProperties.Add(nameof(existingInstance.Status.IsArchived));
+                updateProperties.Add(nameof(existingInstance.Status.Archived));
+            }
+
+            existingInstance.Process = processState;
+            existingInstance.LastChangedBy = User.GetUserOrOrgId();
+            existingInstance.LastChanged = DateTime.UtcNow;
+        }
+
+        private (string Action, string TaskId) ActionMapping(ProcessState processState, Instance existingInstance)
+        {
+            string taskId = null;
+            string altinnTaskType = existingInstance.Process?.CurrentTask?.AltinnTaskType;
+
+            if (processState?.CurrentTask?.FlowType == "AbandonCurrentMoveToNext")
+            {
+                altinnTaskType = "reject";
+            }
+            else if (processState?.CurrentTask?.FlowType is not null
+                && processState.CurrentTask.FlowType != "CompleteCurrentMoveToNext")
+            {
+                altinnTaskType = processState.CurrentTask.AltinnTaskType;
+                taskId = processState.CurrentTask.ElementId;
+            }
+
+            string action = altinnTaskType switch
+            {
+                "data" or "feedback" => "write",
+                "payment" => "pay",
+                "confirmation" => "confirm",
+                "signing" => "sign",
+                _ => altinnTaskType,
+            };
+
+            return (action, taskId);
         }
     }
 }
