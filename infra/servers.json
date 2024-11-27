@@ -1,0 +1,16 @@
+{
+    "Servers": {
+        "1": {
+            "Group": "Servers",
+            "Name": "Storage",
+            "Host": "storage_postgres",
+            "Port": 5432,
+            "MaintenanceDB": "postgres",
+            "Username": "platform_storage_admin",
+            "Password": "Password",
+            "SSLMode": "prefer",
+            "Favorite": true
+        }
+    }
+}
+    
