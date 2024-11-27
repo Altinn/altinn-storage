@@ -122,28 +122,10 @@ namespace Altinn.Platform.Storage.Controllers
                 if (!orgClaim.Equals(queryParameters.Org, StringComparison.InvariantCultureIgnoreCase))
                 {
                     var appId = ValidateAppId(queryParameters.AppId).Split("/")[1];
-                    XacmlJsonRequestRoot request;
-                    try
-                    {
-                        var instanceOwnerPartyId = (int)queryParameters.InstanceOwnerPartyId;
-                        request = DecisionHelper.CreateDecisionRequest(queryParameters.Org, appId, HttpContext.User, "read", instanceOwnerPartyId, null);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, $"Something went wrong during CreateDecisionRequest for application id: {appId}");
-                        throw;
-                    }
+                    var instanceOwnerPartyId = (int)queryParameters.InstanceOwnerPartyId;
                     
-                    XacmlJsonResponse response;
-                    try
-                    {
-                        response = await _authorizationService.GetDecisionForRequest(request);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, $"Something went wrong during GetDecisionForRequest for application id: {appId}");
-                        throw;
-                    }
+                    XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(queryParameters.Org, appId, HttpContext.User, "read", instanceOwnerPartyId, null);
+                    XacmlJsonResponse response = await _authorizationService.GetDecisionForRequest(request);
 
                     if (response?.Response == null)
                     {
@@ -151,18 +133,7 @@ namespace Altinn.Platform.Storage.Controllers
                         return Forbid();
                     }
 
-                    bool authorized;
-                    try
-                    {
-                        authorized = DecisionHelper.ValidatePdpDecision(response.Response, HttpContext.User);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, $"Something went wrong during ValidatePdpDecision for application id: {appId}");
-                        throw;
-                    }
-
-                    if (!authorized)
+                    if (!DecisionHelper.ValidatePdpDecision(response.Response, HttpContext.User))
                     {
                         return Forbid();
                     }
