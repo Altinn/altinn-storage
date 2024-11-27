@@ -10,20 +10,17 @@ These instructions will get you a copy of the storage component up and running o
 
 ### Prerequisites
 
-1. [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-2. Newest [Git](https://git-scm.com/downloads)
-3. A code editor - we like [Visual Studio Code](https://code.visualstudio.com/download)
+* [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+* Newest [Git](https://git-scm.com/downloads)
+* A code editor - we like [Visual Studio Code](https://code.visualstudio.com/download)
    - Also install [recommended extensions](https://code.visualstudio.com/docs/editor/extension-marketplace#_workspace-recommended-extensions) (e.g. [C#](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csharp))
-4. Infrastructure
-  * Either install manually
-    1. [Podman](https://podman.io/) or another container tool such as Docker Desktop
-    2. [PostgreSQL](https://www.postgresql.org/download/)
-    3. [pgAdmin](https://www.pgadmin.org/download/)
-  * Or run through `docker compose`
-    * `docker compose up -d`
+* Infrastructure
+  * [Podman](https://podman.io/) or another container tool such as Docker Desktop
+  * [PostgreSQL](https://www.postgresql.org/download/)
+  * [pgAdmin](https://www.pgadmin.org/download/)
+  * Automatically setup using `docker compose up -d`
 
-
-### Setting up PostgreSQL
+### Manually setting up PostgreSQL
 
 Ensure that both PostgreSQL and pgAdmin have been installed and start pgAdmin.
 If you installed prerequisite infrastructure through `docker compose`, you can skip to the next section.
