@@ -82,7 +82,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             Assert.Equal(newInstance.LastChangedBy, updatedInstance.LastChangedBy);
         }
 
-        /// <summary>1
+        /// <summary>
         /// Test update task with events
         /// </summary>
         [Theory]
