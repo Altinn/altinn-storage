@@ -132,6 +132,11 @@ namespace Altinn.Platform.Storage.Controllers
                 return NotFound();
             }
 
+            foreach (InstanceEvent instanceEvent in processStateUpdate.Events)
+            {
+                instanceEvent.Created = instanceEvent.Created?.ToUniversalTime() ?? DateTime.UtcNow;
+            }
+
             ProcessState processState = processStateUpdate.State;
 
             var (action, taskId) = ActionMapping(processState, existingInstance);
