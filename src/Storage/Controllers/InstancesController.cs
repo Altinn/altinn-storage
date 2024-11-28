@@ -122,9 +122,8 @@ namespace Altinn.Platform.Storage.Controllers
                 if (!orgClaim.Equals(queryParameters.Org, StringComparison.InvariantCultureIgnoreCase))
                 {
                     var appId = ValidateAppId(queryParameters.AppId).Split("/")[1];
-                    var instanceOwnerPartyId = (int)queryParameters.InstanceOwnerPartyId;
                     
-                    XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(queryParameters.Org, appId, HttpContext.User, "read", instanceOwnerPartyId, null);
+                    XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(queryParameters.Org, appId, HttpContext.User, "read");
                     XacmlJsonResponse response = await _authorizationService.GetDecisionForRequest(request);
 
                     if (response?.Response == null)
