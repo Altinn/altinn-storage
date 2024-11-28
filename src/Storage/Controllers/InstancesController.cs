@@ -121,18 +121,17 @@ namespace Altinn.Platform.Storage.Controllers
                 
                 if (!orgClaim.Equals(queryParameters.Org, StringComparison.InvariantCultureIgnoreCase))
                 {
+                    if (string.IsNullOrEmpty(queryParameters.AppId))
+                    {
+                        return BadRequest("AppId must be defined.");
+                    }
+                    
                     var appId = ValidateAppId(queryParameters.AppId).Split("/")[1];
                     
                     XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(queryParameters.Org, appId, HttpContext.User, "read");
                     XacmlJsonResponse response = await _authorizationService.GetDecisionForRequest(request);
-
-                    if (response?.Response == null)
-                    {
-                        _logger.LogInformation("// Instances Controller // Authorization of instantiation failed with request: {request}.", JsonConvert.SerializeObject(request));
-                        return Forbid();
-                    }
-
-                    if (!DecisionHelper.ValidatePdpDecision(response.Response, HttpContext.User))
+                    
+                    if (!DecisionHelper.ValidatePdpDecision(response?.Response, HttpContext.User))
                     {
                         return Forbid();
                     }
