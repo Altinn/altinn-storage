@@ -50,6 +50,7 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// Gets or sets the validation status.
         /// </summary>
         [JsonProperty(PropertyName = "validated")]
+        [Obsolete("ValidationStatus is no longer used by apps. Validation is performed on process changes instead")]
         public ValidationStatus Validated { get; set; }
 
         /// <summary>

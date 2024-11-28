@@ -22,6 +22,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IDataRepository, PgDataRepository>()
             .AddSingleton<IInstanceEventRepository, PgInstanceEventRepository>()
             .AddSingleton<IInstanceRepository, PgInstanceRepository>()
+            .AddSingleton<IInstanceAndEventsRepository, PgInstanceAndEventsRepository>()
             .AddSingleton<IBlobRepository, BlobRepository>()
             .AddSingleton<IA2Repository, PgA2Repository>()
             .AddNpgsqlDataSource(connectionString, builder => builder.EnableParameterLogging(logParameters).EnableDynamicJson());
