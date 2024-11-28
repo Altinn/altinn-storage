@@ -136,7 +136,11 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 if (string.IsNullOrWhiteSpace(instanceEvent.InstanceId))
                 {
-                    instanceEvent.InstanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
+                    return BadRequest("Missing instance ID in InstanceEvent");
+                }
+                else if (instanceEvent.InstanceId != $"{instanceOwnerPartyId}/{instanceGuid}")
+                {
+                    return BadRequest("Instance ID in InstanceEvent does not match the Instance ID");
                 }
 
                 instanceEvent.Created = instanceEvent.Created?.ToUniversalTime() ?? DateTime.UtcNow;
