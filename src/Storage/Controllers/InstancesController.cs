@@ -630,7 +630,7 @@ namespace Altinn.Platform.Storage.Controllers
 
                 instance.Status.Substatus = substatus;
                 instance.LastChanged = creationTime;
-                instance.LastChangedBy = User.GetOrgNumber().ToString();
+                instance.LastChangedBy = User.GetOrgNumber();
 
                 updatedInstance = await _instanceRepository.Update(instance, updateProperties);
                 updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
