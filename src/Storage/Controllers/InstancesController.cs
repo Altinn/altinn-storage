@@ -135,11 +135,9 @@ namespace Altinn.Platform.Storage.Controllers
                     {
                         return Forbid();
                     }
-                }
-                else
-                {
-                    appOwnerRequestingInstances = true;
-                }
+                } 
+                
+                appOwnerRequestingInstances = true;
             }
             else if (userId != null)
             {
