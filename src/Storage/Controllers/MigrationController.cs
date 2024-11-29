@@ -23,7 +23,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
-
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
@@ -51,6 +51,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly GeneralSettings _generalSettings;
         private readonly AzureStorageConfiguration _azureStorageSettings;
         private readonly HttpClient _httpClient;
+        private readonly IMemoryCache _memoryCache;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MigrationController"/> class
@@ -67,6 +68,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="azureStorageSettings">the azureStorage settings.</param>
         /// <param name="generalSettings">Settings with endpoint uri</param>
         /// <param name="httpClient">The HttpClient to use in communication with the PDF generator service.</param>
+        /// <param name="memoryCache">the memory cache</param>
         public MigrationController(
             IInstanceRepository instanceRepository,
             IInstanceEventRepository instanceEventRepository,
@@ -79,7 +81,8 @@ namespace Altinn.Platform.Storage.Controllers
             IOptions<GeneralSettings> settings,
             IOptions<AzureStorageConfiguration> azureStorageSettings,
             IOptions<GeneralSettings> generalSettings,
-            HttpClient httpClient)
+            HttpClient httpClient,
+            IMemoryCache memoryCache)
         {
             _instanceRepository = instanceRepository;
             _instanceEventRepository = instanceEventRepository;
@@ -93,6 +96,7 @@ namespace Altinn.Platform.Storage.Controllers
             _azureStorageSettings = azureStorageSettings.Value;
             _httpClient = httpClient;
             _httpClient.BaseAddress = new Uri(generalSettings.Value.PdfGeneratorEndpoint);
+            _memoryCache = memoryCache;
         }
 
         /// <summary>
@@ -349,6 +353,12 @@ namespace Altinn.Platform.Storage.Controllers
         {
             try
             {
+                string cacheKey = $"tid:{org}-{app}-{language}";
+                if (_memoryCache.Get(cacheKey) != null)
+                {
+                    _memoryCache.Remove(cacheKey);
+                }
+
                 TextResource textResource = await _textRepository.Get(org, app, language);
                 using var reader = new StreamReader(Request.Body);
                 if (textResource == null)
