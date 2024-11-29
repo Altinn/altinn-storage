@@ -118,12 +118,25 @@ namespace Altinn.Platform.Storage.Controllers
                 {
                     queryParameters.Org = queryParameters.AppId.Split('/')[0];
                 }
-
+                
                 if (!orgClaim.Equals(queryParameters.Org, StringComparison.InvariantCultureIgnoreCase))
                 {
-                    return Forbid();
-                }
-
+                    if (string.IsNullOrEmpty(queryParameters.AppId))
+                    {
+                        return BadRequest("AppId must be defined.");
+                    }
+                    
+                    var appId = ValidateAppId(queryParameters.AppId).Split("/")[1];
+                    
+                    XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(queryParameters.Org, appId, HttpContext.User, "read");
+                    XacmlJsonResponse response = await _authorizationService.GetDecisionForRequest(request);
+                    
+                    if (!DecisionHelper.ValidatePdpDecision(response?.Response, HttpContext.User))
+                    {
+                        return Forbid();
+                    }
+                } 
+                
                 appOwnerRequestingInstances = true;
             }
             else if (userId != null)

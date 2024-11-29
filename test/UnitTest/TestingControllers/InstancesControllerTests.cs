@@ -806,17 +806,21 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         /// <summary>
-        /// Test case: Response is deny.
-        /// Expected: Returns status forbidden.
+        /// Scenario:
+        ///   An app owner calls the API via apps-endpoints with a token that specifies a different
+        ///   organization than the service owner. As long as the policy file does not explicitly
+        ///   allow the different organization to access instances, the request should be denied.
+        /// Result:
+        ///   Returns status is Forbidden.
         /// </summary>
         [Fact]
-        public async Task GetMany_QueryingDifferentOrgThanInClaims_ReturnsForbidden()
+        public async Task GetMany_QueryingDifferentOrgThanInClaims_ReturnsForbiddenIfDifferentOrgIsNotAuthenticatedWithPolicyFile()
         {
             // Arrange
-            string requestUri = $"{BasePath}?org=paradiseHotelOrg";
+            string requestUri = $"{BasePath}?instanceOwner.PartyId=1337&appId=sfvt/test-read-app-no-permission";
 
             HttpClient client = GetTestClient();
-            string token = PrincipalUtil.GetOrgToken("testOrg", scope: "altinn:serviceowner/instances.read");
+            string token = PrincipalUtil.GetOrgToken("digdir", scope: "altinn:serviceowner/instances.read");
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             // Act
@@ -824,6 +828,56 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+        
+        /// <summary>
+        /// Scenario:
+        ///   An app owner calls the API via apps-endpoints with a token that specifies the same organization
+        ///   as the service owner. The policy file does not explicitly allow the different organization to access
+        ///   instances, the request should still be allowed. 
+        /// Result:
+        ///   Returns status is OK.
+        /// </summary>
+        [Fact]
+        public async Task GetMany_QueryingSameOrgAsInClaims_ReturnsOk()
+        {
+            // Arrange
+            string requestUri = $"{BasePath}?instanceOwner.PartyId=1337&appId=sfvt/app-without-policy";
+
+            HttpClient client = GetTestClient();
+            string token = PrincipalUtil.GetOrgToken("sfvt", scope: "altinn:serviceowner/instances.read");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // Act
+            HttpResponseMessage response = await client.GetAsync(requestUri);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+        
+        /// <summary>
+        /// Scenario:
+        ///   An app owner calls the API via apps-endpoints with a token that specifies a different
+        ///   organization than the service owner. As long as the policy file specifies that the different
+        ///   organization should be allowed to access instances, the request should be allowed.
+        /// Result:
+        ///   Returns status OK.
+        /// </summary>
+        [Fact]
+        public async Task GetMany_QueryingDifferentOrgThanInClaims_ReturnsOkIfDifferentOrgIsAuthenticatedWithPolicyFile()
+        {
+            // Arrange
+            string requestUri = $"{BasePath}?instanceOwner.PartyId=1337&appId=sfvt/test-read-app";
+
+            HttpClient client = GetTestClient();
+            string token = PrincipalUtil.GetOrgToken("digdir", scope: "altinn:serviceowner/instances.read");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // Act
+            HttpResponseMessage response = await client.GetAsync(requestUri);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 
         /// <summary>
