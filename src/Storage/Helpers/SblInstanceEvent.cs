@@ -33,7 +33,19 @@ namespace Altinn.Platform.Storage.Models
         /// </summary>
         [JsonProperty(PropertyName = "user")]
         public PlatformUser User { get; set; }
-        
+
+        /// <summary>
+        /// A user that is related to the event
+        /// </summary>
+        [JsonProperty(PropertyName = "relatedUser")]
+        public PlatformUser RelatedUser { get; set; }
+
+        /// <summary>
+        /// Additional information describing the event
+        /// </summary>
+        [JsonProperty(PropertyName = "additionalInfo")]
+        public string AdditionalInfo { get; set; }
+
         /// <inheritdoc/>
         public override string ToString()
         {

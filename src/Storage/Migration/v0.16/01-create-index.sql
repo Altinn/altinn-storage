@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS instances_org_lastchanged ON storage.instances(org, lastChanged);

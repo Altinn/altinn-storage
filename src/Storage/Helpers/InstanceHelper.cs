@@ -83,7 +83,9 @@ namespace Altinn.Platform.Storage.Helpers
                         Id = instanceEvent.Id,
                         User = instanceEvent.User,
                         CreatedDateTime = instanceEvent.Created,
-                        EventType = instanceEvent.EventType
+                        EventType = instanceEvent.EventType,
+                        AdditionalInfo = instanceEvent.AdditionalInfo,
+                        RelatedUser = instanceEvent.RelatedUser
                     });
             }
 
