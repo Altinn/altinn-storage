@@ -1,3 +1,5 @@
+using System;
+
 using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.Interface.Models
@@ -38,5 +40,23 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// </summary>
         [JsonProperty(PropertyName = "nationalIdentityNumber")]
         public string NationalIdentityNumber { get; set; }
+
+        /// <summary>
+        /// Gets or sets the ID of the system user that triggered the event.
+        /// </summary>
+        [JsonProperty(PropertyName = "systemUserId")]
+        public Guid SystemUserId { get; set; }
+
+        /// <summary>
+        /// Gets or sets the organization number of the owner of the system user that triggered the event.
+        /// </summary>
+        [JsonProperty(PropertyName = "systemUserOwner")]
+        public string SystemUserOwner { get; set; }
+
+        /// <summary>
+        /// Gets or sets the name of the system user that triggered the event.
+        /// </summary>
+        [JsonProperty(PropertyName = "systemUserName")]
+        public string SystemUserName { get; set; }
     }
 }
