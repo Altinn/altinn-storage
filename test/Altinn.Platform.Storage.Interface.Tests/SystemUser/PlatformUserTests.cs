@@ -17,7 +17,7 @@ public class PlatformUserTests
 
         target.SystemUserId.Should().BeNull();
         target.SystemUserName.Should().BeNull();
-        target.SystemUserOwner.Should().BeNull();
+        target.SystemUserOwnerOrgNo.Should().BeNull();
     }
 
     [Fact]
@@ -27,6 +27,6 @@ public class PlatformUserTests
 
         target.SystemUserId.Should().Be(Guid.Parse("2280457B-0A79-49C5-AC14-09217705C9A1"));
         target.SystemUserName.Should().Be("Vismalise");
-        target.SystemUserOwner.Should().Be("565433454");
+        target.SystemUserOwnerOrgNo.Should().Be("565433454");
     }
 }

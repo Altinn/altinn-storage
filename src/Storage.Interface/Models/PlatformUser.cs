@@ -50,8 +50,8 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// <summary>
         /// Gets or sets the organization number of the owner of the system user that triggered the event.
         /// </summary>
-        [JsonProperty(PropertyName = "systemUserOwner")]
-        public string SystemUserOwner { get; set; }
+        [JsonProperty(PropertyName = "systemUserOwnerOrgNo")]
+        public string SystemUserOwnerOrgNo { get; set; }
 
         /// <summary>
         /// Gets or sets the name of the system user that triggered the event.
