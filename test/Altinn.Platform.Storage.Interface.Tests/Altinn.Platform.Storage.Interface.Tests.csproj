@@ -8,11 +8,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="AllowUserActions\applicationMetadata_afterChange.json" />
-    <None Remove="AllowUserActions\applicationMetadata_beforeChange.json" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="FluentAssertions" Version="7.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="xunit" Version="2.9.2" />
@@ -47,6 +42,8 @@
     <EmbeddedResource Include="AllowUserActions\applicationMetadata_beforeChange.json" />
     <EmbeddedResource Include="AllowInSubform\applicationMetadata_afterChange.json" />
     <EmbeddedResource Include="AllowInSubform\applicationMetadata_beforeChange.json" />
+    <EmbeddedResource Include="SystemUser\platformUser_afterChange.json" />
+    <EmbeddedResource Include="SystemUser\platformUser_beforeChange.json" />
   </ItemGroup>
 
   <ItemGroup>
