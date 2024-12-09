@@ -34,7 +34,7 @@ namespace Altinn.Platform.Storage.Authorization
         private const string ResourceId = "r";
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="AuthorizationService"/> class.
+        /// Initializes a new instance of the <see cref="AuthorizationService"/> class. Test comment to trigger container scan.
         /// </summary>
         /// <param name="pdp">Policy decision point</param>
         /// <param name="claimsPrincipalProvider">A service providing access to the current <see cref="ClaimsPrincipal"/>.</param>
