@@ -19,7 +19,7 @@ jobs:
   build-test-analyze:
     name: Build, test & analyze
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false))
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
      postgres:
        image: postgres:16
