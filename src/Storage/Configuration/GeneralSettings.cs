@@ -34,6 +34,11 @@ namespace Altinn.Platform.Storage.Configuration
         public List<string> InstanceReadScope { get; set; }
 
         /// <summary>
+        /// Gets or sets the scope for storage sync adapters.
+        /// </summary>
+        public string InstanceSyncAdapterScope { get; set; }
+
+        /// <summary>
         /// Gets or sets the cache lifetime for text resources.
         /// </summary>
         public int TextResourceCacheLifeTimeInSeconds { get; set; }
