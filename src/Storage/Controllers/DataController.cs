@@ -206,6 +206,13 @@ namespace Altinn.Platform.Storage.Controllers
                     return NotFound($"Unable to read data element from blob storage for {dataGuid}");
                 }
 
+                // Migrated Altinn 2 Websa main forms should be shown inline in the browser
+                if (instance.AppId.Contains(@"/a2-") && dataElement.DataType == "ref-data-as-pdf" && dataElement.ContentType == "text/html")
+                {
+                    Response.Headers.Append(HeaderNames.ContentDisposition, "inline");
+                    return File(dataStream, dataElement.ContentType);
+                }
+
                 return File(dataStream, dataElement.ContentType, dataElement.Filename);
             }
             else if (dataElement.BlobStoragePath.StartsWith("ondemand"))

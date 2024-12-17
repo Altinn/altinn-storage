@@ -15,8 +15,8 @@ namespace Altinn.Platform.Storage.Services
         /// </summary>
         /// <param name="printXslList">printXslList</param>
         /// <param name="xmlData">xmlData</param>
-        /// <param name="archiveStamp">Timestamp used for water mark</param>
+        /// <param name="watermark">Timestamp used for water mark</param>
         /// <returns>Html as string</returns>
-        string GetFormdataHtml(PrintViewXslBEList printXslList, Stream xmlData, string archiveStamp);
+        string GetFormdataHtml(PrintViewXslBEList printXslList, Stream xmlData, string watermark);
     }
 }

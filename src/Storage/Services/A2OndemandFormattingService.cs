@@ -45,7 +45,7 @@ namespace Altinn.Platform.Storage.Services
         private string GetFormdataHtmlInternal(
             Stream formData,
             PrintViewXslBEList printViewXslBEList,
-            string archiveStamp)
+            string watermark)
         {
             XmlDocument xmlDoc = new();
             xmlDoc.Load(formData);
@@ -86,7 +86,7 @@ namespace Altinn.Platform.Storage.Services
                 htmlToTranslate = htmlToTranslate.Replace("</head>", _css);
 
                 // Add the archive time stamp and the list of attachments
-                htmlToTranslate = SetArchiveTimeStampToHtml(archiveStamp, htmlToTranslate);
+                htmlToTranslate = SetArchiveTimeStampToHtml(watermark, htmlToTranslate);
 
                 htmlString.Append(htmlToTranslate);
             }
