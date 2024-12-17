@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -236,10 +237,12 @@ namespace Altinn.Platform.Storage.Controllers
 
             xsls[^1].LastPage = true;
 
+            string watermark = ((DateTime)xmlElement.Created).ToString("dd-MM-yyyy HH:mm:ss", CultureInfo.InvariantCulture)
+                + $" AR{instance.DataValues["A2ArchRef"]}";
             return _a2OndemandFormattingService.GetFormdataHtml(
                 xsls,
                 await _blobRepository.ReadBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}", $"{instance.Org}/{app}/{instanceGuid}/data/{xmlElement.Id}", application.StorageAccountNumber),
-                xmlElement.Created.ToString());
+                watermark);
         }
     }
 
