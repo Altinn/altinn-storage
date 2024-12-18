@@ -702,8 +702,7 @@ namespace Altinn.Platform.Storage.Helpers
 
                                 break;
                             default:
-                                int locale = int.Parse(formatParams["locale"].ToString());
-                                dateStr = date.ToString(formatString, new CultureInfo(locale));
+                                dateStr = date.ToString(formatString, CultureInfo.InvariantCulture);
                                 break;
                         }
 

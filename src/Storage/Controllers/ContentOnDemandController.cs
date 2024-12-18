@@ -237,7 +237,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             xsls[^1].LastPage = true;
 
-            string watermark = ((DateTime)xmlElement.Created).ToLocalTime().ToString("dd-MM-yyyy HH:mm:ss", CultureInfo.InvariantCulture)
+            string watermark = ((DateTime)instance.Created).ToLocalTime().ToString("dd-MM-yyyy HH:mm:ss", CultureInfo.InvariantCulture)
                 + $" AR{instance.DataValues["A2ArchRef"]}";
             return _a2OndemandFormattingService.GetFormdataHtml(
                 xsls,
