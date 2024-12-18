@@ -638,7 +638,8 @@ namespace Altinn.Platform.Storage.Helpers
         /// <returns>
         /// Formatted string
         /// </returns>
-        public string FormatString(string str, string type, string format)
+        [SuppressMessage("StyleCop.CSharp.NamingRules", "SA1300:Element should begin with upper-case letter", Justification = "Must match infopath callback name")]
+        public string formatString(string str, string type, string format)
         {
             try
             {
