@@ -26,8 +26,8 @@
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.22.0" />
 
     <PackageReference Include="PDFsharp" Version="6.1.1" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="7.1.0" />
-    <PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="7.1.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="7.2.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="7.2.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
     <PackageReference Include="Npgsql" Version="8.0.6" />
