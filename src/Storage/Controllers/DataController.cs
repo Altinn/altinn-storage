@@ -209,7 +209,9 @@ namespace Altinn.Platform.Storage.Controllers
                 // Migrated Altinn 2 Websa main forms should be shown inline in the browser
                 if (instance.AppId.Contains(@"/a2-") && dataElement.DataType == "ref-data-as-pdf" && dataElement.ContentType == "text/html")
                 {
-                    Response.Headers.Append(HeaderNames.ContentDisposition, "inline");
+                    var contentDispositionHeader = new ContentDispositionHeaderValue("inline");
+                    contentDispositionHeader.SetHttpFileName(dataElement.Filename);
+                    Response.Headers.Append(HeaderNames.ContentDisposition, contentDispositionHeader.ToString());
                     return File(dataStream, dataElement.ContentType);
                 }
 
@@ -217,7 +219,10 @@ namespace Altinn.Platform.Storage.Controllers
             }
             else if (dataElement.BlobStoragePath.StartsWith("ondemand"))
             {
-                Response.Headers.Append(HeaderNames.ContentDisposition, "inline");
+                var contentDispositionHeader = new ContentDispositionHeaderValue("inline");
+                contentDispositionHeader.SetHttpFileName(dataElement.Filename);
+                Response.Headers.Append(HeaderNames.ContentDisposition, contentDispositionHeader.ToString());
+
                 return File(
                     await _onDemandClient.GetStreamAsync(
                     $"ondemand/{instance.AppId}/{instanceOwnerPartyId}/{instanceGuid}/{dataGuid}/" +
