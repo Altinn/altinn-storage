@@ -270,7 +270,7 @@ namespace Altinn.Platform.Storage.Controllers
                 gfx.Restore(state);
                 gfx.DrawString(
                     (idx + 1).ToString(),
-                    new XFont("Arial", 9),
+                    new XFont("font-awesome", 9),
                     XBrushes.Black,
                     new XPoint(page.Width.Point - 23, page.Height.Point - 5));
             }
@@ -279,7 +279,7 @@ namespace Altinn.Platform.Storage.Controllers
         private static void DrawWatermark(XGraphics gfx, double x, double y, double angle, string watermark)
         {
             XRect rect = new(x, y, 155, 15);
-            XFont font = new("Arial", 9);
+            XFont font = new("font-awesome", 9);
             XBrush brush = XBrushes.Red;
             XStringFormat format = new()
             {
