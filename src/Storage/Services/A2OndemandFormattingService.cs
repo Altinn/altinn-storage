@@ -37,15 +37,12 @@ namespace Altinn.Platform.Storage.Services
         }
 
         /// <inheritdoc/>
-        public string GetFormdataHtml(PrintViewXslBEList printXslList, Stream xmlData, string archiveStamp)
+        public string GetFormdataHtml(PrintViewXslBEList printXslList, Stream xmlData)
         {
-            return GetFormdataHtmlInternal(xmlData, printXslList, archiveStamp);
+            return GetFormdataHtmlInternal(xmlData, printXslList);
         }
 
-        private string GetFormdataHtmlInternal(
-            Stream formData,
-            PrintViewXslBEList printViewXslBEList,
-            string watermark)
+        private string GetFormdataHtmlInternal(Stream formData, PrintViewXslBEList printViewXslBEList)
         {
             XmlDocument xmlDoc = new();
             xmlDoc.Load(formData);
@@ -83,12 +80,8 @@ namespace Altinn.Platform.Storage.Services
                     htmlToTranslate = htmlWriterOutput.ToString();
                 }
 
-                htmlToTranslate = htmlToTranslate.Replace("</head>", _css);
-
-                // Add the archive time stamp and the list of attachments
-                htmlToTranslate = SetArchiveTimeStampToHtml(watermark, htmlToTranslate);
-
-                htmlString.Append(htmlToTranslate);
+                htmlToTranslate = SetHtmlAdjustments(htmlToTranslate);
+                htmlString.Append(htmlToTranslate.Replace("</head>", _css));
             }
 
             return htmlString.ToString();
@@ -120,32 +113,6 @@ namespace Altinn.Platform.Storage.Services
             // Align the html content to left
             htmlMain = htmlMain.Replace("<div align=\"right\"", "<div");
             htmlMain = htmlMain.Replace("<tbody", "<tbody align=\"left\"");
-
-            return htmlMain;
-        }
-
-        /// <summary>
-        /// Sets the archive time stamp and the list of attachments in the main html string
-        /// </summary>
-        /// <param name="htmlHeaderText">Archive time stamp information</param>
-        /// <param name="htmlMain">Main html string</param>
-        /// <returns>Main html string after changes</returns>
-        private static string SetArchiveTimeStampToHtml(string htmlHeaderText, string htmlMain)
-        {
-            // Make adjustments to the HTML
-            htmlMain = SetHtmlAdjustments(htmlMain);
-
-            string cssClassForPrintAll = string.Empty;
-            if (!string.IsNullOrEmpty(htmlHeaderText))
-            {
-                // Appending html header text as html header and footer
-                // Header and Footer tags for the archive time stamp
-                string htmlHeader = "<header id='pageHeader'" + cssClassForPrintAll + ">" + htmlHeaderText + "</header>";
-                string htmlFooter = "<footer id='pageFooter'" + cssClassForPrintAll + ">" + htmlHeaderText + "</footer>";
-
-                // Adding the same archive time stamp as Header and footer for the HTML page
-                htmlMain = htmlMain.Replace("</body>", htmlHeader + htmlFooter + "</body>");
-            }
 
             return htmlMain;
         }
@@ -490,7 +457,7 @@ namespace Altinn.Platform.Storage.Services
             return xslCompiledTransform;
         }
 
-        private void SelectNodeProcessing(XmlDocument xslDoc, XmlNodeList selectNodeList)
+        private static void SelectNodeProcessing(XmlDocument xslDoc, XmlNodeList selectNodeList)
         {
             try
             {
@@ -808,8 +775,6 @@ namespace Altinn.Platform.Storage.Services
             thead.xdTableHeader { background-color: inherit !important; }
             td div font img { float: right; }
             div.attachmentInfo { text-align: left; margin-left: 310px; }
-            #pageHeader { -webkit-transform: rotate(-90deg); -webkit-transform-origin: right bottom; -moz-transform: rotate(-90deg); -moz-transform-origin: right bottom; -o-transform: rotate(-90deg); -o-transform-origin: right bottom; -ms-transform: rotate(-90deg); -ms-transform-origin: right bottom; position: fixed; top: 5px; right: 10px; color: red; border: 1px solid red; padding: 1px; }
-            #pageFooter { -webkit-transform: rotate(90deg); -webkit-transform-origin: right bottom; -moz-transform: rotate(90deg); -moz-transform-origin: right bottom; -o-transform: rotate(90deg); -o-transform-origin: right bottom; -ms-transform: rotate(90deg); -ms-transform-origin: right bottom; position: fixed; bottom: 15px; left: 10px; color: red; border: 1px solid red; padding: 1px; margin-left: -215px; }
             footer.printAllStyle { margin-left: -165px !important; }
             .pageBreak { page-break-after: always; }
 
