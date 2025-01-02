@@ -14,7 +14,6 @@ RUN dotnet publish ./Altinn.Platform.Storage.csproj -c Release -o /app_output
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0.11-alpine3.20 AS final
 EXPOSE 5010
-
 WORKDIR /app
 COPY --from=build /app_output .
 COPY --from=build /Storage/Migration ./Migration
