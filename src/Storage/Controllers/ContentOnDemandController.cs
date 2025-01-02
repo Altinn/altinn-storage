@@ -29,7 +29,8 @@ namespace Altinn.Platform.Storage.Controllers
     [ApiController]
     public class ContentOnDemandController : Controller
     {
-        private const string FontFamily = "Noto Sans";
+        private const string PrimaryFontFamily = "Noto Serif";
+        private const string FallbackFontFamily = "Arial";
         private const int FontSize = 9;
 
         private readonly IInstanceRepository _instanceRepository;
@@ -273,7 +274,7 @@ namespace Altinn.Platform.Storage.Controllers
                 gfx.Restore(state);
                 gfx.DrawString(
                     (idx + 1).ToString(),
-                    new XFont(FontFamily, FontSize),
+                    GetFont(),
                     XBrushes.Black,
                     new XPoint(page.Width.Point - 23, page.Height.Point - 5));
             }
@@ -282,7 +283,6 @@ namespace Altinn.Platform.Storage.Controllers
         private static void DrawWatermark(XGraphics gfx, double x, double y, double angle, string watermark)
         {
             XRect rect = new(x, y, 155, 15);
-            XFont font = new(FontFamily, FontSize);
             XBrush brush = XBrushes.Red;
             XStringFormat format = new()
             {
@@ -291,7 +291,19 @@ namespace Altinn.Platform.Storage.Controllers
             };
             gfx.RotateAtTransform(angle, new XPoint(x, y));
             gfx.DrawRectangle(XPens.Red, rect);
-            gfx.DrawString(watermark, font, brush, rect, format);
+            gfx.DrawString(watermark, GetFont(), brush, rect, format);
+        }
+
+        private static XFont GetFont()
+        {
+            try
+            {
+                return new(PrimaryFontFamily, FontSize);
+            }
+            catch (Exception)
+            {
+                return new(FallbackFontFamily, FontSize);
+            }
         }
     }
 
