@@ -77,7 +77,7 @@ namespace Altinn.Platform.Storage.Configuration
         /// <summary>
         /// Font family
         /// </summary>
-        public string FontFamily { get; set; } = "Noto Sans";
+        public string FontFamily { get; set; } = "segoe wp"; ////"Noto Sans";
 
         /// <summary>
         /// Font size
