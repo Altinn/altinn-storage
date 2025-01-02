@@ -73,15 +73,5 @@ namespace Altinn.Platform.Storage.Configuration
         /// be set to false on demand by manipulating the aks yaml config in the target environment.
         /// </summary>
         public bool DisableTelemetryForMigration { get; set; } = true;
-
-        /// <summary>
-        /// Font family
-        /// </summary>
-        public string FontFamily { get; set; } = "segoe wp"; ////"Noto Sans";
-
-        /// <summary>
-        /// Font size
-        /// </summary>
-        public int FontSize { get; set; } = 9;
     }
 }

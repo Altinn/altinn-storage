@@ -15,15 +15,6 @@ RUN dotnet publish ./Altinn.Platform.Storage.csproj -c Release -o /app_output
 FROM mcr.microsoft.com/dotnet/aspnet:8.0.11-alpine3.20 AS final
 EXPOSE 5010
 
-#COPY ./my-custom-font.ttf ./
-#RUN mkdir -p /usr/share/fonts/truetype/
-#RUN install -m644 my-custom-font.ttf /usr/share/fonts/truetype/
-#RUN rm ./my-custom-font.ttf
-
-RUN apk --update --upgrade --no-cache add fontconfig ttf-freefont font-noto terminus-font font-awesome \ 
-   && fc-cache -f \ 
-   && fc-list | sort
-
 WORKDIR /app
 COPY --from=build /app_output .
 COPY --from=build /Storage/Migration ./Migration

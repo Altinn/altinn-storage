@@ -30,7 +30,7 @@ namespace Altinn.Platform.Storage.Controllers
     [ApiController]
     public class ContentOnDemandController : Controller
     {
-        private const string PrimaryFontFamily = "Noto Serif";
+        private const string PrimaryFontFamily = "segoe wp";
         private const string FallbackFontFamily = "Arial";
         private const int FontSize = 9;
 
@@ -41,9 +41,6 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly GeneralSettings _generalSettings;
         private readonly IA2OndemandFormattingService _a2OndemandFormattingService;
         private readonly IPdfGeneratorClient _pdfGeneratorClient;
-
-        private static string _ff;
-        private static int _fs;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ContentOnDemandController"/> class
@@ -71,9 +68,10 @@ namespace Altinn.Platform.Storage.Controllers
             _generalSettings = settings.Value;
             _a2OndemandFormattingService = a2OndemandFormattingService;
             _pdfGeneratorClient = pdfGeneratorClient;
+        }
 
-            _ff = _generalSettings.FontFamily;
-            _fs = _generalSettings.FontSize;
+        static ContentOnDemandController()
+        {
             GlobalFontSettings.FontResolver = new SegoeWpFontResolver();
         }
 
@@ -306,8 +304,7 @@ namespace Altinn.Platform.Storage.Controllers
         {
             try
             {
-                //return new(PrimaryFontFamily, FontSize);
-                return new(_ff, _fs);
+                return new(PrimaryFontFamily, FontSize);
             }
             catch (Exception)
             {
