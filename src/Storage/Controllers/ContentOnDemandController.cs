@@ -41,6 +41,9 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IA2OndemandFormattingService _a2OndemandFormattingService;
         private readonly IPdfGeneratorClient _pdfGeneratorClient;
 
+        private static string _ff;
+        private static int _fs;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="ContentOnDemandController"/> class
         /// </summary>
@@ -67,6 +70,9 @@ namespace Altinn.Platform.Storage.Controllers
             _generalSettings = settings.Value;
             _a2OndemandFormattingService = a2OndemandFormattingService;
             _pdfGeneratorClient = pdfGeneratorClient;
+
+            _ff = _generalSettings.FontFamily;
+            _fs = _generalSettings.FontSize;
         }
 
         /// <summary>
@@ -298,7 +304,8 @@ namespace Altinn.Platform.Storage.Controllers
         {
             try
             {
-                return new(PrimaryFontFamily, FontSize);
+                //return new(PrimaryFontFamily, FontSize);
+                return new(_ff, _fs);
             }
             catch (Exception)
             {
