@@ -130,6 +130,30 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal(HttpStatusCode.OK, response2.StatusCode);
         }
 
+        [Fact]
+        public async Task Get_One_With_SyncAdapterScope_Ok()
+        {
+            // Arrange
+            int instanceOwnerPartyId = 1337;
+            string instanceGuid = "377efa97-80ee-4cc6-8d48-09de12cc273d";
+            string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}";
+
+            HttpClient client = GetTestClient();
+            string token = PrincipalUtil.GetOrgToken("foo", scope: "altinn:storage/instances.syncadapter");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // Act
+            RequestTracker.Clear();
+            HttpResponseMessage response = await client.GetAsync(requestUri);
+
+            // Assert
+            Assert.Equal(0, RequestTracker.GetRequestCount("GetDecisionForRequest1337/377efa97-80ee-4cc6-8d48-09de12cc273d")); // We should not be hitting the PDP as sync adapter
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            string responseContent = await response.Content.ReadAsStringAsync();
+            Instance instance = (Instance)JsonConvert.DeserializeObject(responseContent, typeof(Instance));
+            Assert.Equal("1337", instance.InstanceOwner.PartyId);
+        }
+
         /// <summary>
         /// Test case: User tries to access element that he is not authorized for
         /// Expected: Returns status forbidden.
@@ -166,6 +190,31 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             HttpClient client = GetTestClient();
             string token = PrincipalUtil.GetToken(-1, 1);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // Laste opp test instance..
+            Instance instance = new Instance() { InstanceOwner = new InstanceOwner() { PartyId = "1337" }, Org = "tdd", AppId = "tdd/endring-av-navn" };
+
+            // Act
+            HttpResponseMessage response = await client.PostAsync(requestUri, JsonContent.Create(instance, new MediaTypeHeaderValue("application/json")));
+
+            // Assert
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+
+        /// <summary>
+        /// Test case: Sync adapters should not be allowed to write (only delete).
+        /// Expected: Returns status forbidden.
+        /// </summary>
+        [Fact]
+        public async Task Post_ReponseIsDenyForSyncAdapter_ReturnsStatusForbidden()
+        {
+            // Arrange
+            string appId = "tdd/endring-av-navn";
+            string requestUri = $"{BasePath}?appId={appId}";
+
+            HttpClient client = GetTestClient();
+            string token = PrincipalUtil.GetOrgToken("foo", scope: "altinn:storage/instances.syncadapter");
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             // Laste opp test instance..
@@ -305,6 +354,32 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Instance deletedInstance = JsonConvert.DeserializeObject<Instance>(json);
 
             // Assert
+            Assert.NotNull(deletedInstance.Status.HardDeleted);
+            Assert.NotNull(deletedInstance.Status.SoftDeleted);
+            Assert.Equal(deletedInstance.Status.HardDeleted, deletedInstance.Status.SoftDeleted);
+        }
+
+        [Fact]
+        public async Task Delete_With_SyncAdapterScope_Ok()
+        {
+            // Arrange
+            int instanceOwnerPartyId = 1337;
+            string instanceGuid = "377efa97-80ee-4cc6-8d48-09de12cc273d";
+            string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}?hard=true";
+
+            HttpClient client = GetTestClient();
+            string token = PrincipalUtil.GetOrgToken("foo", scope: "altinn:storage/instances.syncadapter");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // Act
+            RequestTracker.Clear();
+            HttpResponseMessage response = await client.DeleteAsync(requestUri);
+
+            string json = await response.Content.ReadAsStringAsync();
+            Instance deletedInstance = JsonConvert.DeserializeObject<Instance>(json);
+
+            // Assert
+            Assert.Equal(0, RequestTracker.GetRequestCount("GetDecisionForRequest1337/377efa97-80ee-4cc6-8d48-09de12cc273d")); // We should not be hitting the PDP as sync adapter
             Assert.NotNull(deletedInstance.Status.HardDeleted);
             Assert.NotNull(deletedInstance.Status.SoftDeleted);
             Assert.Equal(deletedInstance.Status.HardDeleted, deletedInstance.Status.SoftDeleted);
@@ -796,6 +871,27 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             HttpClient client = GetTestClient();
             string token = PrincipalUtil.GetOrgToken("testOrg", scope: "altinn:serviceowner/instances.write");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // Act
+            HttpResponseMessage response = await client.GetAsync(requestUri);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+
+        /// <summary>
+        /// Test case: Get Multiple instances using client with sync adapter scope should faile.
+        /// Expected: Returns status forbidden.
+        /// </summary>
+        [Fact]
+        public async Task GetMany_SyncAdapterScope_ReturnsForbidden()
+        {
+            // Arrange
+            string requestUri = $"{BasePath}?org=testOrg";
+
+            HttpClient client = GetTestClient();
+            string token = PrincipalUtil.GetOrgToken("testOrg", scope: "altinn:storage/instances.syncadapter");
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             // Act
