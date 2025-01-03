@@ -29,9 +29,16 @@ namespace Altinn.Platform.Storage.Controllers
     [ApiController]
     public class ContentOnDemandController : Controller
     {
-        private const string PrimaryFontFamily = "segoe wp";
-        private const string FallbackFontFamily = "Arial";
-        private const int FontSize = 9;
+        private const string _primaryFontFamily = "segoe wp";
+        private const string _fallbackFontFamily = "Arial";
+        private const int _fontSize = 9;
+
+        // The watermark numbers are in XUnit points (1/72 inch)
+        private const int _watermarkWidth = 15;
+        private const int _watermarkHeigth = 155;
+        private const int _watermarkMarginW = 18;
+        private const int _watermarkMarginH = 5;
+        private const int _watermarkPosition = _watermarkHeigth + _watermarkMarginH;
 
         private readonly IInstanceRepository _instanceRepository;
         private readonly IBlobRepository _blobRepository;
@@ -260,21 +267,16 @@ namespace Altinn.Platform.Storage.Controllers
 
         private static float GetScale(PrintViewXslBE infoPathViewXslBE)
         {
-            float margin = 0.19f; // inches - 43 pixels in winnovative is 0.22 inches, adjusted to make it look the same
-            float pageWidth = infoPathViewXslBE.IsPortrait ? 8.27f : 11.7f;
-            string backColor = "#ffffff";
+            float margin = _watermarkMarginW + _watermarkWidth;
+
+            // Set A4 width in XUnit points (1/72 inch)
+            float pageWidth = infoPathViewXslBE.IsPortrait ? 595.92f : 842.88f;
+
             if (infoPathViewXslBE.PdfModificationParams != null)
             {
-                if (infoPathViewXslBE.PdfModificationParams.BackgroundColor != null)
-                {
-                    backColor = infoPathViewXslBE.PdfModificationParams.BackgroundColor;
-                }
-
-                float htmlWidth = infoPathViewXslBE.PdfModificationParams.HtmlViewerWidth / 96.0f;
-                if ((pageWidth - htmlWidth) / 2.0f > margin)
-                {
-                    return (pageWidth - (2 * margin)) / htmlWidth;
-                }
+                // Set html width in XUnit points (1/72 inch). HtmlViewerWidth is in pixels (1/96 inch)
+                float htmlWidth = infoPathViewXslBE.PdfModificationParams.HtmlViewerWidth * 72 / 96.0f;
+                return (pageWidth - (2 * margin)) / htmlWidth;
             }
 
             return 1;
@@ -290,10 +292,10 @@ namespace Altinn.Platform.Storage.Controllers
                 using XGraphics gfx = XGraphics.FromPdfPage(page, XGraphicsPdfPageOptions.Append);
 
                 var state = gfx.Save();
-                DrawWatermark(gfx, page.Width.Point - 18, 160, -90, watermark);
+                DrawWatermark(gfx, page.Width.Point - _watermarkMarginW, _watermarkPosition, -90, watermark);
                 gfx.Restore(state);
                 state = gfx.Save();
-                DrawWatermark(gfx, 18, page.Height.Point - 160, 90, watermark);
+                DrawWatermark(gfx, _watermarkMarginW, page.Height.Point - _watermarkPosition, 90, watermark);
                 gfx.Restore(state);
                 gfx.DrawString(
                     (idx + 1).ToString(),
@@ -305,7 +307,7 @@ namespace Altinn.Platform.Storage.Controllers
 
         private static void DrawWatermark(XGraphics gfx, double x, double y, double angle, string watermark)
         {
-            XRect rect = new(x, y, 155, 15);
+            XRect rect = new(x, y, _watermarkHeigth, _watermarkWidth);
             XBrush brush = XBrushes.Red;
             XStringFormat format = new()
             {
@@ -321,11 +323,11 @@ namespace Altinn.Platform.Storage.Controllers
         {
             try
             {
-                return new(PrimaryFontFamily, FontSize);
+                return new(_primaryFontFamily, _fontSize);
             }
             catch (Exception)
             {
-                return new(FallbackFontFamily, FontSize);
+                return new(_fallbackFontFamily, _fontSize);
             }
         }
     }
