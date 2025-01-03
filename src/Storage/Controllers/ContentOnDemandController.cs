@@ -6,7 +6,6 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using System.Xml.Linq;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Models;
@@ -147,33 +146,33 @@ namespace Altinn.Platform.Storage.Controllers
             List<int> visiblePages = !string.IsNullOrEmpty(visiblePagesString) ? visiblePagesString.Split(';').Select(int.Parse).ToList() : null;
 
             int lformid = int.Parse(xmlElement.Metadata.First(m => m.Key == "lformid").Value);
-            PrintViewXslBEList xsls = [];
+            PrintViewXslBEList printViews = [];
             int pageNumber = 1;
-            foreach ((string xsl, bool isPortrait) in await _a2Repository.GetXsls(instance.Org, app, lformid, language, 3))
+            foreach ((string view, bool isPortrait) in await _a2Repository.GetXsls(instance.Org, app, lformid, language, 3))
             {
                 if (visiblePages == null || visiblePages.Contains(pageNumber))
                 {
-                    xsls.Add(new PrintViewXslBE() { PrintViewXsl = xsl, Id = $"{lformid}-{pageNumber}{language}", IsPortrait = isPortrait, PageNumber = pageNumber });
+                    printViews.Add(new PrintViewXslBE() { PrintViewXsl = view, Id = $"{lformid}-{pageNumber}{language}", IsPortrait = isPortrait, PageNumber = pageNumber });
                 }
 
                 ++pageNumber;
             }
 
-            xsls[^1].LastPage = true;
+            printViews[^1].LastPage = true;
 
             Stream pdfStream;
-            if (xsls.Count > 1 && xsls.Exists(x => x.IsPortrait) && xsls.Exists(x => !x.IsPortrait))
+            if (printViews.Count > 1 && printViews.Exists(x => x.IsPortrait) && printViews.Exists(x => !x.IsPortrait))
             {
                 // Mix of portrait and landscape, we must generate each page and merge them
                 using var mergedDoc = new PdfDocument();
-                foreach (var xsl in xsls)
+                foreach (var view in printViews)
                 {
-                    string html = await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, 3, xsl.PageNumber);
-                    var pdfPages = await _pdfGeneratorClient.GeneratePdf(html, xsl.IsPortrait);
+                    string html = await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, 3, view.PageNumber);
+                    var pdfPages = await _pdfGeneratorClient.GeneratePdf(html, view.IsPortrait, GetScale(view));
                     using var pageDoc = PdfReader.Open(pdfPages, PdfDocumentOpenMode.Import);
                     for (var i = 0; i < pageDoc.PageCount; i++)
                     {
-                        pageDoc.Pages[i].Orientation = xsl.IsPortrait ? PdfSharp.PageOrientation.Portrait : PdfSharp.PageOrientation.Landscape;
+                        pageDoc.Pages[i].Orientation = view.IsPortrait ? PdfSharp.PageOrientation.Portrait : PdfSharp.PageOrientation.Landscape;
                         mergedDoc.AddPage(pageDoc.Pages[i]);
                     }
                 }
@@ -185,7 +184,7 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 // Generate all pages in a single operation
                 string html = await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, 3);
-                pdfStream = await _pdfGeneratorClient.GeneratePdf(html, xsls[0].IsPortrait);
+                pdfStream = await _pdfGeneratorClient.GeneratePdf(html, printViews[0].IsPortrait, GetScale(printViews[0]));
             }
 
             instance.DataValues.TryGetValue("A2ArchRefTs", out string watermark);
@@ -245,24 +244,46 @@ namespace Altinn.Platform.Storage.Controllers
             string visiblePagesString = xmlElement.Metadata.FirstOrDefault(m => m.Key == "A2VisiblePages")?.Value;
             List<int> visiblePages = !string.IsNullOrEmpty(visiblePagesString) ? visiblePagesString.Split(';').Select(int.Parse).ToList() : null;
 
-            PrintViewXslBEList xsls = [];
+            PrintViewXslBEList views = [];
             int lformid = int.Parse(xmlElement.Metadata.First(m => m.Key == "lformid").Value);
             int pageNumber = 1;
-            foreach ((string xsl, bool isPortrait) in await _a2Repository.GetXsls(instance.Org, app, lformid, language, viewType))
+            foreach ((string view, bool isPortrait) in await _a2Repository.GetXsls(instance.Org, app, lformid, language, viewType))
             {
                 if ((singlePageNr != -1 && singlePageNr == pageNumber) || (singlePageNr == -1 && (visiblePages == null || visiblePages.Contains(pageNumber))))
                 {
-                    xsls.Add(new PrintViewXslBE() { PrintViewXsl = xsl, Id = $"{lformid}-{pageNumber}{language}", IsPortrait = isPortrait, PageNumber = pageNumber });
+                    views.Add(new PrintViewXslBE() { PrintViewXsl = view, Id = $"{lformid}-{pageNumber}{language}", IsPortrait = isPortrait, PageNumber = pageNumber });
                 }
 
                 ++pageNumber;
             }
 
-            xsls[^1].LastPage = true;
+            views[^1].LastPage = true;
 
             return _a2OndemandFormattingService.GetFormdataHtml(
-                xsls,
+                views,
                 await _blobRepository.ReadBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}", $"{instance.Org}/{app}/{instanceGuid}/data/{xmlElement.Id}", application.StorageAccountNumber));
+        }
+
+        private static float GetScale(PrintViewXslBE infoPathViewXslBE)
+        {
+            float margin = 0.19f; // inches - 43 pixels in winnovative is 0.22 inches, adjusted to make it look the same
+            float pageWidth = infoPathViewXslBE.IsPortrait ? 8.27f : 11.7f;
+            string backColor = "#ffffff";
+            if (infoPathViewXslBE.PdfModificationParams != null)
+            {
+                if (infoPathViewXslBE.PdfModificationParams.BackgroundColor != null)
+                {
+                    backColor = infoPathViewXslBE.PdfModificationParams.BackgroundColor;
+                }
+
+                float htmlWidth = infoPathViewXslBE.PdfModificationParams.HtmlViewerWidth / 96.0f;
+                if ((pageWidth - htmlWidth) / 2.0f > margin)
+                {
+                    return (pageWidth - (2 * margin)) / htmlWidth;
+                }
+            }
+
+            return 1;
         }
 
         private static void AddWaterMarksAndPageNumber(PdfDocument document, string watermark)

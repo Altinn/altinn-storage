@@ -62,17 +62,23 @@ namespace Altinn.Platform.Storage.Services
                 xslArg.AddExtensionObject("http://schemas.microsoft.com/office/infopath/2003/xslt/Util", obj);
                 xslArg.AddExtensionObject("http://schemas.microsoft.com/office/infopath/2003/xslt/Date", obj);
 
-                string cacheKey = $"xslt:{printViewXslBE.Id}";
-                if (!_memoryCache.TryGetValue(cacheKey, out XslCompiledTransform xslCompiledTransform))
+                string cacheKeyXslt = $"xslt:{printViewXslBE.Id}";
+                string cacheKeyPdfParams = $"pdf:{printViewXslBE.Id}";
+                if (!_memoryCache.TryGetValue(cacheKeyXslt, out XslCompiledTransform xslCompiledTransform) ||
+                    !_memoryCache.TryGetValue(cacheKeyPdfParams, out PdfModificationParametersBE pdfModParams))
                 {
                     xslCompiledTransform = GetXslCompiledTransformForPrint(printViewXslBE, xmlDoc, xslArg);
+                    pdfModParams = printViewXslBE.PdfModificationParams;
 
                     MemoryCacheEntryOptions cacheEntryOptions = new MemoryCacheEntryOptions()
                    .SetPriority(CacheItemPriority.Normal)
                    .SetAbsoluteExpiration(new TimeSpan(0, 0, 300));
 
-                    _memoryCache.Set(cacheKey, xslCompiledTransform, cacheEntryOptions);
+                    _memoryCache.Set(cacheKeyXslt, xslCompiledTransform, cacheEntryOptions);
+                    _memoryCache.Set(cacheKeyPdfParams, printViewXslBE.PdfModificationParams, cacheEntryOptions);
                 }
+
+                printViewXslBE.PdfModificationParams = pdfModParams;
 
                 using (StringWriter htmlWriterOutput = new())
                 {
@@ -140,7 +146,7 @@ namespace Altinn.Platform.Storage.Services
             printViewXslBE.PrintViewXsl = printViewXslBE.PrintViewXsl.Replace(".langFont {", ".langFont{display:none;");
             printViewXslBE.PrintViewXsl = printViewXslBE.PrintViewXsl.Replace(".optionalPlaceholder {", ".optionalPlaceholder{display:none;");
 
-            PdfMofificationParametersBE pdfModParamBE = new();
+            PdfModificationParametersBE pdfModParamBE = new();
             int extraFirstDivPadding = 0;
             string xsl = printViewXslBE.PrintViewXsl;
 
@@ -454,6 +460,8 @@ namespace Altinn.Platform.Storage.Services
                 string dummy = htmlWriterOutput.ToString();
             }
 
+            printViewXslBE.PdfModificationParams = pdfModParamBE;
+
             return xslCompiledTransform;
         }
 
@@ -713,7 +721,7 @@ namespace Altinn.Platform.Storage.Services
         /// Gets or sets PDF modification parameters
         /// </summary>
         [DataMember]
-        public PdfMofificationParametersBE PdfModificationParams { get; set; }
+        public PdfModificationParametersBE PdfModificationParams { get; set; }
 
         #endregion
     }
@@ -727,9 +735,9 @@ namespace Altinn.Platform.Storage.Services
     }
 
     /// <summary>
-    /// PdfMofificationParametersBE
+    /// PdfModificationParametersBE
     /// </summary>
-    public class PdfMofificationParametersBE
+    public class PdfModificationParametersBE
     {
         /// <summary>
         /// Gets or sets Width of the html viewer
