@@ -15,6 +15,8 @@ using Altinn.Platform.Storage.Services;
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using PdfSharp.Drawing;
+using PdfSharp.Fonts;
 using PdfSharp.Pdf;
 using PdfSharp.Pdf.IO;
 
@@ -28,6 +30,10 @@ namespace Altinn.Platform.Storage.Controllers
     [ApiController]
     public class ContentOnDemandController : Controller
     {
+        private const string PrimaryFontFamily = "segoe wp";
+        private const string FallbackFontFamily = "Arial";
+        private const int FontSize = 9;
+
         private readonly IInstanceRepository _instanceRepository;
         private readonly IBlobRepository _blobRepository;
         private readonly IA2Repository _a2Repository;
@@ -62,6 +68,13 @@ namespace Altinn.Platform.Storage.Controllers
             _generalSettings = settings.Value;
             _a2OndemandFormattingService = a2OndemandFormattingService;
             _pdfGeneratorClient = pdfGeneratorClient;
+        }
+
+        static ContentOnDemandController()
+        {
+            // Use font resolver and font from the PdfSharp demo code to avoid installing fonts
+            // on the alpine image.
+            GlobalFontSettings.FontResolver = new Helpers.SegoeWpFontResolver();
         }
 
         /// <summary>
@@ -148,6 +161,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             xsls[^1].LastPage = true;
 
+            Stream pdfStream;
             if (xsls.Count > 1 && xsls.Exists(x => x.IsPortrait) && xsls.Exists(x => !x.IsPortrait))
             {
                 // Mix of portrait and landscape, we must generate each page and merge them
@@ -164,16 +178,25 @@ namespace Altinn.Platform.Storage.Controllers
                     }
                 }
 
-                MemoryStream mergedPdf = new();
-                mergedDoc.Save(mergedPdf);
-                return mergedPdf;
+                pdfStream = new MemoryStream();
+                mergedDoc.Save(pdfStream);
             }
             else
             {
                 // Generate all pages in a single operation
                 string html = await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, 3);
-                return await _pdfGeneratorClient.GeneratePdf(html, xsls[0].IsPortrait);
+                pdfStream = await _pdfGeneratorClient.GeneratePdf(html, xsls[0].IsPortrait);
             }
+
+            instance.DataValues.TryGetValue("A2ArchRefTs", out string watermark);
+            watermark = (watermark ?? ((DateTime)instance.Created).ToLocalTime().ToString("dd-MM-yyyy HH:mm:ss", CultureInfo.InvariantCulture))
+                + $" AR{instance.DataValues["A2ArchRef"]}";
+
+            using var finalPdfDocument = PdfReader.Open(pdfStream, PdfDocumentOpenMode.Modify);
+            AddWaterMarksAndPageNumber(finalPdfDocument, watermark);
+            MemoryStream finalPdfStream = new();
+            finalPdfDocument.Save(finalPdfStream);
+            return finalPdfStream;
         }
 
         /// <summary>
@@ -187,7 +210,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="singlePageNr">optional filter for a single page number</param>
         /// <returns>The formatted content</returns>
         [HttpGet("formdatahtml/{singlepagenr?}")]
-        public async Task<Stream> GetFormdataAsHtml([FromRoute]string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language, [FromRoute(Name = "singlepagenr")] int singlePageNr = -1)
+        public async Task<Stream> GetFormdataAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language, [FromRoute(Name = "singlepagenr")] int singlePageNr = -1)
         {
             return await GetFormdataAsHtmlStream(app, instanceGuid, dataGuid, language, 3, singlePageNr);
         }
@@ -237,13 +260,58 @@ namespace Altinn.Platform.Storage.Controllers
 
             xsls[^1].LastPage = true;
 
-            instance.DataValues.TryGetValue("A2ArchRefTs", out string watermark);
-            watermark = (watermark ?? ((DateTime)instance.Created).ToLocalTime().ToString("dd-MM-yyyy HH:mm:ss", CultureInfo.InvariantCulture))
-                + $" AR{instance.DataValues["A2ArchRef"]}";
             return _a2OndemandFormattingService.GetFormdataHtml(
                 xsls,
-                await _blobRepository.ReadBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}", $"{instance.Org}/{app}/{instanceGuid}/data/{xmlElement.Id}", application.StorageAccountNumber),
-                watermark);
+                await _blobRepository.ReadBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}", $"{instance.Org}/{app}/{instanceGuid}/data/{xmlElement.Id}", application.StorageAccountNumber));
+        }
+
+        private static void AddWaterMarksAndPageNumber(PdfDocument document, string watermark)
+        {
+            for (var idx = 0; idx < document.Pages.Count; idx++)
+            {
+                var page = document.Pages[idx];
+
+                // Get an XGraphics object for drawing beneath the existing content.
+                using XGraphics gfx = XGraphics.FromPdfPage(page, XGraphicsPdfPageOptions.Append);
+
+                var state = gfx.Save();
+                DrawWatermark(gfx, page.Width.Point - 18, 160, -90, watermark);
+                gfx.Restore(state);
+                state = gfx.Save();
+                DrawWatermark(gfx, 18, page.Height.Point - 160, 90, watermark);
+                gfx.Restore(state);
+                gfx.DrawString(
+                    (idx + 1).ToString(),
+                    GetFont(),
+                    XBrushes.Black,
+                    new XPoint(page.Width.Point - 23, page.Height.Point - 5));
+            }
+        }
+
+        private static void DrawWatermark(XGraphics gfx, double x, double y, double angle, string watermark)
+        {
+            XRect rect = new(x, y, 155, 15);
+            XBrush brush = XBrushes.Red;
+            XStringFormat format = new()
+            {
+                Alignment = XStringAlignment.Center,
+                LineAlignment = XLineAlignment.Center
+            };
+            gfx.RotateAtTransform(angle, new XPoint(x, y));
+            gfx.DrawRectangle(XPens.Red, rect);
+            gfx.DrawString(watermark, GetFont(), brush, rect, format);
+        }
+
+        private static XFont GetFont()
+        {
+            try
+            {
+                return new(PrimaryFontFamily, FontSize);
+            }
+            catch (Exception)
+            {
+                return new(FallbackFontFamily, FontSize);
+            }
         }
     }
 
