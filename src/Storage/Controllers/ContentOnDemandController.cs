@@ -272,7 +272,7 @@ namespace Altinn.Platform.Storage.Controllers
                 var page = document.Pages[idx];
 
                 // Get an XGraphics object for drawing beneath the existing content.
-                XGraphics gfx = XGraphics.FromPdfPage(page, XGraphicsPdfPageOptions.Append);
+                using XGraphics gfx = XGraphics.FromPdfPage(page, XGraphicsPdfPageOptions.Append);
 
                 var state = gfx.Save();
                 DrawWatermark(gfx, page.Width.Point - 18, 160, -90, watermark);
