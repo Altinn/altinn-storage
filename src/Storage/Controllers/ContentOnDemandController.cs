@@ -6,7 +6,6 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using System.Xml.Linq;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Models;
@@ -30,9 +29,16 @@ namespace Altinn.Platform.Storage.Controllers
     [ApiController]
     public class ContentOnDemandController : Controller
     {
-        private const string PrimaryFontFamily = "segoe wp";
-        private const string FallbackFontFamily = "Arial";
-        private const int FontSize = 9;
+        private const string _primaryFontFamily = "segoe wp";
+        private const string _fallbackFontFamily = "Arial";
+        private const int _fontSize = 9;
+
+        // The watermark numbers are in XUnit points (1/72 inch)
+        private const int _watermarkWidth = 15;
+        private const int _watermarkHeigth = 155;
+        private const int _watermarkMarginW = 18;
+        private const int _watermarkMarginH = 5;
+        private const int _watermarkPosition = _watermarkHeigth + _watermarkMarginH;
 
         private readonly IInstanceRepository _instanceRepository;
         private readonly IBlobRepository _blobRepository;
@@ -147,46 +153,35 @@ namespace Altinn.Platform.Storage.Controllers
             List<int> visiblePages = !string.IsNullOrEmpty(visiblePagesString) ? visiblePagesString.Split(';').Select(int.Parse).ToList() : null;
 
             int lformid = int.Parse(xmlElement.Metadata.First(m => m.Key == "lformid").Value);
-            PrintViewXslBEList xsls = [];
+            PrintViewXslBEList printViews = [];
             int pageNumber = 1;
-            foreach ((string xsl, bool isPortrait) in await _a2Repository.GetXsls(instance.Org, app, lformid, language, 3))
+            foreach ((string view, bool isPortrait) in await _a2Repository.GetXsls(instance.Org, app, lformid, language, 3))
             {
                 if (visiblePages == null || visiblePages.Contains(pageNumber))
                 {
-                    xsls.Add(new PrintViewXslBE() { PrintViewXsl = xsl, Id = $"{lformid}-{pageNumber}{language}", IsPortrait = isPortrait, PageNumber = pageNumber });
+                    printViews.Add(new PrintViewXslBE() { PrintViewXsl = view, Id = $"{lformid}-{pageNumber}{language}", IsPortrait = isPortrait, PageNumber = pageNumber });
                 }
 
                 ++pageNumber;
             }
 
-            xsls[^1].LastPage = true;
+            printViews[^1].LastPage = true;
 
-            Stream pdfStream;
-            if (xsls.Count > 1 && xsls.Exists(x => x.IsPortrait) && xsls.Exists(x => !x.IsPortrait))
+            using var mergedDoc = new PdfDocument();
+            foreach (var view in printViews)
             {
-                // Mix of portrait and landscape, we must generate each page and merge them
-                using var mergedDoc = new PdfDocument();
-                foreach (var xsl in xsls)
+                (string html, PrintViewXslBEList updatedViews) = await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, 3, view.PageNumber);
+                var pdfPages = await _pdfGeneratorClient.GeneratePdf(html, view.IsPortrait, GetScale(updatedViews[0]));
+                using var pageDoc = PdfReader.Open(pdfPages, PdfDocumentOpenMode.Import);
+                for (var i = 0; i < pageDoc.PageCount; i++)
                 {
-                    string html = await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, 3, xsl.PageNumber);
-                    var pdfPages = await _pdfGeneratorClient.GeneratePdf(html, xsl.IsPortrait);
-                    using var pageDoc = PdfReader.Open(pdfPages, PdfDocumentOpenMode.Import);
-                    for (var i = 0; i < pageDoc.PageCount; i++)
-                    {
-                        pageDoc.Pages[i].Orientation = xsl.IsPortrait ? PdfSharp.PageOrientation.Portrait : PdfSharp.PageOrientation.Landscape;
-                        mergedDoc.AddPage(pageDoc.Pages[i]);
-                    }
+                    pageDoc.Pages[i].Orientation = view.IsPortrait ? PdfSharp.PageOrientation.Portrait : PdfSharp.PageOrientation.Landscape;
+                    mergedDoc.AddPage(pageDoc.Pages[i]);
                 }
+            }
 
-                pdfStream = new MemoryStream();
-                mergedDoc.Save(pdfStream);
-            }
-            else
-            {
-                // Generate all pages in a single operation
-                string html = await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, 3);
-                pdfStream = await _pdfGeneratorClient.GeneratePdf(html, xsls[0].IsPortrait);
-            }
+            MemoryStream pdfStream = new();
+            mergedDoc.Save(pdfStream);
 
             instance.DataValues.TryGetValue("A2ArchRefTs", out string watermark);
             watermark = (watermark ?? ((DateTime)instance.Created).ToLocalTime().ToString("dd-MM-yyyy HH:mm:ss", CultureInfo.InvariantCulture))
@@ -210,7 +205,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="singlePageNr">optional filter for a single page number</param>
         /// <returns>The formatted content</returns>
         [HttpGet("formdatahtml/{singlepagenr?}")]
-        public async Task<Stream> GetFormdataAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language, [FromRoute(Name = "singlepagenr")] int singlePageNr = -1)
+        public async Task<(Stream Html, PrintViewXslBEList Views)> GetFormdataAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language, [FromRoute(Name = "singlepagenr")] int singlePageNr = -1)
         {
             return await GetFormdataAsHtmlStream(app, instanceGuid, dataGuid, language, 3, singlePageNr);
         }
@@ -227,15 +222,17 @@ namespace Altinn.Platform.Storage.Controllers
         [HttpGet("formsummaryhtml")]
         public async Task<Stream> GetFormSummaryAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
-            return await GetFormdataAsHtmlStream(app, instanceGuid, dataGuid, language, 2);
+            (Stream html, _) = await GetFormdataAsHtmlStream(app, instanceGuid, dataGuid, language, 2);
+            return html;
         }
 
-        private async Task<Stream> GetFormdataAsHtmlStream(string app, Guid instanceGuid, Guid dataGuid, string language, int viewType, int singlePageNr = -1)
+        private async Task<(Stream Html, PrintViewXslBEList Views)> GetFormdataAsHtmlStream(string app, Guid instanceGuid, Guid dataGuid, string language, int viewType, int singlePageNr = -1)
         {
-            return new MemoryStream(Encoding.UTF8.GetBytes(await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, viewType, singlePageNr)));
+            (string html, PrintViewXslBEList views) = await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, viewType, singlePageNr);
+            return (new MemoryStream(Encoding.UTF8.GetBytes(html)), views);
         }
 
-        private async Task<string> GetFormdataAsHtmlString(string app, Guid instanceGuid, Guid dataGuid, string language, int viewType, int singlePageNr = -1)
+        private async Task<(string Html, PrintViewXslBEList Views)> GetFormdataAsHtmlString(string app, Guid instanceGuid, Guid dataGuid, string language, int viewType, int singlePageNr = -1)
         {
             (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
             Application application = await _applicationRepository.FindOne(instance.AppId, instance.Org);
@@ -245,24 +242,44 @@ namespace Altinn.Platform.Storage.Controllers
             string visiblePagesString = xmlElement.Metadata.FirstOrDefault(m => m.Key == "A2VisiblePages")?.Value;
             List<int> visiblePages = !string.IsNullOrEmpty(visiblePagesString) ? visiblePagesString.Split(';').Select(int.Parse).ToList() : null;
 
-            PrintViewXslBEList xsls = [];
+            PrintViewXslBEList views = [];
             int lformid = int.Parse(xmlElement.Metadata.First(m => m.Key == "lformid").Value);
             int pageNumber = 1;
-            foreach ((string xsl, bool isPortrait) in await _a2Repository.GetXsls(instance.Org, app, lformid, language, viewType))
+            foreach ((string view, bool isPortrait) in await _a2Repository.GetXsls(instance.Org, app, lformid, language, viewType))
             {
                 if ((singlePageNr != -1 && singlePageNr == pageNumber) || (singlePageNr == -1 && (visiblePages == null || visiblePages.Contains(pageNumber))))
                 {
-                    xsls.Add(new PrintViewXslBE() { PrintViewXsl = xsl, Id = $"{lformid}-{pageNumber}{language}", IsPortrait = isPortrait, PageNumber = pageNumber });
+                    views.Add(new PrintViewXslBE() { PrintViewXsl = view, Id = $"{lformid}-{pageNumber}{language}", IsPortrait = isPortrait, PageNumber = pageNumber });
                 }
 
                 ++pageNumber;
             }
 
-            xsls[^1].LastPage = true;
+            views[^1].LastPage = true;
 
-            return _a2OndemandFormattingService.GetFormdataHtml(
-                xsls,
-                await _blobRepository.ReadBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}", $"{instance.Org}/{app}/{instanceGuid}/data/{xmlElement.Id}", application.StorageAccountNumber));
+            Stream blob = await _blobRepository.ReadBlob(
+                $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
+                $"{instance.Org}/{app}/{instanceGuid}/data/{xmlElement.Id}",
+                application.StorageAccountNumber);
+
+            return (_a2OndemandFormattingService.GetFormdataHtml(views, blob), views);
+        }
+
+        private static float GetScale(PrintViewXslBE infoPathViewXslBE)
+        {
+            float margin = _watermarkMarginW + _watermarkWidth;
+
+            // Set A4 width in XUnit points (1/72 inch)
+            float pageWidth = infoPathViewXslBE.IsPortrait ? 595.92f : 842.88f;
+
+            if (infoPathViewXslBE.PdfModificationParams != null)
+            {
+                // Set html width in XUnit points (1/72 inch). HtmlViewerWidth is in pixels (1/96 inch)
+                float htmlWidth = infoPathViewXslBE.PdfModificationParams.HtmlViewerWidth * 72 / 96.0f;
+                return (pageWidth - (2 * margin)) / htmlWidth;
+            }
+
+            return 1;
         }
 
         private static void AddWaterMarksAndPageNumber(PdfDocument document, string watermark)
@@ -275,10 +292,10 @@ namespace Altinn.Platform.Storage.Controllers
                 using XGraphics gfx = XGraphics.FromPdfPage(page, XGraphicsPdfPageOptions.Append);
 
                 var state = gfx.Save();
-                DrawWatermark(gfx, page.Width.Point - 18, 160, -90, watermark);
+                DrawWatermark(gfx, page.Width.Point - _watermarkMarginW, _watermarkPosition, -90, watermark);
                 gfx.Restore(state);
                 state = gfx.Save();
-                DrawWatermark(gfx, 18, page.Height.Point - 160, 90, watermark);
+                DrawWatermark(gfx, _watermarkMarginW, page.Height.Point - _watermarkPosition, 90, watermark);
                 gfx.Restore(state);
                 gfx.DrawString(
                     (idx + 1).ToString(),
@@ -290,7 +307,7 @@ namespace Altinn.Platform.Storage.Controllers
 
         private static void DrawWatermark(XGraphics gfx, double x, double y, double angle, string watermark)
         {
-            XRect rect = new(x, y, 155, 15);
+            XRect rect = new(x, y, _watermarkHeigth, _watermarkWidth);
             XBrush brush = XBrushes.Red;
             XStringFormat format = new()
             {
@@ -306,11 +323,11 @@ namespace Altinn.Platform.Storage.Controllers
         {
             try
             {
-                return new(PrimaryFontFamily, FontSize);
+                return new(_primaryFontFamily, _fontSize);
             }
             catch (Exception)
             {
-                return new(FallbackFontFamily, FontSize);
+                return new(_fallbackFontFamily, _fontSize);
             }
         }
     }

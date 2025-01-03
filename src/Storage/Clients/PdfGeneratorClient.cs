@@ -40,12 +40,12 @@ public class PdfGeneratorClient: IPdfGeneratorClient
     }
 
     /// <inheritdoc/>
-    public async Task<Stream> GeneratePdf(string html, bool isPortrait)
+    public async Task<Stream> GeneratePdf(string html, bool isPortrait, float scale)
     {
         var request = new PdfGeneratorRequest
         {
             Html = html,
-            Options = new() { Landscape = !isPortrait }
+            Options = new() { Landscape = !isPortrait, Scale = scale }
         };
         string requestContent = JsonSerializer.Serialize(request, _jsonSerializerOptions);
         var httpResponseMessage = await _httpClient.PostAsync(_httpClient.BaseAddress, new StringContent(requestContent, Encoding.UTF8, "application/json"));
@@ -116,6 +116,11 @@ public class PdfGeneratorClient: IPdfGeneratorClient
         /// Defines the page margins. Default is "0.4in" on all sides.
         /// </summary>
         public MarginOptions Margin { get; set; } = new();
+
+        /// <summary>
+        /// Scales the rendering of the web page. Amount must be between 0.1 and 2
+        /// </summary>
+        public float Scale { get; set; } = 1;
     }
 
     /// <summary>
