@@ -160,32 +160,21 @@ namespace Altinn.Platform.Storage.Controllers
 
             printViews[^1].LastPage = true;
 
-            Stream pdfStream;
-            if (printViews.Count > 1 && printViews.Exists(x => x.IsPortrait) && printViews.Exists(x => !x.IsPortrait))
+            using var mergedDoc = new PdfDocument();
+            foreach (var view in printViews)
             {
-                // Mix of portrait and landscape, we must generate each page and merge them
-                using var mergedDoc = new PdfDocument();
-                foreach (var view in printViews)
+                (string html, PrintViewXslBEList updatedViews) = await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, 3, view.PageNumber);
+                var pdfPages = await _pdfGeneratorClient.GeneratePdf(html, view.IsPortrait, GetScale(updatedViews[0]));
+                using var pageDoc = PdfReader.Open(pdfPages, PdfDocumentOpenMode.Import);
+                for (var i = 0; i < pageDoc.PageCount; i++)
                 {
-                    string html = await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, 3, view.PageNumber);
-                    var pdfPages = await _pdfGeneratorClient.GeneratePdf(html, view.IsPortrait, GetScale(view));
-                    using var pageDoc = PdfReader.Open(pdfPages, PdfDocumentOpenMode.Import);
-                    for (var i = 0; i < pageDoc.PageCount; i++)
-                    {
-                        pageDoc.Pages[i].Orientation = view.IsPortrait ? PdfSharp.PageOrientation.Portrait : PdfSharp.PageOrientation.Landscape;
-                        mergedDoc.AddPage(pageDoc.Pages[i]);
-                    }
+                    pageDoc.Pages[i].Orientation = view.IsPortrait ? PdfSharp.PageOrientation.Portrait : PdfSharp.PageOrientation.Landscape;
+                    mergedDoc.AddPage(pageDoc.Pages[i]);
                 }
+            }
 
-                pdfStream = new MemoryStream();
-                mergedDoc.Save(pdfStream);
-            }
-            else
-            {
-                // Generate all pages in a single operation
-                string html = await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, 3);
-                pdfStream = await _pdfGeneratorClient.GeneratePdf(html, printViews[0].IsPortrait, GetScale(printViews[0]));
-            }
+            MemoryStream pdfStream = new();
+            mergedDoc.Save(pdfStream);
 
             instance.DataValues.TryGetValue("A2ArchRefTs", out string watermark);
             watermark = (watermark ?? ((DateTime)instance.Created).ToLocalTime().ToString("dd-MM-yyyy HH:mm:ss", CultureInfo.InvariantCulture))
@@ -209,7 +198,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="singlePageNr">optional filter for a single page number</param>
         /// <returns>The formatted content</returns>
         [HttpGet("formdatahtml/{singlepagenr?}")]
-        public async Task<Stream> GetFormdataAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language, [FromRoute(Name = "singlepagenr")] int singlePageNr = -1)
+        public async Task<(Stream Html, PrintViewXslBEList Views)> GetFormdataAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language, [FromRoute(Name = "singlepagenr")] int singlePageNr = -1)
         {
             return await GetFormdataAsHtmlStream(app, instanceGuid, dataGuid, language, 3, singlePageNr);
         }
@@ -226,15 +215,17 @@ namespace Altinn.Platform.Storage.Controllers
         [HttpGet("formsummaryhtml")]
         public async Task<Stream> GetFormSummaryAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
         {
-            return await GetFormdataAsHtmlStream(app, instanceGuid, dataGuid, language, 2);
+            (Stream html, _) = await GetFormdataAsHtmlStream(app, instanceGuid, dataGuid, language, 2);
+            return html;
         }
 
-        private async Task<Stream> GetFormdataAsHtmlStream(string app, Guid instanceGuid, Guid dataGuid, string language, int viewType, int singlePageNr = -1)
+        private async Task<(Stream Html, PrintViewXslBEList Views)> GetFormdataAsHtmlStream(string app, Guid instanceGuid, Guid dataGuid, string language, int viewType, int singlePageNr = -1)
         {
-            return new MemoryStream(Encoding.UTF8.GetBytes(await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, viewType, singlePageNr)));
+            (string html, PrintViewXslBEList views) = await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, viewType, singlePageNr);
+            return (new MemoryStream(Encoding.UTF8.GetBytes(html)), views);
         }
 
-        private async Task<string> GetFormdataAsHtmlString(string app, Guid instanceGuid, Guid dataGuid, string language, int viewType, int singlePageNr = -1)
+        private async Task<(string Html, PrintViewXslBEList Views)> GetFormdataAsHtmlString(string app, Guid instanceGuid, Guid dataGuid, string language, int viewType, int singlePageNr = -1)
         {
             (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
             Application application = await _applicationRepository.FindOne(instance.AppId, instance.Org);
@@ -259,9 +250,12 @@ namespace Altinn.Platform.Storage.Controllers
 
             views[^1].LastPage = true;
 
-            return _a2OndemandFormattingService.GetFormdataHtml(
-                views,
-                await _blobRepository.ReadBlob($"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}", $"{instance.Org}/{app}/{instanceGuid}/data/{xmlElement.Id}", application.StorageAccountNumber));
+            Stream blob = await _blobRepository.ReadBlob(
+                $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
+                $"{instance.Org}/{app}/{instanceGuid}/data/{xmlElement.Id}",
+                application.StorageAccountNumber);
+
+            return (_a2OndemandFormattingService.GetFormdataHtml(views, blob), views);
         }
 
         private static float GetScale(PrintViewXslBE infoPathViewXslBE)
