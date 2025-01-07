@@ -16,7 +16,7 @@
     <tr>
         <td>@Model.OrderId</td>
         <td>@Model.Description</td>
-        <td>@((Model.PaymentSum / 100.0).ToString("N2", new System.Globalization.CultureInfo("no-NB")))</td>
+        <td>@((Model.PaymentSum / 100.0).ToString("N2"))</td>
         <td>@Model.LastUpdatedDate.ToString("dd-MM-yyyy HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)</td>
     </tr>
 </table>
