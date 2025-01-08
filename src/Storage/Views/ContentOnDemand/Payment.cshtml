@@ -1,4 +1,5 @@
-﻿@model Altinn.Platform.Storage.Controllers.PaymentView
+﻿<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+@model Altinn.Platform.Storage.Controllers.PaymentView
 <style>
     table, th, td {
         border: 1px solid black;
@@ -7,13 +8,15 @@
 <h1>Betalingsinformasjon</h1>
 <table>
     <tr>
+        <th>Ordrenummer</th>
         <th>Beskrivelse</th>
-        <th>Sum</th>
-        <th>Dato</th>
+        <th>Beløp</th>
+        <th>Dato for betaling</th>
     </tr>
     <tr>
+        <td>@Model.OrderId</td>
         <td>@Model.Description</td>
-        <td>@Model.PaymentSum</td>
-        <td>@Model.CreatedDate</td>
+        <td>@((Model.PaymentSum / 100.0).ToString("N2"))</td>
+        <td>@Model.LastUpdatedDate.ToString("dd-MM-yyyy HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)</td>
     </tr>
 </table>

@@ -37,15 +37,12 @@ namespace Altinn.Platform.Storage.Services
         }
 
         /// <inheritdoc/>
-        public string GetFormdataHtml(PrintViewXslBEList printXslList, Stream xmlData, string archiveStamp)
+        public string GetFormdataHtml(PrintViewXslBEList printXslList, Stream xmlData)
         {
-            return GetFormdataHtmlInternal(xmlData, printXslList, archiveStamp);
+            return GetFormdataHtmlInternal(xmlData, printXslList);
         }
 
-        private string GetFormdataHtmlInternal(
-            Stream formData,
-            PrintViewXslBEList printViewXslBEList,
-            string archiveStamp)
+        private string GetFormdataHtmlInternal(Stream formData, PrintViewXslBEList printViewXslBEList)
         {
             XmlDocument xmlDoc = new();
             xmlDoc.Load(formData);
@@ -65,17 +62,23 @@ namespace Altinn.Platform.Storage.Services
                 xslArg.AddExtensionObject("http://schemas.microsoft.com/office/infopath/2003/xslt/Util", obj);
                 xslArg.AddExtensionObject("http://schemas.microsoft.com/office/infopath/2003/xslt/Date", obj);
 
-                string cacheKey = $"xslt:{printViewXslBE.Id}";
-                if (!_memoryCache.TryGetValue(cacheKey, out XslCompiledTransform xslCompiledTransform))
+                string cacheKeyXslt = $"xslt:{printViewXslBE.Id}";
+                string cacheKeyPdfParams = $"pdf:{printViewXslBE.Id}";
+                if (!_memoryCache.TryGetValue(cacheKeyXslt, out XslCompiledTransform xslCompiledTransform) ||
+                    !_memoryCache.TryGetValue(cacheKeyPdfParams, out PdfModificationParametersBE pdfModParams))
                 {
                     xslCompiledTransform = GetXslCompiledTransformForPrint(printViewXslBE, xmlDoc, xslArg);
+                    pdfModParams = printViewXslBE.PdfModificationParams;
 
                     MemoryCacheEntryOptions cacheEntryOptions = new MemoryCacheEntryOptions()
                    .SetPriority(CacheItemPriority.Normal)
                    .SetAbsoluteExpiration(new TimeSpan(0, 0, 300));
 
-                    _memoryCache.Set(cacheKey, xslCompiledTransform, cacheEntryOptions);
+                    _memoryCache.Set(cacheKeyXslt, xslCompiledTransform, cacheEntryOptions);
+                    _memoryCache.Set(cacheKeyPdfParams, printViewXslBE.PdfModificationParams, cacheEntryOptions);
                 }
+
+                printViewXslBE.PdfModificationParams = pdfModParams;
 
                 using (StringWriter htmlWriterOutput = new())
                 {
@@ -83,12 +86,8 @@ namespace Altinn.Platform.Storage.Services
                     htmlToTranslate = htmlWriterOutput.ToString();
                 }
 
-                htmlToTranslate = htmlToTranslate.Replace("</head>", _css);
-
-                // Add the archive time stamp and the list of attachments
-                htmlToTranslate = SetArchiveTimeStampToHtml(archiveStamp, htmlToTranslate);
-
-                htmlString.Append(htmlToTranslate);
+                htmlToTranslate = SetHtmlAdjustments(htmlToTranslate);
+                htmlString.Append(htmlToTranslate.Replace("</head>", _css));
             }
 
             return htmlString.ToString();
@@ -125,32 +124,6 @@ namespace Altinn.Platform.Storage.Services
         }
 
         /// <summary>
-        /// Sets the archive time stamp and the list of attachments in the main html string
-        /// </summary>
-        /// <param name="htmlHeaderText">Archive time stamp information</param>
-        /// <param name="htmlMain">Main html string</param>
-        /// <returns>Main html string after changes</returns>
-        private static string SetArchiveTimeStampToHtml(string htmlHeaderText, string htmlMain)
-        {
-            // Make adjustments to the HTML
-            htmlMain = SetHtmlAdjustments(htmlMain);
-
-            string cssClassForPrintAll = string.Empty;
-            if (!string.IsNullOrEmpty(htmlHeaderText))
-            {
-                // Appending html header text as html header and footer
-                // Header and Footer tags for the archive time stamp
-                string htmlHeader = "<header id='pageHeader'" + cssClassForPrintAll + ">" + htmlHeaderText + "</header>";
-                string htmlFooter = "<footer id='pageFooter'" + cssClassForPrintAll + ">" + htmlHeaderText + "</footer>";
-
-                // Adding the same archive time stamp as Header and footer for the HTML page
-                htmlMain = htmlMain.Replace("</body>", htmlHeader + htmlFooter + "</body>");
-            }
-
-            return htmlMain;
-        }
-
-        /// <summary>
         /// Converts the printViewXSL to HTML with modifications
         /// </summary>
         /// <param name="printViewXslBE">print view XSL details</param>
@@ -173,7 +146,7 @@ namespace Altinn.Platform.Storage.Services
             printViewXslBE.PrintViewXsl = printViewXslBE.PrintViewXsl.Replace(".langFont {", ".langFont{display:none;");
             printViewXslBE.PrintViewXsl = printViewXslBE.PrintViewXsl.Replace(".optionalPlaceholder {", ".optionalPlaceholder{display:none;");
 
-            PdfMofificationParametersBE pdfModParamBE = new();
+            PdfModificationParametersBE pdfModParamBE = new();
             int extraFirstDivPadding = 0;
             string xsl = printViewXslBE.PrintViewXsl;
 
@@ -487,10 +460,12 @@ namespace Altinn.Platform.Storage.Services
                 string dummy = htmlWriterOutput.ToString();
             }
 
+            printViewXslBE.PdfModificationParams = pdfModParamBE;
+
             return xslCompiledTransform;
         }
 
-        private void SelectNodeProcessing(XmlDocument xslDoc, XmlNodeList selectNodeList)
+        private static void SelectNodeProcessing(XmlDocument xslDoc, XmlNodeList selectNodeList)
         {
             try
             {
@@ -746,7 +721,7 @@ namespace Altinn.Platform.Storage.Services
         /// Gets or sets PDF modification parameters
         /// </summary>
         [DataMember]
-        public PdfMofificationParametersBE PdfModificationParams { get; set; }
+        public PdfModificationParametersBE PdfModificationParams { get; set; }
 
         #endregion
     }
@@ -760,9 +735,9 @@ namespace Altinn.Platform.Storage.Services
     }
 
     /// <summary>
-    /// PdfMofificationParametersBE
+    /// PdfModificationParametersBE
     /// </summary>
-    public class PdfMofificationParametersBE
+    public class PdfModificationParametersBE
     {
         /// <summary>
         /// Gets or sets Width of the html viewer
@@ -808,8 +783,6 @@ namespace Altinn.Platform.Storage.Services
             thead.xdTableHeader { background-color: inherit !important; }
             td div font img { float: right; }
             div.attachmentInfo { text-align: left; margin-left: 310px; }
-            #pageHeader { -webkit-transform: rotate(-90deg); -webkit-transform-origin: right bottom; -moz-transform: rotate(-90deg); -moz-transform-origin: right bottom; -o-transform: rotate(-90deg); -o-transform-origin: right bottom; -ms-transform: rotate(-90deg); -ms-transform-origin: right bottom; position: fixed; top: 5px; right: 10px; color: red; border: 1px solid red; padding: 1px; }
-            #pageFooter { -webkit-transform: rotate(90deg); -webkit-transform-origin: right bottom; -moz-transform: rotate(90deg); -moz-transform-origin: right bottom; -o-transform: rotate(90deg); -o-transform-origin: right bottom; -ms-transform: rotate(90deg); -ms-transform-origin: right bottom; position: fixed; bottom: 15px; left: 10px; color: red; border: 1px solid red; padding: 1px; margin-left: -215px; }
             footer.printAllStyle { margin-left: -165px !important; }
             .pageBreak { page-break-after: always; }
 
