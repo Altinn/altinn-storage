@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Web;
 
+using Altinn.AccessManagement.Core.Models;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Helpers;
 using Altinn.Platform.Storage.Authorization;
@@ -100,7 +101,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             string orgClaim = User.GetOrg();
             int? userId = User.GetUserIdAsInt();
-            bool appOwnerRequestingInstances = false;
+            SystemUserClaim systemUser = User.GetSystemUser();
 
             if (orgClaim != null)
             {
@@ -136,10 +137,8 @@ namespace Altinn.Platform.Storage.Controllers
                         return Forbid();
                     }
                 } 
-                
-                appOwnerRequestingInstances = true;
             }
-            else if (userId != null)
+            else if (userId is not null || systemUser is not null)
             {
                 if (queryParameters.InstanceOwnerPartyId == null && string.IsNullOrEmpty(queryParameters.InstanceOwnerIdentifier))
                 {
@@ -201,6 +200,8 @@ namespace Altinn.Platform.Storage.Controllers
                 selfContinuationToken = queryParameters.ContinuationToken;
                 queryParameters.ContinuationToken = HttpUtility.UrlDecode(queryParameters.ContinuationToken);
             }
+
+            bool appOwnerRequestingInstances = User.HasServiceOwnerScope();
 
             // filter out hard deleted instances if it isn't the appOwner requesting instances
             if (!appOwnerRequestingInstances)
@@ -392,7 +393,7 @@ namespace Altinn.Platform.Storage.Controllers
             try
             {
                 DateTime creationTime = DateTime.UtcNow;
-                string userId = GetUserId();
+                string userId = User.GetUserOrOrgId();
 
                 Instance instanceToCreate = CreateInstanceFromTemplate(appInfo, instance, creationTime, userId);
 
@@ -470,7 +471,7 @@ namespace Altinn.Platform.Storage.Controllers
                 instance.Status.SoftDeleted = now;
             }
 
-            instance.LastChangedBy = GetUserId();
+            instance.LastChangedBy = User.GetUserOrOrgId();
             instance.LastChanged = now;
             updateProperties.Add(nameof(instance.LastChanged));
             updateProperties.Add(nameof(instance.LastChangedBy));
@@ -802,11 +803,6 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 instance.Data = instance.Data.Where(e => e.DeleteStatus?.IsHardDeleted != true).ToList();
             }
-        }
-
-        private string GetUserId()
-        {
-            return User.GetUserOrOrgId();
         }
 
         private string BuildRequestLink(string continuationToken)
