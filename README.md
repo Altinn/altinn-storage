@@ -10,7 +10,7 @@ These instructions will get you a copy of the storage component up and running o
 
 ### Prerequisites
 
-* [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+* [.NET 9.0 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
 * Newest [Git](https://git-scm.com/downloads)
 * A code editor - we like [Visual Studio Code](https://code.visualstudio.com/download)
    - Also install [recommended extensions](https://code.visualstudio.com/docs/editor/extension-marketplace#_workspace-recommended-extensions) (e.g. [C#](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csharp))
