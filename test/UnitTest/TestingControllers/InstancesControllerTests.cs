@@ -203,7 +203,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         /// <summary>
-        /// Test case: Sync adapters should not be allowed to write (only delete).
+        /// Test case: Sync adapters should not be allowed to create instances (only update data values and delete).
         /// Expected: Returns status forbidden.
         /// </summary>
         [Fact]
@@ -1811,6 +1811,50 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+        
+        /// <summary>
+        /// Scenario:
+        /// Add the value of a data field to an instance using the sync adapter scope should succeed
+        /// Result:
+        /// Data values are succesfully added and the updated instance returned.
+        /// </summary>
+        [Fact]
+        public async Task UpdateDataValues_NoPreviousValuesSet_WithSyncAdapterScope_ReturnsUpdatedInstance()
+        {
+            // Arrange
+            var dataValues = new DataValues
+            {
+                Values = new Dictionary<string, string>
+                {
+                    { "key1", "value1" },
+                    { "key2", "value2" }
+                }
+            };
+
+            int instanceOwnerPartyId = 1337;
+            string instanceGuid = "20a1353e-91cf-44d6-8ff7-f68993638ffe";
+            string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/datavalues";
+
+            HttpClient client = GetTestClient();
+
+            string token = PrincipalUtil.GetOrgToken("foo", scope: "altinn:storage/instances.syncadapter");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Put, requestUri)
+            {
+                Content = JsonContent.Create(dataValues, new MediaTypeHeaderValue("application/json"))
+            };
+
+            // Act
+            HttpResponseMessage response = await client.SendAsync(httpRequestMessage);
+
+            string json = await response.Content.ReadAsStringAsync();
+            Instance updatedInstance = JsonConvert.DeserializeObject<Instance>(json);
+            Dictionary<string, string> actual = updatedInstance.DataValues;
+
+            // Assert
+            Assert.NotNull(actual);
+            Assert.Equal(2, actual.Keys.Count);
         }
 
         public static IEnumerable<object[]> GetDataValuesData()

@@ -204,7 +204,7 @@ namespace Altinn.Platform.Storage.Authorization
 
         private bool IsValidSyncAdapterRequest(AppAccessRequirement requirement)
         {
-            if (requirement.ActionType != "read" && requirement.ActionType != "delete")
+            if (requirement.ActionType != "read" && requirement.ActionType != "write" && requirement.ActionType != "delete")
             {
                 return false;
             }
