@@ -45,10 +45,12 @@ namespace Altinn.Platform.Storage.Authorization
         /// </summary>
         /// <param name="httpContextAccessor">The http context accessor</param>
         /// <param name="pdp">The pdp</param>
+        /// <param name="generalSettings">The general settings</param>
         /// <param name="pepSettings">The settings for pep</param>
         /// <param name="logger">The logger. </param>
         /// <param name="instanceRepository">The instance repository</param>
         /// <param name="memoryCache">The memory cache</param>
+        /// <param name="authorizationService">The authorization service</param>
         public StorageAccessHandler(
             IHttpContextAccessor httpContextAccessor,
             IPDP pdp,
