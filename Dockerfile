@@ -18,6 +18,9 @@ WORKDIR /app
 COPY --from=build /app_output .
 COPY --from=build /Storage/Migration ./Migration
 
+# Add support for not only English cultures
+RUN apk add icu-dev icu-libs icu-data-full
+
 # setup the user and group
 # the user will have no password, using shell /bin/false and using the group dotnet
 RUN addgroup -g 3000 dotnet && adduser -u 1000 -G dotnet -D -s /bin/false dotnet
