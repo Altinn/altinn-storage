@@ -19,7 +19,8 @@ COPY --from=build /app_output .
 COPY --from=build /Storage/Migration ./Migration
 
 # Add support for not only English cultures
-RUN apk add icu-dev icu-libs icu-data-full
+RUN apk add --no-cache icu-libs icu-data-full tzdata
+ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
 # setup the user and group
 # the user will have no password, using shell /bin/false and using the group dotnet
