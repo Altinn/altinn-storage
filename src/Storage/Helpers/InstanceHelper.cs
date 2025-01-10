@@ -124,6 +124,10 @@ namespace Altinn.Platform.Storage.Helpers
                     {
                         return "Signing";
                     }
+                    else if (taskType.Equals("payment", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return "Payment";
+                    }
                 }
 
                 return "FormFilling";
