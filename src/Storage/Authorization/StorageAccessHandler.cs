@@ -8,6 +8,9 @@ using Altinn.Common.PEP.Configuration;
 using Altinn.Common.PEP.Constants;
 using Altinn.Common.PEP.Helpers;
 using Altinn.Common.PEP.Interfaces;
+using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Extensions;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Authorization;
@@ -31,6 +34,8 @@ namespace Altinn.Platform.Storage.Authorization
         private readonly IInstanceRepository _instanceRepository;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IPDP _pdp;
+        private readonly IAuthorization _authorizationService;
+        private readonly GeneralSettings _generalSettings;
         private readonly ILogger _logger;
         private readonly IMemoryCache _memoryCache;
         private readonly PepSettings _pepSettings;
@@ -40,13 +45,17 @@ namespace Altinn.Platform.Storage.Authorization
         /// </summary>
         /// <param name="httpContextAccessor">The http context accessor</param>
         /// <param name="pdp">The pdp</param>
+        /// <param name="generalSettings">The general settings</param>
         /// <param name="pepSettings">The settings for pep</param>
         /// <param name="logger">The logger. </param>
         /// <param name="instanceRepository">The instance repository</param>
         /// <param name="memoryCache">The memory cache</param>
+        /// <param name="authorizationService">The authorization service</param>
         public StorageAccessHandler(
             IHttpContextAccessor httpContextAccessor,
             IPDP pdp,
+            IAuthorization authorizationService,
+            IOptions<GeneralSettings> generalSettings,
             IOptions<PepSettings> pepSettings,
             ILogger<StorageAccessHandler> logger,
             IInstanceRepository instanceRepository,
@@ -54,6 +63,8 @@ namespace Altinn.Platform.Storage.Authorization
         {
             _httpContextAccessor = httpContextAccessor;
             _pdp = pdp;
+            _authorizationService = authorizationService;
+            _generalSettings = generalSettings.Value;
             _logger = logger;
             _pepSettings = pepSettings.Value;
             _instanceRepository = instanceRepository;
@@ -69,6 +80,12 @@ namespace Altinn.Platform.Storage.Authorization
         /// <returns>A Task</returns>
         protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, AppAccessRequirement requirement)
         {
+            if (IsValidSyncAdapterRequest(requirement))
+            {
+                context.Succeed(requirement);
+                return;
+            }
+
             XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(context, requirement, _httpContextAccessor.HttpContext.GetRouteData());
 
             _logger.LogInformation("// Storage PEP // AppAccessHandler // Request sent: {request}", JsonConvert.SerializeObject(request));
@@ -185,6 +202,16 @@ namespace Altinn.Platform.Storage.Authorization
             }
 
             return subjectKey.ToString() + actionKey.ToString() + resourceKey.ToString();
+        }
+
+        private bool IsValidSyncAdapterRequest(AppAccessRequirement requirement)
+        {
+            if (requirement.ActionType != "read" && requirement.ActionType != "write" && requirement.ActionType != "delete")
+            {
+                return false;
+            }
+
+            return _authorizationService.UserHasRequiredScope([_generalSettings.InstanceSyncAdapterScope]);
         }
     }
 }
