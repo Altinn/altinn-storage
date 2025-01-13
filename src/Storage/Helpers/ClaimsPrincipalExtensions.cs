@@ -1,5 +1,6 @@
 #nullable enable
 
+using System;
 using System.Security.Claims;
 using System.Text.Json;
 
@@ -28,7 +29,7 @@ public static class ClaimsPrincipalExtensions
     /// <summary>
     /// Gets the userId or the orgNumber or null if neither claims are present.
     /// </summary>
-    public static string? GetUserOrOrgId(this ClaimsPrincipal user)
+    public static string? GetUserOrOrgNo(this ClaimsPrincipal user)
     {
         int? userId = GetUserId(user);
         if (userId.HasValue)
@@ -36,10 +37,16 @@ public static class ClaimsPrincipalExtensions
             return userId.Value.ToString();
         }
 
-        string? orgId = GetOrgNumber(user);
-        if (orgId is not null)
+        string? orgNo = GetOrgNumber(user);
+        if (orgNo is not null)
         {
-            return orgId;
+            return orgNo;
+        }
+
+        var systemUser = GetSystemUser(user);
+        if (systemUser is not null)
+        {
+            return systemUser.Systemuser_org.ID;
         }
 
         return null;
@@ -91,6 +98,25 @@ public static class ClaimsPrincipalExtensions
         }
 
         return JsonSerializer.Deserialize<SystemUserClaim>(authorizationDetailsValue);
+    }
+
+    /// <summary>
+    /// Gets the organization number of the owner of the system user if found. Otherwise null.
+    /// </summary>
+    /// <param name="user">The ClaimsPrincipal to check for the system user claim value.</param>
+    public static Guid? GetSystemUserId(this ClaimsPrincipal user)
+    {
+        SystemUserClaim? systemUser = GetSystemUser(user);
+        if (systemUser is not null)
+        {
+            string systemUserId = systemUser.Systemuser_id[0];
+            if (Guid.TryParse(systemUserId, out Guid systemUserIdGuid))
+            {
+                return systemUserIdGuid;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>

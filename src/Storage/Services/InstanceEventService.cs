@@ -7,6 +7,7 @@ using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 
 using Microsoft.AspNetCore.Http;
+using static Microsoft.ApplicationInsights.MetricDimensionNames.TelemetryContext;
 
 namespace Altinn.Platform.Storage.Services
 {
@@ -39,9 +40,11 @@ namespace Altinn.Platform.Storage.Services
                 InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
                 User = new PlatformUser
                 {
-                    UserId = user.GetUserIdAsInt(),
+                    UserId = user.GetUserId(),
                     AuthenticationLevel = user.GetAuthenticationLevel(),
                     OrgId = user.GetOrg(),
+                    SystemUserId = user.GetSystemUserId(),
+                    SystemUserOwnerOrgNo = user.GetSystemUserOwner(),
                 },
 
                 ProcessInfo = instance.Process,
@@ -72,9 +75,11 @@ namespace Altinn.Platform.Storage.Services
                 InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
                 User = new PlatformUser
                 {
-                    UserId = user.GetUserIdAsInt(),
+                    UserId = user.GetUserId(),
                     AuthenticationLevel = user.GetAuthenticationLevel(),
                     OrgId = user.GetOrg(),
+                    SystemUserId = user.GetSystemUserId(),
+                    SystemUserOwnerOrgNo = user.GetSystemUserOwner(),
                 },
                 ProcessInfo = instance.Process,
                 Created = DateTime.UtcNow,

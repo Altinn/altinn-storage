@@ -135,11 +135,11 @@ namespace Altinn.Platform.Storage.Controllers
                     return BadRequest($"DataType {dataElement.DataType} does not support delayed deletion");
                 }
 
-                dataElement.LastChangedBy = User.GetUserOrOrgId();
+                dataElement.LastChangedBy = User.GetUserOrOrgNo();
                 return await InitiateDelayedDelete(instance, dataElement);
             }
 
-            dataElement.LastChangedBy = User.GetUserOrOrgId();
+            dataElement.LastChangedBy = User.GetUserOrOrgNo();
             return await DeleteImmediately(instance, dataElement, application.StorageAccountNumber);
         }
 
@@ -436,7 +436,7 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 { "/contentType", updatedData.ContentType },
                 { "/filename", HttpUtility.UrlDecode(updatedData.Filename) },
-                { "/lastChangedBy", User.GetUserOrOrgId() },
+                { "/lastChangedBy", User.GetUserOrOrgNo() },
                 { "/lastChanged", changedTime },
                 { "/refs", updatedData.Refs },
                 { "/references", updatedData.References },
@@ -543,7 +543,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             (Stream theStream, string contentType, string contentFileName, long fileSize) = await DataElementHelper.GetStream(request, _defaultFormOptions.MultipartBoundaryLengthLimit);
 
-            string user = User.GetUserOrOrgId();
+            string user = User.GetUserOrOrgNo();
 
             DataElement newData = DataElementHelper.CreateDataElement(elementType, refs, instance, creationTime, contentType, contentFileName, fileSize, user, generatedForTask);
 

@@ -100,7 +100,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             string orgClaim = User.GetOrg();
-            int? userId = User.GetUserIdAsInt();
+            int? userId = User.GetUserId();
             SystemUserClaim systemUser = User.GetSystemUser();
 
             if (orgClaim != null)
@@ -393,9 +393,8 @@ namespace Altinn.Platform.Storage.Controllers
             try
             {
                 DateTime creationTime = DateTime.UtcNow;
-                string userId = User.GetUserOrOrgId();
 
-                Instance instanceToCreate = CreateInstanceFromTemplate(appInfo, instance, creationTime, userId);
+                Instance instanceToCreate = CreateInstanceFromTemplate(appInfo, instance, creationTime, User.GetUserOrOrgNo());
 
                 storedInstance = await _instanceRepository.Create(instanceToCreate);
                 await _instanceEventService.DispatchEvent(InstanceEventType.Created, storedInstance);
@@ -471,7 +470,7 @@ namespace Altinn.Platform.Storage.Controllers
                 instance.Status.SoftDeleted = now;
             }
 
-            instance.LastChangedBy = User.GetUserOrOrgId();
+            instance.LastChangedBy = User.GetUserOrOrgNo();
             instance.LastChanged = now;
             updateProperties.Add(nameof(instance.LastChanged));
             updateProperties.Add(nameof(instance.LastChangedBy));
@@ -522,7 +521,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             instance.CompleteConfirmations.Add(new CompleteConfirmation { StakeholderId = org, ConfirmedOn = DateTime.UtcNow });
             instance.LastChanged = DateTime.UtcNow;
-            instance.LastChangedBy = User.GetUserOrOrgId();
+            instance.LastChangedBy = User.GetUserOrOrgNo();
 
             updateProperties.Add(nameof(instance.CompleteConfirmations));
             updateProperties.Add(nameof(instance.LastChanged));
@@ -751,14 +750,14 @@ namespace Altinn.Platform.Storage.Controllers
             return Ok(updatedInstance);
         }
 
-        private static Instance CreateInstanceFromTemplate(Application appInfo, Instance instanceTemplate, DateTime creationTime, string userId)
+        private static Instance CreateInstanceFromTemplate(Application appInfo, Instance instanceTemplate, DateTime creationTime, string performedBy)
         {
             Instance createdInstance = new Instance
             {
                 InstanceOwner = instanceTemplate.InstanceOwner,
-                CreatedBy = userId,
+                CreatedBy = performedBy,
                 Created = creationTime,
-                LastChangedBy = userId,
+                LastChangedBy = performedBy,
                 LastChanged = creationTime,
                 AppId = appInfo.Id,
                 Org = appInfo.Org,

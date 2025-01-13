@@ -2,7 +2,9 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Security.Claims;
+using Altinn.AccessManagement.Core.Models;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Helpers;
 using AltinnCore.Authentication.Constants;
 
 using Microsoft.ApplicationInsights.Channel;
@@ -42,23 +44,23 @@ namespace Altinn.Platform.Storage.Filters
             DependencyTelemetry dependency = item as DependencyTelemetry;
 
             if (_disableTelemetryForMigration && (
-                (request != null && request.Url.LocalPath.StartsWith("/storage/api/v1/migration", StringComparison.OrdinalIgnoreCase))
+                (request is not null && request.Url.LocalPath.StartsWith("/storage/api/v1/migration", StringComparison.OrdinalIgnoreCase))
                 ||
-                (dependency != null && dependency.Context.Operation.Name.StartsWith("POST Migration", StringComparison.OrdinalIgnoreCase))))
+                (dependency is not null && dependency.Context.Operation.Name.StartsWith("POST Migration", StringComparison.OrdinalIgnoreCase))))
             {
                 return;
             }
 
-            if (request != null && request.Url.ToString().Contains("storage/api/"))
+            if (request is not null && request.Url.ToString().Contains("storage/api/"))
             {
                 HttpContext ctx = _httpContextAccessor.HttpContext;
 
-                if (ctx != null && ctx.Request.Headers.TryGetValue("X-Forwarded-For", out StringValues ipAddress))
+                if (ctx is not null && ctx.Request.Headers.TryGetValue("X-Forwarded-For", out StringValues ipAddress))
                 {
                     request.Properties.Add("ipAddress", ipAddress.FirstOrDefault());
                 }
 
-                if (ctx?.User != null)
+                if (ctx?.User is not null)
                 {
                     int? orgNumber = GetOrgNumber(ctx.User);
                     int? userId = GetUserIdAsInt(ctx.User);
@@ -68,14 +70,21 @@ namespace Altinn.Platform.Storage.Filters
                     request.Properties.Add("partyId", partyId.ToString());
                     request.Properties.Add("authLevel", authLevel.ToString());
 
-                    if (userId != null)
+                    if (userId is not null)
                     {
                         request.Properties.Add("userId", userId.ToString());
                     }
 
-                    if (orgNumber != null)
+                    if (orgNumber is not null)
                     {
                         request.Properties.Add("orgNumber", orgNumber.ToString());
+                    }
+
+                    SystemUserClaim systemUser = ctx.User.GetSystemUser();
+                    if (systemUser is not null)
+                    {
+                        request.Properties.Add("systemUserId", systemUser.Systemuser_id[0].ToString());
+                        request.Properties.Add("systemUserOrgId", systemUser.Systemuser_org.ID);
                     }
                 }
             }
