@@ -1,5 +1,6 @@
 ﻿#nullable enable
 
+using System;
 using System.Collections.Generic;
 using System.Security.Claims;
 using System.Text.Json;
@@ -14,7 +15,7 @@ namespace Altinn.Platform.Storage.UnitTest.Extensions;
 public class ClaimsPrincipalExtensionsTests
 {
     [Fact]
-    public void GetUserOrOrgId_UserId_ReturnsUserId()
+    public void GetSystemUser_ReturnsSystemUser()
     {
         // Arrange
         ClaimsPrincipal user = CreateSystemUser();
@@ -24,6 +25,32 @@ public class ClaimsPrincipalExtensionsTests
 
         // Assert
         Assert.Equal("996a686f-d24d-4d92-a92e-5b3cec4a8cf7", result?.Systemuser_id[0]);
+    }
+
+    [Fact]
+    public void GetSystemUserId_ReturnsSystemUserId()
+    {
+        // Arrange
+        ClaimsPrincipal user = CreateSystemUser();
+
+        // Act
+        Guid? result = user.GetSystemUserId();
+
+        // Assert
+        Assert.Equal("996a686f-d24d-4d92-a92e-5b3cec4a8cf7", result.ToString());
+    }
+
+    [Fact]
+    public void GetUserOrOrgNo_ReturnsOrgNo()
+    {
+        // Arrange
+        ClaimsPrincipal user = CreateSystemUser();
+
+        // Act
+        string? result = user.GetUserOrOrgNo();
+
+        // Assert
+        Assert.Equal("myOrg", result);
     }
 
     private static ClaimsPrincipal CreateSystemUser()

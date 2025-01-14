@@ -46,7 +46,7 @@ public static class ClaimsPrincipalExtensions
         var systemUser = GetSystemUser(user);
         if (systemUser is not null)
         {
-            return systemUser.Systemuser_org.ID;
+            return GetSystemUserOwner(user);
         }
 
         return null;
