@@ -287,7 +287,7 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 (Instance result, _) = await _instanceRepository.GetOne(instanceGuid, true);
 
-                if (User.GetOrg() != result.Org)
+                if (User.GetOrg() != result.Org && !_authorizationService.UserHasRequiredScope([_generalSettings.InstanceSyncAdapterScope]))
                 {
                     FilterOutDeletedDataElements(result);
                 }
