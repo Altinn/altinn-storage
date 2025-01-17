@@ -116,6 +116,9 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             (Application application, ActionResult applicationError) = await GetApplicationAsync(instance.AppId, instance.Org);
+
+            string userOrOrgNo = User.GetUserOrOrgNo();
+            
             if (delay)
             {
                 if (appOwnerDeletingElement && dataElement.DeleteStatus?.IsHardDeleted == true)
@@ -135,11 +138,11 @@ namespace Altinn.Platform.Storage.Controllers
                     return BadRequest($"DataType {dataElement.DataType} does not support delayed deletion");
                 }
 
-                dataElement.LastChangedBy = User.GetUserOrOrgNo();
+                dataElement.LastChangedBy = userOrOrgNo;
                 return await InitiateDelayedDelete(instance, dataElement);
             }
 
-            dataElement.LastChangedBy = User.GetUserOrOrgNo();
+            dataElement.LastChangedBy = userOrOrgNo;
             return await DeleteImmediately(instance, dataElement, application.StorageAccountNumber);
         }
 
