@@ -18,5 +18,17 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Clients
                     throw new ArgumentException("Unknown instanceOwnerPartyId");
             }
         }
+        
+        public async Task SetHasAltinn3Correspondence(int partyId)
+        {
+            switch (partyId)
+            {
+                case 1337:
+                    await Task.CompletedTask;
+                    break;
+                default:
+                    throw new ArgumentException("Unknown party id");
+            }
+        }
     }
 }

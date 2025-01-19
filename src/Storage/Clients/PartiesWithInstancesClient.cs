@@ -32,6 +32,13 @@ namespace Altinn.Platform.Storage.Clients
         }
 
         /// <inheritdoc />
+        public async Task SetHasAltinn3Correspondence(int partyId)
+        {
+            StringContent content = new StringContent(partyId.ToString(), Encoding.UTF8, "application/json");
+            await _client.PostAsync($"partieswithmessages", content);
+        }
+
+        /// <inheritdoc />
         public async Task SetHasAltinn3Instances(int instanceOwnerPartyId)
         {
             StringContent content = new StringContent(instanceOwnerPartyId.ToString(), Encoding.UTF8, "application/json");
