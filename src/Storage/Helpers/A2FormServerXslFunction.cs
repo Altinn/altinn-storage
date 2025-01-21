@@ -252,14 +252,17 @@ namespace Altinn.Platform.Storage.Helpers
                     else
                     {
                         codelist = GetCodeList(wsParams[0], int.Parse(wsParams[1]), int.Parse(wsParams[2]));
-                        foreach (CodeRowBE row in codelist.CodeListRows)
+                        if (codelist.CodeListRows != null)
                         {
-                            xml.AppendFormat(
-                                CoderowXml,
-                                EscapeXmlEntities(row.Code),
-                                EscapeXmlEntities(row.Value1),
-                                EscapeXmlEntities(row.Value2),
-                                EscapeXmlEntities(row.Value3));
+                            foreach (CodeRowBE row in codelist.CodeListRows)
+                            {
+                                xml.AppendFormat(
+                                    CoderowXml,
+                                    EscapeXmlEntities(row.Code),
+                                    EscapeXmlEntities(row.Value1),
+                                    EscapeXmlEntities(row.Value2),
+                                    EscapeXmlEntities(row.Value3));
+                            }
                         }
                     }
                 }
