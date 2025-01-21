@@ -69,7 +69,7 @@ jobs:
       id: slack
       uses: slackapi/slack-github-action@v2.0.0
       with:
-        webhook-type: webhook-trigger
+        webhook-type: incoming-webhook
         webhook: ${{ secrets.SLACK_WEBHOOK_URL_TEST }}
         payload: |
             {
