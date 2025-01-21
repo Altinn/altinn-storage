@@ -6,7 +6,6 @@ using System.Text.Json;
 
 using Altinn.AccessManagement.Core.Models;
 using AltinnCore.Authentication.Constants;
-using static Microsoft.ApplicationInsights.MetricDimensionNames.TelemetryContext;
 
 namespace Altinn.Platform.Storage.Helpers;
 
