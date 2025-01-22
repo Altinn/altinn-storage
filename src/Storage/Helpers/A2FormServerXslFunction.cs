@@ -252,7 +252,7 @@ namespace Altinn.Platform.Storage.Helpers
                     else
                     {
                         codelist = GetCodeList(wsParams[0], int.Parse(wsParams[1]), int.Parse(wsParams[2]));
-                        if (codelist.CodeListRows != null)
+                        if (codelist != null && codelist.CodeListRows != null)
                         {
                             foreach (CodeRowBE row in codelist.CodeListRows)
                             {
