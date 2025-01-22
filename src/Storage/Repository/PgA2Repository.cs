@@ -148,14 +148,16 @@ namespace Altinn.Platform.Storage.Repository
         {
             string codelist = null;
             string language = preferredLanguage;
+            int retriesLeft = preferredLanguage != "nb" ? 2 : 1;
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readCodelistSql);
             pgcom.Parameters.AddWithValue("_name", NpgsqlDbType.Text, name);
 
-            while (codelist == null && (language == preferredLanguage || language != "nb"))
+            while (codelist == null && retriesLeft > 0)
             {
                 pgcom.Parameters.AddWithValue("_language", NpgsqlDbType.Text, language);
                 language = "nb";
+                --retriesLeft;
                 using TelemetryTracker tracker = new(_telemetryClient, pgcom);
                 await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
                 if (await reader.ReadAsync())
