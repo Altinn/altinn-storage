@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Clients;
 using Microsoft.AspNetCore.Http;
@@ -8,6 +9,7 @@ namespace Altinn.Platform.Storage.Controllers
     /// <summary>
     /// API for use by Correspondence to support legacy solution by routing request to SBL Bridge
     /// </summary>
+    [Route("storage/api/v1/sblbridge")]
     public class SblBridgeController : ControllerBase
     {
         /// <summary>
@@ -24,19 +26,20 @@ namespace Altinn.Platform.Storage.Controllers
         /// Endpoint to register Altinn 3 Correspondence recipient in SBL Bridge
         /// </summary>
         /// <param name="partyId">The party id that has become an Altinn 3 Correspondence recipient</param>
-        [HttpPost]
+        [HttpPost("correspondencerecipient")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [Produces("application/json")]
-        public async Task<ActionResult> RegisterAltinn3CorrespondenceRecipient(int partyId)
-        {        
+        public async Task<ActionResult> RegisterAltinn3CorrespondenceRecipient(
+            [FromQuery] int partyId)
+        {
             if (partyId <= 0)
             {
-                return BadRequest("PartyId must be larger than null");
+                return BadRequest("PartyId must be larger than zero");
             }
 
             await _partiesWithInstancesClient.SetHasAltinn3Correspondence(partyId);    
             return Ok();
-        }        
+        }     
     }
 }
