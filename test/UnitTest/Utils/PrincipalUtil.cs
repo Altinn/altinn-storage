@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Security.Claims;
+using System.Text.Json;
 
+using Altinn.AccessManagement.Core.Models;
 using Altinn.Common.AccessToken.Constants;
 using Altinn.Platform.Storage.UnitTest.Mocks;
 
@@ -60,6 +62,28 @@ namespace Altinn.Platform.Storage.UnitTest.Utils
             ClaimsIdentity identity = new ClaimsIdentity("mock-org");
             identity.AddClaims(claims);
             ClaimsPrincipal principal = new ClaimsPrincipal(identity);
+            string token = JwtTokenMock.GenerateToken(principal, new TimeSpan(1, 1, 1));
+
+            return token;
+        }
+
+        public static string GetSystemUserToken(string systemUserId, string orgNumber)
+        {
+            string issuer = "UnitTest";
+            SystemUserClaim systemUserClaim = new SystemUserClaim
+            {
+                Systemuser_id = new List<string>() { systemUserId },
+                Systemuser_org = new OrgClaim() { ID = orgNumber },
+                System_id = "the_matrix"
+            };
+
+            List<Claim> claims = [
+                new Claim("authorization_details", JsonSerializer.Serialize(systemUserClaim), "string", issuer), 
+                new Claim(AltinnCoreClaimTypes.AuthenticateMethod, "Mock", ClaimValueTypes.String, issuer), 
+                new Claim(AltinnCoreClaimTypes.AuthenticationLevel, "3", ClaimValueTypes.Integer32, issuer)];
+
+            ClaimsPrincipal principal = new(new ClaimsIdentity(claims));
+
             string token = JwtTokenMock.GenerateToken(principal, new TimeSpan(1, 1, 1));
 
             return token;

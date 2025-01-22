@@ -37,6 +37,8 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks
 
         private readonly string _userAttributeId = "urn:altinn:userid";
 
+        private readonly string _systemUserAttributeId = "urn:altinn:systemuser:uuid";
+
         private readonly string _altinnRoleAttributeId = "urn:altinn:rolecode";
 
         public PepWithPDPAuthorizationMockSI(IInstanceRepository instanceService)
@@ -258,6 +260,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks
             XacmlContextAttributes subjectContextAttributes = request.GetSubjectAttributes();
 
             int subjectUserId = 0;
+            string systemUserId = null;
             int resourcePartyId = Convert.ToInt32(resourceParty);
 
             foreach (XacmlAttribute xacmlAttribute in subjectContextAttributes.Attributes)
@@ -265,15 +268,22 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks
                 if (xacmlAttribute.AttributeId.OriginalString.Equals(_userAttributeId))
                 {
                     subjectUserId = Convert.ToInt32(xacmlAttribute.AttributeValues.First().Value);
+                    break;
+                }
+
+                if (xacmlAttribute.AttributeId.OriginalString.Equals(_systemUserAttributeId))
+                {
+                    systemUserId = xacmlAttribute.AttributeValues.First().Value;
+                    break;
                 }
             }
 
-            if (subjectUserId == 0)
+            if (subjectUserId == 0 && systemUserId is null)
             {
                 return;
             }
 
-            List<Role> roleList = await GetDecisionPointRolesForUser(subjectUserId, resourcePartyId) ?? new List<Role>();
+            List<Role> roleList = await GetDecisionPointRoles(subjectUserId, systemUserId, resourcePartyId) ?? new List<Role>();
 
             subjectContextAttributes.Attributes.Add(GetRoleAttribute(roleList));
         }
@@ -329,9 +339,18 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks
             return attribute;
         }
 
-        public Task<List<Role>> GetDecisionPointRolesForUser(int coveredByUserId, int offeredByPartyId)
+        public Task<List<Role>> GetDecisionPointRoles(int coveredByUserId, string coveredBySystemUserId, int offeredByPartyId)
         {
-            string rolesPath = GetRolesPath(coveredByUserId, offeredByPartyId);
+            string rolesPath = string.Empty;
+
+            if (coveredByUserId > 0)
+            {
+                rolesPath = GetRolesPath(coveredByUserId, offeredByPartyId);
+            }
+            else if (!string.IsNullOrEmpty(coveredBySystemUserId))
+            {
+                rolesPath = GetRolesPath(coveredBySystemUserId, offeredByPartyId);
+            }
 
             List<Role> roles = new List<Role>();
 
@@ -348,6 +367,12 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks
         {
             string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(PepWithPDPAuthorizationMockSI).Assembly.Location).LocalPath);
             return Path.Combine(unitTestFolder, "..", "..", "..", "data", "roles", "user_" + userId, "party_" + resourcePartyId, "roles.json");
+        }
+
+        private static string GetRolesPath(string systemId, int resourcePartyId)
+        {
+            string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(PepWithPDPAuthorizationMockSI).Assembly.Location).LocalPath);
+            return Path.Combine(unitTestFolder, "..", "..", "..", "data", "roles", "system_" + systemId.Split('-')[0], "party_" + resourcePartyId, "roles.json");
         }
 
         private async Task<XacmlPolicy> GetPolicyAsync(XacmlContextRequest request)
