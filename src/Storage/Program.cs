@@ -201,7 +201,6 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProvider>();
 
     GeneralSettings generalSettings = config.GetSection("GeneralSettings").Get<GeneralSettings>();
-
     services.AddAuthentication(JwtCookieDefaults.AuthenticationScheme)
         .AddJwtCookie(JwtCookieDefaults.AuthenticationScheme, options =>
         {
@@ -231,6 +230,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
         .AddPolicy(AuthzConstants.POLICY_INSTANCE_SIGN, policy => policy.Requirements.Add(new AppAccessRequirement("sign")))
         .AddPolicy(AuthzConstants.POLICY_SCOPE_APPDEPLOY, policy => policy.Requirements.Add(new ScopeAccessRequirement("altinn:appdeploy")))
         .AddPolicy(AuthzConstants.POLICY_STUDIO_DESIGNER, policy => policy.Requirements.Add(new ClaimAccessRequirement("urn:altinn:app", "studio.designer")))
+        .AddPolicy(AuthzConstants.POLICY_CORRESPONDENCE_SBLBRIDGE, policy => policy.Requirements.Add(new ScopeAccessRequirement("altinn:correspondence.sblbridge")))
         .AddPolicy("PlatformAccess", policy => policy.Requirements.Add(new AccessTokenRequirement()));
 
     services.AddSingleton<ClientIpCheckActionFilterAttribute>(container =>
