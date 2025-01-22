@@ -228,7 +228,7 @@ namespace Altinn.Platform.Storage.Controllers
                 updateProperties.Add(nameof(instance.Status));
                 updateProperties.Add(nameof(instance.Status.IsSoftDeleted));
                 updateProperties.Add(nameof(instance.Status.SoftDeleted));
-                instance.LastChangedBy = User.GetUserOrOrgId();
+                instance.LastChangedBy = User.GetUserOrOrgNo();
                 instance.LastChanged = DateTime.UtcNow;
                 instance.Status.IsSoftDeleted = false;
                 instance.Status.SoftDeleted = null;
@@ -241,9 +241,11 @@ namespace Altinn.Platform.Storage.Controllers
                     InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
                     User = new PlatformUser
                     {
-                        UserId = User.GetUserIdAsInt(),
+                        UserId = User.GetUserId(),
                         AuthenticationLevel = User.GetAuthenticationLevel(),
                         OrgId = User.GetOrg(),
+                        SystemUserId = User.GetSystemUserId(),
+                        SystemUserOwnerOrgNo = User.GetSystemUserOwner(),
                     }
                 };
 
@@ -298,7 +300,7 @@ namespace Altinn.Platform.Storage.Controllers
                 instance.Status.SoftDeleted = now;
             }
 
-            instance.LastChangedBy = User.GetUserOrOrgId();
+            instance.LastChangedBy = User.GetUserOrOrgNo();
             instance.LastChanged = now;
             updateProperties.Add(nameof(instance.LastChanged));
             updateProperties.Add(nameof(instance.LastChangedBy));
@@ -311,9 +313,11 @@ namespace Altinn.Platform.Storage.Controllers
                 InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
                 User = new PlatformUser
                 {
-                    UserId = User.GetUserIdAsInt(),
+                    UserId = User.GetUserId(),
                     AuthenticationLevel = User.GetAuthenticationLevel(),
                     OrgId = User.GetOrg(),
+                    SystemUserId = User.GetSystemUserId(),
+                    SystemUserOwnerOrgNo = User.GetSystemUserOwner(),
                 },
             };
 

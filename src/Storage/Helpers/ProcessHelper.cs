@@ -100,6 +100,10 @@ namespace Altinn.Platform.Storage.Helpers
             {
                 return user.OrgId;
             }
+            else if (!string.IsNullOrEmpty(user.SystemUserOwnerOrgNo))
+            {
+                return user.SystemUserOwnerOrgNo;
+            }
 
             return string.Empty;
         }
