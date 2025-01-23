@@ -29,7 +29,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         public async Task RegisterAltinn3CorrespondenceRecipient_InvalidPartyId_ReturnsBadRequestAsync()
         {
             var client = GetTestClient();
-            var response = await client.PostAsync("correspondencerecipient?partyId=123", null);
+            var response = await client.PostAsync("storage/api/v1/sblbridge/correspondencerecipient?partyId=123", null);
             Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);           
         }
         
