@@ -78,7 +78,7 @@ namespace Altinn.Platform.Storage.Models
         /// The process ended value.
         /// </summary>
         [FromQuery(Name = _processEndedParameterName)]
-        public string ProcessEnded { get; set; }
+        public string[] ProcessEnded { get; set; }
 
         /// <summary>
         /// The instance owner party identifier.
