@@ -12,14 +12,14 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Authentication
     {
         public Task<XacmlJsonResponse> GetDecisionForRequest(XacmlJsonRequestRoot xacmlJsonRequest)
         {
-            List<XacmlJsonCategory> resources = xacmlJsonRequest.Request.Resource;
-
-            XacmlJsonAttribute attribute = resources.Select(r => r.Attribute.Find(a => a.Value.Equals("endring-av-navn"))).FirstOrDefault();
-
             // Create response and result
             XacmlJsonResponse response = new XacmlJsonResponse();
             response.Response = new List<XacmlJsonResult>();
             XacmlJsonResult result = new XacmlJsonResult();
+
+            List<XacmlJsonCategory> resources = xacmlJsonRequest.Request.Resource;
+
+            XacmlJsonAttribute attribute = resources.Select(r => r.Attribute.Find(a => a.Value.Equals("endring-av-navn"))).FirstOrDefault();
 
             if (attribute != null)
             {
@@ -48,7 +48,6 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Authentication
             {
                 // Set decision to permit
                 result.Decision = XacmlContextDecision.Permit.ToString();
-                response.Response.Add(result);
 
                 // Add obligation to result with a minimum authentication level attribute
                 XacmlJsonObligationOrAdvice obligation = new XacmlJsonObligationOrAdvice();
@@ -59,8 +58,9 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Authentication
                     Value = "2"
                 };
                 obligation.AttributeAssignment.Add(authenticationAttribute);
-                result.Obligations = new List<XacmlJsonObligationOrAdvice>();
-                result.Obligations.Add(obligation);
+                result.Obligations = [obligation];
+
+                response.Response.Add(result);
 
                 return Task.FromResult(response);
             }
