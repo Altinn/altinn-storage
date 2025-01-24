@@ -397,6 +397,10 @@ namespace Altinn.Platform.Storage.Controllers
             string dateTimeFormat = "yyyy-MM-ddTHH:mm:ss";
 
             InstanceQueryParameters queryParams = new();
+            if (queryModel.FromLastChanged != null || queryModel.ToLastChanged != null)
+            {
+                queryParams.LastChanged = new string[(queryModel.FromLastChanged == null || queryModel.ToLastChanged == null) ? 1 : 2];
+            }
 
             if (queryModel.InstanceOwnerPartyIdList.Count == 1)
             {
@@ -414,19 +418,12 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (queryModel.FromLastChanged != null)
             {
-                queryParams.LastChanged = $"gte:{queryModel.FromLastChanged?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}";
+                queryParams.LastChanged[0] = $"gte:{queryModel.FromLastChanged?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}";
             }
 
             if (queryModel.ToLastChanged != null)
             {
-                if (string.IsNullOrEmpty(queryParams.LastChanged))
-                {
-                    queryParams.LastChanged = $"lte:{queryModel.ToLastChanged?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}";
-                }
-                else
-                {
-                    queryParams.LastChanged = string.Concat(queryParams.LastChanged, $"lte:{queryModel.ToLastChanged?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}");
-                }
+                queryParams.LastChanged[queryModel.FromLastChanged != null ? 1 : 0] = $"lte:{queryModel.ToLastChanged?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}";
             }
 
             if (queryModel.FromCreated != null)

@@ -78,7 +78,7 @@ namespace Altinn.Platform.Storage.Models
         /// The process ended value.
         /// </summary>
         [FromQuery(Name = _processEndedParameterName)]
-        public string ProcessEnded { get; set; }
+        public string[] ProcessEnded { get; set; }
 
         /// <summary>
         /// The instance owner party identifier.
@@ -90,25 +90,25 @@ namespace Altinn.Platform.Storage.Models
         /// The last changed date.
         /// </summary>
         [FromQuery(Name = _lastChangedParameterName)]
-        public string LastChanged { get; set; }
+        public string[] LastChanged { get; set; }
 
         /// <summary>
         /// The creation date.
         /// </summary>
         [FromQuery(Name = _creationDateParameterName)]
-        public string Created { get; set; }
+        public string[] Created { get; set; }
 
         /// <summary>
         /// The visible after date time.
         /// </summary>
         [FromQuery(Name = _visibleAfterParameterName)]
-        public string VisibleAfter { get; set; }
+        public string[] VisibleAfter { get; set; }
 
         /// <summary>
         /// The due before date time.
         /// </summary>
         [FromQuery(Name = _dueBeforeParameterName)]
-        public string DueBefore { get; set; }
+        public string[] DueBefore { get; set; }
 
         /// <summary>
         /// A string that will hide instances already confirmed by stakeholder.
