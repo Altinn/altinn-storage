@@ -62,7 +62,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             Mock<IInstanceService> instanceServiceMock = new Mock<IInstanceService>();
             instanceServiceMock.Setup(ism => 
-            ism.CreateSignDocument(It.IsAny<int>(), It.IsAny<Guid>(), It.IsAny<SignRequest>(), It.IsAny<int>()))
+            ism.CreateSignDocument(It.IsAny<int>(), It.IsAny<Guid>(), It.IsAny<SignRequest>(), It.IsAny<string>()))
             .ReturnsAsync((true, null));
 
             HttpClient client = GetTestClient(instanceServiceMock);
@@ -138,7 +138,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             Mock<IInstanceService> instanceServiceMock = new Mock<IInstanceService>();
             instanceServiceMock.Setup(ism => 
-            ism.CreateSignDocument(It.IsAny<int>(), It.IsAny<Guid>(), It.IsAny<SignRequest>(), It.IsAny<int>()))
+            ism.CreateSignDocument(It.IsAny<int>(), It.IsAny<Guid>(), It.IsAny<SignRequest>(), It.IsAny<string>()))
             .ReturnsAsync((false, new ServiceError(404, "Instance not found")));
             
             HttpClient client = GetTestClient(instanceServiceMock);

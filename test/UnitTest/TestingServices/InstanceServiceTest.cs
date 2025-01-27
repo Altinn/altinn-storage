@@ -67,7 +67,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             };
 
             // Act
-            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), signRequest, 1337);
+            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), signRequest, "1337");
 
             // Assert
             Assert.True(created);
@@ -100,7 +100,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 applicationRepositoryMock.Object);
 
             // Act
-            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), new SignRequest(), 1337);
+            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), new SignRequest(), "1337");
 
             // Assert
             Assert.False(created);
@@ -138,7 +138,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 applicationRepositoryMock.Object);
 
             // Act
-            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), new SignRequest(), 1337);
+            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), new SignRequest(), "1337");
 
             // Assert
             Assert.False(created);
@@ -191,7 +191,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             };
 
             // Act
-            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), signRequest, 1337);
+            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), signRequest, "1337");
 
             // Assert
             Assert.False(created);

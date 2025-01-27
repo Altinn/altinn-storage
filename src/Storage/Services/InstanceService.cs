@@ -34,7 +34,7 @@ namespace Altinn.Platform.Storage.Services
         }
 
         /// <inheritdoc/>
-        public async Task<(bool Created, ServiceError ServiceError)> CreateSignDocument(int instanceOwnerPartyId, Guid instanceGuid, SignRequest signRequest, int userId)
+        public async Task<(bool Created, ServiceError ServiceError)> CreateSignDocument(int instanceOwnerPartyId, Guid instanceGuid, SignRequest signRequest, string performedBy)
         {
             (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(instanceGuid, false);
             if (instance == null) 
@@ -76,7 +76,7 @@ namespace Altinn.Platform.Storage.Services
                 "application/json", 
                 $"{signRequest.SignatureDocumentDataType}.json", 
                 0, 
-                userId.ToString(),
+                performedBy,
                 signRequest.GeneratedFromTask);
 
             signDocument.Id = dataElement.Id;
@@ -100,7 +100,8 @@ namespace Altinn.Platform.Storage.Services
                 {
                     UserId = signRequest.Signee.UserId,
                     PersonNumber = signRequest.Signee.PersonNumber,
-                    OrganisationNumber = signRequest.Signee.OrganisationNumber
+                    OrganisationNumber = signRequest.Signee.OrganisationNumber,
+                    SystemUserId = signRequest.Signee.SystemUserId
                 }
             };
 
