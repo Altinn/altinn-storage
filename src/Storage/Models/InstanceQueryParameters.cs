@@ -153,13 +153,13 @@ namespace Altinn.Platform.Storage.Models
         public string InstanceOwnerIdentifier { get; set; }
 
         /// <summary>
-        /// Gets or sets altinn version to include. E.g. "mainVersionInclude=3" will filter the response to only get the Altinn3 instances.
+        /// The Altinn version to include. E.g. "mainVersionInclude=3" will filter the response to only get the Altinn 3 instances.
         /// </summary>
         [FromQuery(Name = _mainVersionIncludeParameterName)]
         public int? MainVersionInclude { get; set; }
 
         /// <summary>
-        /// Gets or sets altinn version to exclude. E.g. "mainVersionExclude=3" will filter the response to exclude Altinn 3 instances.
+        /// The Altinn version to exclude. E.g. "mainVersionExclude=3" will filter the response to exclude Altinn 3 instances.
         /// </summary>
         [FromQuery(Name = _mainVersionExcludeParameterName)]
         public int? MainVersionExclude { get; set; }
