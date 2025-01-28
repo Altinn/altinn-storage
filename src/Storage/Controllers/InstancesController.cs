@@ -137,12 +137,6 @@ namespace Altinn.Platform.Storage.Controllers
                         return Forbid();
                     }
                 }
-
-                // Default for service owners is to exclude migrated altinn 1 and 2 instances
-                if (queryParameters.MainVersionExclude == null && queryParameters.MainVersionInclude == null)
-                {
-                    queryParameters.MainVersionInclude = 3;
-                }
             }
             else if (userId is not null || systemUser is not null)
             {
@@ -227,6 +221,12 @@ namespace Altinn.Platform.Storage.Controllers
             if (string.IsNullOrEmpty(queryParameters.SortBy))
             {
                 queryParameters.SortBy = "desc:lastChanged";
+            }
+
+            // Default is to exclude migrated altinn 1 and 2 instances
+            if (queryParameters.MainVersionExclude == null && queryParameters.MainVersionInclude == null)
+            {
+                queryParameters.MainVersionInclude = 3;
             }
 
             queryParameters.Size ??= 100;
