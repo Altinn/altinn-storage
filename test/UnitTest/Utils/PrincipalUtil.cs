@@ -73,7 +73,7 @@ namespace Altinn.Platform.Storage.UnitTest.Utils
             SystemUserClaim systemUserClaim = new SystemUserClaim
             {
                 Systemuser_id = new List<string>() { systemUserId },
-                Systemuser_org = new OrgClaim() { ID = orgNumber },
+                Systemuser_org = new OrgClaim() { ID = $"0192:{orgNumber}" },
                 System_id = "the_matrix"
             };
 

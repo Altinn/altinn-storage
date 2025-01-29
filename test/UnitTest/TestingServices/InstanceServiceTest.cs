@@ -1,4 +1,6 @@
-﻿using System;
+﻿#nullable enable
+
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -18,8 +20,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
 {
     public class InstanceServiceTest
     {
-        [Fact]
-        public async Task CreateSignDocument_SigningSuccessful_SignedEventDispatched()
+        public static TheoryData<Signee> SigneeData => new(
+            new Signee() { UserId = "1337", PersonNumber = "22117612345", SystemUserId = null, OrganisationNumber = null },
+            new Signee() { UserId = string.Empty, PersonNumber = null, SystemUserId = Guid.NewGuid(), OrganisationNumber = "524446332" });
+
+        [Theory]
+        [MemberData(nameof(SigneeData))]
+        public async Task CreateSignDocument_SigningSuccessful_SignedEventDispatched(Signee signee)
         {
             // Arrange
             var instanceRepositoryMock = new Mock<IInstanceRepository>();
@@ -63,11 +70,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 {
                     new DataElementSignature { DataElementId = Guid.NewGuid().ToString(), Signed = true }
                 },
-                Signee = new Signee { UserId = "1337", PersonNumber = "22117612345" }
+                Signee = signee,
             };
 
             // Act
-            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), signRequest, "1337");
+            var performedBy = !string.IsNullOrWhiteSpace(signee.UserId) ? signee.UserId : signee.OrganisationNumber;
+            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), signRequest, performedBy);
 
             // Assert
             Assert.True(created);
@@ -83,7 +91,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         {
             // Arrange
             var instanceRepositoryMock = new Mock<IInstanceRepository>();
-            instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), false)).ReturnsAsync(((Instance)null, 0));
+            instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), false)).ReturnsAsync(((Instance?)null, 0));
 
             var applicationServiceMock = new Mock<IApplicationService>();
             var dataServiceMock = new Mock<IDataService>();
@@ -147,8 +155,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             applicationServiceMock.VerifyAll();
         }
 
-        [Fact]
-        public async Task CreateSignDocument_SigningFailed_DataElementNotExists()
+        [Theory]
+        [MemberData(nameof(SigneeData))]
+        public async Task CreateSignDocument_SigningFailed_DataElementNotExists(Signee signee)
         {
             // Arrange
             var instanceRepositoryMock = new Mock<IInstanceRepository>();
@@ -187,11 +196,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 {
                     new DataElementSignature { DataElementId = Guid.NewGuid().ToString(), Signed = true }
                 },
-                Signee = new Signee { UserId = "1337", PersonNumber = "22117612345" }
+                Signee = signee,
             };
 
             // Act
-            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), signRequest, "1337");
+            var performedBy = !string.IsNullOrWhiteSpace(signee.UserId) ? signee.UserId : signee.OrganisationNumber;
+            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), signRequest, performedBy);
 
             // Assert
             Assert.False(created);
