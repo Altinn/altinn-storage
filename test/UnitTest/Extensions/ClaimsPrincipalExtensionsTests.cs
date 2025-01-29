@@ -7,7 +7,7 @@ using System.Text.Json;
 
 using Altinn.AccessManagement.Core.Models;
 using Altinn.Platform.Storage.Helpers;
-
+using AltinnCore.Authentication.Constants;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.Extensions;
@@ -62,7 +62,10 @@ public class ClaimsPrincipalExtensionsTests
             System_id = "the_matrix"
         };
 
-        List<Claim> claims = [new Claim("authorization_details", JsonSerializer.Serialize(systemUserClaim), "string", "org")];
+        List<Claim> claims = [
+            new Claim("authorization_details", JsonSerializer.Serialize(systemUserClaim), "string", "org"),
+            new Claim(AltinnCoreClaimTypes.OrgNumber, "notThisOrg", "string", "org"),
+        ];
         ClaimsPrincipal user = new(new ClaimsIdentity(claims));
 
         return user;

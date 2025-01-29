@@ -36,16 +36,16 @@ public static class ClaimsPrincipalExtensions
             return userId.Value.ToString();
         }
 
-        string? orgNo = GetOrgNumber(user);
-        if (orgNo is not null)
-        {
-            return orgNo;
-        }
-
         var systemUser = GetSystemUser(user);
         if (systemUser is not null)
         {
             return GetSystemUserOwner(user);
+        }
+
+        string? orgNo = GetOrgNumber(user);
+        if (orgNo is not null)
+        {
+            return orgNo;
         }
 
         return null;
