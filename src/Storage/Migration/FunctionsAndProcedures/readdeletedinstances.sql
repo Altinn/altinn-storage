@@ -11,6 +11,7 @@ RETURN QUERY
     (
         NOT (i.instance -> 'Status' -> 'IsArchived')::BOOLEAN
         OR (i.instance -> 'CompleteConfirmations') IS NOT NULL AND (i.instance -> 'Status' ->> 'HardDeleted')::TIMESTAMPTZ <= (NOW() - (7 ||' days')::INTERVAL)
-    );
+    )
+    AND i.AltinnMainVersion >= 3;
 END;
 $BODY$;
