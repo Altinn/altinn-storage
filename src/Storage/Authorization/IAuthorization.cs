@@ -36,11 +36,18 @@ namespace Altinn.Platform.Storage.Authorization
         public Task<List<Instance>> AuthorizeInstances(List<Instance> instances);
 
         /// <summary>
-        /// Verifies a scope claim based on claimsprincipal.
+        /// Verifies that the user has at least one of the supplied scopes.
         /// </summary>
-        /// <param name="requiredScope">Requiered scope.</param>
-        /// <returns>true if the given ClaimsPrincipal or on of its identities have contains the given scope.</returns>
+        /// <param name="requiredScope">Required scopes</param>
+        /// <returns>true if the current user have contains any of the scopes provided.</returns>
         public bool UserHasRequiredScope(List<string> requiredScope);
+
+        /// <summary>
+        /// Verifies that the user has the supplied scope.
+        /// </summary>
+        /// <param name="requiredScope">Required scopes</param>
+        /// <returns>true if the current user has the scope provided.</returns>
+        public bool UserHasRequiredScope(string requiredScope);
 
         /// <summary>
         /// Sends in a request and get response with result of the request
