@@ -52,8 +52,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             _factory = factory;
         }
 
-        [Fact]
-        public async Task SignRequest_UserHasRequiredRole_Created()
+        public static TheoryData<Signee> SigneeData => new(
+            new Signee() { UserId = "1337", PersonNumber = "22117612345", SystemUserId = null, OrganisationNumber = null },
+            new Signee() { UserId = string.Empty, PersonNumber = null, SystemUserId = Guid.Parse("f58fe166-bc22-4899-beb7-c3e8e3332f43"), OrganisationNumber = "524446332" });
+
+        [Theory]
+        [MemberData(nameof(SigneeData))]
+        public async Task SignRequest_UserHasRequiredRole_Created(Signee signee)
         {
             // Arrange
             int instanceOwnerPartyId = 1600;
@@ -62,11 +67,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             Mock<IInstanceService> instanceServiceMock = new Mock<IInstanceService>();
             instanceServiceMock.Setup(ism => 
-            ism.CreateSignDocument(It.IsAny<int>(), It.IsAny<Guid>(), It.IsAny<SignRequest>(), It.IsAny<int>()))
+            ism.CreateSignDocument(It.IsAny<int>(), It.IsAny<Guid>(), It.IsAny<SignRequest>(), It.IsAny<string>()))
             .ReturnsAsync((true, null));
 
             HttpClient client = GetTestClient(instanceServiceMock);
-            string token = PrincipalUtil.GetToken(10016, 1600, 2);
+            string token = !string.IsNullOrWhiteSpace(signee.UserId) ? 
+                PrincipalUtil.GetToken(10016, 1600, 2) : 
+                PrincipalUtil.GetSystemUserToken(signee.SystemUserId.ToString(), signee.OrganisationNumber);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);    
 
             SignRequest signRequest = new SignRequest
@@ -76,7 +83,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 {
                     new DataElementSignature { DataElementId = Guid.NewGuid().ToString(), Signed = true }
                 },
-                Signee = new Signee { UserId = "1337", PersonNumber = "22117612345" }
+                Signee = signee,
             };
 
             // Act
@@ -138,7 +145,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             Mock<IInstanceService> instanceServiceMock = new Mock<IInstanceService>();
             instanceServiceMock.Setup(ism => 
-            ism.CreateSignDocument(It.IsAny<int>(), It.IsAny<Guid>(), It.IsAny<SignRequest>(), It.IsAny<int>()))
+            ism.CreateSignDocument(It.IsAny<int>(), It.IsAny<Guid>(), It.IsAny<SignRequest>(), It.IsAny<string>()))
             .ReturnsAsync((false, new ServiceError(404, "Instance not found")));
             
             HttpClient client = GetTestClient(instanceServiceMock);
