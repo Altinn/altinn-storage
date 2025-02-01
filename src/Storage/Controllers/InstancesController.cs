@@ -106,7 +106,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (orgClaim != null)
             {
-                if (!_authorizationService.UserHasRequiredScope(_generalSettings.InstanceReadScope) && !hasSyncAdapterScope)
+                if (!hasSyncAdapterScope && !_authorizationService.UserHasRequiredScope(_generalSettings.InstanceReadScope))
                 {
                     return Forbid();
                 }
@@ -121,7 +121,7 @@ namespace Altinn.Platform.Storage.Controllers
                     queryParameters.Org = queryParameters.AppId.Split('/')[0];
                 }
                 
-                if (!orgClaim.Equals(queryParameters.Org, StringComparison.InvariantCultureIgnoreCase) && !hasSyncAdapterScope)
+                if (!hasSyncAdapterScope && !orgClaim.Equals(queryParameters.Org, StringComparison.InvariantCultureIgnoreCase))
                 {
                     if (string.IsNullOrEmpty(queryParameters.AppId))
                     {
@@ -202,7 +202,7 @@ namespace Altinn.Platform.Storage.Controllers
                 queryParameters.ContinuationToken = HttpUtility.UrlDecode(queryParameters.ContinuationToken);
             }
 
-            bool appOwnerOrSyncAdapterRequestingInstances = User.HasServiceOwnerScope() || hasSyncAdapterScope;
+            bool appOwnerOrSyncAdapterRequestingInstances = hasSyncAdapterScope || User.HasServiceOwnerScope();
 
             // filter out hard deleted instances if it isn't the appOwner or the sync adapter requesting instances 
             if (!appOwnerOrSyncAdapterRequestingInstances)
