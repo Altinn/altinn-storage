@@ -39,7 +39,7 @@ namespace Altinn.Platform.Storage.Authorization
         /// Verifies that the user has at least one of the supplied scopes.
         /// </summary>
         /// <param name="requiredScope">Required scopes</param>
-        /// <returns>true if the current user have contains any of the scopes provided.</returns>
+        /// <returns>true if the current user has any of the scopes provided.</returns>
         public bool UserHasRequiredScope(List<string> requiredScope);
 
         /// <summary>
