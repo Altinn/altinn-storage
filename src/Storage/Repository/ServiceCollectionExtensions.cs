@@ -1,5 +1,6 @@
-using Altinn.Platform.Storage.Telemetry;
+using Altinn.Platform.Storage.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Altinn.Platform.Storage.Repository;
 
@@ -17,6 +18,10 @@ public static class ServiceCollectionExtensions
     /// <returns></returns>
     public static IServiceCollection AddRepositoriesPostgreSQL(this IServiceCollection services, string connectionString, bool logParameters)
     {
+        services.AddSingleton<ApiScopeAuthorizer>();
+        services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<ApiScopeAuthorizer>());
+        services.AddSingleton<IApiScopeAuthorizer>(sp => sp.GetRequiredService<ApiScopeAuthorizer>());
+
         return services
             .AddSingleton<IApplicationRepository, PgApplicationRepository>()
             .AddSingleton<ITextRepository, PgTextRepository>()
