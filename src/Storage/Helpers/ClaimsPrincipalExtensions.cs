@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using System.Linq;
 using System.Security.Claims;
 using System.Text.Json;
 
@@ -20,9 +21,14 @@ public static class ClaimsPrincipalExtensions
     /// <param name="user">The ClaimsPrincipal to check for scopes delegated to service owners.</param>
     public static bool HasServiceOwnerScope(this ClaimsPrincipal user)
     {
-        string? scope = user.FindFirstValue("scope");
+        string? scopeList = user.FindFirstValue("scope");
+        if (scopeList is null)
+        {
+            return false;
+        }
 
-        return scope is not null && scope.Contains("altinn:serviceowner");
+        string[] scopes = scopeList.Split(" ");
+        return scopes.Any(s => s.StartsWith("altinn:serviceowner"));
     }
 
     /// <summary>
