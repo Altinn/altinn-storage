@@ -279,7 +279,7 @@ namespace Altinn.Platform.Storage.Helpers
         }
 
         /// <summary>
-        /// Checks if an instance is prevented from deletion based on the application's DeleteAfterYears setting.
+        /// Checks if an instance is prevented from deletion based on the application's DeleteAfterDays setting.
         /// </summary>
         /// <param name="instance">The instance to check</param>
         /// <param name="application">The application the instance belongs to</param>
@@ -293,7 +293,7 @@ namespace Altinn.Platform.Storage.Helpers
 
             DateTime archivedDateTime = (DateTime)instance.Status.Archived;
 
-            DateTime dueDate = archivedDateTime.AddYears(application.DeleteAfterYears);
+            DateTime dueDate = archivedDateTime.AddYears(application.DeleteAfterDays);
 
             return currentTime < dueDate;
         }

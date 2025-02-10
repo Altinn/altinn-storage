@@ -75,8 +75,8 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// Gets or sets the number of years an instance should be persisted after instantiation.
         /// This property takes precedence over the <see cref="AutoDeleteOnProcessEnd"/> property.
         /// </summary>
-        [JsonProperty(PropertyName = "deleteAfterYears")]
-        public int? DeleteAfterYears { get; set; }
+        [JsonProperty(PropertyName = "deleteAfterDays")]
+        public int? DeleteAfterDays { get; set; }
 
         /// <summary>
         /// Gets or sets the presentation fields of the application.
