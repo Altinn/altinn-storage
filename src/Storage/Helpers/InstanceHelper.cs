@@ -277,6 +277,26 @@ namespace Altinn.Platform.Storage.Helpers
 
             return (string.Empty, string.Empty);
         }
+
+        /// <summary>
+        /// Checks if an instance is prevented from deletion based on the application's DeleteAfterYears setting.
+        /// </summary>
+        /// <param name="instance">The instance to check</param>
+        /// <param name="application">The application the instance belongs to</param>
+        /// <param name="currentTime">The current time</param>
+        public static bool IsPreventedFromDeletion(Instance instance, Application application, DateTime currentTime)
+        {
+            if (instance.Status.Archived == null)
+            {
+                return false;
+            }
+
+            DateTime archivedDateTime = (DateTime)instance.Status.Archived;
+
+            DateTime dueDate = archivedDateTime.AddYears(application.DeleteAfterYears);
+
+            return currentTime < dueDate;
+        }
     }
 
     /// <summary>

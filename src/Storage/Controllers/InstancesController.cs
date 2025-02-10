@@ -119,19 +119,19 @@ namespace Altinn.Platform.Storage.Controllers
                 {
                     queryParameters.Org = queryParameters.AppId.Split('/')[0];
                 }
-                
+
                 if (!orgClaim.Equals(queryParameters.Org, StringComparison.InvariantCultureIgnoreCase))
                 {
                     if (string.IsNullOrEmpty(queryParameters.AppId))
                     {
                         return BadRequest("AppId must be defined.");
                     }
-                    
+
                     var appId = ValidateAppId(queryParameters.AppId).Split("/")[1];
-                    
+
                     XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(queryParameters.Org, appId, HttpContext.User, "read");
                     XacmlJsonResponse response = await _authorizationService.GetDecisionForRequest(request);
-                    
+
                     if (!DecisionHelper.ValidatePdpDecision(response?.Response, HttpContext.User))
                     {
                         return Forbid();
@@ -438,6 +438,7 @@ namespace Altinn.Platform.Storage.Controllers
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [Produces("application/json")]
         public async Task<ActionResult<Instance>> Delete(int instanceOwnerPartyId, Guid instanceGuid, [FromQuery] bool hard)
         {
@@ -450,7 +451,31 @@ namespace Altinn.Platform.Storage.Controllers
                 return NotFound($"Didn't find the object that should be deleted with instanceId={instanceOwnerPartyId}/{instanceGuid}");
             }
 
+            Application appInfo;
+            ActionResult appInfoError;
+            try
+            {
+                (appInfo, appInfoError) = await GetApplicationOrErrorAsync(instance.AppId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Something went wrong during GetApplicationOrErrorAsync for application id: {appId}", instance.AppId);
+                return StatusCode(500, $"Unable to get application info for {instance.AppId}: {ex.Message}");
+            }
+
+            if (appInfoError != null)
+            {
+                return appInfoError;
+            }
+
             DateTime now = DateTime.UtcNow;
+
+            bool isPreventedFromDeletion = InstanceHelper.IsPreventedFromDeletion(instance, appInfo, now);
+
+            if (isPreventedFromDeletion)
+            {
+                return BadRequest("Instance cannot be deleted yet due to application restrictions.");
+            }
 
             if (instance.Status == null)
             {
