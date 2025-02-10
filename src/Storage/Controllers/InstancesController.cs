@@ -47,6 +47,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IInstanceEventService _instanceEventService;
         private readonly string _storageBaseAndHost;
         private readonly GeneralSettings _generalSettings;
+        private readonly IApiScopeAuthorizer _apiScopeAuthorizer;
         private readonly IRegisterService _registerService;
         private readonly IApplicationService _applicationService;
 
@@ -61,6 +62,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="registerService">the instance register service.</param>
         /// <param name="applicationService">the application service.</param>
         /// <param name="settings">the general settings.</param>
+        /// <param name="apiScopeAuthorizer">the api scope authorizer.</param>
         public InstancesController(
             IInstanceRepository instanceRepository,
             IPartiesWithInstancesClient partiesWithInstancesClient,
@@ -69,7 +71,8 @@ namespace Altinn.Platform.Storage.Controllers
             IInstanceEventService instanceEventService,
             IRegisterService registerService,
             IApplicationService applicationService,
-            IOptions<GeneralSettings> settings)
+            IOptions<GeneralSettings> settings,
+            IApiScopeAuthorizer apiScopeAuthorizer)
         {
             _instanceRepository = instanceRepository;
             _partiesWithInstancesClient = partiesWithInstancesClient;
@@ -80,6 +83,7 @@ namespace Altinn.Platform.Storage.Controllers
             _registerService = registerService;
             _applicationService = applicationService;
             _generalSettings = settings.Value;
+            _apiScopeAuthorizer = apiScopeAuthorizer;
         }
 
         /// <summary>
@@ -105,6 +109,11 @@ namespace Altinn.Platform.Storage.Controllers
             int? userId = User.GetUserId();
             SystemUserClaim systemUser = User.GetSystemUser();
             bool hasSyncAdapterScope = _authorizationService.UserHasRequiredScope(_generalSettings.InstanceSyncAdapterScope);
+
+            // if (await _apiScopeAuthorizer.Authorize(InstanceOperation.Read, queryParameters.AppId) is false)
+            // {
+            //     return Forbid();
+            // }
 
             if (orgClaim != null)
             {
@@ -304,6 +313,11 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 (Instance result, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
 
+                if (await _apiScopeAuthorizer.Authorize(InstanceOperation.Read, result) is false)
+                {
+                    return Forbid();
+                }
+
                 if (User.GetOrg() != result.Org && !_authorizationService.UserHasRequiredScope([_generalSettings.InstanceSyncAdapterScope]))
                 {
                     FilterOutDeletedDataElements(result);
@@ -339,6 +353,10 @@ namespace Altinn.Platform.Storage.Controllers
             int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
 
             appId = ValidateAppId(appId);
+            if (await _apiScopeAuthorizer.Authorize(InstanceOperation.Write, appId) is false)
+            {
+                return Forbid();
+            }
 
             (Application appInfo, ServiceError appInfoError) = await _applicationService.GetApplicationOrErrorAsync(appId);
 
@@ -453,6 +471,11 @@ namespace Altinn.Platform.Storage.Controllers
 
             (instance, _) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
 
+            if (await _apiScopeAuthorizer.Authorize(InstanceOperation.Write, instance) is false)
+            {
+                return Forbid();
+            }
+
             if (instance == null)
             {
                 return NotFound($"Didn't find the object that should be deleted with instanceId={instanceOwnerPartyId}/{instanceGuid}");
@@ -539,6 +562,11 @@ namespace Altinn.Platform.Storage.Controllers
             List<string> updateProperties = [];
             (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
 
+            if (await _apiScopeAuthorizer.Authorize(InstanceOperation.Write, instance) is false)
+            {
+                return Forbid();
+            }
+
             string org = User.GetOrg();
 
             instance.CompleteConfirmations ??= new List<CompleteConfirmation>();
@@ -599,6 +627,11 @@ namespace Altinn.Platform.Storage.Controllers
 
             (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
 
+            if (await _apiScopeAuthorizer.Authorize(InstanceOperation.Write, instance) is false)
+            {
+                return Forbid();
+            }
+
             List<string> updateProperties = [nameof(instance.Status), nameof(instance.Status.ReadStatus)];
             Instance updatedInstance;
             try
@@ -654,6 +687,11 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
+
+            if (await _apiScopeAuthorizer.Authorize(InstanceOperation.Write, instance) is false)
+            {
+                return Forbid();
+            }
 
             string org = User.GetOrg();
             if (!instance.Org.Equals(org))
@@ -716,6 +754,11 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
+
+            if (await _apiScopeAuthorizer.Authorize(InstanceOperation.Write, instance) is false)
+            {
+                return Forbid();
+            }
 
             if (instance.PresentationTexts == null)
             {
