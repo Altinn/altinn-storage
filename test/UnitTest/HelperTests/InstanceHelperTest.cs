@@ -567,7 +567,7 @@ namespace Altinn.Platform.Storage.UnitTest
         [InlineData(null, null, true)]
         [InlineData(null, 1, false)]
         [InlineData(1, null, true)]
-        [InlineData(1, 1, true)]
+        [InlineData(1, 2, false)]
         public void IsPreventedFromDeletion_WithValidInput_ReturnsCorrectResult(int? preventForDays, int? daysSinceArchived, bool expected)
         {
             // Arrange
@@ -575,7 +575,7 @@ namespace Altinn.Platform.Storage.UnitTest
             {
                 Status = new InstanceStatus
                 {
-                    Archived = daysSinceArchived.HasValue ? DateTime.Now.AddDays(-daysSinceArchived.Value) : null
+                    Archived = daysSinceArchived.HasValue ? DateTime.UtcNow.AddDays(-daysSinceArchived.Value) : null
                 }
             };
 
