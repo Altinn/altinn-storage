@@ -277,9 +277,32 @@ namespace Altinn.Platform.Storage.Controllers
                 return NotFound($"Didn't find the object that should be deleted with instanceId={instanceId}");
             }
 
-            DateTime now = DateTime.UtcNow;
-
             instance.Status ??= new InstanceStatus();
+
+            Application appInfo;
+            ActionResult appInfoError;
+            try
+            {
+                (appInfo, appInfoError) = await GetApplicationOrErrorAsync(instance.AppId);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Unable to get application info for {instance.AppId}: {ex.Message}");
+            }
+
+            if (appInfoError != null)
+            {
+                return appInfoError;
+            }
+
+            bool isPreventedFromDeletion = InstanceHelper.IsPreventedFromDeletion(instance.Status, appInfo);
+
+            if (isPreventedFromDeletion)
+            {
+                return Forbid("Instance cannot be deleted yet due to application restrictions.");
+            }
+
+            DateTime now = DateTime.UtcNow;
 
             List<string> updateProperties = [];
             updateProperties.Add(nameof(instance.Status));
@@ -519,6 +542,30 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             requestTelemetry.Properties.Add("search.queryModel", JsonSerializer.Serialize(queryModel));
+        }
+
+        private async Task<(Application Application, ActionResult ErrorMessage)> GetApplicationOrErrorAsync(string appId)
+        {
+            ActionResult errorResult = null;
+            Application appInfo = null;
+
+            try
+            {
+                string org = appId.Split("/")[0];
+
+                appInfo = await _applicationRepository.FindOne(appId, org);
+
+                if (appInfo == null)
+                {
+                    errorResult = NotFound($"Did not find application with appId={appId}");
+                }
+            }
+            catch (Exception e)
+            {
+                errorResult = StatusCode(500, $"Unable to perform request: {e}");
+            }
+
+            return (appInfo, errorResult);
         }
     }
 }
