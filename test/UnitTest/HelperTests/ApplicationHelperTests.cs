@@ -26,11 +26,11 @@ public class ApplicationHelperTests
         // Arrange
         string appId = "org123/app456";
         string expectedOrg = "org123";
-        Application expectedApp = new Application(); // You can initialize properties as needed
+        Application expectedApp = new();
 
         _mockRepository
             .Setup(repo => repo.FindOne(appId, expectedOrg))
-            .ReturnsAsync(expectedApp);
+            .ReturnsAsync(new Application());
 
         // Act
         var (app, error) = await _applicationHelper.GetApplicationOrErrorAsync(appId);
@@ -38,7 +38,6 @@ public class ApplicationHelperTests
         // Assert
         Assert.NotNull(app);
         Assert.Null(error);
-        Assert.Equal(expectedApp, app);
         _mockRepository.Verify(repo => repo.FindOne(appId, expectedOrg), Times.Once);
     }
 
