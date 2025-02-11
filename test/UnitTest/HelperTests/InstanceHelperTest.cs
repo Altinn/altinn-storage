@@ -564,10 +564,11 @@ namespace Altinn.Platform.Storage.UnitTest
         }
 
         [Theory]
-        [InlineData(null, null, true)]
+        [InlineData(null, null, false)]
         [InlineData(null, 1, false)]
-        [InlineData(1, null, true)]
+        [InlineData(1, null, false)]
         [InlineData(1, 2, false)]
+        [InlineData(2, 1, true)]
         public void IsPreventedFromDeletion_WithValidInput_ReturnsCorrectResult(int? preventForDays, int? daysSinceArchived, bool expected)
         {
             // Arrange

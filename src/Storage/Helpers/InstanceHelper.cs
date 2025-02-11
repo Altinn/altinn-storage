@@ -285,12 +285,7 @@ namespace Altinn.Platform.Storage.Helpers
         /// <param name="application">The application the instance belongs to</param>
         public static bool IsPreventedFromDeletion(InstanceStatus instanceStatus, Application application)
         {
-            if (!instanceStatus.Archived.HasValue)
-            {
-                return true;
-            }
-
-            if (!application.PreventInstanceDeletionForDays.HasValue)
+            if (!instanceStatus.Archived.HasValue || !application.PreventInstanceDeletionForDays.HasValue)
             {
                 return false;
             }
