@@ -119,19 +119,19 @@ namespace Altinn.Platform.Storage.Controllers
                 {
                     queryParameters.Org = queryParameters.AppId.Split('/')[0];
                 }
-                
+
                 if (!orgClaim.Equals(queryParameters.Org, StringComparison.InvariantCultureIgnoreCase))
                 {
                     if (string.IsNullOrEmpty(queryParameters.AppId))
                     {
                         return BadRequest("AppId must be defined.");
                     }
-                    
+
                     var appId = ValidateAppId(queryParameters.AppId).Split("/")[1];
-                    
+
                     XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(queryParameters.Org, appId, HttpContext.User, "read");
                     XacmlJsonResponse response = await _authorizationService.GetDecisionForRequest(request);
-                    
+
                     if (!DecisionHelper.ValidatePdpDecision(response?.Response, HttpContext.User))
                     {
                         return Forbid();
@@ -450,12 +450,33 @@ namespace Altinn.Platform.Storage.Controllers
                 return NotFound($"Didn't find the object that should be deleted with instanceId={instanceOwnerPartyId}/{instanceGuid}");
             }
 
-            DateTime now = DateTime.UtcNow;
+            instance.Status ??= new InstanceStatus();
 
-            if (instance.Status == null)
+            Application appInfo;
+            ActionResult appInfoError;
+            try
             {
-                instance.Status = new InstanceStatus();
+                (appInfo, appInfoError) = await GetApplicationOrErrorAsync(instance.AppId);
             }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Something went wrong during GetApplicationOrErrorAsync for application id: {appId}", instance.AppId);
+                return StatusCode(500, $"Unable to get application info for {instance.AppId}: {ex.Message}");
+            }
+
+            if (appInfoError != null)
+            {
+                return appInfoError;
+            }
+
+            bool isPreventedFromDeletion = InstanceHelper.IsPreventedFromDeletion(instance.Status, appInfo);
+
+            if (isPreventedFromDeletion)
+            {
+                return Forbid("Instance cannot be deleted yet due to application restrictions.");
+            }
+
+            DateTime now = DateTime.UtcNow;
 
             List<string> updateProperties = [];
             updateProperties.Add(nameof(instance.Status));
