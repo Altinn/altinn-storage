@@ -72,11 +72,11 @@ namespace Altinn.Platform.Storage.Interface.Models
         public bool AutoDeleteOnProcessEnd { get; set; }
 
         /// <summary>
-        /// Gets or sets the number of days an instance should be persisted after instantiation.
+        /// Prevents the deletion of an instance for the specified number of days.
         /// This property takes precedence over the <see cref="AutoDeleteOnProcessEnd"/> property.
         /// </summary>
-        [JsonProperty(PropertyName = "deleteAfterDays")]
-        public int? DeleteAfterDays { get; set; }
+        [JsonProperty(PropertyName = "preventInstanceDeletionForDays")]
+        public int? PreventInstanceDeletionForDays { get; set; }
 
         /// <summary>
         /// Gets or sets the presentation fields of the application.
