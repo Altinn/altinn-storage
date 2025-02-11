@@ -562,5 +562,33 @@ namespace Altinn.Platform.Storage.UnitTest
             // Assert
             Assert.Equal((expectedType, expectedValue), result);
         }
+
+        [Theory]
+        [InlineData(null, null, true)]
+        [InlineData(null, 1, false)]
+        [InlineData(1, null, true)]
+        [InlineData(1, 1, true)]
+        public void IsPreventedFromDeletion_WithValidInput_ReturnsCorrectResult(int? preventForDays, int? daysSinceArchived, bool expected)
+        {
+            // Arrange
+            Instance instance = new()
+            {
+                Status = new InstanceStatus
+                {
+                    Archived = daysSinceArchived.HasValue ? DateTime.Now.AddDays(-daysSinceArchived.Value) : null
+                }
+            };
+
+            Application app = new()
+            {
+                PreventInstanceDeletionForDays = preventForDays
+            };
+
+            // Act
+            bool result = InstanceHelper.IsPreventedFromDeletion(instance.Status, app);
+
+            // Assert
+            Assert.Equal(expected, result);
+        }
     }
 }
