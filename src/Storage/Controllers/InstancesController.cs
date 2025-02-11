@@ -340,7 +340,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Something fetching application metadata for application id: {appId}", appId);
+                _logger.LogError(ex, "Something went wrong while fetching application metadata for application id: {appId}", appId);
                 throw;
             }
 
@@ -464,7 +464,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Something fetching application metadata for application id: {appId}", instance.AppId);
+                _logger.LogError(ex, "Something went wrong while application metadata for application id: {appId}", instance.AppId);
                 throw;
             }
 
