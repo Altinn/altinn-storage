@@ -31,6 +31,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly ITextRepository _textRepository;
         private readonly IApplicationRepository _applicationRepository;
         private readonly IAuthorization _authorizationService;
+        private readonly ApplicationHelper _applicationHelper;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MessageBoxInstancesController"/> class
@@ -45,13 +46,15 @@ namespace Altinn.Platform.Storage.Controllers
             IInstanceEventRepository instanceEventRepository,
             ITextRepository textRepository,
             IApplicationRepository applicationRepository,
-            IAuthorization authorizationService)
+            IAuthorization authorizationService,
+            ApplicationHelper applicationHelper)
         {
             _instanceRepository = instanceRepository;
             _instanceEventRepository = instanceEventRepository;
             _textRepository = textRepository;
             _applicationRepository = applicationRepository;
             _authorizationService = authorizationService;
+            _applicationHelper = applicationHelper;
         }
 
         /// <summary>
@@ -283,7 +286,7 @@ namespace Altinn.Platform.Storage.Controllers
             ActionResult appInfoError;
             try
             {
-                (appInfo, appInfoError) = await GetApplicationOrErrorAsync(instance.AppId);
+                (appInfo, appInfoError) = await _applicationHelper.GetApplicationOrErrorAsync(instance.AppId);
             }
             catch (Exception ex)
             {
@@ -542,30 +545,6 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             requestTelemetry.Properties.Add("search.queryModel", JsonSerializer.Serialize(queryModel));
-        }
-
-        private async Task<(Application Application, ActionResult ErrorMessage)> GetApplicationOrErrorAsync(string appId)
-        {
-            ActionResult errorResult = null;
-            Application appInfo = null;
-
-            try
-            {
-                string org = appId.Split("/")[0];
-
-                appInfo = await _applicationRepository.FindOne(appId, org);
-
-                if (appInfo == null)
-                {
-                    errorResult = NotFound($"Did not find application with appId={appId}");
-                }
-            }
-            catch (Exception e)
-            {
-                errorResult = StatusCode(500, $"Unable to perform request: {e}");
-            }
-
-            return (appInfo, errorResult);
         }
     }
 }

@@ -48,6 +48,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly string _storageBaseAndHost;
         private readonly GeneralSettings _generalSettings;
         private readonly IRegisterService _registerService;
+        private readonly ApplicationHelper _applicationHelper;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="InstancesController"/> class
@@ -59,6 +60,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="authorizationService">the authorization service.</param>
         /// <param name="instanceEventService">the instance event service.</param>
         /// <param name="registerService">the instance register service.</param>
+        /// <param name="applicationHelper">the application helper.</param>
         /// <param name="settings">the general settings.</param>
         public InstancesController(
             IInstanceRepository instanceRepository,
@@ -68,6 +70,7 @@ namespace Altinn.Platform.Storage.Controllers
             IAuthorization authorizationService,
             IInstanceEventService instanceEventService,
             IRegisterService registerService,
+            ApplicationHelper applicationHelper,
             IOptions<GeneralSettings> settings)
         {
             _instanceRepository = instanceRepository;
@@ -78,6 +81,7 @@ namespace Altinn.Platform.Storage.Controllers
             _authorizationService = authorizationService;
             _instanceEventService = instanceEventService;
             _registerService = registerService;
+            _applicationHelper = applicationHelper;
             _generalSettings = settings.Value;
         }
 
@@ -332,11 +336,11 @@ namespace Altinn.Platform.Storage.Controllers
 
             try
             {
-                (appInfo, appInfoError) = await GetApplicationOrErrorAsync(appId);
+                (appInfo, appInfoError) = await _applicationHelper.GetApplicationOrErrorAsync(appId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Something went wrong during GetApplicationOrErrorAsync for application id: {appId}", appId);
+                _logger.LogError(ex, "Something fetching application metadata for application id: {appId}", appId);
                 throw;
             }
 
@@ -456,12 +460,12 @@ namespace Altinn.Platform.Storage.Controllers
             ActionResult appInfoError;
             try
             {
-                (appInfo, appInfoError) = await GetApplicationOrErrorAsync(instance.AppId);
+                (appInfo, appInfoError) = await _applicationHelper.GetApplicationOrErrorAsync(instance.AppId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Something went wrong during GetApplicationOrErrorAsync for application id: {appId}", instance.AppId);
-                return StatusCode(500, $"Unable to get application info for {instance.AppId}: {ex.Message}");
+                _logger.LogError(ex, "Something fetching application metadata for application id: {appId}", instance.AppId);
+                throw;
             }
 
             if (appInfoError != null)
@@ -797,30 +801,6 @@ namespace Altinn.Platform.Storage.Controllers
             };
 
             return createdInstance;
-        }
-
-        private async Task<(Application Application, ActionResult ErrorMessage)> GetApplicationOrErrorAsync(string appId)
-        {
-            ActionResult errorResult = null;
-            Application appInfo = null;
-
-            try
-            {
-                string org = appId.Split("/")[0];
-
-                appInfo = await _applicationRepository.FindOne(appId, org);
-
-                if (appInfo == null)
-                {
-                    errorResult = NotFound($"Did not find application with appId={appId}");
-                }
-            }
-            catch (Exception e)
-            {
-                errorResult = StatusCode(500, $"Unable to perform request: {e}");
-            }
-
-            return (appInfo, errorResult);
         }
 
         private static void FilterOutDeletedDataElements(Instance instance)
