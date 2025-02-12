@@ -6,6 +6,7 @@ using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
 
@@ -14,10 +15,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
     public class ApplicationServiceTests
     {
         private readonly Mock<IApplicationRepository> _applicationRepositoryMock;
+        private readonly Mock<ILogger<ApplicationService>> _loggerMock;
 
         public ApplicationServiceTests()
         {
             _applicationRepositoryMock = new Mock<IApplicationRepository>();
+            _loggerMock = new Mock<ILogger<ApplicationService>>();
         }
 
         [Fact]
@@ -28,7 +31,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
 
             _applicationRepositoryMock.Setup(arm => arm.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(application);
 
-            ApplicationService applicationService = new(_applicationRepositoryMock.Object);
+            ApplicationService applicationService = new(_applicationRepositoryMock.Object, _loggerMock.Object);
 
             // Act
             (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp("ttd", "test-app", "sign-datatype", "currentTask");
@@ -43,7 +46,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         public async Task ValidateDataTypeForApp_Failed_AppNotExists()
         {
             // Arrange
-            ApplicationService applicationService = new(_applicationRepositoryMock.Object);
+            ApplicationService applicationService = new(_applicationRepositoryMock.Object, _loggerMock.Object);
 
             // Act
             (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp("ttd", "test-app", "sign-datatype", "currentTask");
@@ -61,7 +64,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
 
             _applicationRepositoryMock.Setup(arm => arm.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(application);
 
-            ApplicationService applicationService = new(_applicationRepositoryMock.Object);
+            ApplicationService applicationService = new(_applicationRepositoryMock.Object, _loggerMock.Object);
 
             // Act
             (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp("ttd", "test-app", "invalid-datatype", "currentTask");
@@ -80,7 +83,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
 
             _applicationRepositoryMock.Setup(arm => arm.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(application);
 
-            ApplicationService applicationService = new(_applicationRepositoryMock.Object);
+            ApplicationService applicationService = new(_applicationRepositoryMock.Object, _loggerMock.Object);
 
             // Act
             (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp("ttd", "test-app", "sign-datatype", "invalidTask");
@@ -119,7 +122,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 .Setup(repo => repo.FindOne(appId, expectedOrg))
                 .ReturnsAsync(new Application());
 
-            ApplicationService applicationService = new(_applicationRepositoryMock.Object);
+            ApplicationService applicationService = new(_applicationRepositoryMock.Object, _loggerMock.Object);
 
             // Act
             var (app, error) = await applicationService.GetApplicationOrErrorAsync(appId);
@@ -141,7 +144,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 .Setup(repo => repo.FindOne(appId, expectedOrg))
                 .ReturnsAsync((Application)null);
 
-            ApplicationService applicationService = new(_applicationRepositoryMock.Object);
+            ApplicationService applicationService = new(_applicationRepositoryMock.Object, _loggerMock.Object);
 
             // Act
             var (app, error) = await applicationService.GetApplicationOrErrorAsync(appId);
@@ -167,7 +170,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 .Setup(repo => repo.FindOne(appId, expectedOrg))
                 .ThrowsAsync(exception);
 
-            ApplicationService applicationService = new(_applicationRepositoryMock.Object);
+            ApplicationService applicationService = new(_applicationRepositoryMock.Object, _loggerMock.Object);
 
             // Act
             var (app, error) = await applicationService.GetApplicationOrErrorAsync(appId);

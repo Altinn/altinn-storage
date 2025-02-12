@@ -4,6 +4,7 @@ using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace Altinn.Platform.Storage.Services
 {
@@ -13,13 +14,15 @@ namespace Altinn.Platform.Storage.Services
     public class ApplicationService : IApplicationService
     {
         private readonly IApplicationRepository _applicationRepository;
+        private readonly ILogger<ApplicationService> _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ApplicationService"/> class.
         /// </summary>
-        public ApplicationService(IApplicationRepository applicationRepository)
+        public ApplicationService(IApplicationRepository applicationRepository, ILogger<ApplicationService> logger)
         {
             _applicationRepository = applicationRepository;
+            _logger = logger;
         }
 
         /// <inheritdoc/>
@@ -63,10 +66,11 @@ namespace Altinn.Platform.Storage.Services
             }
             catch (Exception e)
             {
-                errorResult = new ObjectResult($"Unable to perform request: {e}")
+                errorResult = new ObjectResult($"An error occurred while fetching application with appId={appId}")
                 {
                     StatusCode = 500
                 };
+                _logger.LogError(e, "An error occurred while fetching application with appId={appId}", appId);
             }
 
             return (appInfo, errorResult);
