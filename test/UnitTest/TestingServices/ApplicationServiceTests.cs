@@ -159,7 +159,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         }
 
         [Fact]
-        public async Task GetApplicationOrErrorAsync_WhenExceptionThrown_Returns500()
+        public async Task GetApplicationOrErrorAsync_WhenExceptionThrown_ReturnsStatusInternalServerError()
         {
             // Arrange
             string appId = "org123/app456";
@@ -181,7 +181,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             var objectResult = Assert.IsType<ObjectResult>(error);
             Assert.Equal(500, objectResult.StatusCode);
 
-            Assert.Contains("Unable to perform request:", objectResult.Value.ToString());
+            Assert.Contains("An error occurred while fetching application with appId", objectResult.Value.ToString());
             Assert.Contains("Test exception", objectResult.Value.ToString());
         }
     }
