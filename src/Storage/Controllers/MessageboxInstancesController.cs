@@ -41,6 +41,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="textRepository">the text repository handler</param>
         /// <param name="applicationRepository">the application repository handler</param>
         /// <param name="authorizationService">the authorization service</param>
+        /// <param name="applicationHelper">the application helper</param>
         public MessageBoxInstancesController(
             IInstanceRepository instanceRepository,
             IInstanceEventRepository instanceEventRepository,
