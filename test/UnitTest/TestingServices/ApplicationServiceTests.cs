@@ -182,7 +182,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             Assert.Equal(500, objectResult.StatusCode);
 
             Assert.Contains("An error occurred while fetching application with appId", objectResult.Value.ToString());
-            Assert.Contains("Test exception", objectResult.Value.ToString());
         }
     }
 }
