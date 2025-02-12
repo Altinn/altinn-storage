@@ -441,6 +441,7 @@ namespace Altinn.Platform.Storage.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [Produces("application/json")]
         public async Task<ActionResult<Instance>> Delete(int instanceOwnerPartyId, Guid instanceGuid, [FromQuery] bool hard)
@@ -477,7 +478,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (isPreventedFromDeletion)
             {
-                return Forbid("Instance cannot be deleted yet due to application restrictions.");
+                return StatusCode(403, "Instance cannot be deleted yet due to application restrictions.");
             }
 
             DateTime now = DateTime.UtcNow;

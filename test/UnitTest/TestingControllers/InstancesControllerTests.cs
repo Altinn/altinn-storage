@@ -469,7 +469,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     {
         // Arrange
         int instanceOwnerId = 1337;
-        string instanceGuid = "7e6cc8e2-6cd4-4ad4-9ce8-c37a767677b5";
+        string instanceGuid = "3f7fcd91-114e-4da1-95b6-72115f34945c";
         string requestUri = $"{BasePath}/{instanceOwnerId}/{instanceGuid}";
 
         if (hard)
@@ -477,15 +477,14 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
             requestUri += "?hard=true";
         }
 
-        Application application = new() { PreventInstanceDeletionForDays = 30 };
+        var archived = DateTime.Parse("2024-04-29T13:53:06.117891Z");
+        int daysSinceArchived = (int)(DateTime.UtcNow - archived).TotalDays;
+
+        Application application = new() { PreventInstanceDeletionForDays = daysSinceArchived + 10 }; // Prevent deletion for longer than the instance has been archived
         Mock<IApplicationService> applicationServiceMock = new();
         applicationServiceMock.Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>())).ReturnsAsync((application, null));
 
-        Instance instance = new() { Status = new InstanceStatus { Archived = DateTime.UtcNow } };
-        Mock<IInstanceRepository> instanceRepositoryMock = new();
-        instanceRepositoryMock.Setup(x => x.GetOne(It.IsAny<Guid>(), It.IsAny<bool>())).ReturnsAsync((instance, 123));
-
-        HttpClient client = GetTestClient(applicationService: applicationServiceMock, repositoryMock: instanceRepositoryMock);
+        HttpClient client = GetTestClient(applicationService: applicationServiceMock);
         string token = PrincipalUtil.GetToken(1337, 1337);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -514,11 +513,15 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Mock<IApplicationService> applicationServiceMock = new();
         applicationServiceMock.Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>())).ReturnsAsync((application, null));
 
-        Instance instance = new() { Status = new InstanceStatus() };
-        Mock<IInstanceRepository> instanceRepositoryMock = new();
-        instanceRepositoryMock.Setup(x => x.GetOne(It.IsAny<Guid>(), It.IsAny<bool>())).ReturnsAsync((instance, 123));
+        Instance instance = new()
+        {
+            Status = new InstanceStatus(),
+            AppId = "org123/app456",
+            Id = "org123/app456",
+            InstanceOwner = new InstanceOwner { PartyId = "1337" }
+        };
 
-        HttpClient client = GetTestClient(applicationService: applicationServiceMock, repositoryMock: instanceRepositoryMock);
+        HttpClient client = GetTestClient(applicationService: applicationServiceMock);
         string token = PrincipalUtil.GetToken(1337, 1337);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -549,11 +552,15 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Mock<IApplicationService> applicationServiceMock = new();
         applicationServiceMock.Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>())).ReturnsAsync((application, null));
 
-        Instance instance = new() { Status = new InstanceStatus() };
-        Mock<IInstanceRepository> instanceRepositoryMock = new();
-        instanceRepositoryMock.Setup(x => x.GetOne(It.IsAny<Guid>(), It.IsAny<bool>())).ReturnsAsync((instance, 123));
+        Instance instance = new()
+        {
+            Status = new InstanceStatus(),
+            AppId = "org123/app456",
+            Id = "org123/app456",
+            InstanceOwner = new InstanceOwner { PartyId = "1337" }
+        };
 
-        HttpClient client = GetTestClient(applicationService: applicationServiceMock, repositoryMock: instanceRepositoryMock);
+        HttpClient client = GetTestClient(applicationService: applicationServiceMock);
         string token = PrincipalUtil.GetToken(1337, 1337);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -687,7 +694,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string token = PrincipalUtil.GetSystemUserToken(systemUserId, "725736800");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        int expectedNoInstances = 37;
+        int expectedNoInstances = 38;
 
         // Act
         HttpResponseMessage response = await client.GetAsync(requestUri);
@@ -2064,7 +2071,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
                 if (repositoryMock != null)
                 {
-                    services.AddSingleton(repositoryMock.Object);
+                    services.AddSingleton(repositoryMock);
                 }
 
                 if (registerService != null)
