@@ -48,7 +48,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly string _storageBaseAndHost;
         private readonly GeneralSettings _generalSettings;
         private readonly IRegisterService _registerService;
-        private readonly ApplicationHelper _applicationHelper;
+        private readonly IApplicationService _applicationService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="InstancesController"/> class
@@ -60,7 +60,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="authorizationService">the authorization service.</param>
         /// <param name="instanceEventService">the instance event service.</param>
         /// <param name="registerService">the instance register service.</param>
-        /// <param name="applicationHelper">the application helper.</param>
+        /// <param name="applicationService">the application service.</param>
         /// <param name="settings">the general settings.</param>
         public InstancesController(
             IInstanceRepository instanceRepository,
@@ -70,7 +70,7 @@ namespace Altinn.Platform.Storage.Controllers
             IAuthorization authorizationService,
             IInstanceEventService instanceEventService,
             IRegisterService registerService,
-            ApplicationHelper applicationHelper,
+            IApplicationService applicationService,
             IOptions<GeneralSettings> settings)
         {
             _instanceRepository = instanceRepository;
@@ -81,7 +81,7 @@ namespace Altinn.Platform.Storage.Controllers
             _authorizationService = authorizationService;
             _instanceEventService = instanceEventService;
             _registerService = registerService;
-            _applicationHelper = applicationHelper;
+            _applicationService = applicationService;
             _generalSettings = settings.Value;
         }
 
@@ -336,7 +336,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             try
             {
-                (appInfo, appInfoError) = await _applicationHelper.GetApplicationOrErrorAsync(appId);
+                (appInfo, appInfoError) = await _applicationService.GetApplicationOrErrorAsync(appId);
             }
             catch (Exception ex)
             {
@@ -460,7 +460,7 @@ namespace Altinn.Platform.Storage.Controllers
             ActionResult appInfoError;
             try
             {
-                (appInfo, appInfoError) = await _applicationHelper.GetApplicationOrErrorAsync(instance.AppId);
+                (appInfo, appInfoError) = await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
             }
             catch (Exception ex)
             {

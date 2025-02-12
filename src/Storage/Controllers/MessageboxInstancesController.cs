@@ -11,7 +11,7 @@ using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
-
+using Altinn.Platform.Storage.Services;
 using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -31,7 +31,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly ITextRepository _textRepository;
         private readonly IApplicationRepository _applicationRepository;
         private readonly IAuthorization _authorizationService;
-        private readonly ApplicationHelper _applicationHelper;
+        private readonly IApplicationService _applicationService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MessageBoxInstancesController"/> class
@@ -41,21 +41,21 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="textRepository">the text repository handler</param>
         /// <param name="applicationRepository">the application repository handler</param>
         /// <param name="authorizationService">the authorization service</param>
-        /// <param name="applicationHelper">the application helper</param>
+        /// <param name="applicationService">the application service</param>
         public MessageBoxInstancesController(
             IInstanceRepository instanceRepository,
             IInstanceEventRepository instanceEventRepository,
             ITextRepository textRepository,
             IApplicationRepository applicationRepository,
             IAuthorization authorizationService,
-            ApplicationHelper applicationHelper)
+            IApplicationService applicationService)
         {
             _instanceRepository = instanceRepository;
             _instanceEventRepository = instanceEventRepository;
             _textRepository = textRepository;
             _applicationRepository = applicationRepository;
             _authorizationService = authorizationService;
-            _applicationHelper = applicationHelper;
+            _applicationService = applicationService;
         }
 
         /// <summary>
@@ -287,7 +287,7 @@ namespace Altinn.Platform.Storage.Controllers
             ActionResult appInfoError;
             try
             {
-                (appInfo, appInfoError) = await _applicationHelper.GetApplicationOrErrorAsync(instance.AppId);
+                (appInfo, appInfoError) = await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
             }
             catch (Exception ex)
             {
