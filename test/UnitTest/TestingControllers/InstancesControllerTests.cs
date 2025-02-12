@@ -433,10 +433,10 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
     /// <summary>
     /// Test case: End user system tries to soft delete an instance, but GetApplicationOrErrorAsync returns app info error
-    /// Expected: Returns status internal server error.
+    /// Expected: Returns status Not Found.
     /// </summary>
     [Fact]
-    public async Task Delete_EndUserSoftDeletesInstance_GetApplicationOrErrorAsyncReturnsError_ReturnsStatusInternalServerError()
+    public async Task Delete_EndUserSoftDeletesInstance_GetApplicationOrErrorAsyncReturnsErrorNotFound_ReturnsStatusNotFound()
     {
         // Arrange
         int instanceOwnerId = 1337;
@@ -455,7 +455,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         HttpResponseMessage response = await client.DeleteAsync(requestUri);
 
         // Assert
-        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     /// <summary>
