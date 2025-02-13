@@ -2071,7 +2071,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
                 if (repositoryMock != null)
                 {
-                    services.AddSingleton(repositoryMock);
+                    services.AddSingleton(repositoryMock.Object);
                 }
 
                 if (registerService != null)
