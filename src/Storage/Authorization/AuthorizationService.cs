@@ -216,18 +216,24 @@ public class AuthorizationService(
     /// <inheritdoc/>>
     public bool UserHasRequiredScope(List<string> requiredScope)
     {
-        ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
-        string contextScope = user.Identities?
-           .FirstOrDefault(i => i.AuthenticationType != null && i.AuthenticationType.Equals("AuthenticationTypes.Federation"))
-           ?.Claims
-           .Where(c => c.Type.Equals("urn:altinn:scope"))
-           ?.Select(c => c.Value).FirstOrDefault();
-
-        contextScope ??= user.Claims.Where(c => c.Type.Equals("scope")).Select(c => c.Value).FirstOrDefault();
+        var contextScope = GetContextScope();
 
         if (!string.IsNullOrWhiteSpace(contextScope))
         {
             return requiredScope.Exists(scope => contextScope.Contains(scope, StringComparison.InvariantCultureIgnoreCase));
+        }
+
+        return false;
+    }
+
+    /// <inheritdoc/>>
+    public bool UserHasRequiredScope(string requiredScope)
+    {
+        var contextScope = GetContextScope();
+
+        if (!string.IsNullOrWhiteSpace(contextScope))
+        {
+            return contextScope.Contains(requiredScope, StringComparison.InvariantCultureIgnoreCase);
         }
 
         return false;
@@ -295,6 +301,20 @@ public class AuthorizationService(
         {
             resourceCategory
         };
+    }
+
+    private string GetContextScope()
+    {
+        ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
+        string contextScope = user.Identities?
+            .FirstOrDefault(i => i.AuthenticationType != null && i.AuthenticationType.Equals("AuthenticationTypes.Federation"))
+            ?.Claims
+            .Where(c => c.Type.Equals("urn:altinn:scope"))
+            ?.Select(c => c.Value).FirstOrDefault();
+
+        contextScope ??= user.Claims.Where(c => c.Type.Equals("scope")).Select(c => c.Value).FirstOrDefault();
+
+        return contextScope;
     }
 
     private static (string InstanceId, string InstanceGuid, string Task, string InstanceOwnerPartyId, string Org, string App) GetInstanceProperties(Instance instance)
