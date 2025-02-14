@@ -44,7 +44,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 /// Initializes a new instance of the <see cref="MessageBoxInstancesControllerTests"/> class with the given <see cref="WebApplicationFactory{TStartup}"/>.
 /// </summary>
 /// <param name="factory">The <see cref="TestApplicationFactory{TStartup}"/> to use when setting up the test server.</param>
-public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBoxInstancesController> factory) 
+public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBoxInstancesController> factory)
     : IClassFixture<TestApplicationFactory<MessageBoxInstancesController>>
 {
     private readonly TestApplicationFactory<MessageBoxInstancesController> _factory = factory;
@@ -728,7 +728,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-        Assert.Null(actual.InstanceOwnerPartyIds); 
+        Assert.Null(actual.InstanceOwnerPartyIds);
         Assert.NotNull(actual.InstanceOwnerPartyId);
         Assert.Equal(expectedSortBy, actual.SortBy);
         Assert.True(actual.IsArchivedOrSoftDeleted);
@@ -1088,7 +1088,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
                 It.IsAny<DateTime?>()))
             .ReturnsAsync(new List<InstanceEvent>());
 
-        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null);
+        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null);
 
         // Act
         await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid());
@@ -1146,7 +1146,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
                 It.IsAny<DateTime?>()))
             .ReturnsAsync(eventList);
 
-        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null);
+        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null);
 
         // Act
         var response = await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid()) as OkObjectResult;
@@ -1173,7 +1173,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
             .Setup(rm => rm.ListInstanceEvents(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<DateTime?>(), It.IsAny<DateTime?>()))
             .ReturnsAsync(largeNumberOfEvents);
 
-        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null);
+        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null);
 
         // Act
         var response = await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid()) as OkObjectResult;

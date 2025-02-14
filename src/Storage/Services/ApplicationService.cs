@@ -1,8 +1,10 @@
-using System.Linq;
+using System;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace Altinn.Platform.Storage.Services
 {
@@ -12,15 +14,17 @@ namespace Altinn.Platform.Storage.Services
     public class ApplicationService : IApplicationService
     {
         private readonly IApplicationRepository _applicationRepository;
-        
+        private readonly ILogger<ApplicationService> _logger;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="ApplicationService"/> class.
         /// </summary>
-        public ApplicationService(IApplicationRepository applicationRepository)
+        public ApplicationService(IApplicationRepository applicationRepository, ILogger<ApplicationService> logger)
         {
             _applicationRepository = applicationRepository;
+            _logger = logger;
         }
-        
+
         /// <inheritdoc/>
         public async Task<(bool IsValid, ServiceError ServiceError)> ValidateDataTypeForApp(string org, string appId, string dataType, string currentTask)
         {
@@ -37,6 +41,39 @@ namespace Altinn.Platform.Storage.Services
             }
 
             return (false, new ServiceError(405, $"DataType {dataType} is not declared in application metadata for app {appId}"));
+        }
+
+        /// <summary>
+        /// Wrapper method for getting an application or an error message using the application id.
+        /// </summary>
+        /// <param name="appId">The application id</param>
+        /// <returns></returns>
+        public async Task<(Application Application, ActionResult ErrorMessage)> GetApplicationOrErrorAsync(string appId)
+        {
+            ActionResult errorResult = null;
+            Application appInfo = null;
+
+            try
+            {
+                string org = appId.Split("/")[0];
+
+                appInfo = await _applicationRepository.FindOne(appId, org);
+
+                if (appInfo == null)
+                {
+                    errorResult = new NotFoundObjectResult($"Did not find application with appId={appId}");
+                }
+            }
+            catch (Exception e)
+            {
+                errorResult = new ObjectResult($"An error occurred while fetching application with appId={appId}")
+                {
+                    StatusCode = 500
+                };
+                _logger.LogError(e, "An error occurred while fetching application with appId={appId}", appId);
+            }
+
+            return (appInfo, errorResult);
         }
     }
 }
