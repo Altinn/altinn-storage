@@ -28,7 +28,7 @@ namespace Altinn.Platform.Storage.Repository
         private const string _readSqlFilteredInitial = "select * from storage.readinstancefromquery_v5 (";
         private readonly string _deleteSql = "select * from storage.deleteinstance ($1)";
         private readonly string _insertSql = "call storage.insertinstance_v2 (@_partyid, @_alternateid, @_instance, @_created, @_lastchanged, @_org, @_appid, @_taskid, @_altinnmainversion)";
-        
+
         /// <summary>
         /// SQL for updating an instance.
         /// </summary>
@@ -201,7 +201,7 @@ namespace Altinn.Platform.Storage.Repository
                         NpgsqlDbType.Bigint => $"{value}",
                         NpgsqlDbType.TimestampTz => $"{((DateTime)value != DateTime.MinValue ? "'" + ((DateTime)value).ToString(DateTimeHelper.Iso8601UtcFormat, CultureInfo.InvariantCulture) + "'::timestamptz" : "NULL")}",
                         NpgsqlDbType.Integer => $"{value}",
-                        NpgsqlDbType.Smallint => $"{value}",
+                        NpgsqlDbType.Smallint => $"{value}::smallint",
                         NpgsqlDbType.Boolean => $"{value}",
                         NpgsqlDbType.Text | NpgsqlDbType.Array => ArrayVariableFromText((string[])value),
                         NpgsqlDbType.Jsonb | NpgsqlDbType.Array => ArrayVariableFromJsonText((string[])value),
@@ -277,40 +277,49 @@ namespace Altinn.Platform.Storage.Repository
 #pragma warning restore CA2254 // Template should be a static expression
             }
 
-            await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
+            try
             {
-                long previousId = -1;
-                long id = -1;
-                Instance instance = new(); // make sonarcloud happy
-                while (await reader.ReadAsync())
+                await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
                 {
-                    id = await reader.GetFieldValueAsync<long>("id");
-                    if (id != previousId)
+                    long previousId = -1;
+                    long id = -1;
+                    Instance instance = new(); // make sonarcloud happy
+                    while (await reader.ReadAsync())
                     {
-                        if (previousId != -1)
+                        id = await reader.GetFieldValueAsync<long>("id");
+                        if (id != previousId)
                         {
-                            ToExternal(instance);
+                            if (previousId != -1)
+                            {
+                                ToExternal(instance);
+                            }
+
+                            instance = await reader.GetFieldValueAsync<Instance>("instance");
+                            lastChanged = instance.LastChanged ?? DateTime.MinValue;
+                            queryResponse.Instances.Add(instance);
+                            instance.Data = [];
+                            previousId = id;
                         }
 
-                        instance = await reader.GetFieldValueAsync<Instance>("instance");
-                        lastChanged = instance.LastChanged ?? DateTime.MinValue;
-                        queryResponse.Instances.Add(instance);
-                        instance.Data = [];
-                        previousId = id;
+                        if (!await reader.IsDBNullAsync("element"))
+                        {
+                            instance.Data.Add(await reader.GetFieldValueAsync<DataElement>("element"));
+                        }
                     }
 
-                    if (!await reader.IsDBNullAsync("element"))
+                    if (id != -1)
                     {
-                        instance.Data.Add(await reader.GetFieldValueAsync<DataElement>("element"));
+                        ToExternal(instance);
                     }
-                }
 
-                if (id != -1)
-                {
-                    ToExternal(instance);
+                    queryResponse.ContinuationToken = queryResponse.Instances.Count == queryParams.Size ? $"{lastChanged.Ticks};{id}" : null;
                 }
-
-                queryResponse.ContinuationToken = queryResponse.Instances.Count == queryParams.Size ? $"{lastChanged.Ticks};{id}" : null;
+            }
+            catch (Exception)
+            {
+                tracker.Add("Call", FormatManualFunctionCall(postgresParams));
+                tracker.Track();
+                throw;
             }
 
             queryResponse.Count = queryResponse.Instances.Count;
@@ -423,7 +432,7 @@ namespace Altinn.Platform.Storage.Repository
                 instance.Id = instance.Id.Split('/')[1];
             }
         }
-        
+
         /// <summary>
         /// Converts the instance to external format.
         /// </summary>
