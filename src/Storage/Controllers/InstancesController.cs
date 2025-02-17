@@ -106,10 +106,11 @@ namespace Altinn.Platform.Storage.Controllers
             string orgClaim = User.GetOrg();
             int? userId = User.GetUserId();
             SystemUserClaim systemUser = User.GetSystemUser();
+            bool hasSyncAdapterScope = _authorizationService.UserHasRequiredScope(_generalSettings.InstanceSyncAdapterScope);
 
             if (orgClaim != null)
             {
-                if (!_authorizationService.UserHasRequiredScope(_generalSettings.InstanceReadScope))
+                if (!hasSyncAdapterScope && !_authorizationService.UserHasRequiredScope(_generalSettings.InstanceReadScope))
                 {
                     return Forbid();
                 }
@@ -124,7 +125,8 @@ namespace Altinn.Platform.Storage.Controllers
                     queryParameters.Org = queryParameters.AppId.Split('/')[0];
                 }
 
-                if (!orgClaim.Equals(queryParameters.Org, StringComparison.InvariantCultureIgnoreCase))
+                
+                if (!hasSyncAdapterScope && !orgClaim.Equals(queryParameters.Org, StringComparison.InvariantCultureIgnoreCase))
                 {
                     if (string.IsNullOrEmpty(queryParameters.AppId))
                     {
@@ -205,10 +207,10 @@ namespace Altinn.Platform.Storage.Controllers
                 queryParameters.ContinuationToken = HttpUtility.UrlDecode(queryParameters.ContinuationToken);
             }
 
-            bool appOwnerRequestingInstances = User.HasServiceOwnerScope();
+            bool appOwnerOrSyncAdapterRequestingInstances = hasSyncAdapterScope || User.HasServiceOwnerScope();
 
-            // filter out hard deleted instances if it isn't the appOwner requesting instances
-            if (!appOwnerRequestingInstances)
+            // filter out hard deleted instances if it isn't the appOwner or the sync adapter requesting instances 
+            if (!appOwnerOrSyncAdapterRequestingInstances)
             {
                 if (queryParameters.IsHardDeleted.HasValue && queryParameters.IsHardDeleted.Value)
                 {
@@ -244,7 +246,7 @@ namespace Altinn.Platform.Storage.Controllers
                     return BadRequest(result.Exception);
                 }
 
-                if (!appOwnerRequestingInstances)
+                if (!appOwnerOrSyncAdapterRequestingInstances)
                 {
                     foreach (Instance instance in result.Instances)
                     {

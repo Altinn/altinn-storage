@@ -1070,24 +1070,53 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     }
 
     /// <summary>
-    /// Test case: Get Multiple instances using client with sync adapter scope should faile.
+    /// Test case: Get Multiple instances using client with sync adapter scope should work.
     /// Expected: Returns status forbidden.
     /// </summary>
     [Fact]
-    public async Task GetMany_SyncAdapterScope_ReturnsForbidden()
+    public async Task GetMany_SyncAdapterScope_OK()
     {
         // Arrange
-        string requestUri = $"{BasePath}?org=testOrg";
+        string requestUri = $"{BasePath}?org=ttd";
 
+        var expectedNoInstances = 13;
+        
         HttpClient client = GetTestClient();
         string token = PrincipalUtil.GetOrgToken("testOrg", scope: "altinn:storage/instances.syncadapter");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
         HttpResponseMessage response = await client.GetAsync(requestUri);
+        string json = await response.Content.ReadAsStringAsync();
+        InstanceQueryResponse queryResponse = JsonConvert.DeserializeObject<InstanceQueryResponse>(json);
 
         // Assert
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(expectedNoInstances, queryResponse.Count);
+    }
+    
+    /// <summary>
+    /// Scenario:
+    ///   The sync adapter calls the API via apps-endpoints authenticated digdir, which is not the app's service owner.
+    ///   This should be allowed regardless of policy.
+    /// Result:
+    ///   Returns status is OK.
+    /// </summary>
+    [Fact]
+    public async Task GetMany_QueryingDifferentOrgThanInClaims_ReturnsOKIfSyncAdapter()
+    {
+        // Arrange
+        string requestUri = $"{BasePath}?instanceOwner.PartyId=1337&appId=sfvt/test-read-app-no-permission";
+
+        HttpClient client = GetTestClient();
+        string token = PrincipalUtil.GetOrgToken("digdir", scope: "altinn:storage/instances.syncadapter");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     /// <summary>
