@@ -326,6 +326,7 @@ namespace Altinn.Platform.Storage.Controllers
         [Consumes("application/json")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         [Produces("application/json")]
         public async Task<ActionResult<Instance>> Post(string appId, [FromBody] Instance instance)
         {
@@ -337,7 +338,11 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (appInfoError != null)
             {
-                return StatusCode(appInfoError.ErrorCode, appInfoError.ErrorMessage);
+                return appInfoError.ErrorCode switch
+                {
+                    404 => NotFound(appInfoError.ErrorMessage),
+                    _ => StatusCode(appInfoError.ErrorCode, appInfoError.ErrorMessage),
+                };
             }
 
             if (string.IsNullOrWhiteSpace(instance.InstanceOwner.PartyId))
