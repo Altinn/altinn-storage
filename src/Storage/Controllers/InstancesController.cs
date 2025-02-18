@@ -40,7 +40,6 @@ namespace Altinn.Platform.Storage.Controllers
     public class InstancesController : ControllerBase
     {
         private readonly IInstanceRepository _instanceRepository;
-        private readonly IApplicationRepository _applicationRepository;
         private readonly IPartiesWithInstancesClient _partiesWithInstancesClient;
         private readonly ILogger _logger;
         private readonly IAuthorization _authorizationService;
@@ -54,7 +53,6 @@ namespace Altinn.Platform.Storage.Controllers
         /// Initializes a new instance of the <see cref="InstancesController"/> class
         /// </summary>
         /// <param name="instanceRepository">the instance repository handler</param>
-        /// <param name="applicationRepository">the application repository handler</param>
         /// <param name="partiesWithInstancesClient">An implementation of <see cref="IPartiesWithInstancesClient"/> that can be used to send information to SBL.</param>
         /// <param name="logger">the logger</param>
         /// <param name="authorizationService">the authorization service.</param>
@@ -64,7 +62,6 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="settings">the general settings.</param>
         public InstancesController(
             IInstanceRepository instanceRepository,
-            IApplicationRepository applicationRepository,
             IPartiesWithInstancesClient partiesWithInstancesClient,
             ILogger<InstancesController> logger,
             IAuthorization authorizationService,
@@ -74,7 +71,6 @@ namespace Altinn.Platform.Storage.Controllers
             IOptions<GeneralSettings> settings)
         {
             _instanceRepository = instanceRepository;
-            _applicationRepository = applicationRepository;
             _partiesWithInstancesClient = partiesWithInstancesClient;
             _logger = logger;
             _storageBaseAndHost = $"{settings.Value.Hostname}/storage/api/v1/";
@@ -464,9 +460,7 @@ namespace Altinn.Platform.Storage.Controllers
                 };
             }
 
-            bool isPreventedFromDeletion = InstanceHelper.IsPreventedFromDeletion(instance.Status, appInfo);
-
-            if (isPreventedFromDeletion)
+            if (InstanceHelper.IsPreventedFromDeletion(instance.Status, appInfo))
             {
                 return StatusCode(403, "Instance cannot be deleted yet due to application restrictions.");
             }

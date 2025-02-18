@@ -294,9 +294,7 @@ namespace Altinn.Platform.Storage.Controllers
                 };
             }
 
-            bool isPreventedFromDeletion = InstanceHelper.IsPreventedFromDeletion(instance.Status, appInfo);
-
-            if (isPreventedFromDeletion)
+            if (InstanceHelper.IsPreventedFromDeletion(instance.Status, appInfo))
             {
                 return StatusCode(403, "Instance cannot be deleted yet due to application restrictions.");
             }
