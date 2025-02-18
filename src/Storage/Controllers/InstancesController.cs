@@ -472,7 +472,11 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (appInfoError != null)
             {
-                return StatusCode(appInfoError.ErrorCode, appInfoError.ErrorMessage);
+                return appInfoError.ErrorCode switch
+                {
+                    404 => NotFound(appInfoError.ErrorMessage),
+                    _ => StatusCode(appInfoError.ErrorCode, appInfoError.ErrorMessage),
+                };
             }
 
             bool isPreventedFromDeletion = InstanceHelper.IsPreventedFromDeletion(instance.Status, appInfo);
