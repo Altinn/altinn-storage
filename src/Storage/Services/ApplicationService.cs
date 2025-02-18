@@ -1,9 +1,7 @@
-using System;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
-using Microsoft.Extensions.Logging;
 
 namespace Altinn.Platform.Storage.Services
 {
@@ -13,15 +11,13 @@ namespace Altinn.Platform.Storage.Services
     public class ApplicationService : IApplicationService
     {
         private readonly IApplicationRepository _applicationRepository;
-        private readonly ILogger<ApplicationService> _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ApplicationService"/> class.
         /// </summary>
-        public ApplicationService(IApplicationRepository applicationRepository, ILogger<ApplicationService> logger)
+        public ApplicationService(IApplicationRepository applicationRepository)
         {
             _applicationRepository = applicationRepository;
-            _logger = logger;
         }
 
         /// <inheritdoc/>
@@ -50,22 +46,13 @@ namespace Altinn.Platform.Storage.Services
         public async Task<(Application Application, ServiceError ServiceError)> GetApplicationOrErrorAsync(string appId)
         {
             ServiceError serviceError = null;
-            Application appInfo = null;
 
-            try
-            {
-                string org = appId.Split("/")[0];
-                appInfo = await _applicationRepository.FindOne(appId, org);
+            string org = appId.Split("/")[0];
+            Application appInfo = await _applicationRepository.FindOne(appId, org);
 
-                if (appInfo == null)
-                {
-                    serviceError = new ServiceError(404, $"Did not find application with appId={appId}");
-                }
-            }
-            catch (Exception e)
+            if (appInfo == null)
             {
-                _logger.LogError(e, "An error occurred while fetching application with appId={AppId}", appId);
-                serviceError = new ServiceError(500, $"An error occurred while fetching application with appId={appId}");
+                serviceError = new ServiceError(404, $"Did not find application with appId={appId}");
             }
 
             return (appInfo, serviceError);
