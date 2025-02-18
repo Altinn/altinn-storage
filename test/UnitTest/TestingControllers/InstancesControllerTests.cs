@@ -418,7 +418,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string requestUri = $"{BasePath}/{instanceOwnerId}/{instanceGuid}";
 
         Mock<IApplicationService> applicationService = new();
-        applicationService.Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>())).ThrowsAsync(new Exception("Test exception"));
+        applicationService.Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>())).ReturnsAsync((null, new ServiceError(500, "Something went wrong")));
 
         HttpClient client = GetTestClient(applicationService: applicationService);
         string token = PrincipalUtil.GetToken(1337, 1337);

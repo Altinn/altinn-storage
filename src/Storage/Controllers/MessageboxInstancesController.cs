@@ -298,7 +298,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (isPreventedFromDeletion)
             {
-                return Forbid("Instance cannot be deleted yet due to application restrictions.");
+                return StatusCode(403, "Instance cannot be deleted yet due to application restrictions.");
             }
 
             DateTime now = DateTime.UtcNow;
