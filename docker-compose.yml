@@ -2,6 +2,7 @@ networks:
   altinnplatform_network:
     external: false
 
+# Comment in the services for local development
 services:
   # altinn_platform_storage:
   #   container_name: altinn-platform-storage
@@ -30,7 +31,7 @@ services:
       - POSTGRES_USER=platform_storage_admin
       - POSTGRES_PASSWORD=Password
     ports:
-      - '5432:5432'
+      - "5432:5432"
     volumes:
       - ./infra/postgres_init.sql:/docker-entrypoint-initdb.d/postgres_init.sql
 
@@ -41,12 +42,12 @@ services:
     networks:
       - altinnplatform_network
     ports:
-      - '8888:80'
+      - "8888:80"
     environment:
       PGADMIN_DEFAULT_EMAIL: platform_storage_admin@altinn.no
       PGADMIN_DEFAULT_PASSWORD: Password
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
-      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
     volumes:
       - ./infra/servers.json:/pgadmin4/servers.json
 

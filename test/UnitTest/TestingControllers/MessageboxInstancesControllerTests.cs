@@ -16,6 +16,7 @@ using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Mocks;
 using Altinn.Platform.Storage.UnitTest.Mocks.Authentication;
@@ -44,7 +45,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 /// Initializes a new instance of the <see cref="MessageBoxInstancesControllerTests"/> class with the given <see cref="WebApplicationFactory{TStartup}"/>.
 /// </summary>
 /// <param name="factory">The <see cref="TestApplicationFactory{TStartup}"/> to use when setting up the test server.</param>
-public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBoxInstancesController> factory) 
+public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBoxInstancesController> factory)
     : IClassFixture<TestApplicationFactory<MessageBoxInstancesController>>
 {
     private readonly TestApplicationFactory<MessageBoxInstancesController> _factory = factory;
@@ -484,6 +485,180 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
 
     /// <summary>
     /// Scenario:
+    /// End user system tries to soft delete an instance, but GetApplicationOrErrorAsync throws an exception
+    /// Expected:
+    /// No changes are made to the instance
+    /// Success:
+    /// Internal server error is returned
+    /// </summary>
+    [Fact]
+    public async Task Delete_GetApplicationOrErrorAsyncThrowsException_ReturnsInternalServerError()
+    {
+        // Arrange
+        Mock<IApplicationService> applicationService = new();
+        applicationService.Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>())).ReturnsAsync((null, new ServiceError(500, "Something went wrong")));
+
+        HttpClient client = GetTestClient(applicationServiceMock: applicationService);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1337, 3));
+
+        // Act
+        HttpResponseMessage response = await client.DeleteAsync($"{BasePath}/sbl/instances/1337/367a5e5a-12c6-4a74-b72b-766d95f859b0?hard=false");
+        HttpStatusCode actualStatusCode = response.StatusCode;
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, actualStatusCode);
+    }
+
+    /// <summary>
+    /// Scenario:
+    ///  End user system tries to soft delete an instance, but GetApplicationOrErrorAsync returns app info error
+    ///  Expected:
+    ///  Returns status Not Found.
+    ///  Success:
+    ///  Status Not Found is returned.
+    ///  </summary>
+    [Fact]
+    public async Task Delete_EndUserSoftDeletesInstance_GetApplicationOrErrorAsyncReturnsErrorNotFound_ReturnsStatusNotFound()
+    {
+        // Arrange
+        int instanceOwnerId = 1337;
+        string instanceGuid = "367a5e5a-12c6-4a74-b72b-766d95f859b0";
+
+        string requestUri = $"{BasePath}/sbl/instances/{instanceOwnerId}/{instanceGuid}";
+
+        Mock<IApplicationService> applicationService = new();
+        applicationService.Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>())).ReturnsAsync((null, new ServiceError(404, "Not found")));
+
+        HttpClient client = GetTestClient(applicationServiceMock: applicationService);
+        string token = PrincipalUtil.GetToken(1337, 1337);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.DeleteAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Scenario:
+    /// End user system tries to soft delete an instance that is prevented from being deleted by PreventInstanceDeletionForDays
+    /// Expected:
+    /// Returns status forbidden.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Delete_EndUserSoftDeletesInstancePreventedFromDeletion_ReturnsStatusForbidden(bool hard)
+    {
+        // Arrange
+        int instanceOwnerId = 1337;
+        string instanceGuid = "3f7fcd91-114e-4da1-95b6-72115f34945c";
+        string requestUri = $"{BasePath}/sbl/instances/{instanceOwnerId}/{instanceGuid}";
+
+        if (hard)
+        {
+            requestUri += "?hard=true";
+        }
+
+        var archived = DateTime.Parse("2024-04-29T13:53:06.117891Z");
+        int daysSinceArchived = (int)(DateTime.UtcNow - archived).TotalDays;
+
+        Application application = new() { PreventInstanceDeletionForDays = daysSinceArchived + 10 }; // Prevent deletion for longer than the instance has been archived
+        Mock<IApplicationService> applicationServiceMock = new();
+        applicationServiceMock.Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>())).ReturnsAsync((application, null));
+
+        HttpClient client = GetTestClient(applicationServiceMock: applicationServiceMock);
+        string token = PrincipalUtil.GetToken(1337, 1337);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.DeleteAsync(requestUri);
+        string responseMessage = await response.Content.ReadAsStringAsync();
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Contains("Instance cannot be deleted yet due to application restrictions.", responseMessage);
+    }
+
+    /// <summary>
+    /// Scenario:
+    ///  End user system tries to soft delete an instance that is prevented from being deleted by PreventInstanceDeletionForDays, but the instance is not archived
+    ///  Expected:
+    ///  Returns success and deleted instance
+    ///  </summary>
+    [Fact]
+    public async Task Delete_EndUserSoftDeletesInstancePreventedFromDeletion_InstanceNotArchived_ReturnsSuccess()
+    {
+        // Arrange
+        int instanceOwnerId = 1337;
+        string instanceGuid = "7e6cc8e2-6cd4-4ad4-9ce8-c37a767677b5";
+        string requestUri = $"{BasePath}/sbl/instances/{instanceOwnerId}/{instanceGuid}";
+
+        Application application = new() { PreventInstanceDeletionForDays = 30 };
+        Mock<IApplicationService> applicationServiceMock = new();
+        applicationServiceMock.Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>())).ReturnsAsync((application, null));
+
+        HttpClient client = GetTestClient(applicationServiceMock: applicationServiceMock);
+        string token = PrincipalUtil.GetToken(1337, 1337);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.DeleteAsync(requestUri);
+        string responseJson = await response.Content.ReadAsStringAsync();
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(bool.Parse(responseJson));
+    }
+
+    /// <summary>
+    /// Test case: End user system tries to hard delete an instance that is prevented from being deleted by PreventInstanceDeletionForDays, but the instance is not archived
+    /// Expected: Returns success and deleted instance
+    /// </summary>
+    /// <summary>
+    /// Scenario:
+    /// End user system tries to hard delete an instance that is prevented from being deleted by PreventInstanceDeletionForDays, but the instance is not archived
+    /// Expected:
+    /// Returns success and deleted instance
+    /// </summary>
+    [Fact]
+    public async Task Delete_EndUserHardDeletesInstancePreventedFromDeletion_InstanceNotArchived_ReturnsSuccess()
+    {
+        // Arrange
+        int instanceOwnerId = 1337;
+        string instanceGuid = "367a5e5a-12c6-4a74-b72b-766d95f859b0";
+        string requestUri = $"{BasePath}/sbl/instances/{instanceOwnerId}/{instanceGuid}";
+
+        requestUri += "?hard=true";
+
+        Application application = new() { PreventInstanceDeletionForDays = 30 };
+        Mock<IApplicationService> applicationServiceMock = new();
+        applicationServiceMock.Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>())).ReturnsAsync((application, null));
+
+        Instance instance = new()
+        {
+            Status = new InstanceStatus(),
+            AppId = "org123/app456",
+            Id = "org123/app456",
+            InstanceOwner = new InstanceOwner { PartyId = "1337" }
+        };
+
+        HttpClient client = GetTestClient(applicationServiceMock: applicationServiceMock);
+        string token = PrincipalUtil.GetToken(1337, 1337);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.DeleteAsync(requestUri);
+        string responseJson = await response.Content.ReadAsStringAsync();
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(bool.Parse(responseJson));
+    }
+
+    /// <summary>
+    /// Scenario:
     ///   Search instances for an instance owner without token
     /// Expected:
     ///  User is not able to query instances.
@@ -728,7 +903,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
-        Assert.Null(actual.InstanceOwnerPartyIds); 
+        Assert.Null(actual.InstanceOwnerPartyIds);
         Assert.NotNull(actual.InstanceOwnerPartyId);
         Assert.Equal(expectedSortBy, actual.SortBy);
         Assert.True(actual.IsArchivedOrSoftDeleted);
@@ -1088,7 +1263,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
                 It.IsAny<DateTime?>()))
             .ReturnsAsync(new List<InstanceEvent>());
 
-        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null);
+        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null);
 
         // Act
         await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid());
@@ -1146,7 +1321,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
                 It.IsAny<DateTime?>()))
             .ReturnsAsync(eventList);
 
-        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null);
+        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null);
 
         // Act
         var response = await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid()) as OkObjectResult;
@@ -1173,7 +1348,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
             .Setup(rm => rm.ListInstanceEvents(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<DateTime?>(), It.IsAny<DateTime?>()))
             .ReturnsAsync(largeNumberOfEvents);
 
-        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null);
+        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null);
 
         // Act
         var response = await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid()) as OkObjectResult;
@@ -1194,7 +1369,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         };
     }
 
-    private HttpClient GetTestClient(Mock<IInstanceRepository> instanceRepositoryMock = null)
+    private HttpClient GetTestClient(Mock<IInstanceRepository> instanceRepositoryMock = null, Mock<IApplicationService> applicationServiceMock = null)
     {
         // No setup required for these services. They are not in use by the MessageBoxInstancesController
         Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
@@ -1215,6 +1390,11 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
                 if (instanceRepositoryMock != null)
                 {
                     services.AddSingleton(instanceRepositoryMock.Object);
+                }
+
+                if (applicationServiceMock != null)
+                {
+                    services.AddSingleton(applicationServiceMock.Object);
                 }
 
                 services.AddSingleton(keyVaultWrapper.Object);

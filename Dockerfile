@@ -7,6 +7,9 @@ COPY src/Storage/Migration ./Migration
 WORKDIR DbTools/
 RUN dotnet build ./DbTools.csproj -c Release -o /app_tools
 
+# Comment in the following line for local development
+# RUN mkdir -p /DbTools/bin/Debug/net9.0 && cp /app_tools/DbTools /DbTools/bin/Debug/net9.0/DbTools
+
 WORKDIR ../Storage/
 
 RUN dotnet build ./Altinn.Platform.Storage.csproj -c Release -o /app_output

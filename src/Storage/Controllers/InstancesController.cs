@@ -40,7 +40,6 @@ namespace Altinn.Platform.Storage.Controllers
     public class InstancesController : ControllerBase
     {
         private readonly IInstanceRepository _instanceRepository;
-        private readonly IApplicationRepository _applicationRepository;
         private readonly IPartiesWithInstancesClient _partiesWithInstancesClient;
         private readonly ILogger _logger;
         private readonly IAuthorization _authorizationService;
@@ -48,36 +47,37 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly string _storageBaseAndHost;
         private readonly GeneralSettings _generalSettings;
         private readonly IRegisterService _registerService;
+        private readonly IApplicationService _applicationService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="InstancesController"/> class
         /// </summary>
         /// <param name="instanceRepository">the instance repository handler</param>
-        /// <param name="applicationRepository">the application repository handler</param>
         /// <param name="partiesWithInstancesClient">An implementation of <see cref="IPartiesWithInstancesClient"/> that can be used to send information to SBL.</param>
         /// <param name="logger">the logger</param>
         /// <param name="authorizationService">the authorization service.</param>
         /// <param name="instanceEventService">the instance event service.</param>
         /// <param name="registerService">the instance register service.</param>
+        /// <param name="applicationService">the application service.</param>
         /// <param name="settings">the general settings.</param>
         public InstancesController(
             IInstanceRepository instanceRepository,
-            IApplicationRepository applicationRepository,
             IPartiesWithInstancesClient partiesWithInstancesClient,
             ILogger<InstancesController> logger,
             IAuthorization authorizationService,
             IInstanceEventService instanceEventService,
             IRegisterService registerService,
+            IApplicationService applicationService,
             IOptions<GeneralSettings> settings)
         {
             _instanceRepository = instanceRepository;
-            _applicationRepository = applicationRepository;
             _partiesWithInstancesClient = partiesWithInstancesClient;
             _logger = logger;
             _storageBaseAndHost = $"{settings.Value.Hostname}/storage/api/v1/";
             _authorizationService = authorizationService;
             _instanceEventService = instanceEventService;
             _registerService = registerService;
+            _applicationService = applicationService;
             _generalSettings = settings.Value;
         }
 
@@ -120,19 +120,19 @@ namespace Altinn.Platform.Storage.Controllers
                 {
                     queryParameters.Org = queryParameters.AppId.Split('/')[0];
                 }
-                
+
                 if (!hasSyncAdapterScope && !orgClaim.Equals(queryParameters.Org, StringComparison.InvariantCultureIgnoreCase))
                 {
                     if (string.IsNullOrEmpty(queryParameters.AppId))
                     {
                         return BadRequest("AppId must be defined.");
                     }
-                    
+
                     var appId = ValidateAppId(queryParameters.AppId).Split("/")[1];
-                    
+
                     XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(queryParameters.Org, appId, HttpContext.User, "read");
                     XacmlJsonResponse response = await _authorizationService.GetDecisionForRequest(request);
-                    
+
                     if (!DecisionHelper.ValidatePdpDecision(response?.Response, HttpContext.User))
                     {
                         return Forbid();
@@ -322,28 +322,23 @@ namespace Altinn.Platform.Storage.Controllers
         [Consumes("application/json")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         [Produces("application/json")]
         public async Task<ActionResult<Instance>> Post(string appId, [FromBody] Instance instance)
         {
-            Application appInfo;
-            ActionResult appInfoError;
             int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
 
             appId = ValidateAppId(appId);
 
-            try
-            {
-                (appInfo, appInfoError) = await GetApplicationOrErrorAsync(appId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Something went wrong during GetApplicationOrErrorAsync for application id: {appId}", appId);
-                throw;
-            }
+            (Application appInfo, ServiceError appInfoError) = await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
 
             if (appInfoError != null)
             {
-                return appInfoError;
+                return appInfoError.ErrorCode switch
+                {
+                    404 => NotFound(appInfoError.ErrorMessage),
+                    _ => StatusCode(appInfoError.ErrorCode, appInfoError.ErrorMessage),
+                };
             }
 
             if (string.IsNullOrWhiteSpace(instance.InstanceOwner.PartyId))
@@ -438,6 +433,7 @@ namespace Altinn.Platform.Storage.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [Produces("application/json")]
         public async Task<ActionResult<Instance>> Delete(int instanceOwnerPartyId, Guid instanceGuid, [FromQuery] bool hard)
@@ -451,12 +447,25 @@ namespace Altinn.Platform.Storage.Controllers
                 return NotFound($"Didn't find the object that should be deleted with instanceId={instanceOwnerPartyId}/{instanceGuid}");
             }
 
-            DateTime now = DateTime.UtcNow;
+            instance.Status ??= new InstanceStatus();
 
-            if (instance.Status == null)
+            (Application appInfo, ServiceError appInfoError) = await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
+
+            if (appInfoError != null)
             {
-                instance.Status = new InstanceStatus();
+                return appInfoError.ErrorCode switch
+                {
+                    404 => NotFound(appInfoError.ErrorMessage),
+                    _ => StatusCode(appInfoError.ErrorCode, appInfoError.ErrorMessage),
+                };
             }
+
+            if (InstanceHelper.IsPreventedFromDeletion(instance.Status, appInfo))
+            {
+                return StatusCode(403, "Instance cannot be deleted yet due to application restrictions.");
+            }
+
+            DateTime now = DateTime.UtcNow;
 
             List<string> updateProperties = [];
             updateProperties.Add(nameof(instance.Status));
@@ -777,30 +786,6 @@ namespace Altinn.Platform.Storage.Controllers
             };
 
             return createdInstance;
-        }
-
-        private async Task<(Application Application, ActionResult ErrorMessage)> GetApplicationOrErrorAsync(string appId)
-        {
-            ActionResult errorResult = null;
-            Application appInfo = null;
-
-            try
-            {
-                string org = appId.Split("/")[0];
-
-                appInfo = await _applicationRepository.FindOne(appId, org);
-
-                if (appInfo == null)
-                {
-                    errorResult = NotFound($"Did not find application with appId={appId}");
-                }
-            }
-            catch (Exception e)
-            {
-                errorResult = StatusCode(500, $"Unable to perform request: {e}");
-            }
-
-            return (appInfo, errorResult);
         }
 
         private static void FilterOutDeletedDataElements(Instance instance)

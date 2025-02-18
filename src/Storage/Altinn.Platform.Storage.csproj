@@ -11,8 +11,8 @@
   <ItemGroup>
     <PackageReference Include="Altinn.Common.AccessToken" Version="4.5.5" />
     <PackageReference Include="Altinn.Common.AccessTokenClient" Version="3.0.11" />
-    <PackageReference Include="Altinn.Platform.Models" Version="1.6.1" /> 
-    <PackageReference Include="Altinn.Platform.Storage.Interface" Version="4.0.6" />
+    <PackageReference Include="Altinn.Platform.Models" Version="1.6.1" />
+    <PackageReference Include="Altinn.Platform.Storage.Interface" Version="4.0.7" />
     <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.4.0" />
     <PackageReference Include="Azure.Identity" Version="1.13.2" />
     <PackageReference Include="Azure.Security.KeyVault.Secrets" Version="4.7.0" />
@@ -55,16 +55,16 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-  
+
   <ItemGroup>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
       <_Parameter1>Altinn.Platform.Storage.UnitTest</_Parameter1>
     </AssemblyAttribute>
   </ItemGroup>
-  
+
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <Exec Command="$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools $(TargetDir)../../../Migration" Condition="Exists('$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools') or Exists('$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools.exe')" />
     <Exec Command="/app_tools/DbTools ./Migration" Condition="Exists('/app_tools/DbTools')" />
-  </Target>  
+  </Target>
 
 </Project>

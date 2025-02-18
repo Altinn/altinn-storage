@@ -1,4 +1,3 @@
-using System.Linq;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -12,7 +11,7 @@ namespace Altinn.Platform.Storage.Services
     public class ApplicationService : IApplicationService
     {
         private readonly IApplicationRepository _applicationRepository;
-        
+
         /// <summary>
         /// Initializes a new instance of the <see cref="ApplicationService"/> class.
         /// </summary>
@@ -20,7 +19,7 @@ namespace Altinn.Platform.Storage.Services
         {
             _applicationRepository = applicationRepository;
         }
-        
+
         /// <inheritdoc/>
         public async Task<(bool IsValid, ServiceError ServiceError)> ValidateDataTypeForApp(string org, string appId, string dataType, string currentTask)
         {
@@ -37,6 +36,26 @@ namespace Altinn.Platform.Storage.Services
             }
 
             return (false, new ServiceError(405, $"DataType {dataType} is not declared in application metadata for app {appId}"));
+        }
+
+        /// <summary>
+        /// Wrapper method for getting an application or an error message using the application id.
+        /// </summary>
+        /// <param name="appId">The application id</param>
+        /// <returns></returns>
+        public async Task<(Application Application, ServiceError ServiceError)> GetApplicationOrErrorAsync(string appId)
+        {
+            ServiceError serviceError = null;
+
+            string org = appId.Split("/")[0];
+            Application appInfo = await _applicationRepository.FindOne(appId, org);
+
+            if (appInfo == null)
+            {
+                serviceError = new ServiceError(404, $"Did not find application with appId={appId}");
+            }
+
+            return (appInfo, serviceError);
         }
     }
 }

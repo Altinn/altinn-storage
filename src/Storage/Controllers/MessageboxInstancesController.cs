@@ -11,7 +11,7 @@ using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
-
+using Altinn.Platform.Storage.Services;
 using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -31,6 +31,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly ITextRepository _textRepository;
         private readonly IApplicationRepository _applicationRepository;
         private readonly IAuthorization _authorizationService;
+        private readonly IApplicationService _applicationService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MessageBoxInstancesController"/> class
@@ -40,18 +41,21 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="textRepository">the text repository handler</param>
         /// <param name="applicationRepository">the application repository handler</param>
         /// <param name="authorizationService">the authorization service</param>
+        /// <param name="applicationService">the application service</param>
         public MessageBoxInstancesController(
             IInstanceRepository instanceRepository,
             IInstanceEventRepository instanceEventRepository,
             ITextRepository textRepository,
             IApplicationRepository applicationRepository,
-            IAuthorization authorizationService)
+            IAuthorization authorizationService,
+            IApplicationService applicationService)
         {
             _instanceRepository = instanceRepository;
             _instanceEventRepository = instanceEventRepository;
             _textRepository = textRepository;
             _applicationRepository = applicationRepository;
             _authorizationService = authorizationService;
+            _applicationService = applicationService;
         }
 
         /// <summary>
@@ -277,9 +281,25 @@ namespace Altinn.Platform.Storage.Controllers
                 return NotFound($"Didn't find the object that should be deleted with instanceId={instanceId}");
             }
 
-            DateTime now = DateTime.UtcNow;
-
             instance.Status ??= new InstanceStatus();
+
+            (Application appInfo, ServiceError appInfoError) = await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
+
+            if (appInfoError != null)
+            {
+                return appInfoError.ErrorCode switch
+                {
+                    404 => NotFound(appInfoError.ErrorMessage),
+                    _ => StatusCode(appInfoError.ErrorCode, appInfoError.ErrorMessage),
+                };
+            }
+
+            if (InstanceHelper.IsPreventedFromDeletion(instance.Status, appInfo))
+            {
+                return StatusCode(403, "Instance cannot be deleted yet due to application restrictions.");
+            }
+
+            DateTime now = DateTime.UtcNow;
 
             List<string> updateProperties = [];
             updateProperties.Add(nameof(instance.Status));
