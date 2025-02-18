@@ -64,7 +64,7 @@ namespace Altinn.Platform.Storage.Services
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "An error occurred while fetching application with appId={appId}", appId);
+                _logger.LogError(e, "An error occurred while fetching application with appId={AppId}", appId);
                 serviceError = new ServiceError(500, $"An error occurred while fetching application with appId={appId}");
             }
 
