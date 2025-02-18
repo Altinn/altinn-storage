@@ -1,7 +1,6 @@
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
-using Microsoft.AspNetCore.Mvc;
 
 namespace Altinn.Platform.Storage.Services
 {
@@ -24,7 +23,7 @@ namespace Altinn.Platform.Storage.Services
         /// Get application or error message using the application id.
         /// </summary>
         /// <param name="appId">The id of the application.</param>
-        /// <returns>A <see cref="Task{TResult}"/> representing the result of the asynchronous operation.</returns>
-        Task<(Application Application, ActionResult ErrorMessage)> GetApplicationOrErrorAsync(string appId);
+        /// <returns> Result of the operation. If application is null, the reason/error will be described in ServiceError</returns>
+        Task<(Application Application, ServiceError ServiceError)> GetApplicationOrErrorAsync(string appId);
     }
 }

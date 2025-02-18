@@ -152,10 +152,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             // Assert
             Assert.Null(app);
             Assert.NotNull(error);
-            var notFoundResult = Assert.IsType<NotFoundObjectResult>(error);
+            ServiceError notFoundResult = Assert.IsType<ServiceError>(error);
 
-            Assert.Equal(404, notFoundResult.StatusCode);
-            Assert.Equal($"Did not find application with appId={appId}", notFoundResult.Value);
+            Assert.Equal(404, notFoundResult.ErrorCode);
+            Assert.Equal($"Did not find application with appId={appId}", notFoundResult.ErrorMessage);
         }
 
         [Fact]
@@ -178,10 +178,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             // Assert
             Assert.Null(app);
             Assert.NotNull(error);
-            var objectResult = Assert.IsType<ObjectResult>(error);
-            Assert.Equal(500, objectResult.StatusCode);
+            ServiceError objectResult = Assert.IsType<ServiceError>(error);
+            Assert.Equal(500, objectResult.ErrorCode);
 
-            Assert.Contains("An error occurred while fetching application with appId", objectResult.Value.ToString());
+            Assert.Contains("An error occurred while fetching application with appId", objectResult.ErrorMessage.ToString());
         }
     }
 }

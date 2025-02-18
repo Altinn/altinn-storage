@@ -445,7 +445,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string requestUri = $"{BasePath}/{instanceOwnerId}/{instanceGuid}";
 
         Mock<IApplicationService> applicationService = new();
-        applicationService.Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>())).ReturnsAsync((null, new NotFoundObjectResult("Test error")));
+        applicationService.Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>())).ReturnsAsync((null, new ServiceError(404, "Not found")));
 
         HttpClient client = GetTestClient(applicationService: applicationService);
         string token = PrincipalUtil.GetToken(1337, 1337);
@@ -1080,7 +1080,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string requestUri = $"{BasePath}?org=ttd";
 
         var expectedNoInstances = 13;
-        
+
         HttpClient client = GetTestClient();
         string token = PrincipalUtil.GetOrgToken("testOrg", scope: "altinn:storage/instances.syncadapter");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -1094,7 +1094,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(expectedNoInstances, queryResponse.Count);
     }
-    
+
     /// <summary>
     /// Scenario:
     ///   The sync adapter calls the API via apps-endpoints authenticated digdir, which is not the app's service owner.

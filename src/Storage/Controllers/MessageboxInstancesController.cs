@@ -284,7 +284,7 @@ namespace Altinn.Platform.Storage.Controllers
             instance.Status ??= new InstanceStatus();
 
             Application appInfo;
-            ActionResult appInfoError;
+            ServiceError appInfoError;
             try
             {
                 (appInfo, appInfoError) = await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
@@ -296,7 +296,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (appInfoError != null)
             {
-                return appInfoError;
+                return StatusCode(appInfoError.ErrorCode, appInfoError.ErrorMessage);
             }
 
             bool isPreventedFromDeletion = InstanceHelper.IsPreventedFromDeletion(instance.Status, appInfo);

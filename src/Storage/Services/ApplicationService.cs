@@ -3,7 +3,6 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 
 namespace Altinn.Platform.Storage.Services
@@ -48,32 +47,28 @@ namespace Altinn.Platform.Storage.Services
         /// </summary>
         /// <param name="appId">The application id</param>
         /// <returns></returns>
-        public async Task<(Application Application, ActionResult ErrorMessage)> GetApplicationOrErrorAsync(string appId)
+        public async Task<(Application Application, ServiceError ServiceError)> GetApplicationOrErrorAsync(string appId)
         {
-            ActionResult errorResult = null;
+            ServiceError serviceError = null;
             Application appInfo = null;
 
             try
             {
                 string org = appId.Split("/")[0];
-
                 appInfo = await _applicationRepository.FindOne(appId, org);
 
                 if (appInfo == null)
                 {
-                    errorResult = new NotFoundObjectResult($"Did not find application with appId={appId}");
+                    serviceError = new ServiceError(404, $"Did not find application with appId={appId}");
                 }
             }
             catch (Exception e)
             {
-                errorResult = new ObjectResult($"An error occurred while fetching application with appId={appId}")
-                {
-                    StatusCode = 500
-                };
                 _logger.LogError(e, "An error occurred while fetching application with appId={appId}", appId);
+                serviceError = new ServiceError(500, $"An error occurred while fetching application with appId={appId}");
             }
 
-            return (appInfo, errorResult);
+            return (appInfo, serviceError);
         }
     }
 }

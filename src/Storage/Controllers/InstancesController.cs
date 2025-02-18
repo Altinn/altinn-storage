@@ -125,7 +125,6 @@ namespace Altinn.Platform.Storage.Controllers
                     queryParameters.Org = queryParameters.AppId.Split('/')[0];
                 }
 
-                
                 if (!hasSyncAdapterScope && !orgClaim.Equals(queryParameters.Org, StringComparison.InvariantCultureIgnoreCase))
                 {
                     if (string.IsNullOrEmpty(queryParameters.AppId))
@@ -331,7 +330,7 @@ namespace Altinn.Platform.Storage.Controllers
         public async Task<ActionResult<Instance>> Post(string appId, [FromBody] Instance instance)
         {
             Application appInfo;
-            ActionResult appInfoError;
+            ServiceError appInfoError;
             int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
 
             appId = ValidateAppId(appId);
@@ -348,7 +347,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (appInfoError != null)
             {
-                return appInfoError;
+                return StatusCode(appInfoError.ErrorCode, appInfoError.ErrorMessage);
             }
 
             if (string.IsNullOrWhiteSpace(instance.InstanceOwner.PartyId))
@@ -460,7 +459,7 @@ namespace Altinn.Platform.Storage.Controllers
             instance.Status ??= new InstanceStatus();
 
             Application appInfo;
-            ActionResult appInfoError;
+            ServiceError appInfoError;
             try
             {
                 (appInfo, appInfoError) = await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
@@ -473,7 +472,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (appInfoError != null)
             {
-                return appInfoError;
+                return StatusCode(appInfoError.ErrorCode, appInfoError.ErrorMessage);
             }
 
             bool isPreventedFromDeletion = InstanceHelper.IsPreventedFromDeletion(instance.Status, appInfo);
