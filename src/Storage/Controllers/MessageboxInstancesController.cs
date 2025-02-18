@@ -283,16 +283,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             instance.Status ??= new InstanceStatus();
 
-            Application appInfo;
-            ServiceError appInfoError;
-            try
-            {
-                (appInfo, appInfoError) = await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Unable to get application info for {instance.AppId}: {ex.Message}");
-            }
+            (Application appInfo, ServiceError appInfoError) = await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
 
             if (appInfoError != null)
             {

@@ -458,17 +458,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             instance.Status ??= new InstanceStatus();
 
-            Application appInfo;
-            ServiceError appInfoError;
-            try
-            {
-                (appInfo, appInfoError) = await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Something went wrong while application metadata for application id: {appId}", instance.AppId);
-                throw;
-            }
+            (Application appInfo, ServiceError appInfoError) = await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
 
             if (appInfoError != null)
             {
