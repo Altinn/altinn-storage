@@ -329,21 +329,11 @@ namespace Altinn.Platform.Storage.Controllers
         [Produces("application/json")]
         public async Task<ActionResult<Instance>> Post(string appId, [FromBody] Instance instance)
         {
-            Application appInfo;
-            ServiceError appInfoError;
             int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
 
             appId = ValidateAppId(appId);
 
-            try
-            {
-                (appInfo, appInfoError) = await _applicationService.GetApplicationOrErrorAsync(appId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Something went wrong while fetching application metadata for application id: {appId}", appId);
-                throw;
-            }
+            (Application appInfo, ServiceError appInfoError) = await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
 
             if (appInfoError != null)
             {
