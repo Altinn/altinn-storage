@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -45,6 +46,8 @@ namespace Altinn.Platform.Storage.Services
         /// <returns></returns>
         public async Task<(Application Application, ServiceError ServiceError)> GetApplicationOrErrorAsync(string appId)
         {
+            ArgumentException.ThrowIfNullOrWhiteSpace(appId);
+
             ServiceError serviceError = null;
 
             string org = appId.Split("/")[0];
