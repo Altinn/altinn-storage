@@ -70,7 +70,7 @@ public class AuthorizationService(
         XacmlJsonRequestRoot xacmlJsonRequest = CreateMultiDecisionRequest(user, instances, actionTypes);
 
         XacmlJsonResponse response = await _pdp.GetDecisionForRequest(xacmlJsonRequest);
-        if (response != null && response?.Response?.Count > 0)
+        if (response != null && response.Response?.Count > 0)
         {
             foreach (XacmlJsonResult result in response.Response.Where(result => DecisionHelper.ValidateDecisionResult(result, user)))
             {
