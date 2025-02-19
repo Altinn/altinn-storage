@@ -70,53 +70,56 @@ public class AuthorizationService(
         XacmlJsonRequestRoot xacmlJsonRequest = CreateMultiDecisionRequest(user, instances, actionTypes);
 
         XacmlJsonResponse response = await _pdp.GetDecisionForRequest(xacmlJsonRequest);
-        foreach (XacmlJsonResult result in response.Response.Where(result => DecisionHelper.ValidateDecisionResult(result, user)))
+        if (response != null && response?.Response?.Count > 0)
         {
-            string instanceId = string.Empty;
-            string actiontype = string.Empty;
-
-            foreach (var attributes in result.Category.Select(c => c.Attribute))
+            foreach (XacmlJsonResult result in response.Response.Where(result => DecisionHelper.ValidateDecisionResult(result, user)))
             {
-                foreach (var attribute in attributes)
-                {
-                    if (attribute.AttributeId.Equals(XacmlResourceActionId))
-                    {
-                        actiontype = attribute.Value;
-                    }
+                string instanceId = string.Empty;
+                string actiontype = string.Empty;
 
-                    if (attribute.AttributeId.Equals(AltinnXacmlUrns.InstanceId))
+                foreach (var attributes in result.Category.Select(c => c.Attribute))
+                {
+                    foreach (var attribute in attributes)
                     {
-                        instanceId = attribute.Value;
+                        if (attribute.AttributeId.Equals(XacmlResourceActionId))
+                        {
+                            actiontype = attribute.Value;
+                        }
+
+                        if (attribute.AttributeId.Equals(AltinnXacmlUrns.InstanceId))
+                        {
+                            instanceId = attribute.Value;
+                        }
                     }
                 }
-            }
 
-            Instance authorizedInstance = instances.First(i => i.Id == instanceId);
+                Instance authorizedInstance = instances.First(i => i.Id == instanceId);
 
-            MessageBoxInstance authorizedMessageBoxInstance =
-                authorizedInstanceList.Find(i => i.Id.Equals(authorizedInstance.Id.Split("/")[1]));
-            if (authorizedMessageBoxInstance is null)
-            {
-                authorizedMessageBoxInstance = InstanceHelper.ConvertToMessageBoxInstance(authorizedInstance);
-                authorizedInstanceList.Add(authorizedMessageBoxInstance);
-            }
+                MessageBoxInstance authorizedMessageBoxInstance =
+                    authorizedInstanceList.Find(i => i.Id.Equals(authorizedInstance.Id.Split("/")[1]));
+                if (authorizedMessageBoxInstance is null)
+                {
+                    authorizedMessageBoxInstance = InstanceHelper.ConvertToMessageBoxInstance(authorizedInstance);
+                    authorizedInstanceList.Add(authorizedMessageBoxInstance);
+                }
 
-            switch (actiontype)
-            {
-                case "write":
-                    authorizedMessageBoxInstance.AuthorizedForWrite = true;
-                    break;
-                case "delete":
-                    authorizedMessageBoxInstance.AllowDelete = true;
-                    break;
-                case "instantiate":
-                    authorizedMessageBoxInstance.AllowNewCopy = true;
-                    break;
-                case "sign":
-                    authorizedMessageBoxInstance.AuthorizedForSign = true;
-                    break;
-                case "read":
-                    break;
+                switch (actiontype)
+                {
+                    case "write":
+                        authorizedMessageBoxInstance.AuthorizedForWrite = true;
+                        break;
+                    case "delete":
+                        authorizedMessageBoxInstance.AllowDelete = true;
+                        break;
+                    case "instantiate":
+                        authorizedMessageBoxInstance.AllowNewCopy = true;
+                        break;
+                    case "sign":
+                        authorizedMessageBoxInstance.AuthorizedForSign = true;
+                        break;
+                    case "read":
+                        break;
+                }
             }
         }
 
