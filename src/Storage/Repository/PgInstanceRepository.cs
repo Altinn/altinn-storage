@@ -222,6 +222,11 @@ namespace Altinn.Platform.Storage.Repository
 
         private static string ArrayVariableFromText(string[] arr)
         {
+            if (arr.Length == 0)
+            {
+                return "NULL";
+            }
+
             StringBuilder value = new("'{");
             foreach (string param in arr)
             {
@@ -233,6 +238,11 @@ namespace Altinn.Platform.Storage.Repository
 
         private static string ArrayVariableFromJsonText(string[] arr)
         {
+            if (arr.Length == 0)
+            {
+                return "NULL";
+            }
+
             StringBuilder value = new("ARRAY [");
             foreach (string param in arr)
             {
@@ -244,6 +254,11 @@ namespace Altinn.Platform.Storage.Repository
 
         private static string ArrayVariableFromInteger(int?[] arr)
         {
+            if (arr.Length == 0)
+            {
+                return "NULL";
+            }
+
             StringBuilder value = new("'{");
             foreach (int? param in arr)
             {
