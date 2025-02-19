@@ -24,7 +24,6 @@ using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.Telemetry;
 using Altinn.Platform.Storage.Wrappers;
-using Altinn.Platform.Telemetry;
 
 using AltinnCore.Authentication.JwtCookie;
 
@@ -99,7 +98,7 @@ void ConfigureWebHostCreationLogging()
     var logFactory = LoggerFactory.Create(builder =>
     {
         builder
-            .AddFilter("Altinn.Platform.Events.Program", LogLevel.Debug)
+            .AddFilter("Altinn.Platform.Storage.Program", LogLevel.Debug)
             .AddConsole();
     });
 
@@ -186,7 +185,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
 
     var attributes = new List<KeyValuePair<string, object>>(2)
     {
-        KeyValuePair.Create("service.name", (object)"platform-events"),
+        KeyValuePair.Create("service.name", (object)"platform-storage"),
     };
 
     services.AddOpenTelemetry()
