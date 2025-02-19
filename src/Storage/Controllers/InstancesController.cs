@@ -330,7 +330,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             appId = ValidateAppId(appId);
 
-            (Application appInfo, ServiceError appInfoError) = await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
+            (Application appInfo, ServiceError appInfoError) = await _applicationService.GetApplicationOrErrorAsync(appId);
 
             if (appInfoError != null)
             {
