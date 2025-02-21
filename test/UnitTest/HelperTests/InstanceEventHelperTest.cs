@@ -76,7 +76,7 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
 
             // Assert
             Assert.NotNull(actual);
-            Assert.True(actual.Count == instanceEvents.Count);
+            Assert.Equal(2, actual.Count);
         }
 
         [Fact]
