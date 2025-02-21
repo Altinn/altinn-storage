@@ -51,7 +51,8 @@ namespace Altinn.Platform.Storage.Helpers
                     continue;
                 }
 
-                if (currentInstanceEvent.EventType != nextInstanceEvent.EventType)
+                if (currentInstanceEvent.EventType != nextInstanceEvent.EventType
+                    || currentInstanceEvent.EventType != InstanceEventType.Saved.ToString())
                 {
                     finalResult.Add(currentInstanceEvent);
                     continue;
