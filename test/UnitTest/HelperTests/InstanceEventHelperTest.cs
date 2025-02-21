@@ -43,13 +43,13 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
         }
 
         [Fact]
-        public void RemoveDuplicateEvents_GivenListWithTwoEqualEvents_ReturnsListWithSingleEvent()
+        public void RemoveDuplicateEvents_GivenListWithTwoEqualSavedEvents_ReturnsListWithSingleEvent()
         {
             // Arrange
             List<InstanceEvent> instanceEvents = new List<InstanceEvent>
             {
-                new InstanceEvent(),
-                new InstanceEvent()
+                new InstanceEvent() { EventType = InstanceEventType.Saved.ToString() },
+                new InstanceEvent() { EventType = InstanceEventType.Saved.ToString() }
             };
 
             // Act
@@ -58,6 +58,24 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
             // Assert
             Assert.NotNull(actual);
             Assert.Single(actual);
+        }
+
+        [Fact]
+        public void RemoveDuplicateEvents_GivenListWithTwoEqualNotificationSentSmsEvents_ReturnsListWithTwoEvent()
+        {
+            // Arrange
+            List<InstanceEvent> instanceEvents = new List<InstanceEvent>
+            {
+                new InstanceEvent() { EventType = InstanceEventType.NotificationSentSms.ToString() },
+                new InstanceEvent() { EventType = InstanceEventType.NotificationSentSms.ToString() }
+            };
+
+            // Act
+            List<InstanceEvent> actual = InstanceEventHelper.RemoveDuplicateEvents(instanceEvents);
+
+            // Assert
+            Assert.NotNull(actual);
+            Assert.True(actual.Count == instanceEvents.Count);
         }
 
         [Fact]
