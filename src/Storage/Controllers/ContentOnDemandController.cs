@@ -184,7 +184,8 @@ namespace Altinn.Platform.Storage.Controllers
             mergedDoc.Save(pdfStream);
 
             instance.DataValues.TryGetValue("A2ArchRefTs", out string watermark);
-            watermark = (watermark ?? ((DateTime)instance.Created).ToLocalTime().ToString("dd-MM-yyyy HH:mm:ss", CultureInfo.InvariantCulture))
+            string timestampFormat = language == "en" ? "MM/dd/yyyy hh:mm:ss tt" : "dd.MM.yyyy HH:mm:ss";
+            watermark = (watermark ?? ((DateTime)instance.Created).ToLocalTime().ToString(timestampFormat, CultureInfo.InvariantCulture))
                 + $" AR{instance.DataValues["A2ArchRef"]}";
 
             using var finalPdfDocument = PdfReader.Open(pdfStream, PdfDocumentOpenMode.Modify);
