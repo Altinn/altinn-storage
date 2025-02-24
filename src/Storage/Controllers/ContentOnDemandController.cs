@@ -183,8 +183,18 @@ namespace Altinn.Platform.Storage.Controllers
             MemoryStream pdfStream = new();
             mergedDoc.Save(pdfStream);
 
+            DateTime created;
+            if (instance.DataValues.TryGetValue("A2ArchRefTs", out string a2ArchRefTs))
+            {
+                created = DateTime.Parse(a2ArchRefTs);
+            }
+            else
+            {
+                created = ((DateTime)instance.Created).ToLocalTime();
+            }
+
             string timestampFormat = language == "en" ? "MM/dd/yyyy hh:mm:ss tt" : "dd.MM.yyyy HH:mm:ss";
-            string watermark = ((DateTime)instance.Created).ToLocalTime().ToString(timestampFormat, CultureInfo.InvariantCulture)
+            string watermark = created.ToString(timestampFormat, CultureInfo.InvariantCulture)
                 + $" AR{instance.DataValues["A2ArchRef"]}";
 
             using var finalPdfDocument = PdfReader.Open(pdfStream, PdfDocumentOpenMode.Modify);
