@@ -186,7 +186,7 @@ namespace Altinn.Platform.Storage.Controllers
             DateTime created;
             if (instance.DataValues.TryGetValue("A2ArchRefTs", out string a2ArchRefTs))
             {
-                created = DateTime.Parse(a2ArchRefTs);
+                created = DateTime.ParseExact(a2ArchRefTs, "dd-MM-yyyy HH:mm:ss", CultureInfo.InvariantCulture);
             }
             else
             {
