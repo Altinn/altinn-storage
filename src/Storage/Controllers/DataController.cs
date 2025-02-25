@@ -153,7 +153,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
         /// <param name="dataGuid">The id of the data element to retrieve.</param>
         /// <returns>The data file as a stream.</returns>
-        ////[Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
+        [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
         [HttpGet("data/{dataGuid:guid}")]
         [RequestSizeLimit(RequestSizeLimit)]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -162,7 +162,6 @@ namespace Altinn.Platform.Storage.Controllers
         [Produces("application/json")]
         public async Task<ActionResult> Get(int instanceOwnerPartyId, Guid instanceGuid, Guid dataGuid)
         {
-            Console.WriteLine("Lang: " + LanguageHelper.GetCurrentUserLanguage(Request));
             if (instanceOwnerPartyId == 0)
             {
                 return BadRequest("Missing parameter value: instanceOwnerPartyId can not be empty");
