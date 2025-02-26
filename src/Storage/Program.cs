@@ -72,18 +72,6 @@ Configure(builder.Configuration);
 logger.LogInformation("// Running...");
 app.Run();
 
-void ConfigureSetupLogging()
-{
-    var logFactory = LoggerFactory.Create(builder =>
-    {
-        builder
-            .AddFilter("Altinn.Platform.Register.Program", LogLevel.Debug)
-            .AddConsole();
-    });
-
-    logger = logFactory.CreateLogger<Program>();
-}
-
 void ConfigureApplicationLogging(ILoggingBuilder logging)
 {
     logging.AddOpenTelemetry(builder =>
@@ -173,10 +161,12 @@ void AddAzureMonitorTelemetryExporters(IServiceCollection services, string appli
     {
         o.ConnectionString = applicationInsightsConnectionString;
     }));
-    services.ConfigureOpenTelemetryTracerProvider(tracing => tracing.AddAzureMonitorTraceExporter(o =>
+    services.ConfigureOpenTelemetryTracerProvider(tracing => tracing
+    .AddAzureMonitorTraceExporter(o =>
     {
         o.ConnectionString = applicationInsightsConnectionString;
-    }));
+    })
+    .AddProcessor(new DependencyFilterProcessor()));
 }
 
 void ConfigureServices(IServiceCollection services, IConfiguration config)

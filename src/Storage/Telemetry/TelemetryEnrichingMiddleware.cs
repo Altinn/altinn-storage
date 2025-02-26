@@ -111,6 +111,7 @@ internal sealed class TelemetryEnrichingMiddleware
         if (_disableTelemetryForMigration && context.Request is not null && context.Request.Path.ToUriComponent().StartsWith("/storage/api/v1/migration", StringComparison.OrdinalIgnoreCase))
         {
             await _next(context);
+            return;
         }
 
         try
