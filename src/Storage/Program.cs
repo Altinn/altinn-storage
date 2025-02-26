@@ -165,8 +165,7 @@ void AddAzureMonitorTelemetryExporters(IServiceCollection services, string appli
     .AddAzureMonitorTraceExporter(o =>
     {
         o.ConnectionString = applicationInsightsConnectionString;
-    })
-    .AddProcessor(new DependencyFilterProcessor()));
+    }));
 }
 
 void ConfigureServices(IServiceCollection services, IConfiguration config)
@@ -201,6 +200,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
             });
 
             tracing.AddHttpClientInstrumentation();
+            tracing.AddProcessor(new DependencyFilterProcessor());
         });
 
     if (!string.IsNullOrEmpty(applicationInsightsConnectionString))
