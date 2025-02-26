@@ -151,7 +151,7 @@ async Task ConnectToKeyVaultAndSetApplicationInsights(ConfigurationManager confi
     }
 }
 
-void AddAzureMonitorTelemetryExporters(IServiceCollection services, string applicationInsightsConnectionString)
+void AddAzureMonitorTelemetryExporters(IServiceCollection services, string applicationInsightsConnectionString, GeneralSettings generalSettings)
 {
     services.Configure<OpenTelemetryLoggerOptions>(logging => logging.AddAzureMonitorLogExporter(o =>
     {
@@ -162,6 +162,7 @@ void AddAzureMonitorTelemetryExporters(IServiceCollection services, string appli
         o.ConnectionString = applicationInsightsConnectionString;
     }));
     services.ConfigureOpenTelemetryTracerProvider(tracing => tracing
+    .AddProcessor(new DependencyFilterProcessor(generalSettings))
     .AddAzureMonitorTraceExporter(o =>
     {
         o.ConnectionString = applicationInsightsConnectionString;
@@ -171,6 +172,7 @@ void AddAzureMonitorTelemetryExporters(IServiceCollection services, string appli
 void ConfigureServices(IServiceCollection services, IConfiguration config)
 {
     logger.LogInformation("Program // ConfigureServices");
+    GeneralSettings generalSettings = config.GetSection("GeneralSettings").Get<GeneralSettings>();
 
     var attributes = new List<KeyValuePair<string, object>>(2)
     {
@@ -200,12 +202,11 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
             });
 
             tracing.AddHttpClientInstrumentation();
-            tracing.AddProcessor(new DependencyFilterProcessor());
         });
 
     if (!string.IsNullOrEmpty(applicationInsightsConnectionString))
     {
-        AddAzureMonitorTelemetryExporters(services, applicationInsightsConnectionString);
+        AddAzureMonitorTelemetryExporters(services, applicationInsightsConnectionString, generalSettings);
     }
 
     services.AddControllersWithViews().AddNewtonsoftJson();
@@ -228,7 +229,6 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddSingleton<IAuthorizationHandler, AccessTokenHandler>();
     services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProvider>();
 
-    GeneralSettings generalSettings = config.GetSection("GeneralSettings").Get<GeneralSettings>();
     services.AddAuthentication(JwtCookieDefaults.AuthenticationScheme)
         .AddJwtCookie(JwtCookieDefaults.AuthenticationScheme, options =>
         {

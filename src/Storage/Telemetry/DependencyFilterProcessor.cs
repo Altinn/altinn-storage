@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using Altinn.Platform.Storage.Configuration;
 using OpenTelemetry;
 
 namespace Altinn.Platform.Storage.Telemetry
@@ -9,12 +10,22 @@ namespace Altinn.Platform.Storage.Telemetry
     /// </summary>
     public class DependencyFilterProcessor : BaseProcessor<Activity>
     {
+        private readonly bool _disableTelemetryForMigration;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DependencyFilterProcessor"/> class.
+        /// </summary>
+        public DependencyFilterProcessor(GeneralSettings generalSettings) : base()
+        {
+            _disableTelemetryForMigration = generalSettings.DisableTelemetryForMigration;
+        }
+
         /// <summary>
         /// Filter to avoid dependency telemetry for migrations
         /// </summary>
         public override void OnEnd(Activity activity)
         {
-            if (!OKtoSend(activity))
+            if (_disableTelemetryForMigration && !OKtoSend(activity))
             {
                 activity.ActivityTraceFlags &= ~ActivityTraceFlags.Recorded;
             }
