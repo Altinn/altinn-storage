@@ -2,6 +2,7 @@
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -16,6 +17,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 
 namespace Altinn.Platform.Storage.Telemetry;
 
@@ -116,6 +118,11 @@ internal sealed class TelemetryEnrichingMiddleware
 
         try
         {
+            if (context is not null && context.Request.Headers.TryGetValue("X-Forwarded-For", out StringValues ipAddress))
+            {
+                activity.SetTag("ipAddress", ipAddress.FirstOrDefault());
+            }
+
             foreach (var claim in context.User.Claims)
             {
                 if (_claimActions.TryGetValue(claim.Type, out var action))
