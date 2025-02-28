@@ -1,6 +1,5 @@
 using Altinn.Platform.Storage.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
-using Npgsql;
 
 namespace Altinn.Platform.Storage.Repository;
 
