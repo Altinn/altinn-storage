@@ -5,7 +5,6 @@ using System.Text;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Models;
-using Microsoft.ApplicationInsights;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -34,7 +33,6 @@ namespace Altinn.Platform.Storage.Repository
         private readonly MemoryCacheEntryOptions _cacheEntryOptionsMetadata;
         private readonly string _cacheKey = "allAppTitles";
         private readonly NpgsqlDataSource _dataSource;
-        private readonly TelemetryClient _telemetryClient;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PgApplicationRepository"/> class.
@@ -42,15 +40,12 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="generalSettings">the general settings</param>
         /// <param name="memoryCache">the memory cache</param>
         /// <param name="dataSource">The npgsql data source.</param>
-        /// <param name="telemetryClient">Telemetry client</param>
         public PgApplicationRepository(
             IOptions<GeneralSettings> generalSettings,
             IMemoryCache memoryCache,
-            NpgsqlDataSource dataSource,
-            TelemetryClient telemetryClient = null)
+            NpgsqlDataSource dataSource)
         {
             _dataSource = dataSource;
-            _telemetryClient = telemetryClient;
             _memoryCache = memoryCache;
             _cacheEntryOptionsTitles = new MemoryCacheEntryOptions()
                 .SetPriority(CacheItemPriority.High)
@@ -66,14 +61,12 @@ namespace Altinn.Platform.Storage.Repository
             List<Application> applications = [];
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSql);
-            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
                 applications.Add(await reader.GetFieldValueAsync<Application>("application"));
             }
 
-            tracker.Track();
             return applications;
         }
 
@@ -83,7 +76,6 @@ namespace Altinn.Platform.Storage.Repository
             List<Application> applications = [];
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readByOrgSql);
-            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, org);
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             while (await reader.ReadAsync())
@@ -91,7 +83,6 @@ namespace Altinn.Platform.Storage.Repository
                 applications.Add(await reader.GetFieldValueAsync<Application>("application"));
             }
 
-            tracker.Track();
             return applications;
         }
 
@@ -102,7 +93,6 @@ namespace Altinn.Platform.Storage.Repository
             if (!_memoryCache.TryGetValue(cacheKey, out Application application))
             {
                 await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readByIdSql);
-                using TelemetryTracker tracker = new(_telemetryClient, pgcom);
                 pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, GetAppFromAppId(appId));
                 pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, org);
                 await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
@@ -115,8 +105,6 @@ namespace Altinn.Platform.Storage.Repository
                 {
                     application = null;
                 }
-
-                tracker.Track();
             }
 
             return application;
@@ -126,7 +114,6 @@ namespace Altinn.Platform.Storage.Repository
         public async Task<Application> Create(Application item)
         {
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_createSql);
-            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, GetAppFromAppId(item.Id));
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, item.Org);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, item);
@@ -135,7 +122,6 @@ namespace Altinn.Platform.Storage.Repository
 
             await pgcom.ExecuteNonQueryAsync();
 
-            tracker.Track();
             return item;
         }
 
@@ -143,7 +129,6 @@ namespace Altinn.Platform.Storage.Repository
         public async Task<Application> Update(Application item)
         {
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateSql);
-            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, GetAppFromAppId(item.Id));
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, item.Org);
@@ -154,7 +139,6 @@ namespace Altinn.Platform.Storage.Repository
             await pgcom.ExecuteNonQueryAsync();
 
             _memoryCache.Set(item.Id, item, _cacheEntryOptionsMetadata);
-            tracker.Track();
             return item;
         }
 
@@ -162,12 +146,10 @@ namespace Altinn.Platform.Storage.Repository
         public async Task<bool> Delete(string appId, string org)
         {
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
-            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, GetAppFromAppId(appId));
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, org);
 
             var rc = await pgcom.ExecuteNonQueryAsync();
-            tracker.Track();
             return rc == 1;
         }
 

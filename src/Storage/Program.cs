@@ -34,12 +34,16 @@ using Azure.Security.KeyVault.Secrets;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+
+using Npgsql;
+
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -151,7 +155,7 @@ async Task ConnectToKeyVaultAndSetApplicationInsights(ConfigurationManager confi
     }
 }
 
-void AddAzureMonitorTelemetryExporters(IServiceCollection services, string applicationInsightsConnectionString, GeneralSettings generalSettings)
+void AddAzureMonitorTelemetryExporters(IServiceCollection services, string applicationInsightsConnectionString)
 {
     services.Configure<OpenTelemetryLoggerOptions>(logging => logging.AddAzureMonitorLogExporter(o =>
     {
@@ -162,7 +166,6 @@ void AddAzureMonitorTelemetryExporters(IServiceCollection services, string appli
         o.ConnectionString = applicationInsightsConnectionString;
     }));
     services.ConfigureOpenTelemetryTracerProvider(tracing => tracing
-    .AddProcessor(new DependencyFilterProcessor(generalSettings))
     .AddAzureMonitorTraceExporter(o =>
     {
         o.ConnectionString = applicationInsightsConnectionString;
@@ -196,17 +199,23 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
                 tracing.SetSampler(new AlwaysOnSampler());
             }
 
-            tracing.AddAspNetCoreInstrumentation(configOptions =>
-            {
-                configOptions.Filter = (httpContext) => !TelemetryHelpers.ShouldExclude(httpContext.Request.Path);
-            });
+            tracing.AddAspNetCoreInstrumentation();
 
             tracing.AddHttpClientInstrumentation();
+
+            tracing.AddNpgsql();
+
+            tracing.AddProcessor(new RequestFilterProcessor(generalSettings, new HttpContextAccessor()));
+
+            if (builder.Environment.IsDevelopment())
+            {
+                tracing.AddConsoleExporter();
+            }
         });
 
     if (!string.IsNullOrEmpty(applicationInsightsConnectionString))
     {
-        AddAzureMonitorTelemetryExporters(services, applicationInsightsConnectionString, generalSettings);
+        AddAzureMonitorTelemetryExporters(services, applicationInsightsConnectionString);
     }
 
     services.AddControllersWithViews().AddNewtonsoftJson();
@@ -377,7 +386,6 @@ void Configure(IConfiguration config)
     app.UseRouting();
     app.UseAuthentication();
     app.UseAuthorization();
-    app.UseTelemetryEnricher();
     app.MapControllers();
     app.MapHealthChecks("/health");
 }

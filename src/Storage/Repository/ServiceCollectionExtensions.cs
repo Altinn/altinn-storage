@@ -1,4 +1,6 @@
+using Altinn.Platform.Storage.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 
 namespace Altinn.Platform.Storage.Repository;
 
@@ -25,6 +27,12 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IInstanceAndEventsRepository, PgInstanceAndEventsRepository>()
             .AddSingleton<IBlobRepository, BlobRepository>()
             .AddSingleton<IA2Repository, PgA2Repository>()
-            .AddNpgsqlDataSource(connectionString, builder => builder.EnableParameterLogging(logParameters).EnableDynamicJson());
+            .AddNpgsqlDataSource(connectionString, builder => builder
+                .EnableParameterLogging(logParameters)
+                .EnableDynamicJson()
+                .ConfigureTracing(o => o
+                    .ConfigureCommandSpanNameProvider(cmd => cmd.CommandText)
+                    .ConfigureCommandFilter(cmd => true)
+                    .ConfigureCommandEnrichmentCallback(DbEnricher.Enrich)));
     }
 }
