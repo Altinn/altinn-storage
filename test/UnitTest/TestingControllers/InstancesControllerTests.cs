@@ -258,7 +258,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string token = PrincipalUtil.GetToken(3, 1337, 3);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        Instance instance = new Instance { InstanceOwner = new InstanceOwner { PartyId = "1337" }, Org = "tdd", AppId = "tdd/endring-av-navn" };
+        Instance instance = new Instance { InstanceOwner = new InstanceOwner { PartyId = "1337" } };
 
         // Act
         HttpResponseMessage response = await client.PostAsync(
