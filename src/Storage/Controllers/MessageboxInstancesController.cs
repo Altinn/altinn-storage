@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json;
@@ -12,7 +13,6 @@ using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
-using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
@@ -529,16 +529,9 @@ namespace Altinn.Platform.Storage.Controllers
             return Ok(authorizedInstances);
         }
 
-        private void AddQueryModelToTelemetry(MessageBoxQueryModel queryModel)
+        private static void AddQueryModelToTelemetry(MessageBoxQueryModel queryModel)
         {
-            RequestTelemetry requestTelemetry = HttpContext.Features.Get<RequestTelemetry>();
-
-            if (requestTelemetry == null)
-            {
-                return;
-            }
-
-            requestTelemetry.Properties.Add("search.queryModel", JsonSerializer.Serialize(queryModel));
+            Activity.Current?.AddTag("search.queryModel", JsonSerializer.Serialize(queryModel));
         }
     }
 }

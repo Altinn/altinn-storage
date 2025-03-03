@@ -2,11 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Threading.Tasks;
-using Altinn.Platform.Storage.Configuration;
-using Altinn.Platform.Storage.Helpers;
-using Microsoft.ApplicationInsights;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -19,10 +14,8 @@ namespace Altinn.Platform.Storage.Repository
     /// Initializes a new instance of the <see cref="PgA2Repository"/> class.
     /// </remarks>
     /// <param name="dataSource">The npgsql data source.</param>
-    /// <param name="telemetryClient">Telemetry client</param>
     public class PgA2Repository(
-        NpgsqlDataSource dataSource,
-        TelemetryClient telemetryClient = null) : IA2Repository
+        NpgsqlDataSource dataSource) : IA2Repository
     {
         private static readonly string _readXslSql = "select * from storage.reada2xsls (@_org, @_app, @_lformid, @_language, @_xsltype)";
         private static readonly string _insertXslSql = "call storage.inserta2xsl (@_org, @_app, @_lformid, @_language, @_pagenumber, @_xsl, @_xsltype, @_isportrait)";
@@ -41,7 +34,6 @@ namespace Altinn.Platform.Storage.Repository
         private static readonly string _deleteMigrationStateSql = "call storage.deletemigrationstate (@_instanceguid)";
 
         private readonly NpgsqlDataSource _dataSource = dataSource;
-        private readonly TelemetryClient _telemetryClient = telemetryClient;
 
         /// <inheritdoc/>
         public async Task CreateXsl(string org, string app, int lformId, string language, int pageNumber, string xsl, int xslType, bool isPortrait)
@@ -55,11 +47,8 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue("_xsl", NpgsqlDbType.Text, xsl);
             pgcom.Parameters.AddWithValue("_xsltype", NpgsqlDbType.Integer, xslType);
             pgcom.Parameters.AddWithValue("_isportrait", NpgsqlDbType.Boolean, isPortrait);
-            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
             await pgcom.ExecuteNonQueryAsync();
-
-            tracker.Track();
         }
 
         /// <inheritdoc/>
@@ -70,11 +59,8 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue("_language", NpgsqlDbType.Text, language);
             pgcom.Parameters.AddWithValue("_version", NpgsqlDbType.Integer, version);
             pgcom.Parameters.AddWithValue("_codelist", NpgsqlDbType.Text, codelist);
-            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
             await pgcom.ExecuteNonQueryAsync();
-
-            tracker.Track();
         }
 
         /// <inheritdoc/>
@@ -83,11 +69,8 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertImageSql);
             pgcom.Parameters.AddWithValue("_name", NpgsqlDbType.Text, name);
             pgcom.Parameters.AddWithValue("_image", NpgsqlDbType.Bytea, image);
-            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
             await pgcom.ExecuteNonQueryAsync();
-
-            tracker.Track();
         }
 
         /// <inheritdoc/>
@@ -106,7 +89,6 @@ namespace Altinn.Platform.Storage.Repository
                 pgcom.Parameters.AddWithValue("_lformid", NpgsqlDbType.Integer, lformId);
                 pgcom.Parameters.AddWithValue("_language", NpgsqlDbType.Text, languageToTry);
                 pgcom.Parameters.AddWithValue("_xsltype", NpgsqlDbType.Integer, xslType);
-                using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
                 await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
                 while (await reader.ReadAsync())
@@ -114,7 +96,6 @@ namespace Altinn.Platform.Storage.Repository
                     xsls.Add((await reader.GetFieldValueAsync<string>("xsl"), await reader.GetFieldValueAsync<bool>("isportrait")));
                 }
 
-                tracker.Track();
                 if (xsls.Count > 0)
                 {
                     return xsls;
@@ -131,7 +112,6 @@ namespace Altinn.Platform.Storage.Repository
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readImageSql);
             pgcom.Parameters.AddWithValue("_name", NpgsqlDbType.Text, name);
-            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             if (await reader.ReadAsync())
@@ -139,7 +119,6 @@ namespace Altinn.Platform.Storage.Repository
                 image = await reader.GetFieldValueAsync<byte[]>("image");
             }
 
-            tracker.Track();
             return image;
         }
 
@@ -158,14 +137,11 @@ namespace Altinn.Platform.Storage.Repository
                 pgcom.Parameters.AddWithValue("_language", NpgsqlDbType.Text, language);
                 language = "nb";
                 --retriesLeft;
-                using TelemetryTracker tracker = new(_telemetryClient, pgcom);
                 await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
                 if (await reader.ReadAsync())
                 {
                     codelist = await reader.GetFieldValueAsync<string>("codelist");
                 }
-
-                tracker.Track();
             }
 
             return codelist ?? string.Empty;
@@ -176,11 +152,8 @@ namespace Altinn.Platform.Storage.Repository
         {
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertA1MigrationStateSql);
             pgcom.Parameters.AddWithValue("_a1archivereference", NpgsqlDbType.Bigint, a1ArchiveReference);
-            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
             await pgcom.ExecuteNonQueryAsync();
-
-            tracker.Track();
         }
 
         /// <inheritdoc/>
@@ -188,11 +161,8 @@ namespace Altinn.Platform.Storage.Repository
         {
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertA2MigrationStateSql);
             pgcom.Parameters.AddWithValue("_a2archivereference", NpgsqlDbType.Bigint, a2ArchiveReference);
-            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
             await pgcom.ExecuteNonQueryAsync();
-
-            tracker.Track();
         }
 
         /// <inheritdoc/>
@@ -201,11 +171,8 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateA1MigrationStateStartedSql);
             pgcom.Parameters.AddWithValue("_a1archivereference", NpgsqlDbType.Bigint, a1ArchiveReference);
             pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, new Guid(instanceGuid));
-            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
             await pgcom.ExecuteNonQueryAsync();
-
-            tracker.Track();
         }
 
         /// <inheritdoc/>
@@ -214,11 +181,8 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateA2MigrationStateStartedSql);
             pgcom.Parameters.AddWithValue("_a2archivereference", NpgsqlDbType.Bigint, a2ArchiveReference);
             pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, new Guid(instanceGuid));
-            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
             await pgcom.ExecuteNonQueryAsync();
-
-            tracker.Track();
         }
 
         /// <inheritdoc/>
@@ -226,11 +190,8 @@ namespace Altinn.Platform.Storage.Repository
         {
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateMigrationStateCompletedSql);
             pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, new Guid(instanceGuid));
-            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
             await pgcom.ExecuteNonQueryAsync();
-
-            tracker.Track();
         }
 
         /// <inheritdoc/>
@@ -238,11 +199,8 @@ namespace Altinn.Platform.Storage.Repository
         {
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteMigrationStateSql);
             pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, new Guid(instanceGuid));
-            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
             await pgcom.ExecuteNonQueryAsync();
-
-            tracker.Track();
         }
 
         /// <inheritdoc/>
@@ -251,7 +209,6 @@ namespace Altinn.Platform.Storage.Repository
             string instanceId = null;
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readA1MigrationStateSql);
             pgcom.Parameters.AddWithValue("_a1archivereference", NpgsqlDbType.Bigint, a1ArchiveReference);
-            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             if (await reader.ReadAsync())
@@ -259,7 +216,6 @@ namespace Altinn.Platform.Storage.Repository
                 instanceId = await reader.IsDBNullAsync("instanceguid") ? null : (await reader.GetFieldValueAsync<Guid>("instanceguid")).ToString();
             }
 
-            tracker.Track();
             return instanceId;
         }
 
@@ -269,7 +225,6 @@ namespace Altinn.Platform.Storage.Repository
             string instanceId = null;
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readA2MigrationStateSql);
             pgcom.Parameters.AddWithValue("_a2archivereference", NpgsqlDbType.Bigint, a2ArchiveReference);
-            using TelemetryTracker tracker = new(_telemetryClient, pgcom);
 
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             if (await reader.ReadAsync())
@@ -277,7 +232,6 @@ namespace Altinn.Platform.Storage.Repository
                 instanceId = await reader.IsDBNullAsync("instanceguid") ? null : (await reader.GetFieldValueAsync<Guid>("instanceguid")).ToString();
             }
 
-            tracker.Track();
             return instanceId;
         }
 

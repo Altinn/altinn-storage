@@ -4,7 +4,6 @@ using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
-using Microsoft.ApplicationInsights;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using NpgsqlTypes;
@@ -18,7 +17,6 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
 {
     private readonly ILogger<PgInstanceAndEventsRepository> _logger;
     private readonly NpgsqlDataSource _dataSource;
-    private readonly TelemetryClient _telemetryClient;
     private readonly IInstanceRepository _instanceRepository;
 
     private readonly string _insertInstanceEventsSql = "call storage.insertinstanceevents($1, $2)";
@@ -29,17 +27,14 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
     /// <param name="logger">The logger to use when writing to logs.</param>
     /// <param name="dataSource">The npgsql data source.</param>
     /// <param name="instanceRepository">Instance repo</param>
-    /// <param name="telemetryClient">Telemetry client</param>
     public PgInstanceAndEventsRepository(
         ILogger<PgInstanceAndEventsRepository> logger,
         NpgsqlDataSource dataSource,
-        IInstanceRepository instanceRepository,
-        TelemetryClient telemetryClient = null)
+        IInstanceRepository instanceRepository)
     {
         _logger = logger;
         _dataSource = dataSource;
         _instanceRepository = instanceRepository;
-        _telemetryClient = telemetryClient;
     }
 
     /// <inheritdoc/>
