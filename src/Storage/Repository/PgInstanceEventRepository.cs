@@ -66,8 +66,8 @@ namespace Altinn.Platform.Storage.Repository
             List<InstanceEvent> events = [];
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_filterSql);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceId.Split('/').Last()));
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Timestamp, fromDateTime ?? DateTime.MinValue);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Timestamp, toDateTime ?? DateTime.MaxValue);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, fromDateTime ?? DateTime.MinValue);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, toDateTime ?? DateTime.MaxValue);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Array | NpgsqlDbType.Text, eventTypes == null || eventTypes.Length == 0 ? (object)DBNull.Value : eventTypes);
 
             await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())

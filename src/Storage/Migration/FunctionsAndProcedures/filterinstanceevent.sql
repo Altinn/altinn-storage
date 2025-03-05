@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION storage.filterinstanceevent(_instance UUID, _from TIMESTAMP, _to TIMESTAMP, _eventtype TEXT[])
+CREATE OR REPLACE FUNCTION storage.filterinstanceevent(_instance UUID, _from TIMESTAMPTZ, _to TIMESTAMPTZ, _eventtype TEXT[])
     RETURNS TABLE (event JSONB)
     LANGUAGE 'plpgsql'
     

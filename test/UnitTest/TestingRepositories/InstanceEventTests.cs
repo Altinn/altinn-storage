@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
@@ -76,7 +77,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             // Act
             List<InstanceEvent> ies1 = await _instanceEventFixture.InstanceEventRepo.ListInstanceEvents(_instanceId, null, null, null);
             List<InstanceEvent> ies2 = await _instanceEventFixture.InstanceEventRepo.ListInstanceEvents(_instanceId, new string[] { "et1" }, null, null);
-            List<InstanceEvent> ies3 = await _instanceEventFixture.InstanceEventRepo.ListInstanceEvents(_instanceId, null, DateTime.Parse("2013-06-16"), DateTime.Now);
+            List<InstanceEvent> ies3 = await _instanceEventFixture.InstanceEventRepo.ListInstanceEvents(_instanceId, null, DateTime.Parse("2013-06-16", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal), DateTime.UtcNow);
 
             // Assert
             Assert.Equal(3, ies1.Count);
