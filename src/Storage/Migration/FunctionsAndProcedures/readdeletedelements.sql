@@ -12,6 +12,7 @@ RETURN QUERY
             WHERE (d.element -> 'DeleteStatus' -> 'IsHardDeleted')::BOOLEAN
                 AND (d.element -> 'DeleteStatus' ->> 'HardDeleted')::TIMESTAMPTZ <= NOW() - (7 ||' days')::interval
         )
-    SELECT i.id, i.instance, data_elements.element FROM  data_elements JOIN storage.instances i ON i.id = data_elements.instanceinternalid; 
+    SELECT i.id, i.instance, data_elements.element FROM  data_elements JOIN storage.instances i ON i.id = data_elements.instanceinternalid
+        WHERE i.AltinnMainVersion >= 3; 
     END;
 $BODY$;

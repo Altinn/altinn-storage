@@ -44,5 +44,10 @@ namespace Altinn.Platform.Storage.Helpers
         /// Policy tag for authorizing designer access
         /// </summary>
         public const string POLICY_STUDIO_DESIGNER = "StudioDesignerAccess";
+
+        /// <summary>
+        /// Policy tag for authorizing correspondence calls to SBL bridge
+        /// </summary>
+        public const string POLICY_CORRESPONDENCE_SBLBRIDGE = "CorrespondenceSblBridge";
     }
 }

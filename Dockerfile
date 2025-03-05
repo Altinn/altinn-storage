@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:9.0.102-alpine3.20 AS build
+FROM mcr.microsoft.com/dotnet/sdk:9.0.200-alpine3.21 AS build
 
 COPY src/Storage ./Storage
 COPY src/DbTools ./DbTools
@@ -7,16 +7,23 @@ COPY src/Storage/Migration ./Migration
 WORKDIR DbTools/
 RUN dotnet build ./DbTools.csproj -c Release -o /app_tools
 
+# Comment in the following line for local development
+# RUN mkdir -p /DbTools/bin/Debug/net9.0 && cp /app_tools/DbTools /DbTools/bin/Debug/net9.0/DbTools
+
 WORKDIR ../Storage/
 
 RUN dotnet build ./Altinn.Platform.Storage.csproj -c Release -o /app_output
 RUN dotnet publish ./Altinn.Platform.Storage.csproj -c Release -o /app_output
 
-FROM mcr.microsoft.com/dotnet/aspnet:9.0.1-alpine3.20 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:9.0.2-alpine3.21 AS final
 EXPOSE 5010
 WORKDIR /app
 COPY --from=build /app_output .
 COPY --from=build /Storage/Migration ./Migration
+
+# Add support for not only English cultures
+RUN apk add --no-cache icu-libs icu-data-full tzdata
+ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
 # setup the user and group
 # the user will have no password, using shell /bin/false and using the group dotnet

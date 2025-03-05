@@ -29,11 +29,11 @@ namespace Altinn.Platform.Storage.Controllers
         }
 
         /// <summary>
-        /// Create signature document from listed data elements
+        /// Create signature document from listed data elements.
         /// </summary>
         /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
-        /// <param name="instanceGuid">The guid of the instance</param>
-        /// <param name="signRequest">Signrequest containing data element ids and sign status</param>
+        /// <param name="instanceGuid">The guid of the instance.</param>
+        /// <param name="signRequest">Signrequest containing data element ids and sign status.</param>
         [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_SIGN)]
         [HttpPost("{instanceOwnerPartyId:int}/{instanceGuid:guid}/sign")]
         [ProducesResponseType(StatusCodes.Status201Created)]
@@ -41,12 +41,18 @@ namespace Altinn.Platform.Storage.Controllers
         [Produces("application/json")]
         public async Task<ActionResult> Sign([FromRoute] int instanceOwnerPartyId, [FromRoute] Guid instanceGuid, [FromBody] SignRequest signRequest)
         {
-            if (string.IsNullOrEmpty(signRequest?.Signee?.UserId))
+            if (string.IsNullOrEmpty(signRequest?.Signee?.UserId) && signRequest?.Signee?.SystemUserId is null)
             {
-                return Problem("The 'UserId' parameter must be defined for signee.", null, 400);
+                return Problem("The 'UserId' or 'SystemUserId' parameter must be defined for signee.", null, 400);
             }
 
-            (bool created, ServiceError serviceError) = await _instanceService.CreateSignDocument(instanceOwnerPartyId, instanceGuid, signRequest, User.GetUserIdAsInt().Value);
+            var performedBy = User.GetUserOrOrgNo();
+            if (string.IsNullOrEmpty(performedBy))
+            {
+                return Unauthorized();
+            }
+
+            (bool created, ServiceError serviceError) = await _instanceService.CreateSignDocument(instanceOwnerPartyId, instanceGuid, signRequest, performedBy);
             
             if (created)
             {

@@ -1,9 +1,12 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
 
@@ -11,16 +14,22 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
 {
     public class ApplicationServiceTests
     {
+        private readonly Mock<IApplicationRepository> _applicationRepositoryMock;
+
+        public ApplicationServiceTests()
+        {
+            _applicationRepositoryMock = new Mock<IApplicationRepository>();
+        }
+
         [Fact]
         public async Task ValidateDataTypeForApp_Success()
         {
             // Arrange
             Application application = CreateApplication("ttd", "test-app");
-            
-            Mock<IApplicationRepository> applicationRepositoryMock = new Mock<IApplicationRepository>();
-            applicationRepositoryMock.Setup(arm => arm.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(application);
 
-            ApplicationService applicationService = new ApplicationService(applicationRepositoryMock.Object); 
+            _applicationRepositoryMock.Setup(arm => arm.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(application);
+
+            ApplicationService applicationService = new(_applicationRepositoryMock.Object);
 
             // Act
             (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp("ttd", "test-app", "sign-datatype", "currentTask");
@@ -28,16 +37,14 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             // Assert
             Assert.True(isValid);
             Assert.Null(serviceError);
-            applicationRepositoryMock.VerifyAll();
+            _applicationRepositoryMock.VerifyAll();
         }
 
         [Fact]
         public async Task ValidateDataTypeForApp_Failed_AppNotExists()
         {
             // Arrange
-            Mock<IApplicationRepository> applicationRepositoryMock = new Mock<IApplicationRepository>();
-
-            ApplicationService applicationService = new ApplicationService(applicationRepositoryMock.Object); 
+            ApplicationService applicationService = new(_applicationRepositoryMock.Object);
 
             // Act
             (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp("ttd", "test-app", "sign-datatype", "currentTask");
@@ -52,11 +59,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         {
             // Arrange
             Application application = CreateApplication("ttd", "test-app");
-            
-            Mock<IApplicationRepository> applicationRepositoryMock = new Mock<IApplicationRepository>();
-            applicationRepositoryMock.Setup(arm => arm.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(application);
 
-            ApplicationService applicationService = new ApplicationService(applicationRepositoryMock.Object); 
+            _applicationRepositoryMock.Setup(arm => arm.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(application);
+
+            ApplicationService applicationService = new(_applicationRepositoryMock.Object);
 
             // Act
             (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp("ttd", "test-app", "invalid-datatype", "currentTask");
@@ -64,7 +70,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             // Assert
             Assert.False(isValid);
             Assert.Equal(405, serviceError.ErrorCode);
-            applicationRepositoryMock.VerifyAll();
+            _applicationRepositoryMock.VerifyAll();
         }
 
         [Fact]
@@ -72,11 +78,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         {
             // Arrange
             Application application = CreateApplication("ttd", "test-app");
-            
-            Mock<IApplicationRepository> applicationRepositoryMock = new Mock<IApplicationRepository>();
-            applicationRepositoryMock.Setup(arm => arm.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(application);
 
-            ApplicationService applicationService = new ApplicationService(applicationRepositoryMock.Object); 
+            _applicationRepositoryMock.Setup(arm => arm.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(application);
+
+            ApplicationService applicationService = new(_applicationRepositoryMock.Object);
 
             // Act
             (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp("ttd", "test-app", "sign-datatype", "invalidTask");
@@ -84,7 +89,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             // Assert
             Assert.False(isValid);
             Assert.Equal(405, serviceError.ErrorCode);
-            applicationRepositoryMock.VerifyAll();
+            _applicationRepositoryMock.VerifyAll();
         }
 
         private static Application CreateApplication(string org, string appName)
@@ -101,6 +106,90 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             appInfo.Title.Add("nb", "Tittel");
 
             return appInfo;
+        }
+
+        [Fact]
+        public async Task GetApplicationOrErrorAsync_WhenFound_ReturnsApplication()
+        {
+            // Arrange
+            string appId = "org123/app456";
+            string expectedOrg = "org123";
+            Application expectedApp = new();
+
+            _applicationRepositoryMock
+                .Setup(repo => repo.FindOne(appId, expectedOrg))
+                .ReturnsAsync(new Application());
+
+            ApplicationService applicationService = new(_applicationRepositoryMock.Object);
+
+            // Act
+            var (app, error) = await applicationService.GetApplicationOrErrorAsync(appId);
+
+            // Assert
+            Assert.NotNull(app);
+            Assert.Null(error);
+            _applicationRepositoryMock.Verify(repo => repo.FindOne(appId, expectedOrg), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetApplicationOrErrorAsync_WhenApplicationNotFound_ReturnsNotFound()
+        {
+            // Arrange
+            string appId = "org123/app456";
+            string expectedOrg = "org123";
+
+            _applicationRepositoryMock
+                .Setup(repo => repo.FindOne(appId, expectedOrg))
+                .ReturnsAsync((Application)null);
+
+            ApplicationService applicationService = new(_applicationRepositoryMock.Object);
+
+            // Act
+            var (app, error) = await applicationService.GetApplicationOrErrorAsync(appId);
+
+            // Assert
+            Assert.Null(app);
+            Assert.NotNull(error);
+            ServiceError notFoundResult = Assert.IsType<ServiceError>(error);
+
+            Assert.Equal(404, notFoundResult.ErrorCode);
+            Assert.Equal($"Did not find application with appId={appId}", notFoundResult.ErrorMessage);
+        }
+
+        [Fact]
+        public async Task GetApplicationOrErrorAsync_WhenExceptionThrown_ReturnsStatusInternalServerError()
+        {
+            // Arrange
+            string appId = "org123/app456";
+            string expectedOrg = "org123";
+            var exception = new Exception("Test exception");
+
+            _applicationRepositoryMock
+                .Setup(repo => repo.FindOne(appId, expectedOrg))
+                .ThrowsAsync(exception);
+
+            ApplicationService applicationService = new(_applicationRepositoryMock.Object);
+
+            // Act
+            Application app = null;
+            ServiceError serviceError = null;
+            Exception resultingException = null;
+
+            try
+            {
+                (app, serviceError) = await applicationService.GetApplicationOrErrorAsync(appId);
+            }
+            catch (Exception ex)
+            {
+                resultingException = ex;
+            }
+
+            // Assert
+            Assert.Null(app);
+            Assert.Null(serviceError);
+            Assert.NotNull(resultingException);
+            Assert.IsType<Exception>(resultingException);
+            Assert.Equal("Test exception", resultingException.Message);
         }
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json;
@@ -11,8 +12,7 @@ using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
-
-using Microsoft.ApplicationInsights.DataContracts;
+using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
@@ -31,6 +31,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly ITextRepository _textRepository;
         private readonly IApplicationRepository _applicationRepository;
         private readonly IAuthorization _authorizationService;
+        private readonly IApplicationService _applicationService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MessageBoxInstancesController"/> class
@@ -40,18 +41,21 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="textRepository">the text repository handler</param>
         /// <param name="applicationRepository">the application repository handler</param>
         /// <param name="authorizationService">the authorization service</param>
+        /// <param name="applicationService">the application service</param>
         public MessageBoxInstancesController(
             IInstanceRepository instanceRepository,
             IInstanceEventRepository instanceEventRepository,
             ITextRepository textRepository,
             IApplicationRepository applicationRepository,
-            IAuthorization authorizationService)
+            IAuthorization authorizationService,
+            IApplicationService applicationService)
         {
             _instanceRepository = instanceRepository;
             _instanceEventRepository = instanceEventRepository;
             _textRepository = textRepository;
             _applicationRepository = applicationRepository;
             _authorizationService = authorizationService;
+            _applicationService = applicationService;
         }
 
         /// <summary>
@@ -228,7 +232,7 @@ namespace Altinn.Platform.Storage.Controllers
                 updateProperties.Add(nameof(instance.Status));
                 updateProperties.Add(nameof(instance.Status.IsSoftDeleted));
                 updateProperties.Add(nameof(instance.Status.SoftDeleted));
-                instance.LastChangedBy = User.GetUserOrOrgId();
+                instance.LastChangedBy = User.GetUserOrOrgNo();
                 instance.LastChanged = DateTime.UtcNow;
                 instance.Status.IsSoftDeleted = false;
                 instance.Status.SoftDeleted = null;
@@ -241,9 +245,11 @@ namespace Altinn.Platform.Storage.Controllers
                     InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
                     User = new PlatformUser
                     {
-                        UserId = User.GetUserIdAsInt(),
+                        UserId = User.GetUserId(),
                         AuthenticationLevel = User.GetAuthenticationLevel(),
                         OrgId = User.GetOrg(),
+                        SystemUserId = User.GetSystemUserId(),
+                        SystemUserOwnerOrgNo = User.GetSystemUserOwner(),
                     }
                 };
 
@@ -275,9 +281,25 @@ namespace Altinn.Platform.Storage.Controllers
                 return NotFound($"Didn't find the object that should be deleted with instanceId={instanceId}");
             }
 
-            DateTime now = DateTime.UtcNow;
-
             instance.Status ??= new InstanceStatus();
+
+            (Application appInfo, ServiceError appInfoError) = await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
+
+            if (appInfoError != null)
+            {
+                return appInfoError.ErrorCode switch
+                {
+                    404 => NotFound(appInfoError.ErrorMessage),
+                    _ => StatusCode(appInfoError.ErrorCode, appInfoError.ErrorMessage),
+                };
+            }
+
+            if (InstanceHelper.IsPreventedFromDeletion(instance.Status, appInfo))
+            {
+                return StatusCode(403, "Instance cannot be deleted yet due to application restrictions.");
+            }
+
+            DateTime now = DateTime.UtcNow;
 
             List<string> updateProperties = [];
             updateProperties.Add(nameof(instance.Status));
@@ -298,7 +320,7 @@ namespace Altinn.Platform.Storage.Controllers
                 instance.Status.SoftDeleted = now;
             }
 
-            instance.LastChangedBy = User.GetUserOrOrgId();
+            instance.LastChangedBy = User.GetUserOrOrgNo();
             instance.LastChanged = now;
             updateProperties.Add(nameof(instance.LastChanged));
             updateProperties.Add(nameof(instance.LastChangedBy));
@@ -311,9 +333,11 @@ namespace Altinn.Platform.Storage.Controllers
                 InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
                 User = new PlatformUser
                 {
-                    UserId = User.GetUserIdAsInt(),
+                    UserId = User.GetUserId(),
                     AuthenticationLevel = User.GetAuthenticationLevel(),
                     OrgId = User.GetOrg(),
+                    SystemUserId = User.GetSystemUserId(),
+                    SystemUserOwnerOrgNo = User.GetSystemUserOwner(),
                 },
             };
 
@@ -393,6 +417,10 @@ namespace Altinn.Platform.Storage.Controllers
             string dateTimeFormat = "yyyy-MM-ddTHH:mm:ss";
 
             InstanceQueryParameters queryParams = new();
+            if (queryModel.FromLastChanged != null || queryModel.ToLastChanged != null)
+            {
+                queryParams.LastChanged = new string[(queryModel.FromLastChanged == null || queryModel.ToLastChanged == null) ? 1 : 2];
+            }
 
             if (queryModel.InstanceOwnerPartyIdList.Count == 1)
             {
@@ -410,19 +438,12 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (queryModel.FromLastChanged != null)
             {
-                queryParams.LastChanged = $"gte:{queryModel.FromLastChanged?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}";
+                queryParams.LastChanged[0] = $"gte:{queryModel.FromLastChanged?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}";
             }
 
             if (queryModel.ToLastChanged != null)
             {
-                if (string.IsNullOrEmpty(queryParams.LastChanged))
-                {
-                    queryParams.LastChanged = $"lte:{queryModel.ToLastChanged?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}";
-                }
-                else
-                {
-                    queryParams.LastChanged = string.Concat(queryParams.LastChanged, $"lte:{queryModel.ToLastChanged?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}");
-                }
+                queryParams.LastChanged[queryModel.FromLastChanged != null ? 1 : 0] = $"lte:{queryModel.ToLastChanged?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}";
             }
 
             if (queryModel.FromCreated != null)
@@ -508,16 +529,9 @@ namespace Altinn.Platform.Storage.Controllers
             return Ok(authorizedInstances);
         }
 
-        private void AddQueryModelToTelemetry(MessageBoxQueryModel queryModel)
+        private static void AddQueryModelToTelemetry(MessageBoxQueryModel queryModel)
         {
-            RequestTelemetry requestTelemetry = HttpContext.Features.Get<RequestTelemetry>();
-
-            if (requestTelemetry == null)
-            {
-                return;
-            }
-
-            requestTelemetry.Properties.Add("search.queryModel", JsonSerializer.Serialize(queryModel));
+            Activity.Current?.AddTag("search.queryModel", JsonSerializer.Serialize(queryModel));
         }
     }
 }

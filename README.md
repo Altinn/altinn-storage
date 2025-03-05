@@ -1,8 +1,8 @@
 # Altinn Storage
 
 ## Build status
-[![Storage build status](https://dev.azure.com/brreg/altinn-studio/_apis/build/status/altinn-platform/storage-master?label=platform/storage)](https://dev.azure.com/brreg/altinn-studio/_build/latest?definitionId=30)
 
+[![Storage build status](https://dev.azure.com/brreg/altinn-studio/_apis/build/status/altinn-platform/storage-master?label=platform/storage)](https://dev.azure.com/brreg/altinn-studio/_build/latest?definitionId=30)
 
 ## Getting Started
 
@@ -10,15 +10,15 @@ These instructions will get you a copy of the storage component up and running o
 
 ### Prerequisites
 
-* [.NET 9.0 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
-* Newest [Git](https://git-scm.com/downloads)
-* A code editor - we like [Visual Studio Code](https://code.visualstudio.com/download)
-   - Also install [recommended extensions](https://code.visualstudio.com/docs/editor/extension-marketplace#_workspace-recommended-extensions) (e.g. [C#](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csharp))
-* Infrastructure
-  * [Podman](https://podman.io/) or another container tool such as Docker Desktop
-  * [PostgreSQL](https://www.postgresql.org/download/)
-  * [pgAdmin](https://www.pgadmin.org/download/)
-  * Automatically setup using `docker compose up -d`
+- [.NET 9.0 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
+- Newest [Git](https://git-scm.com/downloads)
+- A code editor - we like [Visual Studio Code](https://code.visualstudio.com/download)
+  - Also install [recommended extensions](https://code.visualstudio.com/docs/editor/extension-marketplace#_workspace-recommended-extensions) (e.g. [C#](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csharp))
+- Infrastructure
+  - [Podman](https://podman.io/) or another container tool such as Docker Desktop
+  - [PostgreSQL](https://www.postgresql.org/download/)
+  - [pgAdmin](https://www.pgadmin.org/download/)
+  - Automatically setup using `docker compose up -d`
 
 ### Manually setting up PostgreSQL
 
@@ -26,6 +26,7 @@ Ensure that both PostgreSQL and pgAdmin have been installed and start pgAdmin.
 If you installed prerequisite infrastructure through `docker compose`, you can skip to the next section.
 
 In pgAdmin
+
 - Create database _storagedb_
 - Create the following users with password: _Password_ (see privileges in parentheses)
   - platform_storage_admin (superuser, canlogin)
@@ -33,6 +34,10 @@ In pgAdmin
 - Create schema _storage_ in storagedb with owner _platform_storage_admin_
 
 A more detailed description of the database setup is available in [our developer handbook](https://docs.altinn.studio/community/contributing/handbook/postgres/)
+
+### Setting up PostgreSQL with docker compose
+
+Comment out the marked lines in Dockerfile and docker-compose.yml and run the services in docker-compose.
 
 ### Cloning the application
 

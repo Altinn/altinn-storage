@@ -9,22 +9,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Altinn.Common.AccessToken" Version="4.5.5" />
-  
-    <PackageReference Include="Altinn.Common.AccessTokenClient" Version="3.0.11" />
-    <PackageReference Include="Altinn.Platform.Models" Version="1.6.1" /> 
-    <PackageReference Include="Altinn.Platform.Storage.Interface" Version="4.0.5" />
-    <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.3.2" />
-    <PackageReference Include="Azure.Identity" Version="1.13.1" />
+    <PackageReference Include="Altinn.Common.AccessToken" Version="5.0.1" />
+    <PackageReference Include="Altinn.Common.AccessTokenClient" Version="3.0.12" />
+    <PackageReference Include="Altinn.Platform.Models" Version="1.6.1" />
+    <PackageReference Include="Altinn.Platform.Storage.Interface" Version="4.0.7" />
+    <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.4.0" />
+    <PackageReference Include="Azure.Identity" Version="1.13.2" />
     <PackageReference Include="Azure.Security.KeyVault.Secrets" Version="4.7.0" />
     <PackageReference Include="Azure.Storage.Blobs" Version="12.23.0" />
     <PackageReference Include="Altinn.Common.PEP" Version="4.1.2" />
     <PackageReference Include="Azure.Storage.Queues" Version="12.21.0" />
-
     <PackageReference Include="JWTCookieAuthentication" Version="3.0.1" />
-
-    <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.22.0" />
-
     <PackageReference Include="PDFsharp" Version="6.1.1" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="7.2.0" />
     <PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="7.2.0" />
@@ -34,6 +29,12 @@
     <PackageReference Include="Npgsql.DependencyInjection" Version="9.0.2" />
     <PackageReference Include="Yuniql.AspNetCore" Version="1.2.25" />
     <PackageReference Include="Yuniql.PostgreSql" Version="1.3.15" />
+    <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.3.0" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.11.1" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.11.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.11.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.11.0" />
+    <PackageReference Include="Npgsql.OpenTelemetry" Version="9.0.2" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)'=='Debug'">
@@ -59,16 +60,16 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-  
+
   <ItemGroup>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
       <_Parameter1>Altinn.Platform.Storage.UnitTest</_Parameter1>
     </AssemblyAttribute>
   </ItemGroup>
-  
+
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <Exec Command="$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools $(TargetDir)../../../Migration" Condition="Exists('$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools') or Exists('$(TargetDir)../../../../DbTools/bin/Debug/$(TargetFramework)/DbTools.exe')" />
     <Exec Command="/app_tools/DbTools ./Migration" Condition="Exists('/app_tools/DbTools')" />
-  </Target>  
+  </Target>
 
 </Project>

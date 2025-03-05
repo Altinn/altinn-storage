@@ -13,5 +13,12 @@ namespace Altinn.Platform.Storage.Clients
         /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
         /// <returns>Nothing is returned.</returns>
         Task SetHasAltinn3Instances(int instanceOwnerPartyId);
+
+        /// <summary>
+        /// Call SBL to inform that a party has correspondences in Altinn 3 Correspondence
+        /// </summary>
+        /// <param name="partyId">The party id of the recipient</param>
+        /// <returns>A <see cref="Task"/> representing the result of the asynchronous operation.</returns>
+        Task SetHasAltinn3Correspondence(int partyId);
     }
 }

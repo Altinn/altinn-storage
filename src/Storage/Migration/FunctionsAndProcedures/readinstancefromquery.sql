@@ -97,7 +97,7 @@ BEGIN
             AND (_msgBoxInterval_lt  IS NULL OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = false AND i.created <  _msgBoxInterval_lt  OR (i.instance -> 'Status' -> 'IsArchived')::boolean = true  AND i.lastchanged <  _msgBoxInterval_lt))
             AND (_msgBoxInterval_eq  IS NULL OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = false AND i.created =  _msgBoxInterval_eq  OR (i.instance -> 'Status' -> 'IsArchived')::boolean = true  AND i.lastchanged =  _msgBoxInterval_eq))
             AND (_org IS NULL OR i.org = _org)
-            AND (_process_currentTask IS NULL OR i.instance -> 'Process' -> 'CurrentTask' ->> 'ElementId' = _process_currentTask)
+            AND (_process_currentTask IS NULL OR i.taskid = _process_currentTask)
             AND (_process_ended_gte IS NULL OR i.instance -> 'Process' ->> 'Ended' >= _process_ended_gte)
             AND (_process_ended_gt  IS NULL OR i.instance -> 'Process' ->> 'Ended' >  _process_ended_gt)
             AND (_process_ended_lte IS NULL OR i.instance -> 'Process' ->> 'Ended' <= _process_ended_lte)
