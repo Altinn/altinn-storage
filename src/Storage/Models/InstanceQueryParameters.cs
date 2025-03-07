@@ -39,8 +39,10 @@ namespace Altinn.Platform.Storage.Models
         private const string _statusIsHardDeletedParameterName = "status.isHardDeleted";
         private const string _statusIsSoftDeletedParameterName = "status.isSoftDeleted";
         private const string _visibleAfterParameterName = "visibleAfter";
-        private const string _searchStringParameterName = "searchString";
-        private const string _sortAscendingParameterName = "order";
+        private const string _searchStringParameterName = "_search_string";
+        private const string _searchStringDatabindName = "searchString";
+        private const string _sortAscendingDatabindName = "order";
+        private const string _sortAscendingParameterName = "_sort_ascending";
         private const string _continueIndexParameterName = "_continue_idx";
         private const string _lastChangedIndexParameterName = "_lastChanged_idx";
 
@@ -167,13 +169,13 @@ namespace Altinn.Platform.Storage.Models
         /// <summary>
         /// Gets or sets the search string.
         /// </summary>
-        [FromQuery(Name = _searchStringParameterName)]
+        [FromQuery(Name = _searchStringDatabindName)]
         public string SearchString { get; set; }
 
         /// <summary>
         /// Gets or sets the value by which the result will be sorted.
         /// </summary>
-        [FromQuery(Name = _sortAscendingParameterName)]
+        [FromQuery(Name = _sortAscendingDatabindName)]
         public string SortBy { get; set; }
 
         /// <summary>
