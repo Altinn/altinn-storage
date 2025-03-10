@@ -23,8 +23,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             Mock<IFileScanQueueClient> fileScanMock = new Mock<IFileScanQueueClient>();
             Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
             Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+            Mock<IInstanceEventService> instanceEventServiceMock = new Mock<IInstanceEventService>();
 
-            DataService target = new DataService(fileScanMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object);
+            DataService target = new DataService(fileScanMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object, instanceEventServiceMock.Object);
 
             Instance instance = new Instance();
             DataType dataType = new DataType { EnableFileScan = false };
@@ -45,8 +46,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             Mock<IFileScanQueueClient> fileScanMock = new Mock<IFileScanQueueClient>();
             Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
             Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+            Mock<IInstanceEventService> instanceEventServiceMock = new Mock<IInstanceEventService>();
 
-            DataService target = new DataService(fileScanMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object);
+            DataService target = new DataService(fileScanMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object, instanceEventServiceMock.Object);
 
             Instance instance = new Instance { Id = "343243/guid" };
             DataType dataType = new DataType { EnableFileScan = true };
@@ -70,6 +72,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             Mock<IFileScanQueueClient> fileScanQueueClientMock = new Mock<IFileScanQueueClient>();
             Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
             Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+            Mock<IInstanceEventService> instanceEventServiceMock = new Mock<IInstanceEventService>();
 
             Guid id = Guid.NewGuid();
             string blobStoragePath = "/ttd/some-app";
@@ -87,7 +90,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 drm => drm.ReadBlob(It.IsAny<string>(), blobStoragePath, null))
                 .ReturnsAsync(new MemoryStream(blobStorageBytes));
 
-            DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object);
+            DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object, instanceEventServiceMock.Object);
             
             // Act
             (string fileHash, ServiceError serviceError) = await dataService.GenerateSha256Hash("ttd", Guid.NewGuid(), id, null);
@@ -105,8 +108,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             Mock<IFileScanQueueClient> fileScanQueueClientMock = new Mock<IFileScanQueueClient>();
             Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
             Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
-
-            DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object);
+            Mock<IInstanceEventService> instanceEventServiceMock = new Mock<IInstanceEventService>();
+            
+            DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object, instanceEventServiceMock.Object);
 
             // Act
             (string fileHash, ServiceError serviceError) = await dataService.GenerateSha256Hash("ttd", Guid.NewGuid(), Guid.NewGuid(), null);
@@ -123,6 +127,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             Mock<IFileScanQueueClient> fileScanQueueClientMock = new Mock<IFileScanQueueClient>();
             Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
             Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+            Mock<IInstanceEventService> instanceEventServiceMock = new Mock<IInstanceEventService>();
 
             DataElement dataElement = new DataElement
             {
@@ -132,7 +137,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             
             dataRepositoryMock.Setup(drm => drm.Read(It.IsAny<Guid>(), It.IsAny<Guid>())).ReturnsAsync(dataElement);
 
-            DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object);
+            DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object, instanceEventServiceMock.Object);
 
             // Act
             (string fileHash, ServiceError serviceError) = await dataService.GenerateSha256Hash("ttd", Guid.NewGuid(), Guid.NewGuid(), null);
@@ -149,6 +154,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             Mock<IFileScanQueueClient> fileScanQueueClientMock = new Mock<IFileScanQueueClient>();
             Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
             Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+            Mock<IInstanceEventService> instanceEventServiceMock = new Mock<IInstanceEventService>();
+            
             blobRepositoryMock.Setup(
                 drm => drm.WriteBlob(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<int?>()))
                 .ReturnsAsync((666, DateTimeOffset.Now));
@@ -159,7 +166,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 BlobStoragePath = "/ttd/some-app"
             };
 
-            DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object);
+            DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object, instanceEventServiceMock.Object);
 
             // Act
             await dataService.UploadDataAndCreateDataElement("ttd", new MemoryStream(Encoding.UTF8.GetBytes("whatever")), dataElement, 0, null);
