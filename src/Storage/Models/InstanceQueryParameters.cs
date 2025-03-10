@@ -40,6 +40,8 @@ namespace Altinn.Platform.Storage.Models
         private const string _statusIsSoftDeletedParameterName = "status.isSoftDeleted";
         private const string _visibleAfterParameterName = "visibleAfter";
         private const string _searchStringParameterName = "_search_string";
+        private const string _searchStringDatabindName = "searchString";
+        private const string _sortAscendingDatabindName = "order";
         private const string _sortAscendingParameterName = "_sort_ascending";
         private const string _continueIndexParameterName = "_continue_idx";
         private const string _lastChangedIndexParameterName = "_lastChanged_idx";
@@ -165,6 +167,18 @@ namespace Altinn.Platform.Storage.Models
         public int? MainVersionExclude { get; set; }
 
         /// <summary>
+        /// Gets or sets the search string.
+        /// </summary>
+        [FromQuery(Name = _searchStringDatabindName)]
+        public string SearchString { get; set; }
+
+        /// <summary>
+        /// Gets or sets the value by which the result will be sorted.
+        /// </summary>
+        [FromQuery(Name = _sortAscendingDatabindName)]
+        public string SortBy { get; set; }
+
+        /// <summary>
         /// Gets or sets an array of application identifiers.
         /// </summary>
         internal string[] AppIds { get; set; }
@@ -193,16 +207,6 @@ namespace Altinn.Platform.Storage.Models
         /// Gets or sets the message box interval.
         /// </summary>
         internal string[] MsgBoxInterval { get; set; }
-
-        /// <summary>
-        /// Gets or sets the search string.
-        /// </summary>
-        internal string SearchString { get; set; }
-
-        /// <summary>
-        /// Gets or sets the value by which the result will be sorted.
-        /// </summary>
-        internal string SortBy { get; set; }
 
         /// <summary>
         /// Generates the PostgreSQL parameters from the query parameters
