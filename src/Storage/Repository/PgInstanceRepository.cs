@@ -315,6 +315,7 @@ namespace Altinn.Platform.Storage.Repository
             }
 
             queryResponse.Count = queryResponse.Instances.Count;
+            Activity.Current?.AddTag("instanceCount", queryResponse.Count.ToString());
 
             return queryResponse;
         }
