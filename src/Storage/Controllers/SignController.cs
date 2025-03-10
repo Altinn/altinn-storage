@@ -18,15 +18,15 @@ namespace Altinn.Platform.Storage.Controllers
     [ApiController]
     public class SignController : ControllerBase
     {
-        private readonly IInstanceService _instanceService;
+        private readonly ISigningService _signingService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SignController"/> class
         /// </summary>
-        /// <param name="instanceService">A instance service with instance related business logic.</param>
-        public SignController(IInstanceService instanceService)
+        /// <param name="signingService">A instance service with instance related business logic.</param>
+        public SignController(ISigningService signingService)
         {
-            _instanceService = instanceService;
+            _signingService = signingService;
         }
 
         /// <summary>
@@ -55,7 +55,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return Unauthorized();
             }
 
-            (bool created, ServiceError serviceError) = await _instanceService.CreateSignDocument(instanceOwnerPartyId, instanceGuid, signRequest, performedBy, cancellationToken);
+            (bool created, ServiceError serviceError) = await _signingService.CreateSignDocument(instanceOwnerPartyId, instanceGuid, signRequest, performedBy, cancellationToken);
             
             if (created)
             {

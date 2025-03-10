@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Helpers;
@@ -7,31 +9,36 @@ using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.Services
 {
     /// <summary>
-    /// Service class with business logic related to instances.
+    /// Service class with business logic related to signing
     /// </summary>
-    public class InstanceService : IInstanceService
+    public class SigningService : ISigningService
     {
         private readonly IInstanceRepository _instanceRepository;
         private readonly IApplicationRepository _applicationRepository;
+        private readonly IBlobRepository _blobRepository;
+        private readonly ILogger<SigningService> _logger;
         private readonly IDataService _dataService;
         private readonly IApplicationService _applicationService;
         private readonly IInstanceEventService _instanceEventService;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="InstanceService"/> class.
+        /// Initializes a new instance of the <see cref="SigningService"/> class.
         /// </summary>
-        public InstanceService(IInstanceRepository instanceRepository, IDataService dataService, IApplicationService applicationService, IInstanceEventService instanceEventService, IApplicationRepository applicationRepository)
+        public SigningService(IInstanceRepository instanceRepository, IDataService dataService, IApplicationService applicationService, IInstanceEventService instanceEventService, IApplicationRepository applicationRepository, IBlobRepository blobRepository, ILogger<SigningService> logger)
         {
             _instanceRepository = instanceRepository;
             _dataService = dataService;
             _applicationService = applicationService;
             _instanceEventService = instanceEventService;
             _applicationRepository = applicationRepository;
+            _blobRepository = blobRepository;
+            _logger = logger;
         }
 
         /// <inheritdoc/>
@@ -52,7 +59,7 @@ namespace Altinn.Platform.Storage.Services
                 return (false, serviceError);
             }
 
-            SignDocument signDocument = GetSignDocument(instanceGuid, signRequest);
+            SignDocument signDocument = CreateSignDocument(instanceGuid, signRequest);
 
             foreach (SignRequest.DataElementSignature dataElementSignature in signRequest.DataElementSignatures)
             {
@@ -82,6 +89,8 @@ namespace Altinn.Platform.Storage.Services
                 signRequest.GeneratedFromTask);
 
             signDocument.Id = dataElement.Id;
+
+            await DeleteExistingSignDocument(instance, signRequest.SignatureDocumentDataType, signDocument); 
         
             using (MemoryStream fileStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(signDocument, Formatting.Indented))))
             {
@@ -92,7 +101,52 @@ namespace Altinn.Platform.Storage.Services
             return (true, null);
         }
 
-        private static SignDocument GetSignDocument(Guid instanceGuid, SignRequest signRequest)
+        private async Task DeleteExistingSignDocument(Instance instance, string signDocDataType, SignDocument newSignDocument)
+        {
+            try
+            {
+                Application application = await _applicationRepository.FindOne(instance.AppId, instance.Org);
+                List<DataElement> signingDocDataElements = instance.Data?.Where(x => x.DataType == signDocDataType).ToList() ?? [];
+
+                List<Task<SignDocDownloadResult>> downloadAndDeserializeSignDocumentTasks = signingDocDataElements.Select(async dataElement =>
+                {
+                    try
+                    {
+                        Stream stream = await _blobRepository.ReadBlob(instance.Org, dataElement.BlobStoragePath, application.StorageAccountNumber);
+                        var signDocument = JsonConvert.DeserializeObject<SignDocument>(await new StreamReader(stream).ReadToEndAsync());
+                        return new SignDocDownloadResult { DataElement = dataElement, SignDocument = signDocument };
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error reading or deserializing blob for DataElement {DataElementId}", dataElement.Id);
+                        return null;
+                    }
+                }).ToList();
+
+                SignDocDownloadResult[] results = await Task.WhenAll(downloadAndDeserializeSignDocumentTasks);
+
+                foreach (SignDocDownloadResult result in results)
+                {
+                    if (result == null || !SignesAreEqual(result.SignDocument.SigneeInfo, newSignDocument.SigneeInfo))
+                    {
+                        continue;
+                    }
+
+                    _logger.LogInformation("Sign document already exists for this signee. Deleting existing sign document. Deleted data element id: {DataElementId}", result.DataElement.Id);
+                    
+                    await _dataService.DeleteImmediately(instance, result.DataElement, application.StorageAccountNumber);
+
+                    break;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting existing sign document for Instance {InstanceId}", instance.Id);
+                throw;
+            }
+        }
+
+        private static SignDocument CreateSignDocument(Guid instanceGuid, SignRequest signRequest)
         {
             SignDocument signDocument = new SignDocument
             {
@@ -109,5 +163,21 @@ namespace Altinn.Platform.Storage.Services
 
             return signDocument;
         }
+        
+        private static bool SignesAreEqual(Signee signee1, Signee signee2) =>
+                signee1 != null && signee2 != null &&
+                signee1.UserId == signee2.UserId &&
+                signee1.SystemUserId == signee2.SystemUserId &&
+                signee1.PersonNumber == signee2.PersonNumber &&
+                signee1.OrganisationNumber == signee2.OrganisationNumber;
     }
+    
+    #pragma warning disable SA1600 Elements should be documented
+    file record SignDocDownloadResult
+    {
+        public DataElement DataElement { get; init; }
+        
+        public SignDocument SignDocument { get; init; }
+    }
+    #pragma warning restore SA1600
 }

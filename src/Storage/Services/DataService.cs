@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Helpers;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
@@ -21,15 +22,17 @@ namespace Altinn.Platform.Storage.Services
         private readonly IFileScanQueueClient _fileScanQueueClient;
         private readonly IDataRepository _dataRepository;
         private readonly IBlobRepository _blobRepository;
+        private readonly IInstanceEventService _instanceEventService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DataService"/> class.
         /// </summary>
-        public DataService(IFileScanQueueClient fileScanQueueClient, IDataRepository dataRepository, IBlobRepository blobRepository)
+        public DataService(IFileScanQueueClient fileScanQueueClient, IDataRepository dataRepository, IBlobRepository blobRepository, IInstanceEventService instanceEventService)
         {
             _fileScanQueueClient = fileScanQueueClient;
             _dataRepository = dataRepository;
             _blobRepository = blobRepository;
+            _instanceEventService = instanceEventService;
         }
 
         /// <inheritdoc/>
@@ -82,6 +85,20 @@ namespace Altinn.Platform.Storage.Services
             dataElement.Size = length;
             
             await _dataRepository.Create(dataElement, instanceInternalId);
+        }
+
+        /// <inheritdoc/>
+        public async Task<DataElement> DeleteImmediately(Instance instance, DataElement dataElement, int? storageAccountNumber)
+        {
+            string storageFileName = DataElementHelper.DataFileName(instance.AppId, dataElement.InstanceGuid, dataElement.Id);
+
+            await _blobRepository.DeleteBlob(instance.Org, storageFileName, storageAccountNumber);
+
+            await _dataRepository.Delete(dataElement);
+
+            await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, instance, dataElement);
+
+            return dataElement;
         }
         
         /// <summary>

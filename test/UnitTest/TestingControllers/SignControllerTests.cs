@@ -66,7 +66,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             string instanceGuid = "1916cd18-3b8e-46f8-aeaf-4bc3397ddd55";
             string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/sign";
 
-            Mock<IInstanceService> instanceServiceMock = new Mock<IInstanceService>();
+            Mock<ISigningService> instanceServiceMock = new Mock<ISigningService>();
             instanceServiceMock.Setup(ism => 
             ism.CreateSignDocument(It.IsAny<int>(), It.IsAny<Guid>(), It.IsAny<SignRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((true, null));
@@ -144,7 +144,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             string instanceGuid = "1916cd18-3b8e-46f8-aeaf-4bc3397ddd55";
             string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/sign";
 
-            Mock<IInstanceService> instanceServiceMock = new Mock<IInstanceService>();
+            Mock<ISigningService> instanceServiceMock = new Mock<ISigningService>();
             instanceServiceMock.Setup(ism => 
             ism.CreateSignDocument(It.IsAny<int>(), It.IsAny<Guid>(), It.IsAny<SignRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((false, new ServiceError(404, "Instance not found")));
@@ -170,7 +170,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         }
 
-        private HttpClient GetTestClient(Mock<IInstanceService> instanceServiceMock = null)
+        private HttpClient GetTestClient(Mock<ISigningService> instanceServiceMock = null)
         {
             // No setup required for these services. They are not in use by the InstanceController
             Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
