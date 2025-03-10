@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -33,7 +34,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             // Arrange
 
             // Act
-            Instance newInstance = await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone());
+            Instance newInstance = await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone(), CancellationToken.None);
 
             // Assert
             string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
@@ -52,7 +53,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             Instance newInstance = TestData.Instance_1_1.Clone();
             newInstance.Process.CurrentTask.Name = "Before update";
             newInstance.Process.StartEvent = "s1";
-            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
+            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
             newInstance.Process.CurrentTask.ElementId = "Task_2";
             newInstance.Process.CurrentTask.Name = "After update";
             newInstance.Process.StartEvent = null;
@@ -66,7 +67,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             updateProperties.Add(nameof(newInstance.Process));
 
             // Act
-            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties);
+            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties, CancellationToken.None);
 
             // Assert
             string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'" +
@@ -95,7 +96,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             Instance newInstance = TestData.Instance_1_1.Clone();
             newInstance.Process.CurrentTask.Name = "Before update";
             newInstance.Process.StartEvent = "s1";
-            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
+            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
             newInstance.Process.CurrentTask.ElementId = "Task_2";
             newInstance.Process.CurrentTask.Name = "After update";
             newInstance.Process.StartEvent = null;
@@ -116,7 +117,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             }
 
             // Act
-            Instance updatedInstance = await _instanceFixture.InstanceAndEventsRepo.Update(newInstance, updateProperties, instanceEvents);
+            Instance updatedInstance = await _instanceFixture.InstanceAndEventsRepo.Update(newInstance, updateProperties, instanceEvents, CancellationToken.None);
 
             // Assert
             if (instanceEvents.Count > 0)
@@ -140,7 +141,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             Instance newInstance = TestData.Instance_1_1.Clone();
             newInstance.Status.IsArchived = true;
             newInstance.Status.Substatus = new() { Description = "desc " };
-            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
+            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
             newInstance.LastChanged = DateTime.UtcNow;
             newInstance.Status.IsSoftDeleted = true;
             newInstance.LastChangedBy = "unittest";
@@ -153,7 +154,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             ];
 
             // Act
-            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties);
+            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties, CancellationToken.None);
 
             // Assert
             string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
@@ -176,7 +177,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             Instance newInstance = TestData.Instance_1_1.Clone();
             newInstance.Status.IsArchived = true;
             newInstance.Status.Substatus = new() { Description = "substatustest-desc" };
-            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
+            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
             newInstance.Status.Substatus = new() { Label = "substatustest-label" };
             newInstance.LastChanged = DateTime.UtcNow;
             newInstance.LastChangedBy = "unittest";
@@ -189,7 +190,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             ];
 
             // Act
-            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties);
+            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties, CancellationToken.None);
 
             // Assert
             string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
@@ -211,7 +212,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             // Arrange
             Instance newInstance = TestData.Instance_1_1.Clone();
             newInstance.PresentationTexts = new() { { "k1", "v1" }, { "k2", "v2" } };
-            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
+            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
             newInstance.PresentationTexts = new() { { "k2", null }, { "k3", "v3" } };
             newInstance.LastChanged = DateTime.UtcNow;
             newInstance.LastChangedBy = "unittest";
@@ -222,7 +223,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             updateProperties.Add(nameof(newInstance.PresentationTexts));
 
             // Act
-            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties);
+            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties, CancellationToken.None);
 
             // Assert
             string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'" +
@@ -246,7 +247,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             DateTime unchangedSofteDeleted = DateTime.UtcNow.AddYears(-2);
             Instance newInstance = TestData.Instance_1_1.Clone();
             newInstance.Status.SoftDeleted = unchangedSofteDeleted;
-            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
+            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
             newInstance.Process = new()
             {
                 CurrentTask = new()
@@ -269,7 +270,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             ];
 
             // Act
-            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties);
+            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties, CancellationToken.None);
 
             // Assert
             string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'" +
@@ -294,7 +295,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             DateTime unchangedSofteDeleted = DateTime.UtcNow.AddYears(-2);
             Instance newInstance = TestData.Instance_1_1.Clone();
             newInstance.Status.SoftDeleted = unchangedSofteDeleted;
-            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
+            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
             newInstance.Process = new()
             {
                 CurrentTask = new()
@@ -314,7 +315,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             ];
 
             // Act
-            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties);
+            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties, CancellationToken.None);
 
             // Assert
             string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'" +
@@ -337,7 +338,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             // Arrange
             Instance newInstance = TestData.Instance_1_1.Clone();
             newInstance.DataValues = new() { { "k1", "v1" }, { "k2", "v2" } };
-            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
+            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
             newInstance.DataValues = new() { { "k2", null }, { "k3", "v3" } };
             newInstance.LastChanged = DateTime.UtcNow;
             newInstance.LastChangedBy = "unittest";
@@ -348,7 +349,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             updateProperties.Add(nameof(newInstance.DataValues));
 
             // Act
-            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties);
+            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties, CancellationToken.None);
 
             // Assert
             string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'" +
@@ -371,7 +372,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             // Arrange
             Instance newInstance = TestData.Instance_1_1.Clone();
             newInstance.CompleteConfirmations = [new CompleteConfirmation() { ConfirmedOn = DateTime.UtcNow.AddYears(-1), StakeholderId = "s1" }];
-            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance);
+            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
             newInstance.CompleteConfirmations = [new CompleteConfirmation() { ConfirmedOn = DateTime.UtcNow.AddYears(-2), StakeholderId = "s2" }];
             newInstance.LastChanged = DateTime.UtcNow;
             newInstance.LastChangedBy = "unittest";
@@ -382,7 +383,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             updateProperties.Add(nameof(newInstance.CompleteConfirmations));
 
             // Act
-            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties);
+            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties, CancellationToken.None);
 
             // Assert
             string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'" +
@@ -401,10 +402,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         public async Task Instance_Delete_Ok()
         {
             // Arrange
-            Instance newInstance = await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone());
+            Instance newInstance = await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone(), CancellationToken.None);
 
             // Act
-            bool deleted = await _instanceFixture.InstanceRepo.Delete(newInstance);
+            bool deleted = await _instanceFixture.InstanceRepo.Delete(newInstance, CancellationToken.None);
 
             // Assert
             string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
@@ -424,8 +425,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             Instance instance = await InsertInstanceAndData(TestData.Instance_1_1.Clone(), data);
 
             // Act
-            (Instance instanceNoData, _) = await _instanceFixture.InstanceRepo.GetOne(Guid.Parse(instance.Id.Split('/').Last()), false);
-            (Instance instanceWithData, _) = await _instanceFixture.InstanceRepo.GetOne(Guid.Parse(instance.Id.Split('/').Last()), true);
+            (Instance instanceNoData, _) = await _instanceFixture.InstanceRepo.GetOne(Guid.Parse(instance.Id.Split('/').Last()), false, CancellationToken.None);
+            (Instance instanceWithData, _) = await _instanceFixture.InstanceRepo.GetOne(Guid.Parse(instance.Id.Split('/').Last()), true, CancellationToken.None);
 
             // Assert
             Assert.Equal(instanceNoData.Id, instance.Id);
@@ -441,12 +442,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         public async Task Instance_GetHardDeletedInstances_Ok()
         {
             // Arrange
-            await _instanceFixture.InstanceRepo.Create(HardDelete(TestData.Instance_1_1.Clone()));
-            await _instanceFixture.InstanceRepo.Create(HardDelete(TestData.Instance_2_1.Clone()));
-            await _instanceFixture.InstanceRepo.Create(TestData.Instance_3_1.Clone());
+            await _instanceFixture.InstanceRepo.Create(HardDelete(TestData.Instance_1_1.Clone()), CancellationToken.None);
+            await _instanceFixture.InstanceRepo.Create(HardDelete(TestData.Instance_2_1.Clone()), CancellationToken.None);
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_3_1.Clone(), CancellationToken.None);
 
             // Act
-            var instances = await _instanceFixture.InstanceRepo.GetHardDeletedInstances();
+            var instances = await _instanceFixture.InstanceRepo.GetHardDeletedInstances(CancellationToken.None);
 
             // Assert
             Assert.Equal(2, instances.Count);
@@ -467,9 +468,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             await InsertInstanceAndDataHardDelete(TestData.Instance_3_1.Clone(), data3);
 
             // Act
-            var dataElements3 = await _instanceFixture.InstanceRepo.GetHardDeletedDataElements();
+            var dataElements3 = await _instanceFixture.InstanceRepo.GetHardDeletedDataElements(CancellationToken.None);
             await _instanceFixture.DataRepo.Update(Guid.Empty, Guid.Parse(data1.Id), new Dictionary<string, object>() { { "/deleteStatus", new DeleteStatus() } });
-            var dataElements2 = await _instanceFixture.InstanceRepo.GetHardDeletedDataElements();
+            var dataElements2 = await _instanceFixture.InstanceRepo.GetHardDeletedDataElements(CancellationToken.None);
 
             // Assert
             Assert.Equal(3, dataElements3.Count);
@@ -483,17 +484,17 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         public async Task Instance_GetInstancesFromQuery_Ok()
         {
             // Arrange
-            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone());
-            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_2.Clone());
-            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_3.Clone());
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone(), CancellationToken.None);
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_2.Clone(), CancellationToken.None);
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_3.Clone(), CancellationToken.None);
 
             InstanceQueryParameters queryParams = new() { Size = 100 };
 
             // Act
-            var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
+            var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
 
             queryParams.InstanceOwnerPartyId = Convert.ToInt32(TestData.Instance_1_3.InstanceOwner.PartyId);
-            var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
+            var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
 
             // Assert
             Assert.Equal(3, instances3.Count);
@@ -507,9 +508,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         public async Task Instance_GetInstancesFromQuery_Continuation_Ok()
         {
             // Arrange
-            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone());
-            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_2.Clone());
-            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_3.Clone());
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone(), CancellationToken.None);
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_2.Clone(), CancellationToken.None);
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_3.Clone(), CancellationToken.None);
             InstanceQueryParameters queryParams = new()
             {
                 Size = 1,
@@ -517,16 +518,16 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             };
 
             // Act
-            var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
+            var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
             string contToken1 = instances1.ContinuationToken;
             queryParams.ContinuationToken = contToken1;
 
-            var instances2 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
+            var instances2 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
             string contToken2 = instances2.ContinuationToken;
             queryParams.ContinuationToken = contToken2;
 
             queryParams.Size = 2;
-            var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
+            var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
             string contToken3 = instances3.ContinuationToken;
 
             // Assert
@@ -547,7 +548,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         public async Task Instance_GetInstancesFromQuery_AppId_Ok()
         {
             // Arrange
-            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone());
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone(), CancellationToken.None);
 
             InstanceQueryParameters queryParams = new()
             {
@@ -556,7 +557,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             };
 
             // Act
-            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
 
             // Assert
             Assert.Equal(1, instances.Count);
@@ -571,7 +572,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             // Arrange
             Instance newInstance = TestData.Instance_1_1.Clone();
             newInstance.PresentationTexts = new() { { "field1", "tjo" }, { "field2", "bing" } };
-            await _instanceFixture.InstanceRepo.Create(newInstance);
+            await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
 
             InstanceQueryParameters queryParams = new()
             {
@@ -581,7 +582,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             };
 
             // Act
-            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
 
             // Assert
             Assert.Equal(0, instances.Count);
@@ -596,7 +597,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             // Arrange
             Instance newInstance = TestData.Instance_1_1.Clone();
             newInstance.PresentationTexts = new() { { "field1", "tjo" }, { "field2", "bing" } };
-            await _instanceFixture.InstanceRepo.Create(newInstance);
+            await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
 
             InstanceQueryParameters queryParams = new()
             {
@@ -606,7 +607,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             };
 
             // Act
-            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
 
             // Assert
             Assert.Equal(1, instances.Count);
@@ -621,7 +622,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             // Arrange
             Instance newInstance = TestData.Instance_1_1.Clone();
             newInstance.PresentationTexts = new() { { "field1", "tjo" }, { "field2", "bing" } };
-            await _instanceFixture.InstanceRepo.Create(newInstance);
+            await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
 
             InstanceQueryParameters queryParams = new()
             {
@@ -631,7 +632,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             };
 
             // Act
-            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
 
             // Assert
             Assert.Equal(1, instances.Count);
@@ -648,8 +649,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             Instance newInstance2 = TestData.Instance_1_2.Clone();
             newInstance1.PresentationTexts = new() { { "field1", "tjo" }, { "field2", "bing" } };
             newInstance2.AppId = "ttd/test-applikasjon-3";
-            await _instanceFixture.InstanceRepo.Create(newInstance1);
-            await _instanceFixture.InstanceRepo.Create(newInstance2);
+            await _instanceFixture.InstanceRepo.Create(newInstance1, CancellationToken.None);
+            await _instanceFixture.InstanceRepo.Create(newInstance2, CancellationToken.None);
 
             InstanceQueryParameters queryParams = new()
             {
@@ -659,7 +660,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             };
 
             // Act
-            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
 
             // Assert
             Assert.Equal(2, instances.Count);
@@ -675,12 +676,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             await PrepareDateSearch();
 
             // Act
-            var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2021", "2021"), true);
-            var instances2 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2022", "2022"), true);
-            var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2023", "2023"), true);
-            var instances4 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2024", "2024"), true);
-            var instances5 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2019", "2019"), true);
-            var instances6 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2021", "2024"), true);
+            var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2021", "2021"), true, CancellationToken.None);
+            var instances2 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2022", "2022"), true, CancellationToken.None);
+            var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2023", "2023"), true, CancellationToken.None);
+            var instances4 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2024", "2024"), true, CancellationToken.None);
+            var instances5 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2019", "2019"), true, CancellationToken.None);
+            var instances6 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2021", "2024"), true, CancellationToken.None);
 
             // Assert
             Assert.Equal(1, instances1.Count);
@@ -698,9 +699,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         public async Task Instance_GetInstancesFromQuery_InvalidDate()
         {
             // Arrange
-            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone());
-            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_2.Clone());
-            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_3.Clone());
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone(), CancellationToken.None);
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_2.Clone(), CancellationToken.None);
+            await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_3.Clone(), CancellationToken.None);
 
             InstanceQueryParameters queryParams = new()
             {
@@ -710,7 +711,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             };
 
             // Act
-            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true);
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
 
             // Assert
             Assert.Equal(0, instances.Count);
@@ -730,8 +731,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
 
         private async Task<Instance> InsertInstanceAndData(Instance instance, DataElement dataelement)
         {
-            instance = await _instanceFixture.InstanceRepo.Create(instance);
-            (_, long internalId) = await _instanceFixture.InstanceRepo.GetOne(Guid.Parse(instance.Id.Split('/').Last()), true);
+            instance = await _instanceFixture.InstanceRepo.Create(instance, CancellationToken.None);
+            (_, long internalId) = await _instanceFixture.InstanceRepo.GetOne(Guid.Parse(instance.Id.Split('/').Last()), true, CancellationToken.None);
             await _instanceFixture.DataRepo.Create(dataelement, internalId);
             return instance;
         }
@@ -770,10 +771,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             newInstance3.Status.IsArchived = true;
             newInstance4.Status.IsArchived = true;
 
-            await _instanceFixture.InstanceRepo.Create(newInstance1);
-            await _instanceFixture.InstanceRepo.Create(newInstance2);
-            await _instanceFixture.InstanceRepo.Create(newInstance3);
-            await _instanceFixture.InstanceRepo.Create(newInstance4);
+            await _instanceFixture.InstanceRepo.Create(newInstance1, CancellationToken.None);
+            await _instanceFixture.InstanceRepo.Create(newInstance2, CancellationToken.None);
+            await _instanceFixture.InstanceRepo.Create(newInstance3, CancellationToken.None);
+            await _instanceFixture.InstanceRepo.Create(newInstance4, CancellationToken.None);
         }
     }
 

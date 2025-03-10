@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Helpers;
@@ -45,6 +46,7 @@ public class DataLockController : ControllerBase
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
     /// <param name="dataGuid">The id of the data element to delete.</param>
+    /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>DataElement that was locked</returns>
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
     [HttpPut]
@@ -53,9 +55,9 @@ public class DataLockController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
-    public async Task<ActionResult<DataElement>> Lock(int instanceOwnerPartyId, Guid instanceGuid, Guid dataGuid)
+    public async Task<ActionResult<DataElement>> Lock(int instanceOwnerPartyId, Guid instanceGuid, Guid dataGuid, CancellationToken cancellationToken)
     {
-        (Instance? instance, ActionResult? instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, true);
+        (Instance? instance, ActionResult? instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, true, cancellationToken);
         if (instance == null)
         {
             return instanceError!;
@@ -90,6 +92,7 @@ public class DataLockController : ControllerBase
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
     /// <param name="dataGuid">The id of the data element to delete.</param>
+    /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>DataElement that was unlocked</returns>
     [Authorize]
     [HttpDelete]
@@ -98,9 +101,9 @@ public class DataLockController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [Produces("application/json")]
-    public async Task<ActionResult<DataElement>> Unlock(int instanceOwnerPartyId, Guid instanceGuid, Guid dataGuid)
+    public async Task<ActionResult<DataElement>> Unlock(int instanceOwnerPartyId, Guid instanceGuid, Guid dataGuid, CancellationToken cancellationToken)
     {
-        (Instance? instance, _) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false);
+        (Instance? instance, _) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false, cancellationToken);
         if (instance == null)
         {
             return Forbid();
@@ -127,9 +130,10 @@ public class DataLockController : ControllerBase
         }
     }
 
-    private async Task<(Instance? Instance, ActionResult? ErrorMessage)> GetInstanceAsync(Guid instanceGuid, int instanceOwnerPartyId, bool includeDataElements)
+    private async Task<(Instance? Instance, ActionResult? ErrorMessage)> GetInstanceAsync(
+        Guid instanceGuid, int instanceOwnerPartyId, bool includeDataElements, CancellationToken cancellationToken)
     {
-        (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, includeDataElements);
+        (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, includeDataElements, cancellationToken);
 
         if (instance == null)
         {

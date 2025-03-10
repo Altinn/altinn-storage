@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Helpers;
@@ -24,7 +25,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             WriteIndented = true
         };
 
-        public async Task<Instance> Create(Instance instance, int altinnMainVersion = 3)
+        public async Task<Instance> Create(Instance instance, CancellationToken cancellationToken, int altinnMainVersion = 3)
         {
             string partyId = instance.InstanceOwner.PartyId;
             Guid instanceGuid = Guid.NewGuid();
@@ -42,12 +43,12 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return await Task.FromResult(newInstance);
         }
 
-        public Task<bool> Delete(Instance instance)
+        public Task<bool> Delete(Instance instance, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public Task<InstanceQueryResponse> GetInstancesFromQuery(InstanceQueryParameters queryParams, bool includeDataelements)
+        public Task<InstanceQueryResponse> GetInstancesFromQuery(InstanceQueryParameters queryParams, bool includeDataelements, CancellationToken cancellationToken)
         {
             List<Instance> instances = [];
             InstanceQueryResponse response = new();
@@ -114,7 +115,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return Task.FromResult(response);
         }
 
-        public Task<(Instance Instance, long InternalId)> GetOne(Guid instanceGuid, bool includeElements = true)
+        public Task<(Instance Instance, long InternalId)> GetOne(Guid instanceGuid, bool includeElements, CancellationToken cancellationToken)
         {
             string instancePath = GetInstancePath(instanceGuid);
             if (File.Exists(instancePath))
@@ -129,7 +130,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return Task.FromResult<(Instance, long)>((null, 0));
         }
 
-        public Task<Instance> Update(Instance instance, List<string> updateProperties)
+        public Task<Instance> Update(Instance instance, List<string> updateProperties, CancellationToken cancellationToken)
         {
             if (instance.Id.Equals("1337/d3b326de-2dd8-49a1-834a-b1d23b11e540"))
             {
@@ -141,12 +142,12 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return Task.FromResult(instance);
         }
 
-        public Task<List<Instance>> GetHardDeletedInstances()
+        public Task<List<Instance>> GetHardDeletedInstances(CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public Task<List<DataElement>> GetHardDeletedDataElements()
+        public Task<List<DataElement>> GetHardDeletedDataElements(CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }

@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Common.AccessToken.Configuration;
 using Altinn.Common.AccessToken.Services;
@@ -264,9 +265,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             
             Mock<IInstanceRepository> repositoryMock = new Mock<IInstanceRepository>();
             Mock<IInstanceAndEventsRepository> batchRepositoryMock = new Mock<IInstanceAndEventsRepository>();
-            repositoryMock.Setup(ir => ir.GetOne(It.IsAny<Guid>(), true)).ReturnsAsync((testInstance, 0));
-            repositoryMock.Setup(ir => ir.Update(It.IsAny<Instance>(), It.IsAny<List<string>>())).ReturnsAsync((Instance i, List<string> _) => i);
-            batchRepositoryMock.Setup(ir => ir.Update(It.IsAny<Instance>(), It.IsAny<List<string>>(), It.IsAny<List<InstanceEvent>>())).ReturnsAsync((Instance i, List<string> _, List<InstanceEvent> _) => i);
+            repositoryMock.Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>())).ReturnsAsync((testInstance, 0));
+            repositoryMock.Setup(ir => ir.Update(It.IsAny<Instance>(), It.IsAny<List<string>>(), It.IsAny<CancellationToken>())).ReturnsAsync((Instance i, List<string> _) => i);
+            batchRepositoryMock.Setup(ir => ir.Update(It.IsAny<Instance>(), It.IsAny<List<string>>(), It.IsAny<List<InstanceEvent>>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Instance i, List<string> _, List<InstanceEvent> _) => i);
 
             // Act
             using HttpResponseMessage response = await SendUpdateRequest(

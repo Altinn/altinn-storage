@@ -48,7 +48,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             (DataController testController, Mock<IDataRepository> dataRepositoryMock) = GetTestController(expectedPropertiesForPatch);
 
             // Act
-            await testController.Get(12345, Guid.NewGuid(), Guid.NewGuid());
+            await testController.Get(12345, Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
             // Assert
             dataRepositoryMock.Verify(d => d.Update(It.IsAny<Guid>(), It.IsAny<Guid>(), It.Is<Dictionary<string, object>>(p => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p))), Times.Once);
@@ -63,7 +63,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             (DataController testController, Mock<IDataRepository> dataRepositoryMock) = GetTestController(expectedPropertiesForPatch, true);
 
             // Act
-            await testController.OverwriteData(_instanceOwnerPartyId, Guid.NewGuid(), Guid.NewGuid());
+            await testController.OverwriteData(_instanceOwnerPartyId, Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
             // Assert
             dataRepositoryMock.Verify(d => d.Update(It.IsAny<Guid>(), It.IsAny<Guid>(), It.Is<Dictionary<string, object>>(p => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p))), Times.Once);
@@ -96,7 +96,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             (DataController testController, Mock<IDataRepository> dataRepositoryMock) = GetTestController(expectedPropertiesForPatch);
 
             // Act
-            await testController.Delete(12345, Guid.NewGuid(), Guid.NewGuid(), true);
+            await testController.Delete(12345, Guid.NewGuid(), Guid.NewGuid(), true, CancellationToken.None);
 
             // Assert
             dataRepositoryMock.Verify(d => d.Update(It.IsAny<Guid>(), It.IsAny<Guid>(), It.Is<Dictionary<string, object>>(p => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p))), Times.Once);
@@ -180,7 +180,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                .ReturnsAsync((123145864564, DateTimeOffset.Now));
 
             instanceRepositoryMock
-               .Setup(ir => ir.GetOne(It.IsAny<Guid>(), It.IsAny<bool>()))
+               .Setup(ir => ir.GetOne(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Guid instanceGuid, bool includeDataElements) =>
             {
                 return (new Instance()

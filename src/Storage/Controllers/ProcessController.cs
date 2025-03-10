@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Altinn.Common.PEP.Interfaces;
@@ -65,6 +66,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
         /// <param name="instanceGuid">The id of the instance that should have its process updated.</param>
         /// <param name="processState">The new process state of the instance.</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>The updated instance</returns>
         [Authorize]
         [HttpPut]
@@ -75,9 +77,10 @@ namespace Altinn.Platform.Storage.Controllers
         public async Task<ActionResult<Instance>> PutProcess(
             int instanceOwnerPartyId,
             Guid instanceGuid,
-            [FromBody] ProcessState processState)
+            [FromBody] ProcessState processState,
+            CancellationToken cancellationToken)
         {
-            (Instance existingInstance, _) = await _instanceRepository.GetOne(instanceGuid, true);
+            (Instance existingInstance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
 
             if (existingInstance is null)
             {
@@ -95,7 +98,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             UpdateInstance(existingInstance, processState, out var updateProperties);
 
-            Instance updatedInstance = await _instanceRepository.Update(existingInstance, updateProperties);
+            Instance updatedInstance = await _instanceRepository.Update(existingInstance, updateProperties, cancellationToken);
 
             if (processState?.CurrentTask?.AltinnTaskType == "signing")
             {
@@ -105,13 +108,14 @@ namespace Altinn.Platform.Storage.Controllers
             updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
             return Ok(updatedInstance);
         }
-        
+
         /// <summary>
         /// Updates the process state of an instance.
         /// </summary>
         /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
         /// <param name="instanceGuid">The id of the instance that should have its process updated.</param>
         /// <param name="processStateUpdate">The new process state of the instance (including instance events).</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns></returns>
         [Authorize]
         [HttpPut("instanceandevents")]
@@ -123,9 +127,10 @@ namespace Altinn.Platform.Storage.Controllers
         public async Task<ActionResult<Instance>> PutInstanceAndEvents(
             int instanceOwnerPartyId,
             Guid instanceGuid,
-            [FromBody] ProcessStateUpdate processStateUpdate)
+            [FromBody] ProcessStateUpdate processStateUpdate,
+            CancellationToken cancellationToken)
         {
-            (Instance existingInstance, _) = await _instanceRepository.GetOne(instanceGuid, true);
+            (Instance existingInstance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
 
             if (existingInstance is null)
             {
@@ -165,7 +170,7 @@ namespace Altinn.Platform.Storage.Controllers
                 processStateUpdate.Events.Add(instanceEvent);
             }
 
-            Instance updatedInstance = await _instanceAndEventsRepository.Update(existingInstance, updateProperties, processStateUpdate.Events);
+            Instance updatedInstance = await _instanceAndEventsRepository.Update(existingInstance, updateProperties, processStateUpdate.Events, cancellationToken);
 
             updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
             return Ok(updatedInstance);
@@ -200,18 +205,19 @@ namespace Altinn.Platform.Storage.Controllers
         /// </summary>
         /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
         /// <param name="instanceGuid">The id of the instance to retrieve.</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>Authorization info.</returns>
         [HttpGet("authinfo")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [Produces("application/json")]
         [ApiExplorerSettings(IgnoreApi = true)]
-        public async Task<ActionResult<AuthInfo>> GetForAuth(int instanceOwnerPartyId, Guid instanceGuid)
+        public async Task<ActionResult<AuthInfo>> GetForAuth(int instanceOwnerPartyId, Guid instanceGuid, CancellationToken cancellationToken)
         {
             string message = null;
             try
             {
-                (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false);
+                (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
                 if (instance.InstanceOwner.PartyId == instanceOwnerPartyId.ToString())
                 {
                     return Ok(new AuthInfo() { Process = instance.Process, AppId = instance.AppId });

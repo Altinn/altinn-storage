@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Interface.Enums;
@@ -30,7 +31,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         {
             // Arrange
             var instanceRepositoryMock = new Mock<IInstanceRepository>();
-            instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), false)).ReturnsAsync((new Instance()
+            instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), false, It.IsAny<CancellationToken>())).ReturnsAsync((new Instance()
             {
                 InstanceOwner = new(),
                 Process = new ProcessState { CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" } }
@@ -75,7 +76,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
 
             // Act
             var performedBy = !string.IsNullOrWhiteSpace(signee.UserId) ? signee.UserId : signee.OrganisationNumber;
-            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), signRequest, performedBy);
+            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), signRequest, performedBy, CancellationToken.None);
 
             // Assert
             Assert.True(created);
@@ -91,7 +92,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         {
             // Arrange
             var instanceRepositoryMock = new Mock<IInstanceRepository>();
-            instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), false)).ReturnsAsync(((Instance?)null, 0));
+            instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), false, It.IsAny<CancellationToken>())).ReturnsAsync(((Instance?)null, 0));
 
             var applicationServiceMock = new Mock<IApplicationService>();
             var dataServiceMock = new Mock<IDataService>();
@@ -108,7 +109,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 applicationRepositoryMock.Object);
 
             // Act
-            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), new SignRequest(), "1337");
+            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), new SignRequest(), "1337", CancellationToken.None);
 
             // Assert
             Assert.False(created);
@@ -121,7 +122,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         {
             // Arrange
             var instanceRepositoryMock = new Mock<IInstanceRepository>();
-            instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), false)).ReturnsAsync((new Instance()
+            instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), false, It.IsAny<CancellationToken>())).ReturnsAsync((new Instance()
             {
                 InstanceOwner = new(),
                 Process = new ProcessState { CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" } }
@@ -146,7 +147,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 applicationRepositoryMock.Object);
 
             // Act
-            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), new SignRequest(), "1337");
+            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), new SignRequest(), "1337", CancellationToken.None);
 
             // Assert
             Assert.False(created);
@@ -161,7 +162,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         {
             // Arrange
             var instanceRepositoryMock = new Mock<IInstanceRepository>();
-            instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), false)).ReturnsAsync((new Instance()
+            instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), false, It.IsAny<CancellationToken>())).ReturnsAsync((new Instance()
             {
                 InstanceOwner = new(),
                 Process = new ProcessState { CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" } }
@@ -201,7 +202,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
 
             // Act
             var performedBy = !string.IsNullOrWhiteSpace(signee.UserId) ? signee.UserId : signee.OrganisationNumber;
-            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), signRequest, performedBy);
+            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), signRequest, performedBy, CancellationToken.None);
 
             // Assert
             Assert.False(created);

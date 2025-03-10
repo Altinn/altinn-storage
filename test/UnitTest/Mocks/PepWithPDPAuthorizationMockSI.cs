@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Claims;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
 
@@ -204,7 +205,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks
 
             if (!resourceAttributeComplete && !string.IsNullOrEmpty(resourceAttributes.InstanceValue))
             {
-                (Instance instanceData, _) = await _instanceService.GetOne(Guid.Parse(resourceAttributes.InstanceValue.Split('/')[1]), true);
+                (Instance instanceData, _) = await _instanceService.GetOne(Guid.Parse(resourceAttributes.InstanceValue.Split('/')[1]), true, CancellationToken.None);
 
                 if (instanceData != null)
                 {

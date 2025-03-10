@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
@@ -34,12 +35,14 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
         /// <param name="instanceGuid">The guid of the instance.</param>
         /// <param name="signRequest">Signrequest containing data element ids and sign status.</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_SIGN)]
         [HttpPost("{instanceOwnerPartyId:int}/{instanceGuid:guid}/sign")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [Produces("application/json")]
-        public async Task<ActionResult> Sign([FromRoute] int instanceOwnerPartyId, [FromRoute] Guid instanceGuid, [FromBody] SignRequest signRequest)
+        public async Task<ActionResult> Sign(
+            [FromRoute] int instanceOwnerPartyId, [FromRoute] Guid instanceGuid, [FromBody] SignRequest signRequest, CancellationToken cancellationToken)
         {
             if (string.IsNullOrEmpty(signRequest?.Signee?.UserId) && signRequest?.Signee?.SystemUserId is null)
             {
@@ -52,7 +55,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return Unauthorized();
             }
 
-            (bool created, ServiceError serviceError) = await _instanceService.CreateSignDocument(instanceOwnerPartyId, instanceGuid, signRequest, performedBy);
+            (bool created, ServiceError serviceError) = await _instanceService.CreateSignDocument(instanceOwnerPartyId, instanceGuid, signRequest, performedBy, cancellationToken);
             
             if (created)
             {

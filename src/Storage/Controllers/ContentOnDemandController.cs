@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
@@ -91,11 +92,13 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceGuid">instanceGuid</param>
         /// <param name="dataGuid">dataGuid</param>
         /// <param name="language">language</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>The formatted content</returns>
         [HttpGet("signature")]
-        public async Task<ActionResult> GetSignatureAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
+        public async Task<ActionResult> GetSignatureAsHtml(
+            [FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language, CancellationToken cancellationToken)
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
             Application application = await _applicationRepository.FindOne(instance.AppId, instance.Org);
             DataElement signatureElement = instance.Data.First(d => d.DataType == "signature-data");
 
@@ -116,11 +119,13 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceGuid">instanceGuid</param>
         /// <param name="dataGuid">dataGuid</param>
         /// <param name="language">language</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>The formatted content</returns>
         [HttpGet("payment")]
-        public async Task<ActionResult> GetPaymentAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
+        public async Task<ActionResult> GetPaymentAsHtml(
+            [FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language, CancellationToken cancellationToken)
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
             Application application = await _applicationRepository.FindOne(instance.AppId, instance.Org);
             DataElement paymentElement = instance.Data.First(d => d.DataType == "payment-data");
 
@@ -141,11 +146,13 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceGuid">instanceGuid</param>
         /// <param name="dataGuid">dataGuid</param>
         /// <param name="language">language</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>The formatted content</returns>
         [HttpGet("formdatapdf")]
-        public async Task<Stream> GetFormdataAsPdf([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
+        public async Task<Stream> GetFormdataAsPdf(
+            [FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language, CancellationToken cancellationToken)
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
             DataElement htmlElement = instance.Data.First(d => d.Id == dataGuid.ToString());
             string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;
             DataElement xmlElement = instance.Data.First(d => d.Metadata.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id);
@@ -170,7 +177,7 @@ namespace Altinn.Platform.Storage.Controllers
             using var mergedDoc = new PdfDocument();
             foreach (var view in printViews)
             {
-                (string html, PrintViewXslBEList updatedViews) = await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, 3, view.PageNumber);
+                (string html, PrintViewXslBEList updatedViews) = await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, 3, cancellationToken, view.PageNumber);
                 var pdfPages = await _pdfGeneratorClient.GeneratePdf(html, view.IsPortrait, GetScale(updatedViews[0]));
                 using var pageDoc = PdfReader.Open(pdfPages, PdfDocumentOpenMode.Import);
                 for (var i = 0; i < pageDoc.PageCount; i++)
@@ -212,12 +219,14 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceGuid">instanceGuid</param>
         /// <param name="dataGuid">dataGuid</param>
         /// <param name="language">language</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <param name="singlePageNr">optional filter for a single page number</param>
         /// <returns>The formatted content</returns>
         [HttpGet("formdatahtml/{singlepagenr?}")]
-        public async Task<(Stream Html, PrintViewXslBEList Views)> GetFormdataAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language, [FromRoute(Name = "singlepagenr")] int singlePageNr = -1)
+        public async Task<(Stream Html, PrintViewXslBEList Views)> GetFormdataAsHtml(
+            [FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language, CancellationToken cancellationToken, [FromRoute(Name = "singlepagenr")] int singlePageNr = -1)
         {
-            return await GetFormdataAsHtmlStream(app, instanceGuid, dataGuid, language, 3, singlePageNr);
+            return await GetFormdataAsHtmlStream(app, instanceGuid, dataGuid, language, 3, cancellationToken, singlePageNr);
         }
 
         /// <summary>
@@ -228,23 +237,26 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceGuid">instanceGuid</param>
         /// <param name="dataGuid">dataGuid</param>
         /// <param name="language">language</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>The formatted content</returns>
         [HttpGet("formsummaryhtml")]
-        public async Task<Stream> GetFormSummaryAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language)
+        public async Task<Stream> GetFormSummaryAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language, CancellationToken cancellationToken)
         {
-            (Stream html, _) = await GetFormdataAsHtmlStream(app, instanceGuid, dataGuid, language, 2);
+            (Stream html, _) = await GetFormdataAsHtmlStream(app, instanceGuid, dataGuid, language, 2, cancellationToken);
             return html;
         }
 
-        private async Task<(Stream Html, PrintViewXslBEList Views)> GetFormdataAsHtmlStream(string app, Guid instanceGuid, Guid dataGuid, string language, int viewType, int singlePageNr = -1)
+        private async Task<(Stream Html, PrintViewXslBEList Views)> GetFormdataAsHtmlStream(
+            string app, Guid instanceGuid, Guid dataGuid, string language, int viewType, CancellationToken cancellationToken, int singlePageNr = -1)
         {
-            (string html, PrintViewXslBEList views) = await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, viewType, singlePageNr);
+            (string html, PrintViewXslBEList views) = await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, viewType, cancellationToken, singlePageNr);
             return (new MemoryStream(Encoding.UTF8.GetBytes(html)), views);
         }
 
-        private async Task<(string Html, PrintViewXslBEList Views)> GetFormdataAsHtmlString(string app, Guid instanceGuid, Guid dataGuid, string language, int viewType, int singlePageNr = -1)
+        private async Task<(string Html, PrintViewXslBEList Views)> GetFormdataAsHtmlString(
+            string app, Guid instanceGuid, Guid dataGuid, string language, int viewType, CancellationToken cancellationToken, int singlePageNr = -1)
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
             Application application = await _applicationRepository.FindOne(instance.AppId, instance.Org);
             DataElement htmlElement = instance.Data.First(d => d.Id == dataGuid.ToString());
             string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;

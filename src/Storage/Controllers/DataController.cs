@@ -87,6 +87,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
         /// <param name="dataGuid">The id of the data element to delete.</param>
         /// <param name="delay">A boolean to indicate if the delete should be immediate or delayed following Altinn's business logic</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>The metadata of the deleted data element.</returns>
         [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
         [HttpDelete("data/{dataGuid:guid}")]
@@ -94,9 +95,9 @@ namespace Altinn.Platform.Storage.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [Produces("application/json")]
-        public async Task<ActionResult<DataElement>> Delete(int instanceOwnerPartyId, Guid instanceGuid, Guid dataGuid, [FromQuery] bool delay)
+        public async Task<ActionResult<DataElement>> Delete(int instanceOwnerPartyId, Guid instanceGuid, Guid dataGuid, [FromQuery] bool delay, CancellationToken cancellationToken)
         {
-            (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false);
+            (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false, cancellationToken);
             if (instance == null)
             {
                 return instanceError;
@@ -152,6 +153,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
         /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
         /// <param name="dataGuid">The id of the data element to retrieve.</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>The data file as a stream.</returns>
         [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
         [HttpGet("data/{dataGuid:guid}")]
@@ -160,14 +162,14 @@ namespace Altinn.Platform.Storage.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [Produces("application/json")]
-        public async Task<ActionResult> Get(int instanceOwnerPartyId, Guid instanceGuid, Guid dataGuid)
+        public async Task<ActionResult> Get(int instanceOwnerPartyId, Guid instanceGuid, Guid dataGuid, CancellationToken cancellationToken)
         {
             if (instanceOwnerPartyId == 0)
             {
                 return BadRequest("Missing parameter value: instanceOwnerPartyId can not be empty");
             }
 
-            (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false);
+            (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false, cancellationToken);
             if (instance == null)
             {
                 return instanceError;
@@ -241,20 +243,21 @@ namespace Altinn.Platform.Storage.Controllers
         /// </summary>
         /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
         /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>The list of data elements</returns>
         [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
         [HttpGet("dataelements")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [Produces("application/json")]
-        public async Task<ActionResult<DataElementList>> GetMany(int instanceOwnerPartyId, Guid instanceGuid)
+        public async Task<ActionResult<DataElementList>> GetMany(int instanceOwnerPartyId, Guid instanceGuid, CancellationToken cancellationToken)
         {
             if (instanceOwnerPartyId == 0)
             {
                 return BadRequest("Missing parameter value: instanceOwnerPartyId can not be empty");
             }
 
-            (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, true);
+            (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, true, cancellationToken);
             if (instance == null)
             {
                 return instanceError;
@@ -274,6 +277,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
         /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
         /// <param name="dataType">The data type identifier for the data being uploaded.</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <param name="refs">An optional array of data element references.</param>
         /// <param name="generatedFromTask">An optional id of the task the data element was generated from</param>
         /// <returns>The metadata of the new data element.</returns>
@@ -288,6 +292,7 @@ namespace Altinn.Platform.Storage.Controllers
             [FromRoute] int instanceOwnerPartyId,
             [FromRoute] Guid instanceGuid,
             [FromQuery] string dataType,
+            CancellationToken cancellationToken,
             [FromQuery(Name = "refs")] List<Guid> refs = null,
             [FromQuery(Name = "generatedFromTask")] string generatedFromTask = null)
         {
@@ -296,7 +301,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest("Missing parameter values: instanceId, elementType or attached file content cannot be null");
             }
 
-            (Instance instance, long instanceInternalId, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false);
+            (Instance instance, long instanceInternalId, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false, cancellationToken);
             if (instance == null)
             {
                 return instanceError;
@@ -358,6 +363,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
         /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
         /// <param name="dataGuid">The id of the data element to replace.</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <param name="refs">An optional array of data element references.</param>
         /// <param name="generatedFromTask">An optional id of the task the data element was generated from</param>
         /// <returns>The metadata of the updated data element.</returns>
@@ -374,6 +380,7 @@ namespace Altinn.Platform.Storage.Controllers
             int instanceOwnerPartyId,
             Guid instanceGuid,
             Guid dataGuid,
+            CancellationToken cancellationToken,
             [FromQuery(Name = "refs")] List<Guid> refs = null,
             [FromQuery(Name = "generatedFromTask")] string generatedFromTask = null)
         {
@@ -382,7 +389,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest("Missing parameter values: instanceId, datafile or attached file content cannot be empty");
             }
 
-            (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false);
+            (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false, cancellationToken);
             if (instance == null)
             {
                 return instanceError;
@@ -565,9 +572,10 @@ namespace Altinn.Platform.Storage.Controllers
             return (application, null);
         }
 
-        private async Task<(Instance Instance, long InternalId, ActionResult ErrorMessage)> GetInstanceAsync(Guid instanceGuid, int instanceOwnerPartyId, bool includeDataelements)
+        private async Task<(Instance Instance, long InternalId, ActionResult ErrorMessage)> GetInstanceAsync(
+            Guid instanceGuid, int instanceOwnerPartyId, bool includeDataelements, CancellationToken cancellationToken)
         {
-            (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(instanceGuid, includeDataelements);
+            (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(instanceGuid, includeDataelements, cancellationToken);
 
             if (instance == null)
             {

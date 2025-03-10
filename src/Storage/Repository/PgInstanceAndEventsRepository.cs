@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
 using Microsoft.Extensions.Logging;
@@ -38,11 +39,11 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
     }
 
     /// <inheritdoc/>
-    public async Task<Instance> Update(Instance instance, List<string> updateProperties, List<InstanceEvent> events)
+    public async Task<Instance> Update(Instance instance, List<string> updateProperties, List<InstanceEvent> events, CancellationToken cancellationToken)
     {
         if (events.Count == 0)
         {
-            return await _instanceRepository.Update(instance, updateProperties);
+            return await _instanceRepository.Update(instance, updateProperties, cancellationToken);
         }
 
         foreach (var instanceEvent in events)
@@ -67,11 +68,11 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
         insertEventsComand.Parameters.AddWithValue(NpgsqlDbType.Jsonb, events);
         batch.BatchCommands.Add(insertEventsComand);
 
-        await using NpgsqlDataReader reader = await batch.ExecuteReaderAsync();
+        await using NpgsqlDataReader reader = await batch.ExecuteReaderAsync(cancellationToken);
 
-        if (await reader.ReadAsync())
+        if (await reader.ReadAsync(cancellationToken))
         {
-            instance = await reader.GetFieldValueAsync<Instance>("updatedInstance");
+            instance = await reader.GetFieldValueAsync<Instance>("updatedInstance", cancellationToken);
         }
 
         instance.Data = dataElements; // TODO: requery instead?

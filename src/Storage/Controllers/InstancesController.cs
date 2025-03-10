@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 
@@ -85,6 +86,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// Retrieves all instances that match the specified query parameters. Parameters can be combined. Invalid or unknown parameter values will result in a 400 Bad Request response.
         /// </summary>
         /// <param name="queryParameters">The query parameters to retrieve instance data.</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>A <seealso cref="List{T}"/> contains all instances for given instance owner.</returns>
         /// <!-- GET /instances?org=tdd or GET /instances?appId=tdd/app2 -->
         [Authorize]
@@ -92,7 +94,7 @@ namespace Altinn.Platform.Storage.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [Produces("application/json")]
-        public async Task<ActionResult<QueryResponse<Instance>>> GetInstances(InstanceQueryParameters queryParameters)
+        public async Task<ActionResult<QueryResponse<Instance>>> GetInstances(InstanceQueryParameters queryParameters, CancellationToken cancellationToken)
         {
             if (queryParameters.IsInvalidInstanceOwnerCombination())
             {
@@ -234,7 +236,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             try
             {
-                InstanceQueryResponse result = await _instanceRepository.GetInstancesFromQuery(queryParameters, true);
+                InstanceQueryResponse result = await _instanceRepository.GetInstancesFromQuery(queryParameters, true, cancellationToken);
 
                 if (!string.IsNullOrEmpty(result.Exception))
                 {
@@ -283,17 +285,18 @@ namespace Altinn.Platform.Storage.Controllers
         /// </summary>
         /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
         /// <param name="instanceGuid">The id of the instance to retrieve.</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>The information about the specific instance.</returns>
         [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
         [HttpGet("{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [Produces("application/json")]
-        public async Task<ActionResult<Instance>> Get(int instanceOwnerPartyId, Guid instanceGuid)
+        public async Task<ActionResult<Instance>> Get(int instanceOwnerPartyId, Guid instanceGuid, CancellationToken cancellationToken)
         {
             try
             {
-                (Instance result, _) = await _instanceRepository.GetOne(instanceGuid, true);
+                (Instance result, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
 
                 if (User.GetOrg() != result.Org && !_authorizationService.UserHasRequiredScope([_generalSettings.InstanceSyncAdapterScope]))
                 {
@@ -315,6 +318,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// </summary>
         /// <param name="appId">the application id</param>
         /// <param name="instance">The instance details to store.</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>The stored instance.</returns>
         /// <!-- POST /instances?appId={appId} -->
         [Authorize]
@@ -324,7 +328,7 @@ namespace Altinn.Platform.Storage.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [Produces("application/json")]
-        public async Task<ActionResult<Instance>> Post(string appId, [FromBody] Instance instance)
+        public async Task<ActionResult<Instance>> Post(string appId, [FromBody] Instance instance, CancellationToken cancellationToken)
         {
             int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
 
@@ -398,7 +402,7 @@ namespace Altinn.Platform.Storage.Controllers
 
                 Instance instanceToCreate = CreateInstanceFromTemplate(appInfo, instance, creationTime, User.GetUserOrOrgNo());
 
-                storedInstance = await _instanceRepository.Create(instanceToCreate);
+                storedInstance = await _instanceRepository.Create(instanceToCreate, cancellationToken);
                 await _instanceEventService.DispatchEvent(InstanceEventType.Created, storedInstance);
                 _logger.LogInformation("Created instance: {storedInstance.Id}", storedInstance.Id);
                 storedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
@@ -413,7 +417,7 @@ namespace Altinn.Platform.Storage.Controllers
                 // compensating action - delete instance
                 if (storedInstance != null)
                 {
-                    await _instanceRepository.Delete(storedInstance);
+                    await _instanceRepository.Delete(storedInstance, cancellationToken);
                 }
 
                 _logger.LogError("Deleted instance {storedInstance.Id}", storedInstance?.Id);
@@ -427,6 +431,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
         /// <param name="instanceGuid">The id of the instance that should be deleted.</param>
         /// <param name="hard">if true hard delete will take place. if false, the instance gets its status.softDelete attribute set to current date and time.</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>Information from the deleted instance.</returns>
         [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_DELETE)]
         [HttpDelete("{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
@@ -436,11 +441,11 @@ namespace Altinn.Platform.Storage.Controllers
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [Produces("application/json")]
-        public async Task<ActionResult<Instance>> Delete(int instanceOwnerPartyId, Guid instanceGuid, [FromQuery] bool hard)
+        public async Task<ActionResult<Instance>> Delete(int instanceOwnerPartyId, Guid instanceGuid, [FromQuery] bool hard, CancellationToken cancellationToken)
         {
             Instance instance;
 
-            (instance, _) = await _instanceRepository.GetOne(instanceGuid, false);
+            (instance, _) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
 
             if (instance == null)
             {
@@ -493,7 +498,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             try
             {
-                Instance deletedInstance = await _instanceRepository.Update(instance, updateProperties);
+                Instance deletedInstance = await _instanceRepository.Update(instance, updateProperties, cancellationToken);
 
                 return Ok(deletedInstance);
             }
@@ -514,6 +519,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// </remarks>
         /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
         /// <param name="instanceGuid">The id of the instance to confirm as complete.</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>Returns a list of the process events.</returns>
         [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_COMPLETE)]
         [HttpPost("{instanceOwnerPartyId:int}/{instanceGuid:guid}/complete")]
@@ -521,10 +527,11 @@ namespace Altinn.Platform.Storage.Controllers
         [Produces("application/json")]
         public async Task<ActionResult<Instance>> AddCompleteConfirmation(
             [FromRoute] int instanceOwnerPartyId,
-            [FromRoute] Guid instanceGuid)
+            [FromRoute] Guid instanceGuid,
+            CancellationToken cancellationToken)
         {
             List<string> updateProperties = [];
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
 
             string org = User.GetOrg();
 
@@ -546,7 +553,7 @@ namespace Altinn.Platform.Storage.Controllers
             Instance updatedInstance;
             try
             {
-                updatedInstance = await _instanceRepository.Update(instance, updateProperties);
+                updatedInstance = await _instanceRepository.Update(instance, updateProperties, cancellationToken);
                 updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
             }
             catch (Exception e)
@@ -566,6 +573,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
         /// <param name="instanceGuid">The id of the instance to confirm as complete.</param>
         /// <param name="status">The updated read status.</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>Returns the updated instance.</returns>
         [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
         [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/readstatus")]
@@ -575,14 +583,15 @@ namespace Altinn.Platform.Storage.Controllers
         public async Task<ActionResult<Instance>> UpdateReadStatus(
           [FromRoute] int instanceOwnerPartyId,
           [FromRoute] Guid instanceGuid,
-          [FromQuery] string status)
+          [FromQuery] string status,
+          CancellationToken cancellationToken)
         {
             if (!Enum.TryParse(status, true, out ReadStatus newStatus))
             {
                 return BadRequest($"Invalid read status: {status}. Accepted types include: {string.Join(", ", Enum.GetNames(typeof(ReadStatus)))}");
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
 
             List<string> updateProperties = [nameof(instance.Status), nameof(instance.Status.ReadStatus)];
             Instance updatedInstance;
@@ -600,7 +609,7 @@ namespace Altinn.Platform.Storage.Controllers
 
                 instance.Status.ReadStatus = newStatus;
 
-                updatedInstance = (oldStatus == null || oldStatus != newStatus) ? await _instanceRepository.Update(instance, updateProperties) : instance;
+                updatedInstance = (oldStatus == null || oldStatus != newStatus) ? await _instanceRepository.Update(instance, updateProperties, cancellationToken) : instance;
                 updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
             }
             catch (Exception e)
@@ -618,6 +627,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
         /// <param name="instanceGuid">The id of the instance to confirm as complete.</param>
         /// <param name="substatus">The updated sub status.</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>Returns the updated instance.</returns>
         [Authorize]
         [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/substatus")]
@@ -627,7 +637,8 @@ namespace Altinn.Platform.Storage.Controllers
         public async Task<ActionResult<Instance>> UpdateSubstatus(
           [FromRoute] int instanceOwnerPartyId,
           [FromRoute] Guid instanceGuid,
-          [FromBody] Substatus substatus)
+          [FromBody] Substatus substatus,
+          CancellationToken cancellationToken)
         {
             DateTime creationTime = DateTime.UtcNow;
 
@@ -636,7 +647,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest($"Invalid sub status: {JsonConvert.SerializeObject(substatus)}. Substatus must be defined and include a label.");
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
 
             string org = User.GetOrg();
             if (!instance.Org.Equals(org))
@@ -661,7 +672,7 @@ namespace Altinn.Platform.Storage.Controllers
                 instance.LastChanged = creationTime;
                 instance.LastChangedBy = User.GetOrgNumber();
 
-                updatedInstance = await _instanceRepository.Update(instance, updateProperties);
+                updatedInstance = await _instanceRepository.Update(instance, updateProperties, cancellationToken);
                 updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
             }
             catch (Exception e)
@@ -680,6 +691,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
         /// <param name="instanceGuid">The id of the instance to confirm as complete.</param>
         /// <param name="presentationTexts">Collection of changes to the presentation texts collection.</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>The instance that was updated with an updated collection of presentation texts.</returns>
         [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
         [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/presentationtexts")]
@@ -689,14 +701,15 @@ namespace Altinn.Platform.Storage.Controllers
         public async Task<ActionResult<Instance>> UpdatePresentationTexts(
             [FromRoute] int instanceOwnerPartyId,
             [FromRoute] Guid instanceGuid,
-            [FromBody] PresentationTexts presentationTexts)
+            [FromBody] PresentationTexts presentationTexts,
+            CancellationToken cancellationToken)
         {
             if (presentationTexts?.Texts == null)
             {
                 return BadRequest($"Missing parameter value: presentationTexts is misformed or empty");
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
 
             if (instance.PresentationTexts == null)
             {
@@ -717,7 +730,7 @@ namespace Altinn.Platform.Storage.Controllers
                 }
             }
 
-            Instance updatedInstance = await _instanceRepository.Update(instance, updateProperties);
+            Instance updatedInstance = await _instanceRepository.Update(instance, updateProperties, cancellationToken);
             return updatedInstance;
         }
 
@@ -727,6 +740,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
         /// <param name="instanceGuid">The id of the instance to confirm as complete.</param>
         /// <param name="dataValues">Collection of changes to the data values collection.</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>The instance that was updated with an updated collection of data values.</returns>
         [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
         [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/datavalues")]
@@ -737,14 +751,15 @@ namespace Altinn.Platform.Storage.Controllers
         public async Task<ActionResult<Instance>> UpdateDataValues(
             [FromRoute] int instanceOwnerPartyId,
             [FromRoute] Guid instanceGuid,
-            [FromBody] DataValues dataValues)
+            [FromBody] DataValues dataValues,
+            CancellationToken cancellationToken)
         {
             if (dataValues?.Values == null)
             {
                 return BadRequest($"Missing parameter value: dataValues is misformed or empty");
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
 
             instance.DataValues ??= new Dictionary<string, string>();
 
@@ -762,7 +777,7 @@ namespace Altinn.Platform.Storage.Controllers
                 }
             }
 
-            var updatedInstance = await _instanceRepository.Update(instance, updateProperties);
+            var updatedInstance = await _instanceRepository.Update(instance, updateProperties, cancellationToken);
             return Ok(updatedInstance);
         }
 

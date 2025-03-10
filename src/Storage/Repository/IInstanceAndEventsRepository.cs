@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
 
@@ -15,6 +16,7 @@ public interface IInstanceAndEventsRepository
     /// <param name="instance">the instance to update</param>
     /// <param name="updateProperties">a list of which properties should be updated</param>
     /// <param name="events">the events to add</param>
+    /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>The updated instance</returns>
-    Task<Instance> Update(Instance instance, List<string> updateProperties, List<InstanceEvent> events);
+    Task<Instance> Update(Instance instance, List<string> updateProperties, List<InstanceEvent> events, CancellationToken cancellationToken);
 }

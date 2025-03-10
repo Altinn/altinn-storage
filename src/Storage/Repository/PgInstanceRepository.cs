@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Helpers;
@@ -64,7 +65,7 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<Instance> Create(Instance instance, int altinnMainVersion = 3)
+        public async Task<Instance> Create(Instance instance, CancellationToken cancellationToken, int altinnMainVersion = 3)
         {
             // Remove last decimal digit to make postgres TIMESTAMPTZ equal to json serialized DateTime
             instance.LastChanged = instance.LastChanged != null ? new DateTime((((DateTime)instance.LastChanged).Ticks / 10) * 10, DateTimeKind.Utc) : null;
@@ -83,29 +84,29 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue("_taskid", NpgsqlDbType.Text, instance.Process?.CurrentTask?.ElementId ?? (object)DBNull.Value);
             pgcom.Parameters.AddWithValue("_altinnmainversion", NpgsqlDbType.Integer, altinnMainVersion);
 
-            await pgcom.ExecuteNonQueryAsync();
+            await pgcom.ExecuteNonQueryAsync(cancellationToken);
 
             instance.Data = [];
             return ToExternal(instance);
         }
 
         /// <inheritdoc/>
-        public async Task<bool> Delete(Instance instance)
+        public async Task<bool> Delete(Instance instance, CancellationToken cancellationToken)
         {
             ToInternal(instance);
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instance.Id));
 
-            int rc = (int)await pgcom.ExecuteScalarAsync();
+            int rc = (int)await pgcom.ExecuteScalarAsync(cancellationToken);
             return rc == 1;
         }
 
         /// <inheritdoc/>
-        public async Task<InstanceQueryResponse> GetInstancesFromQuery(InstanceQueryParameters queryParams, bool includeDataElements)
+        public async Task<InstanceQueryResponse> GetInstancesFromQuery(InstanceQueryParameters queryParams, bool includeDataElements, CancellationToken cancellationToken)
         {
             try
             {
-                return await GetInstancesInternal(queryParams, includeDataElements);
+                return await GetInstancesInternal(queryParams, includeDataElements, cancellationToken);
             }
             catch (Exception e)
             {
@@ -115,16 +116,16 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<List<Instance>> GetHardDeletedInstances()
+        public async Task<List<Instance>> GetHardDeletedInstances(CancellationToken cancellationToken)
         {
             List<Instance> instances = [];
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readDeletedSql);
-            await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
+            await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken))
             {
-                while (await reader.ReadAsync())
+                while (await reader.ReadAsync(cancellationToken))
                 {
-                    Instance i = await reader.GetFieldValueAsync<Instance>("instance");
+                    Instance i = await reader.GetFieldValueAsync<Instance>("instance", cancellationToken);
                     if ((i.CompleteConfirmations != null && i.CompleteConfirmations.Exists(c => c.StakeholderId.ToLower().Equals(i.Org) && c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7)))
                     || !i.Status.IsArchived)
                     {
@@ -137,22 +138,22 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<List<DataElement>> GetHardDeletedDataElements()
+        public async Task<List<DataElement>> GetHardDeletedDataElements(CancellationToken cancellationToken)
         {
             List<DataElement> elements = [];
             try
             {
                 await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readDeletedElementsSql);
-                await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
+                await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
                 long previousId = -1;
                 long id = -1;
                 bool currentInstanceAllowsDelete = false;
-                while (await reader.ReadAsync())
+                while (await reader.ReadAsync(cancellationToken))
                 {
-                    id = await reader.GetFieldValueAsync<long>("id");
+                    id = await reader.GetFieldValueAsync<long>("id", cancellationToken);
                     if (id != previousId)
                     {
-                        Instance instance = await reader.GetFieldValueAsync<Instance>("instance");
+                        Instance instance = await reader.GetFieldValueAsync<Instance>("instance", cancellationToken);
                         currentInstanceAllowsDelete =
                             instance.CompleteConfirmations != null &&
                             instance.CompleteConfirmations.Exists(c => c.StakeholderId.Equals(instance.Org, StringComparison.OrdinalIgnoreCase) &&
@@ -162,7 +163,7 @@ namespace Altinn.Platform.Storage.Repository
 
                     if (currentInstanceAllowsDelete)
                     {
-                        elements.Add(await reader.GetFieldValueAsync<DataElement>("element"));
+                        elements.Add(await reader.GetFieldValueAsync<DataElement>("element", cancellationToken));
                     }
                 }
             }
@@ -257,7 +258,8 @@ namespace Altinn.Platform.Storage.Repository
 
         private async Task<InstanceQueryResponse> GetInstancesInternal(
             InstanceQueryParameters queryParams,
-            bool includeDataelements)
+            bool includeDataelements,
+            CancellationToken cancellationToken)
         {
             DateTime lastChanged = DateTime.MinValue;
             InstanceQueryResponse queryResponse = new() { Count = 0, Instances = [] };
@@ -278,14 +280,14 @@ namespace Altinn.Platform.Storage.Repository
 #pragma warning restore CA2254 // Template should be a static expression
             }
 
-            await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
+            await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken))
             {
                 long previousId = -1;
                 long id = -1;
                 Instance instance = new(); // make sonarcloud happy
-                while (await reader.ReadAsync())
+                while (await reader.ReadAsync(cancellationToken))
                 {
-                    id = await reader.GetFieldValueAsync<long>("id");
+                    id = await reader.GetFieldValueAsync<long>("id", cancellationToken);
                     if (id != previousId)
                     {
                         if (previousId != -1)
@@ -293,16 +295,16 @@ namespace Altinn.Platform.Storage.Repository
                             ToExternal(instance);
                         }
 
-                        instance = await reader.GetFieldValueAsync<Instance>("instance");
+                        instance = await reader.GetFieldValueAsync<Instance>("instance", cancellationToken);
                         lastChanged = instance.LastChanged ?? DateTime.MinValue;
                         queryResponse.Instances.Add(instance);
                         instance.Data = [];
                         previousId = id;
                     }
 
-                    if (!await reader.IsDBNullAsync("element"))
+                    if (!await reader.IsDBNullAsync("element", cancellationToken))
                     {
-                        instance.Data.Add(await reader.GetFieldValueAsync<DataElement>("element"));
+                        instance.Data.Add(await reader.GetFieldValueAsync<DataElement>("element", cancellationToken));
                     }
                 }
 
@@ -321,7 +323,7 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<(Instance Instance, long InternalId)> GetOne(Guid instanceGuid, bool includeElements)
+        public async Task<(Instance Instance, long InternalId)> GetOne(Guid instanceGuid, bool includeElements, CancellationToken cancellationToken)
         {
             Instance instance = null;
             List<DataElement> instanceData = [];
@@ -330,21 +332,21 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(includeElements ? _readSql : _readSqlNoElements);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
 
-            await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
+            await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken))
             {
                 bool instanceCreated = false;
-                while (await reader.ReadAsync())
+                while (await reader.ReadAsync(cancellationToken))
                 {
                     if (!instanceCreated)
                     {
                         instanceCreated = true;
-                        instance = await reader.GetFieldValueAsync<Instance>("instance");
-                        instanceInternalId = await reader.GetFieldValueAsync<long>("id");
+                        instance = await reader.GetFieldValueAsync<Instance>("instance", cancellationToken);
+                        instanceInternalId = await reader.GetFieldValueAsync<long>("id", cancellationToken);
                     }
 
-                    if (includeElements && !await reader.IsDBNullAsync("element"))
+                    if (includeElements && !await reader.IsDBNullAsync("element", cancellationToken))
                     {
-                        instanceData.Add(await reader.GetFieldValueAsync<DataElement>("element"));
+                        instanceData.Add(await reader.GetFieldValueAsync<DataElement>("element", cancellationToken));
                     }
                 }
 
@@ -362,7 +364,7 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<Instance> Update(Instance instance, List<string> updateProperties)
+        public async Task<Instance> Update(Instance instance, List<string> updateProperties, CancellationToken cancellationToken)
         {
             // Remove last decimal digit to make postgres TIMESTAMPTZ equal to json serialized DateTime
             instance.LastChanged = instance.LastChanged != null ? new DateTime((((DateTime)instance.LastChanged).Ticks / 10) * 10, DateTimeKind.Utc) : null;
@@ -373,10 +375,10 @@ namespace Altinn.Platform.Storage.Repository
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(UpdateSql);
             BuildUpdateCommand(instance, updateProperties, pgcom.Parameters);
 
-            await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
-            if (await reader.ReadAsync())
+            await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
             {
-                instance = await reader.GetFieldValueAsync<Instance>("updatedInstance");
+                instance = await reader.GetFieldValueAsync<Instance>("updatedInstance", cancellationToken);
             }
 
             instance.Data = dataElements;

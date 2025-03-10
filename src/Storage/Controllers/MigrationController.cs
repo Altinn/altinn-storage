@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 
@@ -103,6 +104,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// Inserts new instance into the instance collection.
         /// </summary>
         /// <param name="instance">The instance details to store.</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>The stored instance.</returns>
         [AllowAnonymous]
         [HttpPost("instance")]
@@ -110,7 +112,7 @@ namespace Altinn.Platform.Storage.Controllers
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [Produces("application/json")]
-        public async Task<ActionResult<Instance>> CreateInstance([FromBody] Instance instance)
+        public async Task<ActionResult<Instance>> CreateInstance([FromBody] Instance instance, CancellationToken cancellationToken)
         {
             Instance storedInstance;
             try
@@ -126,7 +128,7 @@ namespace Altinn.Platform.Storage.Controllers
                 string instanceId = isA1 ? await _a2Repository.GetA1MigrationInstanceId(a1ArchiveReference) : await _a2Repository.GetA2MigrationInstanceId(a2ArchiveReference);
                 if (instanceId != null)
                 {
-                    await CleanupOldMigrationInternal(instanceId);
+                    await CleanupOldMigrationInternal(instanceId, cancellationToken);
                 }
 
                 if (isA1)
@@ -138,7 +140,7 @@ namespace Altinn.Platform.Storage.Controllers
                     await _a2Repository.CreateA2MigrationState(a2ArchiveReference);
                 }
 
-                storedInstance = await _instanceRepository.Create(instance, isA1 ? 1 : 2);
+                storedInstance = await _instanceRepository.Create(instance, cancellationToken, isA1 ? 1 : 2);
 
                 if (isA1)
                 {
@@ -169,6 +171,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="lformid">A2 logical form id</param>
         /// <param name="presenationText">A2 presentation text</param>
         /// <param name="visiblePages">Semicolon separated list of visible pages</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>The stored data element.</returns>
         [AllowAnonymous]
         [HttpPost("dataelement/{instanceGuid:guid}")]
@@ -186,11 +189,12 @@ namespace Altinn.Platform.Storage.Controllers
             [FromQuery(Name = "formid")]string formid,
             [FromQuery(Name = "lformid")]string lformid,
             [FromQuery(Name = "prestext")]string presenationText,
-            [FromQuery(Name = "vispages")]string visiblePages)
+            [FromQuery(Name = "vispages")]string visiblePages,
+            CancellationToken cancellationToken)
         {
             DateTime created = new DateTime(createdTicks, DateTimeKind.Utc).ToLocalTime();
             DateTime lastChanged = new DateTime(changedTicks, DateTimeKind.Utc).ToLocalTime();
-            (Instance instance, long instanceId) = await _instanceRepository.GetOne(instanceGuid, false);
+            (Instance instance, long instanceId) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
             if (instanceId == 0)
             {
                 return BadRequest("Instance not found");
@@ -483,15 +487,16 @@ namespace Altinn.Platform.Storage.Controllers
         /// Delete migrated instance and releated data
         /// </summary>
         /// <param name="instanceGuid">Migrated instance to delete</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>Ok</returns>
         [AllowAnonymous]
         [HttpPost("delete/{instanceGuid:guid}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [Produces("application/json")]
-        public async Task<ActionResult> CleanupOldMigration([FromRoute] Guid instanceGuid)
+        public async Task<ActionResult> CleanupOldMigration([FromRoute] Guid instanceGuid, CancellationToken cancellationToken)
         {
-            if (!await CleanupOldMigrationInternal(instanceGuid.ToString()))
+            if (!await CleanupOldMigrationInternal(instanceGuid.ToString(), cancellationToken))
             {
                 return BadRequest();
             }
@@ -514,9 +519,9 @@ namespace Altinn.Platform.Storage.Controllers
             return await httpResponseMessage.Content.ReadAsStreamAsync();
         }
 
-        private async Task<bool> CleanupOldMigrationInternal(string instanceId)
+        private async Task<bool> CleanupOldMigrationInternal(string instanceId, CancellationToken cancellationToken)
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(new Guid(instanceId), false);
+            (Instance instance, _) = await _instanceRepository.GetOne(new Guid(instanceId), false, cancellationToken);
             if (instance == null || (!instance.DataValues.ContainsKey("A1ArchRef") && !instance.DataValues.ContainsKey("A2ArchRef")))
             {
                 return false;
@@ -533,7 +538,7 @@ namespace Altinn.Platform.Storage.Controllers
             await _blobRepository.DeleteDataBlobs(instance, app.StorageAccountNumber);
             await _dataRepository.DeleteForInstance(instanceId);
             await _instanceEventRepository.DeleteAllInstanceEvents(instanceId);
-            await _instanceRepository.Delete(instance);
+            await _instanceRepository.Delete(instance, cancellationToken);
             await _a2Repository.DeleteMigrationState(instanceId);
 
             return true;

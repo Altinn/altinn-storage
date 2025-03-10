@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -17,6 +18,8 @@ namespace Altinn.Platform.Storage.Services
         /// <param name="instanceGuid">The instance guid</param>
         /// <param name="signRequest">Signrequest containing data element ids and sign status</param>
         /// <param name="performedBy">User id or org no for the authenticated user</param>
-        Task<(bool Created, ServiceError ServiceError)> CreateSignDocument(int instanceOwnerPartyId, Guid instanceGuid, SignRequest signRequest, string performedBy); 
+        /// <param name="cancellationToken">CancellationToken</param>
+        Task<(bool Created, ServiceError ServiceError)> CreateSignDocument(
+            int instanceOwnerPartyId, Guid instanceGuid, SignRequest signRequest, string performedBy, CancellationToken cancellationToken); 
     }
 }
