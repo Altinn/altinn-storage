@@ -104,7 +104,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return StatusCode(500, queryResponse.Exception);
             }
 
-            return await ProcessQueryResponse(queryResponse, queryModel.Language);
+            return await ProcessQueryResponse(queryResponse, queryModel.Language, cancellationToken);
         }
 
         /// <summary>
@@ -487,7 +487,7 @@ namespace Altinn.Platform.Storage.Controllers
             return queryParams;
         }
 
-        private async Task<ActionResult> ProcessQueryResponse(InstanceQueryResponse queryResponse, string language)
+        private async Task<ActionResult> ProcessQueryResponse(InstanceQueryResponse queryResponse, string language, CancellationToken cancellationToken)
         {
             string[] acceptedLanguages = { "en", "nb", "nn" };
 
@@ -518,6 +518,11 @@ namespace Altinn.Platform.Storage.Controllers
                     i.DueBefore = null;
                 }
             });
+
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return StatusCode(500, "Request was cancelled.");
+            }
 
             List<MessageBoxInstance> authorizedInstances =
                 await _authorizationService.AuthorizeMesseageBoxInstances(allInstances, false);

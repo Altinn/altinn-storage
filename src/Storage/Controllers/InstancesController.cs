@@ -250,6 +250,11 @@ namespace Altinn.Platform.Storage.Controllers
                         FilterOutDeletedDataElements(instance);
                     }
 
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        throw new TimeoutException("Request was cancelled.");
+                    }
+
                     result.Instances = await _authorizationService.AuthorizeInstances(result.Instances);
                     result.Count = result.Instances.Count;
                 }
