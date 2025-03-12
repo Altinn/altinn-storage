@@ -206,7 +206,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             {
                 instanceRepositoryMock
                     .Setup(ir => ir.GetOne(It.IsAny<Guid>(), It.IsAny<bool>(), CancellationToken.None))
-                    .ReturnsAsync((Guid instanceGuid, bool includeDataElements) =>
+                    .ReturnsAsync((Guid instanceGuid, bool includeDataElements, CancellationToken cancellationToken) =>
                     {
                         return (new Instance
                         {
@@ -239,7 +239,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             {
                 instanceRepositoryMock
                     .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
-                    .ReturnsAsync((Guid instanceGuid, bool dummy) => (null, 0));
+                    .ReturnsAsync((Guid instanceGuid, bool dummy, CancellationToken cancellationToken) => (null, 0));
             }
 
             Mock<HttpContext> httpContextMock = new();

@@ -779,7 +779,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
             .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
+            .Callback<InstanceQueryParameters, bool, CancellationToken>((query, includeDataelements, cancellationToken) => { actual = query; })
             .ReturnsAsync((InstanceQueryResponse)null);
 
         HttpClient client = GetTestClient(instanceRepositoryMock);
@@ -815,7 +815,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
             .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
+            .Callback<InstanceQueryParameters, bool, CancellationToken>((query, includeDataelements, cancellationToken) => { actual = query; })
             .ReturnsAsync((InstanceQueryResponse)null);
 
         HttpClient client = GetTestClient(instanceRepositoryMock);
@@ -851,7 +851,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
             .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
+            .Callback<InstanceQueryParameters, bool, CancellationToken>((query, includeDataelements, cancellationToken) => { actual = query; })
             .ReturnsAsync((InstanceQueryResponse)null);
 
         HttpClient client = GetTestClient(instanceRepositoryMock);
@@ -887,7 +887,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
             .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
+            .Callback<InstanceQueryParameters, bool, CancellationToken>((query, includeDataelements, cancellationToken) => { actual = query; })
             .ReturnsAsync((InstanceQueryResponse)null);
 
         string expectedSortBy = "desc:lastChanged";
@@ -926,7 +926,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
             .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
+            .Callback<InstanceQueryParameters, bool, CancellationToken>((query, includeDataelements, cancellationToken) => { actual = query; })
             .ReturnsAsync((InstanceQueryResponse)null);
 
         HttpClient client = GetTestClient(instanceRepositoryMock);
@@ -1029,7 +1029,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
             .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
+            .Callback<InstanceQueryParameters, bool, CancellationToken>((query, includeDataelements, cancellationToken) => { actual = query; })
             .ReturnsAsync((InstanceQueryResponse)null);
         string expectedAppId = "tdd/endring-av-navn";
 
@@ -1065,7 +1065,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
             .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
+            .Callback<InstanceQueryParameters, bool, CancellationToken>((query, includeDataelements, cancellationToken) => { actual = query; })
             .ReturnsAsync((InstanceQueryResponse)null);
         int expectedCount = 3;
 
@@ -1135,7 +1135,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
             .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
+            .Callback<InstanceQueryParameters, bool, CancellationToken>((query, includeDataelements, cancellationToken) => { actual = query; })
             .ReturnsAsync((InstanceQueryResponse)null);
 
         HttpClient client = GetTestClient(instanceRepositoryMock);
@@ -1170,7 +1170,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
             .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .Callback<InstanceQueryParameters, bool>((query, includeDataelements) => { actual = query; })
+            .Callback<InstanceQueryParameters, bool, CancellationToken>((query, includeDataelements, cancellationToken) => { actual = query; })
             .ReturnsAsync((InstanceQueryResponse)null);
 
         HttpClient client = GetTestClient(instanceRepositoryMock);

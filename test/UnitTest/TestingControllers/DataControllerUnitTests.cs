@@ -181,7 +181,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             instanceRepositoryMock
                .Setup(ir => ir.GetOne(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Guid instanceGuid, bool includeDataElements) =>
+            .ReturnsAsync((Guid instanceGuid, bool includeDataElements, CancellationToken cancellationToken) =>
             {
                 return (new Instance()
                 {

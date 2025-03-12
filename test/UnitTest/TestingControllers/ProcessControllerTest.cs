@@ -266,9 +266,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Mock<IInstanceRepository> repositoryMock = new Mock<IInstanceRepository>();
             Mock<IInstanceAndEventsRepository> batchRepositoryMock = new Mock<IInstanceAndEventsRepository>();
             repositoryMock.Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>())).ReturnsAsync((testInstance, 0));
-            repositoryMock.Setup(ir => ir.Update(It.IsAny<Instance>(), It.IsAny<List<string>>(), It.IsAny<CancellationToken>())).ReturnsAsync((Instance i, List<string> _) => i);
+            repositoryMock.Setup(ir => ir.Update(It.IsAny<Instance>(), It.IsAny<List<string>>(), It.IsAny<CancellationToken>())).ReturnsAsync((Instance i, List<string> _, CancellationToken _) => i);
             batchRepositoryMock.Setup(ir => ir.Update(It.IsAny<Instance>(), It.IsAny<List<string>>(), It.IsAny<List<InstanceEvent>>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync((Instance i, List<string> _, List<InstanceEvent> _) => i);
+                .ReturnsAsync((Instance i, List<string> _, List<InstanceEvent> _, CancellationToken _) => i);
 
             // Act
             using HttpResponseMessage response = await SendUpdateRequest(
