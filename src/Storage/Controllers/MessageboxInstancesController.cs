@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Authorization;
@@ -62,10 +63,11 @@ namespace Altinn.Platform.Storage.Controllers
         /// Search through instances to find match based on query params.
         /// </summary>
         /// <param name="queryModel">Object with query-params</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>List of messagebox instances</returns>
         [Authorize]
         [HttpPost("search")]
-        public async Task<ActionResult> SearchMessageBoxInstances([FromBody] MessageBoxQueryModel queryModel)
+        public async Task<ActionResult> SearchMessageBoxInstances([FromBody] MessageBoxQueryModel queryModel, CancellationToken cancellationToken)
         {
             if (!string.IsNullOrEmpty(queryModel.ArchiveReference))
             {
@@ -93,7 +95,7 @@ namespace Altinn.Platform.Storage.Controllers
                 queryParams.AppIds = await MatchStringToAppTitle(queryModel.SearchString);
             }
 
-            InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesFromQuery(queryParams, false);
+            InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesFromQuery(queryParams, false, cancellationToken);
 
             AddQueryModelToTelemetry(queryModel);
 
@@ -102,7 +104,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return StatusCode(500, queryResponse.Exception);
             }
 
-            return await ProcessQueryResponse(queryResponse, queryModel.Language);
+            return await ProcessQueryResponse(queryResponse, queryModel.Language, cancellationToken);
         }
 
         /// <summary>
@@ -111,13 +113,15 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceOwnerPartyId">the instance owner id</param>
         /// <param name="instanceGuid">the instance guid</param>
         /// <param name="language"> language id en, nb, nn-NO"</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>list of instances</returns>
         [Authorize]
         [HttpGet("{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
         public async Task<ActionResult> GetMessageBoxInstance(
             int instanceOwnerPartyId,
             Guid instanceGuid,
-            [FromQuery] string language)
+            [FromQuery] string language,
+            CancellationToken cancellationToken)
         {
             string[] acceptedLanguages = { "en", "nb", "nn" };
             string languageId = "nb";
@@ -127,7 +131,7 @@ namespace Altinn.Platform.Storage.Controllers
                 languageId = language;
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
 
             if (instance == null)
             {
@@ -208,12 +212,13 @@ namespace Altinn.Platform.Storage.Controllers
         /// </summary>
         /// <param name="instanceOwnerPartyId">instance owner</param>
         /// <param name="instanceGuid">instance id</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>True if the instance was restored.</returns>
         [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_DELETE)]
         [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/undelete")]
-        public async Task<ActionResult> Undelete(int instanceOwnerPartyId, Guid instanceGuid)
+        public async Task<ActionResult> Undelete(int instanceOwnerPartyId, Guid instanceGuid, CancellationToken cancellationToken)
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
 
             if (instance == null)
             {
@@ -253,7 +258,7 @@ namespace Altinn.Platform.Storage.Controllers
                     }
                 };
 
-                await _instanceRepository.Update(instance, updateProperties);
+                await _instanceRepository.Update(instance, updateProperties, cancellationToken);
                 await _instanceEventRepository.InsertInstanceEvent(instanceEvent);
                 return Ok(true);
             }
@@ -267,15 +272,16 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceGuid">instance id</param>
         /// <param name="instanceOwnerPartyId">instance owner</param>
         /// <param name="hard">if true is marked for hard delete.</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>true if instance was successfully deleted</returns>
         /// DELETE /instances/{instanceId}?instanceOwnerPartyId={instanceOwnerPartyId}?hard={bool}
         [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_DELETE)]
         [HttpDelete("{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
-        public async Task<ActionResult> Delete(Guid instanceGuid, int instanceOwnerPartyId, bool hard)
+        public async Task<ActionResult> Delete(Guid instanceGuid, int instanceOwnerPartyId, bool hard, CancellationToken cancellationToken)
         {
             string instanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
 
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false);
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
             if (instance == null)
             {
                 return NotFound($"Didn't find the object that should be deleted with instanceId={instanceId}");
@@ -341,7 +347,7 @@ namespace Altinn.Platform.Storage.Controllers
                 },
             };
 
-            await _instanceRepository.Update(instance, updateProperties);
+            await _instanceRepository.Update(instance, updateProperties, cancellationToken);
             await _instanceEventRepository.InsertInstanceEvent(instanceEvent);
 
             return Ok(true);
@@ -481,7 +487,7 @@ namespace Altinn.Platform.Storage.Controllers
             return queryParams;
         }
 
-        private async Task<ActionResult> ProcessQueryResponse(InstanceQueryResponse queryResponse, string language)
+        private async Task<ActionResult> ProcessQueryResponse(InstanceQueryResponse queryResponse, string language, CancellationToken cancellationToken)
         {
             string[] acceptedLanguages = { "en", "nb", "nn" };
 
@@ -512,6 +518,11 @@ namespace Altinn.Platform.Storage.Controllers
                     i.DueBefore = null;
                 }
             });
+
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return StatusCode(500, "Request was cancelled.");
+            }
 
             List<MessageBoxInstance> authorizedInstances =
                 await _authorizationService.AuthorizeMesseageBoxInstances(allInstances, false);

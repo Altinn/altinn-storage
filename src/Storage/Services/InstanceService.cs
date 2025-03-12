@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
@@ -34,9 +35,10 @@ namespace Altinn.Platform.Storage.Services
         }
 
         /// <inheritdoc/>
-        public async Task<(bool Created, ServiceError ServiceError)> CreateSignDocument(int instanceOwnerPartyId, Guid instanceGuid, SignRequest signRequest, string performedBy)
+        public async Task<(bool Created, ServiceError ServiceError)> CreateSignDocument(
+            int instanceOwnerPartyId, Guid instanceGuid, SignRequest signRequest, string performedBy, CancellationToken cancellationToken)
         {
-            (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(instanceGuid, false);
+            (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
             if (instance == null) 
             {
                 return (false, new ServiceError(404, "Instance not found"));

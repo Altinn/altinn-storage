@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -46,17 +47,17 @@ namespace Altinn.Platform.Storage.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [ApiExplorerSettings(IgnoreApi = true)]
-        public async Task<ActionResult> CleanupInstances()
+        public async Task<ActionResult> CleanupInstances(CancellationToken cancellationToken)
         {
             try
             {
-                List<Instance> instances = await instanceRepository.GetHardDeletedInstances();
+                List<Instance> instances = await instanceRepository.GetHardDeletedInstances(cancellationToken);
                 List<string> autoDeleteAppIds = (await applicationRepository.FindAll())
                     .Where(a => instances.Select(i => i.AppId).ToList().Contains(a.Id) && a.AutoDeleteOnProcessEnd)
                     .Select(a => a.Id).ToList();
 
                 Stopwatch stopwatch = Stopwatch.StartNew();
-                int successfullyDeleted = await CleanupInstancesInternal(instances, autoDeleteAppIds);
+                int successfullyDeleted = await CleanupInstancesInternal(instances, autoDeleteAppIds, cancellationToken);
                 stopwatch.Stop();
 
                 _logger.LogInformation(
@@ -81,7 +82,7 @@ namespace Altinn.Platform.Storage.Controllers
         [HttpDelete("cleanupinstancesforapp/{appId}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ApiExplorerSettings(IgnoreApi = true)]
-        public async Task<ActionResult> CleanupInstancesForApp(string appId)
+        public async Task<ActionResult> CleanupInstancesForApp(string appId, CancellationToken cancellationToken)
         {
             int successfullyDeleted = 0;
             int processed = 0;
@@ -97,8 +98,8 @@ namespace Altinn.Platform.Storage.Controllers
                     ContinuationToken = instancesResponse.ContinuationToken
                 };
 
-                instancesResponse = await instanceRepository.GetInstancesFromQuery(queryParameters, true);
-                successfullyDeleted += await CleanupInstancesInternal(instancesResponse.Instances, []);
+                instancesResponse = await instanceRepository.GetInstancesFromQuery(queryParameters, true, cancellationToken);
+                successfullyDeleted += await CleanupInstancesInternal(instancesResponse.Instances, [], cancellationToken);
                 processed += (int)instancesResponse.Count;
             }
             while (instancesResponse.ContinuationToken != null);
@@ -122,9 +123,9 @@ namespace Altinn.Platform.Storage.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [Produces("application/json")]
         [ApiExplorerSettings(IgnoreApi = true)]
-        public async Task<ActionResult> CleanupDataelements()
+        public async Task<ActionResult> CleanupDataelements(CancellationToken cancellationToken)
         {
-            List<DataElement> dataElements = await instanceRepository.GetHardDeletedDataElements();
+            List<DataElement> dataElements = await instanceRepository.GetHardDeletedDataElements(cancellationToken);
 
             int successfullyDeleted = 0;
 
@@ -138,7 +139,7 @@ namespace Altinn.Platform.Storage.Controllers
                 {
                     if (instance == null || instance.Id.Split('/')[1] != dataElement.InstanceGuid)
                     {
-                        (instance, _) = await instanceRepository.GetOne(new Guid(dataElement.InstanceGuid), false);
+                        (instance, _) = await instanceRepository.GetOne(new Guid(dataElement.InstanceGuid), false, cancellationToken);
                         app = await applicationRepository.FindOne(instance.AppId, instance.Org);
                     }
 
@@ -180,7 +181,7 @@ namespace Altinn.Platform.Storage.Controllers
             return Ok();
         }
 
-        private async Task<int> CleanupInstancesInternal(List<Instance> instances, List<string> autoDeleteAppIds)
+        private async Task<int> CleanupInstancesInternal(List<Instance> instances, List<string> autoDeleteAppIds, CancellationToken cancellationToken)
         {
             int successfullyDeleted = 0;
             foreach (Instance instance in instances)
@@ -218,7 +219,7 @@ namespace Altinn.Platform.Storage.Controllers
                     if (dataElementsNoException
                         && (!autoDeleteAppIds.Contains(instance.AppId) || instanceEventsNoException))
                     {
-                        if (await instanceRepository.Delete(instance))
+                        if (await instanceRepository.Delete(instance, cancellationToken))
                         {
                             successfullyDeleted += 1;
                         }

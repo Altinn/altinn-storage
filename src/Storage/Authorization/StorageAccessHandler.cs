@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Authorization;
@@ -163,7 +164,7 @@ namespace Altinn.Platform.Storage.Authorization
                 return null;
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(Guid.Parse(instanceId.Split("/")[1]), false);
+            (Instance instance, _) = await _instanceRepository.GetOne(Guid.Parse(instanceId.Split("/")[1]), false, CancellationToken.None);
             return instance;
         }
 

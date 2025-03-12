@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Altinn.Common.AccessToken.Services;
@@ -977,7 +978,8 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         .Setup(irm =>
         irm.GetInstancesFromQuery(
             It.Is<InstanceQueryParameters>(e => e.IsHardDeleted == false),
-            It.IsAny<bool>()))
+            It.IsAny<bool>(),
+            It.IsAny<CancellationToken>()))
         .ReturnsAsync(new InstanceQueryResponse { Instances = new() });
 
         string requestUri = $"{BasePath}?instanceOwner.partyId=1337";
@@ -1005,7 +1007,8 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         .Setup(irm =>
         irm.GetInstancesFromQuery(
             It.Is<InstanceQueryParameters>(e => e.IsHardDeleted == false),
-            It.IsAny<bool>()))
+            It.IsAny<bool>(),
+            It.IsAny<CancellationToken>()))
         .ReturnsAsync(new InstanceQueryResponse { Instances = new() });
 
         string requestUri = $"{BasePath}?instanceOwner.partyId=1337&continuationToken=thisIsTheFirstToken";

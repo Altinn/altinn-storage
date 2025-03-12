@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
@@ -30,8 +31,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             _ = PostgresUtil.RunSql(sql).Result;
             Instance instance = TestData.Instance_1_1.Clone();
             instance.Status.IsSoftDeleted = true;
-            Instance newInstance = _dataElementFixture.InstanceRepo.Create(instance).Result;
-            (_instance, _instanceInternalId) = _dataElementFixture.InstanceRepo.GetOne(Guid.Parse(newInstance.Id.Split('/').Last()), false).Result;
+            Instance newInstance = _dataElementFixture.InstanceRepo.Create(instance, CancellationToken.None).Result;
+            (_instance, _instanceInternalId) = _dataElementFixture.InstanceRepo.GetOne(Guid.Parse(newInstance.Id.Split('/').Last()), false, CancellationToken.None).Result;
         }
         
         /// <summary>
@@ -47,7 +48,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
 
             // Act
             dataElement = await _dataElementFixture.DataRepo.Create(dataElement, _instanceInternalId);
-            (Instance instance, _) = await _dataElementFixture.InstanceRepo.GetOne(Guid.Parse(dataElement.InstanceGuid), false);
+            (Instance instance, _) = await _dataElementFixture.InstanceRepo.GetOne(Guid.Parse(dataElement.InstanceGuid), false, CancellationToken.None);
 
             // Assert
             string sql = $"select count(*) from storage.dataelements where alternateid = '{dataElement.Id}'";
@@ -243,7 +244,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
                 { "/lastChanged", dataElement.LastChanged },
                 { "/lastChangedBy", dataElement.LastChangedBy } 
             });
-            (Instance instance, _) = await _dataElementFixture.InstanceRepo.GetOne(Guid.Parse(updatedElement.InstanceGuid), false);
+            (Instance instance, _) = await _dataElementFixture.InstanceRepo.GetOne(Guid.Parse(updatedElement.InstanceGuid), false, CancellationToken.None);
 
             // Assert
             string sql = $"select count(*) from storage.dataelements where element ->> 'ContentType' = '{contentType}'";
@@ -265,7 +266,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             Guid nonExistentInstanceGuid = Guid.NewGuid();
 
             // Act
-            (Instance instance, long internalId) = await _dataElementFixture.InstanceRepo.GetOne(nonExistentInstanceGuid, false);
+            (Instance instance, long internalId) = await _dataElementFixture.InstanceRepo.GetOne(nonExistentInstanceGuid, false, CancellationToken.None);
 
             // Assert
             Assert.Null(instance);
