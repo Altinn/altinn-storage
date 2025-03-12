@@ -106,7 +106,9 @@ namespace Altinn.Platform.Storage.Controllers
                 await _blobRepository.ReadBlob(
                     $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
                     $"{instance.Org}/{app}/{instanceGuid}/data/{signatureElement.Id}",
-                    application.StorageAccountNumber));
+                    application.StorageAccountNumber),
+                (JsonSerializerOptions)null,
+                cancellationToken);
 
             return View("Signature", view);
         }
