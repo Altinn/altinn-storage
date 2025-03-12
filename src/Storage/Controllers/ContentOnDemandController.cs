@@ -133,7 +133,9 @@ namespace Altinn.Platform.Storage.Controllers
                 await _blobRepository.ReadBlob(
                     $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
                     $"{instance.Org}/{app}/{instanceGuid}/data/{paymentElement.Id}",
-                    application.StorageAccountNumber));
+                    application.StorageAccountNumber),
+                (JsonSerializerOptions)null,
+                cancellationToken);
 
             return View("Payment", view);
         }

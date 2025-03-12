@@ -125,7 +125,7 @@ namespace Altinn.Platform.Storage.Controllers
         [ApiExplorerSettings(IgnoreApi = true)]
         public async Task<ActionResult> CleanupDataelements(CancellationToken cancellationToken)
         {
-            List<DataElement> dataElements = await instanceRepository.GetHardDeletedDataElements( cancellationToken);
+            List<DataElement> dataElements = await instanceRepository.GetHardDeletedDataElements(cancellationToken);
 
             int successfullyDeleted = 0;
 
