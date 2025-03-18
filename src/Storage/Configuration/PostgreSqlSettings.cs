@@ -18,6 +18,6 @@ namespace Altinn.Platform.Storage.Configuration
         /// <summary>
         /// Gets or sets a value indicating whether to include parameter values in logging/tracing.
         /// </summary>
-        public bool LogParameters { get; set; } = false;
+        public bool LogParameters { get; set; } = true;
     }
 }

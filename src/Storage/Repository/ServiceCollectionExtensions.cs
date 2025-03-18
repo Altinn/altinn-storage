@@ -32,6 +32,6 @@ public static class ServiceCollectionExtensions
                 .ConfigureTracing(o => o
                     .ConfigureCommandSpanNameProvider(cmd => cmd.CommandText)
                     .ConfigureCommandFilter(cmd => true)
-                    .ConfigureCommandEnrichmentCallback(DbEnricher.Enrich)));
+                    .EnableFirstResponseEvent(false)));
     }
 }
