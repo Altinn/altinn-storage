@@ -148,7 +148,7 @@ namespace Altinn.Platform.Storage.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error deleting existing sign document for Instance {InstanceId}", instance.Id);
+                _logger.LogError("Error deleting existing sign document for Instance {InstanceId}", instance.Id);
                 throw;
             }
         }
@@ -179,8 +179,8 @@ namespace Altinn.Platform.Storage.Services
                 signee1.OrganisationNumber == signee2.OrganisationNumber;
     }
     
-    #pragma warning disable SA1600 Elements should be documented
-    file record SignDocDownloadResult
+    #pragma warning disable SA1600 // Elements should be documented
+    file sealed record SignDocDownloadResult
     {
         public DataElement DataElement { get; init; }
         
