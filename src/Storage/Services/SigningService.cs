@@ -148,7 +148,7 @@ namespace Altinn.Platform.Storage.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError("Error deleting existing sign document for Instance {InstanceId}", instance.Id);
+                _logger.LogError(ex, "Error deleting existing sign document for Instance {InstanceId}", instance.Id);
                 throw;
             }
         }
