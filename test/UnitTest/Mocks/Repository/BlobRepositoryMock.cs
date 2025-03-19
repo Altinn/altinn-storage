@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Interface.Models;
@@ -14,7 +15,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return await Task.FromResult(true);
         }
 
-        public async Task<Stream> ReadBlob(string org, string blobStoragePath, int? storageAccountNumber)
+        public async Task<Stream> ReadBlob(string org, string blobStoragePath, int? storageAccountNumber, CancellationToken? cancellationToken = null)
         {
             string dataPath = Path.Combine(GetDataBlobPath(), blobStoragePath);
             Stream fs = File.OpenRead(dataPath);

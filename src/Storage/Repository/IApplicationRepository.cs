@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Interface.Models;
@@ -27,9 +28,10 @@ namespace Altinn.Platform.Storage.Repository
         /// Get the instance based on the input parameters
         /// </summary>
         /// <param name="appId">application id</param>
-        /// <param name="org">applicaiton owner id</param>
+        /// <param name="org">application owner id</param>
+        /// <param name="cancellationToken">cancellation token</param>
         /// <returns>the instance for the given parameters</returns>
-        Task<Application> FindOne(string appId, string org);
+        Task<Application> FindOne(string appId, string org, CancellationToken? cancellationToken = null);
 
         /// <summary>
         /// Creates an application metadata object in repository

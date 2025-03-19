@@ -60,7 +60,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 esm => esm.DispatchEvent(It.Is<InstanceEventType>(ies => ies == InstanceEventType.Signed), It.IsAny<Instance>()));
 
             var applicationRepositoryMock = new Mock<IApplicationRepository>();
-            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(new Application());
+            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new Application());
             
             var blobRepositoryMock = new Mock<IBlobRepository>();
 
@@ -127,7 +127,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 Data = [oldSignatureDataElement]
             };
             
-            instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), false, It.IsAny<CancellationToken>())).ReturnsAsync((instance, 0));
+            instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>())).ReturnsAsync((instance, 0));
 
             var applicationServiceMock = new Mock<IApplicationService>();
             applicationServiceMock.Setup(
@@ -149,10 +149,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 esm => esm.DispatchEvent(It.Is<InstanceEventType>(ies => ies == InstanceEventType.Signed), It.IsAny<Instance>()));
 
             var applicationRepositoryMock = new Mock<IApplicationRepository>();
-            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(new Application());
+            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new Application());
 
             var blobRepositoryMock = new Mock<IBlobRepository>();
-            blobRepositoryMock.Setup(x => x.ReadBlob(It.IsAny<string>(), It.IsAny<string>(), null)).ReturnsAsync(new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(oldSignDocument)));
+            blobRepositoryMock.Setup(x => x.ReadBlob(It.IsAny<string>(), It.IsAny<string>(), null, It.IsAny<CancellationToken>())).ReturnsAsync(new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(oldSignDocument)));
 
             blobRepositoryMock.Setup(x => x.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>())).ReturnsAsync(true);
             
@@ -203,7 +203,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             var instanceEventServiceMock = new Mock<IInstanceEventService>();
 
             var applicationRepositoryMock = new Mock<IApplicationRepository>();
-            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(new Application());
+            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new Application());
 
             var blobRepositoryMock = new Mock<IBlobRepository>();
             
@@ -247,10 +247,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             var instanceEventServiceMock = new Mock<IInstanceEventService>();
 
             var applicationRepositoryMock = new Mock<IApplicationRepository>();
-            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(new Application());
+            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new Application());
             
             var blobRepositoryMock = new Mock<IBlobRepository>();
-            blobRepositoryMock.Setup(x => x.ReadBlob(It.IsAny<string>(), It.IsAny<string>(), null)).ReturnsAsync(new MemoryStream("whatever"u8.ToArray()));
+            blobRepositoryMock.Setup(x => x.ReadBlob(It.IsAny<string>(), It.IsAny<string>(), null, It.IsAny<CancellationToken>())).ReturnsAsync(new MemoryStream("whatever"u8.ToArray()));
             
             var loggerMock = new Mock<ILogger<SigningService>>();
             
@@ -291,7 +291,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 .ReturnsAsync((true, null));
 
             var applicationRepositoryMock = new Mock<IApplicationRepository>();
-            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(new Application());
+            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new Application());
 
             var dataServiceMock = new Mock<IDataService>();
             dataServiceMock.Setup(
@@ -301,7 +301,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             var instanceEventServiceMock = new Mock<IInstanceEventService>();
 
             var blobRepositoryMock = new Mock<IBlobRepository>();
-            blobRepositoryMock.Setup(x => x.ReadBlob(It.IsAny<string>(), It.IsAny<string>(), null)).ReturnsAsync(new MemoryStream("whatever"u8.ToArray()));
+            blobRepositoryMock.Setup(x => x.ReadBlob(It.IsAny<string>(), It.IsAny<string>(), null, It.IsAny<CancellationToken>())).ReturnsAsync(new MemoryStream("whatever"u8.ToArray()));
             
             var loggerMock = new Mock<ILogger<SigningService>>();
             

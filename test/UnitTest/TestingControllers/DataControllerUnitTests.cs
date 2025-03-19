@@ -172,7 +172,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             });
 
             blobRepositoryMock
-                .Setup(d => d.ReadBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()))
+                .Setup(d => d.ReadBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>(), CancellationToken.None))
                 .ReturnsAsync(new MemoryStream(Encoding.UTF8.GetBytes("whatever")));
 
             blobRepositoryMock
@@ -197,7 +197,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             });
 
             applicationRepositoryMock
-                .Setup(ar => ar.FindOne(It.IsAny<string>(), It.IsAny<string>()))
+                .Setup(ar => ar.FindOne(It.IsAny<string>(), It.IsAny<string>(), CancellationToken.None))
                 .ReturnsAsync(new Application()
                 {
                     DataTypes = new List<DataType>()

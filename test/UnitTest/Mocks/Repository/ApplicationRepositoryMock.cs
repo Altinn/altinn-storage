@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Interface.Models;
@@ -22,7 +23,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             throw new NotImplementedException();
         }
 
-        public async Task<Application> FindOne(string appId, string org)
+        public async Task<Application> FindOne(string appId, string org, CancellationToken? cancellationToken = null)
         {
             return await Task.FromResult(GetTestApplication(org, appId.Split("/")[1]));
         }

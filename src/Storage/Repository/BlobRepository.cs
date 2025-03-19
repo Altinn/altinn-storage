@@ -44,11 +44,11 @@ namespace Altinn.Platform.Storage.Repository
             .SetAbsoluteExpiration(new TimeSpan(10, 0, 0));
 
         /// <inheritdoc/>
-        public async Task<Stream> ReadBlob(string org, string blobStoragePath, int? storageAccountNumber)
+        public async Task<Stream> ReadBlob(string org, string blobStoragePath, int? storageAccountNumber, CancellationToken? cancellationToken)
         {
             try
             {
-                return await DownloadBlobAsync(org, blobStoragePath, storageAccountNumber);
+                return await DownloadBlobAsync(org, blobStoragePath, storageAccountNumber, cancellationToken);
             }
             catch (RequestFailedException requestFailedException)
             {
@@ -170,11 +170,11 @@ namespace Altinn.Platform.Storage.Repository
             return properties;
         }
 
-        private async Task<Stream> DownloadBlobAsync(string org, string fileName, int? storageAccountNumber)
+        private async Task<Stream> DownloadBlobAsync(string org, string fileName, int? storageAccountNumber, CancellationToken? cancellationToken = null)
         {
             BlobClient blockBlob = CreateBlobClient(org, fileName, storageAccountNumber);
 
-            Azure.Response<BlobDownloadInfo> response = await blockBlob.DownloadAsync();
+            Azure.Response<BlobDownloadInfo> response = await blockBlob.DownloadAsync(cancellationToken ?? CancellationToken.None);
 
             return response.Value.Content;
         }

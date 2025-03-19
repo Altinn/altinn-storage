@@ -44,14 +44,14 @@ namespace Altinn.Platform.Storage.Services
         /// <inheritdoc/>
         public async Task<(bool Created, ServiceError ServiceError)> CreateSignDocument(Guid instanceGuid, SignRequest signRequest, string performedBy, CancellationToken cancellationToken)
         {
-            (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
+            (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
             
             if (instance == null) 
             {
                 return (false, new ServiceError(404, "Instance not found"));
             }
 
-            Application app = await _applicationRepository.FindOne(instance.AppId, instance.Org);
+            Application app = await _applicationRepository.FindOne(instance.AppId, instance.Org, cancellationToken);
 
             (bool validDataType, ServiceError serviceError) = await _applicationService.ValidateDataTypeForApp(instance.Org, instance.AppId, signRequest.SignatureDocumentDataType, instance.Process.CurrentTask?.ElementId);
             if (!validDataType)
@@ -90,7 +90,7 @@ namespace Altinn.Platform.Storage.Services
 
             signDocument.Id = dataElement.Id;
 
-            await DeleteExistingSignDocument(instance, signRequest.SignatureDocumentDataType, signDocument); 
+            await DeleteExistingSignDocument(instance, signRequest.SignatureDocumentDataType, signDocument, cancellationToken); 
         
             using (var fileStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(signDocument, Formatting.Indented))))
             {
@@ -101,19 +101,19 @@ namespace Altinn.Platform.Storage.Services
             return (true, null);
         }
 
-        private async Task DeleteExistingSignDocument(Instance instance, string signDocDataType, SignDocument newSignDocument)
+        private async Task DeleteExistingSignDocument(Instance instance, string signDocDataType, SignDocument newSignDocument, CancellationToken cancellationToken)
         {
             try
             {
-                Application application = await _applicationRepository.FindOne(instance.AppId, instance.Org);
+                Application application = await _applicationRepository.FindOne(instance.AppId, instance.Org, cancellationToken);
                 List<DataElement> signingDocDataElements = instance.Data?.Where(x => x.DataType == signDocDataType).ToList() ?? [];
 
                 List<Task<SignDocDownloadResult>> downloadAndDeserializeSignDocumentTasks = signingDocDataElements.Select(async dataElement =>
                 {
                     try
                     {
-                        Stream stream = await _blobRepository.ReadBlob(instance.Org, dataElement.BlobStoragePath, application.StorageAccountNumber);
-                        var signDocument = JsonConvert.DeserializeObject<SignDocument>(await new StreamReader(stream).ReadToEndAsync());
+                        Stream stream = await _blobRepository.ReadBlob(instance.Org, dataElement.BlobStoragePath, application.StorageAccountNumber, cancellationToken);
+                        var signDocument = JsonConvert.DeserializeObject<SignDocument>(await new StreamReader(stream).ReadToEndAsync(cancellationToken));
                         return new SignDocDownloadResult { DataElement = dataElement, SignDocument = signDocument };
                     }
                     catch (Exception ex)
