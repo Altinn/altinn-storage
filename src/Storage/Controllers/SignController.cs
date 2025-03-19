@@ -23,7 +23,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <summary>
         /// Initializes a new instance of the <see cref="SignController"/> class
         /// </summary>
-        /// <param name="signingService">A instance service with instance related business logic.</param>
+        /// <param name="signingService">An instance service with instance related business logic.</param>
         public SignController(ISigningService signingService)
         {
             _signingService = signingService;
@@ -34,7 +34,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// </summary>
         /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
         /// <param name="instanceGuid">The guid of the instance.</param>
-        /// <param name="signRequest">Signrequest containing data element ids and sign status.</param>
+        /// <param name="signRequest">Sign request containing data element ids and sign status.</param>
         /// <param name="cancellationToken">CancellationToken</param>
         [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_SIGN)]
         [HttpPost("{instanceOwnerPartyId:int}/{instanceGuid:guid}/sign")]

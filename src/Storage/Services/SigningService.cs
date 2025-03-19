@@ -42,10 +42,10 @@ namespace Altinn.Platform.Storage.Services
         }
 
         /// <inheritdoc/>
-        public async Task<(bool Created, ServiceError ServiceError)> CreateSignDocument(
-            int instanceOwnerPartyId, Guid instanceGuid, SignRequest signRequest, string performedBy, CancellationToken cancellationToken)
+        public async Task<(bool Created, ServiceError ServiceError)> CreateSignDocument(Guid instanceGuid, SignRequest signRequest, string performedBy, CancellationToken cancellationToken)
         {
             (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
+            
             if (instance == null) 
             {
                 return (false, new ServiceError(404, "Instance not found"));
@@ -92,7 +92,7 @@ namespace Altinn.Platform.Storage.Services
 
             await DeleteExistingSignDocument(instance, signRequest.SignatureDocumentDataType, signDocument); 
         
-            using (MemoryStream fileStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(signDocument, Formatting.Indented))))
+            using (var fileStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(signDocument, Formatting.Indented))))
             {
                 await _dataService.UploadDataAndCreateDataElement(instance.Org, fileStream, dataElement, instanceInternalId, app.StorageAccountNumber);
             }
@@ -118,7 +118,7 @@ namespace Altinn.Platform.Storage.Services
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Error reading or deserializing blob for DataElement {DataElementId}", dataElement.Id);
+                        _logger.LogError(ex, "Error reading or deserializing blob for DataElement {DataElementId} while checking for existing signature.", dataElement.Id);
                         return null;
                     }
                 }).ToList();
@@ -127,16 +127,23 @@ namespace Altinn.Platform.Storage.Services
 
                 foreach (SignDocDownloadResult result in results)
                 {
-                    if (result == null || !SignesAreEqual(result.SignDocument.SigneeInfo, newSignDocument.SigneeInfo))
+                    if (result is null || !SigneesAreEqual(result.SignDocument.SigneeInfo, newSignDocument.SigneeInfo))
                     {
                         continue;
                     }
 
-                    _logger.LogInformation("Sign document already exists for this signee. Deleting existing sign document. Deleted data element id: {DataElementId}", result.DataElement.Id);
-                    
-                    await _dataService.DeleteImmediately(instance, result.DataElement, application.StorageAccountNumber);
+                    try
+                    {
+                        _logger.LogInformation(
+                            "Sign document already exists for this signee. Deleting existing sign document. Data element id: {DataElementId}",
+                            result.DataElement.Id);
 
-                    break;
+                        await _dataService.DeleteImmediately(instance, result.DataElement, application.StorageAccountNumber);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error deleting data element {DataElementId}", result.DataElement.Id);
+                    }
                 }
             }
             catch (Exception ex)
@@ -148,7 +155,7 @@ namespace Altinn.Platform.Storage.Services
 
         private static SignDocument CreateSignDocument(Guid instanceGuid, SignRequest signRequest)
         {
-            SignDocument signDocument = new SignDocument
+            var signDocument = new SignDocument
             {
                 InstanceGuid = instanceGuid.ToString(),
                 SignedTime = DateTime.UtcNow,
@@ -164,8 +171,8 @@ namespace Altinn.Platform.Storage.Services
             return signDocument;
         }
         
-        private static bool SignesAreEqual(Signee signee1, Signee signee2) =>
-                signee1 != null && signee2 != null &&
+        private static bool SigneesAreEqual(Signee signee1, Signee signee2) =>
+                signee1 is not null && signee2 is not null &&
                 signee1.UserId == signee2.UserId &&
                 signee1.SystemUserId == signee2.SystemUserId &&
                 signee1.PersonNumber == signee2.PersonNumber &&
