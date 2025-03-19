@@ -87,7 +87,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
 
             // Act
             var performedBy = !string.IsNullOrWhiteSpace(signee.UserId) ? signee.UserId : signee.OrganisationNumber;
-            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), signRequest, performedBy, CancellationToken.None);
+            (bool created, ServiceError serviceError) = await service.CreateSignDocument(Guid.NewGuid(), signRequest, performedBy, CancellationToken.None);
 
             // Assert
             Assert.True(created);
@@ -177,7 +177,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             };
             
             string? performedBy = !string.IsNullOrWhiteSpace(signee.UserId) ? signee.UserId : signee.OrganisationNumber;
-            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), signRequest, performedBy, CancellationToken.None);
+            (bool created, ServiceError serviceError) = await service.CreateSignDocument(Guid.NewGuid(), signRequest, performedBy, CancellationToken.None);
 
             // Assert
             Assert.True(created);
@@ -219,7 +219,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 loggerMock.Object);
 
             // Act
-            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), new SignRequest(), "1337", CancellationToken.None);
+            (bool created, ServiceError serviceError) = await service.CreateSignDocument(Guid.NewGuid(), new SignRequest(), "1337", CancellationToken.None);
 
             // Assert
             Assert.False(created);
@@ -264,7 +264,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 loggerMock.Object);
 
             // Act
-            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), new SignRequest(), "1337", CancellationToken.None);
+            (bool created, ServiceError serviceError) = await service.CreateSignDocument(Guid.NewGuid(), new SignRequest(), "1337", CancellationToken.None);
 
             // Assert
             Assert.False(created);
@@ -326,7 +326,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
 
             // Act
             var performedBy = !string.IsNullOrWhiteSpace(signee.UserId) ? signee.UserId : signee.OrganisationNumber;
-            (bool created, ServiceError serviceError) = await service.CreateSignDocument(1337, Guid.NewGuid(), signRequest, performedBy, CancellationToken.None);
+            (bool created, ServiceError serviceError) = await service.CreateSignDocument(Guid.NewGuid(), signRequest, performedBy, CancellationToken.None);
 
             // Assert
             Assert.False(created);

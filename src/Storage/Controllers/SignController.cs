@@ -55,7 +55,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return Unauthorized();
             }
 
-            (bool created, ServiceError serviceError) = await _signingService.CreateSignDocument(instanceOwnerPartyId, instanceGuid, signRequest, performedBy, cancellationToken);
+            (bool created, ServiceError serviceError) = await _signingService.CreateSignDocument(instanceGuid, signRequest, performedBy, cancellationToken);
             
             if (created)
             {
