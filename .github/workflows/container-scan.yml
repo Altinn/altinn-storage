@@ -23,7 +23,7 @@ jobs:
       run: docker build . --tag altinn-storage:${{github.sha}}
 
     - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@0.29.0
+      uses: aquasecurity/trivy-action@0.30.0
       with:
         image-ref: 'altinn-storage:${{ github.sha }}'
         format: 'table'
