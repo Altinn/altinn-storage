@@ -45,5 +45,14 @@ namespace Altinn.Platform.Storage.Services
         /// <param name="instanceInternalId">The internal id of the data element to insert.</param>
         /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
         Task UploadDataAndCreateDataElement(string org, Stream stream, DataElement dataElement, long instanceInternalId, int? storageAccountNumber);
+
+        /// <summary>
+        /// Delete a data element and it's blob data immediately.
+        /// </summary>
+        /// <param name="instance">The instance</param>
+        /// <param name="dataElement">The data element</param>
+        /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
+        /// <returns></returns>
+        Task<DataElement> DeleteImmediately(Instance instance, DataElement dataElement, int? storageAccountNumber);
     }
 }
