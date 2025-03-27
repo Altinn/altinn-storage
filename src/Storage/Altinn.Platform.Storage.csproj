@@ -21,7 +21,7 @@
     <PackageReference Include="Azure.Storage.Queues" Version="12.22.0" />
     <PackageReference Include="JWTCookieAuthentication" Version="3.0.1" />
     <PackageReference Include="PDFsharp" Version="6.1.1" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="7.3.1" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="8.0.0" />
     <PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="7.3.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
