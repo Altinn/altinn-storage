@@ -578,7 +578,7 @@ namespace Altinn.Platform.Storage.Controllers
                     for (int j = i * maxCountInTag; j < (i + 1) * maxCountInTag && j < queryModel.InstanceOwnerPartyIdList.Count; j++)
                     {
                         parties.Append(queryModel.InstanceOwnerPartyIdList[j]);
-                        parties.Append(",");
+                        parties.Append(',');
                     }
 
                     if (parties.Length > 0)
