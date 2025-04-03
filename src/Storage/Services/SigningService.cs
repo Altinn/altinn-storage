@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Helpers;
@@ -10,7 +11,6 @@ using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.Services
 {
@@ -26,6 +26,7 @@ namespace Altinn.Platform.Storage.Services
         private readonly IDataService _dataService;
         private readonly IApplicationService _applicationService;
         private readonly IInstanceEventService _instanceEventService;
+        private static readonly JsonSerializerOptions _jsonSerializerOptions = new() { WriteIndented = true };
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SigningService"/> class.
@@ -90,10 +91,13 @@ namespace Altinn.Platform.Storage.Services
 
             signDocument.Id = dataElement.Id;
 
-            await DeleteExistingSignDocument(instance, signRequest.SignatureDocumentDataType, signDocument, cancellationToken); 
-        
-            using (var fileStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(signDocument, Formatting.Indented))))
+            await DeleteExistingSignDocumentForSignee(instance, signRequest.SignatureDocumentDataType, signDocument.SigneeInfo, cancellationToken);
+
+            using (var fileStream = new MemoryStream())
             {
+                await JsonSerializer.SerializeAsync(fileStream, signDocument, _jsonSerializerOptions, cancellationToken);
+
+                fileStream.Position = 0;
                 await _dataService.UploadDataAndCreateDataElement(instance.Org, fileStream, dataElement, instanceInternalId, app.StorageAccountNumber);
             }
             
@@ -101,55 +105,40 @@ namespace Altinn.Platform.Storage.Services
             return (true, null);
         }
 
-        private async Task DeleteExistingSignDocument(Instance instance, string signDocDataType, SignDocument newSignDocument, CancellationToken cancellationToken)
+        private async Task DeleteExistingSignDocumentForSignee(Instance instance, string signDocDataType, Signee signee, CancellationToken cancellationToken)
         {
-            try
+            Application application = await _applicationRepository.FindOne(instance.AppId, instance.Org, cancellationToken);
+            List<DataElement> signingDocDataElements = instance.Data?.Where(x => x.DataType == signDocDataType).ToList() ?? [];
+
+            List<Task<SignDocDownloadResult>> downloadAndDeserializeSignDocumentTasks = signingDocDataElements.Select(async dataElement =>
             {
-                Application application = await _applicationRepository.FindOne(instance.AppId, instance.Org, cancellationToken);
-                List<DataElement> signingDocDataElements = instance.Data?.Where(x => x.DataType == signDocDataType).ToList() ?? [];
-
-                List<Task<SignDocDownloadResult>> downloadAndDeserializeSignDocumentTasks = signingDocDataElements.Select(async dataElement =>
+                try
                 {
-                    try
-                    {
-                        Stream stream = await _blobRepository.ReadBlob(instance.Org, dataElement.BlobStoragePath, application.StorageAccountNumber, cancellationToken);
-                        var signDocument = JsonConvert.DeserializeObject<SignDocument>(await new StreamReader(stream).ReadToEndAsync(cancellationToken));
-                        return new SignDocDownloadResult { DataElement = dataElement, SignDocument = signDocument };
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error reading or deserializing blob for DataElement {DataElementId} while checking for existing signature.", dataElement.Id);
-                        return null;
-                    }
-                }).ToList();
-
-                SignDocDownloadResult[] results = await Task.WhenAll(downloadAndDeserializeSignDocumentTasks);
-
-                foreach (SignDocDownloadResult result in results)
-                {
-                    if (result is null || !SigneesAreEqual(result.SignDocument.SigneeInfo, newSignDocument.SigneeInfo))
-                    {
-                        continue;
-                    }
-
-                    try
-                    {
-                        _logger.LogInformation(
-                            "Sign document already exists for this signee. Deleting existing sign document. Data element id: {DataElementId}",
-                            result.DataElement.Id);
-
-                        await _dataService.DeleteImmediately(instance, result.DataElement, application.StorageAccountNumber);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error deleting data element {DataElementId}", result.DataElement.Id);
-                    }
+                    await using Stream stream = await _blobRepository.ReadBlob(instance.Org, dataElement.BlobStoragePath, application.StorageAccountNumber, cancellationToken);
+                    var signDocument = await JsonSerializer.DeserializeAsync<SignDocument>(stream, cancellationToken: cancellationToken);
+                    return new SignDocDownloadResult { DataElement = dataElement, SignDocument = signDocument };
                 }
-            }
-            catch (Exception ex)
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error reading or deserializing blob for DataElement {DataElementId} while checking for existing signature.", dataElement.Id);
+                    return null;
+                }
+            }).ToList();
+
+            SignDocDownloadResult[] results = await Task.WhenAll(downloadAndDeserializeSignDocumentTasks);
+
+            foreach (SignDocDownloadResult result in results)
             {
-                _logger.LogError(ex, "Error deleting existing sign document for Instance {InstanceId}", instance.Id);
-                throw;
+                if (result is null || !SigneesAreEqual(result.SignDocument.SigneeInfo, signee))
+                {
+                    continue;
+                }
+
+                _logger.LogInformation(
+                    "Sign document already exists for this signee. Deleting existing sign document. Data element id: {DataElementId}",
+                    result.DataElement.Id);
+
+                await _dataService.DeleteImmediately(instance, result.DataElement, application.StorageAccountNumber);
             }
         }
 
