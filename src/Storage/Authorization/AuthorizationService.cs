@@ -69,6 +69,7 @@ public class AuthorizationService(
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
         XacmlJsonRequestRoot xacmlJsonRequest = CreateMultiDecisionRequest(user, instances, actionTypes);
 
+        _logger.LogError("Authinfo debugs {Request}", JsonSerializer.Serialize(xacmlJsonRequest));
         XacmlJsonResponse response = await _pdp.GetDecisionForRequest(xacmlJsonRequest);
         if (response != null && response.Response?.Count > 0)
         {
