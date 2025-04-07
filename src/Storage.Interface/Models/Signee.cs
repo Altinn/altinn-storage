@@ -14,7 +14,7 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// The userId representing the signee.
         /// </summary>
         [JsonProperty(PropertyName = "userId")]
-        public string UserId { get; set; } = string.Empty;
+        public string? UserId { get; set; }
 
         /// <summary>
         /// The ID of the systemuser performing the signing
