@@ -1264,7 +1264,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
                 It.IsAny<DateTime?>()))
             .ReturnsAsync(new List<InstanceEvent>());
 
-        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null);
+        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null, null);
 
         // Act
         await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid());
@@ -1322,7 +1322,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
                 It.IsAny<DateTime?>()))
             .ReturnsAsync(eventList);
 
-        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null);
+        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null, null);
 
         // Act
         var response = await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid()) as OkObjectResult;
@@ -1349,7 +1349,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
             .Setup(rm => rm.ListInstanceEvents(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<DateTime?>(), It.IsAny<DateTime?>()))
             .ReturnsAsync(largeNumberOfEvents);
 
-        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null);
+        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null, null);
 
         // Act
         var response = await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid()) as OkObjectResult;
