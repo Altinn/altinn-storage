@@ -60,7 +60,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 esm => esm.DispatchEvent(It.Is<InstanceEventType>(ies => ies == InstanceEventType.Signed), It.IsAny<Instance>()));
 
             var applicationRepositoryMock = new Mock<IApplicationRepository>();
-            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new Application());
+            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>())).ReturnsAsync(new Application());
             
             var blobRepositoryMock = new Mock<IBlobRepository>();
 
@@ -87,7 +87,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
 
             // Act
             var performedBy = !string.IsNullOrWhiteSpace(signee.UserId) ? signee.UserId : signee.OrganisationNumber;
-            (bool created, ServiceError serviceError) = await service.CreateSignDocument(Guid.NewGuid(), signRequest, performedBy, CancellationToken.None);
+            (bool created, ServiceError serviceError) = await service.CreateSignDocument(Guid.NewGuid(), signRequest, performedBy, It.IsAny<CancellationToken>());
 
             // Assert
             Assert.True(created);
@@ -149,10 +149,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 esm => esm.DispatchEvent(It.Is<InstanceEventType>(ies => ies == InstanceEventType.Signed), It.IsAny<Instance>()));
 
             var applicationRepositoryMock = new Mock<IApplicationRepository>();
-            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new Application());
+            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>())).ReturnsAsync(new Application());
 
             var blobRepositoryMock = new Mock<IBlobRepository>();
-            blobRepositoryMock.Setup(x => x.ReadBlob(It.IsAny<string>(), It.IsAny<string>(), null, It.IsAny<CancellationToken>())).ReturnsAsync(new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(oldSignDocument)));
+            blobRepositoryMock.Setup(x => x.ReadBlob(It.IsAny<string>(), It.IsAny<string>(), null, It.IsAny<CancellationToken?>())).ReturnsAsync(new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(oldSignDocument)));
 
             blobRepositoryMock.Setup(x => x.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>())).ReturnsAsync(true);
             
@@ -177,7 +177,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             };
             
             string? performedBy = !string.IsNullOrWhiteSpace(signee.UserId) ? signee.UserId : signee.OrganisationNumber;
-            (bool created, ServiceError serviceError) = await service.CreateSignDocument(Guid.NewGuid(), signRequest, performedBy, CancellationToken.None);
+            (bool created, ServiceError serviceError) = await service.CreateSignDocument(Guid.NewGuid(), signRequest, performedBy, It.IsAny<CancellationToken>());
 
             // Assert
             Assert.True(created);
@@ -203,7 +203,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             var instanceEventServiceMock = new Mock<IInstanceEventService>();
 
             var applicationRepositoryMock = new Mock<IApplicationRepository>();
-            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new Application());
+            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>())).ReturnsAsync(new Application());
 
             var blobRepositoryMock = new Mock<IBlobRepository>();
             
@@ -219,7 +219,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 loggerMock.Object);
 
             // Act
-            (bool created, ServiceError serviceError) = await service.CreateSignDocument(Guid.NewGuid(), new SignRequest(), "1337", CancellationToken.None);
+            (bool created, ServiceError serviceError) = await service.CreateSignDocument(Guid.NewGuid(), new SignRequest(), "1337", It.IsAny<CancellationToken>());
 
             // Assert
             Assert.False(created);
@@ -247,10 +247,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             var instanceEventServiceMock = new Mock<IInstanceEventService>();
 
             var applicationRepositoryMock = new Mock<IApplicationRepository>();
-            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new Application());
+            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>())).ReturnsAsync(new Application());
             
             var blobRepositoryMock = new Mock<IBlobRepository>();
-            blobRepositoryMock.Setup(x => x.ReadBlob(It.IsAny<string>(), It.IsAny<string>(), null, It.IsAny<CancellationToken>())).ReturnsAsync(new MemoryStream("whatever"u8.ToArray()));
+            blobRepositoryMock.Setup(x => x.ReadBlob(It.IsAny<string>(), It.IsAny<string>(), null, It.IsAny<CancellationToken?>())).ReturnsAsync(new MemoryStream("whatever"u8.ToArray()));
             
             var loggerMock = new Mock<ILogger<SigningService>>();
             
@@ -264,7 +264,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 loggerMock.Object);
 
             // Act
-            (bool created, ServiceError serviceError) = await service.CreateSignDocument(Guid.NewGuid(), new SignRequest(), "1337", CancellationToken.None);
+            (bool created, ServiceError serviceError) = await service.CreateSignDocument(Guid.NewGuid(), new SignRequest(), "1337", It.IsAny<CancellationToken>());
 
             // Assert
             Assert.False(created);
@@ -291,7 +291,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                 .ReturnsAsync((true, null));
 
             var applicationRepositoryMock = new Mock<IApplicationRepository>();
-            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new Application());
+            applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>())).ReturnsAsync(new Application());
 
             var dataServiceMock = new Mock<IDataService>();
             dataServiceMock.Setup(
@@ -301,7 +301,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             var instanceEventServiceMock = new Mock<IInstanceEventService>();
 
             var blobRepositoryMock = new Mock<IBlobRepository>();
-            blobRepositoryMock.Setup(x => x.ReadBlob(It.IsAny<string>(), It.IsAny<string>(), null, It.IsAny<CancellationToken>())).ReturnsAsync(new MemoryStream("whatever"u8.ToArray()));
+            blobRepositoryMock.Setup(x => x.ReadBlob(It.IsAny<string>(), It.IsAny<string>(), null, It.IsAny<CancellationToken?>())).ReturnsAsync(new MemoryStream("whatever"u8.ToArray()));
             
             var loggerMock = new Mock<ILogger<SigningService>>();
             
@@ -326,7 +326,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
 
             // Act
             var performedBy = !string.IsNullOrWhiteSpace(signee.UserId) ? signee.UserId : signee.OrganisationNumber;
-            (bool created, ServiceError serviceError) = await service.CreateSignDocument(Guid.NewGuid(), signRequest, performedBy, CancellationToken.None);
+            (bool created, ServiceError serviceError) = await service.CreateSignDocument(Guid.NewGuid(), signRequest, performedBy, It.IsAny<CancellationToken>());
 
             // Assert
             Assert.False(created);

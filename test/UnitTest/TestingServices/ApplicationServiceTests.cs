@@ -28,7 +28,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             // Arrange
             Application application = CreateApplication("ttd", "test-app");
 
-            _applicationRepositoryMock.Setup(arm => arm.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(application);
+            _applicationRepositoryMock.Setup(arm => arm.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>())).ReturnsAsync(application);
 
             ApplicationService applicationService = new(_applicationRepositoryMock.Object);
 
@@ -61,7 +61,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             // Arrange
             Application application = CreateApplication("ttd", "test-app");
 
-            _applicationRepositoryMock.Setup(arm => arm.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(application);
+            _applicationRepositoryMock.Setup(arm => arm.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>())).ReturnsAsync(application);
 
             ApplicationService applicationService = new(_applicationRepositoryMock.Object);
 
@@ -80,7 +80,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             // Arrange
             Application application = CreateApplication("ttd", "test-app");
 
-            _applicationRepositoryMock.Setup(arm => arm.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(application);
+            _applicationRepositoryMock.Setup(arm => arm.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>())).ReturnsAsync(application);
 
             ApplicationService applicationService = new(_applicationRepositoryMock.Object);
 
@@ -118,7 +118,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             Application expectedApp = new();
 
             _applicationRepositoryMock
-                .Setup(repo => repo.FindOne(appId, expectedOrg, CancellationToken.None))
+                .Setup(repo => repo.FindOne(appId, expectedOrg, It.IsAny<CancellationToken?>()))
                 .ReturnsAsync(new Application());
 
             ApplicationService applicationService = new(_applicationRepositoryMock.Object);
@@ -129,7 +129,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             // Assert
             Assert.NotNull(app);
             Assert.Null(error);
-            _applicationRepositoryMock.Verify(repo => repo.FindOne(appId, expectedOrg, CancellationToken.None), Times.Once);
+            _applicationRepositoryMock.Verify(repo => repo.FindOne(appId, expectedOrg, It.IsAny<CancellationToken?>()), Times.Once);
         }
 
         [Fact]
@@ -140,7 +140,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             string expectedOrg = "org123";
 
             _applicationRepositoryMock
-                .Setup(repo => repo.FindOne(appId, expectedOrg, CancellationToken.None))
+                .Setup(repo => repo.FindOne(appId, expectedOrg, It.IsAny<CancellationToken?>()))
                 .ReturnsAsync((Application)null);
 
             ApplicationService applicationService = new(_applicationRepositoryMock.Object);
@@ -166,7 +166,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             var exception = new Exception("Test exception");
 
             _applicationRepositoryMock
-                .Setup(repo => repo.FindOne(appId, expectedOrg, CancellationToken.None))
+                .Setup(repo => repo.FindOne(appId, expectedOrg, It.IsAny<CancellationToken?>()))
                 .ThrowsAsync(exception);
 
             ApplicationService applicationService = new(_applicationRepositoryMock.Object);
