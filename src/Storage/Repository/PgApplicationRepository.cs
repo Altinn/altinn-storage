@@ -88,7 +88,7 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<Application> FindOne(string appId, string org, CancellationToken? cancellationToken)
+        public async Task<Application> FindOne(string appId, string org, CancellationToken? cancellationToken = null)
         {
             string cacheKey = $"aid:{appId}";
             if (!_memoryCache.TryGetValue(cacheKey, out Application application))
