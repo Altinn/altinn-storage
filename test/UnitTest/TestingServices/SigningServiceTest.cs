@@ -36,7 +36,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         {
             // Arrange
             var instanceRepositoryMock = new Mock<IInstanceRepository>();
-            instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), false, It.IsAny<CancellationToken>())).ReturnsAsync((new Instance()
+            instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>())).ReturnsAsync((new Instance()
             {
                 InstanceOwner = new(),
                 Process = new ProcessState { CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" } },
@@ -196,7 +196,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         {
             // Arrange
             var instanceRepositoryMock = new Mock<IInstanceRepository>();
-            instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), false, It.IsAny<CancellationToken>())).ReturnsAsync(((Instance?)null, 0));
+            instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>())).ReturnsAsync(((Instance?)null, 0));
 
             var applicationServiceMock = new Mock<IApplicationService>();
             var dataServiceMock = new Mock<IDataService>();
@@ -232,7 +232,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         {
             // Arrange
             var instanceRepositoryMock = new Mock<IInstanceRepository>();
-            instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), false, It.IsAny<CancellationToken>())).ReturnsAsync((new Instance()
+            instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>())).ReturnsAsync((new Instance()
             {
                 InstanceOwner = new(),
                 Process = new ProcessState { CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" } }
@@ -279,7 +279,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         {
             // Arrange
             var instanceRepositoryMock = new Mock<IInstanceRepository>();
-            instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), false, It.IsAny<CancellationToken>())).ReturnsAsync((new Instance()
+            instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>())).ReturnsAsync((new Instance()
             {
                 InstanceOwner = new(),
                 Process = new ProcessState { CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" } }
