@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-
+using System.ComponentModel;
 using Altinn.Platform.Storage.Helpers;
 
 using Microsoft.AspNetCore.Mvc;
@@ -155,13 +155,14 @@ namespace Altinn.Platform.Storage.Models
         public string InstanceOwnerIdentifier { get; set; }
 
         /// <summary>
-        /// Gets or sets altinn version to include
+        /// The Altinn version to include. E.g. "mainVersionInclude=3" will filter the response to only get the Altinn 3 instances.
         /// </summary>
+        [DefaultValue(3)]
         [FromQuery(Name = _mainVersionIncludeParameterName)]
         public int? MainVersionInclude { get; set; }
 
         /// <summary>
-        /// Gets or sets altinn version to exclude
+        /// The Altinn version to exclude. E.g. "mainVersionExclude=3" will filter the response to exclude Altinn 3 instances.
         /// </summary>
         [FromQuery(Name = _mainVersionExcludeParameterName)]
         public int? MainVersionExclude { get; set; }

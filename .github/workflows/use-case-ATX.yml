@@ -14,45 +14,45 @@ jobs:
     environment: ${{ matrix.environment }}
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
     - name: Run use case tests for endpoint 'applications'
-      uses: grafana/k6-action@v0.3.1
+      uses: grafana/k6-action@e4714b734f2b0afaabeb7b4a69142745548ab9ec # v0.3.1
       with:
         filename: test/k6/src/tests/applications.js
         flags: -e env=${{ vars.ENV }} -e org=${{ vars.ORG }} -e app=${{ vars.APP }}
     - name: Run use case tests for endpoint 'instances'
       if: always()
-      uses: grafana/k6-action@v0.3.1
+      uses: grafana/k6-action@e4714b734f2b0afaabeb7b4a69142745548ab9ec # v0.3.1
       with:
         filename: test/k6/src/tests/instances.js
         flags: -e tokenGeneratorUserName=${{ secrets.TOKENGENERATOR_USERNAME }} -e tokenGeneratorUserPwd=${{ secrets.TOKENGENERATOR_USERPASSWORD }} -e env=${{ vars.ENV }} -e pid=${{ secrets.PERSON_NUMBER }} -e partyId=${{ secrets.PARTY_ID }} -e userId=${{ secrets.USER_ID }} -e org=${{ vars.ORG }} -e app=${{ vars.APP }} -e apimSubsKey=${{ secrets.APIM_SUBSKEY }} -e useTestTokenGenerator=true
     - name: Run use case tests for endpoint 'instances/sbl'
       if: always()
-      uses: grafana/k6-action@v0.3.1
+      uses: grafana/k6-action@e4714b734f2b0afaabeb7b4a69142745548ab9ec # v0.3.1
       with:
         filename: test/k6/src/tests/messageboxinstances.js
         flags: -e tokenGeneratorUserName=${{ secrets.TOKENGENERATOR_USERNAME }} -e tokenGeneratorUserPwd=${{ secrets.TOKENGENERATOR_USERPASSWORD }} -e env=${{ vars.ENV }} -e pid=${{ secrets.PERSON_NUMBER }} -e partyId=${{ secrets.PARTY_ID }} -e userId=${{ secrets.USER_ID }} -e org=${{ vars.ORG }} -e app=${{ vars.APP }} -e apimSubsKey=${{ secrets.APIM_SUBSKEY }} -e apimSblSubsKey=${{ secrets.APIM_SBL_SUBSKEY }} -e useTestTokenGenerator=true
     - name: Run use case tests for endpoint 'data'
       if: always()
-      uses: grafana/k6-action@v0.3.1
+      uses: grafana/k6-action@e4714b734f2b0afaabeb7b4a69142745548ab9ec # v0.3.1
       with:
         filename: test/k6/src/tests/data.js
         flags: -e tokenGeneratorUserName=${{ secrets.TOKENGENERATOR_USERNAME }} -e tokenGeneratorUserPwd=${{ secrets.TOKENGENERATOR_USERPASSWORD }} -e env=${{ vars.ENV }} -e pid=${{ secrets.PERSON_NUMBER }} -e partyId=${{ secrets.PARTY_ID }} -e userId=${{ secrets.USER_ID }} -e org=${{ vars.ORG }} -e app=${{ vars.APP }} -e apimSubsKey=${{ secrets.APIM_SUBSKEY }} -e useTestTokenGenerator=true
     - name: Run use case tests for endpoint 'process'
       if: always()
-      uses: grafana/k6-action@v0.3.1
+      uses: grafana/k6-action@e4714b734f2b0afaabeb7b4a69142745548ab9ec # v0.3.1
       with:
         filename: test/k6/src/tests/process.js
         flags: -e tokenGeneratorUserName=${{ secrets.TOKENGENERATOR_USERNAME }} -e tokenGeneratorUserPwd=${{ secrets.TOKENGENERATOR_USERPASSWORD }} -e env=${{ vars.ENV }} -e pid=${{ secrets.PERSON_NUMBER }} -e partyId=${{ secrets.PARTY_ID }} -e userId=${{ secrets.USER_ID }} -e org=${{ vars.ORG }} -e app=${{ vars.APP }} -e apimSubsKey=${{ secrets.APIM_SUBSKEY }} -e useTestTokenGenerator=true
     - name: Run use case tests for endpoint 'sign'
       if: always()
-      uses: grafana/k6-action@v0.3.1
+      uses: grafana/k6-action@e4714b734f2b0afaabeb7b4a69142745548ab9ec # v0.3.1
       with:
         filename: test/k6/src/tests/sign.js
         flags: -e tokenGeneratorUserName=${{ secrets.TOKENGENERATOR_USERNAME }} -e tokenGeneratorUserPwd=${{ secrets.TOKENGENERATOR_USERPASSWORD }} -e env=${{ vars.ENV }} -e pid=${{ secrets.PERSON_NUMBER }} -e partyId=${{ secrets.PARTY_ID }} -e userId=${{ secrets.USER_ID }}  -e org=${{ vars.ORG }} -e app=${{ vars.APP }} -e apimSubsKey=${{ secrets.APIM_SUBSKEY }} -e useTestTokenGenerator=true
     - name: Run use case tests for endpoint 'texts'
       if: always()
-      uses: grafana/k6-action@v0.3.1
+      uses: grafana/k6-action@e4714b734f2b0afaabeb7b4a69142745548ab9ec # v0.3.1
       with:
         filename: test/k6/src/tests/texts.js
         flags: -e tokenGeneratorUserName=${{ secrets.TOKENGENERATOR_USERNAME }} -e tokenGeneratorUserPwd=${{ secrets.TOKENGENERATOR_USERPASSWORD }} -e env=${{ vars.ENV }} -e pid=${{ secrets.PERSON_NUMBER }} -e partyId=${{ secrets.PARTY_ID }} -e userId=${{ secrets.USER_ID }} -e org=${{ vars.ORG }} -e app=${{ vars.APP }} -e apimSubsKey=${{ secrets.APIM_SUBSKEY }} -e useTestTokenGenerator=true
@@ -67,7 +67,7 @@ jobs:
     - name: Report failure to Slack
       if: failure()
       id: slack
-      uses: slackapi/slack-github-action@v2.0.0
+      uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
       with:
         webhook-type: incoming-webhook
         webhook: ${{ secrets.SLACK_WEBHOOK_URL_TEST }}

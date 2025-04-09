@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,6 +17,7 @@ using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 
 namespace Altinn.Platform.Storage.Controllers
@@ -33,6 +35,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IApplicationRepository _applicationRepository;
         private readonly IAuthorization _authorizationService;
         private readonly IApplicationService _applicationService;
+        private readonly ILogger _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MessageBoxInstancesController"/> class
@@ -43,13 +46,15 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="applicationRepository">the application repository handler</param>
         /// <param name="authorizationService">the authorization service</param>
         /// <param name="applicationService">the application service</param>
+        /// <param name="logger">The logger</param>
         public MessageBoxInstancesController(
             IInstanceRepository instanceRepository,
             IInstanceEventRepository instanceEventRepository,
             ITextRepository textRepository,
             IApplicationRepository applicationRepository,
             IAuthorization authorizationService,
-            IApplicationService applicationService)
+            IApplicationService applicationService,
+            ILogger<MessageBoxInstancesController> logger)
         {
             _instanceRepository = instanceRepository;
             _instanceEventRepository = instanceEventRepository;
@@ -57,6 +62,7 @@ namespace Altinn.Platform.Storage.Controllers
             _applicationRepository = applicationRepository;
             _authorizationService = authorizationService;
             _applicationService = applicationService;
+            _logger = logger;
         }
 
         /// <summary>
@@ -84,27 +90,34 @@ namespace Altinn.Platform.Storage.Controllers
                 queryModel.IncludeActive = false;
             }
 
-            InstanceQueryParameters queryParams = GetQueryParams(queryModel);
-            GetStatusFromQueryParams(queryModel.IncludeActive, queryModel.IncludeArchived, queryModel.IncludeDeleted, queryParams);
-            queryParams.Size = 5000;
-            queryParams.IsHardDeleted = false;
-            queryParams.SortBy = "desc:lastChanged";
-
-            if (!string.IsNullOrEmpty(queryModel.SearchString))
+            try
             {
-                queryParams.AppIds = await MatchStringToAppTitle(queryModel.SearchString);
+                InstanceQueryParameters queryParams = GetQueryParams(queryModel);
+                GetStatusFromQueryParams(queryModel.IncludeActive, queryModel.IncludeArchived, queryModel.IncludeDeleted, queryParams);
+                queryParams.Size = 5000;
+                queryParams.IsHardDeleted = false;
+                queryParams.SortBy = "desc:lastChanged";
+
+                if (!string.IsNullOrEmpty(queryModel.SearchString))
+                {
+                    queryParams.AppIds = await MatchStringToAppTitle(queryModel.SearchString);
+                }
+
+                InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesFromQuery(queryParams, false, cancellationToken);
+
+                AddQueryModelToTelemetry(queryModel);
+
+                if (queryResponse?.Exception != null)
+                {
+                    return StatusCode(500, queryResponse.Exception);
+                }
+
+                return await ProcessQueryResponse(queryResponse, queryModel.Language, cancellationToken);
             }
-
-            InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesFromQuery(queryParams, false, cancellationToken);
-
-            AddQueryModelToTelemetry(queryModel);
-
-            if (queryResponse?.Exception != null)
+            catch (Exception e)
             {
-                return StatusCode(500, queryResponse.Exception);
+                return StatusCode(cancellationToken.IsCancellationRequested ? 499 : 500, $"Unable to perform query on instances due to: {e.Message}");
             }
-
-            return await ProcessQueryResponse(queryResponse, queryModel.Language, cancellationToken);
         }
 
         /// <summary>
@@ -521,7 +534,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (cancellationToken.IsCancellationRequested)
             {
-                return StatusCode(500, "Request was cancelled.");
+                return StatusCode(499, "Request was cancelled.");
             }
 
             List<MessageBoxInstance> authorizedInstances =
@@ -540,9 +553,40 @@ namespace Altinn.Platform.Storage.Controllers
             return Ok(authorizedInstances);
         }
 
-        private static void AddQueryModelToTelemetry(MessageBoxQueryModel queryModel)
+        private void AddQueryModelToTelemetry(MessageBoxQueryModel queryModel)
         {
-            Activity.Current?.AddTag("search.queryModel", JsonSerializer.Serialize(queryModel));
+            int maxCountInTag = 800; // Max property size and trace payload size in Application Insights is 8192 bytes
+
+            if ((queryModel.InstanceOwnerPartyIdList?.Count ?? 0) < maxCountInTag)
+            {
+                Activity.Current?.AddTag("search.queryModel", JsonSerializer.Serialize(queryModel));
+            }
+            else
+            {
+                List<int> savedList = queryModel.InstanceOwnerPartyIdList;
+                queryModel.InstanceOwnerPartyIdList = null;
+                Activity.Current?.AddTag("search.queryModel", JsonSerializer.Serialize(queryModel));
+                queryModel.InstanceOwnerPartyIdList = savedList;
+
+                Activity.Current?.AddTag(
+                    "search.queryModel.instanceOwnerPartyIdList",
+                    $"Too large to log here. Logged in separate trace. Size: {queryModel.InstanceOwnerPartyIdList.Count}");
+
+                for (int i = 0; i <= queryModel.InstanceOwnerPartyIdList.Count / maxCountInTag; i++)
+                {
+                    StringBuilder parties = new();
+                    for (int j = i * maxCountInTag; j < (i + 1) * maxCountInTag && j < queryModel.InstanceOwnerPartyIdList.Count; j++)
+                    {
+                        parties.Append(queryModel.InstanceOwnerPartyIdList[j]);
+                        parties.Append(',');
+                    }
+
+                    if (parties.Length > 0)
+                    {
+                        _logger.LogInformation("InstanceOwnerPartyIdList {I}: {Parties}", i, parties.ToString()[..^1]);
+                    }
+                }
+            }
         }
     }
 }

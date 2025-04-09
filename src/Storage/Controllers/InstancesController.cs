@@ -240,7 +240,8 @@ namespace Altinn.Platform.Storage.Controllers
 
                 if (!string.IsNullOrEmpty(result.Exception))
                 {
-                    return BadRequest(result.Exception);
+                    _logger.LogError("Unable to perform query on instances: {Exception}", result.Exception);
+                    return StatusCode(cancellationToken.IsCancellationRequested ? 499 : 500, result.Exception);
                 }
 
                 if (!appOwnerOrSyncAdapterRequestingInstances)
@@ -281,7 +282,7 @@ namespace Altinn.Platform.Storage.Controllers
             catch (Exception e)
             {
                 _logger.LogError(e, "Unable to perform query on instances");
-                return StatusCode(500, $"Unable to perform query on instances due to: {e.Message}");
+                return StatusCode(cancellationToken.IsCancellationRequested ? 499 : 500, $"Unable to perform query on instances due to: {e.Message}");
             }
         }
 
