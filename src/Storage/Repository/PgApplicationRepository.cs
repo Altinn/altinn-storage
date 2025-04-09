@@ -88,7 +88,7 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<Application> FindOne(string appId, string org, CancellationToken? cancellationToken = null)
+        public async Task<Application> FindOne(string appId, string org, CancellationToken cancellationToken = default)
         {
             string cacheKey = $"aid:{appId}";
             if (!_memoryCache.TryGetValue(cacheKey, out Application application))
@@ -96,10 +96,10 @@ namespace Altinn.Platform.Storage.Repository
                 await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readByIdSql);
                 pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, GetAppFromAppId(appId));
                 pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, org);
-                await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken ?? CancellationToken.None);
-                if (await reader.ReadAsync(cancellationToken ?? CancellationToken.None))
+                await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
+                if (await reader.ReadAsync(cancellationToken))
                 {
-                    application = await reader.GetFieldValueAsync<Application>("application", cancellationToken ?? CancellationToken.None);
+                    application = await reader.GetFieldValueAsync<Application>("application", cancellationToken);
                     _memoryCache.Set(cacheKey, application, _cacheEntryOptionsMetadata);
                 }
                 else

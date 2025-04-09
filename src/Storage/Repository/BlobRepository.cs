@@ -44,7 +44,7 @@ namespace Altinn.Platform.Storage.Repository
             .SetAbsoluteExpiration(new TimeSpan(10, 0, 0));
 
         /// <inheritdoc/>
-        public async Task<Stream> ReadBlob(string org, string blobStoragePath, int? storageAccountNumber, CancellationToken? cancellationToken = null)
+        public async Task<Stream> ReadBlob(string org, string blobStoragePath, int? storageAccountNumber, CancellationToken cancellationToken = default)
         {
             try
             {

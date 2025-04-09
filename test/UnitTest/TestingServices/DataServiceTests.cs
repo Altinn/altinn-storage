@@ -87,7 +87,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             
             dataRepositoryMock.Setup(drm => drm.Read(It.IsAny<Guid>(), It.IsAny<Guid>())).ReturnsAsync(dataElement);
             blobRepositoryMock.Setup(
-                drm => drm.ReadBlob(It.IsAny<string>(), blobStoragePath, null, It.IsAny<CancellationToken?>()))
+                drm => drm.ReadBlob(It.IsAny<string>(), blobStoragePath, null, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new MemoryStream(blobStorageBytes));
 
             DataService dataService = new DataService(fileScanQueueClientMock.Object, dataRepositoryMock.Object, blobRepositoryMock.Object, instanceEventServiceMock.Object);

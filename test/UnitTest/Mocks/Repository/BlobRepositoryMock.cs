@@ -15,7 +15,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return await Task.FromResult(true);
         }
 
-        public async Task<Stream> ReadBlob(string org, string blobStoragePath, int? storageAccountNumber, CancellationToken? cancellationToken = null)
+        public async Task<Stream> ReadBlob(string org, string blobStoragePath, int? storageAccountNumber, CancellationToken cancellationToken = default)
         {
             string dataPath = Path.Combine(GetDataBlobPath(), blobStoragePath);
             Stream fs = File.OpenRead(dataPath);

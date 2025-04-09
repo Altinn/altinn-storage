@@ -91,7 +91,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Application appInfo = CreateApplication(org, appName);
 
             Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-            applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>())).ReturnsAsync((Application)null);
+            applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync((Application)null);
             applicationRepository.Setup(s => s.Create(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
 
             HttpClient client = GetTestClient(applicationRepository.Object);
@@ -129,7 +129,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Application appInfo = CreateApplication(org, appName);
 
             Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-            applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>())).ThrowsAsync(new Exception());
+            applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ThrowsAsync(new Exception());
             applicationRepository.Setup(s => s.Create(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
 
             HttpClient client = GetTestClient(applicationRepository.Object);
@@ -162,7 +162,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Application appInfo = CreateApplication(org, appName);
 
             Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-            applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>())).ThrowsAsync(new Exception());
+            applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ThrowsAsync(new Exception());
             applicationRepository.Setup(s => s.Create(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
 
             HttpClient client = GetTestClient(applicationRepository.Object);
@@ -244,7 +244,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             newApp.VersionId = "v1.0.1";
 
             Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-            applicationRepository.Setup(e => e.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>())).ReturnsAsync(new Application
+            applicationRepository.Setup(e => e.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new Application
             {
                 Id = newApp.Id,
                 Org = newApp.Org,
@@ -313,7 +313,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             newApp.VersionId = "v1.0.1";
 
             Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-            applicationRepository.Setup(e => e.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>())).ReturnsAsync(new Application
+            applicationRepository.Setup(e => e.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new Application
             {
                 Id = newApp.Id,
                 Org = newApp.Org,
@@ -363,7 +363,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Application appInfo = CreateApplication(org, appName);
 
             Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-            applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>())).ReturnsAsync(appInfo);
+            applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(appInfo);
             applicationRepository.Setup(s => s.Update(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
 
             HttpClient client = GetTestClient(applicationRepository.Object);
@@ -397,7 +397,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Application appInfo = CreateApplication(org, appName);
 
             Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-            applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>())).ReturnsAsync(appInfo);
+            applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(appInfo);
             applicationRepository.Setup(s => s.Update(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
 
             HttpClient client = GetTestClient(applicationRepository.Object);
@@ -433,7 +433,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Application appInfo = CreateApplication(org, appName);
 
             Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-            applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>())).ReturnsAsync(appInfo);
+            applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(appInfo);
             applicationRepository.Setup(s => s.Update(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
 
             HttpClient client = GetTestClient(applicationRepository.Object);
@@ -468,7 +468,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Application originalApp = CreateApplication(org, appName);
 
             Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-            applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>())).ReturnsAsync(originalApp);
+            applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(originalApp);
             applicationRepository.Setup(s => s.Update(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
 
             HttpClient client = GetTestClient(applicationRepository.Object);
@@ -509,7 +509,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Application originalApp = CreateApplication(org, appName);
 
             Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-            applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>())).ReturnsAsync(originalApp);
+            applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(originalApp);
             applicationRepository.Setup(s => s.Update(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
 
             HttpClient client = GetTestClient(applicationRepository.Object);
@@ -544,7 +544,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Application originalApp = CreateApplication(org, appName);
 
             Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-            applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>())).ReturnsAsync(originalApp);
+            applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(originalApp);
             applicationRepository.Setup(s => s.Update(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
 
             HttpClient client = GetTestClient(applicationRepository.Object);
@@ -645,7 +645,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
             applicationRepository
-              .Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>()))
+              .Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
               .ReturnsAsync((Application)null);
 
             HttpClient client = GetTestClient(applicationRepository.Object);
@@ -655,7 +655,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-            applicationRepository.Verify(m => m.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>()), Times.Once);
+            applicationRepository.Verify(m => m.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
         }
 
         /// <summary>
@@ -669,7 +669,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
             applicationRepository
-              .Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>()))
+              .Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
               .ReturnsAsync(new Application { Id = "ttd/existing-app" });
 
             HttpClient client = GetTestClient(applicationRepository.Object);
@@ -679,7 +679,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            applicationRepository.Verify(m => m.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken?>()), Times.Once);
+            applicationRepository.Verify(m => m.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
         }
 
         private HttpClient GetTestClient(IApplicationRepository applicationRepository)

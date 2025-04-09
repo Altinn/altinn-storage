@@ -29,7 +29,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>The stream with the file</returns>
-        Task<Stream> ReadBlob(string org, string blobStoragePath, int? storageAccountNumber, CancellationToken? cancellationToken = null);
+        Task<Stream> ReadBlob(string org, string blobStoragePath, int? storageAccountNumber, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Deletes the blob element permanently

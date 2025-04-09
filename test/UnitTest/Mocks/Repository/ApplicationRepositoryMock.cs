@@ -23,7 +23,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             throw new NotImplementedException();
         }
 
-        public async Task<Application> FindOne(string appId, string org, CancellationToken? cancellationToken = null)
+        public async Task<Application> FindOne(string appId, string org, CancellationToken cancellationToken = default)
         {
             return await Task.FromResult(GetTestApplication(org, appId.Split("/")[1]));
         }
