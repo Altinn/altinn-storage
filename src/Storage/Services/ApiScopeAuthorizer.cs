@@ -36,6 +36,11 @@ public enum InstanceOperation
 /// </summary>
 internal sealed class ApiScopeAuthorizer : BackgroundService, IApiScopeAuthorizer
 {
+    /// <summary>
+    /// Scope added by altinn-authentication identifying logins through the Altinn portal.
+    /// </summary>
+    public static readonly string PortalUserApiScope = "altinn:portal/enduser";
+
     private readonly ILogger<ApiScopeAuthorizer> _logger;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IApplicationRepository _applicationRepository;
@@ -118,10 +123,11 @@ internal sealed class ApiScopeAuthorizer : BackgroundService, IApiScopeAuthorize
             return false;
         }
 
-        var scopeClaim = _httpContextAccessor.HttpContext.User.FindFirst("scope")?.Value;
+        var scopeClaim = user.FindFirst("urn:altinn:scope")?.Value;
+        scopeClaim ??= user.FindFirst("scope")?.Value;
         var scopes = new Scopes(scopeClaim);
 
-        if (scopes.HasScope("altinn:portal/enduser"))
+        if (scopes.HasScope(PortalUserApiScope))
         {
             // This scope is owned by Altinn portal (digdir)
             // and should give access to all apps in Altinn (you don't choose an app by logging in)
@@ -142,7 +148,7 @@ internal sealed class ApiScopeAuthorizer : BackgroundService, IApiScopeAuthorize
             throw new Exception($"Invalid appId format, expected 'org/appName': {appId}");
         }
 
-        var app = await _applicationRepository.FindOne(appName, org);
+        var app = await _applicationRepository.FindOne(appId, org);
         if (app is null)
         {
             throw new InvalidOperationException($"Application {appId} not found");
