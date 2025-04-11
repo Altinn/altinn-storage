@@ -110,7 +110,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}";
 
         HttpClient client = GetTestClient();
-        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        string token = PrincipalUtil.GetToken(3, 1337, 3, scopes: [PrincipalUtil.AltinnPortalUserScope]);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
@@ -136,7 +136,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}";
 
         HttpClient client = GetTestClient();
-        string token = PrincipalUtil.GetOrgToken("foo", scope: "altinn:storage/instances.syncadapter");
+        string token = PrincipalUtil.GetOrgToken("foo", scope: "altinn:storage/instances.syncadapter altinn:serviceowner/instances.read");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
@@ -375,7 +375,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string requestUri = $"{BasePath}/{instanceOwnerId}/{instanceGuid}?hard=true";
 
         HttpClient client = GetTestClient();
-        string token = PrincipalUtil.GetOrgToken("tdd");
+        string token = PrincipalUtil.GetOrgToken("tdd", scope: "altinn:serviceowner/instances.write");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
@@ -399,7 +399,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}?hard=true";
 
         HttpClient client = GetTestClient();
-        string token = PrincipalUtil.GetOrgToken("foo", scope: "altinn:storage/instances.syncadapter");
+        string token = PrincipalUtil.GetOrgToken("foo", scope: "altinn:storage/instances.syncadapter altinn:serviceowner/instances.write");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
@@ -430,7 +430,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string requestUri = $"{BasePath}/{instanceOwnerId}/{instanceGuid}";
 
         HttpClient client = GetTestClient();
-        string token = PrincipalUtil.GetToken(1337, 1337);
+        string token = PrincipalUtil.GetToken(1337, 1337, scopes: [PrincipalUtil.AltinnPortalUserScope]);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
@@ -461,7 +461,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         applicationService.Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>())).ReturnsAsync((null, new ServiceError(500, "Something went wrong")));
 
         HttpClient client = GetTestClient(applicationService: applicationService);
-        string token = PrincipalUtil.GetToken(1337, 1337);
+        string token = PrincipalUtil.GetToken(1337, 1337, scopes: [PrincipalUtil.AltinnPortalUserScope]);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
@@ -488,7 +488,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         applicationService.Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>())).ReturnsAsync((null, new ServiceError(404, "Not found")));
 
         HttpClient client = GetTestClient(applicationService: applicationService);
-        string token = PrincipalUtil.GetToken(1337, 1337);
+        string token = PrincipalUtil.GetToken(1337, 1337, scopes: [PrincipalUtil.AltinnPortalUserScope]);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
@@ -525,7 +525,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         applicationServiceMock.Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>())).ReturnsAsync((application, null));
 
         HttpClient client = GetTestClient(applicationService: applicationServiceMock);
-        string token = PrincipalUtil.GetToken(1337, 1337);
+        string token = PrincipalUtil.GetToken(1337, 1337, scopes: [PrincipalUtil.AltinnPortalUserScope]);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
@@ -562,7 +562,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         };
 
         HttpClient client = GetTestClient(applicationService: applicationServiceMock);
-        string token = PrincipalUtil.GetToken(1337, 1337);
+        string token = PrincipalUtil.GetToken(1337, 1337, scopes: [PrincipalUtil.AltinnPortalUserScope]);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
@@ -601,7 +601,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         };
 
         HttpClient client = GetTestClient(applicationService: applicationServiceMock);
-        string token = PrincipalUtil.GetToken(1337, 1337);
+        string token = PrincipalUtil.GetToken(1337, 1337, scopes: [PrincipalUtil.AltinnPortalUserScope]);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
@@ -1262,7 +1262,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
         HttpClient client = GetTestClient();
 
-        string token = PrincipalUtil.GetOrgToken(org);
+        string token = PrincipalUtil.GetOrgToken(org, scope: "altinn:serviceowner/instances.write");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
@@ -1299,7 +1299,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
         HttpClient client = GetTestClient();
 
-        string token = PrincipalUtil.GetOrgToken(org);
+        string token = PrincipalUtil.GetOrgToken(org, scope: "altinn:serviceowner/instances.write");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
@@ -1327,7 +1327,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
         HttpClient client = GetTestClient();
 
-        string token = PrincipalUtil.GetOrgToken(org);
+        string token = PrincipalUtil.GetOrgToken(org, scope: "altinn:serviceowner/instances.write");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
@@ -1429,7 +1429,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
         HttpClient client = GetTestClient();
 
-        string token = PrincipalUtil.GetToken(3, 1337, 2);
+        string token = PrincipalUtil.GetToken(3, 1337, 2, scopes: [PrincipalUtil.AltinnPortalUserScope]);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Put, requestUri);
 
@@ -1461,7 +1461,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/readstatus?status=unread";
         HttpClient client = GetTestClient();
 
-        string token = PrincipalUtil.GetToken(3, 1337, 2);
+        string token = PrincipalUtil.GetToken(3, 1337, 2, scopes: [PrincipalUtil.AltinnPortalUserScope]);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Put, requestUri);
 
@@ -1526,7 +1526,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
         HttpClient client = GetTestClient();
 
-        string token = PrincipalUtil.GetOrgToken("tdd");
+        string token = PrincipalUtil.GetOrgToken("tdd", scope: "altinn:serviceowner/instances.write");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Put, requestUri)
         {
@@ -1567,7 +1567,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
         HttpClient client = GetTestClient();
 
-        string token = PrincipalUtil.GetOrgToken("tdd");
+        string token = PrincipalUtil.GetOrgToken("tdd", scope: "altinn:serviceowner/instances.write");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Put, requestUri)
         {
@@ -1681,7 +1681,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
         HttpClient client = GetTestClient();
 
-        string token = PrincipalUtil.GetToken(3, 1337);
+        string token = PrincipalUtil.GetToken(3, 1337, scopes: [PrincipalUtil.AltinnPortalUserScope]);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Put, requestUri)
         {
@@ -1725,7 +1725,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
         HttpClient client = GetTestClient();
 
-        string token = PrincipalUtil.GetToken(3, 1337);
+        string token = PrincipalUtil.GetToken(3, 1337, scopes: [PrincipalUtil.AltinnPortalUserScope]);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Put, requestUri)
         {
@@ -1772,7 +1772,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
         HttpClient client = GetTestClient();
 
-        string token = PrincipalUtil.GetToken(3, 1337);
+        string token = PrincipalUtil.GetToken(3, 1337, scopes: [PrincipalUtil.AltinnPortalUserScope]);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Put, requestUri)
         {
@@ -1817,7 +1817,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
         HttpClient client = GetTestClient();
 
-        string token = PrincipalUtil.GetToken(3, 1337);
+        string token = PrincipalUtil.GetToken(3, 1337, scopes: [PrincipalUtil.AltinnPortalUserScope]);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Put, requestUri)
         {
