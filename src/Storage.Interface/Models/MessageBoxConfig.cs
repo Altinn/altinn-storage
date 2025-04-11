@@ -13,5 +13,11 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// </summary>
         [JsonProperty(PropertyName = "hideSettings")]
         public HideSettings HideSettings { get; set; }
+
+        /// <summary>
+        /// Gets or sets the sync adapter settings.
+        /// </summary>
+        [JsonProperty(PropertyName = "syncAdapterSettings")]
+        public SyncAdapterSettings SyncAdapterSettings { get; set; }
     }
 }
