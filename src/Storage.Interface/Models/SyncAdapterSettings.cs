@@ -46,12 +46,18 @@ namespace Altinn.Platform.Storage.Interface.Models
         public bool DisableAddTransmissions { get; set; }
 
         /// <summary>
-        /// Gets or sets the flag controlling whether the sync adapter should disable synchronize adding attachments at the dialog level.
-        /// Will only add/remove attachments with recognized id's, which are derived from the URL.
+        /// Gets or sets the flag controlling whether the sync adapter should disable synchronizing (overwrite) the visible from date.
         /// </summary>
-        [JsonProperty(PropertyName = "disableSyncAttachments")]
+        [JsonProperty(PropertyName = "disableSyncVisibleFrom")]
         [DefaultValue(false)]
-        public bool DisableSyncAttachments { get; set; }
+        public bool DisableSyncVisibleFrom { get; set; }
+
+        /// <summary>
+        /// Gets or sets the flag controlling whether the sync adapter should disable synchronizing (overwrite) the due at date.
+        /// </summary>
+        [JsonProperty(PropertyName = "disableSyncDueAt")]
+        [DefaultValue(false)]
+        public bool DisableSyncDueAt { get; set; }
 
         /// <summary>
         /// Gets or sets the flag controlling whether the sync adapter should disable synchronizing (overwrite) the status.
@@ -75,14 +81,24 @@ namespace Altinn.Platform.Storage.Interface.Models
         public bool DisableSyncContentSummary { get; set; }
 
         /// <summary>
-        /// Gets or sets the flag controlling whether the sync adapter should disable synchronizing (overwrite) API actions
+        /// Gets or sets the flag controlling whether the sync adapter should disable synchronizing attachments at the dialog level.
+        /// Will only add/remove attachments with recognized id's, which are derived from the URL.
+        /// </summary>
+        [JsonProperty(PropertyName = "disableSyncAttachments")]
+        [DefaultValue(false)]
+        public bool DisableSyncAttachments { get; set; }
+
+        /// <summary>
+        /// Gets or sets the flag controlling whether the sync adapter should disable synchronizing API actions.
+        /// Will only add/remove API actions with recognized id's, which are derived from the URL.
         /// </summary>
         [JsonProperty(PropertyName = "disableSyncApiActions")]
         [DefaultValue(false)]
         public bool DisableSyncApiActions { get; set; }
 
         /// <summary>
-        /// Gets or sets the flag controlling whether the sync adapter should disable synchronizing (overwrite) GUI actions
+        /// Gets or sets the flag controlling whether the sync adapter should disable synchronizing GUI actions.
+        /// Will only add/remove GUI actions with recognized id's, which are derived from the URL.
         /// </summary>
         [JsonProperty(PropertyName = "disableSyncGuiActions")]
         [DefaultValue(false)]
