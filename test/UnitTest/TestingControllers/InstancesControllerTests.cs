@@ -34,7 +34,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 
 using Newtonsoft.Json;
-
+using OpenTelemetry.Metrics;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
@@ -73,8 +73,12 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
-    [Fact]
-    public async Task Get_One_Ok()
+    [Theory]
+    [InlineData("", 1L)]
+    [InlineData(PrincipalUtil.AltinnPortalUserScope, null)]
+    [InlineData("altinn:instances.read", null)]
+    [InlineData("something", 1L)]
+    public async Task Get_One_Ok(string scope, long? invalidScopeRequests)
     {
         // Arrange
         int instanceOwnerPartyId = 1337;
@@ -82,7 +86,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}";
 
         HttpClient client = GetTestClient();
-        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        string token = PrincipalUtil.GetToken(3, 1337, 3, scopes: [scope]);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
@@ -94,6 +98,8 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string responseContent = await response.Content.ReadAsStringAsync();
         Instance instance = (Instance)JsonConvert.DeserializeObject(responseContent, typeof(Instance));
         Assert.Equal("1337", instance.InstanceOwner.PartyId);
+        _meterProvider.ForceFlush();
+        Assert.Equal(invalidScopeRequests, _testTelemetry.GetCounterValue("http.server.request.scopes.errors"));
     }
 
     [Fact]
@@ -248,15 +254,19 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// Test case: User has to low authentication level.
     /// Expected: Returns status forbidden.
     /// </summary>
-    [Fact]
-    public async Task Post_Ok()
+    [Theory]
+    [InlineData("", 1L)]
+    [InlineData(PrincipalUtil.AltinnPortalUserScope, null)]
+    [InlineData("altinn:instances.write", null)]
+    [InlineData("something", 1L)]
+    public async Task Post_Ok(string scope, long? invalidScopeRequests)
     {
         // Arrange
         string appId = "tdd/endring-av-navn";
         string requestUri = $"{BasePath}?appId={appId}";
 
         HttpClient client = GetTestClient();
-        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        string token = PrincipalUtil.GetToken(3, 1337, 3, scopes: [scope]);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         Instance instance = new Instance { InstanceOwner = new InstanceOwner { PartyId = "1337" } };
@@ -272,6 +282,38 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string json = await response.Content.ReadAsStringAsync();
         Instance createdInstance = JsonConvert.DeserializeObject<Instance>(json);
         Assert.NotNull(createdInstance);
+        _meterProvider.ForceFlush();
+        Assert.Equal(invalidScopeRequests, _testTelemetry.GetCounterValue("http.server.request.scopes.errors"));
+    }
+
+    [Theory]
+    [InlineData("", 1L)]
+    [InlineData("altinn:serviceowner/instances.write", null)]
+    public async Task Post_Org_Ok(string scope, long? invalidScopeRequests)
+    {
+        // Arrange
+        string appId = "tdd/endring-av-navn";
+        string requestUri = $"{BasePath}?appId={appId}";
+
+        HttpClient client = GetTestClient();
+        string token = PrincipalUtil.GetOrgToken("tdd", scope: scope);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        Instance instance = new Instance { InstanceOwner = new InstanceOwner { PartyId = "1337" } };
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(instance, new MediaTypeHeaderValue("application/json")));
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal("application/json; charset=utf-8", response.Content.Headers.ContentType.ToString());
+        string json = await response.Content.ReadAsStringAsync();
+        Instance createdInstance = JsonConvert.DeserializeObject<Instance>(json);
+        Assert.NotNull(createdInstance);
+        _meterProvider.ForceFlush();
+        Assert.Equal(invalidScopeRequests, _testTelemetry.GetCounterValue("http.server.request.scopes.errors"));
     }
 
     /// <summary>
@@ -632,14 +674,16 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// Test case: Org user requests to get all instances linked to their org.
     /// Expected: List of instances is returned.
     /// </summary>
-    [Fact]
-    public async Task GetMany_OrgRequestsAllInstances_Ok()
+    [Theory]
+    [InlineData("", 1L)]
+    [InlineData("altinn:serviceowner/instances.read", null)]
+    public async Task GetMany_OrgRequestsAllInstances_Ok(string scope, long? invalidScopeRequests)
     {
         // Arrange
         string requestUri = $"{BasePath}?org=ttd";
 
         HttpClient client = GetTestClient();
-        string token = PrincipalUtil.GetOrgToken("ttd", scope: "altinn:serviceowner/instances.read");
+        string token = PrincipalUtil.GetOrgToken("ttd", scope: scope);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         int expectedNoInstances = 13;
@@ -650,8 +694,14 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         InstanceQueryResponse queryResponse = JsonConvert.DeserializeObject<InstanceQueryResponse>(json);
 
         // Assert
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(expectedNoInstances, queryResponse.Count);
+        if (scope != string.Empty)
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(expectedNoInstances, queryResponse.Count);
+        }
+
+        _meterProvider.ForceFlush();
+        Assert.Equal(invalidScopeRequests, _testTelemetry.GetCounterValue("http.server.request.scopes.errors"));
     }
 
     /// <summary>
@@ -2084,12 +2134,15 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         yield return new object[] { null };
     }
 
+    private TestTelemetry _testTelemetry;
+    private MeterProvider _meterProvider;
+
     private HttpClient GetTestClient(Mock<IInstanceRepository> repositoryMock = null, Mock<IRegisterService> registerService = null, Mock<IApplicationService> applicationService = null)
     {
         // No setup required for these services. They are not in use by the InstanceController
         Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
 
-        HttpClient client = _factory.WithWebHostBuilder(builder =>
+        var factory = _factory.WithWebHostBuilder(builder =>
         {
             IConfiguration configuration = new ConfigurationBuilder().AddJsonFile(ServiceUtil.GetAppsettingsPath()).Build();
             builder.ConfigureAppConfiguration((hostingContext, config) =>
@@ -2123,8 +2176,11 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                 services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
                 services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
             });
-        }).CreateClient();
+        });
 
-        return client;
+        _testTelemetry = factory.Services.GetRequiredService<TestTelemetry>();
+        _meterProvider = factory.Services.GetRequiredService<MeterProvider>();
+
+        return factory.CreateClient();
     }
 }
