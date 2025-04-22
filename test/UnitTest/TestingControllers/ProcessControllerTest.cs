@@ -399,6 +399,22 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
+        
+        [Theory]
+        [InlineData("data", new[] { "write" })]
+        [InlineData("feedback", new[] { "write" })]
+        [InlineData("payment", new[] { "pay", "write" })]
+        [InlineData("confirmation", new[] { "confirm" })]
+        [InlineData("signing", new[] { "sign", "write" })]
+        [InlineData("customTask", new[] { "customTask" })]
+        public void GetActionsThatAllowProcessNextForTaskType_ReturnsExpectedActions(string taskType, string[] expectedActions)
+        {
+            // Act
+            string[] result = ProcessController.GetActionsThatAllowProcessNextForTaskType(taskType);
+
+            // Assert
+            Assert.Equal(expectedActions, result);
+        }
 
         private HttpClient GetTestClient(IInstanceRepository instanceRepository = null, IInstanceAndEventsRepository instanceAndEventsRepository = null)
         {
