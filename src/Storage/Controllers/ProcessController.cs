@@ -292,7 +292,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <summary>
         /// Get all actions that allow process next for the given task type. Meant to be used to authorize the process next when no action is provided.
         /// </summary>
-        /// <remarks>To allow process next for a custom action, user needs to have access to an action with the same name as the task type, or alternatively 'write', in the policy.</remarks>
+        /// <remarks>To allow process next for a custom action, user needs to have access to an action with the same name as the task type in the policy.</remarks>
         private static string[] GetActionsThatAllowProcessNextForTaskType(string taskType)
         {
             return taskType switch
