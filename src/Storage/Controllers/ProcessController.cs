@@ -301,7 +301,7 @@ namespace Altinn.Platform.Storage.Controllers
                 "payment" => ["pay", "write"],
                 "confirmation" => ["confirm"],
                 "signing" => ["sign", "write"],
-                _ => [taskType, "write"],
+                _ => [taskType]
             };
         }
     }
