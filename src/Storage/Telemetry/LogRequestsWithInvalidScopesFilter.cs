@@ -1,10 +1,13 @@
 #nullable enable
 using System;
 using System.Collections.Frozen;
+using System.Collections.Generic;
 using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Security.Claims;
+using System.Text.Json;
 using System.Threading.Tasks;
+using Altinn.AccessManagement.Core.Models;
 using Altinn.Platform.Storage.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,7 +15,7 @@ using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 
 namespace Altinn.Platform.Storage.Telemetry;
 
@@ -20,9 +23,9 @@ namespace Altinn.Platform.Storage.Telemetry;
 /// Emits the 'http.server.request.scopes.errors' counter metric
 /// to indicate how many requests are made to an authorized endpoint without proper scopes.
 /// </summary>
-file sealed class LogRequestsWithInvalidScopesFilter(IOptions<GeneralSettings> generalSetings) : IAsyncActionFilter
+file sealed class LogRequestsWithInvalidScopesFilter(ILogger<LogRequestsWithInvalidScopesFilter> logger) : IAsyncActionFilter
 {
-    private readonly IOptions<GeneralSettings> _generalSettings = generalSetings;
+    private readonly ILogger<LogRequestsWithInvalidScopesFilter> _logger = logger;
 
     /// <summary>
     /// A key to indicate if the endpoint is authorized
@@ -67,25 +70,25 @@ file sealed class LogRequestsWithInvalidScopesFilter(IOptions<GeneralSettings> g
         if (endpointIsInstanceAuthorized && user?.Identity?.IsAuthenticated is true)
         {
             var scopeClaim = user.FindFirst("urn:altinn:scope") ?? user.FindFirst("scope");
-            ProcessRequest(context, scopeClaim);
+            ProcessRequest(context, user, scopeClaim);
         }
         
         // Do something before the action executes.
         return next();
     }
 
-    private static void ProcessRequest(ActionExecutingContext context, Claim? scopeClaim)
+    private void ProcessRequest(ActionExecutingContext context, ClaimsPrincipal user, Claim? scopeClaim)
     {
         if (scopeClaim is null)
         {
-            _counter.Add(1);
+            Report(user);
             return;
         }
 
         var scopes = scopeClaim.Value.Split(" ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (scopes.Length == 0)
         {
-            _counter.Add(1);
+            Report(user);
             return;
         }
 
@@ -96,7 +99,31 @@ file sealed class LogRequestsWithInvalidScopesFilter(IOptions<GeneralSettings> g
             return;
         }
 
-        _counter.Add(1);
+        Report(user);
+
+        void Report(ClaimsPrincipal user)
+        {
+            var clientId = user.FindFirstValue("client_id");
+            var consumer = user.FindFirstValue("consumer");
+            string? consumerId = null;
+            if (!string.IsNullOrWhiteSpace(consumer))
+            {
+                try 
+                {
+                    var orgClaim = JsonSerializer.Deserialize<OrgClaim>(consumer);
+                    consumerId = orgClaim?.ID;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to deserialize consumer claim in token");
+                }
+            }
+
+            _counter.Add(
+                1, 
+                new KeyValuePair<string, object?>("client.id", clientId), 
+                new KeyValuePair<string, object?>("consumer.id", consumerId));
+        }
     }
 }
 
