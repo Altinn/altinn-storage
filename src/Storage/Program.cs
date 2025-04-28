@@ -292,7 +292,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddSingleton<IAccessTokenGenerator, AccessTokenGenerator>();
     services.AddSingleton<ISigningCredentialsResolver, SigningCredentialsResolver>();
     services.AddTransient<IDataService, DataService>();
-    services.AddTransient<IInstanceService, InstanceService>();
+    services.AddTransient<ISigningService, SigningService>();
     services.AddTransient<IInstanceEventService, InstanceEventService>();
     services.AddSingleton<IApplicationService, ApplicationService>();
     services.AddSingleton<IA2OndemandFormattingService, A2OndemandFormattingService>();

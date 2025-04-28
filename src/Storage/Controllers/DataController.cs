@@ -144,7 +144,9 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             dataElement.LastChangedBy = userOrOrgNo;
-            return await DeleteImmediately(instance, dataElement, application.StorageAccountNumber);
+            await _dataService.DeleteImmediately(instance, dataElement, application.StorageAccountNumber);
+            
+            return Ok(dataElement);
         }
 
         /// <summary>
@@ -175,7 +177,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return instanceError;
             }
 
-            Application app = await _applicationRepository.FindOne(instance.AppId, instance.Org);
+            Application app = await _applicationRepository.FindOne(instance.AppId, instance.Org, cancellationToken);
 
             (DataElement dataElement, ActionResult dataElementError) = await GetDataElementAsync(instanceGuid, dataGuid);
             if (dataElement == null)
@@ -204,7 +206,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (string.Equals(dataElement.BlobStoragePath, storageFileName))
             {
-                Stream dataStream = await _blobRepository.ReadBlob(instance.Org, storageFileName, app.StorageAccountNumber);
+                Stream dataStream = await _blobRepository.ReadBlob(instance.Org, storageFileName, app.StorageAccountNumber, cancellationToken);
 
                 if (dataStream == null)
                 {
@@ -616,19 +618,6 @@ namespace Altinn.Platform.Storage.Controllers
 
             await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, instance, dataElement);
             return Ok(updatedDateElement);
-        }
-
-        private async Task<ActionResult<DataElement>> DeleteImmediately(Instance instance, DataElement dataElement, int? storageAccountNumber)
-        {
-            string storageFileName = DataElementHelper.DataFileName(instance.AppId, dataElement.InstanceGuid, dataElement.Id);
-
-            await _blobRepository.DeleteBlob(instance.Org, storageFileName, storageAccountNumber);
-
-            await _dataRepository.Delete(dataElement);
-
-            await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, instance, dataElement);
-
-            return Ok(dataElement);
         }
     }
 }
