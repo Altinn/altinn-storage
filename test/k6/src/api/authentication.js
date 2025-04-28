@@ -6,12 +6,12 @@ import {
   buildHeaderWithContentType,
   buildHeaderWithCookie,
 } from "../apiHelpers.js";
-import { platformAuthentication, portalAuthentication } from "../config.js";
+import { platformAuthentication, portalAuthentication, authCookieName } from "../config.js";
 import { stopIterationOnFail, addErrorCount } from "../errorhandler.js";
 
 const userName = __ENV.userName;
 const userPassword = __ENV.userPassword;
-const aspxAuthCookieName = ".ASPXAUTH";
+const aspxAuthCookieName = authCookieName;
 
 export function exchangeToAltinnToken(token, test) {
   var endpoint = platformAuthentication.exchange + "?test=" + test;
@@ -94,8 +94,6 @@ function getAspxAuth(userName, userPassword) {
     success,
     res
   );
-
-  var aspxAuthCookieName = ".ASPXAUTH";
 
   var aspxAuthCookie = res.cookies[aspxAuthCookieName][0].value;
 

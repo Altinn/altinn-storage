@@ -109,7 +109,7 @@ namespace Altinn.Platform.Storage.Controllers
 
                 if (queryResponse?.Exception != null)
                 {
-                    return StatusCode(500, queryResponse.Exception);
+                    return StatusCode(cancellationToken.IsCancellationRequested ? 499 : 500, queryResponse.Exception);
                 }
 
                 return await ProcessQueryResponse(queryResponse, queryModel.Language, cancellationToken);
