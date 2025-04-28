@@ -170,11 +170,11 @@ namespace Altinn.Platform.Storage.Repository
             return properties;
         }
 
-        private async Task<Stream> DownloadBlobAsync(string org, string fileName, int? storageAccountNumber, CancellationToken? cancellationToken = null)
+        private async Task<Stream> DownloadBlobAsync(string org, string fileName, int? storageAccountNumber, CancellationToken cancellationToken = default)
         {
             BlobClient blockBlob = CreateBlobClient(org, fileName, storageAccountNumber);
 
-            Azure.Response<BlobDownloadInfo> response = await blockBlob.DownloadAsync(cancellationToken ?? CancellationToken.None);
+            Azure.Response<BlobDownloadInfo> response = await blockBlob.DownloadAsync(cancellationToken);
 
             return response.Value.Content;
         }
