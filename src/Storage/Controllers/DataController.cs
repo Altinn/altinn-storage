@@ -177,7 +177,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return instanceError;
             }
 
-            Application app = await _applicationRepository.FindOne(instance.AppId, instance.Org);
+            Application app = await _applicationRepository.FindOne(instance.AppId, instance.Org, cancellationToken);
 
             (DataElement dataElement, ActionResult dataElementError) = await GetDataElementAsync(instanceGuid, dataGuid);
             if (dataElement == null)
@@ -206,7 +206,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (string.Equals(dataElement.BlobStoragePath, storageFileName))
             {
-                Stream dataStream = await _blobRepository.ReadBlob(instance.Org, storageFileName, app.StorageAccountNumber);
+                Stream dataStream = await _blobRepository.ReadBlob(instance.Org, storageFileName, app.StorageAccountNumber, cancellationToken);
 
                 if (dataStream == null)
                 {
