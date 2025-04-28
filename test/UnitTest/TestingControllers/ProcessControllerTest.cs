@@ -212,7 +212,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// </summary>
         [Theory]
         [MemberData(nameof(UpdateTestParameters))]
-        public async Task PutProcess_UserIsAuthorized_OnlyHasSignRights_ReturnsStatusOK(bool useInstanceAndEventsEndpoint)
+        public async Task PutProcess_UserIsAuthorized_Signing_OnlyHasSignRights_ReturnsStatusOK(bool useInstanceAndEventsEndpoint)
         {
             // Arrange
             string token = PrincipalUtil.GetToken(3, 1337, 3);
@@ -251,7 +251,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// </summary>
         [Theory]
         [MemberData(nameof(UpdateTestParameters))]
-        public async Task PutProcess_UserIsAuthorized_OnlyHasWriteRights_ReturnsStatusOK(bool useInstanceAndEventsEndpoint)
+        public async Task PutProcess_UserIsAuthorized_Signing_OnlyHasWriteRights_ReturnsStatusOK(bool useInstanceAndEventsEndpoint)
         {
             // Arrange
             string token = PrincipalUtil.GetToken(3, 1337, 3);
@@ -275,6 +275,84 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 state.CurrentTask = new ProcessElementInfo
                 {
                     ElementId = "Task_4",
+                    AltinnTaskType = "data",
+                    FlowType = "CompleteCurrentMoveToNext"
+                };
+            });
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+        
+        /// <summary>
+        /// Test case: User is Authorized
+        /// Expected: Returns status ok. 
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(UpdateTestParameters))]
+        public async Task PutProcess_UserIsAuthorized_Payment_OnlyHasWriteRights_ReturnsStatusOK(bool useInstanceAndEventsEndpoint)
+        {
+            // Arrange
+            string token = PrincipalUtil.GetToken(3, 1337, 3);
+            Instance testInstance = TestDataUtil.GetInstance(new Guid("377efa97-80ee-4cc6-8d48-09de12cc273d"));
+            testInstance.Id = $"{testInstance.InstanceOwner.PartyId}/{testInstance.Id}";
+
+            testInstance.Process.CurrentTask = new ProcessElementInfo()
+            {
+                ElementId = "Task_3",
+                AltinnTaskType = "payment",
+                FlowType = "CompleteCurrentMoveToNext"
+            };
+            
+            var instanceRepoMock = new Mock<IInstanceRepository>();
+            instanceRepoMock.Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>())).ReturnsAsync((testInstance, 0));
+            instanceRepoMock.Setup(ir => ir.Update(testInstance, It.IsAny<List<string>>(), It.IsAny<CancellationToken>())).ReturnsAsync(testInstance);
+            
+            // Act
+            using HttpResponseMessage response = await SendUpdateRequest(useInstanceAndEventsEndpoint, token: token, instanceId: testInstance.Id, instanceRepository: instanceRepoMock.Object, configure: state =>
+            {
+                state.CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_4",
+                    AltinnTaskType = "data",
+                    FlowType = "CompleteCurrentMoveToNext"
+                };
+            });
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+        
+        /// <summary>
+        /// Test case: User is Authorized
+        /// Expected: Returns status ok. 
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(UpdateTestParameters))]
+        public async Task PutProcess_UserIsAuthorized_CustomTaskType_OnlyHasWriteRights_ReturnsStatusOK(bool useInstanceAndEventsEndpoint)
+        {
+            // Arrange
+            string token = PrincipalUtil.GetToken(3, 1337, 3);
+            Instance testInstance = TestDataUtil.GetInstance(new Guid("377efa97-80ee-4cc6-8d48-09de12cc273d"));
+            testInstance.Id = $"{testInstance.InstanceOwner.PartyId}/{testInstance.Id}";
+
+            testInstance.Process.CurrentTask = new ProcessElementInfo()
+            {
+                ElementId = "Task_4",
+                AltinnTaskType = "custom-task-type",
+                FlowType = "CompleteCurrentMoveToNext"
+            };
+            
+            var instanceRepoMock = new Mock<IInstanceRepository>();
+            instanceRepoMock.Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>())).ReturnsAsync((testInstance, 0));
+            instanceRepoMock.Setup(ir => ir.Update(testInstance, It.IsAny<List<string>>(), It.IsAny<CancellationToken>())).ReturnsAsync(testInstance);
+            
+            // Act
+            using HttpResponseMessage response = await SendUpdateRequest(useInstanceAndEventsEndpoint, token: token, instanceId: testInstance.Id, instanceRepository: instanceRepoMock.Object, configure: state =>
+            {
+                state.CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_5",
                     AltinnTaskType = "data",
                     FlowType = "CompleteCurrentMoveToNext"
                 };
