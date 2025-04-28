@@ -55,8 +55,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
         public static TheoryData<Signee> SigneeData => new(
             new Signee() { UserId = "1337", PersonNumber = "22117612345", SystemUserId = null, OrganisationNumber = null },
-            new Signee() { UserId = string.Empty, PersonNumber = null, SystemUserId = Guid.Parse("f58fe166-bc22-4899-beb7-c3e8e3332f43"), OrganisationNumber = "524446332" },
-            new Signee() { UserId = null, PersonNumber = null, SystemUserId = Guid.Parse("f58fe166-bc22-4899-beb7-c3e8e3332f43"), OrganisationNumber = "524446332" });
+            new Signee() { PersonNumber = null, SystemUserId = Guid.Parse("f58fe166-bc22-4899-beb7-c3e8e3332f43"), OrganisationNumber = "524446332" });
 
         [Theory]
         [MemberData(nameof(SigneeData))]
