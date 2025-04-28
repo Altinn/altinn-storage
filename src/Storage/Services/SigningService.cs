@@ -26,7 +26,7 @@ namespace Altinn.Platform.Storage.Services
         private readonly IDataService _dataService;
         private readonly IApplicationService _applicationService;
         private readonly IInstanceEventService _instanceEventService;
-        private static readonly JsonSerializerOptions _jsonSerializerOptions = new() { WriteIndented = true };
+        private static readonly JsonSerializerOptions _jsonSerializerOptions = new(JsonSerializerOptions.Web) { WriteIndented = true };
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SigningService"/> class.
