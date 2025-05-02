@@ -1,0 +1,255 @@
+#nullable enable
+using System;
+using System.Collections.Frozen;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
+using System.Linq;
+using System.Security.Claims;
+using System.Text.Json;
+using System.Threading.Tasks;
+using Altinn.AccessManagement.Core.Models;
+using Altinn.Platform.Storage.Helpers;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Abstractions;
+using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Mvc.Routing;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace Altinn.Platform.Storage.Telemetry;
+
+/// <summary>
+/// Emits the 'http.server.request.scopes.errors' counter metric
+/// to indicate how many requests are made to an authorized endpoint without proper scopes.
+/// </summary>
+internal sealed class LogRequestsWithInvalidScopesActionFilter(ILogger<LogRequestsWithInvalidScopesActionFilter> logger) : IAsyncActionFilter
+{
+    private readonly ILogger<LogRequestsWithInvalidScopesActionFilter> _logger = logger;
+
+    /// <summary>
+    /// A key to indicate if the endpoint is authorized
+    /// </summary>
+    internal static readonly object AuthorizedEndpointKey = new();
+
+    private static readonly Counter<long> _counter = Metrics.Meter.CreateCounter<long>(
+        "http.server.request.scopes.errors", 
+        "count", 
+        "Count of HTTP requests without a valid scope claim");
+
+    /// <summary>
+    /// Executes the filter
+    /// </summary>
+    /// <param name="context">context</param>
+    /// <param name="next">next</param>
+    /// <returns></returns>
+    public Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
+    {
+        if (context.ActionDescriptor.Properties.TryGetValue(AuthorizedEndpointKey, out var allowedScopesObj))
+        {
+            var user = context.HttpContext.User;
+            if (user?.Identity?.IsAuthenticated is true)
+            {
+                Debug.Assert(allowedScopesObj is FrozenSet<string>);
+                FrozenSet<string> allowedScopes = (FrozenSet<string>)allowedScopesObj!;
+                ProcessRequest(allowedScopes, context.ActionDescriptor, context.HttpContext);
+            }
+        }
+
+        return next();
+    }
+
+    private void ProcessRequest(FrozenSet<string> allowedScopes, ActionDescriptor action, HttpContext httpContext)
+    {
+        var user = httpContext.User;
+        Debug.Assert(user is not null);
+
+        var scopeClaim = user.FindFirst("urn:altinn:scope") ?? user.FindFirst("scope");
+        if (scopeClaim is null)
+        {
+            Report(this, user, action, httpContext);
+            return;
+        }
+
+        var scopes = scopeClaim.Value.Split(" ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (scopes.Length == 0)
+        {
+            Report(this, user, action, httpContext);
+            return;
+        }
+
+        if (scopes.Any(s => allowedScopes.Contains(s)))
+        {
+            return;
+        }
+
+        Report(this, user, action, httpContext);
+
+        static void Report(LogRequestsWithInvalidScopesActionFilter self, ClaimsPrincipal user, ActionDescriptor action, HttpContext httpContext)
+        {
+            var clientId = user.FindFirstValue("client_id");
+            var consumer = user.FindFirstValue("consumer");
+            string? consumerId = null;
+            if (!string.IsNullOrWhiteSpace(consumer))
+            {
+                try 
+                {
+                    var orgClaim = JsonSerializer.Deserialize<OrgClaim>(consumer);
+                    consumerId = orgClaim?.ID;
+                }
+                catch (Exception ex)
+                {
+                    self._logger.LogError(ex, "Failed to deserialize consumer claim in token");
+                }
+            }
+
+            _counter.Add(
+                1, 
+                new KeyValuePair<string, object?>("client.id", clientId), 
+                new KeyValuePair<string, object?>("consumer.id", consumerId),
+                new KeyValuePair<string, object?>("endpoint.name", action.DisplayName));
+        }
+    }
+}
+
+/// <summary>
+/// Custom action descriptor provider to modify the action descriptor
+/// </summary>
+internal sealed class LogRequestsWithInvalidScopesActionDescriptorProvider : IActionDescriptorProvider
+{
+    /// <summary>
+    /// The order of the action descriptor provider. Lower values are executed first.
+    /// </summary>
+    public int Order => 0;
+
+    private List<ControllerActionDescriptor>? _actionsToValidate;
+    private List<ControllerActionDescriptor>? _actionsNotValidated;
+
+    /// <summary>
+    /// The actions that need instances scope validation
+    /// </summary>
+    public IReadOnlyList<ControllerActionDescriptor>? ActionsToValidate => _actionsToValidate;
+
+    /// <summary>
+    /// The actions that do not need instances scope validation
+    /// </summary>
+    public IReadOnlyList<ControllerActionDescriptor>? ActionsNotValidated => _actionsNotValidated;
+
+    private static readonly FrozenSet<string> _acceptedReadScopes = 
+        FrozenSet.Create<string>(
+            StringComparer.OrdinalIgnoreCase, 
+            "altinn:portal/enduser", 
+            "altinn:instances.read", 
+            "altinn:serviceowner/instances.read");
+
+    private static readonly FrozenSet<string> _acceptedWriteScopes = 
+        FrozenSet.Create<string>(
+            StringComparer.OrdinalIgnoreCase, 
+            "altinn:portal/enduser", 
+            "altinn:instances.write", 
+            "altinn:serviceowner/instances.write");
+
+    private static readonly FrozenSet<string> _readHttpMethods = 
+        FrozenSet.Create<string>(
+            StringComparer.OrdinalIgnoreCase, 
+            "GET", 
+            "HEAD");
+
+    private static readonly FrozenSet<string> _manuallyIncludeActions = 
+        FrozenSet.Create<string>(
+            StringComparer.Ordinal, 
+            "Altinn.Platform.Storage.Controllers.DataLockController.Unlock (Altinn.Platform.Storage)",
+            "Altinn.Platform.Storage.Controllers.InstancesController.GetInstances (Altinn.Platform.Storage)",
+            "Altinn.Platform.Storage.Controllers.InstancesController.Post (Altinn.Platform.Storage)",
+            "Altinn.Platform.Storage.Controllers.InstancesController.UpdateSubstatus (Altinn.Platform.Storage)",
+            "Altinn.Platform.Storage.Controllers.ProcessController.PutInstanceAndEvents (Altinn.Platform.Storage)",
+            "Altinn.Platform.Storage.Controllers.ProcessController.PutProcess (Altinn.Platform.Storage)",
+            "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstance (Altinn.Platform.Storage)",
+            "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.SearchMessageBoxInstances (Altinn.Platform.Storage)");
+
+    private static readonly FrozenDictionary<string, FrozenSet<string>> _scopesOverride = new Dictionary<string, FrozenSet<string>>()
+    {
+        ["Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.SearchMessageBoxInstances (Altinn.Platform.Storage)"] = _acceptedReadScopes,
+    }.ToFrozenDictionary();
+
+    /// <summary>
+    /// Not used
+    /// </summary>
+    /// <param name="context">context</param>
+    public void OnProvidersExecuting(ActionDescriptorProviderContext context)
+    {
+    }
+
+    /// <summary>
+    /// Annotates the action descriptor with custom properties.
+    /// </summary>
+    /// <param name="context">context</param>
+    public void OnProvidersExecuted(ActionDescriptorProviderContext context)
+    {
+        _actionsToValidate = new List<ControllerActionDescriptor>();
+        _actionsNotValidated = new List<ControllerActionDescriptor>();
+
+        foreach (var action in context.Results.OfType<ControllerActionDescriptor>())
+        {
+            var authorizeAttr = (AuthorizeAttribute?)action.EndpointMetadata.FirstOrDefault(m => m is AuthorizeAttribute);
+            var authorizePolicy = authorizeAttr?.Policy;
+            var authorizeAttrHasInstancePolicy = authorizePolicy?.Contains("Instance", StringComparison.Ordinal) is true;
+            var hasAllowAnonymousAttr = action.EndpointMetadata.Any(m => m is AllowAnonymousAttribute);
+            var isManuallyIncluded = _manuallyIncludeActions.Contains(action.DisplayName ?? string.Empty);
+            if ((authorizeAttrHasInstancePolicy && !hasAllowAnonymousAttr) || isManuallyIncluded)
+            {
+                FrozenSet<string> scopes;
+                if (_scopesOverride.TryGetValue(action.DisplayName ?? string.Empty, out var overrideScopes))
+                {
+                    scopes = overrideScopes;
+                }
+                else if (authorizePolicy is not null)
+                {
+                    scopes = authorizePolicy == AuthzConstants.POLICY_INSTANCE_READ ? _acceptedReadScopes : _acceptedWriteScopes;
+                }
+                else 
+                {
+                    var httpMethodAttr = (HttpMethodAttribute?)action.EndpointMetadata.FirstOrDefault(m => m is HttpMethodAttribute);
+                    if (httpMethodAttr is not null && httpMethodAttr.HttpMethods.Any(m => _readHttpMethods.Contains(m)))
+                    {
+                        scopes = _acceptedReadScopes;
+                    }
+                    else 
+                    {
+                        scopes = _acceptedWriteScopes;
+                    }
+                }
+
+                action.Properties[LogRequestsWithInvalidScopesActionFilter.AuthorizedEndpointKey] = scopes;
+                _actionsToValidate.Add(action);
+            }
+            else 
+            {
+                _actionsNotValidated.Add(action);
+            }
+        }
+    }
+}
+
+/// <summary>
+/// Filter for requests (and child dependencies) that should not be logged.
+/// </summary>
+internal static class LogRequestsWithInvalidScopesDI
+{
+    /// <summary>
+    /// Add the filter to the DI container
+    /// </summary>
+    /// <param name="services">The service collection</param>
+    public static void AddLogRequestsWithInvalidScopesFilter(this IServiceCollection services)
+    {
+        services.AddSingleton<LogRequestsWithInvalidScopesActionDescriptorProvider>();
+        services.AddSingleton<IActionDescriptorProvider>(sp => sp.GetRequiredService<LogRequestsWithInvalidScopesActionDescriptorProvider>());
+        services.Configure<MvcOptions>(options =>
+        {
+            options.Filters.Add<LogRequestsWithInvalidScopesActionFilter>();
+        });
+    }
+}
