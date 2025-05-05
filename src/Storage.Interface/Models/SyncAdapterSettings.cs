@@ -46,13 +46,6 @@ namespace Altinn.Platform.Storage.Interface.Models
         public bool DisableAddTransmissions { get; set; }
 
         /// <summary>
-        /// Gets or sets the flag controlling whether the sync adapter should disable synchronizing (overwrite) the visible from date.
-        /// </summary>
-        [JsonProperty(PropertyName = "disableSyncVisibleFrom")]
-        [DefaultValue(false)]
-        public bool DisableSyncVisibleFrom { get; set; }
-
-        /// <summary>
         /// Gets or sets the flag controlling whether the sync adapter should disable synchronizing (overwrite) the due at date.
         /// </summary>
         [JsonProperty(PropertyName = "disableSyncDueAt")]
