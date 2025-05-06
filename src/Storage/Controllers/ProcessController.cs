@@ -87,11 +87,9 @@ namespace Altinn.Platform.Storage.Controllers
                 return NotFound();
             }
 
-            var (action, taskId) = ActionMapping(processState, existingInstance);
+            bool atLeastOneActionAuthorized = await AuthorizeProcessNext(processState, existingInstance);
 
-            bool authorized = await _authorizationService.AuthorizeInstanceAction(existingInstance, action, taskId);
-
-            if (!authorized)
+            if (!atLeastOneActionAuthorized)
             {
                 return Forbid();
             }
@@ -153,11 +151,9 @@ namespace Altinn.Platform.Storage.Controllers
 
             ProcessState processState = processStateUpdate.State;
 
-            var (action, taskId) = ActionMapping(processState, existingInstance);
+            bool atLeastOneActionAuthorized = await AuthorizeProcessNext(processState, existingInstance);
 
-            bool authorized = await _authorizationService.AuthorizeInstanceAction(existingInstance, action, taskId);
-
-            if (!authorized)
+            if (!atLeastOneActionAuthorized)
             {
                 return Forbid();
             }
@@ -253,33 +249,60 @@ namespace Altinn.Platform.Storage.Controllers
             existingInstance.LastChangedBy = User.GetUserOrOrgNo();
             existingInstance.LastChanged = DateTime.UtcNow;
         }
-
-        private (string Action, string TaskId) ActionMapping(ProcessState processState, Instance existingInstance)
+        
+        private async Task<bool> AuthorizeProcessNext(ProcessState processState, Instance existingInstance)
         {
-            string taskId = null;
+            (string[] actionsThatAllowProcessNext, string taskId) = GetActionsToAuthorize(processState, existingInstance);
+
+            foreach (string action in actionsThatAllowProcessNext)
+            {
+                bool actionIsAuthorized = await _authorizationService.AuthorizeInstanceAction(existingInstance, action, taskId);
+                if (actionIsAuthorized)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static (string[] Actions, string TaskId) GetActionsToAuthorize(ProcessState processState, Instance existingInstance)
+        {
+            string taskId = existingInstance.Process?.CurrentTask?.ElementId;
             string altinnTaskType = existingInstance.Process?.CurrentTask?.AltinnTaskType;
 
             if (processState?.CurrentTask?.FlowType == "AbandonCurrentMoveToNext")
             {
-                altinnTaskType = "reject";
+                return (["reject"], taskId);
             }
-            else if (processState?.CurrentTask?.FlowType is not null
+            
+            // Think this IF is related to gateways, but not sure.
+            if (processState?.CurrentTask?.FlowType is not null
                 && processState.CurrentTask.FlowType != "CompleteCurrentMoveToNext")
             {
                 altinnTaskType = processState.CurrentTask.AltinnTaskType;
                 taskId = processState.CurrentTask.ElementId;
             }
+            
+            string[] actionsThatAllowProcessNextForTaskType = GetActionsThatAllowProcessNextForTaskType(altinnTaskType);
 
-            string action = altinnTaskType switch
+            return (actionsThatAllowProcessNextForTaskType, taskId);
+        }
+        
+        /// <summary>
+        /// Get all actions that allow process next for the given task type. Meant to be used to authorize the process next when no action is provided.
+        /// </summary>
+        /// <remarks>To allow process next for a custom action, user needs to have access to an action with the same name as the task type in the policy.</remarks>
+        public static string[] GetActionsThatAllowProcessNextForTaskType(string taskType)
+        {
+            return taskType switch
             {
-                "data" or "feedback" => "write",
-                "payment" => "pay",
-                "confirmation" => "confirm",
-                "signing" => "sign",
-                _ => altinnTaskType,
+                "data" or "feedback" => ["write"],
+                "payment" => ["pay", "write"],
+                "confirmation" => ["confirm"],
+                "signing" => ["sign", "write"],
+                _ => [taskType]
             };
-
-            return (action, taskId);
         }
     }
 }
