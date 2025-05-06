@@ -99,7 +99,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Instance instance = (Instance)JsonConvert.DeserializeObject(responseContent, typeof(Instance));
         Assert.Equal("1337", instance.InstanceOwner.PartyId);
         _meterProvider.ForceFlush();
-        Assert.Equal(invalidScopeRequests, _testTelemetry.GetCounterValue("http.server.request.scopes.errors"));
+        Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
     }
 
     [Fact]
@@ -283,7 +283,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Instance createdInstance = JsonConvert.DeserializeObject<Instance>(json);
         Assert.NotNull(createdInstance);
         _meterProvider.ForceFlush();
-        Assert.Equal(invalidScopeRequests, _testTelemetry.GetCounterValue("http.server.request.scopes.errors"));
+        Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
     }
 
     [Theory]
@@ -313,7 +313,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Instance createdInstance = JsonConvert.DeserializeObject<Instance>(json);
         Assert.NotNull(createdInstance);
         _meterProvider.ForceFlush();
-        Assert.Equal(invalidScopeRequests, _testTelemetry.GetCounterValue("http.server.request.scopes.errors"));
+        Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
     }
 
     /// <summary>
@@ -701,7 +701,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         }
 
         _meterProvider.ForceFlush();
-        Assert.Equal(invalidScopeRequests, _testTelemetry.GetCounterValue("http.server.request.scopes.errors"));
+        Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
     }
 
     /// <summary>

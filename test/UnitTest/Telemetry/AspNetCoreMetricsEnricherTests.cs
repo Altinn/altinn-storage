@@ -27,7 +27,7 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.Telemetry;
 
-public class LogRequestsWithInvalidScopesTests(TestApplicationFactory<InstancesController> factory)
+public class AspNetCoreMetricsEnricherTests(TestApplicationFactory<InstancesController> factory)
     : IClassFixture<TestApplicationFactory<InstancesController>>
 {
     private readonly TestApplicationFactory<InstancesController> _factory = factory;
@@ -44,7 +44,7 @@ public class LogRequestsWithInvalidScopesTests(TestApplicationFactory<InstancesC
             ScopesToValidate = descriptors.ActionsToValidate.Select(a => new 
             {
                 Endpoint = a.DisplayName,
-                Scopes = ((FrozenSet<string>)a.Properties[LogRequestsWithInvalidScopesActionFilter.AuthorizedEndpointKey])
+                Scopes = ((FrozenSet<string>)a.Properties[AspNetCoreMetricsEnricher.AllowedScopesKey])
                     .Order()
                     .ToArray(),
             }).ToImmutableSortedDictionary(a => a.Endpoint, a => a.Scopes),
@@ -56,7 +56,7 @@ public class LogRequestsWithInvalidScopesTests(TestApplicationFactory<InstancesC
 
     private sealed record Fixture(WebApplicationFactory<InstancesController> Factory, HttpClient HttpClient) : IDisposable
     {
-        public LogRequestsWithInvalidScopesActionDescriptorProvider ActionDescriptorProvider => Factory.Services.GetRequiredService<LogRequestsWithInvalidScopesActionDescriptorProvider>();
+        public CustomActionDescriptorProvider ActionDescriptorProvider => Factory.Services.GetRequiredService<CustomActionDescriptorProvider>();
 
         public void Dispose()
         {

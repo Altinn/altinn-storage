@@ -80,7 +80,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
             _meterProvider.ForceFlush();
-            Assert.Equal(invalidScopeRequests, _testTelemetry.GetCounterValue("http.server.request.scopes.errors"));
+            Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
         }
 
         [Fact]
@@ -295,7 +295,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             _meterProvider.ForceFlush();
-            Assert.Equal(invalidScopeRequests, _testTelemetry.GetCounterValue("http.server.request.scopes.errors"));
+            Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
         }
 
         [Fact]

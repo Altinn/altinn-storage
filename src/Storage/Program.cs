@@ -221,7 +221,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddHttpClient<AuthorizationApiClient>();
     services.AddHttpClient<IRegisterService, RegisterService>();
 
-    services.AddLogRequestsWithInvalidScopesFilter();
+    services.AddAspNetCoreMetricsEnricher();
 
     services.Configure<AzureStorageConfiguration>(config.GetSection("AzureStorageConfiguration"));
     services.Configure<GeneralSettings>(config.GetSection("GeneralSettings"));

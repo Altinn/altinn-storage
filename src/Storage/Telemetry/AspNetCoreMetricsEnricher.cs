@@ -3,7 +3,6 @@ using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Security.Claims;
 using System.Text.Json;
@@ -12,6 +11,7 @@ using Altinn.AccessManagement.Core.Models;
 using Altinn.Platform.Storage.Helpers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Controllers;
@@ -23,22 +23,22 @@ using Microsoft.Extensions.Logging;
 namespace Altinn.Platform.Storage.Telemetry;
 
 /// <summary>
-/// Emits the 'http.server.request.scopes.errors' counter metric
+/// Enriches the 'http.server.request.duration' metric
 /// to indicate how many requests are made to an authorized endpoint without proper scopes.
 /// </summary>
-internal sealed class LogRequestsWithInvalidScopesActionFilter(ILogger<LogRequestsWithInvalidScopesActionFilter> logger) : IAsyncActionFilter
+internal sealed class AspNetCoreMetricsEnricher(ILogger<AspNetCoreMetricsEnricher> logger) : IAsyncActionFilter
 {
-    private readonly ILogger<LogRequestsWithInvalidScopesActionFilter> _logger = logger;
+    /// <summary>
+    /// Name of the metric that is enriched
+    /// </summary>
+    public const string MetricName = "http.server.request.duration";
+
+    private readonly ILogger<AspNetCoreMetricsEnricher> _logger = logger;
 
     /// <summary>
     /// A key to indicate if the endpoint is authorized
     /// </summary>
-    internal static readonly object AuthorizedEndpointKey = new();
-
-    private static readonly Counter<long> _counter = Metrics.Meter.CreateCounter<long>(
-        "http.server.request.scopes.errors", 
-        "count", 
-        "Count of HTTP requests without a valid scope claim");
+    internal static readonly object AllowedScopesKey = new();
 
     /// <summary>
     /// Executes the filter
@@ -48,77 +48,78 @@ internal sealed class LogRequestsWithInvalidScopesActionFilter(ILogger<LogReques
     /// <returns></returns>
     public Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
-        if (context.ActionDescriptor.Properties.TryGetValue(AuthorizedEndpointKey, out var allowedScopesObj))
+        var feature = context.HttpContext.Features.Get<IHttpMetricsTagsFeature>();
+        var user = context.HttpContext.User;
+        if (feature is null || user is null)
         {
-            var user = context.HttpContext.User;
-            if (user?.Identity?.IsAuthenticated is true)
+            return next();
+        }
+
+        var clientId = user.FindFirstValue("client_id");
+        var consumer = user.FindFirstValue("consumer");
+        string? consumerId = null;
+        if (!string.IsNullOrWhiteSpace(consumer))
+        {
+            try 
+            {
+                var orgClaim = JsonSerializer.Deserialize<OrgClaim>(consumer);
+                consumerId = orgClaim?.ID;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to deserialize consumer claim in token");
+            }
+        }
+
+        feature.Tags.Add(new KeyValuePair<string, object?>("client.id", clientId));
+        feature.Tags.Add(new KeyValuePair<string, object?>("client.consumer.id", consumerId));
+
+        if (context.ActionDescriptor.Properties.TryGetValue(AllowedScopesKey, out var allowedScopesObj))
+        {
+            if (user.Identity?.IsAuthenticated is true)
             {
                 Debug.Assert(allowedScopesObj is FrozenSet<string>);
                 FrozenSet<string> allowedScopes = (FrozenSet<string>)allowedScopesObj!;
-                ProcessRequest(allowedScopes, context.ActionDescriptor, context.HttpContext);
+                ValidateScope(allowedScopes, feature, context.HttpContext);
             }
         }
 
         return next();
     }
 
-    private void ProcessRequest(FrozenSet<string> allowedScopes, ActionDescriptor action, HttpContext httpContext)
+    private void ValidateScope(FrozenSet<string> allowedScopes, IHttpMetricsTagsFeature feature, HttpContext httpContext)
     {
         var user = httpContext.User;
         Debug.Assert(user is not null);
-
         var scopeClaim = user.FindFirst("urn:altinn:scope") ?? user.FindFirst("scope");
         if (scopeClaim is null)
         {
-            Report(this, user, action, httpContext);
+            Report(this, feature);
             return;
         }
 
         var scopes = scopeClaim.Value.Split(" ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (scopes.Length == 0)
         {
-            Report(this, user, action, httpContext);
+            Report(this, feature);
             return;
         }
 
-        if (scopes.Any(s => allowedScopes.Contains(s)))
+        if (!scopes.Any(s => allowedScopes.Contains(s)))
         {
+            Report(this, feature);
             return;
         }
 
-        Report(this, user, action, httpContext);
-
-        static void Report(LogRequestsWithInvalidScopesActionFilter self, ClaimsPrincipal user, ActionDescriptor action, HttpContext httpContext)
-        {
-            var clientId = user.FindFirstValue("client_id");
-            var consumer = user.FindFirstValue("consumer");
-            string? consumerId = null;
-            if (!string.IsNullOrWhiteSpace(consumer))
-            {
-                try 
-                {
-                    var orgClaim = JsonSerializer.Deserialize<OrgClaim>(consumer);
-                    consumerId = orgClaim?.ID;
-                }
-                catch (Exception ex)
-                {
-                    self._logger.LogError(ex, "Failed to deserialize consumer claim in token");
-                }
-            }
-
-            _counter.Add(
-                1, 
-                new KeyValuePair<string, object?>("client.id", clientId), 
-                new KeyValuePair<string, object?>("consumer.id", consumerId),
-                new KeyValuePair<string, object?>("endpoint.name", action.DisplayName));
-        }
+        static void Report(AspNetCoreMetricsEnricher self, IHttpMetricsTagsFeature feature) =>
+            feature.Tags.Add(new KeyValuePair<string, object?>("invalid_scopes", true));
     }
 }
 
 /// <summary>
 /// Custom action descriptor provider to modify the action descriptor
 /// </summary>
-internal sealed class LogRequestsWithInvalidScopesActionDescriptorProvider : IActionDescriptorProvider
+internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
 {
     /// <summary>
     /// The order of the action descriptor provider. Lower values are executed first.
@@ -223,7 +224,7 @@ internal sealed class LogRequestsWithInvalidScopesActionDescriptorProvider : IAc
                     }
                 }
 
-                action.Properties[LogRequestsWithInvalidScopesActionFilter.AuthorizedEndpointKey] = scopes;
+                action.Properties[AspNetCoreMetricsEnricher.AllowedScopesKey] = scopes;
                 _actionsToValidate.Add(action);
             }
             else 
@@ -243,13 +244,13 @@ internal static class LogRequestsWithInvalidScopesDI
     /// Add the filter to the DI container
     /// </summary>
     /// <param name="services">The service collection</param>
-    public static void AddLogRequestsWithInvalidScopesFilter(this IServiceCollection services)
+    public static void AddAspNetCoreMetricsEnricher(this IServiceCollection services)
     {
-        services.AddSingleton<LogRequestsWithInvalidScopesActionDescriptorProvider>();
-        services.AddSingleton<IActionDescriptorProvider>(sp => sp.GetRequiredService<LogRequestsWithInvalidScopesActionDescriptorProvider>());
+        services.AddSingleton<CustomActionDescriptorProvider>();
+        services.AddSingleton<IActionDescriptorProvider>(sp => sp.GetRequiredService<CustomActionDescriptorProvider>());
         services.Configure<MvcOptions>(options =>
         {
-            options.Filters.Add<LogRequestsWithInvalidScopesActionFilter>();
+            options.Filters.Add<AspNetCoreMetricsEnricher>();
         });
     }
 }
