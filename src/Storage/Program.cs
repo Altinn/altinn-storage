@@ -190,7 +190,8 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
             metrics.AddMeter(
                 "Microsoft.AspNetCore.Hosting",
                 "Microsoft.AspNetCore.Server.Kestrel",
-                "System.Net.Http");
+                "System.Net.Http",
+                Metrics.Meter.Name);
         })
         .WithTracing(tracing =>
         {
@@ -206,11 +207,6 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
             tracing.AddNpgsql();
 
             tracing.AddProcessor(new RequestFilterProcessor(generalSettings, new HttpContextAccessor()));
-
-            if (builder.Environment.IsDevelopment())
-            {
-                tracing.AddConsoleExporter();
-            }
         });
 
     if (!string.IsNullOrEmpty(applicationInsightsConnectionString))
@@ -224,6 +220,8 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
 
     services.AddHttpClient<AuthorizationApiClient>();
     services.AddHttpClient<IRegisterService, RegisterService>();
+
+    services.AddAspNetCoreMetricsEnricher();
 
     services.Configure<AzureStorageConfiguration>(config.GetSection("AzureStorageConfiguration"));
     services.Configure<GeneralSettings>(config.GetSection("GeneralSettings"));
