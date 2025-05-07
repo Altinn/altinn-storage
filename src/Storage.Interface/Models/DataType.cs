@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 
@@ -38,8 +39,17 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// Value should be preceded by an approved key.
         /// If null or empty no contributer restrictions are set.
         /// </summary>
+        [Obsolete("Use AllowedContributors instead. This property will be removed in a future version.")]
         [JsonProperty(PropertyName = "allowedContributers")]
         public List<string> AllowedContributers { get; set; }
+
+        /// <summary>
+        /// Gets or sets a list of allowed contributors.
+        /// Value should be preceded by an approved key.
+        /// If null or empty then no contributor restrictions are set.
+        /// </summary>
+        [JsonProperty(PropertyName = "allowedContributors")]
+        public List<string> AllowedContributors { get; set; }
 
         /// <summary>
         /// Gets or sets an object with information about how the application logic will handle the data element.
