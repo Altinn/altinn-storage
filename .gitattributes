@@ -1,0 +1,28 @@
+# General setting that applies Git's binary detection for file-types not specified below
+# Meaning, for 'text-guessed' files:
+# use normalization (convert crlf -> lf on commit, i.e. use `text` setting) 
+# & do unspecified diff behavior (if file content is recognized as text & filesize < core.bigFileThreshold, do text diff on file changes)
+* text=auto
+
+# Override with explicit specific settings for known and/or likely text files in our repo that should be normalized
+# where diff{=optional_pattern} means "do text diff {with specific text pattern} and -diff means "don't do text diffs".
+# Unspecified diff behavior is decribed above
+*.cer      text -diff
+*.cmd      text
+*.cs       text diff=csharp
+*.csproj   text
+*.css      text diff=css
+Dockerfile text
+*.json     text
+*.md       text diff=markdown
+*.msbuild  text
+*.pem      text -diff
+*.ps1      text
+*.sln      text
+*.yaml     text
+*.yml      text
+
+# Files that should be treated as binary ('binary' is a macro for '-text -diff', i.e. "don't normalize or do text diff on content")
+*.jpeg    binary
+*.pfx     binary
+*.png     binary
