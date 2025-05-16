@@ -84,7 +84,7 @@ internal sealed class AspNetCoreMetricsEnricher(ILogger<AspNetCoreMetricsEnriche
         return next();
     }
 
-    private void ValidateScope(FrozenSet<string> allowedScopes, IHttpMetricsTagsFeature feature, HttpContext httpContext)
+    private static void ValidateScope(FrozenSet<string> allowedScopes, IHttpMetricsTagsFeature feature, HttpContext httpContext)
     {
         var user = httpContext.User;
         Debug.Assert(user is not null);
