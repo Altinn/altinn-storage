@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Linq;
 using Altinn.Platform.Storage.Telemetry;
 using OpenTelemetry.Metrics;
@@ -8,7 +7,7 @@ namespace Altinn.Platform.Storage.UnitTest.Fixture;
 
 internal class TestTelemetry
 {
-    public List<MetricSnapshot> Metrics { get; } = [];
+    public ConcurrentList<MetricSnapshot> Metrics { get; } = [];
 
     public long? RequestsWithInvalidScopesCount()
     {
@@ -24,7 +23,7 @@ internal class TestTelemetry
             return null;
         }
 
-        var points = metric.MetricPoints.Where(p => 
+        var points = metric.MetricPoints.Where(p =>
         {
             foreach (var tag in p.Tags)
             {
