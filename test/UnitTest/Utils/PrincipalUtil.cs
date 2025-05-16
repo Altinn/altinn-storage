@@ -13,28 +13,19 @@ namespace Altinn.Platform.Storage.UnitTest.Utils
 {
     public static class PrincipalUtil
     {
-        public static readonly string AltinnCoreClaimTypesOrg = "urn:altinn:org";
-        public static readonly string AltinnCoreClaimTypesOrgNumber = "urn:altinn:orgNumber";
+        public const string AltinnCoreClaimTypesOrg = "urn:altinn:org";
+        public const string AltinnCoreClaimTypesOrgNumber = "urn:altinn:orgNumber";
+        public const string AltinnPortalUserScope = "altinn:portal/enduser";
 
-        public static string GetToken(int userId, int partyId, int authenticationLevel = 2)
+        public static string GetToken(int userId, int partyId, int authenticationLevel = 2, IEnumerable<string> scopes = null)
         {
-            List<Claim> claims = new List<Claim>();
-            string issuer = "UnitTest";
-            claims.Add(new Claim(AltinnCoreClaimTypes.UserId, userId.ToString(), ClaimValueTypes.String, issuer));
-            claims.Add(new Claim(AltinnCoreClaimTypes.UserName, "UserOne", ClaimValueTypes.String, issuer));
-            claims.Add(new Claim(AltinnCoreClaimTypes.PartyID, partyId.ToString(), ClaimValueTypes.Integer32, issuer));
-            claims.Add(new Claim(AltinnCoreClaimTypes.AuthenticateMethod, "Mock", ClaimValueTypes.String, issuer));
-            claims.Add(new Claim(AltinnCoreClaimTypes.AuthenticationLevel, authenticationLevel.ToString(), ClaimValueTypes.Integer32, issuer));
-
-            ClaimsIdentity identity = new ClaimsIdentity("mock");
-            identity.AddClaims(claims);
-            ClaimsPrincipal principal = new ClaimsPrincipal(identity);
+            var principal = GetPrincipal(userId, partyId, authenticationLevel, scopes);
             string token = JwtTokenMock.GenerateToken(principal, new TimeSpan(1, 1, 1));
 
             return token;
         }
 
-        public static ClaimsPrincipal GetPrincipal(int userId, int partyId, int authenticationLevel = 2)
+        public static ClaimsPrincipal GetPrincipal(int userId, int partyId, int authenticationLevel = 2, IEnumerable<string> scopes = null)
         {
             List<Claim> claims = new List<Claim>();
             string issuer = "UnitTest";
@@ -43,6 +34,20 @@ namespace Altinn.Platform.Storage.UnitTest.Utils
             claims.Add(new Claim(AltinnCoreClaimTypes.PartyID, partyId.ToString(), ClaimValueTypes.Integer32, issuer));
             claims.Add(new Claim(AltinnCoreClaimTypes.AuthenticateMethod, "Mock", ClaimValueTypes.String, issuer));
             claims.Add(new Claim(AltinnCoreClaimTypes.AuthenticationLevel, authenticationLevel.ToString(), ClaimValueTypes.Integer32, issuer));
+            var claimScopes = new HashSet<string>();
+
+            if (scopes is not null)
+            {
+                foreach (string scope in scopes)
+                {
+                    claimScopes.Add(scope.Trim());
+                }
+            }
+
+            if (claimScopes.Count > 0)
+            {
+                claims.Add(new Claim("scope", string.Join(" ", claimScopes), ClaimValueTypes.String, issuer));
+            }
 
             ClaimsIdentity identity = new ClaimsIdentity("mock");
             identity.AddClaims(claims);
@@ -67,7 +72,7 @@ namespace Altinn.Platform.Storage.UnitTest.Utils
             return token;
         }
 
-        public static string GetSystemUserToken(string systemUserId, string orgNumber)
+        public static string GetSystemUserToken(string systemUserId, string orgNumber, IEnumerable<string> scopes = null)
         {
             string issuer = "UnitTest";
             SystemUserClaim systemUserClaim = new SystemUserClaim
@@ -77,10 +82,24 @@ namespace Altinn.Platform.Storage.UnitTest.Utils
                 System_id = "the_matrix"
             };
 
+            var claimScopes = new List<string>();
+            if (scopes is not null)
+            {
+                foreach (string scope in scopes)
+                {
+                    claimScopes.Add(scope.Trim());
+                }
+            }
+
             List<Claim> claims = [
                 new Claim("authorization_details", JsonSerializer.Serialize(systemUserClaim), "string", issuer), 
                 new Claim(AltinnCoreClaimTypes.AuthenticateMethod, "Mock", ClaimValueTypes.String, issuer), 
                 new Claim(AltinnCoreClaimTypes.AuthenticationLevel, "3", ClaimValueTypes.Integer32, issuer)];
+
+            if (claimScopes.Count > 0)
+            {
+                claims.Add(new Claim("scope", string.Join(" ", claimScopes), ClaimValueTypes.String, issuer));
+            }
 
             ClaimsPrincipal principal = new(new ClaimsIdentity(claims));
 
