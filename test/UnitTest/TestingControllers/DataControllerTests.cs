@@ -748,10 +748,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 });
             });
 
+            var client = factory.CreateClient();
+
             _testTelemetry = factory.Services.GetRequiredService<TestTelemetry>();
             _meterProvider = factory.Services.GetRequiredService<MeterProvider>();
 
-            return factory.CreateClient();
+            return client;
         }
     }
 }

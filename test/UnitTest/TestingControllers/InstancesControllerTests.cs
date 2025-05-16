@@ -2178,9 +2178,11 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
             });
         });
 
+        var client = factory.CreateClient();
+
         _testTelemetry = factory.Services.GetRequiredService<TestTelemetry>();
         _meterProvider = factory.Services.GetRequiredService<MeterProvider>();
 
-        return factory.CreateClient();
+        return client;
     }
 }
