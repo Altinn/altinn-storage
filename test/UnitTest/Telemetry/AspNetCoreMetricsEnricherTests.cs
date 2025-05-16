@@ -91,7 +91,6 @@ public class AspNetCoreMetricsEnricherTests(TestApplicationFactory<InstancesCont
             });
         });
 
-        var client = factory.CreateClient();
-        return new Fixture(factory, client);
+        return new Fixture(factory, factory.CreateClient());
     }
 }
