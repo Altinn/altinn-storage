@@ -74,14 +74,11 @@ internal sealed class AspNetCoreMetricsEnricher(ILogger<AspNetCoreMetricsEnriche
         feature.Tags.Add(new KeyValuePair<string, object?>("client.id", clientId));
         feature.Tags.Add(new KeyValuePair<string, object?>("client.consumer.id", consumerId));
 
-        if (context.ActionDescriptor.Properties.TryGetValue(AllowedScopesKey, out var allowedScopesObj))
+        if (context.ActionDescriptor.Properties.TryGetValue(AllowedScopesKey, out var allowedScopesObj) && user.Identity?.IsAuthenticated is true)
         {
-            if (user.Identity?.IsAuthenticated is true)
-            {
-                Debug.Assert(allowedScopesObj is FrozenSet<string>);
-                FrozenSet<string> allowedScopes = (FrozenSet<string>)allowedScopesObj!;
-                ValidateScope(allowedScopes, feature, context.HttpContext);
-            }
+            Debug.Assert(allowedScopesObj is FrozenSet<string>);
+            FrozenSet<string> allowedScopes = (FrozenSet<string>)allowedScopesObj!;
+            ValidateScope(allowedScopes, feature, context.HttpContext);
         }
 
         return next();
@@ -94,24 +91,24 @@ internal sealed class AspNetCoreMetricsEnricher(ILogger<AspNetCoreMetricsEnriche
         var scopeClaim = user.FindFirst("urn:altinn:scope") ?? user.FindFirst("scope");
         if (scopeClaim is null)
         {
-            Report(this, feature);
+            Report(feature);
             return;
         }
 
         var scopes = scopeClaim.Value.Split(" ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (scopes.Length == 0)
         {
-            Report(this, feature);
+            Report(feature);
             return;
         }
 
         if (!scopes.Any(s => allowedScopes.Contains(s)))
         {
-            Report(this, feature);
+            Report(feature);
             return;
         }
 
-        static void Report(AspNetCoreMetricsEnricher self, IHttpMetricsTagsFeature feature) =>
+        static void Report(IHttpMetricsTagsFeature feature) =>
             feature.Tags.Add(new KeyValuePair<string, object?>("invalid_scopes", true));
     }
 }
@@ -204,44 +201,62 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
 
         foreach (var action in context.Results.OfType<ControllerActionDescriptor>())
         {
+            var isManuallyExcluded = _manuallyExcludeActions.Contains(action.DisplayName ?? string.Empty);
+            if (isManuallyExcluded)
+            {
+                _actionsNotValidated.Add(action);
+                continue;
+            }
+
             var authorizeAttr = (AuthorizeAttribute?)action.EndpointMetadata.FirstOrDefault(m => m is AuthorizeAttribute);
             var authorizePolicy = authorizeAttr?.Policy;
+            var isManuallyIncluded = _manuallyIncludeActions.Contains(action.DisplayName ?? string.Empty);
+            if (isManuallyIncluded)
+            {
+                ProcessAction(action, authorizePolicy);
+                continue;
+            }
+
             var authorizeAttrHasInstancePolicy = authorizePolicy?.Contains("Instance", StringComparison.Ordinal) is true;
             var hasAllowAnonymousAttr = action.EndpointMetadata.Any(m => m is AllowAnonymousAttribute);
-            var isManuallyIncluded = _manuallyIncludeActions.Contains(action.DisplayName ?? string.Empty);
-            var isManuallyExcluded = _manuallyExcludeActions.Contains(action.DisplayName ?? string.Empty);
-            if (!isManuallyExcluded && ((authorizeAttrHasInstancePolicy && !hasAllowAnonymousAttr) || isManuallyIncluded))
+            if (authorizeAttrHasInstancePolicy && !hasAllowAnonymousAttr)
             {
-                FrozenSet<string> scopes;
-                if (_scopesOverride.TryGetValue(action.DisplayName ?? string.Empty, out var overrideScopes))
-                {
-                    scopes = overrideScopes;
-                }
-                else if (authorizePolicy is not null)
-                {
-                    scopes = authorizePolicy == AuthzConstants.POLICY_INSTANCE_READ ? _acceptedReadScopes : _acceptedWriteScopes;
-                }
-                else
-                {
-                    var httpMethodAttr = (HttpMethodAttribute?)action.EndpointMetadata.FirstOrDefault(m => m is HttpMethodAttribute);
-                    if (httpMethodAttr is not null && httpMethodAttr.HttpMethods.Any(m => _readHttpMethods.Contains(m)))
-                    {
-                        scopes = _acceptedReadScopes;
-                    }
-                    else
-                    {
-                        scopes = _acceptedWriteScopes;
-                    }
-                }
-
-                action.Properties[AspNetCoreMetricsEnricher.AllowedScopesKey] = scopes;
-                _actionsToValidate.Add(action);
+                ProcessAction(action, authorizePolicy);
             }
             else
             {
                 _actionsNotValidated.Add(action);
             }
         }
+    }
+
+    private void ProcessAction(ControllerActionDescriptor action, string? authorizePolicy)
+    {   
+        Debug.Assert(_actionsToValidate is not null);
+        FrozenSet<string> scopes;
+        if (_scopesOverride.TryGetValue(action.DisplayName ?? string.Empty, out var overrideScopes))
+        {
+            scopes = overrideScopes;
+        }
+        else if (authorizePolicy is not null)
+        {
+            scopes = authorizePolicy == AuthzConstants.POLICY_INSTANCE_READ ? _acceptedReadScopes : _acceptedWriteScopes;
+        }
+        else
+        {
+            var httpMethodAttr = (HttpMethodAttribute?)action.EndpointMetadata.FirstOrDefault(m => m is HttpMethodAttribute);
+            if (httpMethodAttr is not null && httpMethodAttr.HttpMethods.Any(m => _readHttpMethods.Contains(m)))
+            {
+                scopes = _acceptedReadScopes;
+            }
+            else
+            {
+                scopes = _acceptedWriteScopes;
+            }
+        }
+
+        action.Properties[AspNetCoreMetricsEnricher.AllowedScopesKey] = scopes;
+        _actionsToValidate.Add(action);
     }
 }
 
