@@ -161,15 +161,24 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
 
     private static readonly FrozenSet<string> _manuallyIncludeActions = 
         FrozenSet.Create<string>(
-            StringComparer.Ordinal, 
+            StringComparer.Ordinal,
             "Altinn.Platform.Storage.Controllers.DataLockController.Unlock (Altinn.Platform.Storage)",
             "Altinn.Platform.Storage.Controllers.InstancesController.GetInstances (Altinn.Platform.Storage)",
             "Altinn.Platform.Storage.Controllers.InstancesController.Post (Altinn.Platform.Storage)",
             "Altinn.Platform.Storage.Controllers.InstancesController.UpdateSubstatus (Altinn.Platform.Storage)",
             "Altinn.Platform.Storage.Controllers.ProcessController.PutInstanceAndEvents (Altinn.Platform.Storage)",
-            "Altinn.Platform.Storage.Controllers.ProcessController.PutProcess (Altinn.Platform.Storage)",
+            "Altinn.Platform.Storage.Controllers.ProcessController.PutProcess (Altinn.Platform.Storage)");
+
+    private static readonly FrozenSet<string> _manuallyExcludeActions = 
+        FrozenSet.Create<string>(
+            StringComparer.Ordinal,
             "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstance (Altinn.Platform.Storage)",
-            "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.SearchMessageBoxInstances (Altinn.Platform.Storage)");
+            "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.SearchMessageBoxInstances (Altinn.Platform.Storage)",
+            "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.Delete (Altinn.Platform.Storage)",
+            "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstance (Altinn.Platform.Storage)",
+            "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstanceEvents (Altinn.Platform.Storage)",
+            "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.SearchMessageBoxInstances (Altinn.Platform.Storage)",
+            "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.Undelete (Altinn.Platform.Storage)");
 
     private static readonly FrozenDictionary<string, FrozenSet<string>> _scopesOverride = new Dictionary<string, FrozenSet<string>>()
     {
@@ -200,7 +209,8 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
             var authorizeAttrHasInstancePolicy = authorizePolicy?.Contains("Instance", StringComparison.Ordinal) is true;
             var hasAllowAnonymousAttr = action.EndpointMetadata.Any(m => m is AllowAnonymousAttribute);
             var isManuallyIncluded = _manuallyIncludeActions.Contains(action.DisplayName ?? string.Empty);
-            if ((authorizeAttrHasInstancePolicy && !hasAllowAnonymousAttr) || isManuallyIncluded)
+            var isManuallyExcluded = _manuallyExcludeActions.Contains(action.DisplayName ?? string.Empty);
+            if (!isManuallyExcluded && ((authorizeAttrHasInstancePolicy && !hasAllowAnonymousAttr) || isManuallyIncluded))
             {
                 FrozenSet<string> scopes;
                 if (_scopesOverride.TryGetValue(action.DisplayName ?? string.Empty, out var overrideScopes))
@@ -211,14 +221,14 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
                 {
                     scopes = authorizePolicy == AuthzConstants.POLICY_INSTANCE_READ ? _acceptedReadScopes : _acceptedWriteScopes;
                 }
-                else 
+                else
                 {
                     var httpMethodAttr = (HttpMethodAttribute?)action.EndpointMetadata.FirstOrDefault(m => m is HttpMethodAttribute);
                     if (httpMethodAttr is not null && httpMethodAttr.HttpMethods.Any(m => _readHttpMethods.Contains(m)))
                     {
                         scopes = _acceptedReadScopes;
                     }
-                    else 
+                    else
                     {
                         scopes = _acceptedWriteScopes;
                     }
@@ -227,7 +237,7 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
                 action.Properties[AspNetCoreMetricsEnricher.AllowedScopesKey] = scopes;
                 _actionsToValidate.Add(action);
             }
-            else 
+            else
             {
                 _actionsNotValidated.Add(action);
             }

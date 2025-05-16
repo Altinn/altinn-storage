@@ -40,11 +40,6 @@ namespace Altinn.Platform.Storage.UnitTest.Utils
             {
                 foreach (string scope in scopes)
                 {
-                    if (string.IsNullOrWhiteSpace(scope))
-                    {
-                        continue;
-                    }
-
                     claimScopes.Add(scope.Trim());
                 }
             }
@@ -92,11 +87,6 @@ namespace Altinn.Platform.Storage.UnitTest.Utils
             {
                 foreach (string scope in scopes)
                 {
-                    if (string.IsNullOrWhiteSpace(scope))
-                    {
-                        continue;
-                    }
-
                     claimScopes.Add(scope.Trim());
                 }
             }

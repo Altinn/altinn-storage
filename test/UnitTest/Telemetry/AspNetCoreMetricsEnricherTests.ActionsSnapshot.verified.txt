@@ -20,11 +20,6 @@
     Altinn.Platform.Storage.Controllers.InstancesController.UpdatePresentationTexts (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstancesController.UpdateReadStatus (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstancesController.UpdateSubstatus (Altinn.Platform.Storage),
-    Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.Delete (Altinn.Platform.Storage),
-    Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstance (Altinn.Platform.Storage),
-    Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstanceEvents (Altinn.Platform.Storage),
-    Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.SearchMessageBoxInstances (Altinn.Platform.Storage),
-    Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.Undelete (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.ProcessController.GetProcessHistory (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.ProcessController.PutInstanceAndEvents (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.ProcessController.PutProcess (Altinn.Platform.Storage),
@@ -131,31 +126,6 @@
       altinn:portal/enduser,
       altinn:serviceowner/instances.write
     ],
-    Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.Delete (Altinn.Platform.Storage): [
-      altinn:instances.write,
-      altinn:portal/enduser,
-      altinn:serviceowner/instances.write
-    ],
-    Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstance (Altinn.Platform.Storage): [
-      altinn:instances.read,
-      altinn:portal/enduser,
-      altinn:serviceowner/instances.read
-    ],
-    Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstanceEvents (Altinn.Platform.Storage): [
-      altinn:instances.read,
-      altinn:portal/enduser,
-      altinn:serviceowner/instances.read
-    ],
-    Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.SearchMessageBoxInstances (Altinn.Platform.Storage): [
-      altinn:instances.read,
-      altinn:portal/enduser,
-      altinn:serviceowner/instances.read
-    ],
-    Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.Undelete (Altinn.Platform.Storage): [
-      altinn:instances.write,
-      altinn:portal/enduser,
-      altinn:serviceowner/instances.write
-    ],
     Altinn.Platform.Storage.Controllers.ProcessController.GetProcessHistory (Altinn.Platform.Storage): [
       altinn:instances.read,
       altinn:portal/enduser,
@@ -195,6 +165,11 @@
     Altinn.Platform.Storage.Controllers.ContentOnDemandController.GetSignatureAsHtml (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.DataController.SetFileScanStatus (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.ErrorController.Error (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.Delete (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstance (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstanceEvents (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.SearchMessageBoxInstances (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.Undelete (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.MigrationController.CleanupOldMigration (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.MigrationController.CreateApplication (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.MigrationController.CreateCodelist (Altinn.Platform.Storage),
