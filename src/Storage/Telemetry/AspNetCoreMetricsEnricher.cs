@@ -172,15 +172,8 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
             "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstance (Altinn.Platform.Storage)",
             "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.SearchMessageBoxInstances (Altinn.Platform.Storage)",
             "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.Delete (Altinn.Platform.Storage)",
-            "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstance (Altinn.Platform.Storage)",
             "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstanceEvents (Altinn.Platform.Storage)",
-            "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.SearchMessageBoxInstances (Altinn.Platform.Storage)",
             "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.Undelete (Altinn.Platform.Storage)");
-
-    private static readonly FrozenDictionary<string, FrozenSet<string>> _scopesOverride = new Dictionary<string, FrozenSet<string>>()
-    {
-        ["Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.SearchMessageBoxInstances (Altinn.Platform.Storage)"] = _acceptedReadScopes,
-    }.ToFrozenDictionary();
 
     /// <summary>
     /// Not used
@@ -234,11 +227,7 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
     {   
         Debug.Assert(_actionsToValidate is not null);
         FrozenSet<string> scopes;
-        if (_scopesOverride.TryGetValue(action.DisplayName ?? string.Empty, out var overrideScopes))
-        {
-            scopes = overrideScopes;
-        }
-        else if (authorizePolicy is not null)
+        if (authorizePolicy is not null)
         {
             scopes = authorizePolicy == AuthzConstants.POLICY_INSTANCE_READ ? _acceptedReadScopes : _acceptedWriteScopes;
         }
