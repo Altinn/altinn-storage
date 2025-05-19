@@ -14,12 +14,12 @@ public sealed class TestApplicationFactory<TEntryPoint> : WebApplicationFactory<
     {
         builder.ConfigureTestServices((services) =>
         {
-            var telemetry = new TestTelemetry();
-            services.AddSingleton(telemetry);
+            ConcurrentList<MetricSnapshot> metricsList = [];
+            services.AddSingleton(sp => ActivatorUtilities.CreateInstance<TestTelemetry>(sp, metricsList));
             services.AddOpenTelemetry()
                 .WithMetrics(metrics =>
                 {
-                    metrics.AddInMemoryExporter(telemetry.Metrics);
+                    metrics.AddInMemoryExporter(metricsList);
                 });
         });
     }

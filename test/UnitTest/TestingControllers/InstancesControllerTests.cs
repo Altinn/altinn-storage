@@ -98,7 +98,6 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string responseContent = await response.Content.ReadAsStringAsync();
         Instance instance = (Instance)JsonConvert.DeserializeObject(responseContent, typeof(Instance));
         Assert.Equal("1337", instance.InstanceOwner.PartyId);
-        _meterProvider.ForceFlush();
         Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
     }
 
@@ -282,7 +281,6 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string json = await response.Content.ReadAsStringAsync();
         Instance createdInstance = JsonConvert.DeserializeObject<Instance>(json);
         Assert.NotNull(createdInstance);
-        _meterProvider.ForceFlush();
         Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
     }
 
@@ -312,7 +310,6 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string json = await response.Content.ReadAsStringAsync();
         Instance createdInstance = JsonConvert.DeserializeObject<Instance>(json);
         Assert.NotNull(createdInstance);
-        _meterProvider.ForceFlush();
         Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
     }
 
@@ -700,7 +697,6 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
             Assert.Equal(expectedNoInstances, queryResponse.Count);
         }
 
-        _meterProvider.ForceFlush();
         Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
     }
 
@@ -2135,7 +2131,6 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     }
 
     private TestTelemetry _testTelemetry;
-    private MeterProvider _meterProvider;
 
     private HttpClient GetTestClient(Mock<IInstanceRepository> repositoryMock = null, Mock<IRegisterService> registerService = null, Mock<IApplicationService> applicationService = null)
     {
@@ -2181,7 +2176,6 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         var client = factory.CreateClient();
 
         _testTelemetry = factory.Services.GetRequiredService<TestTelemetry>();
-        _meterProvider = factory.Services.GetRequiredService<MeterProvider>();
 
         return client;
     }

@@ -79,7 +79,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             HttpResponseMessage response = await client.PostAsync($"{dataPathWithData}?dataType=default", content);
 
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            _meterProvider.ForceFlush();
             Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
         }
 
@@ -294,7 +293,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             HttpResponseMessage response = await client.GetAsync($"{dataPathWithData}");
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            _meterProvider.ForceFlush();
             Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
         }
 
@@ -702,7 +700,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         private TestTelemetry _testTelemetry;
-        private MeterProvider _meterProvider;
 
         private HttpClient GetTestClient(Mock<IDataRepository> dataRepositoryMock = null, Mock<IBlobRepository> blobRepositoryMock = null, Mock<IFileScanQueueClient> fileScanMock = null)
         {
@@ -751,7 +748,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             var client = factory.CreateClient();
 
             _testTelemetry = factory.Services.GetRequiredService<TestTelemetry>();
-            _meterProvider = factory.Services.GetRequiredService<MeterProvider>();
 
             return client;
         }

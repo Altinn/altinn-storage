@@ -5,12 +5,22 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.Fixture;
 
-internal class TestTelemetry
+internal sealed class TestTelemetry
 {
-    public ConcurrentList<MetricSnapshot> Metrics { get; } = [];
+    private readonly MeterProvider _meterProvider;
+
+    public ConcurrentList<MetricSnapshot> Metrics { get; }
+
+    public TestTelemetry(MeterProvider meterProvider, ConcurrentList<MetricSnapshot> metrics)
+    {
+        _meterProvider = meterProvider;
+        Metrics = metrics;
+    }
 
     public long? RequestsWithInvalidScopesCount()
     {
+        Assert.True(_meterProvider.ForceFlush());
+
         var metric = Metrics.LastOrDefault(m => m.Name == AspNetCoreMetricsEnricher.MetricName);
         if (metric == null)
         {
