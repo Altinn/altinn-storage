@@ -31,7 +31,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 using Moq;
-
+using OpenTelemetry.Metrics;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers
@@ -63,17 +63,23 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         /// Success:
         /// Created 
         /// </summary>
-        [Fact]
-        public async Task Post_NewData_Ok()
+        [Theory]
+        [InlineData("", 1L)]
+        [InlineData(PrincipalUtil.AltinnPortalUserScope, null)]
+        [InlineData("altinn:instances.write", null)]
+        [InlineData("something", 1L)]
+        public async Task Post_NewData_Ok(string scope, long? invalidScopeRequests)
         {
             string dataPathWithData = $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
             HttpContent content = new StringContent("This is a blob file");
 
             HttpClient client = GetTestClient();
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
+            var token = PrincipalUtil.GetToken(1337, 1337, 3, scopes: [scope]);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
             HttpResponseMessage response = await client.PostAsync($"{dataPathWithData}?dataType=default", content);
 
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
         }
 
         [Fact]
@@ -272,16 +278,22 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
 
-        [Fact]
-        public async Task Get_DataElement_Ok()
+        [Theory]
+        [InlineData("", 1L)]
+        [InlineData(PrincipalUtil.AltinnPortalUserScope, null)]
+        [InlineData("altinn:instances.read", null)]
+        [InlineData("something", 1L)]
+        public async Task Get_DataElement_Ok(string scope, long? invalidScopeRequests)
         {
             string dataPathWithData = $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/data/f4feb26c-8eed-4d1d-9d75-9239c40724e9";
 
             HttpClient client = GetTestClient();
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
+            var token = PrincipalUtil.GetToken(1337, 1337, 3, scopes: [scope]);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
             HttpResponseMessage response = await client.GetAsync($"{dataPathWithData}");
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
         }
 
         [Fact]
@@ -687,13 +699,15 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             repoMock.VerifyAll();
         }
 
+        private TestTelemetry _testTelemetry;
+
         private HttpClient GetTestClient(Mock<IDataRepository> dataRepositoryMock = null, Mock<IBlobRepository> blobRepositoryMock = null, Mock<IFileScanQueueClient> fileScanMock = null)
         {
             // No setup required for these services. They are not in use by the InstanceController
             Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
             Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
 
-            HttpClient client = _factory.WithWebHostBuilder(builder =>
+            var factory = _factory.WithWebHostBuilder(builder =>
             {
                 IConfiguration configuration = new ConfigurationBuilder()
                     .AddJsonFile(ServiceUtil.GetAppsettingsPath())
@@ -729,7 +743,11 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                     services.AddSingleton(partiesWrapper.Object);
                     services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
                 });
-            }).CreateClient();
+            });
+
+            var client = factory.CreateClient();
+
+            _testTelemetry = factory.Services.GetRequiredService<TestTelemetry>();
 
             return client;
         }

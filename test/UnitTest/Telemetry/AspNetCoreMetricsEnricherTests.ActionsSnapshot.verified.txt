@@ -1,0 +1,191 @@
+﻿{
+  ActionsToValidate: [
+    Altinn.Platform.Storage.Controllers.DataController.CreateAndUploadData (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.DataController.Delete (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.DataController.Get (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.DataController.GetMany (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.DataController.OverwriteData (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.DataController.Update (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.DataLockController.Lock (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.DataLockController.Unlock (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.InstanceEventsController.Get (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.InstanceEventsController.GetOne (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.InstanceEventsController.Post (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.InstancesController.AddCompleteConfirmation (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.InstancesController.Delete (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.InstancesController.Get (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.InstancesController.GetInstances (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.InstancesController.Post (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.InstancesController.UpdateDataValues (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.InstancesController.UpdatePresentationTexts (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.InstancesController.UpdateReadStatus (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.InstancesController.UpdateSubstatus (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.ProcessController.GetProcessHistory (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.ProcessController.PutInstanceAndEvents (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.ProcessController.PutProcess (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.SignController.Sign (Altinn.Platform.Storage)
+  ],
+  ScopesToValidate: {
+    Altinn.Platform.Storage.Controllers.DataController.CreateAndUploadData (Altinn.Platform.Storage): [
+      altinn:instances.write,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.write
+    ],
+    Altinn.Platform.Storage.Controllers.DataController.Delete (Altinn.Platform.Storage): [
+      altinn:instances.write,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.write
+    ],
+    Altinn.Platform.Storage.Controllers.DataController.Get (Altinn.Platform.Storage): [
+      altinn:instances.read,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.read
+    ],
+    Altinn.Platform.Storage.Controllers.DataController.GetMany (Altinn.Platform.Storage): [
+      altinn:instances.read,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.read
+    ],
+    Altinn.Platform.Storage.Controllers.DataController.OverwriteData (Altinn.Platform.Storage): [
+      altinn:instances.write,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.write
+    ],
+    Altinn.Platform.Storage.Controllers.DataController.Update (Altinn.Platform.Storage): [
+      altinn:instances.write,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.write
+    ],
+    Altinn.Platform.Storage.Controllers.DataLockController.Lock (Altinn.Platform.Storage): [
+      altinn:instances.write,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.write
+    ],
+    Altinn.Platform.Storage.Controllers.DataLockController.Unlock (Altinn.Platform.Storage): [
+      altinn:instances.write,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.write
+    ],
+    Altinn.Platform.Storage.Controllers.InstanceEventsController.Get (Altinn.Platform.Storage): [
+      altinn:instances.read,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.read
+    ],
+    Altinn.Platform.Storage.Controllers.InstanceEventsController.GetOne (Altinn.Platform.Storage): [
+      altinn:instances.read,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.read
+    ],
+    Altinn.Platform.Storage.Controllers.InstanceEventsController.Post (Altinn.Platform.Storage): [
+      altinn:instances.read,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.read
+    ],
+    Altinn.Platform.Storage.Controllers.InstancesController.AddCompleteConfirmation (Altinn.Platform.Storage): [
+      altinn:instances.write,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.write
+    ],
+    Altinn.Platform.Storage.Controllers.InstancesController.Delete (Altinn.Platform.Storage): [
+      altinn:instances.write,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.write
+    ],
+    Altinn.Platform.Storage.Controllers.InstancesController.Get (Altinn.Platform.Storage): [
+      altinn:instances.read,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.read
+    ],
+    Altinn.Platform.Storage.Controllers.InstancesController.GetInstances (Altinn.Platform.Storage): [
+      altinn:instances.read,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.read
+    ],
+    Altinn.Platform.Storage.Controllers.InstancesController.Post (Altinn.Platform.Storage): [
+      altinn:instances.write,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.write
+    ],
+    Altinn.Platform.Storage.Controllers.InstancesController.UpdateDataValues (Altinn.Platform.Storage): [
+      altinn:instances.write,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.write
+    ],
+    Altinn.Platform.Storage.Controllers.InstancesController.UpdatePresentationTexts (Altinn.Platform.Storage): [
+      altinn:instances.write,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.write
+    ],
+    Altinn.Platform.Storage.Controllers.InstancesController.UpdateReadStatus (Altinn.Platform.Storage): [
+      altinn:instances.read,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.read
+    ],
+    Altinn.Platform.Storage.Controllers.InstancesController.UpdateSubstatus (Altinn.Platform.Storage): [
+      altinn:instances.write,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.write
+    ],
+    Altinn.Platform.Storage.Controllers.ProcessController.GetProcessHistory (Altinn.Platform.Storage): [
+      altinn:instances.read,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.read
+    ],
+    Altinn.Platform.Storage.Controllers.ProcessController.PutInstanceAndEvents (Altinn.Platform.Storage): [
+      altinn:instances.write,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.write
+    ],
+    Altinn.Platform.Storage.Controllers.ProcessController.PutProcess (Altinn.Platform.Storage): [
+      altinn:instances.write,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.write
+    ],
+    Altinn.Platform.Storage.Controllers.SignController.Sign (Altinn.Platform.Storage): [
+      altinn:instances.write,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.write
+    ]
+  },
+  IgnoredActions: [
+    Altinn.Platform.Storage.Controllers.ApplicationsController.Delete (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.ApplicationsController.GetAll (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.ApplicationsController.GetMany (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.ApplicationsController.GetOne (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.ApplicationsController.IsValidAppId (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.ApplicationsController.Post (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.ApplicationsController.Put (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.CleanupController.CleanupDataelements (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.CleanupController.CleanupInstances (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.CleanupController.CleanupInstancesForApp (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.ContentOnDemandController.GetFormdataAsHtml (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.ContentOnDemandController.GetFormdataAsPdf (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.ContentOnDemandController.GetFormSummaryAsHtml (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.ContentOnDemandController.GetPaymentAsHtml (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.ContentOnDemandController.GetSignatureAsHtml (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.DataController.SetFileScanStatus (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.ErrorController.Error (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.Delete (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstance (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstanceEvents (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.SearchMessageBoxInstances (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.Undelete (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.MigrationController.CleanupOldMigration (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.MigrationController.CreateApplication (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.MigrationController.CreateCodelist (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.MigrationController.CreateDataElement (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.MigrationController.CreateImage (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.MigrationController.CreateInstance (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.MigrationController.CreateInstanceEvents (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.MigrationController.CreatePolicy (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.MigrationController.CreateText (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.MigrationController.CreateXsl (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.MigrationController.ProxyGeneratePdf (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.ProcessController.GetForAuth (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.SblBridgeController.RegisterAltinn3CorrespondenceRecipient (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.TextsController.Create (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.TextsController.Delete (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.TextsController.Get (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.TextsController.Update (Altinn.Platform.Storage)
+  ]
+}
