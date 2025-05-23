@@ -376,6 +376,11 @@ public class AuthorizationService(
             {
                 resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(XacmlResourceEndId, instance.Process.EndEvent, DefaultType, DefaultIssuer));
             }
+            else if (instance.DataValues != null && (instance.DataValues.ContainsKey("A1ArchRef") || instance.DataValues.ContainsKey("A2ArchRef")))
+            {
+                // Add a dummy end event for migrated a1/a2 instances
+                resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(XacmlResourceEndId, "MigratedA1A2", DefaultType, DefaultIssuer));
+            }
 
             if (!string.IsNullOrWhiteSpace(instanceProps.InstanceId))
             {
