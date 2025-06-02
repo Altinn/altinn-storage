@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION storage.updateinstance_v2(
+CREATE OR REPLACE FUNCTION storage.updateinstance_v3(
         _alternateid UUID,
         _toplevelsimpleprops JSONB,
         _datavalues JSONB,
@@ -8,7 +8,8 @@ CREATE OR REPLACE FUNCTION storage.updateinstance_v2(
         _substatus JSONB,
         _process JSONB,
         _lastchanged TIMESTAMPTZ,
-        _taskid TEXT)
+        _taskid TEXT,
+        _confirmed BOOLEAN DEFAULT NULL)
     RETURNS TABLE (updatedInstance JSONB)
     LANGUAGE 'plpgsql'	
 AS $BODY$
@@ -28,7 +29,8 @@ BEGIN
                             END
                         )
                     ),
-                lastchanged = _lastchanged
+                lastchanged = _lastchanged,
+                confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END
             WHERE _alternateid = alternateid
             RETURNING instance;
     ELSIF _presentationtexts IS NOT NULL THEN
@@ -46,7 +48,8 @@ BEGIN
                             END
                         )
                     ),
-                lastchanged = _lastchanged
+                lastchanged = _lastchanged,
+                confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END
             WHERE _alternateid = alternateid
             RETURNING instance;
     ELSIF _completeconfirmations IS NOT NULL THEN
@@ -62,7 +65,8 @@ BEGIN
                             _completeconfirmations
                         END
                     ),
-                lastchanged = _lastchanged
+                lastchanged = _lastchanged,
+                confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END
             WHERE _alternateid = alternateid
             RETURNING instance;
     ELSIF _status IS NOT NULL AND _process IS NULL THEN
@@ -78,7 +82,8 @@ BEGIN
                             _status
                         END
                     ),
-                lastchanged = _lastchanged
+                lastchanged = _lastchanged,
+                confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END
             WHERE _alternateid = alternateid
             RETURNING instance;
     ELSIF _substatus IS NOT NULL THEN
@@ -90,7 +95,8 @@ BEGIN
                         '{Status, Substatus}',
                         jsonb_strip_nulls(_substatus)
                     ),
-                lastchanged = _lastchanged
+                lastchanged = _lastchanged,
+                confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END
             WHERE _alternateid = alternateid
             RETURNING instance;
     ELSIF _process IS NOT NULL AND _status IS NOT NULL THEN
@@ -112,6 +118,7 @@ BEGIN
                         END
                     ),                
                 lastchanged = _lastchanged,
+                confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END,
                 taskid = _taskid
             WHERE _alternateid = alternateid
             RETURNING instance;
@@ -125,6 +132,7 @@ BEGIN
                         jsonb_strip_nulls(_process)
                     ),               
                 lastchanged = _lastchanged,
+                confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END,
                 taskid = _taskid
             WHERE _alternateid = alternateid
             RETURNING instance;                

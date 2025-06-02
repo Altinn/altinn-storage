@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using Altinn.Platform.Storage.Helpers;
 
 using Microsoft.AspNetCore.Mvc;
@@ -117,7 +118,7 @@ namespace Altinn.Platform.Storage.Models
         /// A string that will hide instances already confirmed by stakeholder.
         /// </summary>
         [FromQuery(Name = _excludeConfirmedByParameterName)]
-        public string ExcludeConfirmedBy { get; set; }
+        public StringValues ExcludeConfirmedBy { get; set; }
 
         /// <summary>
         /// Confirmed = false is a compact version of ExcludeConfirmedBy indicating

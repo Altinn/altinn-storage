@@ -217,12 +217,12 @@ END;
 $BODY$;
 
 -- insertinstance.sql:
-CREATE OR REPLACE PROCEDURE storage.insertinstance_v2(_partyid BIGINT, _alternateid UUID, _instance JSONB, _created TIMESTAMPTZ, _lastchanged TIMESTAMPTZ, _org TEXT, _appid TEXT, _taskid TEXT, _altinnmainversion INT)
+CREATE OR REPLACE PROCEDURE storage.insertinstance_v3(_partyid BIGINT, _alternateid UUID, _instance JSONB, _created TIMESTAMPTZ, _lastchanged TIMESTAMPTZ, _org TEXT, _appid TEXT, _taskid TEXT, _altinnmainversion INT, _confirmed BOOLEAN)
     LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
-    INSERT INTO storage.instances(partyid, alternateid, instance, created, lastchanged, org, appid, taskid, altinnmainversion)
-        VALUES (_partyid, _alternateid, jsonb_strip_nulls(_instance), _created, _lastchanged, _org, _appid, _taskid, _altinnmainversion);
+    INSERT INTO storage.instances(partyid, alternateid, instance, created, lastchanged, org, appid, taskid, altinnmainversion, confirmed)
+        VALUES (_partyid, _alternateid, jsonb_strip_nulls(_instance), _created, _lastchanged, _org, _appid, _taskid, _altinnmainversion, _confirmed);
 END;
 $BODY$;
 
@@ -614,7 +614,7 @@ END;
 $BODY$;
 
 -- updateinstance.sql:
-CREATE OR REPLACE FUNCTION storage.updateinstance_v2(
+CREATE OR REPLACE FUNCTION storage.updateinstance_v3(
         _alternateid UUID,
         _toplevelsimpleprops JSONB,
         _datavalues JSONB,
@@ -624,7 +624,8 @@ CREATE OR REPLACE FUNCTION storage.updateinstance_v2(
         _substatus JSONB,
         _process JSONB,
         _lastchanged TIMESTAMPTZ,
-        _taskid TEXT)
+        _taskid TEXT,
+        _confirmed BOOLEAN DEFAULT NULL)
     RETURNS TABLE (updatedInstance JSONB)
     LANGUAGE 'plpgsql'	
 AS $BODY$
@@ -644,7 +645,8 @@ BEGIN
                             END
                         )
                     ),
-                lastchanged = _lastchanged
+                lastchanged = _lastchanged,
+                confirmed = CASE _confirmed WHEN NULL THEN confirmed ELSE _confirmed END
             WHERE _alternateid = alternateid
             RETURNING instance;
     ELSIF _presentationtexts IS NOT NULL THEN
@@ -662,7 +664,8 @@ BEGIN
                             END
                         )
                     ),
-                lastchanged = _lastchanged
+                lastchanged = _lastchanged,
+                confirmed = CASE _confirmed WHEN NULL THEN confirmed ELSE _confirmed END
             WHERE _alternateid = alternateid
             RETURNING instance;
     ELSIF _completeconfirmations IS NOT NULL THEN
@@ -678,7 +681,8 @@ BEGIN
                             _completeconfirmations
                         END
                     ),
-                lastchanged = _lastchanged
+                lastchanged = _lastchanged,
+                confirmed = CASE _confirmed WHEN NULL THEN confirmed ELSE _confirmed END
             WHERE _alternateid = alternateid
             RETURNING instance;
     ELSIF _status IS NOT NULL AND _process IS NULL THEN
@@ -694,7 +698,8 @@ BEGIN
                             _status
                         END
                     ),
-                lastchanged = _lastchanged
+                lastchanged = _lastchanged,
+                confirmed = CASE _confirmed WHEN NULL THEN confirmed ELSE _confirmed END
             WHERE _alternateid = alternateid
             RETURNING instance;
     ELSIF _substatus IS NOT NULL THEN
@@ -706,7 +711,8 @@ BEGIN
                         '{Status, Substatus}',
                         jsonb_strip_nulls(_substatus)
                     ),
-                lastchanged = _lastchanged
+                lastchanged = _lastchanged,
+                confirmed = CASE _confirmed WHEN NULL THEN confirmed ELSE _confirmed END
             WHERE _alternateid = alternateid
             RETURNING instance;
     ELSIF _process IS NOT NULL AND _status IS NOT NULL THEN
@@ -728,6 +734,7 @@ BEGIN
                         END
                     ),                
                 lastchanged = _lastchanged,
+                confirmed = CASE _confirmed WHEN NULL THEN confirmed ELSE _confirmed END,
                 taskid = _taskid
             WHERE _alternateid = alternateid
             RETURNING instance;
@@ -741,6 +748,7 @@ BEGIN
                         jsonb_strip_nulls(_process)
                     ),               
                 lastchanged = _lastchanged,
+                confirmed = CASE _confirmed WHEN NULL THEN confirmed ELSE _confirmed END,
                 taskid = _taskid
             WHERE _alternateid = alternateid
             RETURNING instance;                
