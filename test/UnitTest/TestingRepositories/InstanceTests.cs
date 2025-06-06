@@ -605,6 +605,46 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         }
 
         /// <summary>
+        /// Test use of confirmed
+        /// </summary>
+        [Fact]
+        public async Task Instance_ConfirmedIsPopulated()
+        {
+            // Arrange
+            InstanceQueryParameters queryParamsWithExcludeOwner = new()
+            {
+                ExcludeConfirmedBy = new Microsoft.Extensions.Primitives.StringValues(["TTD"]),
+                Org = "TTD"
+            };
+
+            InstanceQueryParameters queryParamsWithExcludeOther = new()
+            {
+                ExcludeConfirmedBy = new Microsoft.Extensions.Primitives.StringValues(["SKD"]),
+                Org = "TTD"
+            };
+
+            InstanceQueryParameters queryParamsWithoutExclude = new()
+            {
+                Org = "TTD"
+            };
+
+            // Act
+            var sqlParamsWithExcludeOwner = queryParamsWithExcludeOwner.GeneratePostgreSQLParameters();
+            var sqlParamsWithExcludeOther = queryParamsWithExcludeOther.GeneratePostgreSQLParameters();
+            var sqlParamsWithoutExclude = queryParamsWithoutExclude.GeneratePostgreSQLParameters();
+
+            // Assert
+            Assert.False((bool?)sqlParamsWithExcludeOwner["_confirmed"]);
+            Assert.False(sqlParamsWithExcludeOwner.ContainsKey("_excludeConfirmedBy"));
+
+            Assert.False(sqlParamsWithExcludeOther.ContainsKey("_confirmed"));
+            Assert.True(sqlParamsWithExcludeOther.ContainsKey("_excludeConfirmedBy"));
+
+            Assert.False(sqlParamsWithoutExclude.ContainsKey("_confirmed"));
+            Assert.False(sqlParamsWithoutExclude.ContainsKey("_excludeConfirmedBy"));
+        }
+
+        /// <summary>
         /// Test GetInstancesFromQuery with PresentationFields, no match
         /// </summary>
         [Fact]
@@ -645,6 +685,106 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
                 Size = 100,
                 SearchString = "bing",
                 AppIds = []
+            };
+
+            // Act
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
+
+            // Assert
+            Assert.Equal(1, instances.Count);
+        }
+
+        /// <summary>
+        /// Test GetInstancesFromQuery with CompleteConfirmations, primary org, match
+        /// </summary>
+        [Fact]
+        public async Task Instance_GetInstancesFromQuery_CompleteConfirmations_PrimaryOrg_Match_Ok()
+        {
+            // Arrange
+            Instance newInstance = TestData.Instance_1_1.Clone();
+            newInstance.CompleteConfirmations = new() { new() { StakeholderId = "TTD", ConfirmedOn = DateTime.Now } };
+            await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
+
+            InstanceQueryParameters queryParams = new()
+            {
+                Size = 100,
+                ExcludeConfirmedBy = new Microsoft.Extensions.Primitives.StringValues(["TTD"]),
+                Org = "TTD"
+            };
+
+            // Act
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
+
+            // Assert
+            Assert.Equal(0, instances.Count);
+        }
+
+        /// <summary>
+        /// Test GetInstancesFromQuery with CompleteConfirmations, primary org, no match
+        /// </summary>
+        [Fact]
+        public async Task Instance_GetInstancesFromQuery_CompleteConfirmations_PrimaryOrg_NoMatch_Ok()
+        {
+            // Arrange
+            Instance newInstance = TestData.Instance_1_1.Clone();
+            newInstance.CompleteConfirmations = new() { new() { StakeholderId = "TTD", ConfirmedOn = DateTime.Now } };
+            await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
+
+            InstanceQueryParameters queryParams = new()
+            {
+                Size = 100,
+                ExcludeConfirmedBy = new Microsoft.Extensions.Primitives.StringValues(["SKD"]),
+                Org = "TTD"
+            };
+
+            // Act
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
+
+            // Assert
+            Assert.Equal(1, instances.Count);
+        }
+
+        /// <summary>
+        /// Test GetInstancesFromQuery with CompleteConfirmations, other org, match
+        /// </summary>
+        [Fact]
+        public async Task Instance_GetInstancesFromQuery_CompleteConfirmations_OtherOrg_Match_Ok()
+        {
+            // Arrange
+            Instance newInstance = TestData.Instance_1_1.Clone();
+            newInstance.CompleteConfirmations = new() { new() { StakeholderId = "SKD", ConfirmedOn = DateTime.Now } };
+            await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
+
+            InstanceQueryParameters queryParams = new()
+            {
+                Size = 100,
+                ExcludeConfirmedBy = new Microsoft.Extensions.Primitives.StringValues(["SKD"]),
+                Org = "SKD"
+            };
+
+            // Act
+            var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
+
+            // Assert
+            Assert.Equal(0, instances.Count);
+        }
+
+        /// <summary>
+        /// Test GetInstancesFromQuery with CompleteConfirmations, other org, no match
+        /// </summary>
+        [Fact]
+        public async Task Instance_GetInstancesFromQuery_CompleteConfirmations_OtherOrg_NoMatch_Ok()
+        {
+            // Arrange
+            Instance newInstance = TestData.Instance_1_1.Clone();
+            newInstance.CompleteConfirmations = new() { new() { StakeholderId = "SKD", ConfirmedOn = DateTime.Now } };
+            await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
+
+            InstanceQueryParameters queryParams = new()
+            {
+                Size = 100,
+                ExcludeConfirmedBy = new Microsoft.Extensions.Primitives.StringValues(["TTD"]),
+                Org = "TTD"
             };
 
             // Act

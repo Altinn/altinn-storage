@@ -1,7 +1,8 @@
-CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v5(
+CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v6(
     _appId TEXT DEFAULT NULL,
     _appIds TEXT[] DEFAULT NULL,
     _archiveReference TEXT DEFAULT NULL,
+    _confirmed BOOLEAN DEFAULT NULL,
     _continue_idx BIGINT DEFAULT 0,
     _created_eq TIMESTAMPTZ DEFAULT NULL,
     _created_gt TIMESTAMPTZ DEFAULT NULL,
@@ -66,6 +67,7 @@ BEGIN
     (
         SELECT i.id, i.instance, i.lastchanged FROM storage.instances i
         WHERE 1 = 1
+            AND (_confirmed IS NULL OR _confirmed = confirmed)            
             AND (_continue_idx <= 0 OR
                 (_continue_idx > 0 AND _sort_ascending = true  AND (i.lastchanged > _lastChanged_idx OR (i.lastchanged = _lastChanged_idx AND i.id > _continue_idx))) OR
                 (_continue_idx > 0 AND _sort_ascending = false AND (i.lastchanged < _lastChanged_idx OR (i.lastchanged = _lastChanged_idx AND i.id < _continue_idx))))

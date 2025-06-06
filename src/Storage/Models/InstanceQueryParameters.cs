@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using Altinn.Platform.Storage.Helpers;
 
 using Microsoft.AspNetCore.Mvc;
@@ -16,6 +17,7 @@ namespace Altinn.Platform.Storage.Models
         private const string _appIdParameterName = "appId";
         private const string _appIdsParameterName = "appIds";
         private const string _archiveReferenceParameterName = "archiveReference";
+        private const string _confirmedParameterName = "confirmed";
         private const string _continuationTokenParameterName = "continuationToken";
         private const string _creationDateParameterName = "created";
         private const string _currentTaskParameterName = "process.currentTask";
@@ -116,7 +118,14 @@ namespace Altinn.Platform.Storage.Models
         /// A string that will hide instances already confirmed by stakeholder.
         /// </summary>
         [FromQuery(Name = _excludeConfirmedByParameterName)]
-        public string ExcludeConfirmedBy { get; set; }
+        public StringValues? ExcludeConfirmedBy { get; set; }
+
+        /// <summary>
+        /// Confirmed = false is a compact version of ExcludeConfirmedBy indicating
+        /// ExcludeConfirmedBy for the org that invokes the request
+        /// </summary>
+        [FromQuery(Name = _confirmedParameterName)]
+        public bool? Confirmed { get; set; }
 
         /// <summary>
         /// A value indicating whether the instance is soft deleted.
@@ -228,6 +237,7 @@ namespace Altinn.Platform.Storage.Models
             AddParamIfNotNull(postgresParams, _statusIsArchivedOrSoftDeletedParameterName, IsArchivedOrSoftDeleted);
             AddParamIfNotNull(postgresParams, _mainVersionExcludeParameterName, MainVersionExclude);
             AddParamIfNotNull(postgresParams, _mainVersionIncludeParameterName, MainVersionInclude);
+            AddParamIfNotNull(postgresParams, _confirmedParameterName, GetConfirmed());
 
             AddParamIfNotEmpty(postgresParams, _orgParameterName, Org);
             AddParamIfNotEmpty(postgresParams, _appIdsParameterName, AppIds);
@@ -348,26 +358,38 @@ namespace Altinn.Platform.Storage.Models
             }
         }
 
+        private bool? GetConfirmed()
+        {
+            if (Confirmed.HasValue)
+            {
+                return Confirmed.Value;
+            }
+
+            return ExcludeConfirmedBy.HasValue && ExcludeConfirmedBy.Contains(Org) ? false : null;
+        }
+
         /// <summary>
-        /// Retrieves an array of exclude confirmed by values from the query values.
+        /// Retrieves an array of exclude confirmed by values that differ from the invoking org.
         /// </summary>
         /// <param name="queryValues">The query values containing stakeholder IDs.</param>
         /// <returns>An array of exclude confirmed by values.</returns>
-        private static string[] GetExcludeConfirmedBy(StringValues queryValues)
+        private string[] GetExcludeConfirmedBy(StringValues? queryValues)
         {
-            if (StringValues.IsNullOrEmpty(queryValues))
+            if (!queryValues.HasValue || StringValues.IsNullOrEmpty((StringValues)queryValues))
             {
                 return null;
             }
 
-            string[] confirmations = new string[queryValues.Count];
-
-            for (int i = 0; i < queryValues.Count; i++)
+            List<string> confirmations = [];
+            foreach (string stakeholder in queryValues)
             {
-                confirmations[i] = $"[{{\"StakeholderId\":\"{queryValues[i]}\"}}]";
+                if (stakeholder != Org)
+                {
+                    confirmations.Add($"[{{\"StakeholderId\":\"{stakeholder}\"}}]");
+                }
             }
 
-            return confirmations;
+            return confirmations.Count > 0 ? confirmations.ToArray() : null;
         }
 
         /// <summary>
