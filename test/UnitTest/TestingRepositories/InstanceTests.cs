@@ -608,7 +608,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         /// Test use of confirmed
         /// </summary>
         [Fact]
-        public async Task Instance_ConfirmedIsPopulated()
+        public void Instance_Confirmed_IsSetCorrectly()
         {
             // Arrange
             InstanceQueryParameters queryParamsWithExcludeOwner = new()
