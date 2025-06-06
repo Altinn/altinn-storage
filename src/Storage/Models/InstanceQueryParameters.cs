@@ -375,7 +375,7 @@ namespace Altinn.Platform.Storage.Models
         /// <returns>An array of exclude confirmed by values.</returns>
         private string[] GetExcludeConfirmedBy(StringValues? queryValues)
         {
-            if (!queryValues.HasValue || StringValues.IsNullOrEmpty((StringValues)queryValues))
+            if (StringValues.IsNullOrEmpty(queryValues ?? default))
             {
                 return null;
             }
