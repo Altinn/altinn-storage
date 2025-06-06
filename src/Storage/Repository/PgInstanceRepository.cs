@@ -28,12 +28,14 @@ namespace Altinn.Platform.Storage.Repository
     {
         private const string _readSqlFilteredInitial = "select * from storage.readinstancefromquery_v5 (";
         private readonly string _deleteSql = "select * from storage.deleteinstance ($1)";
-        private readonly string _insertSql = "call storage.insertinstance_v2 (@_partyid, @_alternateid, @_instance, @_created, @_lastchanged, @_org, @_appid, @_taskid, @_altinnmainversion)";
+        private readonly string _insertSql = "call storage.insertinstance_v3 (@_partyid, @_alternateid, @_instance, @_created, @_lastchanged," +
+            " @_org, @_appid, @_taskid, @_altinnmainversion, @_confirmed)";
 
         /// <summary>
         /// SQL for updating an instance.
         /// </summary>
-        internal static readonly string UpdateSql = "select * from storage.updateinstance_v2 (@_alternateid, @_toplevelsimpleprops, @_datavalues, @_completeconfirmations, @_presentationtexts, @_status, @_substatus, @_process, @_lastchanged, @_taskid)";
+        internal static readonly string UpdateSql = "select * from storage.updateinstance_v3 (@_alternateid, @_toplevelsimpleprops, @_datavalues," +
+            " @_completeconfirmations, @_presentationtexts, @_status, @_substatus, @_process, @_lastchanged, @_taskid, @_confirmed)";
 
         private readonly string _readSql = "select * from storage.readinstance ($1)";
         private readonly string _readSqlFiltered = _readSqlFilteredInitial;
@@ -83,6 +85,7 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue("_appid", NpgsqlDbType.Text, instance.AppId);
             pgcom.Parameters.AddWithValue("_taskid", NpgsqlDbType.Text, instance.Process?.CurrentTask?.ElementId ?? (object)DBNull.Value);
             pgcom.Parameters.AddWithValue("_altinnmainversion", NpgsqlDbType.Integer, altinnMainVersion);
+            pgcom.Parameters.AddWithValue("_confirmed", NpgsqlDbType.Boolean, instance.CompleteConfirmations != null && instance.CompleteConfirmations.Any(c => c.StakeholderId == instance.Org));
 
             await pgcom.ExecuteNonQueryAsync(cancellationToken);
 
@@ -403,6 +406,7 @@ namespace Altinn.Platform.Storage.Repository
             parameters.AddWithValue("_process", NpgsqlDbType.Jsonb, updateProperties.Contains(nameof(instance.Process)) ? instance.Process : DBNull.Value);
             parameters.AddWithValue("_lastchanged", NpgsqlDbType.TimestampTz, instance.LastChanged ?? DateTime.UtcNow);
             parameters.AddWithValue("_taskid", NpgsqlDbType.Text, instance.Process?.CurrentTask?.ElementId ?? (object)DBNull.Value);
+            parameters.AddWithValue("_confirmed", NpgsqlDbType.Boolean, instance.CompleteConfirmations != null && instance.CompleteConfirmations.Any(c => c.StakeholderId == instance.Org) ? true : DBNull.Value);
         }
 
         /// <summary>

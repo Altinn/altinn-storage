@@ -39,8 +39,11 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             // Assert
             string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
             int count = await PostgresUtil.RunCountQuery(sql);
+            sql = $"select confirmed from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
+            bool? confirmed = await PostgresUtil.RunQuery<bool?>(sql);
             Assert.Equal(1, count);
             Assert.Equal(TestData.Instance_1_1.Id, newInstance.Id);
+            Assert.Equal(false, confirmed);
         }
 
         /// <summary>
@@ -367,7 +370,42 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
         /// Test update CompleteConfirmations
         /// </summary>
         [Fact]
-        public async Task Instance_Update_CompleteConfirmations_Ok()
+        public async Task Instance_Update_CompleteConfirmations_PrimaryOrg_Ok()
+        {
+            // Arrange
+            Instance newInstance = TestData.Instance_1_1.Clone();
+            newInstance.CompleteConfirmations = [new CompleteConfirmation() { ConfirmedOn = DateTime.UtcNow.AddYears(-1), StakeholderId = "TTD" }];
+            newInstance = await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
+            newInstance.CompleteConfirmations = [new CompleteConfirmation() { ConfirmedOn = DateTime.UtcNow.AddYears(-2), StakeholderId = "s2" }];
+            newInstance.LastChanged = DateTime.UtcNow;
+            newInstance.LastChangedBy = "unittest";
+
+            List<string> updateProperties = [];
+            updateProperties.Add(nameof(newInstance.LastChanged));
+            updateProperties.Add(nameof(newInstance.LastChangedBy));
+            updateProperties.Add(nameof(newInstance.CompleteConfirmations));
+
+            // Act
+            Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties, CancellationToken.None);
+
+            // Assert
+            string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'" +
+                $" and instance ->> 'LastChangedBy' = 'unittest'";
+            int count = await PostgresUtil.RunCountQuery(sql);
+            sql = $"select confirmed from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
+            bool? confirmed = await PostgresUtil.RunQuery<bool?>(sql);
+            Assert.Equal(1, count);
+            Assert.Equal(2, updatedInstance.CompleteConfirmations.Count);
+            Assert.Equal(newInstance.LastChanged, updatedInstance.LastChanged);
+            Assert.Equal(newInstance.LastChangedBy, updatedInstance.LastChangedBy);
+            Assert.True(confirmed);
+        }
+
+        /// <summary>
+        /// Test update CompleteConfirmations
+        /// </summary>
+        [Fact]
+        public async Task Instance_Update_CompleteConfirmations_OtherOrg_Ok()
         {
             // Arrange
             Instance newInstance = TestData.Instance_1_1.Clone();
@@ -389,10 +427,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'" +
                 $" and instance ->> 'LastChangedBy' = 'unittest'";
             int count = await PostgresUtil.RunCountQuery(sql);
+            sql = $"select confirmed from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
+            bool confirmed = await PostgresUtil.RunQuery<bool>(sql);
             Assert.Equal(1, count);
             Assert.Equal(2, updatedInstance.CompleteConfirmations.Count);
             Assert.Equal(newInstance.LastChanged, updatedInstance.LastChanged);
             Assert.Equal(newInstance.LastChangedBy, updatedInstance.LastChangedBy);
+            Assert.False(confirmed);
         }
 
         /// <summary>
