@@ -118,7 +118,7 @@ namespace Altinn.Platform.Storage.Models
         /// A string that will hide instances already confirmed by stakeholder.
         /// </summary>
         [FromQuery(Name = _excludeConfirmedByParameterName)]
-        public StringValues ExcludeConfirmedBy { get; set; }
+        public StringValues? ExcludeConfirmedBy { get; set; }
 
         /// <summary>
         /// Confirmed = false is a compact version of ExcludeConfirmedBy indicating
@@ -365,7 +365,7 @@ namespace Altinn.Platform.Storage.Models
                 return Confirmed.Value;
             }
 
-            return ExcludeConfirmedBy.Contains(Org) ? false : null;
+            return ExcludeConfirmedBy.HasValue && ExcludeConfirmedBy.Contains(Org) ? false : null;
         }
 
         /// <summary>
@@ -373,19 +373,19 @@ namespace Altinn.Platform.Storage.Models
         /// </summary>
         /// <param name="queryValues">The query values containing stakeholder IDs.</param>
         /// <returns>An array of exclude confirmed by values.</returns>
-        private string[] GetExcludeConfirmedBy(StringValues queryValues)
+        private string[] GetExcludeConfirmedBy(StringValues? queryValues)
         {
-            if (StringValues.IsNullOrEmpty(queryValues))
+            if (!queryValues.HasValue || StringValues.IsNullOrEmpty((StringValues)queryValues))
             {
                 return null;
             }
 
             List<string> confirmations = [];
-            for (int i = 0; i < queryValues.Count; i++)
+            foreach (string stakeholder in queryValues)
             {
-                if (queryValues[i] != Org)
+                if (stakeholder != Org)
                 {
-                    confirmations.Add($"[{{\"StakeholderId\":\"{queryValues[i]}\"}}]");
+                    confirmations.Add($"[{{\"StakeholderId\":\"{stakeholder}\"}}]");
                 }
             }
 
