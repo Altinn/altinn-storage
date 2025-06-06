@@ -26,7 +26,7 @@ namespace Altinn.Platform.Storage.Repository
     /// </summary>
     public class PgInstanceRepository : IInstanceRepository
     {
-        private const string _readSqlFilteredInitial = "select * from storage.readinstancefromquery_v5 (";
+        private const string _readSqlFilteredInitial = "select * from storage.readinstancefromquery_v6 (";
         private readonly string _deleteSql = "select * from storage.deleteinstance ($1)";
         private readonly string _insertSql = "call storage.insertinstance_v3 (@_partyid, @_alternateid, @_instance, @_created, @_lastchanged," +
             " @_org, @_appid, @_taskid, @_altinnmainversion, @_confirmed)";
@@ -442,6 +442,7 @@ namespace Altinn.Platform.Storage.Repository
             { "_appId", NpgsqlDbType.Text },
             { "_appIds", NpgsqlDbType.Text | NpgsqlDbType.Array },
             { "_archiveReference", NpgsqlDbType.Text },
+            { "_confirmed", NpgsqlDbType.Boolean },
             { "_continue_idx", NpgsqlDbType.Bigint },
             { "_created_eq", NpgsqlDbType.TimestampTz },
             { "_created_gt", NpgsqlDbType.TimestampTz },
