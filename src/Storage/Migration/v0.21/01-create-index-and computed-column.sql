@@ -1,0 +1,1 @@
+ALTER TABLE storage.instances ADD COLUMN IF NOT EXISTS confirmed bool;
