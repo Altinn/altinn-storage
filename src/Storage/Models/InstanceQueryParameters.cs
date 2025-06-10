@@ -369,7 +369,7 @@ namespace Altinn.Platform.Storage.Models
         }
 
         /// <summary>
-        /// Retrieves an array of exclude confirmed by values that differ from the invoking org.
+        /// Retrieves an array of exclude confirmed by values that differ from the org parameter
         /// </summary>
         /// <param name="queryValues">The query values containing stakeholder IDs.</param>
         /// <returns>An array of exclude confirmed by values.</returns>

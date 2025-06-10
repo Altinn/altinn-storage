@@ -759,7 +759,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             {
                 Size = 100,
                 ExcludeConfirmedBy = new Microsoft.Extensions.Primitives.StringValues(["SKD"]),
-                Org = "SKD"
+                Org = "TTD"
             };
 
             // Act
