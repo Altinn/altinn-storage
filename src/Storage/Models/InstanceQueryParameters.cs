@@ -118,7 +118,7 @@ namespace Altinn.Platform.Storage.Models
         /// A string that will hide instances already confirmed by stakeholder.
         /// </summary>
         [FromQuery(Name = _excludeConfirmedByParameterName)]
-        public StringValues? ExcludeConfirmedBy { get; set; }
+        public string ExcludeConfirmedBy { get; set; }
 
         /// <summary>
         /// Confirmed = false is a compact version of ExcludeConfirmedBy indicating
@@ -365,7 +365,7 @@ namespace Altinn.Platform.Storage.Models
                 return Confirmed.Value;
             }
 
-            return ExcludeConfirmedBy.HasValue && ExcludeConfirmedBy.Contains(Org) ? false : null;
+            return (ExcludeConfirmedBy.Equals(Org, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(Org)) ? false : null;
         }
 
         /// <summary>
@@ -373,23 +373,25 @@ namespace Altinn.Platform.Storage.Models
         /// </summary>
         /// <param name="queryValues">The query values containing stakeholder IDs.</param>
         /// <returns>An array of exclude confirmed by values.</returns>
-        private string[] GetExcludeConfirmedBy(StringValues? queryValues)
+        private string[] GetExcludeConfirmedBy(StringValues queryValues)
         {
-            if (StringValues.IsNullOrEmpty(queryValues ?? default))
+            if (StringValues.IsNullOrEmpty(queryValues))
             {
                 return null;
             }
 
-            List<string> confirmations = [];
-            foreach (string stakeholder in queryValues)
+            string[] confirmations = new string[queryValues.Count];
+            if (queryValues.Count == 1 && queryValues[0].Equals(Org, StringComparison.OrdinalIgnoreCase))
             {
-                if (stakeholder != Org)
-                {
-                    confirmations.Add($"[{{\"StakeholderId\":\"{stakeholder}\"}}]");
-                }
+                return null;
             }
 
-            return confirmations.Count > 0 ? confirmations.ToArray() : null;
+            for (int i = 0; i < queryValues.Count; i++)
+            {
+                confirmations[i] = $"[{{\"StakeholderId\":\"{queryValues[i]}\"}}]";
+            }
+
+            return confirmations;
         }
 
         /// <summary>
