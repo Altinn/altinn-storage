@@ -365,33 +365,22 @@ namespace Altinn.Platform.Storage.Models
                 return Confirmed.Value;
             }
 
-            return (ExcludeConfirmedBy.Equals(Org, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(Org)) ? false : null;
+            return (!string.IsNullOrEmpty(ExcludeConfirmedBy) && ExcludeConfirmedBy.Equals(Org, StringComparison.OrdinalIgnoreCase)) ? false : null;
         }
 
         /// <summary>
         /// Retrieves an array of exclude confirmed by values that differ from the org parameter
         /// </summary>
-        /// <param name="queryValues">The query values containing stakeholder IDs.</param>
+        /// <param name="queryValue">The query value containing the stakeholder ID.</param>
         /// <returns>An array of exclude confirmed by values.</returns>
-        private string[] GetExcludeConfirmedBy(StringValues queryValues)
+        private string[] GetExcludeConfirmedBy(string queryValue)
         {
-            if (StringValues.IsNullOrEmpty(queryValues))
+            if (string.IsNullOrEmpty(queryValue) || queryValue.Equals(Org, StringComparison.OrdinalIgnoreCase))
             {
                 return null;
             }
 
-            string[] confirmations = new string[queryValues.Count];
-            if (queryValues.Count == 1 && queryValues[0].Equals(Org, StringComparison.OrdinalIgnoreCase))
-            {
-                return null;
-            }
-
-            for (int i = 0; i < queryValues.Count; i++)
-            {
-                confirmations[i] = $"[{{\"StakeholderId\":\"{queryValues[i]}\"}}]";
-            }
-
-            return confirmations;
+            return [$"[{{\"StakeholderId\":\"{queryValue}\"}}]"];
         }
 
         /// <summary>

@@ -613,13 +613,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             // Arrange
             InstanceQueryParameters queryParamsWithExcludeOwner = new()
             {
-                ExcludeConfirmedBy = new Microsoft.Extensions.Primitives.StringValues(["TTD"]),
+                ExcludeConfirmedBy = "TTD",
                 Org = "TTD"
             };
 
             InstanceQueryParameters queryParamsWithExcludeOther = new()
             {
-                ExcludeConfirmedBy = new Microsoft.Extensions.Primitives.StringValues(["SKD"]),
+                ExcludeConfirmedBy = "SKD",
                 Org = "TTD"
             };
 
@@ -708,7 +708,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             InstanceQueryParameters queryParams = new()
             {
                 Size = 100,
-                ExcludeConfirmedBy = new Microsoft.Extensions.Primitives.StringValues(["TTD"]),
+                ExcludeConfirmedBy = "TTD",
                 Org = "TTD"
             };
 
@@ -733,7 +733,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             InstanceQueryParameters queryParams = new()
             {
                 Size = 100,
-                ExcludeConfirmedBy = new Microsoft.Extensions.Primitives.StringValues(["SKD"]),
+                ExcludeConfirmedBy = "SKD",
                 Org = "TTD"
             };
 
@@ -758,7 +758,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             InstanceQueryParameters queryParams = new()
             {
                 Size = 100,
-                ExcludeConfirmedBy = new Microsoft.Extensions.Primitives.StringValues(["SKD"]),
+                ExcludeConfirmedBy = "SKD",
                 Org = "TTD"
             };
 
@@ -783,7 +783,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             InstanceQueryParameters queryParams = new()
             {
                 Size = 100,
-                ExcludeConfirmedBy = new Microsoft.Extensions.Primitives.StringValues(["TTD"]),
+                ExcludeConfirmedBy = "TTD",
                 Org = "TTD"
             };
 
