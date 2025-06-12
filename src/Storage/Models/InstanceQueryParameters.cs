@@ -118,7 +118,7 @@ namespace Altinn.Platform.Storage.Models
         /// A string that will hide instances already confirmed by stakeholder.
         /// </summary>
         [FromQuery(Name = _excludeConfirmedByParameterName)]
-        public StringValues? ExcludeConfirmedBy { get; set; }
+        public string ExcludeConfirmedBy { get; set; }
 
         /// <summary>
         /// Confirmed = false is a compact version of ExcludeConfirmedBy indicating
@@ -365,31 +365,22 @@ namespace Altinn.Platform.Storage.Models
                 return Confirmed.Value;
             }
 
-            return ExcludeConfirmedBy.HasValue && ExcludeConfirmedBy.Contains(Org) ? false : null;
+            return (!string.IsNullOrEmpty(ExcludeConfirmedBy) && ExcludeConfirmedBy.Equals(Org, StringComparison.OrdinalIgnoreCase)) ? false : null;
         }
 
         /// <summary>
         /// Retrieves an array of exclude confirmed by values that differ from the org parameter
         /// </summary>
-        /// <param name="queryValues">The query values containing stakeholder IDs.</param>
+        /// <param name="queryValue">The query value containing the stakeholder ID.</param>
         /// <returns>An array of exclude confirmed by values.</returns>
-        private string[] GetExcludeConfirmedBy(StringValues? queryValues)
+        private string[] GetExcludeConfirmedBy(string queryValue)
         {
-            if (StringValues.IsNullOrEmpty(queryValues ?? default))
+            if (string.IsNullOrEmpty(queryValue) || queryValue.Equals(Org, StringComparison.OrdinalIgnoreCase))
             {
                 return null;
             }
 
-            List<string> confirmations = [];
-            foreach (string stakeholder in queryValues)
-            {
-                if (stakeholder != Org)
-                {
-                    confirmations.Add($"[{{\"StakeholderId\":\"{stakeholder}\"}}]");
-                }
-            }
-
-            return confirmations.Count > 0 ? confirmations.ToArray() : null;
+            return [$"[{{\"StakeholderId\":\"{queryValue}\"}}]"];
         }
 
         /// <summary>
