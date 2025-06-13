@@ -20,6 +20,7 @@ using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Filters;
 using Altinn.Platform.Storage.Health;
 using Altinn.Platform.Storage.Helpers;
+using Altinn.Platform.Storage.Messages;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.Telemetry;
@@ -48,6 +49,8 @@ using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Wolverine;
+using Wolverine.AzureServiceBus;
 using Yuniql.AspNetCore;
 using Yuniql.PostgreSql;
 
@@ -66,6 +69,8 @@ await SetConfigurationProviders(builder.Configuration, builder.Environment.IsDev
 ConfigureApplicationLogging(builder.Logging);
 
 ConfigureServices(builder.Services, builder.Configuration);
+
+ConfigureWolverine(builder);
 
 logger.LogInformation("// Checking Azure Storage connection.");
 
@@ -337,6 +342,21 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
         }
     });
     services.AddSwaggerGenNewtonsoftSupport();
+}
+
+void ConfigureWolverine(WebApplicationBuilder builder)
+{
+    WolverineSettings wolverineSettings = builder.Configuration.GetSection("WolverineSettings").Get<WolverineSettings>();
+
+    builder.Host.UseWolverine(opts =>
+{
+    // Azure Service Bus transport
+    opts.UseAzureServiceBus(wolverineSettings.ServiceBusConnectionString)
+        .AutoProvision();
+
+    // Publish CreateOrderCommand to ASB queue
+    opts.PublishMessage<InstanceUpdateCommand>().ToAzureServiceBusQueue("storage-instance-updates");
+    });
 }
 
 static string GetXmlCommentsPathForControllers()

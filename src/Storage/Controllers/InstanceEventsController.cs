@@ -4,11 +4,13 @@ using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Messages;
 using Altinn.Platform.Storage.Repository;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Wolverine;
 
 namespace Altinn.Platform.Storage.Controllers
 {
@@ -20,14 +22,17 @@ namespace Altinn.Platform.Storage.Controllers
     public class InstanceEventsController : ControllerBase
     {
         private readonly IInstanceEventRepository _repository;
+        private readonly IMessageBus _bus;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="InstanceEventsController"/> class
         /// </summary>
         /// <param name="instanceEventRepository">the instance repository handler</param>
-        public InstanceEventsController(IInstanceEventRepository instanceEventRepository)
+        /// <param name="bus">Wolverines abstraction for sending messages</param>
+        public InstanceEventsController(IInstanceEventRepository instanceEventRepository, IMessageBus bus)
         {
             _repository = instanceEventRepository;
+            _bus = bus;
         }
 
         /// <summary>
@@ -51,6 +56,9 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             instanceEvent.Created = instanceEvent.Created?.ToUniversalTime() ?? DateTime.UtcNow;
+
+            InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId);
+            await _bus.PublishAsync(instanceUpdateCommand);
 
             InstanceEvent result = await _repository.InsertInstanceEvent(instanceEvent);
             if (result == null)
