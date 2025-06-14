@@ -57,7 +57,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             instanceEvent.Created = instanceEvent.Created?.ToUniversalTime() ?? DateTime.UtcNow;
 
-            InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId);
+            InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId, instanceEvent.EventType);
             await _bus.PublishAsync(instanceUpdateCommand);
 
             InstanceEvent result = await _repository.InsertInstanceEvent(instanceEvent);

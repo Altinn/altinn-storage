@@ -279,7 +279,7 @@ namespace Altinn.Platform.Storage.Controllers
 
                 await _instanceRepository.Update(instance, updateProperties, cancellationToken);
                 await _instanceEventRepository.InsertInstanceEvent(instanceEvent);
-                InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId);
+                InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId, instanceEvent.EventType);
                 await _bus.PublishAsync(instanceUpdateCommand);
                 return Ok(true);
             }
@@ -370,7 +370,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             await _instanceRepository.Update(instance, updateProperties, cancellationToken);
             await _instanceEventRepository.InsertInstanceEvent(instanceEvent);
-            InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId);
+            InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId, instanceEvent.EventType);
             await _bus.PublishAsync(instanceUpdateCommand);
 
             return Ok(true);

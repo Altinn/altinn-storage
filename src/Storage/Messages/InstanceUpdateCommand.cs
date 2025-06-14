@@ -5,4 +5,4 @@ namespace Altinn.Platform.Storage.Messages;
 /// <summary>
 /// Represents a message about update for an instance to send to service bus.
 /// </summary>
-public record InstanceUpdateCommand(string InstanceId);
+public record InstanceUpdateCommand(string InstanceId, string EventType);

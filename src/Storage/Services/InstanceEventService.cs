@@ -64,7 +64,7 @@ namespace Altinn.Platform.Storage.Services
 
             await _repository.InsertInstanceEvent(instanceEvent);
 
-            InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId);
+            InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId, instanceEvent.EventType);
             await _bus.PublishAsync(instanceUpdateCommand);
         }
 
@@ -93,7 +93,7 @@ namespace Altinn.Platform.Storage.Services
 
             await _repository.InsertInstanceEvent(instanceEvent);
 
-            InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId);
+            InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId, instanceEvent.EventType);
             await _bus.PublishAsync(instanceUpdateCommand);
         }
     }
