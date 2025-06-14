@@ -243,6 +243,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             };
 
             IOptions<GeneralSettings> generalSettings = Options.Create(new GeneralSettings() { Hostname = "https://altinn.no/" });
+            Environment.SetEnvironmentVariable("WolverineSettings__ServiceBusConnectionString", string.Empty);
 
             var sut = new DataController(
                      dataRepositoryMock.Object,

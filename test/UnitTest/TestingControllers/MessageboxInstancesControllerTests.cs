@@ -1376,6 +1376,8 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
         Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
 
+        Environment.SetEnvironmentVariable("WolverineSettings__ServiceBusConnectionString", string.Empty);
+
         HttpClient client = _factory.WithWebHostBuilder(builder =>
         {
             IConfiguration configuration = new ConfigurationBuilder().AddJsonFile(ServiceUtil.GetAppsettingsPath()).Build();

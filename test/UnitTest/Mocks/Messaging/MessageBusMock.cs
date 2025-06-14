@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Wolverine;
@@ -10,6 +11,8 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Messaging
     /// </summary>
     public class MessageBusMock : IMessageBus
     {
+        public string TenantId { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+
         public Task PublishAsync<T>(T message, CancellationToken cancellation = default)
         {
             return Task.CompletedTask;
@@ -53,6 +56,56 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Messaging
         public Task<TResponse> InvokeAsync<TResponse>(object message, CancellationToken cancellation = default)
         {
             return Task.FromResult(default(TResponse)!);
+        }
+
+        public Task InvokeForTenantAsync(string tenantId, object message, CancellationToken cancellation = default, TimeSpan? timeout = null)
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task<T> InvokeForTenantAsync<T>(string tenantId, object message, CancellationToken cancellation = default, TimeSpan? timeout = null)
+        {
+            return Task.FromResult(default(T)!);
+        }
+
+        public IDestinationEndpoint EndpointFor(string endpointName)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IDestinationEndpoint EndpointFor(Uri uri)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IReadOnlyList<Envelope> PreviewSubscriptions(object message)
+        {
+            throw new NotImplementedException();
+        }
+
+        public ValueTask SendAsync<T>(T message, DeliveryOptions options = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public ValueTask PublishAsync<T>(T message, DeliveryOptions options = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public ValueTask BroadcastToTopicAsync(string topicName, object message, DeliveryOptions options = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task InvokeAsync(object message, CancellationToken cancellation = default, TimeSpan? timeout = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<T> InvokeAsync<T>(object message, CancellationToken cancellation = default, TimeSpan? timeout = null)
+        {
+            throw new NotImplementedException();
         }
     }
 }

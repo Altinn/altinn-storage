@@ -348,15 +348,18 @@ void ConfigureWolverine(WebApplicationBuilder builder)
 {
     WolverineSettings wolverineSettings = builder.Configuration.GetSection("WolverineSettings").Get<WolverineSettings>();
 
-    builder.Host.UseWolverine(opts =>
-{
-    // Azure Service Bus transport
-    opts.UseAzureServiceBus(wolverineSettings.ServiceBusConnectionString)
-        .AutoProvision();
+    if (!string.IsNullOrWhiteSpace(wolverineSettings?.ServiceBusConnectionString))
+    {
+        builder.Host.UseWolverine(opts =>
+        {
+            // Azure Service Bus transport
+            opts.UseAzureServiceBus(wolverineSettings.ServiceBusConnectionString)
+                .AutoProvision();
 
-    // Publish CreateOrderCommand to ASB queue
-    opts.PublishMessage<InstanceUpdateCommand>().ToAzureServiceBusQueue("storage-instance-updates");
-    });
+            // Publish CreateOrderCommand to ASB queue
+            opts.PublishMessage<InstanceUpdateCommand>().ToAzureServiceBusQueue("storage-instance-updates");
+        });
+    }
 }
 
 static string GetXmlCommentsPathForControllers()

@@ -174,7 +174,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         {
             // No setup required for these services. They are not in use by the InstanceController
             Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
-
+            Environment.SetEnvironmentVariable("WolverineSettings__ServiceBusConnectionString", string.Empty);
+            
             HttpClient client = _factory.WithWebHostBuilder(builder =>
             {
                 IConfiguration configuration = new ConfigurationBuilder().AddJsonFile(ServiceUtil.GetAppsettingsPath()).Build();
