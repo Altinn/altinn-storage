@@ -4,9 +4,11 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Messages;
 using Altinn.Platform.Storage.Repository;
 
 using Microsoft.AspNetCore.Http;
+using Wolverine;
 
 namespace Altinn.Platform.Storage.Services
 {
@@ -17,14 +19,16 @@ namespace Altinn.Platform.Storage.Services
     {
         private readonly IInstanceEventRepository _repository;
         private readonly IHttpContextAccessor _contextAccessor;
+        private readonly IMessageBus _bus;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="InstanceEventService"/> class.
         /// </summary>
-        public InstanceEventService(IInstanceEventRepository repository, IHttpContextAccessor contextAccessor)
+        public InstanceEventService(IInstanceEventRepository repository, IHttpContextAccessor contextAccessor, IMessageBus bus)
         {
             _repository = repository;
             _contextAccessor = contextAccessor;
+            _bus = bus;
         }
 
         /// <inheritdoc/>
@@ -59,6 +63,9 @@ namespace Altinn.Platform.Storage.Services
             var instanceEvent = BuildInstanceEvent(eventType, instance);
 
             await _repository.InsertInstanceEvent(instanceEvent);
+
+            InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId);
+            await _bus.PublishAsync(instanceUpdateCommand);
         }
 
         /// <inheritdoc/>
@@ -85,6 +92,9 @@ namespace Altinn.Platform.Storage.Services
             };
 
             await _repository.InsertInstanceEvent(instanceEvent);
+
+            InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId);
+            await _bus.PublishAsync(instanceUpdateCommand);
         }
     }
 }
