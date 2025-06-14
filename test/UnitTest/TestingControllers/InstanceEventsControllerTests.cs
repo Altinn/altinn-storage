@@ -26,7 +26,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
-using Moq;
+using Wolverine;
 
 using Newtonsoft.Json;
 
@@ -229,6 +229,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                     services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
                     services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
                     services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
+                    services.AddSingleton<IMessageBus, MessageBusMock>();
                 });
             }).CreateClient();
 
