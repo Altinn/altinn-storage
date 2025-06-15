@@ -12,6 +12,7 @@ using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Messages;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
@@ -19,6 +20,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
+using Wolverine;
 
 namespace Altinn.Platform.Storage.Controllers
 {
@@ -35,6 +37,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IApplicationRepository _applicationRepository;
         private readonly IAuthorization _authorizationService;
         private readonly IApplicationService _applicationService;
+        private readonly IMessageBus _bus;
         private readonly ILogger _logger;
 
         /// <summary>
@@ -46,6 +49,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="applicationRepository">the application repository handler</param>
         /// <param name="authorizationService">the authorization service</param>
         /// <param name="applicationService">the application service</param>
+        /// /// <param name="bus">Wolverines abstraction for sending messages</param>
         /// <param name="logger">The logger</param>
         public MessageBoxInstancesController(
             IInstanceRepository instanceRepository,
@@ -54,6 +58,7 @@ namespace Altinn.Platform.Storage.Controllers
             IApplicationRepository applicationRepository,
             IAuthorization authorizationService,
             IApplicationService applicationService,
+            IMessageBus bus,
             ILogger<MessageBoxInstancesController> logger)
         {
             _instanceRepository = instanceRepository;
@@ -62,6 +67,7 @@ namespace Altinn.Platform.Storage.Controllers
             _applicationRepository = applicationRepository;
             _authorizationService = authorizationService;
             _applicationService = applicationService;
+            _bus = bus;
             _logger = logger;
         }
 
@@ -273,6 +279,8 @@ namespace Altinn.Platform.Storage.Controllers
 
                 await _instanceRepository.Update(instance, updateProperties, cancellationToken);
                 await _instanceEventRepository.InsertInstanceEvent(instanceEvent);
+                InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId, instanceEvent.EventType);
+                await _bus.PublishAsync(instanceUpdateCommand);
                 return Ok(true);
             }
 
@@ -362,6 +370,8 @@ namespace Altinn.Platform.Storage.Controllers
 
             await _instanceRepository.Update(instance, updateProperties, cancellationToken);
             await _instanceEventRepository.InsertInstanceEvent(instanceEvent);
+            InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId, instanceEvent.EventType);
+            await _bus.PublishAsync(instanceUpdateCommand);
 
             return Ok(true);
         }

@@ -1,3 +1,4 @@
+using System;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
@@ -66,6 +67,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             HttpClient client = _factory.WithWebHostBuilder(builder =>
             {
                 IConfiguration configuration = new ConfigurationBuilder().AddJsonFile(ServiceUtil.GetAppsettingsPath()).Build();
+                Environment.SetEnvironmentVariable("WolverineSettings__ServiceBusConnectionString", string.Empty);
                 builder.ConfigureAppConfiguration((hostingContext, config) =>
                 {
                     config.AddConfiguration(configuration);
