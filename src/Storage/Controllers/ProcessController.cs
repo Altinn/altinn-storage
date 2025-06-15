@@ -175,6 +175,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             Instance updatedInstance = await _instanceAndEventsRepository.Update(existingInstance, updateProperties, processStateUpdate.Events, cancellationToken);
 
+            // Check if every instance event is sent to the message bus -- probably not needed, only one event is sent
             foreach (InstanceEvent instanceEvent in processStateUpdate.Events)
             {
                 InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId, instanceEvent.EventType);
