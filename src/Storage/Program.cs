@@ -51,6 +51,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Wolverine;
 using Wolverine.AzureServiceBus;
+using Wolverine.Postgresql;
 using Yuniql.AspNetCore;
 using Yuniql.PostgreSql;
 
@@ -356,8 +357,12 @@ void ConfigureWolverine(WebApplicationBuilder builder)
             opts.UseAzureServiceBus(wolverineSettings.ServiceBusConnectionString)
                 .AutoProvision();
 
+            // Outbox med Postgres
+            opts.PersistMessagesWithPostgresql(wolverineSettings.PostgresConnectionString, schemaName: "wolverine");
+            opts.Policies.UseDurableOutboxOnAllSendingEndpoints();
+
             // Publish CreateOrderCommand to ASB queue
-            opts.PublishMessage<InstanceUpdateCommand>().ToAzureServiceBusQueue("storage-instance-updates");
+            opts.PublishMessage<InstanceUpdateCommand>().ToAzureServiceBusQueue("storage-instance-updates-outbox");
         });
     }
 }
