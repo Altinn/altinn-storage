@@ -10,6 +10,7 @@ using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Messages;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 
@@ -18,6 +19,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Wolverine;
 
 namespace Altinn.Platform.Storage.Controllers
 {
@@ -35,6 +37,8 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IAuthorization _authorizationService;
         private readonly IInstanceEventService _instanceEventService;
 
+        private readonly IMessageBus _messageBus;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="ProcessController"/> class
         /// </summary>
@@ -44,13 +48,15 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="generalsettings">the general settings</param>
         /// <param name="authorizationService">the authorization service</param>
         /// <param name="instanceEventService">the instance event service</param>
+        /// <param name="messageBus">Wolverines abstraction for sending messages</param>
         public ProcessController(
             IInstanceRepository instanceRepository,
             IInstanceEventRepository instanceEventRepository,
             IInstanceAndEventsRepository instanceAndEventsRepository,
             IOptions<GeneralSettings> generalsettings,
             IAuthorization authorizationService,
-            IInstanceEventService instanceEventService)
+            IInstanceEventService instanceEventService,
+            IMessageBus messageBus)
         {
             _instanceRepository = instanceRepository;
             _instanceEventRepository = instanceEventRepository;
@@ -58,6 +64,7 @@ namespace Altinn.Platform.Storage.Controllers
             _storageBaseAndHost = $"{generalsettings.Value.Hostname}/storage/api/v1/";
             _authorizationService = authorizationService;
             _instanceEventService = instanceEventService;
+            _messageBus = messageBus;
         }
 
         /// <summary>
@@ -167,6 +174,12 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             Instance updatedInstance = await _instanceAndEventsRepository.Update(existingInstance, updateProperties, processStateUpdate.Events, cancellationToken);
+
+            foreach (InstanceEvent instanceEvent in processStateUpdate.Events)
+            {
+                InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId, instanceEvent.EventType);
+                await _messageBus.PublishAsync(instanceUpdateCommand);
+            }
 
             updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
             return Ok(updatedInstance);
