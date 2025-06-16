@@ -78,5 +78,11 @@ namespace Altinn.Platform.Storage.Configuration
         /// be set to false on demand by manipulating the aks yaml config in the target environment.
         /// </summary>
         public bool DisableTelemetryForMigration { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether to authorize default API scopes usage in the APIs.
+        /// Disabling this will allow invalid/missing scopes on API calls.
+        /// </summary>
+        public bool AuthorizeDefaultApiScopes { get; set; }
     }
 }
