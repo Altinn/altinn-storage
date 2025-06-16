@@ -93,5 +93,11 @@ namespace Altinn.Platform.Storage.Configuration
         /// Gets or sets whether to use sign as an action when authorizing A2 search requests.
         /// </summary>
         public bool AuthorizeA2ListInstancesSign { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether to authorize default API scopes usage in the APIs.
+        /// Disabling this will allow invalid/missing scopes on API calls.
+        /// </summary>
+        public bool AuthorizeDefaultApiScopes { get; set; }
     }
 }

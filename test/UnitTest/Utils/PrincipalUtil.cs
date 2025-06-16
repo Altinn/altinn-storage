@@ -5,7 +5,6 @@ using System.Text.Json;
 
 using Altinn.AccessManagement.Core.Models;
 using Altinn.Common.AccessToken.Constants;
-using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Mocks;
 
 using AltinnCore.Authentication.Constants;
