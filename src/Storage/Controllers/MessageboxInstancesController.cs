@@ -37,7 +37,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IApplicationRepository _applicationRepository;
         private readonly IAuthorization _authorizationService;
         private readonly IApplicationService _applicationService;
-        private readonly IMessageBus _bus;
+        private readonly IMessageBus _messageBus;
         private readonly ILogger _logger;
 
         /// <summary>
@@ -49,7 +49,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="applicationRepository">the application repository handler</param>
         /// <param name="authorizationService">the authorization service</param>
         /// <param name="applicationService">the application service</param>
-        /// /// <param name="bus">Wolverines abstraction for sending messages</param>
+        /// /// <param name="messageBus">Wolverines abstraction for sending messages</param>
         /// <param name="logger">The logger</param>
         public MessageBoxInstancesController(
             IInstanceRepository instanceRepository,
@@ -58,7 +58,7 @@ namespace Altinn.Platform.Storage.Controllers
             IApplicationRepository applicationRepository,
             IAuthorization authorizationService,
             IApplicationService applicationService,
-            IMessageBus bus,
+            IMessageBus messageBus,
             ILogger<MessageBoxInstancesController> logger)
         {
             _instanceRepository = instanceRepository;
@@ -67,7 +67,7 @@ namespace Altinn.Platform.Storage.Controllers
             _applicationRepository = applicationRepository;
             _authorizationService = authorizationService;
             _applicationService = applicationService;
-            _bus = bus;
+            _messageBus = messageBus;
             _logger = logger;
         }
 
@@ -279,8 +279,18 @@ namespace Altinn.Platform.Storage.Controllers
 
                 await _instanceRepository.Update(instance, updateProperties, cancellationToken);
                 await _instanceEventRepository.InsertInstanceEvent(instanceEvent);
-                InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId, instanceEvent.EventType);
-                await _bus.PublishAsync(instanceUpdateCommand);
+
+                try
+                {
+                    InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId);
+                    await _messageBus.PublishAsync(instanceUpdateCommand);
+                }
+                catch (Exception ex)
+                {
+                    // Log the error but do not return an error to the user
+                    _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceEvent.InstanceId);
+                }
+
                 return Ok(true);
             }
 
@@ -370,8 +380,17 @@ namespace Altinn.Platform.Storage.Controllers
 
             await _instanceRepository.Update(instance, updateProperties, cancellationToken);
             await _instanceEventRepository.InsertInstanceEvent(instanceEvent);
-            InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId, instanceEvent.EventType);
-            await _bus.PublishAsync(instanceUpdateCommand);
+
+            try
+            {
+                InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId);
+                await _messageBus.PublishAsync(instanceUpdateCommand);
+            }
+            catch (Exception ex)
+            {
+                // Log the error but do not return an error to the user
+                _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceEvent.InstanceId);
+            }
 
             return Ok(true);
         }

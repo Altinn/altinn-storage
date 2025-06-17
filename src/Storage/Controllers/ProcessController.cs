@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
@@ -36,8 +35,8 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly string _storageBaseAndHost;
         private readonly IAuthorization _authorizationService;
         private readonly IInstanceEventService _instanceEventService;
-
         private readonly IMessageBus _messageBus;
+        private readonly ILogger _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ProcessController"/> class
@@ -49,6 +48,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="authorizationService">the authorization service</param>
         /// <param name="instanceEventService">the instance event service</param>
         /// <param name="messageBus">Wolverines abstraction for sending messages</param>
+        /// /// <param name="logger">the logger</param>
         public ProcessController(
             IInstanceRepository instanceRepository,
             IInstanceEventRepository instanceEventRepository,
@@ -56,7 +56,8 @@ namespace Altinn.Platform.Storage.Controllers
             IOptions<GeneralSettings> generalsettings,
             IAuthorization authorizationService,
             IInstanceEventService instanceEventService,
-            IMessageBus messageBus)
+            IMessageBus messageBus,
+            ILogger<ProcessController> logger)
         {
             _instanceRepository = instanceRepository;
             _instanceEventRepository = instanceEventRepository;
@@ -65,6 +66,7 @@ namespace Altinn.Platform.Storage.Controllers
             _authorizationService = authorizationService;
             _instanceEventService = instanceEventService;
             _messageBus = messageBus;
+            _logger = logger;
         }
 
         /// <summary>
@@ -175,13 +177,17 @@ namespace Altinn.Platform.Storage.Controllers
 
             Instance updatedInstance = await _instanceAndEventsRepository.Update(existingInstance, updateProperties, processStateUpdate.Events, cancellationToken);
 
-            // Check if every instance event is sent to the message bus -- probably not needed, only one event is sent
-            foreach (InstanceEvent instanceEvent in processStateUpdate.Events)
+            try
             {
-                InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId, instanceEvent.EventType);
+                InstanceUpdateCommand instanceUpdateCommand = new(updatedInstance.Id);
                 await _messageBus.PublishAsync(instanceUpdateCommand);
             }
-
+            catch (Exception ex)
+            {
+                // Log the error but do not return an error to the user
+                _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", updatedInstance.Id);
+            }
+            
             updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
             return Ok(updatedInstance);
         }
