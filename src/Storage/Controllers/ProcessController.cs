@@ -36,6 +36,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IAuthorization _authorizationService;
         private readonly IInstanceEventService _instanceEventService;
         private readonly IMessageBus _messageBus;
+        private readonly WolverineSettings _wolverineSettings;
         private readonly ILogger _logger;
 
         /// <summary>
@@ -48,6 +49,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="authorizationService">the authorization service</param>
         /// <param name="instanceEventService">the instance event service</param>
         /// <param name="messageBus">Wolverines abstraction for sending messages</param>
+        /// <param name="wolverineSettings">Wolverine settings</param>
         /// /// <param name="logger">the logger</param>
         public ProcessController(
             IInstanceRepository instanceRepository,
@@ -57,6 +59,7 @@ namespace Altinn.Platform.Storage.Controllers
             IAuthorization authorizationService,
             IInstanceEventService instanceEventService,
             IMessageBus messageBus,
+            IOptions<WolverineSettings> wolverineSettings,
             ILogger<ProcessController> logger)
         {
             _instanceRepository = instanceRepository;
@@ -66,6 +69,7 @@ namespace Altinn.Platform.Storage.Controllers
             _authorizationService = authorizationService;
             _instanceEventService = instanceEventService;
             _messageBus = messageBus;
+            _wolverineSettings = wolverineSettings.Value;
             _logger = logger;
         }
 
@@ -177,17 +181,20 @@ namespace Altinn.Platform.Storage.Controllers
 
             Instance updatedInstance = await _instanceAndEventsRepository.Update(existingInstance, updateProperties, processStateUpdate.Events, cancellationToken);
 
-            try
+            if (_wolverineSettings.EnableSending)
             {
-                InstanceUpdateCommand instanceUpdateCommand = new(updatedInstance.Id);
-                await _messageBus.PublishAsync(instanceUpdateCommand);
+                try
+                {
+                    InstanceUpdateCommand instanceUpdateCommand = new(updatedInstance.Id);
+                    await _messageBus.PublishAsync(instanceUpdateCommand);
+                }
+                catch (Exception ex)
+                {
+                    // Log the error but do not return an error to the user
+                    _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", updatedInstance.Id);
+                }
             }
-            catch (Exception ex)
-            {
-                // Log the error but do not return an error to the user
-                _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", updatedInstance.Id);
-            }
-            
+
             updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
             return Ok(updatedInstance);
         }

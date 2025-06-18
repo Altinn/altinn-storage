@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-
+using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Messages;
@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Wolverine;
 
 namespace Altinn.Platform.Storage.Controllers
@@ -24,6 +25,7 @@ namespace Altinn.Platform.Storage.Controllers
     {
         private readonly IInstanceEventRepository _repository;
         private readonly IMessageBus _messageBus;
+        private readonly WolverineSettings _wolverineSettings;
         private readonly ILogger _logger;
 
         /// <summary>
@@ -31,11 +33,13 @@ namespace Altinn.Platform.Storage.Controllers
         /// </summary>
         /// <param name="instanceEventRepository">the instance repository handler</param>
         /// <param name="messageBus">Wolverines abstraction for sending messages</param>
+        /// <param name="wolverineSettings">Wolverine settings</param>
         /// <param name="logger">The logger</param>
-        public InstanceEventsController(IInstanceEventRepository instanceEventRepository, IMessageBus messageBus, ILogger<InstanceEventsController> logger)
+        public InstanceEventsController(IInstanceEventRepository instanceEventRepository, IMessageBus messageBus, IOptions<WolverineSettings> wolverineSettings, ILogger<InstanceEventsController> logger)
         {
             _repository = instanceEventRepository;
             _messageBus = messageBus;
+            _wolverineSettings = wolverineSettings.Value;
             _logger = logger;
         }
 
@@ -67,15 +71,18 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest("Unable to write new instance event to database");
             }
 
-            try
-            {
-                InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId);
-                await _messageBus.PublishAsync(instanceUpdateCommand);
-            }
-            catch (Exception ex)
-            {
-                // Log the error but do not return an error to the user
-                _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceEvent.InstanceId);
+            if (_wolverineSettings.EnableSending)
+            { 
+                try
+                {
+                    InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId);
+                    await _messageBus.PublishAsync(instanceUpdateCommand);
+                }
+                catch (Exception ex)
+                {
+                    // Log the error but do not return an error to the user
+                    _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceEvent.InstanceId);
+                }
             }
             
             return Created(result.Id.ToString(), result);

@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
-
+using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
@@ -9,6 +9,7 @@ using Altinn.Platform.Storage.Repository;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Wolverine;
 
 namespace Altinn.Platform.Storage.Services
@@ -21,16 +22,18 @@ namespace Altinn.Platform.Storage.Services
         private readonly IInstanceEventRepository _repository;
         private readonly IHttpContextAccessor _contextAccessor;
         private readonly IMessageBus _messageBus;
+        private readonly WolverineSettings _wolverineSettings;
         private readonly ILogger _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="InstanceEventService"/> class.
         /// </summary>
-        public InstanceEventService(IInstanceEventRepository repository, IHttpContextAccessor contextAccessor, IMessageBus messageBus, ILogger<InstanceEventService> logger)
+        public InstanceEventService(IInstanceEventRepository repository, IHttpContextAccessor contextAccessor, IMessageBus messageBus, IOptions<WolverineSettings> wolverineSettings, ILogger<InstanceEventService> logger)
         {
             _repository = repository;
             _contextAccessor = contextAccessor;
             _messageBus = messageBus;
+            _wolverineSettings = wolverineSettings.Value;
             _logger = logger;
         }
 
@@ -67,15 +70,18 @@ namespace Altinn.Platform.Storage.Services
 
             await _repository.InsertInstanceEvent(instanceEvent);
 
-            try
+            if (_wolverineSettings.EnableSending)
             {
-                InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId);
-                await _messageBus.PublishAsync(instanceUpdateCommand);
-            }
-            catch (Exception ex)
-            {
-                // Log the error but do not return an error to the user
-                _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceEvent.InstanceId);
+                try
+                {
+                    InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId);
+                    await _messageBus.PublishAsync(instanceUpdateCommand);
+                }
+                catch (Exception ex)
+                {
+                    // Log the error but do not return an error to the user
+                    _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceEvent.InstanceId);
+                }
             }
         }
 
@@ -104,15 +110,18 @@ namespace Altinn.Platform.Storage.Services
 
             await _repository.InsertInstanceEvent(instanceEvent);
 
-            try
+            if (_wolverineSettings.EnableSending)
             {
-                InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId);
-                await _messageBus.PublishAsync(instanceUpdateCommand);
-            }
-            catch (Exception ex)
-            {
-                // Log the error but do not return an error to the user
-                _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceEvent.InstanceId);
+                try
+                {
+                    InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId);
+                    await _messageBus.PublishAsync(instanceUpdateCommand);
+                }
+                catch (Exception ex)
+                {
+                    // Log the error but do not return an error to the user
+                    _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceEvent.InstanceId);
+                }
             }
         }
     }

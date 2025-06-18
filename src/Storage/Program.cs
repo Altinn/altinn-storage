@@ -238,6 +238,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.Configure<QueueStorageSettings>(config.GetSection("QueueStorageSettings"));
     services.Configure<AccessTokenSettings>(config.GetSection("AccessTokenSettings"));
     services.Configure<PostgreSqlSettings>(config.GetSection("PostgreSqlSettings"));
+    services.Configure<WolverineSettings>(config.GetSection("WolverineSettings"));
 
     services.AddSingleton<IAuthorizationHandler, AccessTokenHandler>();
     services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProvider>();
