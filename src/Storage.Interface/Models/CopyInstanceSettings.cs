@@ -26,5 +26,12 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// </summary>
         [JsonProperty(PropertyName = "excludedDataFields")]
         public List<string> ExcludedDataFields { get; set; }
+        
+        /// <summary>
+        /// Gets or sets a boolean indicating if copying of attachments is enabled.
+        /// </summary>
+        [JsonProperty(PropertyName = "includeAttachments")]
+        public bool IncludeAttachments { get; set; }
+        
     }
 }
