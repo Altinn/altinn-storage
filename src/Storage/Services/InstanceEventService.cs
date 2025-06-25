@@ -77,7 +77,7 @@ namespace Altinn.Platform.Storage.Services
                     InstanceUpdateCommand instanceUpdateCommand = new(
                         instance.AppId,
                         instance.InstanceOwner.PartyId,
-                        instance.Id,
+                        instance.Id.Split("/")[1],
                         instance.Created.Value,
                         false);
                     await _messageBus.PublishAsync(instanceUpdateCommand);
@@ -119,7 +119,12 @@ namespace Altinn.Platform.Storage.Services
             {
                 try
                 {
-                    InstanceUpdateCommand instanceUpdateCommand = new(instance.AppId, instance.InstanceOwner.PartyId, instance.Id, instance.Created.Value, false);
+                    InstanceUpdateCommand instanceUpdateCommand = new(
+                        instance.AppId,
+                        instance.InstanceOwner.PartyId,
+                        instance.Id.Split("/")[1],
+                        instance.Created.Value,
+                        false);
                     await _messageBus.PublishAsync(instanceUpdateCommand);
                 }
                 catch (Exception ex)

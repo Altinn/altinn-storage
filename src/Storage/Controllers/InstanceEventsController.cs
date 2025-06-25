@@ -88,7 +88,7 @@ namespace Altinn.Platform.Storage.Controllers
                     InstanceUpdateCommand instanceUpdateCommand = new(
                         instance.AppId,
                         instance.InstanceOwner.PartyId,
-                        instance.Id,
+                        instance.Id.Split("/")[1],
                         instance.Created.Value,
                         false);
                     await _messageBus.PublishAsync(instanceUpdateCommand);
