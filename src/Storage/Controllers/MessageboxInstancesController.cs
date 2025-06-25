@@ -402,7 +402,7 @@ namespace Altinn.Platform.Storage.Controllers
                     InstanceUpdateCommand instanceUpdateCommand = new(
                         instance.AppId, 
                         instance.InstanceOwner.PartyId,
-                        instance.Id.Split("/")[1],
+                        instanceGuid.ToString(), // Instance.Id is NOT in the format "partyId/instanceGuid"
                         instance.Created.Value,
                         false);
                     await _messageBus.PublishAsync(instanceUpdateCommand);
