@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
@@ -23,6 +24,7 @@ namespace Altinn.Platform.Storage.Controllers
     [ApiController]
     public class InstanceEventsController : ControllerBase
     {
+        private readonly IInstanceRepository _instanceRepository;
         private readonly IInstanceEventRepository _repository;
         private readonly IMessageBus _messageBus;
         private readonly WolverineSettings _wolverineSettings;
@@ -31,12 +33,14 @@ namespace Altinn.Platform.Storage.Controllers
         /// <summary>
         /// Initializes a new instance of the <see cref="InstanceEventsController"/> class
         /// </summary>
-        /// <param name="instanceEventRepository">the instance repository handler</param>
+        /// /// <param name="instanceRepository">the instance repository handler</param>
+        /// <param name="instanceEventRepository">the instance event repository handler</param>
         /// <param name="messageBus">Wolverines abstraction for sending messages</param>
         /// <param name="wolverineSettings">Wolverine settings</param>
         /// <param name="logger">The logger</param>
-        public InstanceEventsController(IInstanceEventRepository instanceEventRepository, IMessageBus messageBus, IOptions<WolverineSettings> wolverineSettings, ILogger<InstanceEventsController> logger)
+        public InstanceEventsController(IInstanceRepository instanceRepository, IInstanceEventRepository instanceEventRepository, IMessageBus messageBus, IOptions<WolverineSettings> wolverineSettings, ILogger<InstanceEventsController> logger)
         {
+            _instanceRepository = instanceRepository;
             _repository = instanceEventRepository;
             _messageBus = messageBus;
             _wolverineSettings = wolverineSettings.Value;
@@ -63,6 +67,12 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest("Missing parameter values: instance event must exist and instanceId must be set");
             }
 
+            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false, CancellationToken.None);
+            if (instance == null)
+            {
+                return BadRequest($"Didn't find the object that the instanceEvent is related to, instanceId={instanceGuid}");
+            }
+            
             instanceEvent.Created = instanceEvent.Created?.ToUniversalTime() ?? DateTime.UtcNow;
 
             InstanceEvent result = await _repository.InsertInstanceEvent(instanceEvent);
@@ -75,7 +85,12 @@ namespace Altinn.Platform.Storage.Controllers
             { 
                 try
                 {
-                    InstanceUpdateCommand instanceUpdateCommand = new(instanceEvent.InstanceId);
+                    InstanceUpdateCommand instanceUpdateCommand = new(
+                        instance.AppId,
+                        instance.InstanceOwner.PartyId,
+                        instance.Id,
+                        instance.Created.Value,
+                        false);
                     await _messageBus.PublishAsync(instanceUpdateCommand);
                 }
                 catch (Exception ex)

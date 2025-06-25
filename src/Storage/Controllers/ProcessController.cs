@@ -185,7 +185,12 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 try
                 {
-                    InstanceUpdateCommand instanceUpdateCommand = new(updatedInstance.Id);
+                    InstanceUpdateCommand instanceUpdateCommand = new(
+                        updatedInstance.AppId,
+                        updatedInstance.InstanceOwner.PartyId,
+                        updatedInstance.Id,
+                        updatedInstance.Created.Value,
+                        false);
                     await _messageBus.PublishAsync(instanceUpdateCommand);
                 }
                 catch (Exception ex)
