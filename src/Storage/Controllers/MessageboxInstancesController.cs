@@ -290,7 +290,7 @@ namespace Altinn.Platform.Storage.Controllers
                 {
                     try
                     {
-                        using Activity? activity = Activity.Current?.Source.StartActivity();
+                        using Activity? activity = Activity.Current?.Source.StartActivity("WolverineUndelete");
                         activity.DisplayName = "WolverineUndelete";
                         InstanceUpdateCommand instanceUpdateCommand = new(
                             instance.AppId,
@@ -401,7 +401,7 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 try
                 {
-                    using Activity? activity = Activity.Current?.Source.StartActivity();
+                    using Activity? activity = Activity.Current?.Source.StartActivity("WolverineDelete");
                     activity.DisplayName = "WolverineDelete";
                     InstanceUpdateCommand instanceUpdateCommand = new(
                         instance.AppId, 

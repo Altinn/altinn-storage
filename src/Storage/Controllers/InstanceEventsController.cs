@@ -79,9 +79,8 @@ namespace Altinn.Platform.Storage.Controllers
             { 
                 try
                 {
-                    using Activity? activity = Activity.Current?.Source.StartActivity();
+                    using Activity? activity = Activity.Current?.Source.StartActivity("WolverineIE");
                     activity.DisplayName = "WolverineIE";
-                    activity?.SetTag("instanceEvent.EventType", instanceEvent.EventType);
                     (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false, CancellationToken.None);
                     InstanceUpdateCommand instanceUpdateCommand = new(
                         instance.AppId,

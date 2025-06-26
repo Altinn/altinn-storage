@@ -74,7 +74,7 @@ namespace Altinn.Platform.Storage.Services
             {
                 try
                 {
-                    using Activity? activity = Activity.Current?.Source.StartActivity();
+                    using Activity? activity = Activity.Current?.Source.StartActivity("WolverineIEdispatch");
                     activity.DisplayName = "WolverineIEdispatch";
                     InstanceUpdateCommand instanceUpdateCommand = new(
                         instance.AppId,
@@ -121,7 +121,7 @@ namespace Altinn.Platform.Storage.Services
             {
                 try
                 {
-                    using Activity? activity = Activity.Current?.Source.StartActivity();
+                    using Activity? activity = Activity.Current?.Source.StartActivity("WolverineIEdispatch2");
                     activity.DisplayName = "WolverineIEdispatch2";
                     InstanceUpdateCommand instanceUpdateCommand = new(
                         instance.AppId,

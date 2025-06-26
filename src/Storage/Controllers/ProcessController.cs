@@ -184,7 +184,7 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 try
                 {
-                    using Activity? activity = Activity.Current?.Source.StartActivity();
+                    using Activity? activity = Activity.Current?.Source.StartActivity("WolverineIEs");
                     activity.DisplayName = "WolverineIEs";
                     InstanceUpdateCommand instanceUpdateCommand = new(
                         updatedInstance.AppId,
