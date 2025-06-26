@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
@@ -12,7 +12,6 @@ using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Messages;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -185,6 +184,8 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 try
                 {
+                    using Activity? activity = Activity.Current?.Source.StartActivity();
+                    activity.DisplayName = "WolverineIEs";
                     InstanceUpdateCommand instanceUpdateCommand = new(
                         updatedInstance.AppId,
                         updatedInstance.InstanceOwner.PartyId,

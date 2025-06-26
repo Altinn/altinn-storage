@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
@@ -6,7 +7,6 @@ using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Messages;
 using Altinn.Platform.Storage.Repository;
-
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -74,6 +74,8 @@ namespace Altinn.Platform.Storage.Services
             {
                 try
                 {
+                    using Activity? activity = Activity.Current?.Source.StartActivity();
+                    activity.DisplayName = "WolverineIEdispatch";
                     InstanceUpdateCommand instanceUpdateCommand = new(
                         instance.AppId,
                         instance.InstanceOwner.PartyId,
@@ -119,6 +121,8 @@ namespace Altinn.Platform.Storage.Services
             {
                 try
                 {
+                    using Activity? activity = Activity.Current?.Source.StartActivity();
+                    activity.DisplayName = "WolverineIEdispatch2";
                     InstanceUpdateCommand instanceUpdateCommand = new(
                         instance.AppId,
                         instance.InstanceOwner.PartyId,
