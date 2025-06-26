@@ -66,12 +66,6 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 return BadRequest("Missing parameter values: instance event must exist and instanceId must be set");
             }
-
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false, CancellationToken.None);
-            if (instance == null)
-            {
-                return BadRequest($"Didn't find the object that the instanceEvent is related to, instanceId={instanceGuid}");
-            }
             
             instanceEvent.Created = instanceEvent.Created?.ToUniversalTime() ?? DateTime.UtcNow;
 
@@ -85,6 +79,7 @@ namespace Altinn.Platform.Storage.Controllers
             { 
                 try
                 {
+                    (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false, CancellationToken.None);
                     InstanceUpdateCommand instanceUpdateCommand = new(
                         instance.AppId,
                         instance.InstanceOwner.PartyId,
