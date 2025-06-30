@@ -71,7 +71,7 @@ ConfigureApplicationLogging(builder.Logging);
 
 ConfigureServices(builder.Services, builder.Configuration);
 
-ConfigureWolverine(builder);
+ConfigureWolverineService(builder.Services, builder.Configuration);
 
 logger.LogInformation("// Checking Azure Storage connection.");
 
@@ -363,7 +363,37 @@ void ConfigureWolverine(WebApplicationBuilder builder)
             opts.Policies.UseDurableOutboxOnAllSendingEndpoints();
 
             // Publish CreateOrderCommand to ASB queue
-            opts.PublishMessage<InstanceUpdateCommand>().ToAzureServiceBusQueue("storage-instance-updates-outbox");
+            opts.PublishMessage<SyncInstanceToDialogportenCommand>().ToAzureServiceBusQueue("altinn.dialogportenadapter.webapi");
+        });
+    }
+}
+
+void ConfigureWolverineService(IServiceCollection services, IConfiguration config)
+{
+    WolverineSettings wolverineSettings = builder.Configuration.GetSection("WolverineSettings").Get<WolverineSettings>();
+
+    if (!string.IsNullOrWhiteSpace(wolverineSettings?.ServiceBusConnectionString))
+    {
+        builder.Services.AddWolverine(opts =>
+        {
+            // Publish CreateOrderCommand to ASB queue
+            opts.PublishMessage<SyncInstanceToDialogportenCommand>().ToAzureServiceBusQueue("altinn.dialogportenadapter.webapi");
+
+            // Disable conventional local routing
+            opts.Policies.DisableConventionalLocalRouting();
+
+            // Azure Service Bus transport
+            var azureBusConfig = opts
+                .UseAzureServiceBus(wolverineSettings.ServiceBusConnectionString)
+                .AutoProvision();
+            if (builder.Environment.IsDevelopment())
+            {
+                azureBusConfig.AutoPurgeOnStartup();
+            }
+
+            // Outbox with Postgres
+            opts.PersistMessagesWithPostgresql(wolverineSettings.PostgresConnectionString, schemaName: "wolverine");
+            opts.Policies.UseDurableOutboxOnAllSendingEndpoints();
         });
     }
 }

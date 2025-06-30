@@ -82,7 +82,7 @@ namespace Altinn.Platform.Storage.Controllers
                     using Activity? activity = Activity.Current?.Source.StartActivity("WolverineIE");
                     activity.DisplayName = "WolverineIE";
                     (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false, CancellationToken.None);
-                    InstanceUpdateCommand instanceUpdateCommand = new(
+                    SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
                         instance.AppId,
                         instance.InstanceOwner.PartyId,
                         instance.Id.Split("/")[1],
