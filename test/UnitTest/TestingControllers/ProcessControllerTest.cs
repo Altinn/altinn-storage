@@ -1,17 +1,19 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Altinn.Common.AccessToken.Configuration;
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Clients;
+using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Messages;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Mocks;
@@ -493,18 +495,19 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             ProcessStateUpdate update = new() { State = new ProcessState() };
 
+            var expectedCreated = DateTime.Parse("2020-04-29T13:53:02.2836971Z", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
+
             // Act
             using HttpResponseMessage response = await client.PutAsync(
-                "storage/api/v1/instances/1337/20b1353e-91cf-44d6-8ff7-f68993638ffe/process/instanceandevents/",
+                "storage/api/v1/instances/1337/20a1353e-91cf-44d6-8ff7-f68993638ffe/process/instanceandevents/",
                 JsonContent.Create(update, new MediaTypeHeaderValue("application/json")));
 
             // Assert
             busMock.VerifyAll();
             Assert.Equal("tdd/endring-av-navn", savedCommand.AppId);
             Assert.Equal("1337", savedCommand.PartyId);
-            Assert.Equal("20b1353e-91cf-44d6-8ff7-f68993638ffe", savedCommand.InstanceId);
-            Assert.Equal(new DateTime(2020, 04, 29).Date, savedCommand.InstanceCreatedAt.Date);
-            Assert.Equal("13:53:02.2836971", savedCommand.InstanceCreatedAt.TimeOfDay.ToString());
+            Assert.Equal("20a1353e-91cf-44d6-8ff7-f68993638ffe", savedCommand.InstanceId);
+            Assert.Equal(expectedCreated, savedCommand.InstanceCreatedAt);
             Assert.False(savedCommand.IsMigration);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
@@ -524,7 +527,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Act
             using HttpResponseMessage response = await client.PutAsync(
-                "storage/api/v1/instances/1337/20b1353e-91cf-44d6-8ff7-f68993638ffe/process/instanceandevents/",
+                "storage/api/v1/instances/1337/20a1353e-91cf-44d6-8ff7-f68993638ffe/process/instanceandevents/",
                 JsonContent.Create(update, new MediaTypeHeaderValue("application/json")));
 
             // Assert
