@@ -348,11 +348,11 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
 
 void ConfigureWolverine(IServiceCollection services, IConfiguration config)
 {
-    WolverineSettings wolverineSettings = builder.Configuration.GetSection("WolverineSettings").Get<WolverineSettings>();
+    WolverineSettings wolverineSettings = config.GetSection("WolverineSettings").Get<WolverineSettings>();
 
     if (wolverineSettings.EnableSending)
     {
-        builder.Services.AddWolverine(opts =>
+        services.AddWolverine(opts =>
         {
             // Force wolverine to use bus for sending messages (not handle messages internal)
             opts.Policies.DisableConventionalLocalRouting();
