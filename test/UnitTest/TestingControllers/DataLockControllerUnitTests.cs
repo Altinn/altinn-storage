@@ -177,7 +177,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Mock<IDataRepository> dataRepositoryMock = new();
             Mock<IInstanceRepository> instanceRepositoryMock = new();
             Mock<IAuthorization> authorizationMock = new();
-            Environment.SetEnvironmentVariable("WolverineSettings__ServiceBusConnectionString", string.Empty);
+            
             if (exception == null)
             {
                 dataRepositoryMock

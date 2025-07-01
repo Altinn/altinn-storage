@@ -71,7 +71,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 IConfiguration configuration = new ConfigurationBuilder().AddJsonFile(ServiceUtil.GetAppsettingsPath()).Build();
                 Mock<IMessageBus> busMock = new Mock<IMessageBus>();
 
-                Environment.SetEnvironmentVariable("WolverineSettings__ServiceBusConnectionString", string.Empty);
                 builder.ConfigureAppConfiguration((hostingContext, config) =>
                 {
                     config.AddConfiguration(configuration);

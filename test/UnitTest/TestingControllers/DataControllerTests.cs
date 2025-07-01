@@ -708,8 +708,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
             Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
             Mock<IMessageBus> busMock = new Mock<IMessageBus>();
-            
-            Environment.SetEnvironmentVariable("WolverineSettings__ServiceBusConnectionString", string.Empty);
 
             var factory = _factory.WithWebHostBuilder(builder =>
             {

@@ -2138,8 +2138,6 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         // No setup required for these services. They are not in use by the InstanceController
         Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
         Mock<IMessageBus> busMock = new Mock<IMessageBus>();
-
-        Environment.SetEnvironmentVariable("WolverineSettings__ServiceBusConnectionString", string.Empty);
         
         var factory = _factory.WithWebHostBuilder(builder =>
         {

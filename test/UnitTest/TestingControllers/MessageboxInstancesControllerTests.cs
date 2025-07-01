@@ -1378,8 +1378,6 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
         Mock<IMessageBus> busMock = new Mock<IMessageBus>();
 
-        Environment.SetEnvironmentVariable("WolverineSettings__ServiceBusConnectionString", string.Empty);
-
         HttpClient client = _factory.WithWebHostBuilder(builder =>
         {
             IConfiguration configuration = new ConfigurationBuilder().AddJsonFile(ServiceUtil.GetAppsettingsPath()).Build();

@@ -350,7 +350,7 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
 {
     WolverineSettings wolverineSettings = builder.Configuration.GetSection("WolverineSettings").Get<WolverineSettings>();
 
-    if (!string.IsNullOrWhiteSpace(wolverineSettings?.ServiceBusConnectionString))
+    if (wolverineSettings.EnableSending)
     {
         builder.Services.AddWolverine(opts =>
         {

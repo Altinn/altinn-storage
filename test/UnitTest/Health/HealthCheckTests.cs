@@ -46,7 +46,6 @@ namespace Altinn.Platform.Storage.UnitTest.Health
         {
             Mock<IMessageBus> busMock = new Mock<IMessageBus>();
             
-            Environment.SetEnvironmentVariable("WolverineSettings__ServiceBusConnectionString", string.Empty);
             HttpClient client = _factory.WithWebHostBuilder(builder =>
             {
                 IConfiguration configuration = new ConfigurationBuilder()
