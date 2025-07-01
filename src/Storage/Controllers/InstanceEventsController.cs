@@ -93,7 +93,8 @@ namespace Altinn.Platform.Storage.Controllers
                 catch (Exception ex)
                 {
                     // Log the error but do not return an error to the user
-                    _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceEvent.InstanceId);
+                    string sanitizedInstanceId = instanceEvent.InstanceId?.Replace(Environment.NewLine, "").Replace("\n", "").Replace("\r", "");
+                    _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", sanitizedInstanceId);
                 }
             }
             
