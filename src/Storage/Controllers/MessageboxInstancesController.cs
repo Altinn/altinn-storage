@@ -291,7 +291,6 @@ namespace Altinn.Platform.Storage.Controllers
                     try
                     {
                         using Activity? activity = Activity.Current?.Source.StartActivity("WolverineUndelete");
-                        activity.DisplayName = "WolverineUndelete";
                         SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
                             instance.AppId,
                             instance.InstanceOwner.PartyId, 
@@ -402,7 +401,6 @@ namespace Altinn.Platform.Storage.Controllers
                 try
                 {
                     using Activity? activity = Activity.Current?.Source.StartActivity("WolverineDelete");
-                    activity.DisplayName = "WolverineDelete";
                     SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
                         instance.AppId, 
                         instance.InstanceOwner.PartyId,

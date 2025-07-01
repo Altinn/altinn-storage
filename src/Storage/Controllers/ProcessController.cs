@@ -185,7 +185,6 @@ namespace Altinn.Platform.Storage.Controllers
                 try
                 {
                     using Activity? activity = Activity.Current?.Source.StartActivity("WolverineIEs");
-                    activity.DisplayName = "WolverineIEs";
                     SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
                         updatedInstance.AppId,
                         updatedInstance.InstanceOwner.PartyId,
