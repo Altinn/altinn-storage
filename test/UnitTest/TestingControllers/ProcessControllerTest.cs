@@ -477,6 +477,59 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
+
+        [Fact]
+        public async Task PutInstanceAndEvents_WolverineEnabled_PublishesCommand()
+        {
+            // Arrange
+            Mock<IMessageBus> busMock = new();
+            SyncInstanceToDialogportenCommand savedCommand = null;
+            busMock.Setup(b => b.PublishAsync(It.IsAny<SyncInstanceToDialogportenCommand>(), null))
+                .Callback<SyncInstanceToDialogportenCommand, DeliveryOptions>((cmd, _) => savedCommand = cmd)
+                .Returns(ValueTask.CompletedTask);
+
+            HttpClient client = GetTestClient(messageBusMock: busMock, enableWolverine: true);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1337, 3));
+
+            ProcessStateUpdate update = new() { State = new ProcessState() };
+
+            // Act
+            using HttpResponseMessage response = await client.PutAsync(
+                "storage/api/v1/instances/1337/20b1353e-91cf-44d6-8ff7-f68993638ffe/process/instanceandevents/",
+                JsonContent.Create(update, new MediaTypeHeaderValue("application/json")));
+
+            // Assert
+            busMock.VerifyAll();
+            Assert.Equal("tdd/endring-av-navn", savedCommand.AppId);
+            Assert.Equal("1337", savedCommand.PartyId);
+            Assert.Equal("20b1353e-91cf-44d6-8ff7-f68993638ffe", savedCommand.InstanceId);
+            Assert.Equal(new DateTime(2020, 04, 29).Date, savedCommand.InstanceCreatedAt.Date);
+            Assert.Equal("13:53:02.2836971", savedCommand.InstanceCreatedAt.TimeOfDay.ToString());
+            Assert.False(savedCommand.IsMigration);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task PutInstanceAndEvents_WolverineThrows_ReturnsOk()
+        {
+            // Arrange
+            Mock<IMessageBus> busMock = new();
+            busMock.Setup(b => b.PublishAsync(It.IsAny<SyncInstanceToDialogportenCommand>(), null))
+                .ThrowsAsync(new Exception());
+
+            HttpClient client = GetTestClient(messageBusMock: busMock, enableWolverine: true);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1337, 3));
+
+            ProcessStateUpdate update = new() { State = new ProcessState() };
+
+            // Act
+            using HttpResponseMessage response = await client.PutAsync(
+                "storage/api/v1/instances/1337/20b1353e-91cf-44d6-8ff7-f68993638ffe/process/instanceandevents/",
+                JsonContent.Create(update, new MediaTypeHeaderValue("application/json")));
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
         
         [Theory]
         [InlineData("data", new[] { "write" })]
@@ -494,12 +547,16 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal(expectedActions, result);
         }
 
-        private HttpClient GetTestClient(IInstanceRepository instanceRepository = null, IInstanceAndEventsRepository instanceAndEventsRepository = null)
+        private HttpClient GetTestClient(
+            IInstanceRepository instanceRepository = null,
+            IInstanceAndEventsRepository instanceAndEventsRepository = null,
+            Mock<IMessageBus> messageBusMock = null,
+            bool enableWolverine = false)
         {
             // No setup required for these services. They are not in use by the ApplicationController
             Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
             Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
-            Mock<IMessageBus> busMock = new Mock<IMessageBus>();
+            Mock<IMessageBus> busMock = messageBusMock ?? new Mock<IMessageBus>();
             
             HttpClient client = _factory.WithWebHostBuilder(builder =>
             {
@@ -520,6 +577,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                     services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
                     services.AddSingleton<IInstanceEventRepository, InstanceEventRepositoryMock>();
                     services.AddSingleton(busMock.Object);
+                    services.Configure<WolverineSettings>(opts =>
+                    {
+                        opts.EnableSending = enableWolverine;
+                    });
 
                     if (instanceRepository != null)
                     {
