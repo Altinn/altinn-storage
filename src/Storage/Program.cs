@@ -354,13 +354,15 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
     {
         builder.Services.AddWolverine(opts =>
         {
-            // Disable conventional local routing
+            // Force wolverine to use bus for sending messages (not handle messages internal)
             opts.Policies.DisableConventionalLocalRouting();
 
             // Azure Service Bus transport
             if (!builder.Environment.IsDevelopment())
             {
                 opts.UseAzureServiceBus(wolverineSettings.ServiceBusConnectionString)
+                    
+                    // Let Wolverine try to initialize any missing queues on the first usage at runtime
                     .AutoProvision();
 
                 // Publish CreateOrderCommand to ASB queue
