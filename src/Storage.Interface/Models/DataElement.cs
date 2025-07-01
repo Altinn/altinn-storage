@@ -132,6 +132,18 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// </summary>
         [JsonProperty(PropertyName = "references")]
         public List<Reference> References { get; set; }
+        
+        /// <summary>
+        /// If this is set, it overrides what action is required to read the data element. Use when not all users with 'read' should be able to read the data element.
+        /// </summary>
+        [JsonProperty(PropertyName = "actionRequiredToRead")]
+        public string ActionRequiredToRead { get; set; }
+        
+        /// <summary>
+        /// If this is set, it overrides what action is required to write to the data element. Use when not all users with 'write' should be able to write to the data element.
+        /// </summary>
+        [JsonProperty(PropertyName = "actionRequiredToWrite")]
+        public string ActionRequiredToWrite { get; set; }
 
         /// <inheritdoc/>
         public override string ToString()

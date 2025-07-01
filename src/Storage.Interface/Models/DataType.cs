@@ -50,6 +50,20 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// </summary>
         [JsonProperty(PropertyName = "allowedContributors")]
         public List<string> AllowedContributors { get; set; }
+        
+        /// <summary>
+        /// If this is set, when a data element of this type is created, this value will be set as 'actionRequiredToRead' on the data element, so long as the data element is created using the application API.
+        /// When this is set on the data element, it overrides what action is required to read the data element. Use when not all users with 'read' should be able to read the data element.
+        /// </summary>
+        [JsonProperty(PropertyName = "actionRequiredToRead")]
+        public string ActionRequiredToRead { get; set; }
+        
+        /// <summary>
+        /// If this is set, when a data element of this type is created, this value will be set as 'actionRequiredToWrite' on the data element, so long as the data element is created using the application API.
+        /// When this is set on the data element, it overrides what action is required to write to the data element. Use when not all users with 'write' should be able to write to the data element.
+        /// </summary>
+        [JsonProperty(PropertyName = "actionRequiredToWrite")]
+        public string ActionRequiredToWrite { get; set; }
 
         /// <summary>
         /// Gets or sets an object with information about how the application logic will handle the data element.
