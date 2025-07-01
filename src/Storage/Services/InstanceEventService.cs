@@ -87,7 +87,7 @@ namespace Altinn.Platform.Storage.Services
                 catch (Exception ex)
                 {
                     // Log the error but do not return an error to the user
-                    string sanitizedInstanceId = instanceEvent.InstanceId?.Replace("\n", "").Replace("\r", "");
+                    string sanitizedInstanceId = instanceEvent.InstanceId?.Replace("\n", string.Empty).Replace("\r", string.Empty);
                     _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", sanitizedInstanceId);
                 }
             }
