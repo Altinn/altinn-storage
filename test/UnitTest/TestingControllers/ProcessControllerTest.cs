@@ -6,6 +6,10 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Security.Claims;
+
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Altinn.Common.AccessToken.Configuration;
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
@@ -492,6 +496,53 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(expectedActions, result);
+        }
+
+        [Fact]
+        public async Task PutInstanceAndEvents_WolverineEnabled_PublishesMessage()
+        {
+            // Arrange
+            Guid guid = Guid.NewGuid();
+            Instance instance = new()
+            {
+                Id = $"1337/{guid}",
+                AppId = "ttd/app",
+                Created = DateTime.UtcNow,
+                InstanceOwner = new() { PartyId = "1337" },
+                Process = new()
+            };
+
+            var instanceRepo = new Mock<IInstanceRepository>();
+            instanceRepo.Setup(r => r.GetOne(guid, true, It.IsAny<CancellationToken>()))
+                .ReturnsAsync((instance, 0L));
+
+            var instanceAndEventsRepo = new Mock<IInstanceAndEventsRepository>();
+            instanceAndEventsRepo.Setup(r => r.Update(instance, It.IsAny<List<string>>(), It.IsAny<List<InstanceEvent>>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(instance);
+
+            var authService = new Mock<IAuthorization>();
+            authService.Setup(a => a.AuthorizeInstanceAction(It.IsAny<Instance>(), It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(true);
+
+            var busMock = new Mock<IMessageBus>();
+
+            var controller = new ProcessController(
+                instanceRepo.Object,
+                new Mock<IInstanceEventRepository>().Object,
+                instanceAndEventsRepo.Object,
+                Options.Create(new GeneralSettings { Hostname = "http://localhost" }),
+                authService.Object,
+                new Mock<IInstanceEventService>().Object,
+                busMock.Object,
+                Options.Create(new WolverineSettings { EnableSending = true }),
+                Mock.Of<ILogger<ProcessController>>());
+            controller.ControllerContext.HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity()) };
+
+            // Act
+            var update = new ProcessStateUpdate { State = new ProcessState() };
+            await controller.PutInstanceAndEvents(1337, guid, update, CancellationToken.None);
+
+            // Assert
+            busMock.Verify(b => b.PublishAsync(It.IsAny<SyncInstanceToDialogportenCommand>(), It.IsAny<CancellationToken>()), Times.Once);
         }
 
         private HttpClient GetTestClient(IInstanceRepository instanceRepository = null, IInstanceAndEventsRepository instanceAndEventsRepository = null)

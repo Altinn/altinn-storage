@@ -7,6 +7,10 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Security.Claims;
+
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
@@ -1358,6 +1362,96 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
 
         // Assert
         Assert.Equal(largeNumberOfEvents.Count, actual.Count);
+    }
+
+    [Fact]
+    public async Task Undelete_WolverineEnabled_PublishesMessage()
+    {
+        // Arrange
+        Guid guid = Guid.NewGuid();
+        Instance instance = new()
+        {
+            Id = $"1337/{guid}",
+            AppId = "ttd/app",
+            Created = DateTime.UtcNow,
+            InstanceOwner = new() { PartyId = "1337" },
+            Status = new InstanceStatus { IsSoftDeleted = true, SoftDeleted = DateTime.UtcNow }
+        };
+
+        var instanceRepo = new Mock<IInstanceRepository>();
+        instanceRepo.Setup(r => r.GetOne(guid, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((instance, 0L));
+        instanceRepo.Setup(r => r.Update(instance, It.IsAny<List<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(instance);
+
+        var eventRepo = new Mock<IInstanceEventRepository>();
+        eventRepo.Setup(r => r.InsertInstanceEvent(It.IsAny<InstanceEvent>())).ReturnsAsync(new InstanceEvent());
+
+        var busMock = new Mock<IMessageBus>();
+        var controller = new MessageBoxInstancesController(
+            instanceRepo.Object,
+            eventRepo.Object,
+            Mock.Of<ITextRepository>(),
+            Mock.Of<IApplicationRepository>(),
+            Mock.Of<IAuthorization>(),
+            Mock.Of<IApplicationService>(),
+            busMock.Object,
+            Options.Create(new WolverineSettings { EnableSending = true }),
+            Mock.Of<ILogger<MessageBoxInstancesController>>());
+        controller.ControllerContext.HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity()) };
+
+        // Act
+        await controller.Undelete(1337, guid, CancellationToken.None);
+
+        // Assert
+        busMock.Verify(b => b.PublishAsync(It.IsAny<SyncInstanceToDialogportenCommand>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Delete_WolverineEnabled_PublishesMessage()
+    {
+        // Arrange
+        Guid guid = Guid.NewGuid();
+        Instance instance = new()
+        {
+            Id = $"1337/{guid}",
+            AppId = "ttd/app",
+            Created = DateTime.UtcNow,
+            InstanceOwner = new() { PartyId = "1337" },
+            Status = new InstanceStatus()
+        };
+
+        var instanceRepo = new Mock<IInstanceRepository>();
+        instanceRepo.Setup(r => r.GetOne(guid, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((instance, 0L));
+        instanceRepo.Setup(r => r.Update(instance, It.IsAny<List<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(instance);
+
+        var eventRepo = new Mock<IInstanceEventRepository>();
+        eventRepo.Setup(r => r.InsertInstanceEvent(It.IsAny<InstanceEvent>())).ReturnsAsync(new InstanceEvent());
+
+        var appService = new Mock<IApplicationService>();
+        appService.Setup(a => a.GetApplicationOrErrorAsync(It.IsAny<string>()))
+            .ReturnsAsync((new Application(), null));
+
+        var busMock = new Mock<IMessageBus>();
+        var controller = new MessageBoxInstancesController(
+            instanceRepo.Object,
+            eventRepo.Object,
+            Mock.Of<ITextRepository>(),
+            Mock.Of<IApplicationRepository>(),
+            Mock.Of<IAuthorization>(),
+            appService.Object,
+            busMock.Object,
+            Options.Create(new WolverineSettings { EnableSending = true }),
+            Mock.Of<ILogger<MessageBoxInstancesController>>());
+        controller.ControllerContext.HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity()) };
+
+        // Act
+        await controller.Delete(guid, 1337, false, CancellationToken.None);
+
+        // Assert
+        busMock.Verify(b => b.PublishAsync(It.IsAny<SyncInstanceToDialogportenCommand>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     private static MessageBoxQueryModel GetMessageBoxQueryModel(int instanceOwnerPartyId)

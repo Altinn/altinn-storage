@@ -4,6 +4,9 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
+using System.Threading;
+
+using Microsoft.Extensions.Logging;
 
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
@@ -203,6 +206,78 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task Post_WolverineEnabled_PublishesMessage()
+        {
+            // Arrange
+            Guid guid = Guid.NewGuid();
+            Instance instance = new()
+            {
+                Id = $"1337/{guid}",
+                AppId = "ttd/app",
+                Created = DateTime.UtcNow,
+                InstanceOwner = new() { PartyId = "1337" }
+            };
+
+            var instanceRepo = new Mock<IInstanceRepository>();
+            instanceRepo.Setup(r => r.GetOne(guid, false, It.IsAny<CancellationToken>()))
+                .ReturnsAsync((instance, 0L));
+
+            var eventRepo = new Mock<IInstanceEventRepository>();
+            eventRepo.Setup(r => r.InsertInstanceEvent(It.IsAny<InstanceEvent>()))
+                .ReturnsAsync(new InstanceEvent());
+
+            var busMock = new Mock<IMessageBus>();
+            var controller = new InstanceEventsController(
+                instanceRepo.Object,
+                eventRepo.Object,
+                busMock.Object,
+                Options.Create(new WolverineSettings { EnableSending = true }),
+                Mock.Of<ILogger<InstanceEventsController>>());
+
+            // Act
+            await controller.Post(1337, guid, new InstanceEvent { InstanceId = instance.Id });
+
+            // Assert
+            busMock.Verify(b => b.PublishAsync(It.IsAny<SyncInstanceToDialogportenCommand>(), It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task Post_WolverineDisabled_DoesNotPublishMessage()
+        {
+            // Arrange
+            Guid guid = Guid.NewGuid();
+            Instance instance = new()
+            {
+                Id = $"1337/{guid}",
+                AppId = "ttd/app",
+                Created = DateTime.UtcNow,
+                InstanceOwner = new() { PartyId = "1337" }
+            };
+
+            var instanceRepo = new Mock<IInstanceRepository>();
+            instanceRepo.Setup(r => r.GetOne(guid, false, It.IsAny<CancellationToken>()))
+                .ReturnsAsync((instance, 0L));
+
+            var eventRepo = new Mock<IInstanceEventRepository>();
+            eventRepo.Setup(r => r.InsertInstanceEvent(It.IsAny<InstanceEvent>()))
+                .ReturnsAsync(new InstanceEvent());
+
+            var busMock = new Mock<IMessageBus>();
+            var controller = new InstanceEventsController(
+                instanceRepo.Object,
+                eventRepo.Object,
+                busMock.Object,
+                Options.Create(new WolverineSettings { EnableSending = false }),
+                Mock.Of<ILogger<InstanceEventsController>>());
+
+            // Act
+            await controller.Post(1337, guid, new InstanceEvent { InstanceId = instance.Id });
+
+            // Assert
+            busMock.Verify(b => b.PublishAsync(It.IsAny<SyncInstanceToDialogportenCommand>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         private HttpClient GetTestClient()
