@@ -31,7 +31,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 using Moq;
-
+using Wolverine;
 using Xunit;
 
 using static Altinn.Platform.Storage.Interface.Models.SignRequest;
@@ -174,6 +174,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         {
             // No setup required for these services. They are not in use by the InstanceController
             Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
+            Mock<IMessageBus> busMock = new Mock<IMessageBus>();
+
             Environment.SetEnvironmentVariable("WolverineSettings__ServiceBusConnectionString", string.Empty);
             
             HttpClient client = _factory.WithWebHostBuilder(builder =>
@@ -197,6 +199,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                     services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
                     services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
                     services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
+                    services.AddSingleton(busMock.Object);
                 });
             }).CreateClient();
 

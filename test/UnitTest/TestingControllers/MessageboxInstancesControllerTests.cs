@@ -12,6 +12,7 @@ using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
 
 using Altinn.Platform.Storage.Clients;
+using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
@@ -37,7 +38,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 
 using Newtonsoft.Json;
-
+using Wolverine;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
@@ -1264,7 +1265,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
                 It.IsAny<DateTime?>()))
             .ReturnsAsync(new List<InstanceEvent>());
 
-        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null, null, null);
+        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null, null, new Mock<IOptions<WolverineSettings>>().Object, null);
 
         // Act
         await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid());
@@ -1322,7 +1323,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
                 It.IsAny<DateTime?>()))
             .ReturnsAsync(eventList);
 
-        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null, null, null);
+        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null, null, new Mock<IOptions<WolverineSettings>>().Object, null);
 
         // Act
         var response = await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid()) as OkObjectResult;
@@ -1349,7 +1350,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
             .Setup(rm => rm.ListInstanceEvents(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<DateTime?>(), It.IsAny<DateTime?>()))
             .ReturnsAsync(largeNumberOfEvents);
 
-        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null, null, null);
+        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null, null, new Mock<IOptions<WolverineSettings>>().Object, null);
 
         // Act
         var response = await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid()) as OkObjectResult;
@@ -1375,6 +1376,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         // No setup required for these services. They are not in use by the MessageBoxInstancesController
         Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
         Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
+        Mock<IMessageBus> busMock = new Mock<IMessageBus>();
 
         Environment.SetEnvironmentVariable("WolverineSettings__ServiceBusConnectionString", string.Empty);
 
@@ -1405,6 +1407,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
                 services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
                 services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
                 services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
+                services.AddSingleton(busMock.Object);
             });
         }).CreateClient();
 

@@ -23,6 +23,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Moq;
+using Wolverine;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers
@@ -294,6 +295,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // No setup required for these services. They are not in use by the InstanceController
             Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
             Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
+            Mock<IMessageBus> busMock = new Mock<IMessageBus>();
 
             Environment.SetEnvironmentVariable("WolverineSettings__ServiceBusConnectionString", string.Empty);
 
@@ -322,6 +324,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                     services.AddSingleton(keyVaultWrapper.Object);
                     services.AddSingleton(partiesWrapper.Object);
                     services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
+                    services.AddSingleton(busMock.Object);
                 });
             }).CreateClient();
 

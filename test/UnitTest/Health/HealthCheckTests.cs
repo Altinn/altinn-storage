@@ -1,13 +1,16 @@
+using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Health;
 using Altinn.Platform.Storage.UnitTest.Fixture;
-using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Moq;
+using Wolverine;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.Health
@@ -41,6 +44,9 @@ namespace Altinn.Platform.Storage.UnitTest.Health
 
         private HttpClient GetTestClient()
         {
+            Mock<IMessageBus> busMock = new Mock<IMessageBus>();
+            
+            Environment.SetEnvironmentVariable("WolverineSettings__ServiceBusConnectionString", string.Empty);
             HttpClient client = _factory.WithWebHostBuilder(builder =>
             {
                 IConfiguration configuration = new ConfigurationBuilder()
@@ -53,6 +59,7 @@ namespace Altinn.Platform.Storage.UnitTest.Health
 
                 builder.ConfigureTestServices(services =>
                 {
+                    services.AddSingleton(busMock.Object);
                 });
             }).CreateClient();
 

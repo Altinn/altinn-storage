@@ -32,7 +32,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 
 using Newtonsoft.Json;
-
+using Wolverine;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers
@@ -687,6 +687,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // No setup required for these services. They are not in use by the ApplicationController
             Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
             Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
+            Mock<IMessageBus> busMock = new Mock<IMessageBus>();
 
             Environment.SetEnvironmentVariable("WolverineSettings__ServiceBusConnectionString", string.Empty);
             
@@ -711,6 +712,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                     services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
                     services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
                     services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
+                    services.AddSingleton(busMock.Object);
                 });
             }).CreateClient();
 

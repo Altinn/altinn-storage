@@ -23,6 +23,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Moq;
+using Wolverine;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.Telemetry;
@@ -69,6 +70,7 @@ public class AspNetCoreMetricsEnricherTests(TestApplicationFactory<InstancesCont
     {
         // No setup required for these services. They are not in use by the InstanceController
         Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
+        Mock<IMessageBus> busMock = new Mock<IMessageBus>();
 
         var factory = _factory.WithWebHostBuilder(builder =>
         {
@@ -88,6 +90,7 @@ public class AspNetCoreMetricsEnricherTests(TestApplicationFactory<InstancesCont
                 services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
                 services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
                 services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
+                services.AddSingleton(busMock.Object);
             });
         });
 

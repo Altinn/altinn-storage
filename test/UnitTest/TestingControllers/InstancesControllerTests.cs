@@ -35,6 +35,7 @@ using Moq;
 
 using Newtonsoft.Json;
 using OpenTelemetry.Metrics;
+using Wolverine;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
@@ -2136,6 +2137,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     {
         // No setup required for these services. They are not in use by the InstanceController
         Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
+        Mock<IMessageBus> busMock = new Mock<IMessageBus>();
 
         Environment.SetEnvironmentVariable("WolverineSettings__ServiceBusConnectionString", string.Empty);
         
@@ -2172,6 +2174,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                 services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
                 services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
                 services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
+                services.AddSingleton(busMock.Object);
             });
         });
 
