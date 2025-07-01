@@ -1,5 +1,5 @@
 using System;
-using System.Linq;
+using System.Globalization;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -144,6 +144,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 InstanceId = "3c42ee2a-9464-42a8-a976-16eb926bd20a"
             };
 
+            var expectedCreated = DateTime.Parse("2019-07-31T09:57:23.4729995Z", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
+
             // Act
             JsonContent content = JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"));
             HttpResponseMessage response = await client.PostAsync(requestUri, content);
@@ -154,8 +156,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal("tdd/endring-av-navn", savedCommand.AppId);
             Assert.Equal("1337", savedCommand.PartyId);
             Assert.Equal("20475edd-dc38-4ae0-bd64-1b20643f506c", savedCommand.InstanceId);
-            Assert.Equal(new DateTime(2019, 07, 31).Date, savedCommand.InstanceCreatedAt.Date);
-            Assert.Equal("09:57:23.4729995", savedCommand.InstanceCreatedAt.TimeOfDay.ToString());
+            Assert.Equal(expectedCreated, savedCommand.InstanceCreatedAt);
             Assert.False(savedCommand.IsMigration);
 
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);

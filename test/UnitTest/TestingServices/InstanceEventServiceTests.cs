@@ -1,6 +1,7 @@
 using System;
+using System.Globalization;
 using System.Threading.Tasks;
-using Altinn.Platform.Storage.Helpers;
+using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Messages;
@@ -41,12 +42,14 @@ public class InstanceEventServiceTests
 
         var service = new InstanceEventService(repositoryMock.Object, contextAccessorMock.Object, busMock.Object, options, loggerMock.Object);
 
+        var expectedCreated = DateTime.Parse("2020-04-29T13:53:02.2836971Z", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
+
         Instance instance = new()
         {
             Id = "1337/20b1353e-91cf-44d6-8ff7-f68993638ffe",
             AppId = "tdd/endring-av-navn",
             InstanceOwner = new() { PartyId = "1337" },
-            Created = DateTime.Parse("2020-04-29T13:53:02.2836971Z")
+            Created = expectedCreated
         };
 
         // Act
@@ -57,8 +60,7 @@ public class InstanceEventServiceTests
         Assert.Equal("tdd/endring-av-navn", savedCommand.AppId);
         Assert.Equal("1337", savedCommand.PartyId);
         Assert.Equal("20b1353e-91cf-44d6-8ff7-f68993638ffe", savedCommand.InstanceId);
-        Assert.Equal(new DateTime(2020, 04, 29).Date, savedCommand.InstanceCreatedAt.Date);
-        Assert.Equal("13:53:02.2836971", savedCommand.InstanceCreatedAt.TimeOfDay.ToString());
+        Assert.Equal(expectedCreated, savedCommand.InstanceCreatedAt);
         Assert.False(savedCommand.IsMigration);
     }
 
@@ -120,12 +122,14 @@ public class InstanceEventServiceTests
 
         var service = new InstanceEventService(repositoryMock.Object, contextAccessorMock.Object, busMock.Object, options, loggerMock.Object);
 
+        DateTime testCreatedDateTime = DateTime.Parse("2020-04-29T13:53:02.2836971Z", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
+
         Instance instance = new()
         {
             Id = "1337/20b1353e-91cf-44d6-8ff7-f68993638ffe",
             AppId = "tdd/endring-av-navn",
             InstanceOwner = new() { PartyId = "1337" },
-            Created = DateTime.Parse("2020-04-29T13:53:02.2836971Z")
+            Created = testCreatedDateTime,
         };
         DataElement dataElement = new() { Id = "data" };
 
@@ -137,8 +141,7 @@ public class InstanceEventServiceTests
         Assert.Equal("tdd/endring-av-navn", savedCommand.AppId);
         Assert.Equal("1337", savedCommand.PartyId);
         Assert.Equal("20b1353e-91cf-44d6-8ff7-f68993638ffe", savedCommand.InstanceId);
-        Assert.Equal(new DateTime(2020, 04, 29).Date, savedCommand.InstanceCreatedAt.Date);
-        Assert.Equal("13:53:02.2836971", savedCommand.InstanceCreatedAt.TimeOfDay.ToString());
+        Assert.Equal(testCreatedDateTime, savedCommand.InstanceCreatedAt);
         Assert.False(savedCommand.IsMigration);
     }
 

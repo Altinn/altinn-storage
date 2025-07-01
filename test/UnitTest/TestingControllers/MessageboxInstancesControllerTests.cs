@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -16,6 +17,7 @@ using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Messages;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
@@ -204,6 +206,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
 
         HttpClient client = GetTestClient(messageBusMock: busMock, enableWolverine: true);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1337, 3));
+        var expectedCreated = DateTime.Parse("2020-04-29T13:53:02.2836971Z", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
 
         // Act
         HttpResponseMessage response = await client.PutAsync($"{BasePath}/sbl/instances/1337/da1f620f-1764-4f98-9f03-74e5e20f10fe/undelete", null);
@@ -213,8 +216,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         Assert.Equal("tdd/endring-av-navn", savedCommand.AppId);
         Assert.Equal("1337", savedCommand.PartyId);
         Assert.Equal("da1f620f-1764-4f98-9f03-74e5e20f10fe", savedCommand.InstanceId);
-        Assert.Equal(new DateTime(2020, 04, 29).Date, savedCommand.InstanceCreatedAt.Date);
-        Assert.Equal("13:53:02.2836971", savedCommand.InstanceCreatedAt.TimeOfDay.ToString());
+        Assert.Equal(expectedCreated, savedCommand.InstanceCreatedAt);
         Assert.False(savedCommand.IsMigration);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
