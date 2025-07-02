@@ -73,22 +73,7 @@ namespace Altinn.Platform.Storage.Services
 
             if (_wolverineSettings.EnableSending)
             {
-                try
-                {
-                    using Activity? activity = Activity.Current?.Source.StartActivity("WolverineIEdispatch");
-                    SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
-                        instance.AppId,
-                        instance.InstanceOwner.PartyId,
-                        instance.Id.Split("/")[1],
-                        instance.Created!.Value,
-                        false);
-                    await _messageBus.PublishAsync(instanceUpdateCommand);
-                }
-                catch (Exception ex)
-                {
-                    // Log the error but do not return an error to the user
-                    _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instance.Id);
-                }
+                await SendUpdateMessage(instance, "WolverineIEdispatch");
             }
         }
 
@@ -119,22 +104,27 @@ namespace Altinn.Platform.Storage.Services
 
             if (_wolverineSettings.EnableSending)
             {
-                try
-                {
-                    using Activity? activity = Activity.Current?.Source.StartActivity("WolverineIEdispatch2");
-                    SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
-                        instance.AppId,
-                        instance.InstanceOwner.PartyId,
-                        instance.Id.Split("/")[1],
-                        instance.Created!.Value,
-                        false);
-                    await _messageBus.PublishAsync(instanceUpdateCommand);
-                }
-                catch (Exception ex)
-                {
-                    // Log the error but do not return an error to the user
-                    _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instance.Id);
-                }
+                await SendUpdateMessage(instance, "WolverineIEdispatch2");
+            }
+        }
+
+        private async Task SendUpdateMessage(Instance instance, string activityName)
+        {
+            try
+            {
+                using Activity? activity = Activity.Current?.Source.StartActivity(activityName);
+                SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
+                    instance.AppId,
+                    instance.InstanceOwner.PartyId,
+                    instance.Id.Split("/")[1],
+                    instance.Created!.Value,
+                    false);
+                await _messageBus.PublishAsync(instanceUpdateCommand);
+            }
+            catch (Exception ex)
+            {
+                // Log the error but do not return an error to the user
+                _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instance.Id);
             }
         }
     }
