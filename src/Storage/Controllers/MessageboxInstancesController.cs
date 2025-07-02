@@ -53,7 +53,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="applicationRepository">the application repository handler</param>
         /// <param name="authorizationService">the authorization service</param>
         /// <param name="applicationService">the application service</param>
-        /// /// <param name="messageBus">Wolverines abstraction for sending messages</param>
+        /// <param name="messageBus">Wolverines abstraction for sending messages</param>
         /// <param name="wolverineSettings">Wolverine settings</param>
         /// <param name="logger">The logger</param>
         public MessageBoxInstancesController(

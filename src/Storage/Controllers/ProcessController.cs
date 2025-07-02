@@ -50,7 +50,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceEventService">the instance event service</param>
         /// <param name="messageBus">Wolverines abstraction for sending messages</param>
         /// <param name="wolverineSettings">Wolverine settings</param>
-        /// /// <param name="logger">the logger</param>
+        /// <param name="logger">the logger</param>
         public ProcessController(
             IInstanceRepository instanceRepository,
             IInstanceEventRepository instanceEventRepository,

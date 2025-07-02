@@ -34,7 +34,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <summary>
         /// Initializes a new instance of the <see cref="InstanceEventsController"/> class
         /// </summary>
-        /// /// <param name="instanceRepository">the instance repository handler</param>
+        /// <param name="instanceRepository">the instance repository handler</param>
         /// <param name="instanceEventRepository">the instance event repository handler</param>
         /// <param name="messageBus">Wolverines abstraction for sending messages</param>
         /// <param name="wolverineSettings">Wolverine settings</param>
