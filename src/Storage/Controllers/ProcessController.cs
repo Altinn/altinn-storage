@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -189,7 +190,7 @@ namespace Altinn.Platform.Storage.Controllers
                         updatedInstance.AppId,
                         updatedInstance.InstanceOwner.PartyId,
                         updatedInstance.Id.Split("/")[1],
-                        updatedInstance.Created.Value,
+                        updatedInstance.Created!.Value,
                         false);
                     await _messageBus.PublishAsync(instanceUpdateCommand);
                 }
@@ -242,7 +243,7 @@ namespace Altinn.Platform.Storage.Controllers
         [ApiExplorerSettings(IgnoreApi = true)]
         public async Task<ActionResult<AuthInfo>> GetForAuth(int instanceOwnerPartyId, Guid instanceGuid, CancellationToken cancellationToken)
         {
-            string message = null;
+            string? message = null;
             try
             {
                 (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
@@ -300,8 +301,8 @@ namespace Altinn.Platform.Storage.Controllers
 
         private static (string[] Actions, string TaskId) GetActionsToAuthorize(ProcessState processState, Instance existingInstance)
         {
-            string taskId = existingInstance.Process?.CurrentTask?.ElementId;
-            string altinnTaskType = existingInstance.Process?.CurrentTask?.AltinnTaskType;
+            string taskId = existingInstance.Process?.CurrentTask?.ElementId!;
+            string altinnTaskType = existingInstance.Process?.CurrentTask?.AltinnTaskType!;
 
             if (processState?.CurrentTask?.FlowType == "AbandonCurrentMoveToNext")
             {

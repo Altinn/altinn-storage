@@ -1,4 +1,5 @@
-﻿using System;
+﻿#nullable enable
+using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
@@ -40,7 +41,7 @@ namespace Altinn.Platform.Storage.Services
         /// <inheritdoc/>
         public InstanceEvent BuildInstanceEvent(InstanceEventType eventType, Instance instance)
         {
-            var user = _contextAccessor.HttpContext.User;
+            var user = _contextAccessor.HttpContext!.User;
 
             InstanceEvent instanceEvent = new()
             {
@@ -79,15 +80,14 @@ namespace Altinn.Platform.Storage.Services
                         instance.AppId,
                         instance.InstanceOwner.PartyId,
                         instance.Id.Split("/")[1],
-                        instance.Created.Value,
+                        instance.Created!.Value,
                         false);
                     await _messageBus.PublishAsync(instanceUpdateCommand);
                 }
                 catch (Exception ex)
                 {
                     // Log the error but do not return an error to the user
-                    string sanitizedInstanceId = instanceEvent.InstanceId?.Replace("\n", string.Empty).Replace("\r", string.Empty);
-                    _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", sanitizedInstanceId);
+                    _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instance.Id);
                 }
             }
         }
@@ -95,7 +95,7 @@ namespace Altinn.Platform.Storage.Services
         /// <inheritdoc/>
         public async Task DispatchEvent(InstanceEventType eventType, Instance instance, DataElement dataElement)
         {
-            var user = _contextAccessor.HttpContext.User;
+            var user = _contextAccessor.HttpContext!.User;
 
             InstanceEvent instanceEvent = new()
             {
@@ -126,14 +126,14 @@ namespace Altinn.Platform.Storage.Services
                         instance.AppId,
                         instance.InstanceOwner.PartyId,
                         instance.Id.Split("/")[1],
-                        instance.Created.Value,
+                        instance.Created!.Value,
                         false);
                     await _messageBus.PublishAsync(instanceUpdateCommand);
                 }
                 catch (Exception ex)
                 {
                     // Log the error but do not return an error to the user
-                    _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceEvent.InstanceId);
+                    _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instance.Id);
                 }
             }
         }

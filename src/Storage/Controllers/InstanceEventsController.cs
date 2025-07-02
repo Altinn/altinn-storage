@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -85,7 +86,7 @@ namespace Altinn.Platform.Storage.Controllers
                         instance.AppId,
                         instance.InstanceOwner.PartyId,
                         instance.Id.Split("/")[1],
-                        instance.Created.Value,
+                        instance.Created!.Value,
                         false);
                     await _messageBus.PublishAsync(instanceUpdateCommand);
                 }

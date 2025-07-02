@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -124,7 +125,7 @@ namespace Altinn.Platform.Storage.Controllers
                     return StatusCode(cancellationToken.IsCancellationRequested ? 499 : 500, queryResponse.Exception);
                 }
 
-                return await ProcessQueryResponse(queryResponse, queryModel.Language, cancellationToken);
+                return await ProcessQueryResponse(queryResponse!, queryModel.Language, cancellationToken);
             }
             catch (Exception e)
             {
@@ -295,7 +296,7 @@ namespace Altinn.Platform.Storage.Controllers
                             instance.AppId,
                             instance.InstanceOwner.PartyId, 
                             instance.Id.Split("/")[1], 
-                            instance.Created.Value,
+                            instance.Created!.Value,
                             false);
                         await _messageBus.PublishAsync(instanceUpdateCommand);
                     }
@@ -405,7 +406,7 @@ namespace Altinn.Platform.Storage.Controllers
                         instance.AppId, 
                         instance.InstanceOwner.PartyId,
                         instanceGuid.ToString(), // Instance.Id is NOT in the format "partyId/instanceGuid"
-                        instance.Created.Value,
+                        instance.Created!.Value,
                         false);
                     await _messageBus.PublishAsync(instanceUpdateCommand);
                 }
@@ -616,7 +617,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
             else
             {
-                List<int> savedList = queryModel.InstanceOwnerPartyIdList;
+                List<int> savedList = queryModel.InstanceOwnerPartyIdList!;
                 queryModel.InstanceOwnerPartyIdList = null;
                 Activity.Current?.AddTag("search.queryModel", JsonSerializer.Serialize(queryModel));
                 queryModel.InstanceOwnerPartyIdList = savedList;
