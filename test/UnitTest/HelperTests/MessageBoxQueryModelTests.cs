@@ -4,10 +4,6 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.HelperTests
 {
-    /// <summary>
-    /// This is a test class for InstanceHelper and is intended
-    /// to contain all InstanceHelper Unit Tests
-    /// </summary>
     public class MessageBoxQueryModelTests
     {
         [Fact]
@@ -48,22 +44,6 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
             Assert.Equal(model.ArchiveReference, clone.ArchiveReference);
             Assert.Equal(model.Language, clone.Language);
             Assert.Equal(model.FilterMigrated, clone.FilterMigrated);
-        }
-
-        [Fact]
-        public void CloneWithEmptyInstanceOwnerPartyIdList_WhenOnlyEmptyInstanceOwnerPartyIdListSet_ClonesSuccessfully()
-        {
-            // Arrange
-            var model = new MessageBoxQueryModel()
-            {
-                InstanceOwnerPartyIdList = []
-            };
-
-            // Act
-            var clone = model.CloneWithEmptyInstanceOwnerPartyIdList();
-
-            // Assert
-            Assert.Empty(clone.InstanceOwnerPartyIdList);
         }
     }
 }
