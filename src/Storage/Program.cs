@@ -350,7 +350,7 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
 {
     WolverineSettings wolverineSettings = config.GetSection("WolverineSettings").Get<WolverineSettings>();
 
-    if (wolverineSettings.EnableSending)
+    if (!builder.Environment.IsDevelopment())
     {
         services.AddWolverine(opts =>
         {
@@ -358,16 +358,13 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
             opts.Policies.DisableConventionalLocalRouting();
 
             // Azure Service Bus transport
-            if (!builder.Environment.IsDevelopment())
-            {
-                opts.UseAzureServiceBus(wolverineSettings.ServiceBusConnectionString)
-                    
-                    // Let Wolverine try to initialize any missing queues on the first usage at runtime
-                    .AutoProvision();
+            opts.UseAzureServiceBus(wolverineSettings.ServiceBusConnectionString)
 
-                // Publish CreateOrderCommand to ASB queue
-                opts.PublishMessage<SyncInstanceToDialogportenCommand>().ToAzureServiceBusQueue("altinn.dialogportenadapter.webapi");
-            }
+                // Let Wolverine try to initialize any missing queues on the first usage at runtime
+                .AutoProvision();
+
+            // Publish CreateOrderCommand to ASB queue
+            opts.PublishMessage<SyncInstanceToDialogportenCommand>().ToAzureServiceBusQueue("altinn.dialogportenadapter.webapi");
 
             // Outbox with Postgres
             opts.PersistMessagesWithPostgresql(wolverineSettings.PostgresConnectionString, schemaName: "wolverine");
