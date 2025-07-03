@@ -155,6 +155,23 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
 
         /// <summary>
+        /// Test case: The instance lacks process data. 
+        /// Expected: Forbidden status code
+        /// </summary>
+        [Fact]
+        public async Task PutInstanceEvents_WhenProcessMissingInExistingInstance_ReturnsStatusForbidden()
+        {
+            // Arrange
+            string token = PrincipalUtil.GetToken(3, 1337, 1);
+
+            // Act
+            using HttpResponseMessage response = await SendUpdateRequest(useInstanceAndEventsEndpoint: true, token: token, instanceId: "1337/67f568ce-f114-48e7-ba12-dd422f73667a");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+
+        /// <summary>
         /// Test case: User has to low authentication level. 
         /// Expected: Returns status forbidden.
         /// </summary>
