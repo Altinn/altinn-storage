@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
@@ -28,7 +29,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 using Moq;
-
+using Wolverine;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers
@@ -279,6 +280,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             // No setup required for these services. They are not in use by the ApplicationController
             Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
             Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
+            Mock<IMessageBus> busMock = new Mock<IMessageBus>();
             
             HttpClient client = _factory.WithWebHostBuilder(builder =>
             {
@@ -299,6 +301,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                     services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
                     services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
                     services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
+                    services.AddSingleton(busMock.Object);
                 });
             }).CreateClient();
 

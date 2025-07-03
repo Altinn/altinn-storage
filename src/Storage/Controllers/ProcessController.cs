@@ -1,23 +1,24 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-
-using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Messages;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Wolverine;
 
 namespace Altinn.Platform.Storage.Controllers
 {
@@ -34,6 +35,9 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly string _storageBaseAndHost;
         private readonly IAuthorization _authorizationService;
         private readonly IInstanceEventService _instanceEventService;
+        private readonly IMessageBus _messageBus;
+        private readonly WolverineSettings _wolverineSettings;
+        private readonly ILogger _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ProcessController"/> class
@@ -44,13 +48,19 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="generalsettings">the general settings</param>
         /// <param name="authorizationService">the authorization service</param>
         /// <param name="instanceEventService">the instance event service</param>
+        /// <param name="messageBus">Wolverines abstraction for sending messages</param>
+        /// <param name="wolverineSettings">Wolverine settings</param>
+        /// <param name="logger">the logger</param>
         public ProcessController(
             IInstanceRepository instanceRepository,
             IInstanceEventRepository instanceEventRepository,
             IInstanceAndEventsRepository instanceAndEventsRepository,
             IOptions<GeneralSettings> generalsettings,
             IAuthorization authorizationService,
-            IInstanceEventService instanceEventService)
+            IInstanceEventService instanceEventService,
+            IMessageBus messageBus,
+            IOptions<WolverineSettings> wolverineSettings,
+            ILogger<ProcessController> logger)
         {
             _instanceRepository = instanceRepository;
             _instanceEventRepository = instanceEventRepository;
@@ -58,6 +68,9 @@ namespace Altinn.Platform.Storage.Controllers
             _storageBaseAndHost = $"{generalsettings.Value.Hostname}/storage/api/v1/";
             _authorizationService = authorizationService;
             _instanceEventService = instanceEventService;
+            _messageBus = messageBus;
+            _wolverineSettings = wolverineSettings.Value;
+            _logger = logger;
         }
 
         /// <summary>
@@ -168,6 +181,26 @@ namespace Altinn.Platform.Storage.Controllers
 
             Instance updatedInstance = await _instanceAndEventsRepository.Update(existingInstance, updateProperties, processStateUpdate.Events, cancellationToken);
 
+            if (_wolverineSettings.EnableSending)
+            {
+                try
+                {
+                    using Activity? activity = Activity.Current?.Source.StartActivity("WolverineIEs");
+                    SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
+                        updatedInstance.AppId,
+                        updatedInstance.InstanceOwner.PartyId,
+                        updatedInstance.Id.Split("/")[1],
+                        updatedInstance.Created!.Value,
+                        false);
+                    await _messageBus.PublishAsync(instanceUpdateCommand);
+                }
+                catch (Exception ex)
+                {
+                    // Log the error but do not return an error to the user
+                    _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", updatedInstance.Id);
+                }
+            }
+
             updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
             return Ok(updatedInstance);
         }
@@ -210,7 +243,7 @@ namespace Altinn.Platform.Storage.Controllers
         [ApiExplorerSettings(IgnoreApi = true)]
         public async Task<ActionResult<AuthInfo>> GetForAuth(int instanceOwnerPartyId, Guid instanceGuid, CancellationToken cancellationToken)
         {
-            string message = null;
+            string? message = null;
             try
             {
                 (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
@@ -252,7 +285,7 @@ namespace Altinn.Platform.Storage.Controllers
         
         private async Task<bool> AuthorizeProcessNext(ProcessState processState, Instance existingInstance)
         {
-            (string[] actionsThatAllowProcessNext, string taskId) = GetActionsToAuthorize(processState, existingInstance);
+            (string[] actionsThatAllowProcessNext, string? taskId) = GetActionsToAuthorize(processState, existingInstance);
 
             foreach (string action in actionsThatAllowProcessNext)
             {
@@ -266,10 +299,10 @@ namespace Altinn.Platform.Storage.Controllers
             return false;
         }
 
-        private static (string[] Actions, string TaskId) GetActionsToAuthorize(ProcessState processState, Instance existingInstance)
+        private static (string[] Actions, string? TaskId) GetActionsToAuthorize(ProcessState processState, Instance existingInstance)
         {
-            string taskId = existingInstance.Process?.CurrentTask?.ElementId;
-            string altinnTaskType = existingInstance.Process?.CurrentTask?.AltinnTaskType;
+            string? taskId = existingInstance.Process?.CurrentTask?.ElementId;
+            string? altinnTaskType = existingInstance.Process?.CurrentTask?.AltinnTaskType;
 
             if (processState?.CurrentTask?.FlowType == "AbandonCurrentMoveToNext")
             {
@@ -293,10 +326,11 @@ namespace Altinn.Platform.Storage.Controllers
         /// Get all actions that allow process next for the given task type. Meant to be used to authorize the process next when no action is provided.
         /// </summary>
         /// <remarks>To allow process next for a custom action, user needs to have access to an action with the same name as the task type in the policy.</remarks>
-        public static string[] GetActionsThatAllowProcessNextForTaskType(string taskType)
+        public static string[] GetActionsThatAllowProcessNextForTaskType(string? taskType)
         {
             return taskType switch
             {
+                null => [],
                 "data" or "feedback" => ["write"],
                 "payment" => ["pay", "write"],
                 "confirmation" => ["confirm"],

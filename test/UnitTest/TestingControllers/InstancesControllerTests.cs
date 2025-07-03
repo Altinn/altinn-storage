@@ -25,7 +25,6 @@ using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
 
 using AltinnCore.Authentication.JwtCookie;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,7 +33,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 
 using Newtonsoft.Json;
-using OpenTelemetry.Metrics;
+using Wolverine;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
@@ -2136,7 +2135,8 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     {
         // No setup required for these services. They are not in use by the InstanceController
         Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
-
+        Mock<IMessageBus> busMock = new Mock<IMessageBus>();
+        
         var factory = _factory.WithWebHostBuilder(builder =>
         {
             IConfiguration configuration = new ConfigurationBuilder().AddJsonFile(ServiceUtil.GetAppsettingsPath()).Build();
@@ -2170,6 +2170,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                 services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
                 services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
                 services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
+                services.AddSingleton(busMock.Object);
             });
         });
 

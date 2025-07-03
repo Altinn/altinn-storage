@@ -453,9 +453,8 @@ namespace Altinn.Platform.Storage.Controllers
         public async Task<ActionResult> CreateImage()
         {
             string filename = HttpUtility.UrlDecode(ContentDispositionHeaderValue.Parse(Request.Headers.ContentDisposition.ToString()).GetFilename());
-            using var reader = new StreamReader(Request.Body);
             byte[] buffer = new byte[(int)Request.ContentLength];
-            await Request.Body.ReadAsync(buffer);
+            await Request.Body.ReadExactlyAsync(buffer);
             await _a2Repository.CreateImage(filename, buffer);
             return Created();
         }

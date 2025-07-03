@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -9,16 +10,20 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Authorization;
+using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Messages;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
+using Wolverine;
 
 namespace Altinn.Platform.Storage.Controllers
 {
@@ -35,6 +40,8 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IApplicationRepository _applicationRepository;
         private readonly IAuthorization _authorizationService;
         private readonly IApplicationService _applicationService;
+        private readonly IMessageBus _messageBus;
+        private readonly WolverineSettings _wolverineSettings;
         private readonly ILogger _logger;
 
         /// <summary>
@@ -46,6 +53,8 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="applicationRepository">the application repository handler</param>
         /// <param name="authorizationService">the authorization service</param>
         /// <param name="applicationService">the application service</param>
+        /// <param name="messageBus">Wolverines abstraction for sending messages</param>
+        /// <param name="wolverineSettings">Wolverine settings</param>
         /// <param name="logger">The logger</param>
         public MessageBoxInstancesController(
             IInstanceRepository instanceRepository,
@@ -54,6 +63,8 @@ namespace Altinn.Platform.Storage.Controllers
             IApplicationRepository applicationRepository,
             IAuthorization authorizationService,
             IApplicationService applicationService,
+            IMessageBus messageBus,
+            IOptions<WolverineSettings> wolverineSettings,
             ILogger<MessageBoxInstancesController> logger)
         {
             _instanceRepository = instanceRepository;
@@ -62,6 +73,8 @@ namespace Altinn.Platform.Storage.Controllers
             _applicationRepository = applicationRepository;
             _authorizationService = authorizationService;
             _applicationService = applicationService;
+            _messageBus = messageBus;
+            _wolverineSettings = wolverineSettings.Value;
             _logger = logger;
         }
 
@@ -112,7 +125,7 @@ namespace Altinn.Platform.Storage.Controllers
                     return StatusCode(cancellationToken.IsCancellationRequested ? 499 : 500, queryResponse.Exception);
                 }
 
-                return await ProcessQueryResponse(queryResponse, queryModel.Language, cancellationToken);
+                return await ProcessQueryResponse(queryResponse!, queryModel.Language, cancellationToken);
             }
             catch (Exception e)
             {
@@ -273,6 +286,27 @@ namespace Altinn.Platform.Storage.Controllers
 
                 await _instanceRepository.Update(instance, updateProperties, cancellationToken);
                 await _instanceEventRepository.InsertInstanceEvent(instanceEvent);
+
+                if (_wolverineSettings.EnableSending)
+                {
+                    try
+                    {
+                        using Activity? activity = Activity.Current?.Source.StartActivity("WolverineUndelete");
+                        SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
+                            instance.AppId,
+                            instance.InstanceOwner.PartyId, 
+                            instance.Id.Split("/")[1], 
+                            instance.Created!.Value,
+                            false);
+                        await _messageBus.PublishAsync(instanceUpdateCommand);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log the error but do not return an error to the user
+                        _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceEvent.InstanceId);
+                    }
+                }
+
                 return Ok(true);
             }
 
@@ -363,6 +397,26 @@ namespace Altinn.Platform.Storage.Controllers
             await _instanceRepository.Update(instance, updateProperties, cancellationToken);
             await _instanceEventRepository.InsertInstanceEvent(instanceEvent);
 
+            if (_wolverineSettings.EnableSending)
+            {
+                try
+                {
+                    using Activity? activity = Activity.Current?.Source.StartActivity("WolverineDelete");
+                    SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
+                        instance.AppId, 
+                        instance.InstanceOwner.PartyId,
+                        instanceGuid.ToString(), // Instance.Id is NOT in the format "partyId/instanceGuid"
+                        instance.Created!.Value,
+                        false);
+                    await _messageBus.PublishAsync(instanceUpdateCommand);
+                }
+                catch (Exception ex)
+                {
+                    // Log the error but do not return an error to the user
+                    _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceId);
+                }
+            }
+            
             return Ok(true);
         }
 
@@ -557,16 +611,13 @@ namespace Altinn.Platform.Storage.Controllers
         {
             int maxCountInTag = 800; // Max property size and trace payload size in Application Insights is 8192 bytes
 
-            if ((queryModel.InstanceOwnerPartyIdList?.Count ?? 0) < maxCountInTag)
+            if (queryModel.InstanceOwnerPartyIdList.Count < maxCountInTag)
             {
                 Activity.Current?.AddTag("search.queryModel", JsonSerializer.Serialize(queryModel));
             }
             else
             {
-                List<int> savedList = queryModel.InstanceOwnerPartyIdList;
-                queryModel.InstanceOwnerPartyIdList = null;
-                Activity.Current?.AddTag("search.queryModel", JsonSerializer.Serialize(queryModel));
-                queryModel.InstanceOwnerPartyIdList = savedList;
+                Activity.Current?.AddTag("search.queryModel", JsonSerializer.Serialize(queryModel.CloneWithEmptyInstanceOwnerPartyIdList()));
 
                 Activity.Current?.AddTag(
                     "search.queryModel.instanceOwnerPartyIdList",

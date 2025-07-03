@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -12,9 +13,11 @@ using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
 
 using Altinn.Platform.Storage.Clients;
+using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Messages;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
@@ -37,7 +40,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 
 using Newtonsoft.Json;
-
+using Wolverine;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
@@ -191,6 +194,51 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         Assert.True(actualResult);
     }
 
+    [Fact]
+    public async Task Undelete_WolverineEnabled_PublishesCommand()
+    {
+        // Arrange
+        Mock<IMessageBus> busMock = new();
+        SyncInstanceToDialogportenCommand savedCommand = null;
+        busMock.Setup(b => b.PublishAsync(It.IsAny<SyncInstanceToDialogportenCommand>(), null))
+            .Callback<SyncInstanceToDialogportenCommand, DeliveryOptions>((cmd, _) => savedCommand = cmd)
+            .Returns(ValueTask.CompletedTask);
+
+        HttpClient client = GetTestClient(messageBusMock: busMock, enableWolverine: true);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1337, 3));
+        var expectedCreated = DateTime.Parse("2020-04-29T13:53:02.2836971Z", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
+
+        // Act
+        HttpResponseMessage response = await client.PutAsync($"{BasePath}/sbl/instances/1337/da1f620f-1764-4f98-9f03-74e5e20f10fe/undelete", null);
+
+        // Assert
+        busMock.VerifyAll();
+        Assert.Equal("tdd/endring-av-navn", savedCommand.AppId);
+        Assert.Equal("1337", savedCommand.PartyId);
+        Assert.Equal("da1f620f-1764-4f98-9f03-74e5e20f10fe", savedCommand.InstanceId);
+        Assert.Equal(expectedCreated, savedCommand.InstanceCreatedAt);
+        Assert.False(savedCommand.IsMigration);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Undelete_WolverineEnabledAndThrows_ReturnsOk()
+    {
+        // Arrange
+        Mock<IMessageBus> busMock = new();
+        busMock.Setup(b => b.PublishAsync(It.IsAny<SyncInstanceToDialogportenCommand>(), null))
+            .ThrowsAsync(new Exception());
+
+        HttpClient client = GetTestClient(messageBusMock: busMock, enableWolverine: true);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1337, 3));
+
+        // Act
+        HttpResponseMessage response = await client.PutAsync($"{BasePath}/sbl/instances/1337/da1f620f-1764-4f98-9f03-74e5e20f10fe/undelete", null);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
     /// <summary>
     /// Scenario:
     ///   Restore a soft deleted instance in storage but user has too low authentication level.
@@ -308,6 +356,51 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         string content = await response.Content.ReadAsStringAsync();
         bool actualResult = JsonConvert.DeserializeObject<bool>(content);
         Assert.True(actualResult);
+    }
+
+    [Fact]
+    public async Task Delete_WolverineEnabled_PublishesCommand()
+    {
+        // Arrange
+        Mock<IMessageBus> busMock = new();
+        SyncInstanceToDialogportenCommand savedCommand = null;
+        busMock.Setup(b => b.PublishAsync(It.IsAny<SyncInstanceToDialogportenCommand>(), null))
+            .Callback<SyncInstanceToDialogportenCommand, DeliveryOptions>((cmd, _) => savedCommand = cmd)
+            .Returns(ValueTask.CompletedTask);
+
+        HttpClient client = GetTestClient(messageBusMock: busMock, enableWolverine: true);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1337, 3));
+
+        // Act
+        HttpResponseMessage response = await client.DeleteAsync($"{BasePath}/sbl/instances/1337/08274f48-8313-4e2d-9788-bbdacef5a54e?hard=false");
+
+        // Assert
+        busMock.VerifyAll();
+        Assert.Equal("tdd/endring-av-navn", savedCommand.AppId);
+        Assert.Equal("1337", savedCommand.PartyId);
+        Assert.Equal("08274f48-8313-4e2d-9788-bbdacef5a54e", savedCommand.InstanceId);
+        Assert.Equal(new DateTime(2020, 04, 29).Date, savedCommand.InstanceCreatedAt.Date);
+        Assert.Equal("13:53:02.2836971", savedCommand.InstanceCreatedAt.TimeOfDay.ToString());
+        Assert.False(savedCommand.IsMigration);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Delete_WolverineEnabledAndThrows_ReturnsOk()
+    {
+        // Arrange
+        Mock<IMessageBus> busMock = new();
+        busMock.Setup(b => b.PublishAsync(It.IsAny<SyncInstanceToDialogportenCommand>(), null))
+            .ThrowsAsync(new Exception());
+
+        HttpClient client = GetTestClient(messageBusMock: busMock, enableWolverine: true);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1337, 3));
+
+        // Act
+        HttpResponseMessage response = await client.DeleteAsync($"{BasePath}/sbl/instances/1337/08274f48-8313-4e2d-9788-bbdacef5a54e?hard=false");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     /// <summary>
@@ -1264,7 +1357,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
                 It.IsAny<DateTime?>()))
             .ReturnsAsync(new List<InstanceEvent>());
 
-        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null, null);
+        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null, null, new Mock<IOptions<WolverineSettings>>().Object, null);
 
         // Act
         await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid());
@@ -1322,7 +1415,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
                 It.IsAny<DateTime?>()))
             .ReturnsAsync(eventList);
 
-        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null, null);
+        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null, null, new Mock<IOptions<WolverineSettings>>().Object, null);
 
         // Act
         var response = await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid()) as OkObjectResult;
@@ -1349,7 +1442,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
             .Setup(rm => rm.ListInstanceEvents(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<DateTime?>(), It.IsAny<DateTime?>()))
             .ReturnsAsync(largeNumberOfEvents);
 
-        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null, null);
+        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null, null, new Mock<IOptions<WolverineSettings>>().Object, null);
 
         // Act
         var response = await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid()) as OkObjectResult;
@@ -1370,11 +1463,16 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         };
     }
 
-    private HttpClient GetTestClient(Mock<IInstanceRepository> instanceRepositoryMock = null, Mock<IApplicationService> applicationServiceMock = null)
+    private HttpClient GetTestClient(
+        Mock<IInstanceRepository> instanceRepositoryMock = null,
+        Mock<IApplicationService> applicationServiceMock = null,
+        Mock<IMessageBus> messageBusMock = null,
+        bool enableWolverine = false)
     {
         // No setup required for these services. They are not in use by the MessageBoxInstancesController
         Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
         Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
+        Mock<IMessageBus> busMock = messageBusMock ?? new Mock<IMessageBus>();
 
         HttpClient client = _factory.WithWebHostBuilder(builder =>
         {
@@ -1403,6 +1501,11 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
                 services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
                 services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
                 services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
+                services.AddSingleton(busMock.Object);
+                services.Configure<WolverineSettings>(opts =>
+                {
+                    opts.EnableSending = enableWolverine;
+                });
             });
         }).CreateClient();
 

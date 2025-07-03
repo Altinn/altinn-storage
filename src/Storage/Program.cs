@@ -20,6 +20,7 @@ using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Filters;
 using Altinn.Platform.Storage.Health;
 using Altinn.Platform.Storage.Helpers;
+using Altinn.Platform.Storage.Messages;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.Telemetry;
@@ -48,6 +49,9 @@ using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Wolverine;
+using Wolverine.AzureServiceBus;
+using Wolverine.Postgresql;
 using Yuniql.AspNetCore;
 using Yuniql.PostgreSql;
 
@@ -66,6 +70,8 @@ await SetConfigurationProviders(builder.Configuration, builder.Environment.IsDev
 ConfigureApplicationLogging(builder.Logging);
 
 ConfigureServices(builder.Services, builder.Configuration);
+
+ConfigureWolverine(builder.Services, builder.Configuration);
 
 logger.LogInformation("// Checking Azure Storage connection.");
 
@@ -232,6 +238,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.Configure<QueueStorageSettings>(config.GetSection("QueueStorageSettings"));
     services.Configure<AccessTokenSettings>(config.GetSection("AccessTokenSettings"));
     services.Configure<PostgreSqlSettings>(config.GetSection("PostgreSqlSettings"));
+    services.Configure<WolverineSettings>(config.GetSection("WolverineSettings"));
 
     services.AddSingleton<IAuthorizationHandler, AccessTokenHandler>();
     services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProvider>();
@@ -337,6 +344,36 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
         }
     });
     services.AddSwaggerGenNewtonsoftSupport();
+}
+
+void ConfigureWolverine(IServiceCollection services, IConfiguration config)
+{
+    WolverineSettings wolverineSettings = config.GetSection("WolverineSettings").Get<WolverineSettings>();
+
+    if (wolverineSettings.EnableSending)
+    {
+        services.AddWolverine(opts =>
+        {
+            // Force wolverine to use bus for sending messages (not handle messages internal)
+            opts.Policies.DisableConventionalLocalRouting();
+
+            // Azure Service Bus transport
+            if (!builder.Environment.IsDevelopment())
+            {
+                opts.UseAzureServiceBus(wolverineSettings.ServiceBusConnectionString)
+                    
+                    // Let Wolverine try to initialize any missing queues on the first usage at runtime
+                    .AutoProvision();
+
+                // Publish CreateOrderCommand to ASB queue
+                opts.PublishMessage<SyncInstanceToDialogportenCommand>().ToAzureServiceBusQueue("altinn.dialogportenadapter.webapi");
+            }
+
+            // Outbox with Postgres
+            opts.PersistMessagesWithPostgresql(wolverineSettings.PostgresConnectionString, schemaName: "wolverine");
+            opts.Policies.UseDurableOutboxOnAllSendingEndpoints();
+        });
+    }
 }
 
 static string GetXmlCommentsPathForControllers()

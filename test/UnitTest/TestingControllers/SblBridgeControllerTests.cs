@@ -1,3 +1,4 @@
+using System;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
@@ -15,6 +16,8 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Moq;
+using Wolverine;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers
@@ -66,6 +69,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             HttpClient client = _factory.WithWebHostBuilder(builder =>
             {
                 IConfiguration configuration = new ConfigurationBuilder().AddJsonFile(ServiceUtil.GetAppsettingsPath()).Build();
+                Mock<IMessageBus> busMock = new Mock<IMessageBus>();
+
                 builder.ConfigureAppConfiguration((hostingContext, config) =>
                 {
                     config.AddConfiguration(configuration);
@@ -76,6 +81,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                     services.AddSingleton<IPartiesWithInstancesClient, PartiesWithInstancesClientMock>();
                     services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
                     services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
+                    services.AddSingleton(busMock.Object);
                 });
             }).CreateClient();
 
