@@ -39,6 +39,7 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
             Assert.Equal(model.AppId, clone.AppId);
             Assert.Equal(model.IncludeActive, clone.IncludeActive);
             Assert.Equal(model.IncludeArchived, clone.IncludeArchived);
+            Assert.Equal(model.IncludeDeleted, clone.IncludeDeleted);
             Assert.Equal(model.FromLastChanged, clone.FromLastChanged);
             Assert.Equal(model.ToLastChanged, clone.ToLastChanged);
             Assert.Equal(model.FromCreated, clone.FromCreated);
