@@ -90,7 +90,7 @@ namespace Altinn.Platform.Storage.Helpers
         public bool? FilterMigrated { get; set; }
 
         /// <summary>
-        /// Creates a new instance of this queryparams model with instanceOwnerPartyIdList
+        /// Creates a new instance of this queryparams model with empty instanceOwnerPartyIdList
         /// </summary>
         public MessageBoxQueryModel CloneWithEmptyInstanceOwnerPartyIdList() => new()
         {
