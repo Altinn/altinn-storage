@@ -285,7 +285,7 @@ namespace Altinn.Platform.Storage.Controllers
         
         private async Task<bool> AuthorizeProcessNext(ProcessState processState, Instance existingInstance)
         {
-            (string[] actionsThatAllowProcessNext, string taskId) = GetActionsToAuthorize(processState, existingInstance);
+            (string[] actionsThatAllowProcessNext, string? taskId) = GetActionsToAuthorize(processState, existingInstance);
 
             foreach (string action in actionsThatAllowProcessNext)
             {
@@ -299,10 +299,10 @@ namespace Altinn.Platform.Storage.Controllers
             return false;
         }
 
-        private static (string[] Actions, string TaskId) GetActionsToAuthorize(ProcessState processState, Instance existingInstance)
+        private static (string[] Actions, string? TaskId) GetActionsToAuthorize(ProcessState processState, Instance existingInstance)
         {
-            string taskId = existingInstance.Process?.CurrentTask?.ElementId!;
-            string altinnTaskType = existingInstance.Process?.CurrentTask?.AltinnTaskType!;
+            string? taskId = existingInstance.Process?.CurrentTask?.ElementId;
+            string? altinnTaskType = existingInstance.Process?.CurrentTask?.AltinnTaskType;
 
             if (processState?.CurrentTask?.FlowType == "AbandonCurrentMoveToNext")
             {
@@ -326,10 +326,11 @@ namespace Altinn.Platform.Storage.Controllers
         /// Get all actions that allow process next for the given task type. Meant to be used to authorize the process next when no action is provided.
         /// </summary>
         /// <remarks>To allow process next for a custom action, user needs to have access to an action with the same name as the task type in the policy.</remarks>
-        public static string[] GetActionsThatAllowProcessNextForTaskType(string taskType)
+        public static string[] GetActionsThatAllowProcessNextForTaskType(string? taskType)
         {
             return taskType switch
             {
+                null => [],
                 "data" or "feedback" => ["write"],
                 "payment" => ["pay", "write"],
                 "confirmation" => ["confirm"],

@@ -611,16 +611,13 @@ namespace Altinn.Platform.Storage.Controllers
         {
             int maxCountInTag = 800; // Max property size and trace payload size in Application Insights is 8192 bytes
 
-            if ((queryModel.InstanceOwnerPartyIdList?.Count ?? 0) < maxCountInTag)
+            if (queryModel.InstanceOwnerPartyIdList.Count < maxCountInTag)
             {
                 Activity.Current?.AddTag("search.queryModel", JsonSerializer.Serialize(queryModel));
             }
             else
             {
-                List<int> savedList = queryModel.InstanceOwnerPartyIdList!;
-                queryModel.InstanceOwnerPartyIdList = null;
-                Activity.Current?.AddTag("search.queryModel", JsonSerializer.Serialize(queryModel));
-                queryModel.InstanceOwnerPartyIdList = savedList;
+                Activity.Current?.AddTag("search.queryModel", JsonSerializer.Serialize(queryModel.CloneWithEmptyInstanceOwnerPartyIdList()));
 
                 Activity.Current?.AddTag(
                     "search.queryModel.instanceOwnerPartyIdList",

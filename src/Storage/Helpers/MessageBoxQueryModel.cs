@@ -88,5 +88,25 @@ namespace Altinn.Platform.Storage.Helpers
         /// </summary>
         [JsonPropertyName("filterMigrated")]
         public bool? FilterMigrated { get; set; }
+
+        /// <summary>
+        /// Creates a new instance of this queryparams model with empty instanceOwnerPartyIdList
+        /// </summary>
+        public MessageBoxQueryModel CloneWithEmptyInstanceOwnerPartyIdList() => new()
+        {
+            InstanceOwnerPartyIdList = [],
+            AppId = this.AppId,
+            IncludeActive = this.IncludeActive,
+            IncludeArchived = this.IncludeArchived,
+            IncludeDeleted = this.IncludeDeleted,
+            FromLastChanged = this.FromLastChanged,
+            ToLastChanged = this.ToLastChanged,
+            FromCreated = this.FromCreated,
+            ToCreated = this.ToCreated,
+            SearchString = this.SearchString,
+            ArchiveReference = this.ArchiveReference,
+            Language = this.Language,
+            FilterMigrated = this.FilterMigrated,
+        };
     }
 }
