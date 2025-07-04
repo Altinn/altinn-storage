@@ -295,7 +295,7 @@ namespace Altinn.Platform.Storage.Controllers
                         SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
                             instance.AppId,
                             instance.InstanceOwner.PartyId, 
-                            instanceEvent.InstanceId.Split("/")[1], 
+                            instance.Id, 
                             instance.Created!.Value,
                             false);
                         await _messageBus.PublishAsync(instanceUpdateCommand);
@@ -303,7 +303,7 @@ namespace Altinn.Platform.Storage.Controllers
                     catch (Exception ex)
                     {
                         // Log the error but do not return an error to the user
-                        _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceEvent.InstanceId);
+                        _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instance.Id);
                     }
                 }
 
