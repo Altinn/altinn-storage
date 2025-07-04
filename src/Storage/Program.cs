@@ -350,9 +350,9 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
 {
     WolverineSettings wolverineSettings = config.GetSection("WolverineSettings").Get<WolverineSettings>();
 
-    if (!builder.Environment.IsDevelopment())
+    services.AddWolverine(opts =>
     {
-        services.AddWolverine(opts =>
+        if (!builder.Environment.IsDevelopment())
         {
             // Force wolverine to use bus for sending messages (not handle messages internal)
             opts.Policies.DisableConventionalLocalRouting();
@@ -369,8 +369,21 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
             // Outbox with Postgres
             opts.PersistMessagesWithPostgresql(wolverineSettings.PostgresConnectionString, schemaName: "wolverine");
             opts.Policies.UseDurableOutboxOnAllSendingEndpoints();
-        });
-    }
+        }
+        else
+        {
+            // Out of the box, this uses a separate local queue
+            // for each message based on the message type name
+            opts.Policies.ConfigureConventionalLocalRouting()
+
+                // Or you can customize the usage of queues
+                // per message type
+                .Named(type => type.Namespace)
+
+                // Optionally configure the local queues
+                .CustomizeQueues((type, listener) => { listener.Sequential(); });
+        }
+    });
 }
 
 static string GetXmlCommentsPathForControllers()
