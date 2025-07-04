@@ -295,7 +295,7 @@ namespace Altinn.Platform.Storage.Controllers
                         SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
                             instance.AppId,
                             instance.InstanceOwner.PartyId, 
-                            instance.Id.Split("/")[1], 
+                            instanceGuid.ToString(), // https://github.com/Altinn/altinn-storage/issues/750
                             instance.Created!.Value,
                             false);
                         await _messageBus.PublishAsync(instanceUpdateCommand);
@@ -303,7 +303,7 @@ namespace Altinn.Platform.Storage.Controllers
                     catch (Exception ex)
                     {
                         // Log the error but do not return an error to the user
-                        _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instance.Id);
+                        _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceGuid.ToString());
                     }
                 }
 
@@ -405,7 +405,7 @@ namespace Altinn.Platform.Storage.Controllers
                     SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
                         instance.AppId, 
                         instance.InstanceOwner.PartyId,
-                        instanceGuid.ToString(), // Instance.Id is NOT in the format "partyId/instanceGuid"
+                        instanceGuid.ToString(), // https://github.com/Altinn/altinn-storage/issues/750
                         instance.Created!.Value,
                         false);
                     await _messageBus.PublishAsync(instanceUpdateCommand);
@@ -413,7 +413,7 @@ namespace Altinn.Platform.Storage.Controllers
                 catch (Exception ex)
                 {
                     // Log the error but do not return an error to the user
-                    _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceId);
+                    _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceGuid.ToString());
                 }
             }
             
