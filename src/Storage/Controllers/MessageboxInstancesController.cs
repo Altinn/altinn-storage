@@ -125,7 +125,7 @@ namespace Altinn.Platform.Storage.Controllers
                     return StatusCode(cancellationToken.IsCancellationRequested ? 499 : 500, queryResponse.Exception);
                 }
 
-                return await ProcessQueryResponse(queryResponse!, queryModel.Language, cancellationToken);
+                return await ProcessQueryResponse(queryResponse, queryModel.Language, cancellationToken);
             }
             catch (Exception e)
             {
@@ -295,7 +295,7 @@ namespace Altinn.Platform.Storage.Controllers
                         SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
                             instance.AppId,
                             instance.InstanceOwner.PartyId, 
-                            instance.Id.Split("/")[1], 
+                            instanceEvent.InstanceId.Split("/")[1], 
                             instance.Created!.Value,
                             false);
                         await _messageBus.PublishAsync(instanceUpdateCommand);
@@ -554,7 +554,7 @@ namespace Altinn.Platform.Storage.Controllers
             return queryParams;
         }
 
-        private async Task<ActionResult> ProcessQueryResponse(InstanceQueryResponse queryResponse, string language, CancellationToken cancellationToken)
+        private async Task<ActionResult> ProcessQueryResponse(InstanceQueryResponse? queryResponse, string language, CancellationToken cancellationToken)
         {
             string[] acceptedLanguages = { "en", "nb", "nn" };
 
