@@ -125,7 +125,7 @@ namespace Altinn.Platform.Storage.Controllers
                     return StatusCode(cancellationToken.IsCancellationRequested ? 499 : 500, queryResponse.Exception);
                 }
 
-                return await ProcessQueryResponse(queryResponse!, queryModel.Language, cancellationToken);
+                return await ProcessQueryResponse(queryResponse, queryModel.Language, cancellationToken);
             }
             catch (Exception e)
             {
@@ -146,7 +146,7 @@ namespace Altinn.Platform.Storage.Controllers
         public async Task<ActionResult> GetMessageBoxInstance(
             int instanceOwnerPartyId,
             Guid instanceGuid,
-            [FromQuery] string language,
+            [FromQuery] string? language,
             CancellationToken cancellationToken)
         {
             string[] acceptedLanguages = { "en", "nb", "nn" };
@@ -289,22 +289,7 @@ namespace Altinn.Platform.Storage.Controllers
 
                 if (_wolverineSettings.EnableSending)
                 {
-                    try
-                    {
-                        using Activity? activity = Activity.Current?.Source.StartActivity("WolverineUndelete");
-                        SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
-                            instance.AppId,
-                            instance.InstanceOwner.PartyId, 
-                            instance.Id.Split("/")[1], 
-                            instance.Created!.Value,
-                            false);
-                        await _messageBus.PublishAsync(instanceUpdateCommand);
-                    }
-                    catch (Exception ex)
-                    {
-                        // Log the error but do not return an error to the user
-                        _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceEvent.InstanceId);
-                    }
+                    await SendUpdateMessage(instance, instanceGuid.ToString(), "WolverineUndelete");
                 }
 
                 return Ok(true);
@@ -399,22 +384,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (_wolverineSettings.EnableSending)
             {
-                try
-                {
-                    using Activity? activity = Activity.Current?.Source.StartActivity("WolverineDelete");
-                    SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
-                        instance.AppId, 
-                        instance.InstanceOwner.PartyId,
-                        instanceGuid.ToString(), // Instance.Id is NOT in the format "partyId/instanceGuid"
-                        instance.Created!.Value,
-                        false);
-                    await _messageBus.PublishAsync(instanceUpdateCommand);
-                }
-                catch (Exception ex)
-                {
-                    // Log the error but do not return an error to the user
-                    _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceId);
-                }
+                await SendUpdateMessage(instance, instanceGuid.ToString(), "WolverineDelete");
             }
             
             return Ok(true);
@@ -554,7 +524,7 @@ namespace Altinn.Platform.Storage.Controllers
             return queryParams;
         }
 
-        private async Task<ActionResult> ProcessQueryResponse(InstanceQueryResponse queryResponse, string language, CancellationToken cancellationToken)
+        private async Task<ActionResult> ProcessQueryResponse(InstanceQueryResponse? queryResponse, string language, CancellationToken cancellationToken)
         {
             string[] acceptedLanguages = { "en", "nb", "nn" };
 
@@ -605,6 +575,26 @@ namespace Altinn.Platform.Storage.Controllers
             InstanceHelper.ReplaceTextKeys(authorizedInstances, texts, languageId);
 
             return Ok(authorizedInstances);
+        }
+
+        private async Task SendUpdateMessage(Instance instance, string instanceId, string activityName)
+        {
+            try
+            {
+                using Activity? activity = Activity.Current?.Source.StartActivity(activityName);
+                SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
+                    instance.AppId,
+                    instance.InstanceOwner.PartyId,
+                    instanceId,
+                    instance.Created!.Value,
+                    false);
+                await _messageBus.PublishAsync(instanceUpdateCommand);
+            }
+            catch (Exception ex)
+            {
+                // Log the error but do not return an error to the user
+                _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceId);
+            }
         }
 
         private void AddQueryModelToTelemetry(MessageBoxQueryModel queryModel)
