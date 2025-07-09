@@ -150,8 +150,8 @@ namespace Altinn.Platform.Storage.Controllers
             [FromRoute] int instanceOwnerPartyId,
             [FromRoute] Guid instanceGuid,
             [FromQuery] string[] eventTypes,
-            [FromQuery] string from,
-            [FromQuery] string to)
+            [FromQuery] string? from,
+            [FromQuery] string? to)
         {
             string instanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
 
