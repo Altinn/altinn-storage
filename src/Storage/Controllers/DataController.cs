@@ -132,7 +132,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return dataTypeError;
             }
             
-            if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is false)
+            if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
             {
                 return Forbid();
             }
@@ -200,7 +200,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return dataTypeError;
             }
 
-            if (await dataTypeDefinition.CanRead(_authorizationService, instance) is false)
+            if (await dataTypeDefinition.CanRead(_authorizationService, instance) is not true)
             {
                 return Forbid();
             }
@@ -341,7 +341,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return dataTypeError;
             }
 
-            if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is false)
+            if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
             {
                 return Forbid();
             }
@@ -439,7 +439,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return dataTypeError;
             }
 
-            if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is false)
+            if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
             {
                 return Forbid();
             }
@@ -547,7 +547,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return dataTypeError;
             }
 
-            if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is false)
+            if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
             {
                 return Forbid();
             }
