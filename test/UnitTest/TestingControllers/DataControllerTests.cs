@@ -466,14 +466,15 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             DataElement de = TestDataUtil.GetDataElement("887c5e56-6f73-494a-9730-6ebd11bffe30");
             Mock<IDataRepository> dataRepositoryMock = new();
             dataRepositoryMock
-                .Setup(dr => dr.Read(It.IsAny<Guid>(), It.IsAny<Guid>()))
+                .Setup(dr => dr.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(de);
 
             dataRepositoryMock
                 .Setup(dr => dr.Update(
                     It.IsAny<Guid>(),
                     It.IsAny<Guid>(),
-                    It.Is<Dictionary<string, object>>(propertyList => VerifyDeleteStatusPresentInDictionary(propertyList))))
+                    It.Is<Dictionary<string, object>>(propertyList => VerifyDeleteStatusPresentInDictionary(propertyList)),
+                    It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new DataElement());
 
             string dataPathWithData = $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe30?delay=true";
@@ -523,7 +524,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Mock<IDataRepository> dataRepositoryMock = new();
             Mock<IBlobRepository> blobRepositoryMock = new();
             dataRepositoryMock
-                           .Setup(dr => dr.Read(It.IsAny<Guid>(), It.IsAny<Guid>()))
+                           .Setup(dr => dr.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(de);
 
             blobRepositoryMock
@@ -531,7 +532,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 .ReturnsAsync(true);
 
             dataRepositoryMock
-                .Setup(dr => dr.Delete(It.IsAny<DataElement>()))
+                .Setup(dr => dr.Delete(It.IsAny<DataElement>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(true);
 
             string dataPathWithData = $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe30";
@@ -568,7 +569,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             DataElement de = TestDataUtil.GetDataElement("887c5e56-6f73-494a-9730-6ebd11bffe88");
             Mock<IDataRepository> dataRepositoryMock = new();            
             dataRepositoryMock
-                .Setup(dr => dr.Read(It.IsAny<Guid>(), It.IsAny<Guid>()))
+                .Setup(dr => dr.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(de);
 
             string dataPathWithData = $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe88?delay=true";
@@ -580,7 +581,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            dataRepositoryMock.Verify(dr => dr.Update(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Dictionary<string, object>>()), Times.Never);
+            dataRepositoryMock.Verify(dr => dr.Update(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Dictionary<string, object>>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         /// <summary>
