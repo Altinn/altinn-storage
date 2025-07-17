@@ -88,14 +88,15 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             }
             catch (Xunit.Sdk.XunitException e)
             {
-                var debug = new Dictionary<string, object>
+                var debug = new Dictionary<string, string>
                 {
                     ["Token"] = token,
                     ["Scope"] = scope,
-                    ["InvalidScopeRequests"] = _testTelemetry.RequestsWithInvalidScopesCount(),
-                    ["Metrics"] = _testTelemetry.Metrics,
+                    ["HttpClientAuth"] = client.DefaultRequestHeaders?.Authorization?.ToString(),
+                    ["InvalidScopeRequests"] = _testTelemetry.RequestsWithInvalidScopesCount()?.ToString(),
+                    ["Metrics"] = JsonSerializer.Serialize(_testTelemetry.Metrics, _serializerOptions),
                     ["ExceptionMessage"] = e.Message,
-                    ["TestTelemetry"] = _testTelemetry.GetType(),
+                    ["TestTelemetry"] = _testTelemetry.GetType().ToString(),
                 };
                 
                 throw new Exception(JsonSerializer.Serialize(debug, _serializerOptions), e);
