@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -150,6 +151,43 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
+        
+        [Theory]
+        [InlineData(SensitiveDataApp.DataTypes.Default, AuthenticationType.Org, HttpStatusCode.Created)]
+        [InlineData(SensitiveDataApp.DataTypes.Default, AuthenticationType.User, HttpStatusCode.Created)]
+        [InlineData(SensitiveDataApp.DataTypes.SensitiveRead, AuthenticationType.Org, HttpStatusCode.Created)]
+        [InlineData(SensitiveDataApp.DataTypes.SensitiveRead, AuthenticationType.User, HttpStatusCode.Created)]
+        [InlineData(SensitiveDataApp.DataTypes.SensitiveWrite, AuthenticationType.Org, HttpStatusCode.Created)]
+        [InlineData(SensitiveDataApp.DataTypes.SensitiveWrite, AuthenticationType.User, HttpStatusCode.Forbidden)]
+        [InlineData(SensitiveDataApp.DataTypes.SensitiveBoth, AuthenticationType.Org, HttpStatusCode.Created)]
+        [InlineData(SensitiveDataApp.DataTypes.SensitiveBoth, AuthenticationType.User, HttpStatusCode.Forbidden)]
+        public async Task Post_DataElement_ValidatesDataTypeWriteAccess(string dataType, AuthenticationType authenticationType, HttpStatusCode expectedStatusCode)
+        {
+            // Arrange
+            var dataPath = $"{SensitiveDataApp.GetInstanceUrl()}/data/?dataType={dataType}";
+            var token = authenticationType is AuthenticationType.User
+                ? PrincipalUtil.GetToken(1337, 1337, 3)
+                : PrincipalUtil.GetOrgToken("ttd");
+            var client = GetTestClient(bearerAuthToken: token);
+            
+            // Act
+            var response = await client.PostAsync(dataPath, new StringContent("Blob content"));
+            var content = async () => JsonSerializer.Deserialize<DataElement>(
+                await response.Content.ReadAsStringAsync(),
+                _serializerOptions);
+
+            // Assert
+            Assert.Equal(expectedStatusCode, response.StatusCode);
+            
+            if (expectedStatusCode == HttpStatusCode.Created)
+            {
+                Assert.Equal(dataType, (await content()).DataType);
+            }
+            else
+            {
+                await Assert.ThrowsAsync<JsonException>(content);
+            }
+        }
 
         /// <summary>
         /// Scenario:
@@ -241,6 +279,31 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         }
 
+        [Theory]
+        [InlineData(SensitiveDataApp.DataElements.Default, AuthenticationType.Org, HttpStatusCode.OK)]
+        [InlineData(SensitiveDataApp.DataElements.Default, AuthenticationType.User, HttpStatusCode.OK)]
+        [InlineData(SensitiveDataApp.DataElements.SensitiveRead, AuthenticationType.Org, HttpStatusCode.OK)]
+        [InlineData(SensitiveDataApp.DataElements.SensitiveRead, AuthenticationType.User, HttpStatusCode.OK)]
+        [InlineData(SensitiveDataApp.DataElements.SensitiveWrite, AuthenticationType.Org, HttpStatusCode.OK)]
+        [InlineData(SensitiveDataApp.DataElements.SensitiveWrite, AuthenticationType.User, HttpStatusCode.Forbidden)]
+        [InlineData(SensitiveDataApp.DataElements.SensitiveBoth, AuthenticationType.Org, HttpStatusCode.OK)]
+        [InlineData(SensitiveDataApp.DataElements.SensitiveBoth, AuthenticationType.User, HttpStatusCode.Forbidden)]
+        public async Task OverwriteData_DataElement_ValidatesDataTypeWriteAccess(string dataElementId, AuthenticationType authenticationType, HttpStatusCode expectedStatusCode)
+        {
+            // Arrange
+            var dataPath = $"{SensitiveDataApp.GetInstanceUrl()}/data/{dataElementId}";
+            var token = authenticationType is AuthenticationType.User
+                ? PrincipalUtil.GetToken(1337, 1337, 3)
+                : PrincipalUtil.GetOrgToken("ttd");
+            var client = GetTestClient(bearerAuthToken: token);
+            
+            // Act
+            var response = await client.PutAsync(dataPath, new StringContent("Blob content"));
+
+            // Assert
+            Assert.Equal(expectedStatusCode, response.StatusCode);
+        }
+
         [Fact]
         public async Task Delete_DataElement_Ok()
         {
@@ -275,6 +338,31 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             HttpResponseMessage response = await client.DeleteAsync(dataPathWithData);
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+
+        [Theory]
+        [InlineData(SensitiveDataApp.DataElements.Default, AuthenticationType.Org, HttpStatusCode.OK)]
+        [InlineData(SensitiveDataApp.DataElements.Default, AuthenticationType.User, HttpStatusCode.OK)]
+        [InlineData(SensitiveDataApp.DataElements.SensitiveRead, AuthenticationType.Org, HttpStatusCode.OK)]
+        [InlineData(SensitiveDataApp.DataElements.SensitiveRead, AuthenticationType.User, HttpStatusCode.OK)]
+        [InlineData(SensitiveDataApp.DataElements.SensitiveWrite, AuthenticationType.Org, HttpStatusCode.OK)]
+        [InlineData(SensitiveDataApp.DataElements.SensitiveWrite, AuthenticationType.User, HttpStatusCode.Forbidden)]
+        [InlineData(SensitiveDataApp.DataElements.SensitiveBoth, AuthenticationType.Org, HttpStatusCode.OK)]
+        [InlineData(SensitiveDataApp.DataElements.SensitiveBoth, AuthenticationType.User, HttpStatusCode.Forbidden)]
+        public async Task Delete_DataElement_ValidatesDataTypeWriteAccess(string dataElementId, AuthenticationType authenticationType, HttpStatusCode expectedStatusCode)
+        {
+            // Arrange
+            var dataPath = $"{SensitiveDataApp.GetInstanceUrl()}/data/{dataElementId}";
+            var token = authenticationType is AuthenticationType.User
+                ? PrincipalUtil.GetToken(1337, 1337, 3)
+                : PrincipalUtil.GetOrgToken("ttd");
+            var client = GetTestClient(bearerAuthToken: token);
+            
+            // Act
+            var response = await client.DeleteAsync(dataPath);
+
+            // Assert
+            Assert.Equal(expectedStatusCode, response.StatusCode);
         }
 
         [Theory]
@@ -373,6 +461,36 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
+        
+        [Fact]
+        public async Task Get_DataElements_ReturnsAll_RegardlessOfDataTypeReadRestriction()
+        {
+            // Arrange
+            var dataPath = $"{SensitiveDataApp.GetInstanceUrl()}/dataelements";
+            var orgClient = GetTestClient(bearerAuthToken: PrincipalUtil.GetOrgToken("ttd"));
+            var userClient = GetTestClient(bearerAuthToken: PrincipalUtil.GetToken(1337, 1337, 3));
+            
+            List<string> expectedDataElementTypes =
+            [
+                SensitiveDataApp.DataTypes.Default,
+                SensitiveDataApp.DataTypes.SensitiveRead,
+                SensitiveDataApp.DataTypes.SensitiveWrite,
+                SensitiveDataApp.DataTypes.SensitiveBoth
+            ];
+            
+            // Act
+            List<DataElementList> results = [];
+            foreach (var client in new[] { orgClient, userClient })
+            {
+                var response = await client.GetAsync(dataPath);
+                var content = JsonSerializer.Deserialize<DataElementList>(await response.Content.ReadAsStringAsync(), _serializerOptions);
+                results.Add(content);
+            }
+
+            // Assert
+            Assert.All(results, x => Assert.Equal(expectedDataElementTypes.Count, x.DataElements.Count));
+            Assert.All(results, x => Assert.Equivalent(expectedDataElementTypes, x.DataElements.Select(y => y.DataType)));
+        }
 
         [Fact]
         public async Task Get_DataElement_NotAuthorized()
@@ -439,34 +557,21 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         }
         
         [Theory]
-        [InlineData(SensitiveDataApp.DataElements.Default, HttpStatusCode.OK, "model-content")]
-        [InlineData(SensitiveDataApp.DataElements.SensitiveRead, HttpStatusCode.Forbidden, "")]
-        [InlineData(SensitiveDataApp.DataElements.SensitiveWrite, HttpStatusCode.OK, "sensitive-data-write-content")]
-        public async Task Get_DataElementForUser_ValidatesReadAccess(string dataElementId, HttpStatusCode expectedStatusCode, string expectedContent)
+        [InlineData(SensitiveDataApp.DataElements.Default, AuthenticationType.Org, HttpStatusCode.OK, "model-content")]
+        [InlineData(SensitiveDataApp.DataElements.Default, AuthenticationType.User, HttpStatusCode.OK, "model-content")]
+        [InlineData(SensitiveDataApp.DataElements.SensitiveRead, AuthenticationType.Org, HttpStatusCode.OK, "sensitive-data-read-content")]
+        [InlineData(SensitiveDataApp.DataElements.SensitiveRead, AuthenticationType.User, HttpStatusCode.Forbidden, "")]
+        [InlineData(SensitiveDataApp.DataElements.SensitiveWrite, AuthenticationType.Org, HttpStatusCode.OK, "sensitive-data-write-content")]
+        [InlineData(SensitiveDataApp.DataElements.SensitiveWrite, AuthenticationType.User, HttpStatusCode.OK, "sensitive-data-write-content")]
+        [InlineData(SensitiveDataApp.DataElements.SensitiveBoth, AuthenticationType.Org, HttpStatusCode.OK, "sensitive-data-both-content")]
+        [InlineData(SensitiveDataApp.DataElements.SensitiveBoth, AuthenticationType.User, HttpStatusCode.Forbidden, "")]
+        public async Task Get_DataElement_ValidatesDataTypeReadAccess(string dataElementId, AuthenticationType authenticationType, HttpStatusCode expectedStatusCode, string expectedContent)
         {
             // Arrange
             var dataPath = $"{SensitiveDataApp.GetInstanceUrl()}/data/{dataElementId}";
-            var token = PrincipalUtil.GetToken(1337, 1337, 3);
-            var client = GetTestClient(bearerAuthToken: token);
-            
-            // Act
-            var response = await client.GetAsync(dataPath);
-            var content = await response.Content.ReadAsStringAsync();
-
-            // Assert
-            Assert.Equal(expectedStatusCode, response.StatusCode);
-            Assert.Equal(expectedContent, content);
-        }
-        
-        [Theory]
-        [InlineData(SensitiveDataApp.DataElements.Default, HttpStatusCode.OK, "model-content")]
-        [InlineData(SensitiveDataApp.DataElements.SensitiveRead, HttpStatusCode.OK, "sensitive-data-read-content")]
-        [InlineData(SensitiveDataApp.DataElements.SensitiveWrite, HttpStatusCode.OK, "sensitive-data-write-content")]
-        public async Task Get_DataElementForOrg_ValidatesReadAccess(string dataElementId, HttpStatusCode expectedStatusCode, string expectedContent)
-        {
-            // Arrange
-            var dataPath = $"{SensitiveDataApp.GetInstanceUrl()}/data/{dataElementId}";
-            var token = PrincipalUtil.GetOrgToken("ttd");
+            var token = authenticationType is AuthenticationType.User
+                ? PrincipalUtil.GetToken(1337, 1337, 3)
+                : PrincipalUtil.GetOrgToken("ttd");
             var client = GetTestClient(bearerAuthToken: token);
             
             // Act
@@ -798,6 +903,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             return client;
         }
         
+        public enum AuthenticationType
+        {
+            User,
+            Org
+        }
+        
         private static class SensitiveDataApp
         {
             public const string InstanceGuid = "99194777-a691-433a-ace1-225e9a691653";
@@ -807,7 +918,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             {
                 public const string Default = "model";
                 public const string SensitiveRead = "sensitive-data-read";
-                public const string SensitiveWrite = "sensitive-data-write";    
+                public const string SensitiveWrite = "sensitive-data-write";  
+                public const string SensitiveBoth = "sensitive-data-both";  
             }
             
             public static class DataElements
@@ -815,6 +927,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 public const string Default = "70d122f8-0cae-44f4-8cd5-2887c251a959";
                 public const string SensitiveRead = "15c0fa5d-a243-4fa2-882b-002bb60b6227";
                 public const string SensitiveWrite = "6448a556-2db0-4279-b535-13e7f9c05809";
+                public const string SensitiveBoth = "bb64df50-fdb1-456b-943e-9c32f524943e";
             }
             
             public static string GetInstanceUrl() => $"{_versionPrefix}/instances/{InstanceOwnerPartyId}/{InstanceGuid}";

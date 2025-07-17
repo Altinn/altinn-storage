@@ -40,6 +40,19 @@
       },
       "taskId": "Task_1",
       "actionRequiredToWrite": "sensitiveDataWrite"
+    },
+    {
+      "id": "sensitive-data-both",
+      "allowedContentTypes": [
+        "application/xml"
+      ],
+      "appLogic": {
+        "autoCreate": false,
+        "ClassRef": "Not.Used.Here"
+      },
+      "taskId": "Task_1",
+      "actionRequiredToRead": "sensitiveDataRead",
+      "actionRequiredToWrite": "sensitiveDataWrite"
     }
   ],
   "created": "2025-07-17T09:00:00.000000Z",
