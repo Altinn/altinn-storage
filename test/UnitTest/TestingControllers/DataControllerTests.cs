@@ -45,8 +45,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
     {
         private const string _versionPrefix = "/storage/api/v1";
         private readonly TestApplicationFactory<DataController> _factory;
-        private readonly JsonSerializerOptions _serializerOptions;
-        private TestTelemetry _testTelemetry;
+        private static readonly JsonSerializerOptions _serializerOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DataControllerTests"/> class.
@@ -55,7 +57,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         public DataControllerTests(TestApplicationFactory<DataController> factory)
         {
             _factory = factory;
-            _serializerOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
         }
 
         /// <summary>
@@ -81,7 +82,24 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             HttpResponseMessage response = await client.PostAsync($"{dataPathWithData}?dataType=default", content);
 
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
+            try
+            {
+                Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
+            }
+            catch (Xunit.Sdk.XunitException e)
+            {
+                var debug = new
+                {
+                    Token = token,
+                    Scope = scope,
+                    InvalidScopeRequests = _testTelemetry.RequestsWithInvalidScopesCount(),
+                    Metrics = _testTelemetry.Metrics,
+                    ExceptionMessage = e.Message,
+                    TestTelemetry = _testTelemetry.GetType(),
+                };
+                
+                throw new Exception(JsonSerializer.Serialize(debug, _serializerOptions), e);
+            }
         }
 
         [Fact]
@@ -842,6 +860,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             repoMock.VerifyAll();
         }
 
+        private TestTelemetry _testTelemetry;
+        
         private HttpClient GetTestClient(
             Mock<IDataRepository> dataRepositoryMock = null,
             Mock<IBlobRepository> blobRepositoryMock = null,
