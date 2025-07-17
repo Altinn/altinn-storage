@@ -1,0 +1,49 @@
+{
+  "id": "ttd/sensitive-data",
+  "org": "ttd",
+  "title": {
+    "nb": "sensitive-data"
+  },
+  "dataTypes": [
+    {
+      "id": "model",
+      "allowedContentTypes": [
+        "application/xml"
+      ],
+      "maxCount": 1,
+      "appLogic": {
+        "autoCreate": true,
+        "ClassRef": "Not.Used.Here"
+      },
+      "taskId":  "Task_1"
+    },
+    {
+      "id": "sensitive-data-read",
+      "allowedContentTypes": [
+        "application/xml"
+      ],
+      "appLogic": {
+        "autoCreate": false,
+        "ClassRef": "Not.Used.Here"
+      },
+      "taskId": "Task_1",
+      "actionRequiredToRead": "sensitiveDataRead"
+    },
+    {
+      "id": "sensitive-data-write",
+      "allowedContentTypes": [
+        "application/xml"
+      ],
+      "appLogic": {
+        "autoCreate": false,
+        "ClassRef": "Not.Used.Here"
+      },
+      "taskId": "Task_1",
+      "actionRequiredToWrite": "sensitiveDataWrite"
+    }
+  ],
+  "created": "2025-07-17T09:00:00.000000Z",
+  "createdBy": "danielskovli",
+  "lastChanged": "2025-07-17T09:00:00.000000Z",
+  "lastChangedBy": "danielskovli"
+}
