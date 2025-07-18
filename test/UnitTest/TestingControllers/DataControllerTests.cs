@@ -44,6 +44,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
     public class DataControllerTests : IClassFixture<TestApplicationFactory<DataController>>
     {
         private const string _versionPrefix = "/storage/api/v1";
+        private TestTelemetry _testTelemetry;
         private readonly TestApplicationFactory<DataController> _factory;
         private static readonly JsonSerializerOptions _serializerOptions = new()
         {
@@ -82,25 +83,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             HttpResponseMessage response = await client.PostAsync($"{dataPathWithData}?dataType=default", content);
 
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            try
-            {
-                Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
-            }
-            catch (Xunit.Sdk.XunitException e)
-            {
-                var debug = new Dictionary<string, string>
-                {
-                    ["Token"] = token,
-                    ["Scope"] = scope,
-                    ["HttpClientAuth"] = client.DefaultRequestHeaders?.Authorization?.ToString(),
-                    ["InvalidScopeRequests"] = _testTelemetry.RequestsWithInvalidScopesCount()?.ToString(),
-                    ["Metrics"] = JsonSerializer.Serialize(_testTelemetry.Metrics, _serializerOptions),
-                    ["ExceptionMessage"] = e.Message,
-                    ["TestTelemetry"] = _testTelemetry.GetType().ToString(),
-                };
-                
-                throw new Exception(JsonSerializer.Serialize(debug, _serializerOptions), e);
-            }
+            Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
         }
 
         [Fact]
@@ -860,8 +843,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             repoMock.VerifyAll();
         }
-
-        private TestTelemetry _testTelemetry;
         
         private HttpClient GetTestClient(
             Mock<IDataRepository> dataRepositoryMock = null,
