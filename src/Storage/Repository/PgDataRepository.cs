@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Interface.Enums;
@@ -35,7 +36,7 @@ namespace Altinn.Platform.Storage.Repository
         private readonly NpgsqlDataSource _dataSource = dataSource;
 
         /// <inheritdoc/>
-        public async Task<DataElement> Create(DataElement dataElement, long instanceInternalId = 0)
+        public async Task<DataElement> Create(DataElement dataElement, long instanceInternalId = 0, CancellationToken cancellationToken = default)
         {
             dataElement.Id ??= Guid.NewGuid().ToString();
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
@@ -44,36 +45,36 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, dataElement);
 
-            await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
-            if (await reader.ReadAsync())
+            await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
             {
-                dataElement = await reader.GetFieldValueAsync<DataElement>("updatedElement");
+                dataElement = await reader.GetFieldValueAsync<DataElement>("updatedElement", cancellationToken: cancellationToken);
             }
 
             return dataElement;
         }
 
         /// <inheritdoc/>
-        public async Task<bool> Delete(DataElement dataElement)
+        public async Task<bool> Delete(DataElement dataElement, CancellationToken cancellationToken = default)
         {
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.InstanceGuid));
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, dataElement.LastChangedBy);
 
-            int rc = (int)await pgcom.ExecuteScalarAsync();
+            int rc = (int)await pgcom.ExecuteScalarAsync(cancellationToken);
             return rc == 1;
         }
 
         /// <inheritdoc/>
-        public async Task<bool> DeleteForInstance(string instanceId)
+        public async Task<bool> DeleteForInstance(string instanceId, CancellationToken cancellationToken = default)
         {
             try
             {
                 await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteForInstanceSql);
                 pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceId));
 
-                await pgcom.ExecuteScalarAsync();
+                await pgcom.ExecuteScalarAsync(cancellationToken);
                 return true;
             }
             catch (Exception ex)
@@ -84,23 +85,23 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task<DataElement> Read(Guid instanceGuid, Guid dataElementId)
+        public async Task<DataElement> Read(Guid instanceGuid, Guid dataElementId, CancellationToken cancellationToken = default)
         {
             DataElement dataElement = null;
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSql);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
 
-            await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
-            if (await reader.ReadAsync())
+            await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
             {
-                dataElement = await reader.GetFieldValueAsync<DataElement>("element");
+                dataElement = await reader.GetFieldValueAsync<DataElement>("element", cancellationToken: cancellationToken);
             }
 
             return dataElement;
         }
 
         /// <inheritdoc/>
-        public async Task<DataElement> Update(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertylist)
+        public async Task<DataElement> Update(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertylist, CancellationToken cancellationToken = default)
         {
             const int allowedNumberOfProperties = 14;
             if (propertylist.Count > allowedNumberOfProperties)
@@ -152,10 +153,10 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Boolean, isReadChangedToFalse);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, lastChangedWrapper.LastChanged ?? (object)DBNull.Value);
 
-            await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
-            if (await reader.ReadAsync())
+            await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
             {
-                element = await reader.GetFieldValueAsync<DataElement>("updatedElement");
+                element = await reader.GetFieldValueAsync<DataElement>("updatedElement", cancellationToken: cancellationToken);
             }
 
             return element;

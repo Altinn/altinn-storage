@@ -1,0 +1,19 @@
+{
+  "id": "70d122f8-0cae-44f4-8cd5-2887c251a959",
+  "instanceGuid": "99194777-a691-433a-ace1-225e9a691653",
+  "dataType": "model",
+  "contentType": "application/xml",
+  "blobStoragePath": "ttd/sensitive-data/99194777-a691-433a-ace1-225e9a691653/data/70d122f8-0cae-44f4-8cd5-2887c251a959",
+  "selfLinks": {
+    "apps": null,
+    "platform": null
+  },
+  "locked": false,
+  "isRead": true,
+  "tags": [],
+  "fileScanResult": "NotApplicable",
+  "created": "2025-07-17T09:00:00.000000Z",
+  "createdBy": "1337",
+  "lastChanged": "2025-07-17T09:00:00.000000Z",
+  "lastChangedBy": "1337"
+}

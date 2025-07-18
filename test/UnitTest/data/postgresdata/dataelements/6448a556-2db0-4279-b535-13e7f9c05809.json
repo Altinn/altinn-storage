@@ -1,0 +1,15 @@
+{
+  "id": "6448a556-2db0-4279-b535-13e7f9c05809",
+  "instanceGuid": "99194777-a691-433a-ace1-225e9a691653",
+  "dataType": "sensitive-data-write",
+  "contentType": "application/xml",
+  "blobStoragePath": "ttd/sensitive-data/99194777-a691-433a-ace1-225e9a691653/data/6448a556-2db0-4279-b535-13e7f9c05809",
+  "locked": false,
+  "isRead": false,
+  "tags": [],
+  "fileScanResult": "NotApplicable",
+  "created": "2025-07-17T09:00:00.000000Z",
+  "createdBy": "991825827",
+  "lastChanged": "2025-07-17T09:00:00.000000Z",
+  "lastChangedBy": "991825827"
+}

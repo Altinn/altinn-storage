@@ -59,7 +59,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal(404, ((StatusCodeResult)result.Result).StatusCode);
             instanceRepoMock.Verify(i => i.GetOne(instanceGuid, true, CancellationToken.None), Times.Once);
             instanceRepoMock.VerifyNoOtherCalls();
-            dataRepositoryMock.Verify(d => d.Update(instanceGuid, dataElementId, It.Is<Dictionary<string, object>>(p => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p))), Times.Once);
+            dataRepositoryMock.Verify(d => d.Update(instanceGuid, dataElementId, It.Is<Dictionary<string, object>>(p => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p)), It.IsAny<CancellationToken>()), Times.Once);
             dataRepositoryMock.VerifyNoOtherCalls();
         }
         
@@ -96,7 +96,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             
             // Assert
             Assert.IsType<OkObjectResult>(result.Result);
-            dataRepositoryMock.Verify(d => d.Update(instanceGuid, dataElementId, It.Is<Dictionary<string, object>>(p => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p))), Times.Once);
+            dataRepositoryMock.Verify(d => d.Update(instanceGuid, dataElementId, It.Is<Dictionary<string, object>>(p => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p)), It.IsAny<CancellationToken>()), Times.Once);
             dataRepositoryMock.VerifyNoOtherCalls();
         }
         
@@ -185,7 +185,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                         d => d.Update(
                             It.IsAny<Guid>(),
                             It.Is<Guid>(g => g == dataGuid),
-                            It.Is<Dictionary<string, object>>(propertyList => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, propertyList))))
+                            It.Is<Dictionary<string, object>>(propertyList => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, propertyList)),
+                            It.IsAny<CancellationToken>()))
                     .ReturnsAsync(new DataElement());
             }
             else
@@ -195,7 +196,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                         d => d.Update(
                             It.IsAny<Guid>(),
                             It.Is<Guid>(g => g == dataGuid),
-                            It.Is<Dictionary<string, object>>(propertyList => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, propertyList))))
+                            It.Is<Dictionary<string, object>>(propertyList => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, propertyList)),
+                            It.IsAny<CancellationToken>()))
                     .ThrowsAsync(exception);
             }
 

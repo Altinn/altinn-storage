@@ -682,7 +682,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string token = PrincipalUtil.GetOrgToken("ttd", scope: scope);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        int expectedNoInstances = 13;
+        int expectedNoInstances = 14;
 
         // Act
         HttpResponseMessage response = await client.GetAsync(requestUri);
@@ -1127,7 +1127,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         // Arrange
         string requestUri = $"{BasePath}?org=ttd";
 
-        var expectedNoInstances = 13;
+        var expectedNoInstances = 14;
 
         HttpClient client = GetTestClient();
         string token = PrincipalUtil.GetOrgToken("testOrg", scope: "altinn:storage/instances.syncadapter");
