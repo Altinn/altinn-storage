@@ -97,7 +97,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string responseContent = await response.Content.ReadAsStringAsync();
         Instance instance = (Instance)JsonConvert.DeserializeObject(responseContent, typeof(Instance));
         Assert.Equal("1337", instance.InstanceOwner.PartyId);
-        Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
+        await _testTelemetry.AssertRequestsWithInvalidScopesCountAsync(invalidScopeRequests);
     }
 
     [Fact]
@@ -280,7 +280,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string json = await response.Content.ReadAsStringAsync();
         Instance createdInstance = JsonConvert.DeserializeObject<Instance>(json);
         Assert.NotNull(createdInstance);
-        Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
+        await _testTelemetry.AssertRequestsWithInvalidScopesCountAsync(invalidScopeRequests);
     }
 
     [Theory]
@@ -309,7 +309,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string json = await response.Content.ReadAsStringAsync();
         Instance createdInstance = JsonConvert.DeserializeObject<Instance>(json);
         Assert.NotNull(createdInstance);
-        Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
+        await _testTelemetry.AssertRequestsWithInvalidScopesCountAsync(invalidScopeRequests);
     }
 
     /// <summary>
@@ -696,7 +696,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
             Assert.Equal(expectedNoInstances, queryResponse.Count);
         }
 
-        Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
+        await _testTelemetry.AssertRequestsWithInvalidScopesCountAsync(invalidScopeRequests);
     }
 
     /// <summary>
