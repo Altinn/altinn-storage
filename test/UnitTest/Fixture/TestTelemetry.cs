@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Threading.Tasks;
 using Altinn.Platform.Storage.Telemetry;
 using OpenTelemetry.Metrics;
 using Xunit;
@@ -17,10 +18,32 @@ internal sealed class TestTelemetry
         Metrics = metrics;
     }
 
-    public long? RequestsWithInvalidScopesCount()
+    public async Task AssertRequestsWithInvalidScopesCountAsync(long? expectedCount)
     {
-        Assert.True(_meterProvider.ForceFlush());
+        const int maxAttempts = 10; // 100ms total (10 * 10ms)
+        const int delayMs = 10;
 
+        for (int attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            Assert.True(_meterProvider.ForceFlush());
+
+            var actualCount = GetInvalidScopesCount();
+            if (actualCount == expectedCount)
+            {
+                return; // Success
+            }
+
+            await Task.Delay(delayMs);
+        }
+
+        // Final attempt without delay for assertion failure
+        Assert.True(_meterProvider.ForceFlush());
+        var finalCount = GetInvalidScopesCount();
+        Assert.Equal(expectedCount, finalCount);
+    }
+
+    private long? GetInvalidScopesCount()
+    {
         var metric = Metrics.LastOrDefault(m => m.Name == AspNetCoreMetricsEnricher.MetricName);
         if (metric == null)
         {

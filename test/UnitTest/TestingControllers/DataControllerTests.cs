@@ -83,7 +83,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             HttpResponseMessage response = await client.PostAsync($"{dataPathWithData}?dataType=default", content);
 
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
+            await _testTelemetry.AssertRequestsWithInvalidScopesCountAsync(invalidScopeRequests);
         }
 
         [Fact]
@@ -381,7 +381,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             HttpResponseMessage response = await client.GetAsync(dataPathWithData);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            Assert.Equal(invalidScopeRequests, _testTelemetry.RequestsWithInvalidScopesCount());
+            await _testTelemetry.AssertRequestsWithInvalidScopesCountAsync(invalidScopeRequests);
         }
 
         [Fact]
