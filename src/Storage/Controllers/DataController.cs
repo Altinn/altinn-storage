@@ -515,7 +515,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
         /// <param name="dataGuid">The id of the data element to update.</param>
         /// <param name="dataElement">The new metadata for the data element.</param>
-        /// /// <param name="cancellationToken">CancellationToken</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>The updated data element.</returns>
         [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
         [HttpPut("dataelements/{dataGuid}")]
