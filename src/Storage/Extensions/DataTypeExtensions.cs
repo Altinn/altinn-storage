@@ -1,3 +1,4 @@
+#nullable enable
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Interface.Models;
@@ -16,7 +17,7 @@ internal static class DataTypeExtensions
         this DataType dataType,
         IAuthorization authorizationService,
         Instance instance,
-        string task = null)
+        string? task = null)
     {
         if (string.IsNullOrWhiteSpace(dataType.ActionRequiredToRead))
         {
@@ -36,7 +37,7 @@ internal static class DataTypeExtensions
         this DataType dataType,
         IAuthorization authorizationService,
         Instance instance,
-        string task = null)
+        string? task = null)
     {
         if (string.IsNullOrWhiteSpace(dataType.ActionRequiredToWrite))
         {

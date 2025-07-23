@@ -24,7 +24,7 @@ using Microsoft.Net.Http.Headers;
 namespace Altinn.Platform.Storage.Controllers
 {
     /// <summary>
-    /// api for managing the an instance's data elements
+    /// API for managing the data elements of an instance
     /// </summary>
     [Route("storage/api/v1/instances/{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
     [ApiController]
