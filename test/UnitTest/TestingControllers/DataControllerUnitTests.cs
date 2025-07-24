@@ -2,11 +2,12 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-
+using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Interface.Enums;
@@ -28,7 +29,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 {
     public class DataControllerUnitTests
     {
-        private static List<string> _forbiddenUpdateProps = new List<string>() { "/created", "/createdBy", "/id", "/instanceGuid", "/blobStoragePath", "/dataType" };
+        private static List<string> _forbiddenUpdateProps = ["/created", "/createdBy", "/id", "/instanceGuid", "/blobStoragePath", "/dataType"];
         private static readonly JsonSerializerOptions _options = new()
         {
             PropertyNameCaseInsensitive = true,
@@ -44,76 +45,116 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         public async Task Get_VerifyDataRepositoryUpdateInput()
         {
             // Arrange
-            List<string> expectedPropertiesForPatch = new() { "/isRead" };
+            List<string> expectedPropertiesForPatch = ["/isRead"];
             (DataController testController, Mock<IDataRepository> dataRepositoryMock) = GetTestController(expectedPropertiesForPatch);
 
             // Act
-            await testController.Get(12345, Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
+            var result = await testController.Get(12345, Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
             // Assert
-            dataRepositoryMock.Verify(d => d.Update(It.IsAny<Guid>(), It.IsAny<Guid>(), It.Is<Dictionary<string, object>>(p => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p))), Times.Once);
+            Assert.True(result is FileStreamResult);
+            dataRepositoryMock.Verify(
+                d => d.Update(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.Is<Dictionary<string, object>>(p => 
+                        VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
         }
 
         [Fact]
         public async Task OverwriteData_VerifyDataRepositoryUpdateInput()
         {
             // Arrange
-            List<string> expectedPropertiesForPatch = new() { "/contentType", "/filename", "/lastChangedBy", "/lastChanged", "/refs", "/size", "/fileScanResult", "/references" };
+            List<string> expectedPropertiesForPatch = ["/contentType", "/filename", "/lastChangedBy", "/lastChanged", "/refs", "/size", "/fileScanResult", "/references"];
 
             (DataController testController, Mock<IDataRepository> dataRepositoryMock) = GetTestController(expectedPropertiesForPatch, true);
 
             // Act
-            await testController.OverwriteData(_instanceOwnerPartyId, Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
+            var result = await testController.OverwriteData(_instanceOwnerPartyId, Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
             // Assert
-            dataRepositoryMock.Verify(d => d.Update(It.IsAny<Guid>(), It.IsAny<Guid>(), It.Is<Dictionary<string, object>>(p => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p))), Times.Once);
+            Assert.True(result.Result is OkObjectResult { StatusCode: StatusCodes.Status200OK });
+            dataRepositoryMock.Verify(
+                d => d.Update(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.Is<Dictionary<string, object>>(p => 
+                        VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
         }
 
         [Fact]
         public async Task Update_VerifyDataRepositoryUpdateInput()
         {
             // Arrange
-            List<string> expectedPropertiesForPatch = new() { "/locked", "/refs", "/references", "/tags", "/userDefinedMetadata", "/metadata", "/deleteStatus", "/lastChanged", "/lastChangedBy" };
+            List<string> expectedPropertiesForPatch = ["/locked", "/refs", "/references", "/tags", "/userDefinedMetadata", "/metadata", "/deleteStatus", "/lastChanged", "/lastChangedBy"];
 
             (DataController testController, Mock<IDataRepository> dataRepositoryMock) = GetTestController(expectedPropertiesForPatch, true);
 
             var instanceGuid = Guid.NewGuid();
             var dataElementId = Guid.NewGuid();
-            var input = new DataElement { Id = $"{dataElementId}", InstanceGuid = $"{instanceGuid}" };
+            var input = new DataElement { Id = $"{dataElementId}", InstanceGuid = $"{instanceGuid}", DataType = _dataType };
 
             // Act
-            await testController.Update(_instanceOwnerPartyId, instanceGuid, dataElementId, input);
+            var result = await testController.Update(_instanceOwnerPartyId, instanceGuid, dataElementId, input, CancellationToken.None);
 
             // Assert
-            dataRepositoryMock.Verify(d => d.Update(It.IsAny<Guid>(), It.IsAny<Guid>(), It.Is<Dictionary<string, object>>(p => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p))), Times.Once);
+            Assert.True(result.Result is OkObjectResult { StatusCode: StatusCodes.Status200OK });
+            dataRepositoryMock.Verify(
+                d => d.Update(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.Is<Dictionary<string, object>>(p => 
+                        VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
         }
 
         [Fact]
         public async Task Delete_VerifyDataRepositoryUpdateInput()
         {
             // Arrange
-            List<string> expectedPropertiesForPatch = new() { "/deleteStatus", "/lastChanged", "/lastChangedBy" };
+            List<string> expectedPropertiesForPatch = ["/deleteStatus", "/lastChanged", "/lastChangedBy"];
             (DataController testController, Mock<IDataRepository> dataRepositoryMock) = GetTestController(expectedPropertiesForPatch);
 
             // Act
-            await testController.Delete(12345, Guid.NewGuid(), Guid.NewGuid(), true, CancellationToken.None);
+            var result = await testController.Delete(12345, Guid.NewGuid(), Guid.NewGuid(), true, CancellationToken.None);
 
             // Assert
-            dataRepositoryMock.Verify(d => d.Update(It.IsAny<Guid>(), It.IsAny<Guid>(), It.Is<Dictionary<string, object>>(p => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p))), Times.Once);
+            Assert.True(result.Result is OkObjectResult { StatusCode: StatusCodes.Status200OK });
+            dataRepositoryMock.Verify(
+                d => d.Update(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.Is<Dictionary<string, object>>(p => 
+                        VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
         }
 
         [Fact]
         public async Task SetFileScanStatus_VerifyDataRepositoryUpdateInput()
         {
             // Arrange
-            List<string> expectedPropertiesForPatch = new() { "/fileScanResult" };
+            List<string> expectedPropertiesForPatch = ["/fileScanResult"];
             (DataController testController, Mock<IDataRepository> dataRepositoryMock) = GetTestController(expectedPropertiesForPatch);
 
             // Act
-            await testController.SetFileScanStatus(Guid.NewGuid(), Guid.NewGuid(), new FileScanStatus { FileScanResult = FileScanResult.Infected });
+            var result = await testController.SetFileScanStatus(Guid.NewGuid(), Guid.NewGuid(), new FileScanStatus { FileScanResult = FileScanResult.Infected });
 
             // Assert
-            dataRepositoryMock.Verify(d => d.Update(It.IsAny<Guid>(), It.IsAny<Guid>(), It.Is<Dictionary<string, object>>(p => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p))), Times.Once);
+            Assert.True(result is OkResult { StatusCode: StatusCodes.Status200OK });
+            dataRepositoryMock.Verify(
+                d => d.Update(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.Is<Dictionary<string, object>>(p => 
+                        VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
         }
 
         private static bool VerifyPropertyListInput(int expectedPropCount, List<string> expectedProperties, Dictionary<string, object> propertyList)
@@ -147,28 +188,27 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Mock<IApplicationRepository> applicationRepositoryMock = new();
             Mock<IInstanceEventService> instanceEventServiceMock = new();
             Mock<IDataService> dataServiceMock = new();
+            Mock<IAuthorization> authorizationServiceMock = new();
 
             dataRepositoryMock
                 .Setup(
-                d => d.Update(
-                    It.IsAny<Guid>(),
-                    It.IsAny<Guid>(),
-                    It.Is<Dictionary<string, object>>(propertyList => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, propertyList))))
-                  .ReturnsAsync(new DataElement());
+                    d => d.Update(
+                        It.IsAny<Guid>(),
+                        It.IsAny<Guid>(),
+                        It.Is<Dictionary<string, object>>(propertyList => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, propertyList)),
+                        It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new DataElement());
 
             dataRepositoryMock
-            .Setup(d => d.Read(It.IsAny<Guid>(), It.IsAny<Guid>()))
-            .ReturnsAsync((Guid instanceGuid, Guid dataElementId) =>
+            .Setup(d => d.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid instanceGuid, Guid dataElementId, CancellationToken cancellationToken) => new DataElement
             {
-                return new DataElement
-                {
-                    Id = dataElementId.ToString(),
-                    InstanceGuid = instanceGuid.ToString(),
-                    DataType = _dataType,
-                    IsRead = false,
-                    ContentType = "application/octet-stream",
-                    BlobStoragePath = $"ttd/apps-test/{instanceGuid}/data/{dataElementId}"
-                };
+                Id = dataElementId.ToString(),
+                InstanceGuid = instanceGuid.ToString(),
+                DataType = _dataType,
+                IsRead = false,
+                ContentType = "application/octet-stream",
+                BlobStoragePath = $"ttd/apps-test/{instanceGuid}/data/{dataElementId}"
             });
 
             blobRepositoryMock
@@ -181,36 +221,34 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             instanceRepositoryMock
                .Setup(ir => ir.GetOne(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Guid instanceGuid, bool includeDataElements, CancellationToken cancellationToken) =>
-            {
-                return (new Instance()
+            .ReturnsAsync((Guid instanceGuid, bool includeDataElements, CancellationToken cancellationToken) => (
+                new Instance
                 {
                     Id = $"555/{instanceGuid}",
-                    InstanceOwner = new()
+                    InstanceOwner = new InstanceOwner
                     {
                         PartyId = "555"
                     },
                     Org = _org,
                     AppId = _appId,
                     Data = includeDataElements ? GetDataElements(instanceGuid) : null
-                }, 0);
-            });
+                }, 0));
 
             applicationRepositoryMock
                 .Setup(ar => ar.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new Application()
+                .ReturnsAsync(new Application
                 {
-                    DataTypes = new List<DataType>()
-                    {
+                    DataTypes =
+                    [
                         new DataType
                         {
                             Id = _dataType,
-                            AppLogic = new()
+                            AppLogic = new ApplicationLogic
                             {
                                 AutoDeleteOnProcessEnd = true
                             }
                         }
-                    }
+                    ]
                 });
 
             instanceEventServiceMock
@@ -230,29 +268,29 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 requestMock.Setup(r => r.Headers).Returns(new HeaderDictionary());
                 requestMock.Setup(r => r.ContentType).Returns("application/pdf");
                 requestMock.Setup(r => r.Headers).Returns(new HeaderDictionary() { { "Content-Disposition", new StringValues("attachment; filename=\"filename.jpg\"; size=12348") } });
-
                 requestMock.Setup(r => r.Body).Returns(new MemoryStream(Encoding.UTF8.GetBytes("whatever")));
 
                 httpContextMock
                 .Setup(c => c.Request).Returns(requestMock.Object);
             }
 
-            ControllerContext controllerContext = new ControllerContext()
+            ControllerContext controllerContext = new ControllerContext
             {
                 HttpContext = httpContextMock.Object
             };
 
-            IOptions<GeneralSettings> generalSettings = Options.Create(new GeneralSettings() { Hostname = "https://altinn.no/" });
+            IOptions<GeneralSettings> generalSettings = Options.Create(new GeneralSettings { Hostname = "https://altinn.no/" });
 
             var sut = new DataController(
-                     dataRepositoryMock.Object,
-                     blobRepositoryMock.Object,
-                     instanceRepositoryMock.Object,
-                     applicationRepositoryMock.Object,
-                     dataServiceMock.Object,
-                     instanceEventServiceMock.Object,
-                     generalSettings,
-                     null)
+                dataRepositoryMock.Object,
+                blobRepositoryMock.Object,
+                instanceRepositoryMock.Object,
+                applicationRepositoryMock.Object,
+                dataServiceMock.Object,
+                instanceEventServiceMock.Object,
+                generalSettings,
+                null,
+                authorizationServiceMock.Object)
             {
                 ControllerContext = controllerContext
             };
@@ -262,7 +300,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
         private static List<DataElement> GetDataElements(Guid instanceGuid)
         {
-            List<DataElement> dataElements = new List<DataElement>();
+            List<DataElement> dataElements = [];
             string dataElementsPath = GetDataElementsPath();
 
             string[] dataElementPaths = Directory.GetFiles(dataElementsPath);

@@ -2,11 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
+using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Extensions;
@@ -15,20 +14,17 @@ using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Primitives;
 using Microsoft.Net.Http.Headers;
 
 namespace Altinn.Platform.Storage.Controllers
 {
     /// <summary>
-    /// api for managing the an instance's data elements
+    /// API for managing the data elements of an instance
     /// </summary>
     [Route("storage/api/v1/instances/{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
     [ApiController]
@@ -47,6 +43,7 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IOnDemandClient _onDemandClient;
         private readonly string _storageBaseAndHost;
         private readonly GeneralSettings _generalSettings;
+        private readonly IAuthorization _authorizationService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DataController"/> class
@@ -59,6 +56,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceEventService">An instance event service with event related business logic.</param>
         /// <param name="generalSettings">the general settings.</param>
         /// <param name="onDemandClient">the ondemand client</param>
+        /// <param name="authorizationService">The authorization service</param>
         public DataController(
             IDataRepository dataRepository,
             IBlobRepository blobRepository,
@@ -67,7 +65,8 @@ namespace Altinn.Platform.Storage.Controllers
             IDataService dataService,
             IInstanceEventService instanceEventService,
             IOptions<GeneralSettings> generalSettings,
-            IOnDemandClient onDemandClient)
+            IOnDemandClient onDemandClient,
+            IAuthorization authorizationService)
         {
             _dataRepository = dataRepository;
             _blobRepository = blobRepository;
@@ -78,6 +77,7 @@ namespace Altinn.Platform.Storage.Controllers
             _storageBaseAndHost = $"{generalSettings.Value.Hostname}/storage/api/v1/";
             _onDemandClient = onDemandClient;
             _generalSettings = generalSettings.Value;
+            _authorizationService = authorizationService;
         }
 
         /// <summary>
@@ -103,7 +103,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return instanceError;
             }
 
-            (DataElement dataElement, ActionResult dataElementError) = await GetDataElementAsync(instanceGuid, dataGuid);
+            (DataElement dataElement, ActionResult dataElementError) = await GetDataElementAsync(instanceGuid, dataGuid, cancellationToken);
             if (dataElement == null)
             {
                 return dataElementError;
@@ -114,36 +114,41 @@ namespace Altinn.Platform.Storage.Controllers
             if (!appOwnerDeletingElement && dataElement.DeleteStatus?.IsHardDeleted == true)
             {
                 return NotFound();
+            } 
+            else if (delay && appOwnerDeletingElement && dataElement.DeleteStatus?.IsHardDeleted == true)
+            {
+                return dataElement;
             }
 
-            (Application application, ActionResult applicationError) = await GetApplicationAsync(instance.AppId, instance.Org);
+            (Application application, ActionResult applicationError) = await GetApplicationAsync(instance.AppId, instance.Org, cancellationToken);
+            if (application == null)
+            {
+                return applicationError;
+            }
+            
+            (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(instance, dataElement.DataType, application, cancellationToken);
+            if (dataTypeDefinition == null)
+            {
+                return dataTypeError;
+            }
+            
+            if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
+            {
+                return Forbid();
+            }
 
-            string userOrOrgNo = User.GetUserOrOrgNo();
+            dataElement.LastChangedBy = User.GetUserOrOrgNo();
             
             if (delay)
             {
-                if (appOwnerDeletingElement && dataElement.DeleteStatus?.IsHardDeleted == true)
-                {
-                    return dataElement;
-                }
-
-                if (application == null)
-                {
-                    return applicationError;
-                }
-
-                DataType dataType = application.DataTypes.Find(dt => dt.Id == dataElement.DataType);
-
-                if (dataType == null || dataType.AppLogic?.AutoDeleteOnProcessEnd != true)
+                if (dataTypeDefinition.AppLogic?.AutoDeleteOnProcessEnd != true)
                 {
                     return BadRequest($"DataType {dataElement.DataType} does not support delayed deletion");
                 }
 
-                dataElement.LastChangedBy = userOrOrgNo;
                 return await InitiateDelayedDelete(instance, dataElement);
             }
 
-            dataElement.LastChangedBy = userOrOrgNo;
             await _dataService.DeleteImmediately(instance, dataElement, application.StorageAccountNumber);
             
             return Ok(dataElement);
@@ -177,14 +182,29 @@ namespace Altinn.Platform.Storage.Controllers
                 return instanceError;
             }
 
-            Application app = await _applicationRepository.FindOne(instance.AppId, instance.Org, cancellationToken);
-
-            (DataElement dataElement, ActionResult dataElementError) = await GetDataElementAsync(instanceGuid, dataGuid);
+            (DataElement dataElement, ActionResult dataElementError) = await GetDataElementAsync(instanceGuid, dataGuid, cancellationToken);
             if (dataElement == null)
             {
                 return dataElementError;
             }
+            
+            (Application application, ActionResult applicationError) = await GetApplicationAsync(instance.AppId, instance.Org, cancellationToken);
+            if (application == null)
+            {
+                return applicationError;
+            }
 
+            (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(instance, dataElement.DataType, application, cancellationToken);
+            if (dataTypeDefinition == null)
+            {
+                return dataTypeError;
+            }
+
+            if (await dataTypeDefinition.CanRead(_authorizationService, instance) is not true)
+            {
+                return Forbid();
+            }
+            
             bool appOwnerRequestingElement = User.GetOrg() == instance.Org;
 
             if (dataElement.DeleteStatus?.IsHardDeleted == true && !appOwnerRequestingElement)
@@ -194,7 +214,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (!dataElement.IsRead && !appOwnerRequestingElement)
             {
-                await _dataRepository.Update(instanceGuid, dataGuid, new Dictionary<string, object>() { { "/isRead", true } });
+                await _dataRepository.Update(instanceGuid, dataGuid, new Dictionary<string, object>() { { "/isRead", true } }, cancellationToken);
             }
 
             string storageFileName = DataElementHelper.DataFileName(instance.AppId, instanceGuid.ToString(), dataGuid.ToString());
@@ -206,7 +226,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (string.Equals(dataElement.BlobStoragePath, storageFileName))
             {
-                Stream dataStream = await _blobRepository.ReadBlob(instance.Org, storageFileName, app.StorageAccountNumber, cancellationToken);
+                Stream dataStream = await _blobRepository.ReadBlob(instance.Org, storageFileName, application.StorageAccountNumber, cancellationToken);
 
                 if (dataStream == null)
                 {
@@ -268,7 +288,7 @@ namespace Altinn.Platform.Storage.Controllers
             bool appOwnerRequestingElement = User.GetOrg() == instance.Org;
             instance.Data = appOwnerRequestingElement ?
                 instance.Data :
-                instance.Data.Where(de => de.DeleteStatus == null || !de.DeleteStatus.IsHardDeleted).ToList();
+                instance.Data.Where(de => de.DeleteStatus is not { IsHardDeleted: true }).ToList();
 
             return Ok(new DataElementList() { DataElements = instance.Data });
         }
@@ -309,19 +329,23 @@ namespace Altinn.Platform.Storage.Controllers
                 return instanceError;
             }
 
-            (Application appInfo, ActionResult applicationError) = await GetApplicationAsync(instance.AppId, instance.Org);
-            if (appInfo == null)
+            (Application application, ActionResult applicationError) = await GetApplicationAsync(instance.AppId, instance.Org, cancellationToken);
+            if (application == null)
             {
                 return applicationError;
             }
 
-            DataType dataTypeDefinition = appInfo.DataTypes.Find(e => e.Id == dataType);
-
-            if (dataTypeDefinition is null)
+            (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(instance, dataType, application, cancellationToken);
+            if (dataTypeDefinition == null)
             {
-                return BadRequest("Requested element type is not declared in application metadata");
+                return dataTypeError;
             }
 
+            if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
+            {
+                return Forbid();
+            }
+            
             var streamAndDataElement = await ReadRequestAndCreateDataElementAsync(Request, dataType, refs, generatedFromTask, instance);
             Stream theStream = streamAndDataElement.Stream;
             DataElement newData = streamAndDataElement.DataElement;
@@ -334,11 +358,11 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             newData.Filename = HttpUtility.UrlDecode(newData.Filename);
-            (long length, DateTimeOffset blobTimestamp) = await _blobRepository.WriteBlob(instance.Org, theStream, newData.BlobStoragePath, appInfo.StorageAccountNumber);
+            (long length, DateTimeOffset blobTimestamp) = await _blobRepository.WriteBlob(instance.Org, theStream, newData.BlobStoragePath, application.StorageAccountNumber);
 
             if (length == 0L)
             {
-                await _blobRepository.DeleteBlob(instance.Org, newData.BlobStoragePath, appInfo.StorageAccountNumber);
+                await _blobRepository.DeleteBlob(instance.Org, newData.BlobStoragePath, application.StorageAccountNumber);
                 return BadRequest("Empty stream provided. Cannot persist data.");
             }
 
@@ -349,10 +373,10 @@ namespace Altinn.Platform.Storage.Controllers
                 newData.IsRead = false;
             }
 
-            DataElement dataElement = await _dataRepository.Create(newData, instanceInternalId);
+            DataElement dataElement = await _dataRepository.Create(newData, instanceInternalId, cancellationToken);
             dataElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
 
-            await _dataService.StartFileScan(instance, dataTypeDefinition, dataElement, blobTimestamp, appInfo.StorageAccountNumber, CancellationToken.None);
+            await _dataService.StartFileScan(instance, dataTypeDefinition, dataElement, blobTimestamp, application.StorageAccountNumber, CancellationToken.None);
 
             await _instanceEventService.DispatchEvent(InstanceEventType.Created, instance, dataElement);
 
@@ -397,23 +421,27 @@ namespace Altinn.Platform.Storage.Controllers
                 return instanceError;
             }
 
-            (Application appInfo, ActionResult applicationError) = await GetApplicationAsync(instance.AppId, instance.Org);
-            if (appInfo == null)
+            (Application application, ActionResult applicationError) = await GetApplicationAsync(instance.AppId, instance.Org, cancellationToken);
+            if (application == null)
             {
                 return applicationError;
             }
 
-            (DataElement dataElement, ActionResult dataElementError) = await GetDataElementAsync(instanceGuid, dataGuid);
+            (DataElement dataElement, ActionResult dataElementError) = await GetDataElementAsync(instanceGuid, dataGuid, cancellationToken);
             if (dataElement == null)
             {
                 return dataElementError;
             }
 
-            DataType dataTypeDefinition = appInfo.DataTypes.Find(e => e.Id == dataElement.DataType);
-
-            if (dataTypeDefinition is null)
+            (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(instance, dataElement.DataType, application, cancellationToken);
+            if (dataTypeDefinition == null)
             {
-                return BadRequest("Requested element type is not declared in application metadata");
+                return dataTypeError;
+            }
+
+            if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
+            {
+                return Forbid();
             }
 
             if (dataElement.Locked)
@@ -442,7 +470,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             DateTime changedTime = DateTime.UtcNow;
 
-            (long blobSize, DateTimeOffset blobTimestamp) = await _blobRepository.WriteBlob(instance.Org, theStream, blobStoragePathName, appInfo.StorageAccountNumber);
+            (long blobSize, DateTimeOffset blobTimestamp) = await _blobRepository.WriteBlob(instance.Org, theStream, blobStoragePathName, application.StorageAccountNumber);
 
             var updatedProperties = new Dictionary<string, object>()
             {
@@ -466,11 +494,11 @@ namespace Altinn.Platform.Storage.Controllers
 
                 updatedProperties.Add("/fileScanResult", scanResult);
 
-                DataElement updatedElement = await _dataRepository.Update(instanceGuid, dataGuid, updatedProperties);
+                DataElement updatedElement = await _dataRepository.Update(instanceGuid, dataGuid, updatedProperties, cancellationToken);
 
                 updatedElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
 
-                await _dataService.StartFileScan(instance, dataTypeDefinition, dataElement, blobTimestamp, appInfo.StorageAccountNumber, CancellationToken.None);
+                await _dataService.StartFileScan(instance, dataTypeDefinition, dataElement, blobTimestamp, application.StorageAccountNumber, CancellationToken.None);
 
                 await _instanceEventService.DispatchEvent(InstanceEventType.Saved, instance, updatedElement);
 
@@ -487,6 +515,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
         /// <param name="dataGuid">The id of the data element to update.</param>
         /// <param name="dataElement">The new metadata for the data element.</param>
+        /// <param name="cancellationToken">CancellationToken</param>
         /// <returns>The updated data element.</returns>
         [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
         [HttpPut("dataelements/{dataGuid}")]
@@ -498,11 +527,29 @@ namespace Altinn.Platform.Storage.Controllers
             int instanceOwnerPartyId,
             Guid instanceGuid,
             Guid dataGuid,
-            [FromBody] DataElement dataElement)
+            [FromBody] DataElement dataElement,
+            CancellationToken cancellationToken)
         {
             if (!instanceGuid.ToString().Equals(dataElement.InstanceGuid) || !dataGuid.ToString().Equals(dataElement.Id))
             {
                 return BadRequest("Mismatch between path and dataElement content");
+            }
+            
+            (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false, cancellationToken);
+            if (instance == null)
+            {
+                return instanceError;
+            }
+
+            (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(instance, dataElement.DataType, cancellationToken: cancellationToken);
+            if (dataTypeDefinition is null)
+            {
+                return dataTypeError;
+            }
+
+            if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
+            {
+                return Forbid();
             }
 
             Dictionary<string, object> propertyList = new()
@@ -518,7 +565,7 @@ namespace Altinn.Platform.Storage.Controllers
                 { "/lastChangedBy", dataElement.LastChangedBy }
             };
 
-            DataElement updatedDataElement = await _dataRepository.Update(instanceGuid, dataGuid, propertyList);
+            DataElement updatedDataElement = await _dataRepository.Update(instanceGuid, dataGuid, propertyList, cancellationToken);
 
             return Ok(updatedDataElement);
         }
@@ -562,16 +609,13 @@ namespace Altinn.Platform.Storage.Controllers
             return (theStream, newData);
         }
 
-        private async Task<(Application Application, ActionResult ErrorMessage)> GetApplicationAsync(string appId, string org)
+        private async Task<(Application Application, ActionResult ErrorMessage)> GetApplicationAsync(string appId, string org, CancellationToken cancellationToken = default)
         {
-            Application application = await _applicationRepository.FindOne(appId, org);
+            Application application = await _applicationRepository.FindOne(appId, org, cancellationToken);
 
-            if (application == null)
-            {
-                return (null, NotFound($"Cannot find application {appId} in storage"));
-            }
-
-            return (application, null);
+            return application is null
+                ? (null, NotFound($"Cannot find application {appId} in storage"))
+                : (application, null);
         }
 
         private async Task<(Instance Instance, long InternalId, ActionResult ErrorMessage)> GetInstanceAsync(
@@ -579,24 +623,18 @@ namespace Altinn.Platform.Storage.Controllers
         {
             (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(instanceGuid, includeDataelements, cancellationToken);
 
-            if (instance == null)
-            {
-                return (null, 0, NotFound($"Unable to find any instance with id: {instanceOwnerPartyId}/{instanceGuid}."));
-            }
-
-            return (instance, instanceInternalId, null);
+            return instance is null
+                ? (null, 0, NotFound($"Unable to find any instance with id: {instanceOwnerPartyId}/{instanceGuid}."))
+                : (instance, instanceInternalId, null);
         }
         
-        private async Task<(DataElement DataElement, ActionResult ErrorMessage)> GetDataElementAsync(Guid instanceGuid, Guid dataGuid)
+        private async Task<(DataElement DataElement, ActionResult ErrorMessage)> GetDataElementAsync(Guid instanceGuid, Guid dataGuid, CancellationToken cancellationToken = default)
         {
-            DataElement dataElement = await _dataRepository.Read(instanceGuid, dataGuid);
+            DataElement dataElement = await _dataRepository.Read(instanceGuid, dataGuid, cancellationToken);
 
-            if (dataElement == null)
-            {
-                return (null, NotFound($"Unable to find any data element with id: {dataGuid}."));
-            }
-
-            return (dataElement, null);
+            return dataElement is null
+                ? (null, NotFound($"Unable to find any data element with id: {dataGuid}."))
+                : (dataElement, null);
         }
 
         private async Task<ActionResult<DataElement>> InitiateDelayedDelete(Instance instance, DataElement dataElement)
@@ -618,6 +656,24 @@ namespace Altinn.Platform.Storage.Controllers
 
             await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, instance, dataElement);
             return Ok(updatedDateElement);
+        }
+        
+        private async Task<(DataType DataType, ActionResult ErrorMessage)> GetDataTypeAsync(Instance instance, string dataTypeId, Application application = null, CancellationToken cancellationToken = default)
+        {
+            if (application is null)
+            {
+                (application, ActionResult applicationError) = await GetApplicationAsync(instance.AppId, instance.Org, cancellationToken);
+                if (application is null)
+                {
+                    return (null, applicationError);
+                }
+            }
+
+            DataType dataTypeDefinition = application.DataTypes.FirstOrDefault(e => e.Id == dataTypeId);
+            
+            return dataTypeDefinition is null
+                ? (null, BadRequest("Requested element type is not declared in application metadata"))
+                : (dataTypeDefinition, null);
         }
     }
 }

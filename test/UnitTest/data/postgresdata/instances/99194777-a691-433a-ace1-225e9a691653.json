@@ -1,0 +1,29 @@
+{
+  "id": "99194777-a691-433a-ace1-225e9a691653",
+  "instanceOwner": {
+    "partyId": "1337",
+    "personNumber": "01039012345"
+  },
+  "appId": "ttd/sensitive-data",
+  "org": "ttd",
+  "visibleAfter": "2025-07-17T09:00:00.000000Z",
+  "process": {
+    "started": "2025-07-17T09:00:00.000000Z",
+    "startEvent": "StartEvent_1",
+    "currentTask": {
+      "elementId": "Task_1",
+      "altinnTaskType": "data"
+    }
+  },
+  "status": {
+    "isArchived": false,
+    "isSoftDeleted": false,
+    "isHardDeleted": false,
+    "readStatus": "Read"
+  },
+  "data": [],
+  "created": "2025-07-17T09:00:00.000000Z",
+  "createdBy": "1337",
+  "lastChanged": "2025-07-17T09:00:00.000000Z",
+  "lastChangedBy": "1337"
+}

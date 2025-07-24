@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Interface.Enums;
@@ -26,18 +27,16 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             };
         }
 
-        public async Task<DataElement> Create(DataElement dataElement, long instanceInternalId = 0)
+        public async Task<DataElement> Create(DataElement dataElement, long instanceInternalId = 0, CancellationToken cancellationToken = default)
         {
             _tempRepository.Add(dataElement.Id, JsonSerializer.Serialize(dataElement, _options));
             return await Task.FromResult(dataElement);
         }
 
-        public async Task<bool> Delete(DataElement dataElement)
-        {
-            return await Task.FromResult(true);
-        }
+        public async Task<bool> Delete(DataElement dataElement, CancellationToken cancellationToken = default) =>
+            await Task.FromResult(true);
 
-        public async Task<DataElement> Read(Guid instanceGuid, Guid dataElementId)
+        public async Task<DataElement> Read(Guid instanceGuid, Guid dataElementId, CancellationToken cancellationToken = default)
         {
             DataElement dataElement = null;
 
@@ -61,7 +60,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return null;
         }
 
-        public async Task<DataElement> Update(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertylist)
+        public async Task<DataElement> Update(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertylist, CancellationToken cancellationToken = default)
         {
             DataElement dataElement = null;
             if (_tempRepository.TryGetValue(dataElementId.ToString(), out string serializedDataElement))
@@ -70,7 +69,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             } 
             else
             {
-                dataElement = await Read(instanceGuid, dataElementId);   
+                dataElement = await Read(instanceGuid, dataElementId, cancellationToken);   
             }
             
             if (dataElement == null)
@@ -96,10 +95,8 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             return dataElement;
         }
 
-        public Task<bool> DeleteForInstance(string instanceId)
-        {
+        public Task<bool> DeleteForInstance(string instanceId, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
-        }
 
         private static string GetDataElementsPath()
         {
