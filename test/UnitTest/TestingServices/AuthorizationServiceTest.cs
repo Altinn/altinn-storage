@@ -160,6 +160,84 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         }
 
         /// <summary>
+        /// Test case: Migrated A2 instances
+        /// Expected: Dummy end events are added
+        /// </summary>
+        [Fact]
+        public void CreateXacmlJsonMultipleRequest_TC03()
+        {
+            // Arrange
+            List<string> actionTypes = new List<string> { "read", "write" };
+            List<Instance> instances = CreateInstances();
+            foreach (Instance instance in instances)
+            {
+                // Add data values to the instances
+                instance.DataValues = new() { { "A2ArchRef", "test" } };
+            }
+
+            // Act
+            XacmlJsonRequestRoot requestRoot = AuthorizationService.CreateMultiDecisionRequest(CreateUserClaims(1), instances, actionTypes);
+
+            // Assert
+            requestRoot.Request.Resource.ForEach(resource =>
+            {
+                Assert.Contains(resource.Attribute, attr => attr.AttributeId == "urn:altinn:end-event" && attr.Value == "MigratedA1A2");
+            });
+        }
+
+        /// <summary>
+        /// Test case: Migrated A1 instances
+        /// Expected: Dummy end events are added
+        /// </summary>
+        [Fact]
+        public void CreateXacmlJsonMultipleRequest_TC04()
+        {
+            // Arrange
+            List<string> actionTypes = new List<string> { "read", "write" };
+            List<Instance> instances = CreateInstances();
+            foreach (Instance instance in instances)
+            {
+                // Add data values to the instances
+                instance.DataValues = new() { { "A1ArchRef", "test" } };
+            }
+
+            // Act
+            XacmlJsonRequestRoot requestRoot = AuthorizationService.CreateMultiDecisionRequest(CreateUserClaims(1), instances, actionTypes);
+
+            // Assert
+            requestRoot.Request.Resource.ForEach(resource =>
+            {
+                Assert.Contains(resource.Attribute, attr => attr.AttributeId == "urn:altinn:end-event" && attr.Value == "MigratedA1A2");
+            });
+        }
+
+        /// <summary>
+        /// Test case: Normal A3 instances
+        /// Expected: Dummy end events are not added
+        /// </summary>
+        [Fact]
+        public void CreateXacmlJsonMultipleRequest_TC05()
+        {
+            // Arrange
+            List<string> actionTypes = new List<string> { "read", "write" };
+            List<Instance> instances = CreateInstances();
+            foreach (Instance instance in instances)
+            {
+                // Add data values to the instances
+                instance.DataValues = new() { { "SomeValue", "test" } };
+            }
+
+            // Act
+            XacmlJsonRequestRoot requestRoot = AuthorizationService.CreateMultiDecisionRequest(CreateUserClaims(1), instances, actionTypes);
+
+            // Assert
+            requestRoot.Request.Resource.ForEach(resource =>
+            {
+                Assert.DoesNotContain(resource.Attribute, attr => attr.AttributeId == "urn:altinn:end-event" && attr.Value == "MigratedA1A2");
+            });
+        }
+
+        /// <summary>
         /// Test case: Authorize an convert emtpy list of instances to messageboxInstances
         /// Expected: An empty list is returned.
         /// </summary>
