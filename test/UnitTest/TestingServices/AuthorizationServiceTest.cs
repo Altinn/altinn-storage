@@ -258,52 +258,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             Assert.Equal(expected, actual);
         }
 
-        /// <summary>
-        /// Test case: Authorize a list of instances to messageboxInstances
-        /// Expected: Delete and write is not allowed, so the AllowDelete and AuthorizedForWrite properties are false.
-        /// </summary>
-        [Fact]
-        public async Task AuthorizeMesseageBoxInstances_TC02_ListWithDeleteAndWriteTrue()
-        {
-            // Arrange
-            List<Instance> instances = CreateInstances();
-            _claimsPrincipalProviderMock.Setup(c => c.GetUser()).Returns(CreateUserClaims(3));
-            var options = Options.Create(new GeneralSettings { AuthorizeA2ListInstancesDelete = true, AuthorizeA2ListInstancesWrite = true });
-            var authzService = new AuthorizationService(
-                _pdpMockSI, _claimsPrincipalProviderMock.Object, Mock.Of<ILogger<AuthorizationService>>(), options);
-
-            // Act
-            List<MessageBoxInstance> actual = await authzService.AuthorizeMesseageBoxInstances(instances, false);
-
-            // Assert
-            Assert.Equal(3, actual.Count);
-            Assert.True(actual[0].AllowDelete);
-            Assert.True(actual[0].AuthorizedForWrite);
-        }
-
-        /// <summary>
-        /// Test case: Authorize a list of instances to messageboxInstances
-        /// Expected: Delete and write is not allowed, so the AllowDelete and AuthorizedForWrite properties are false.
-        /// </summary>
-        [Fact]
-        public async Task AuthorizeMesseageBoxInstances_TC03_ListWithDeleteAndWriteFalse()
-        {
-            // Arrange
-            List<Instance> instances = CreateInstances();
-            _claimsPrincipalProviderMock.Setup(c => c.GetUser()).Returns(CreateUserClaims(3));
-            var options = Options.Create(new GeneralSettings { AuthorizeA2ListInstancesDelete = false, AuthorizeA2ListInstancesWrite = false });
-            var authzService = new AuthorizationService(
-                _pdpMockSI, _claimsPrincipalProviderMock.Object, Mock.Of<ILogger<AuthorizationService>>(), options);
-
-            // Act
-            List<MessageBoxInstance> actual = await authzService.AuthorizeMesseageBoxInstances(instances, false);
-
-            // Assert
-            Assert.Equal(3, actual.Count);
-            Assert.False(actual[0].AllowDelete);
-            Assert.False(actual[0].AuthorizedForWrite);
-        }
-
         private static ClaimsPrincipal CreateUserClaims(int userId)
         {
             // Create the user

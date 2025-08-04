@@ -72,7 +72,7 @@ public class AuthorizationService(
         }
 
         if ((_settings.AuthorizeA2ListInstancesSign || keyAccessMode)
-            && instances.Exists(i => "Signing".Equals(i.Process?.CurrentTask?.AltinnTaskType.ToString(), StringComparison.InvariantCultureIgnoreCase)))
+            && instances.Exists(i => "Signing".Equals(i.Process?.CurrentTask?.AltinnTaskType?.ToString(), StringComparison.InvariantCultureIgnoreCase)))
         {
             actionTypes.Add("sign");
         }
