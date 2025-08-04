@@ -78,5 +78,20 @@ namespace Altinn.Platform.Storage.Configuration
         /// be set to false on demand by manipulating the aks yaml config in the target environment.
         /// </summary>
         public bool DisableTelemetryForMigration { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether to use write as an action when authorizing A2 search requests.
+        /// </summary>
+        public bool AuthorizeA2ListInstancesWrite { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets whether to use delete as an action when authorizing A2 search requests.
+        /// </summary>
+        public bool AuthorizeA2ListInstancesDelete { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether to use sign as an action when authorizing A2 search requests.
+        /// </summary>
+        public bool AuthorizeA2ListInstancesSign { get; set; } = true;
     }
 }

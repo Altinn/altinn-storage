@@ -3,21 +3,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
-
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Authorization;
+using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Mocks;
-
 using AltinnCore.Authentication.Constants;
-
 using Microsoft.Extensions.Logging;
-
+using Microsoft.Extensions.Options;
 using Moq;
-
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingServices
@@ -40,8 +37,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
         {
             _pdpSimpleMock = new Mock<IPDP>();
             _pdpMockSI = new PepWithPDPAuthorizationMockSI(_instanceRepository.Object);
+            var generalSettings = new GeneralSettings { AuthorizeA2ListInstancesDelete = true };
+            var options = Options.Create(generalSettings);
             _authzService = new AuthorizationService(
-                _pdpMockSI, _claimsPrincipalProviderMock.Object, Mock.Of<ILogger<AuthorizationService>>());
+                _pdpMockSI, _claimsPrincipalProviderMock.Object, Mock.Of<ILogger<AuthorizationService>>(), options);
         }
 
         [Fact]
@@ -61,8 +60,11 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             _pdpSimpleMock.Setup(pdp => pdp.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
                 .ReturnsAsync(res);
 
+            var generalSettings = new GeneralSettings { AuthorizeA2ListInstancesDelete = true };
+            var options = Options.Create(generalSettings);
+
             var sut = new AuthorizationService(
-                _pdpSimpleMock.Object, _claimsPrincipalProviderMock.Object, Mock.Of<ILogger<AuthorizationService>>());
+                _pdpSimpleMock.Object, _claimsPrincipalProviderMock.Object, Mock.Of<ILogger<AuthorizationService>>(), options);
             await sut.GetDecisionForRequest(new XacmlJsonRequestRoot());
 
             _pdpSimpleMock.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Once());
@@ -256,6 +258,52 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             Assert.Equal(expected, actual);
         }
 
+        /// <summary>
+        /// Test case: Authorize a list of instances to messageboxInstances
+        /// Expected: Delete and write is not allowed, so the AllowDelete and AuthorizedForWrite properties are false.
+        /// </summary>
+        [Fact]
+        public async Task AuthorizeMesseageBoxInstances_TC02_ListWithDeleteAndWriteTrue()
+        {
+            // Arrange
+            List<Instance> instances = CreateInstances();
+            _claimsPrincipalProviderMock.Setup(c => c.GetUser()).Returns(CreateUserClaims(3));
+            var options = Options.Create(new GeneralSettings { AuthorizeA2ListInstancesDelete = true, AuthorizeA2ListInstancesWrite = true });
+            var authzService = new AuthorizationService(
+                _pdpMockSI, _claimsPrincipalProviderMock.Object, Mock.Of<ILogger<AuthorizationService>>(), options);
+
+            // Act
+            List<MessageBoxInstance> actual = await authzService.AuthorizeMesseageBoxInstances(instances, false);
+
+            // Assert
+            Assert.Equal(3, actual.Count);
+            Assert.True(actual[0].AllowDelete);
+            Assert.True(actual[0].AuthorizedForWrite);
+        }
+
+        /// <summary>
+        /// Test case: Authorize a list of instances to messageboxInstances
+        /// Expected: Delete and write is not allowed, so the AllowDelete and AuthorizedForWrite properties are false.
+        /// </summary>
+        [Fact]
+        public async Task AuthorizeMesseageBoxInstances_TC03_ListWithDeleteAndWriteFalse()
+        {
+            // Arrange
+            List<Instance> instances = CreateInstances();
+            _claimsPrincipalProviderMock.Setup(c => c.GetUser()).Returns(CreateUserClaims(3));
+            var options = Options.Create(new GeneralSettings { AuthorizeA2ListInstancesDelete = false, AuthorizeA2ListInstancesWrite = false });
+            var authzService = new AuthorizationService(
+                _pdpMockSI, _claimsPrincipalProviderMock.Object, Mock.Of<ILogger<AuthorizationService>>(), options);
+
+            // Act
+            List<MessageBoxInstance> actual = await authzService.AuthorizeMesseageBoxInstances(instances, false);
+
+            // Assert
+            Assert.Equal(3, actual.Count);
+            Assert.False(actual[0].AllowDelete);
+            Assert.False(actual[0].AuthorizedForWrite);
+        }
+
         private static ClaimsPrincipal CreateUserClaims(int userId)
         {
             // Create the user
@@ -278,7 +326,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
             {
                 new Instance
                 {
-                    Id = "1000/1",
+                    Id = "1000/" + Guid.NewGuid(),
                     Process = new ProcessState
                     {
                         CurrentTask = new ProcessElementInfo
@@ -291,27 +339,30 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices
                         PartyId = "1000"
                     },
                     AppId = Org + "/" + App,
-                    Org = Org
+                    Org = Org,
+                    Created = DateTime.UtcNow
                 },
                 new Instance
                 {
-                    Id = "1002/4",
+                    Id = "1002/" + Guid.NewGuid(),
                     InstanceOwner = new InstanceOwner
                     {
                         PartyId = "1002"
                     },
                     AppId = Org + "/" + App,
-                    Org = Org
+                    Org = Org,
+                    Created = DateTime.UtcNow
                 },
                 new Instance
                 {
-                    Id = "1000/7",
+                    Id = "1000/" + Guid.NewGuid(),
                     InstanceOwner = new InstanceOwner
                     {
                         PartyId = "1000"
                     },
                     AppId = Org + "/" + App,
-                    Org = Org
+                    Org = Org,
+                    Created = DateTime.UtcNow
                 }
             };
 
