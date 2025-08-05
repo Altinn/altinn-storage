@@ -4,17 +4,15 @@ using System.Linq;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Threading.Tasks;
-
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
-
 using Altinn.Common.PEP.Constants;
 using Altinn.Common.PEP.Helpers;
 using Altinn.Common.PEP.Interfaces;
-
+using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
-
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Altinn.Platform.Storage.Authorization;
 
@@ -27,14 +25,17 @@ namespace Altinn.Platform.Storage.Authorization;
 /// <param name="pdp">Policy decision point</param>
 /// <param name="claimsPrincipalProvider">A service providing access to the current <see cref="ClaimsPrincipal"/>.</param>
 /// <param name="logger">The logger</param>
+/// <param name="settings">General configuration settings</param>
 public class AuthorizationService(
     IPDP pdp, 
     IClaimsPrincipalProvider claimsPrincipalProvider, 
-    ILogger<AuthorizationService> logger) : IAuthorization
+    ILogger<AuthorizationService> logger,
+    IOptions<GeneralSettings> settings) : IAuthorization
 {
     private readonly IPDP _pdp = pdp;
     private readonly IClaimsPrincipalProvider _claimsPrincipalProvider = claimsPrincipalProvider;
     private readonly ILogger<AuthorizationService> _logger = logger;
+    private readonly GeneralSettings _settings = settings.Value;
 
     private const string XacmlResourceTaskId = "urn:altinn:task";
     private const string XacmlResourceEndId = "urn:altinn:end-event";
@@ -46,22 +47,32 @@ public class AuthorizationService(
     private const string ResourceId = "r";
 
     /// <inheritdoc/>>
-    public async Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(List<Instance> instances, bool includeInstantiate)
+    public async Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(List<Instance> instances, bool keyAccessMode)
     {
         if (instances.Count <= 0)
         {
             return [];
         }
 
-        List<MessageBoxInstance> authorizedInstanceList = [];
-        List<string> actionTypes = ["read", "write", "delete"];
+        SortedList<string, MessageBoxInstance> authorizedInstanceList = [];
+        List<string> actionTypes = ["read"];
+        if (_settings.AuthorizeA2ListInstancesWrite || keyAccessMode)
+        {
+            actionTypes.Add("write");
+        }
 
-        if (includeInstantiate)
+        if (_settings.AuthorizeA2ListInstancesDelete || keyAccessMode)
+        {
+            actionTypes.Add("delete");
+        }
+
+        if (keyAccessMode)
         {
             actionTypes.Add("instantiate");
         }
 
-        if (instances.Exists(i => "Signing".Equals(i.Process?.CurrentTask?.AltinnTaskType.ToString(), StringComparison.InvariantCultureIgnoreCase)))
+        if ((_settings.AuthorizeA2ListInstancesSign || keyAccessMode)
+            && instances.Exists(i => "Signing".Equals(i.Process?.CurrentTask?.AltinnTaskType?.ToString(), StringComparison.InvariantCultureIgnoreCase)))
         {
             actionTypes.Add("sign");
         }
@@ -95,12 +106,11 @@ public class AuthorizationService(
 
                 Instance authorizedInstance = instances.First(i => i.Id == instanceId);
 
-                MessageBoxInstance authorizedMessageBoxInstance =
-                    authorizedInstanceList.Find(i => i.Id.Equals(authorizedInstance.Id.Split("/")[1]));
-                if (authorizedMessageBoxInstance is null)
+                string id = authorizedInstance.Id.Split("/")[1];
+                if (!authorizedInstanceList.TryGetValue(id, out MessageBoxInstance authorizedMessageBoxInstance))
                 {
                     authorizedMessageBoxInstance = InstanceHelper.ConvertToMessageBoxInstance(authorizedInstance);
-                    authorizedInstanceList.Add(authorizedMessageBoxInstance);
+                    authorizedInstanceList[id] = authorizedMessageBoxInstance;
                 }
 
                 switch (actiontype)
@@ -123,7 +133,7 @@ public class AuthorizationService(
             }
         }
 
-        return authorizedInstanceList;
+        return authorizedInstanceList.Values.ToList();
     }
 
     /// <inheritdoc/>>
