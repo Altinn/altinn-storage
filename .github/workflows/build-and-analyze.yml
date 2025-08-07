@@ -90,7 +90,7 @@ jobs:
           path: '**/TestResults/*.trx'
       - name: Process .NET test result
         if: always()
-        uses: NasAmin/trx-parser@d34de965cdf3c5efc1e986bd13b7914e29fed7df # v0.6.0
+        uses: NasAmin/trx-parser@359b39f5319df4478443ef1f0eb952f159896995 # v0.7.0
         with:
           TRX_PATH: ${{ github.workspace }}/TestResults
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
