@@ -52,7 +52,7 @@ services:
       - ./infra/servers.json:/pgadmin4/servers.json
 
   altinn_platform_storage_azurite:
-    image: mcr.microsoft.com/azure-storage/azurite:3.34.0
+    image: mcr.microsoft.com/azure-storage/azurite:3.35.0
     container_name: storage_azurite
     restart: unless-stopped
     command: "azurite --blobHost 0.0.0.0 --blobPort 10000 --queueHost 0.0.0.0 --queuePort 10001 --tableHost 0.0.0.0 --tablePort 10002"
