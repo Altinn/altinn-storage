@@ -114,7 +114,6 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// Gets or sets the copy instance settings
         /// </summary>
         [JsonProperty(PropertyName = "copyInstanceSettings")]
-
         public CopyInstanceSettings CopyInstanceSettings { get; set; }
 
         /// <summary>
