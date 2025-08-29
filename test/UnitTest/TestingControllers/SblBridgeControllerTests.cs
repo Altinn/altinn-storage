@@ -63,6 +63,101 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             var body = await response.Content.ReadAsStringAsync();
             Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);           
         }
+
+        [Fact]
+        public async Task SyncAltinn3CorrespondenceEvent_InvalidCorrespondenceId_ReturnsBadRequest()
+        {
+            var client = GetTestClient();
+            string token = PrincipalUtil.GetOrgToken("foo", scope: "altinn:correspondence.sblbridge");
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            DateTimeOffset dateTimeOffset = new DateTimeOffset(2025, 05, 01, 11, 0, 0, TimeSpan.FromHours(0));
+
+            var response = await client.PostAsync("storage/api/v1/sblbridge/synccorrespondenceevent", JsonContent.Create(new
+            {
+                correspondenceId = 0,
+                partyId = 223,
+                eventTimeStamp = dateTimeOffset,
+                eventType = "read"
+            }));
+            var body = await response.Content.ReadAsStringAsync();
+            Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task SyncAltinn3CorrespondenceEvent_InvalidPartyId_ReturnsBadRequest()
+        {
+            var client = GetTestClient();
+            string token = PrincipalUtil.GetOrgToken("foo", scope: "altinn:correspondence.sblbridge");
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            DateTimeOffset dateTimeOffset = new DateTimeOffset(2025, 05, 01, 11, 0, 0, TimeSpan.FromHours(0));
+
+            var response = await client.PostAsync("storage/api/v1/sblbridge/synccorrespondenceevent", JsonContent.Create(new
+            {
+                correspondenceId = 2674,
+                partyId = 0,
+                eventTimeStamp = dateTimeOffset,
+                eventType = "read"
+            }));
+            var body = await response.Content.ReadAsStringAsync();
+            Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task SyncAltinn3CorrespondenceEvent_InvalidTimestamp_ReturnsBadRequest()
+        {
+            var client = GetTestClient();
+            string token = PrincipalUtil.GetOrgToken("foo", scope: "altinn:correspondence.sblbridge");
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            DateTimeOffset dateTimeOffset = DateTimeOffset.MinValue;
+
+            var response = await client.PostAsync("storage/api/v1/sblbridge/synccorrespondenceevent", JsonContent.Create(new
+            {
+                correspondenceId = 2674,
+                partyId = 223,
+                eventTimeStamp = dateTimeOffset,
+                eventType = "read"
+            }));
+            var body = await response.Content.ReadAsStringAsync();
+            Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task SyncAltinn3CorrespondenceEvent_InvalidEventType_ReturnsBadRequest()
+        {
+            var client = GetTestClient();
+            string token = PrincipalUtil.GetOrgToken("foo", scope: "altinn:correspondence.sblbridge");
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            DateTimeOffset dateTimeOffset = new DateTimeOffset(2025, 05, 01, 11, 0, 0, TimeSpan.FromHours(0));
+
+            var response = await client.PostAsync("storage/api/v1/sblbridge/synccorrespondenceevent", JsonContent.Create(new
+            {
+                correspondenceId = 2674,
+                partyId = 223,
+                eventTimeStamp = dateTimeOffset,
+                eventType = "invalidRead"
+            }));
+            var body = await response.Content.ReadAsStringAsync();
+            Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task SyncAltinn3CorrespondenceEvent_ValidInput_ReturnsOK()
+        {
+            var client = GetTestClient();
+            string token = PrincipalUtil.GetOrgToken("foo", scope: "altinn:correspondence.sblbridge");
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            DateTimeOffset dateTimeOffset = new DateTimeOffset(2025, 05, 01, 11, 0, 0, TimeSpan.FromHours(0));
+
+            var response = await client.PostAsync("storage/api/v1/sblbridge/synccorrespondenceevent", JsonContent.Create(new
+            {
+                correspondenceId = 2674,
+                partyId = 223,
+                eventTimeStamp = dateTimeOffset,
+                eventType = "read"
+            }));
+            var body = await response.Content.ReadAsStringAsync();
+            Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        }
         
         private HttpClient GetTestClient()
         {
@@ -78,6 +173,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
                 builder.ConfigureTestServices(services =>
                 {
+                    services.AddSingleton<ICorrespondenceClient, CorrespondenceClientMock>();
                     services.AddSingleton<IPartiesWithInstancesClient, PartiesWithInstancesClientMock>();
                     services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
                     services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
