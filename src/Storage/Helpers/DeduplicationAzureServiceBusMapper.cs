@@ -10,29 +10,45 @@ using Wolverine.AzureServiceBus;
 namespace Altinn.Platform.Storage.Helpers;
 
 /// <summary>
-/// Overrides the default mapper to utilize ASB deduplication based on instance id and a time bucket.
+/// Use ASB duplicate detection + scheduled delivery to coalesce bursts per InstanceId
+/// into a single message at the end of a time bucket.
 /// </summary>
 public class DeduplicationAzureServiceBusMapper : IAzureServiceBusEnvelopeMapper
 {
+    private static readonly TimeSpan Bucket = TimeSpan.FromSeconds(5);
+
     /// <summary>
-    /// Overrides the default mapper to utilize ASB deduplication based on instance id and a time bucket.
+    /// Set a deterministic MessageId for SyncInstanceToDialogportenCommand messages, and
+    /// deliver them at the end of a time bucket.
     /// </summary>
-    /// <param name="envelope">The Wolverine envelope</param>
-    /// <param name="outgoing">The ASB message</param>
+    /// <param name="envelope">Wolverine envelope</param>
+    /// <param name="outgoing">Outgoing ASB message</param>
     public void MapEnvelopeToOutgoing(Envelope envelope, ServiceBusMessage outgoing)
     {
+        // Keep Wolverine's serialized body
         outgoing.Body = new BinaryData(envelope.Data);
-        if (envelope.Message is SyncInstanceToDialogportenCommand command)
+
+        if (envelope.Message is SyncInstanceToDialogportenCommand cmd)
         {
-            outgoing.MessageId = GetTimebucketedGuid(command.InstanceId, TimeSpan.FromSeconds(3), DateTimeOffset.UtcNow).ToString();
+            // Compute bucket start from *now* and align the schedule to the *end* of the bucket
+            var (id, bucketEndUtc) = TimeBucketId(cmd.InstanceId, Bucket, DateTimeOffset.UtcNow);
+
+            // Keep Wolverine & ASB consistent
+            envelope.Id = id;
+            outgoing.MessageId = id.ToString();
+
+            // Schedule delivery to the bucket boundary (Wolverine will use the schedule API),
+            // set outgoing.ScheduledEnqueueTime for clarity
+            envelope.ScheduledTime = bucketEndUtc;
+            outgoing.ScheduledEnqueueTime = bucketEndUtc;
         }
     }
 
     /// <summary>
-    /// Default mapping from ASB message to Wolverine envelope
+    /// Default mapping of body and Id
     /// </summary>
-    /// <param name="envelope">2</param>
-    /// <param name="incoming">4</param>
+    /// <param name="envelope">Wolverine envelop</param>
+    /// <param name="incoming">Incoming message</param>
     public void MapIncomingToEnvelope(Envelope envelope, ServiceBusReceivedMessage incoming)
     {
         envelope.Data = incoming.Body.ToArray();
@@ -43,7 +59,7 @@ public class DeduplicationAzureServiceBusMapper : IAzureServiceBusEnvelopeMapper
     }
 
     /// <summary>
-    /// Default mapping from Wolverine envelope to ASB message headers
+    /// Default headers - none needed
     /// </summary>
     /// <returns></returns>
     public IEnumerable<string> AllHeaders()
@@ -52,24 +68,20 @@ public class DeduplicationAzureServiceBusMapper : IAzureServiceBusEnvelopeMapper
     }
 
     /// <summary>
-    /// Returns a timebucketed GUID based on the resourceId, bucket size and current time.
+    /// Build a deterministic Guid from (resourceId, bucketStart), and return the bucket end time.
     /// </summary>
-    /// <param name="resourceId">The id on which the the GUID shoule be based</param>
-    /// <param name="bucket">Time bucket to use (default 1 second)</param>
-    /// <param name="nowUtc">Current time</param>
-    /// <returns></returns>
-    private static Guid GetTimebucketedGuid(string resourceId, TimeSpan bucket, DateTimeOffset nowUtc)
+    private static (Guid Id, DateTimeOffset BucketEndUtc) TimeBucketId(string resourceId, TimeSpan bucket, DateTimeOffset nowUtc)
     {
-        var ticksPerBucket = bucket.Ticks <= 0 ? TimeSpan.FromSeconds(1).Ticks : bucket.Ticks;
-        var bucketStart = new DateTimeOffset(nowUtc.Ticks - (nowUtc.Ticks % ticksPerBucket), TimeSpan.Zero);
+        var ticksPerBucket = bucket <= TimeSpan.Zero ? TimeSpan.FromSeconds(1).Ticks : bucket.Ticks;
+        var bucketStartUtc = new DateTimeOffset(nowUtc.Ticks - (nowUtc.Ticks % ticksPerBucket), TimeSpan.Zero);
+        var bucketEndUtc = bucketStartUtc + TimeSpan.FromTicks(ticksPerBucket);
 
-        var key = $"{resourceId}|{bucketStart:O}|{bucket.Ticks}";
-
+        var key = $"{resourceId}|{bucketStartUtc:O}|{ticksPerBucket}";
         using var sha = SHA256.Create();
         var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(key));
 
         Span<byte> guidBytes = stackalloc byte[16];
         bytes.AsSpan(0, 16).CopyTo(guidBytes);
-        return new Guid(guidBytes);
+        return (new Guid(guidBytes), bucketEndUtc);
     }
 }
