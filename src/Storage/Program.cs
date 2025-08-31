@@ -361,7 +361,7 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
             opts.UseAzureServiceBus(wolverineSettings.ServiceBusConnectionString)
 
                 // Use custom mapper to set deduplication id on outgoing messages
-                .ConfigureSenders(s => s.InteropWith(new DeduplicationAzureServiceBusMapper()))
+                .ConfigureSenders(s => s.InteropWith(new DebounceDialogportenCommandsMapper()))
 
                 // Let Wolverine try to initialize any missing queues on the first usage at runtime
                 .AutoProvision();

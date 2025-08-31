@@ -13,9 +13,9 @@ namespace Altinn.Platform.Storage.Helpers;
 /// Use ASB duplicate detection + scheduled delivery to coalesce bursts per InstanceId
 /// into a single message at the end of a time bucket.
 /// </summary>
-public class DeduplicationAzureServiceBusMapper : IAzureServiceBusEnvelopeMapper
+public class DebounceDialogportenCommandsMapper : IAzureServiceBusEnvelopeMapper
 {
-    private static readonly TimeSpan Bucket = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan _bucket = TimeSpan.FromSeconds(5);
 
     /// <summary>
     /// Set a deterministic MessageId for SyncInstanceToDialogportenCommand messages, and
@@ -28,20 +28,22 @@ public class DeduplicationAzureServiceBusMapper : IAzureServiceBusEnvelopeMapper
         // Keep Wolverine's serialized body
         outgoing.Body = new BinaryData(envelope.Data);
 
-        if (envelope.Message is SyncInstanceToDialogportenCommand cmd)
+        if (envelope.Message is not SyncInstanceToDialogportenCommand cmd)
         {
-            // Compute bucket start from *now* and align the schedule to the *end* of the bucket
-            var (id, bucketEndUtc) = TimeBucketId(cmd.InstanceId, Bucket, DateTimeOffset.UtcNow);
-
-            // Keep Wolverine & ASB consistent
-            envelope.Id = id;
-            outgoing.MessageId = id.ToString();
-
-            // Schedule delivery to the bucket boundary (Wolverine will use the schedule API),
-            // set outgoing.ScheduledEnqueueTime for clarity
-            envelope.ScheduledTime = bucketEndUtc;
-            outgoing.ScheduledEnqueueTime = bucketEndUtc;
+            return;
         }
+
+        // Compute bucket start from *now* and align the schedule to the *end* of the bucket
+        var (id, bucketEndUtc) = TimeBucketId(cmd.InstanceId, _bucket, DateTimeOffset.UtcNow);
+
+        // Keep Wolverine & ASB consistent
+        envelope.Id = id;
+        outgoing.MessageId = id.ToString();
+
+        // Schedule delivery to the bucket boundary (Wolverine will use the schedule API),
+        // set outgoing.ScheduledEnqueueTime for clarity
+        envelope.ScheduledTime = bucketEndUtc;
+        outgoing.ScheduledEnqueueTime = bucketEndUtc;
     }
 
     /// <summary>
@@ -70,13 +72,14 @@ public class DeduplicationAzureServiceBusMapper : IAzureServiceBusEnvelopeMapper
     /// <summary>
     /// Build a deterministic Guid from (resourceId, bucketStart), and return the bucket end time.
     /// </summary>
-    private static (Guid Id, DateTimeOffset BucketEndUtc) TimeBucketId(string resourceId, TimeSpan bucket, DateTimeOffset nowUtc)
+    public static (Guid Id, DateTimeOffset BucketEndUtc) TimeBucketId(string resourceId, TimeSpan bucket, DateTimeOffset nowUtc)
     {
-        var ticksPerBucket = bucket <= TimeSpan.Zero ? TimeSpan.FromSeconds(1).Ticks : bucket.Ticks;
-        var bucketStartUtc = new DateTimeOffset(nowUtc.Ticks - (nowUtc.Ticks % ticksPerBucket), TimeSpan.Zero);
-        var bucketEndUtc = bucketStartUtc + TimeSpan.FromTicks(ticksPerBucket);
+        var utcTicks = nowUtc.UtcTicks;
+        var bucketStartUtcTicks = utcTicks - (utcTicks % bucket.Ticks);
+        var bucketStartUtc = new DateTimeOffset(bucketStartUtcTicks, TimeSpan.Zero);
+        var bucketEndUtc = bucketStartUtc + bucket;
 
-        var key = $"{resourceId}|{bucketStartUtc:O}|{ticksPerBucket}";
+        var key = $"{resourceId}|{bucketStartUtc:O}|{bucket.Ticks}";
         using var sha = SHA256.Create();
         var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(key));
 
