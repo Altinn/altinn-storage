@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Altinn.Platform.Storage.Messages;
 using Azure.Messaging.ServiceBus;
+using JasperFx.Core;
 using Wolverine;
 using Wolverine.AzureServiceBus;
 
@@ -25,8 +26,37 @@ public class DebounceDialogportenCommandsMapper : IAzureServiceBusEnvelopeMapper
     /// <param name="outgoing">Outgoing ASB message</param>
     public void MapEnvelopeToOutgoing(Envelope envelope, ServiceBusMessage outgoing)
     {
-        // Keep Wolverine's serialized body
-        outgoing.Body = new BinaryData(envelope.Data);
+        outgoing.Body = new BinaryData(envelope.Data!);
+
+        if (envelope.ContentType.IsNotEmpty())
+        {
+            outgoing.ContentType = envelope.ContentType;
+        }
+
+        if (envelope.CorrelationId.IsNotEmpty())
+        {
+            outgoing.CorrelationId = envelope.CorrelationId;
+        }
+
+        if (envelope.MessageType.IsNotEmpty())
+        {
+            outgoing.Subject = envelope.MessageType;
+        }
+
+        if (envelope.GroupId.IsNotEmpty())
+        {
+            outgoing.SessionId = envelope.GroupId;
+        }
+
+        if (envelope.DeliverWithin.HasValue)
+        {
+            outgoing.TimeToLive = envelope.DeliverWithin.Value;
+        }
+
+        foreach (var (k, v) in envelope.Headers)
+        {
+            outgoing.ApplicationProperties[k] = v;
+        }
 
         if (envelope.Message is not SyncInstanceToDialogportenCommand cmd)
         {
@@ -53,11 +83,7 @@ public class DebounceDialogportenCommandsMapper : IAzureServiceBusEnvelopeMapper
     /// <param name="incoming">Incoming message</param>
     public void MapIncomingToEnvelope(Envelope envelope, ServiceBusReceivedMessage incoming)
     {
-        envelope.Data = incoming.Body.ToArray();
-        if (Guid.TryParse(incoming.MessageId, out var g))
-        {
-            envelope.Id = g;
-        }
+        throw new NotImplementedException();
     }
 
     /// <summary>
