@@ -360,6 +360,9 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
             // Azure Service Bus transport
             opts.UseAzureServiceBus(wolverineSettings.ServiceBusConnectionString)
 
+                // Use custom mapper to set deduplication id on outgoing messages
+                .ConfigureSenders(s => s.InteropWith(new DeduplicationAzureServiceBusMapper()))
+
                 // Let Wolverine try to initialize any missing queues on the first usage at runtime
                 .AutoProvision();
 
