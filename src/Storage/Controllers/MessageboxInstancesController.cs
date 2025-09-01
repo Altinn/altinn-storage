@@ -129,6 +129,12 @@ namespace Altinn.Platform.Storage.Controllers
             }
             catch (Exception e)
             {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return StatusCode(499);
+                }
+
+                _logger.LogError(e, "Unable to perform query on instances");
                 return StatusCode(cancellationToken.IsCancellationRequested ? 499 : 500, $"Unable to perform query on instances due to: {e.Message}");
             }
         }
