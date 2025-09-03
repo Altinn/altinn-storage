@@ -35,7 +35,7 @@ namespace Altinn.Platform.Storage.Clients
         public async Task SyncCorrespondenceEvent(int correspondenceId, int partyId, DateTimeOffset eventTimeStamp, string eventType)
         {
             string route = null;
-            switch (eventType.ToLower())
+            switch (eventType.ToLowerInvariant())
             {
                 case "read":
                     route = "syncmarkasread";
@@ -46,9 +46,22 @@ namespace Altinn.Platform.Storage.Clients
                 case "delete":
                     route = "syncdelete";
                     break;
+                default:
+                    throw new ArgumentException($"Invalid event type: {eventType}", nameof(eventType));
             }
 
-            await _client.PostAsync($"{route}&seReporteeElementId={correspondenceId}&partyId={partyId}&eventOccurredUtc={eventTimeStamp.UtcDateTime}", null);
+            string url = Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString(
+            route,
+            new System.Collections.Generic.Dictionary<string, string>
+            {
+                ["seReporteeElementId"] = correspondenceId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["partyId"] = partyId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["eventOccurredUtc"] = eventTimeStamp.UtcDateTime.ToString("O", System.Globalization.CultureInfo.InvariantCulture)
+            });
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, url);
+            var response = await _client.SendAsync(request);
+            response.EnsureSuccessStatusCode();
         }
     }
 }

@@ -17,7 +17,7 @@ namespace Altinn.Platform.Storage.Controllers
     [ApiController]
     public class SblBridgeController : ControllerBase
     {
-        private static readonly string[] _eventTypes = { "read", "commit", "delete" };
+        private static readonly string[] _eventTypes = { "read", "confirm", "delete" };
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SblBridgeController"/> class
@@ -76,9 +76,9 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 return BadRequest("EventTimeStamp must have a valid value.");
             }
-            else if (string.IsNullOrWhiteSpace(correspondenceEventSync.EventType) || !_eventTypes.Contains(correspondenceEventSync.EventType.ToLower()))
+            else if (string.IsNullOrWhiteSpace(correspondenceEventSync.EventType) || !_eventTypes.Contains(correspondenceEventSync.EventType.Trim().ToLowerInvariant()))
             {
-                return BadRequest($"Invalid event type: {correspondenceEventSync.EventType} submitted. Valid values: read,commit,delete.");
+                return BadRequest($"Invalid event type: {correspondenceEventSync.EventType} submitted. Valid values: read,confirm,delete.");
             }
 
             await _correspondenceClient.SyncCorrespondenceEvent(correspondenceEventSync.CorrespondenceId, correspondenceEventSync.PartyId, correspondenceEventSync.EventTimeStamp, correspondenceEventSync.EventType);

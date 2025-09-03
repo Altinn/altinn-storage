@@ -27,7 +27,7 @@ namespace Altinn.Platform.Storage.Models
         public DateTimeOffset EventTimeStamp { get; set; }
 
         /// <summary>
-        /// Gets or sets the Correspondence Event Type. (Expects Read, Commit or Delete).
+        /// Gets or sets the Correspondence Event Type. (Expects Read, Confirm or Delete).
         /// </summary>
         [JsonProperty(PropertyName = "eventType")]
         public string EventType { get; set; }
