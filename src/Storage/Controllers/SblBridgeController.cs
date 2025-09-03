@@ -61,6 +61,8 @@ namespace Altinn.Platform.Storage.Controllers
         [Authorize(Policy = AuthzConstants.POLICY_CORRESPONDENCE_SBLBRIDGE)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status502BadGateway)]
+        [ProducesResponseType(StatusCodes.Status504GatewayTimeout)]
         [Produces("application/json")]
         public async Task<ActionResult> SyncAltinn3CorrespondenceEvent(
             [FromBody] CorrespondenceEventSync correspondenceEventSync)
@@ -81,7 +83,7 @@ namespace Altinn.Platform.Storage.Controllers
             string normalizedEventType = correspondenceEventSync.EventType?.Trim();
             if (string.IsNullOrWhiteSpace(normalizedEventType) || !_eventTypes.Contains(normalizedEventType))
             {
-                return BadRequest($"Invalid event type: {correspondenceEventSync.EventType} submitted. Valid values: read,confirm,delete.");
+                return BadRequest($"Invalid event type: {normalizedEventType} submitted. Valid values: read,confirm,delete.");
             }
 
             try
@@ -90,8 +92,12 @@ namespace Altinn.Platform.Storage.Controllers
                     correspondenceEventSync.CorrespondenceId,
                     correspondenceEventSync.PartyId,
                     correspondenceEventSync.EventTimeStamp,
-                    correspondenceEventSync.EventType);
+                    normalizedEventType);
                 return Ok();
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
             }
             catch (TaskCanceledException)
             {

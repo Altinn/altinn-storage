@@ -31,11 +31,20 @@ namespace Altinn.Platform.Storage.Clients
         public CorrespondenceClient(HttpClient client, IOptions<GeneralSettings> generalSettings)
         {
             _client = client;
-            _client.BaseAddress = generalSettings.Value.BridgeApiCorrespondenceEndpoint;
-            if (_client.BaseAddress is null)
+            var endpoint = generalSettings.Value.BridgeApiCorrespondenceEndpoint;
+            if (endpoint is null)
             {
                 throw new InvalidOperationException("GeneralSettings.BridgeApiCorrespondenceEndpoint must be configured.");
             }
+            
+            // Ensure trailing slash so relative routes append rather than replace the last segment
+            var endpointStr = endpoint.ToString().Trim();
+            if (!endpointStr.EndsWith('/'))
+            {
+                endpoint = new Uri(endpointStr + "/", UriKind.Absolute);
+            }
+            
+            _client.BaseAddress = endpoint;
 
             _client.Timeout = new TimeSpan(0, 0, 30);
             _client.DefaultRequestHeaders.Clear();
