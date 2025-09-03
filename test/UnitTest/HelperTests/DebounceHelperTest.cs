@@ -4,7 +4,7 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.HelperTests
 {
-    public class DebounceDialogportenCommandsMapperTest
+    public class DebounceHelperTest
     {
         [Fact]
         public void SameInputs_ProduceSameGuid_AndBucketEnd()
@@ -13,8 +13,8 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
             var bucket = TimeSpan.FromSeconds(5);
             var resourceId = "instance-123";
 
-            var (id1, end1) = DebounceDialogportenCommandsMapper.TimeBucketId(resourceId, bucket, now);
-            var (id2, end2) = DebounceDialogportenCommandsMapper.TimeBucketId(resourceId, bucket, now);
+            var (id1, end1) = DebounceHelper.TimeBucketId(resourceId, bucket, now);
+            var (id2, end2) = DebounceHelper.TimeBucketId(resourceId, bucket, now);
 
             Assert.Equal(id1, id2);
             Assert.Equal(end1, end2);
@@ -30,7 +30,7 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
             var now = DateTimeOffset.Parse(nowIso);
             var bucket = TimeSpan.FromSeconds(bucketSeconds);
 
-            var (_, end) = DebounceDialogportenCommandsMapper.TimeBucketId("r", bucket, now);
+            var (_, end) = DebounceHelper.TimeBucketId("r", bucket, now);
 
             Assert.Equal(DateTimeOffset.Parse(expectedEndIso), end);
         }
@@ -41,8 +41,8 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
             var now = DateTimeOffset.Parse("2025-08-31T12:34:56Z");
             var bucket = TimeSpan.FromSeconds(5);
 
-            var (idA, endA) = DebounceDialogportenCommandsMapper.TimeBucketId("A", bucket, now);
-            var (idB, endB) = DebounceDialogportenCommandsMapper.TimeBucketId("B", bucket, now);
+            var (idA, endA) = DebounceHelper.TimeBucketId("A", bucket, now);
+            var (idB, endB) = DebounceHelper.TimeBucketId("B", bucket, now);
 
             Assert.NotEqual(idA, idB);
             Assert.Equal(endA, endB); // same bucket boundary
@@ -53,8 +53,8 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
         {
             var now = DateTimeOffset.Parse("2025-08-31T12:00:04Z");
 
-            var (id5, end5) = DebounceDialogportenCommandsMapper.TimeBucketId("r", TimeSpan.FromSeconds(5),  now);
-            var (id10, end10) = DebounceDialogportenCommandsMapper.TimeBucketId("r", TimeSpan.FromSeconds(10), now);
+            var (id5, end5) = DebounceHelper.TimeBucketId("r", TimeSpan.FromSeconds(5),  now);
+            var (id10, end10) = DebounceHelper.TimeBucketId("r", TimeSpan.FromSeconds(10), now);
 
             Assert.NotEqual(id5, id10);
             Assert.Equal(DateTimeOffset.Parse("2025-08-31T12:00:05Z"), end5);
@@ -69,8 +69,8 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
             var justBefore = DateTimeOffset.Parse("2025-08-31T12:00:04.9990000Z");
             var justAfter = DateTimeOffset.Parse("2025-08-31T12:00:05.0000000Z");
 
-            var (idBefore, endBefore) = DebounceDialogportenCommandsMapper.TimeBucketId(resource, bucket, justBefore);
-            var (idAfter,  endAfter) = DebounceDialogportenCommandsMapper.TimeBucketId(resource, bucket, justAfter);
+            var (idBefore, endBefore) = DebounceHelper.TimeBucketId(resource, bucket, justBefore);
+            var (idAfter,  endAfter) = DebounceHelper.TimeBucketId(resource, bucket, justAfter);
 
             Assert.NotEqual(idBefore, idAfter);
             Assert.NotEqual(endBefore, endAfter);
@@ -85,7 +85,7 @@ namespace Altinn.Platform.Storage.UnitTest.HelperTests
             var nowLocal = new DateTimeOffset(2025, 8, 31, 14, 0, 4, TimeSpan.FromHours(2));
             var bucket = TimeSpan.FromSeconds(5);
 
-            var (_, end) = DebounceDialogportenCommandsMapper.TimeBucketId("r", bucket, nowLocal);
+            var (_, end) = DebounceHelper.TimeBucketId("r", bucket, nowLocal);
 
             // Expect alignment based on UTC ticks: 14:00:04+02:00 == 12:00:04Z → end at 12:00:05Z
             Assert.Equal(DateTimeOffset.Parse("2025-08-31T12:00:05Z"), end);

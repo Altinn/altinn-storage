@@ -31,7 +31,7 @@ using AltinnCore.Authentication.JwtCookie;
 using Azure.Identity;
 using Azure.Monitor.OpenTelemetry.Exporter;
 using Azure.Security.KeyVault.Secrets;
-
+using JasperFx.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -361,7 +361,18 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
             opts.UseAzureServiceBus(wolverineSettings.ServiceBusConnectionString)
 
                 // Use custom mapper to set deduplication id on outgoing messages
-                .ConfigureSenders(s => s.InteropWith(new DebounceDialogportenCommandsMapper()))
+                .ConfigureSenders(s =>
+                {
+                    s.CustomizeOutgoingMessagesOfType<SyncInstanceToDialogportenCommand>((envelope, cmd) =>
+                    {
+                        // Set a deterministic MessageId for SyncInstanceToDialogportenCommand messages, and
+                        // deliver them at the end of a time bucket.
+                        var (id, bucketEndUtc) = DebounceHelper.TimeBucketId(cmd.InstanceId, 5.Seconds(), DateTimeOffset.UtcNow);
+
+                        envelope.Id = id;
+                        envelope.ScheduledTime = bucketEndUtc;
+                    });
+                })
 
                 // Let Wolverine try to initialize any missing queues on the first usage at runtime
                 .AutoProvision();
