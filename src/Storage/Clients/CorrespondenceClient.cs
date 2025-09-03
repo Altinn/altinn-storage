@@ -1,7 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Text;
 using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Configuration;
@@ -16,6 +16,12 @@ namespace Altinn.Platform.Storage.Clients
     public class CorrespondenceClient : ICorrespondenceClient
     {
         private readonly HttpClient _client;
+        private readonly Dictionary<string, string> _routes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["read"] = "syncmarkasread",
+            ["confirm"] = "syncconfirm",
+            ["delete"] = "syncdelete"
+        };
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CorrespondenceClient"/> class with the given HttpClient and GeneralSettings.
@@ -26,6 +32,11 @@ namespace Altinn.Platform.Storage.Clients
         {
             _client = client;
             _client.BaseAddress = generalSettings.Value.BridgeApiCorrespondenceEndpoint;
+            if (_client.BaseAddress is null)
+            {
+                throw new InvalidOperationException("GeneralSettings.BridgeApiCorrespondenceEndpoint must be configured.");
+            }
+
             _client.Timeout = new TimeSpan(0, 0, 30);
             _client.DefaultRequestHeaders.Clear();
             _client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -34,20 +45,9 @@ namespace Altinn.Platform.Storage.Clients
         /// <inheritdoc />
         public async Task SyncCorrespondenceEvent(int correspondenceId, int partyId, DateTimeOffset eventTimeStamp, string eventType)
         {
-            string route = null;
-            switch (eventType.ToLowerInvariant())
+            if (!_routes.TryGetValue(eventType, out string route))
             {
-                case "read":
-                    route = "syncmarkasread";
-                    break;
-                case "confirm":
-                    route = "syncconfirm";
-                    break;
-                case "delete":
-                    route = "syncdelete";
-                    break;
-                default:
-                    throw new ArgumentException($"Invalid event type: {eventType}", nameof(eventType));
+                throw new ArgumentException($"Invalid event type: {eventType}", nameof(eventType));
             }
 
             string url = Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString(
@@ -60,7 +60,7 @@ namespace Altinn.Platform.Storage.Clients
             });
 
             using var request = new HttpRequestMessage(HttpMethod.Post, url);
-            var response = await _client.SendAsync(request);
+            var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
             response.EnsureSuccessStatusCode();
         }
     }

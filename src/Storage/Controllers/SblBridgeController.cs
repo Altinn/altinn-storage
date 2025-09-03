@@ -1,5 +1,6 @@
 using System;
-using System.Linq;
+using System.Collections.Generic;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Helpers;
@@ -17,7 +18,7 @@ namespace Altinn.Platform.Storage.Controllers
     [ApiController]
     public class SblBridgeController : ControllerBase
     {
-        private static readonly string[] _eventTypes = { "read", "confirm", "delete" };
+        private static readonly HashSet<string> _eventTypes = new(System.StringComparer.OrdinalIgnoreCase) { "read", "confirm", "delete" };
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SblBridgeController"/> class
@@ -55,7 +56,7 @@ namespace Altinn.Platform.Storage.Controllers
         /// <summary>
         /// Endpoint to sync an Altinn 3 Correspondence event to Altinn 2 if the Correspondence is originally an Altinn 2 Correspondence.
         /// </summary>
-        /// <param name="correspondenceEventSync">The event to sync to Altinn 3.</param>
+        /// <param name="correspondenceEventSync">The event to sync to Altinn 2.</param>
         [HttpPost("synccorrespondenceevent")]
         [Authorize(Policy = AuthzConstants.POLICY_CORRESPONDENCE_SBLBRIDGE)]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -76,13 +77,30 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 return BadRequest("EventTimeStamp must have a valid value.");
             }
-            else if (string.IsNullOrWhiteSpace(correspondenceEventSync.EventType) || !_eventTypes.Contains(correspondenceEventSync.EventType.Trim().ToLowerInvariant()))
+
+            string normalizedEventType = correspondenceEventSync.EventType?.Trim();
+            if (string.IsNullOrWhiteSpace(normalizedEventType) || !_eventTypes.Contains(normalizedEventType))
             {
                 return BadRequest($"Invalid event type: {correspondenceEventSync.EventType} submitted. Valid values: read,confirm,delete.");
             }
 
-            await _correspondenceClient.SyncCorrespondenceEvent(correspondenceEventSync.CorrespondenceId, correspondenceEventSync.PartyId, correspondenceEventSync.EventTimeStamp, correspondenceEventSync.EventType);
-            return Ok();
+            try
+            {
+                await _correspondenceClient.SyncCorrespondenceEvent(
+                    correspondenceEventSync.CorrespondenceId,
+                    correspondenceEventSync.PartyId,
+                    correspondenceEventSync.EventTimeStamp,
+                    correspondenceEventSync.EventType);
+                return Ok();
+            }
+            catch (TaskCanceledException)
+            {
+                return StatusCode(StatusCodes.Status504GatewayTimeout, "SBL Bridge timed out.");
+            }
+            catch (HttpRequestException)
+            {
+                return StatusCode(StatusCodes.Status502BadGateway, "SBL Bridge call failed.");
+            }
         }
     }
 }
