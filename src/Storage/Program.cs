@@ -31,7 +31,7 @@ using AltinnCore.Authentication.JwtCookie;
 using Azure.Identity;
 using Azure.Monitor.OpenTelemetry.Exporter;
 using Azure.Security.KeyVault.Secrets;
-
+using JasperFx.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -360,11 +360,35 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
             // Azure Service Bus transport
             opts.UseAzureServiceBus(wolverineSettings.ServiceBusConnectionString)
 
+                // Use custom mapper to set deduplication id on outgoing messages
+                .ConfigureSenders(s =>
+                {
+                    s.CustomizeOutgoingMessagesOfType<SyncInstanceToDialogportenCommand>((envelope, cmd) =>
+                    {
+                        // Set a deterministic MessageId for SyncInstanceToDialogportenCommand messages, and
+                        // deliver them at the end of a time bucket.
+                        var (id, bucketEndUtc) = DebounceHelper.TimeBucketId(cmd.InstanceId, 5.Seconds(), DateTimeOffset.UtcNow);
+
+                        envelope.Id = id;
+                        envelope.ScheduledTime = bucketEndUtc;
+                    });
+                })
+
                 // Let Wolverine try to initialize any missing queues on the first usage at runtime
                 .AutoProvision();
 
             // Publish CreateOrderCommand to ASB queue
-            opts.PublishMessage<SyncInstanceToDialogportenCommand>().ToAzureServiceBusQueue("altinn.dialogportenadapter.webapi");
+            opts.PublishMessage<SyncInstanceToDialogportenCommand>()
+                .ToAzureServiceBusQueue("altinn.dialogportenadapter.webapi")
+                .ConfigureQueue(q =>
+                {
+                    // NOTE! This can ONLY be set at queue creation time
+                    q.RequiresDuplicateDetection = true;
+
+                    // 20 seconds is the minimum allowed by ASB duplicate detection according to
+                    // https://learn.microsoft.com/en-us/azure/service-bus-messaging/duplicate-detection#duplicate-detection-window-size
+                    q.DuplicateDetectionHistoryTimeWindow = TimeSpan.FromSeconds(20);
+                });
 
             // Outbox with Postgres
             opts.PersistMessagesWithPostgresql(wolverineSettings.PostgresConnectionString, schemaName: "wolverine");
