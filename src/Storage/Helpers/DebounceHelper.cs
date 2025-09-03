@@ -21,8 +21,7 @@ public static class DebounceHelper
         var bucketEndUtc = bucketStartUtc + bucket;
 
         var key = $"{resourceId}|{bucketStartUtc:O}|{bucket.Ticks}";
-        using var sha = SHA256.Create();
-        var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(key));
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(key));
 
         Span<byte> guidBytes = stackalloc byte[16];
         bytes.AsSpan(0, 16).CopyTo(guidBytes);
