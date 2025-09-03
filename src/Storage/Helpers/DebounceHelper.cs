@@ -8,7 +8,7 @@ namespace Altinn.Platform.Storage.Helpers;
 /// Use ASB duplicate detection + scheduled delivery to coalesce bursts per InstanceId
 /// into a single message at the end of a time bucket.
 /// </summary>
-public class DebounceHelper
+public static class DebounceHelper
 {
     /// <summary>
     /// Build a deterministic Guid from (resourceId, bucketStart), and return the bucket end time.
