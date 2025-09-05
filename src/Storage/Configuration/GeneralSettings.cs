@@ -29,6 +29,11 @@ namespace Altinn.Platform.Storage.Configuration
         public Uri BridgeApiAuthorizationEndpoint { get; set; }
 
         /// <summary>
+        /// Gets or sets the URI for the SBL Bridge Authorization API.
+        /// </summary>
+        public Uri BridgeApiCorrespondenceEndpoint { get; set; }
+
+        /// <summary>
         /// Gets or sets the scopes for Instance Read.
         /// </summary>
         public List<string> InstanceReadScope { get; set; }
