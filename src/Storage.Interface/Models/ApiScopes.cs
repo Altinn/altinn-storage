@@ -1,21 +1,30 @@
 using Newtonsoft.Json;
 
+#nullable enable
+
 namespace Altinn.Platform.Storage.Interface.Models;
 
 /// <summary>
 /// Custom scopes for an app
 /// </summary>
-public class ApiScopes 
+public class ApiScopes
 {
     /// <summary>
     /// Gets or sets the read scope for the app
     /// </summary>
     [JsonProperty(PropertyName = "read")]
-    public string Read { get; set; }
+    public string? Read { get; set; }
 
     /// <summary>
     /// Gets or sets the write scope for the app
     /// </summary>
     [JsonProperty(PropertyName = "write")]
-    public string Write { get; set; }
+    public string? Write { get; set; }
+
+    /// <summary>
+    /// Text resource key for a custom error message to show when a user tries to access the app API without having the required scopes
+    /// Will apply if set (takes precedence over the one in 'apiScopesConfiguration')
+    /// </summary>
+    [JsonProperty(PropertyName = "errorMessageTextResourceKey")]
+    public string? ErrorMessageTextResourceKey { get; set; }
 }
