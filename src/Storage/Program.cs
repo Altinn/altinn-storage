@@ -369,9 +369,16 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
                         // Set a deterministic MessageId for SyncInstanceToDialogportenCommand messages, and
                         // deliver them at the end of a time bucket.
                         var (id, bucketEndUtc) = DebounceHelper.TimeBucketId(cmd.InstanceId, 5.Seconds(), DateTimeOffset.UtcNow);
-
                         envelope.Id = id;
                         envelope.ScheduledTime = bucketEndUtc;
+
+                        // Hack to work around unique constraint errors on MessageId when using durable outbox
+                        var newDestination = new UriBuilder(envelope.Destination!)
+                        {
+                            Fragment = Random.Shared.Next(0, int.MaxValue).ToString()
+                        };
+
+                        envelope.Destination = newDestination.Uri;
                     });
                 })
 
@@ -394,6 +401,9 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
             // Outbox with Postgres
             opts.PersistMessagesWithPostgresql(wolverineSettings.PostgresConnectionString, schemaName: "wolverine");
             opts.Policies.UseDurableOutboxOnAllSendingEndpoints();
+
+            // Avoid unique constraint errors due to MessageId collisions
+            opts.Durability.MessageIdentity = MessageIdentity.IdAndDestination;
         }
         else
         {
