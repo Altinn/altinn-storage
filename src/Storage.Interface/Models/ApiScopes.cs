@@ -10,13 +10,17 @@ namespace Altinn.Platform.Storage.Interface.Models;
 public class ApiScopes
 {
     /// <summary>
-    /// Gets or sets the read scope for the app
+    /// Gets or sets the read scope for the app.
+    /// Can use '[app]' as placeholders for the app name that will be substituted when validating the token.
+    /// Example: "&lt;your-IDporten-org&gt;:[app]/instances.read"
     /// </summary>
     [JsonProperty(PropertyName = "read")]
     public string? Read { get; set; }
 
     /// <summary>
-    /// Gets or sets the write scope for the app
+    /// Gets or sets the write scope for the app.
+    /// Can use '[app]' as placeholders for the app name that will be substituted when validating the token.
+    /// Example: "&lt;your-IDporten-org&gt;:[app]/instances.write"
     /// </summary>
     [JsonProperty(PropertyName = "write")]
     public string? Write { get; set; }
