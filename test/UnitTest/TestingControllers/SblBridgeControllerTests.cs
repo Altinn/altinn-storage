@@ -45,7 +45,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             {
                 partyId = 1337
             }));
-            var body = await response.Content.ReadAsStringAsync();
             Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
         }
 
@@ -60,7 +59,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             {
                 partyId = 0
             }));
-            var body = await response.Content.ReadAsStringAsync();
             Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);           
         }
 
@@ -79,7 +77,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 eventTimeStamp = dateTimeOffset,
                 eventType = "read"
             }));
-            var body = await response.Content.ReadAsStringAsync();
             Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
         }
 
@@ -98,7 +95,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 eventTimeStamp = dateTimeOffset,
                 eventType = "read"
             }));
-            var body = await response.Content.ReadAsStringAsync();
             Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
         }
 
@@ -117,7 +113,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 eventTimeStamp = dateTimeOffset,
                 eventType = "read"
             }));
-            var body = await response.Content.ReadAsStringAsync();
             Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
         }
 
@@ -136,7 +131,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 eventTimeStamp = dateTimeOffset,
                 eventType = "invalidRead"
             }));
-            var body = await response.Content.ReadAsStringAsync();
             Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
         }
 
@@ -155,7 +149,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                 eventTimeStamp = dateTimeOffset,
                 eventType = "read"
             }));
-            var body = await response.Content.ReadAsStringAsync();
             Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
         }
         
