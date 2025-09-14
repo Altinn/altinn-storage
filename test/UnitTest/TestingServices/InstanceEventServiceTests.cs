@@ -24,7 +24,7 @@ public class InstanceEventServiceTests
     {
         // Arrange
         var repositoryMock = new Mock<IInstanceEventRepository>();
-        repositoryMock.Setup(r => r.InsertInstanceEvent(It.IsAny<InstanceEvent>()))
+        repositoryMock.Setup(r => r.InsertInstanceEvent(It.IsAny<InstanceEvent>(), null))
             .ReturnsAsync((InstanceEvent ie) => ie);
 
         DefaultHttpContext httpContext = new() { User = PrincipalUtil.GetPrincipal(3, 1337) };
@@ -69,7 +69,7 @@ public class InstanceEventServiceTests
     {
         // Arrange
         var repositoryMock = new Mock<IInstanceEventRepository>();
-        repositoryMock.Setup(r => r.InsertInstanceEvent(It.IsAny<InstanceEvent>()))
+        repositoryMock.Setup(r => r.InsertInstanceEvent(It.IsAny<InstanceEvent>(), null))
             .ReturnsAsync((InstanceEvent ie) => ie);
 
         DefaultHttpContext httpContext = new() { User = PrincipalUtil.GetPrincipal(3, 1337) };
@@ -104,7 +104,7 @@ public class InstanceEventServiceTests
     {
         // Arrange
         var repositoryMock = new Mock<IInstanceEventRepository>();
-        repositoryMock.Setup(r => r.InsertInstanceEvent(It.IsAny<InstanceEvent>()))
+        repositoryMock.Setup(r => r.InsertInstanceEvent(It.IsAny<InstanceEvent>(), null))
             .ReturnsAsync((InstanceEvent ie) => ie);
 
         DefaultHttpContext httpContext = new() { User = PrincipalUtil.GetPrincipal(3, 1337) };
@@ -150,7 +150,7 @@ public class InstanceEventServiceTests
     {
         // Arrange
         var repositoryMock = new Mock<IInstanceEventRepository>();
-        repositoryMock.Setup(r => r.InsertInstanceEvent(It.IsAny<InstanceEvent>()))
+        repositoryMock.Setup(r => r.InsertInstanceEvent(It.IsAny<InstanceEvent>(), null))
             .ReturnsAsync((InstanceEvent ie) => ie);
 
         DefaultHttpContext httpContext = new() { User = PrincipalUtil.GetPrincipal(3, 1337) };

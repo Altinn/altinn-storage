@@ -51,7 +51,6 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Wolverine;
 using Wolverine.AzureServiceBus;
-using Wolverine.Postgresql;
 using Yuniql.AspNetCore;
 using Yuniql.PostgreSql;
 
@@ -303,7 +302,6 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddSingleton<IA2OndemandFormattingService, A2OndemandFormattingService>();
 
     services.AddHttpClient<IPartiesWithInstancesClient, PartiesWithInstancesClient>();
-    services.AddHttpClient<ICorrespondenceClient, CorrespondenceClient>();
     services.AddHttpClient<IOnDemandClient, OnDemandClient>();
     services.AddHttpClient<IPdfGeneratorClient, PdfGeneratorClient>();
 
@@ -345,6 +343,8 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
         }
     });
     services.AddSwaggerGenNewtonsoftSupport();
+
+    builder.Services.AddHostedService<OutboxService>();
 }
 
 void ConfigureWolverine(IServiceCollection services, IConfiguration config)
@@ -366,12 +366,8 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
                 {
                     s.CustomizeOutgoingMessagesOfType<SyncInstanceToDialogportenCommand>((envelope, cmd) =>
                     {
-                        // Set a deterministic MessageId for SyncInstanceToDialogportenCommand messages, and
-                        // deliver them at the end of a time bucket.
-                        var (id, bucketEndUtc) = DebounceHelper.TimeBucketId(cmd.InstanceId, 5.Seconds(), DateTimeOffset.UtcNow);
-
-                        envelope.Id = id;
-                        envelope.ScheduledTime = bucketEndUtc;
+                        envelope.Id = Guid.Parse(cmd.InstanceId);
+                        envelope.ScheduledTime = cmd.InstanceCreatedAt;
                     });
                 })
 
@@ -390,10 +386,6 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
                     // https://learn.microsoft.com/en-us/azure/service-bus-messaging/duplicate-detection#duplicate-detection-window-size
                     q.DuplicateDetectionHistoryTimeWindow = TimeSpan.FromSeconds(20);
                 });
-
-            // Outbox with Postgres
-            opts.PersistMessagesWithPostgresql(wolverineSettings.PostgresConnectionString, schemaName: "wolverine");
-            opts.Policies.UseDurableOutboxOnAllSendingEndpoints();
         }
         else
         {

@@ -69,12 +69,12 @@ namespace Altinn.Platform.Storage.Services
         {
             var instanceEvent = BuildInstanceEvent(eventType, instance);
 
-            await _repository.InsertInstanceEvent(instanceEvent);
+            await _repository.InsertInstanceEvent(instanceEvent, instance.AppId);
 
-            if (_wolverineSettings.EnableSending)
-            {
-                await SendUpdateMessage(instance, "WolverineIEdispatch");
-            }
+            ////if (_wolverineSettings.EnableSending)
+            ////{
+            ////    await SendUpdateMessage(instance, "WolverineIEdispatch");
+            ////}
         }
 
         /// <inheritdoc/>
@@ -100,12 +100,12 @@ namespace Altinn.Platform.Storage.Services
                 Created = DateTime.UtcNow,
             };
 
-            await _repository.InsertInstanceEvent(instanceEvent);
+            await _repository.InsertInstanceEvent(instanceEvent, instance.AppId);
 
-            if (_wolverineSettings.EnableSending)
-            {
-                await SendUpdateMessage(instance, "WolverineIEdispatch2");
-            }
+            ////if (_wolverineSettings.EnableSending)
+            ////{
+            ////    await SendUpdateMessage(instance, "WolverineIEdispatch2");
+            ////}
         }
 
         private async Task SendUpdateMessage(Instance instance, string activityName)

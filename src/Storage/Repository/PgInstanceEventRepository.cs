@@ -4,6 +4,7 @@ using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Messages;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -16,8 +17,10 @@ namespace Altinn.Platform.Storage.Repository
     /// Initializes a new instance of the <see cref="PgInstanceEventRepository"/> class.
     /// </remarks>
     /// <param name="dataSource">The npgsql data source.</param>
+    /// <param name="outboxRepository">The outbox repository</param>
     public class PgInstanceEventRepository(
-        NpgsqlDataSource dataSource) : IInstanceEventRepository
+        NpgsqlDataSource dataSource,
+        IOutboxRepository outboxRepository) : IInstanceEventRepository
     {
         private readonly string _readSql = "select * from storage.readinstanceevent($1)";
         private readonly string _deleteSql = "select * from storage.deleteInstanceevent($1)";
@@ -27,7 +30,7 @@ namespace Altinn.Platform.Storage.Repository
         private readonly NpgsqlDataSource _dataSource = dataSource;
 
         /// <inheritdoc/>
-        public async Task<InstanceEvent> InsertInstanceEvent(InstanceEvent instanceEvent)
+        public async Task<InstanceEvent> InsertInstanceEvent(InstanceEvent instanceEvent, string appId = null)
         {
             instanceEvent.Id ??= Guid.NewGuid();
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
@@ -36,6 +39,18 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, instanceEvent);
 
             await pgcom.ExecuteNonQueryAsync();
+
+            if (appId != null)
+            {
+                SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
+                    appId,
+                    instanceEvent.InstanceOwnerPartyId,
+                    instanceEvent.InstanceId.Split('/').Last(),
+                    (DateTime)instanceEvent.Created,
+                    false,
+                    Enum.Parse<Interface.Enums.InstanceEventType>(instanceEvent.EventType));
+                await outboxRepository.Insert(instanceUpdateCommand);
+            }
 
             return instanceEvent;
         }

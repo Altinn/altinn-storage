@@ -23,7 +23,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository
             throw new NotImplementedException();
         }
 
-        public Task<InstanceEvent> InsertInstanceEvent(InstanceEvent instanceEvent)
+        public Task<InstanceEvent> InsertInstanceEvent(InstanceEvent instanceEvent, string appId)
         {
             return Task.FromResult(instanceEvent);
         }

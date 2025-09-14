@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Messages;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using NpgsqlTypes;
@@ -19,6 +20,7 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
     private readonly ILogger<PgInstanceAndEventsRepository> _logger;
     private readonly NpgsqlDataSource _dataSource;
     private readonly IInstanceRepository _instanceRepository;
+    private readonly IOutboxRepository _outboxRepository;
 
     private readonly string _insertInstanceEventsSql = "call storage.insertinstanceevents($1, $2)";
 
@@ -28,14 +30,17 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
     /// <param name="logger">The logger to use when writing to logs.</param>
     /// <param name="dataSource">The npgsql data source.</param>
     /// <param name="instanceRepository">Instance repo</param>
+    /// <param name="outboxRepository">Outbox repo</param>
     public PgInstanceAndEventsRepository(
         ILogger<PgInstanceAndEventsRepository> logger,
         NpgsqlDataSource dataSource,
-        IInstanceRepository instanceRepository)
+        IInstanceRepository instanceRepository,
+        IOutboxRepository outboxRepository)
     {
         _logger = logger;
         _dataSource = dataSource;
         _instanceRepository = instanceRepository;
+        _outboxRepository = outboxRepository;
     }
 
     /// <inheritdoc/>
@@ -76,6 +81,16 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
         }
 
         instance.Data = dataElements; // TODO: requery instead?
+
+        InstanceEvent eventForSync = events.OrderByDescending(e => e.Created).First();
+        SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
+            instance.AppId,
+            eventForSync.InstanceOwnerPartyId,
+            eventForSync.InstanceId.Split('/').Last(),
+            (DateTime)eventForSync.Created,
+            false,
+            Enum.Parse<Interface.Enums.InstanceEventType>(eventForSync.EventType));
+        await _outboxRepository.Insert(instanceUpdateCommand);
 
         return PgInstanceRepository.ToExternal(instance);
     }

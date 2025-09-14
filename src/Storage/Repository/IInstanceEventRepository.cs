@@ -14,8 +14,9 @@ namespace Altinn.Platform.Storage.Repository
         /// Inserts new instance event into the instanceEvent collection.
         /// </summary>
         /// <param name="instanceEvent">Instance event to be stored. </param>
+        /// <param name="appId">AppId</param>
         /// <returns>The stored instance event.</returns>
-        Task<InstanceEvent> InsertInstanceEvent(InstanceEvent instanceEvent);
+        Task<InstanceEvent> InsertInstanceEvent(InstanceEvent instanceEvent, string appId = null);
 
         /// <summary>
         /// Gets one event.
