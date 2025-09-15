@@ -80,6 +80,7 @@ namespace Altinn.Platform.Storage.Services
                                 using (Activity activity = _activitySource.StartActivity("PublishToASB"))
                                 {
                                     await messageBus.PublishAsync(dp);
+                                    _logger.LogError("Outbox published instance {InstanceId} to ASB, event {Event}", dp.InstanceId, dp.EventType);
                                     published = true;
                                 }
                             }

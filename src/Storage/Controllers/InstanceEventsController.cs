@@ -94,7 +94,8 @@ namespace Altinn.Platform.Storage.Controllers
                         instance.InstanceOwner.PartyId,
                         instance.Id.Split("/")[1],
                         instance.Created!.Value,
-                        false);
+                        false,
+                        Enum.Parse<InstanceEventType>(instanceEvent.EventType));
                     await _messageBus.PublishAsync(instanceUpdateCommand);
                 }
                 catch (Exception ex)

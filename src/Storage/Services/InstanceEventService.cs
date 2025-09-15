@@ -73,7 +73,7 @@ namespace Altinn.Platform.Storage.Services
 
             if (_wolverineSettings.EnableSending && _wolverineSettings.EnableWolverineOutbox)
             {
-                await SendUpdateMessage(instance, "WolverineIEdispatch");
+                await SendUpdateMessage(instance, Enum.Parse<InstanceEventType>(instanceEvent.EventType), "WolverineIEdispatch");
             }
         }
 
@@ -104,11 +104,11 @@ namespace Altinn.Platform.Storage.Services
 
             if (_wolverineSettings.EnableSending && _wolverineSettings.EnableWolverineOutbox)
             {
-                await SendUpdateMessage(instance, "WolverineIEdispatch2");
+                await SendUpdateMessage(instance, Enum.Parse<InstanceEventType>(instanceEvent.EventType), "WolverineIEdispatch2");
             }
         }
 
-        private async Task SendUpdateMessage(Instance instance, string activityName)
+        private async Task SendUpdateMessage(Instance instance, InstanceEventType eventType, string activityName)
         {
             try
             {
@@ -118,7 +118,8 @@ namespace Altinn.Platform.Storage.Services
                     instance.InstanceOwner.PartyId,
                     instance.Id.Split("/")[1],
                     instance.Created!.Value,
-                    false);
+                    false,
+                    eventType);
                 await _messageBus.PublishAsync(instanceUpdateCommand);
             }
             catch (Exception ex)

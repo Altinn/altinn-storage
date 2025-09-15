@@ -1,3 +1,8 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
+using System.Threading.Tasks;
 using Altinn.Common.AccessToken;
 using Altinn.Common.AccessToken.Configuration;
 using Altinn.Common.AccessToken.Services;
@@ -38,11 +43,6 @@ using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Reflection;
-using System.Threading.Tasks;
 using Wolverine;
 using Wolverine.AzureServiceBus;
 using Wolverine.Postgresql;
@@ -369,11 +369,13 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
 
                             envelope.Id = id;
                             envelope.ScheduledTime = bucketEndUtc;
+                            logger.LogError("Wolverine standard published instance {InstanceId} to ASB, event {Event}", cmd.InstanceId, cmd.EventType);
                         }
                         else
                         {
                             envelope.Id = Guid.Parse(cmd.InstanceId);
                             envelope.ScheduledTime = cmd.InstanceCreatedAt;
+                            logger.LogError("Wolverine custom published instance {InstanceId} to ASB, event {Event}", cmd.InstanceId, cmd.EventType);
                         }
                     });
                 })

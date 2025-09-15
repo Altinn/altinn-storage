@@ -295,7 +295,7 @@ namespace Altinn.Platform.Storage.Controllers
 
                 if (_wolverineSettings.EnableSending && _wolverineSettings.EnableWolverineOutbox)
                 {
-                    await SendUpdateMessage(instance, instanceGuid.ToString(), "WolverineUndelete");
+                    await SendUpdateMessage(instance, instanceGuid.ToString(), Enum.Parse<InstanceEventType>(instanceEvent.EventType), "WolverineUndelete");
                 }
 
                 return Ok(true);
@@ -390,7 +390,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             if (_wolverineSettings.EnableSending && _wolverineSettings.EnableWolverineOutbox)
             {
-                await SendUpdateMessage(instance, instanceGuid.ToString(), "WolverineDelete");
+                await SendUpdateMessage(instance, instanceGuid.ToString(), Enum.Parse<InstanceEventType>(instanceEvent.EventType), "WolverineDelete");
             }
 
             return Ok(true);
@@ -583,7 +583,7 @@ namespace Altinn.Platform.Storage.Controllers
             return Ok(authorizedInstances);
         }
 
-        private async Task SendUpdateMessage(Instance instance, string instanceId, string activityName)
+        private async Task SendUpdateMessage(Instance instance, string instanceId, InstanceEventType eventType, string activityName)
         {
             try
             {
@@ -593,7 +593,8 @@ namespace Altinn.Platform.Storage.Controllers
                     instance.InstanceOwner.PartyId,
                     instanceId,
                     instance.Created!.Value,
-                    false);
+                    false,
+                    eventType);
                 await _messageBus.PublishAsync(instanceUpdateCommand);
             }
             catch (Exception ex)
