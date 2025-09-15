@@ -11,9 +11,14 @@ namespace Altinn.Platform.Storage.Configuration
         public bool EnableSending { get; set; }
 
         /// <summary>
-        /// Feature flag to enable sending messages to the outbox.
+        /// Feature flag to enable sending messages to the custom outbox.
         /// </summary>
-        public bool EnableOutbox { get; set; } = true;
+        public bool EnableCustomOutbox { get; set; } = true;
+
+        /// <summary>
+        /// Feature flag to enable sending using Wolverine's built-in outbox support.
+        /// </summary>
+        public bool EnableWolverineOutbox { get; set; } = false;
 
         /// <summary>
         /// Connection string for the postgres db

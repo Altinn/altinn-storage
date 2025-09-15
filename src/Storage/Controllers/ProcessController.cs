@@ -181,25 +181,25 @@ namespace Altinn.Platform.Storage.Controllers
 
             Instance updatedInstance = await _instanceAndEventsRepository.Update(existingInstance, updateProperties, processStateUpdate.Events, cancellationToken);
 
-            ////if (_wolverineSettings.EnableSending)
-            ////{
-            ////    try
-            ////    {
-            ////        using Activity? activity = Activity.Current?.Source.StartActivity("WolverineIEs");
-            ////        SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
-            ////            updatedInstance.AppId,
-            ////            updatedInstance.InstanceOwner.PartyId,
-            ////            updatedInstance.Id.Split("/")[1],
-            ////            updatedInstance.Created!.Value,
-            ////            false);
-            ////        await _messageBus.PublishAsync(instanceUpdateCommand);
-            ////    }
-            ////    catch (Exception ex)
-            ////    {
-            ////        // Log the error but do not return an error to the user
-            ////        _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", updatedInstance.Id);
-            ////    }
-            ////}
+            if (_wolverineSettings.EnableSending && _wolverineSettings.EnableWolverineOutbox)
+            {
+                try
+                {
+                    using Activity? activity = Activity.Current?.Source.StartActivity("WolverineIEs");
+                    SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
+                        updatedInstance.AppId,
+                        updatedInstance.InstanceOwner.PartyId,
+                        updatedInstance.Id.Split("/")[1],
+                        updatedInstance.Created!.Value,
+                        false);
+                    await _messageBus.PublishAsync(instanceUpdateCommand);
+                }
+                catch (Exception ex)
+                {
+                    // Log the error but do not return an error to the user
+                    _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", updatedInstance.Id);
+                }
+            }
 
             updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
             return Ok(updatedInstance);

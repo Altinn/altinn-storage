@@ -1,9 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Reflection;
-using System.Threading.Tasks;
-
 using Altinn.Common.AccessToken;
 using Altinn.Common.AccessToken.Configuration;
 using Altinn.Common.AccessToken.Services;
@@ -13,7 +7,6 @@ using Altinn.Common.PEP.Clients;
 using Altinn.Common.PEP.Configuration;
 using Altinn.Common.PEP.Implementation;
 using Altinn.Common.PEP.Interfaces;
-
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
@@ -25,9 +18,7 @@ using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.Telemetry;
 using Altinn.Platform.Storage.Wrappers;
-
 using AltinnCore.Authentication.JwtCookie;
-
 using Azure.Identity;
 using Azure.Monitor.OpenTelemetry.Exporter;
 using Azure.Security.KeyVault.Secrets;
@@ -42,15 +33,19 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-
 using Npgsql;
-
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
+using System.Threading.Tasks;
 using Wolverine;
 using Wolverine.AzureServiceBus;
+using Wolverine.Postgresql;
 using Yuniql.AspNetCore;
 using Yuniql.PostgreSql;
 
@@ -366,8 +361,20 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
                 {
                     s.CustomizeOutgoingMessagesOfType<SyncInstanceToDialogportenCommand>((envelope, cmd) =>
                     {
-                        envelope.Id = Guid.Parse(cmd.InstanceId);
-                        envelope.ScheduledTime = cmd.InstanceCreatedAt;
+                        if (wolverineSettings.EnableWolverineOutbox)
+                        {
+                            // Set a deterministic MessageId for SyncInstanceToDialogportenCommand messages, and
+                            // deliver them at the end of a time bucket.
+                            var (id, bucketEndUtc) = DebounceHelper.TimeBucketId(cmd.InstanceId, 5.Seconds(), DateTimeOffset.UtcNow);
+
+                            envelope.Id = id;
+                            envelope.ScheduledTime = bucketEndUtc;
+                        }
+                        else
+                        {
+                            envelope.Id = Guid.Parse(cmd.InstanceId);
+                            envelope.ScheduledTime = cmd.InstanceCreatedAt;
+                        }
                     });
                 })
 
@@ -386,6 +393,13 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
                     // https://learn.microsoft.com/en-us/azure/service-bus-messaging/duplicate-detection#duplicate-detection-window-size
                     q.DuplicateDetectionHistoryTimeWindow = TimeSpan.FromSeconds(20);
                 });
+
+            if (wolverineSettings.EnableWolverineOutbox)
+            {
+                // Outbox with Postgres
+                opts.PersistMessagesWithPostgresql(wolverineSettings.PostgresConnectionString, schemaName: "wolverine");
+                opts.Policies.UseDurableOutboxOnAllSendingEndpoints();
+            }
         }
         else
         {

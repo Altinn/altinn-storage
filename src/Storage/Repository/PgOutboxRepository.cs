@@ -67,7 +67,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task Insert(SyncInstanceToDialogportenCommand dp)
         {
-            if (!_wolverineSettings.EnableOutbox)
+            if (!_wolverineSettings.EnableCustomOutbox)
             {
                 return;
             }

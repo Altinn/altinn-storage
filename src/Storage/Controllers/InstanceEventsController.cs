@@ -1,10 +1,12 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Messages;
 using Altinn.Platform.Storage.Repository;
@@ -70,7 +72,7 @@ namespace Altinn.Platform.Storage.Controllers
             instanceEvent.Created = instanceEvent.Created?.ToUniversalTime() ?? DateTime.UtcNow;
 
             Instance? instance = null;
-            if (_wolverineSettings.EnableOutbox)
+            if (_wolverineSettings.EnableCustomOutbox)
             {
                 (instance, _) = await _instanceRepository.GetOne(instanceGuid, false, CancellationToken.None);
             }
@@ -81,29 +83,27 @@ namespace Altinn.Platform.Storage.Controllers
                 return BadRequest("Unable to write new instance event to database");
             }
 
-            ////if (_wolverineSettings.EnableSending)
-            ////{ 
-            ////    try
-            ////    {
-            ////        using Activity? activity = Activity.Current?.Source.StartActivity("WolverineIE");
-            ////        (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false, CancellationToken.None);
-            ////        SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
-            ////            instance.AppId,
-            ////            instance.InstanceOwner.PartyId,
-            ////            instance.Id.Split("/")[1],
-            ////            instance.Created!.Value,
-            ////            false,
-            ////            Enum.Parse<InstanceEventType>(instanceEvent.EventType));
-            ////        await _outboxRepository.Insert(instanceUpdateCommand);
-            ////        ////await _messageBus.PublishAsync(instanceUpdateCommand);
-            ////    }
-            ////    catch (Exception ex)
-            ////    {
-            ////        // Log the error but do not return an error to the user
-            ////        _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceGuid);
-            ////    }
-            ////}
-            
+            if (_wolverineSettings.EnableSending && _wolverineSettings.EnableWolverineOutbox)
+            {
+                try
+                {
+                    using Activity? activity = Activity.Current?.Source.StartActivity("WolverineIE");
+                    (instance, _) = await _instanceRepository.GetOne(instanceGuid, false, CancellationToken.None);
+                    SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
+                        instance.AppId,
+                        instance.InstanceOwner.PartyId,
+                        instance.Id.Split("/")[1],
+                        instance.Created!.Value,
+                        false);
+                    await _messageBus.PublishAsync(instanceUpdateCommand);
+                }
+                catch (Exception ex)
+                {
+                    // Log the error but do not return an error to the user
+                    _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceGuid);
+                }
+            }
+
             return Created(result.Id.ToString(), result);
         }
 

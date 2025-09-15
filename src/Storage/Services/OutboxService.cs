@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
@@ -9,6 +10,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Wolverine;
+using Wolverine.Attributes;
 
 namespace Altinn.Platform.Storage.Services
 {
@@ -33,6 +35,11 @@ namespace Altinn.Platform.Storage.Services
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            if (!_wolverineSettings.EnableCustomOutbox)
+            {
+                return;
+            }
+
             _logger.LogInformation("OutboxService started.");
 
             using var scope = serviceProvider.CreateScope();
@@ -59,7 +66,11 @@ namespace Altinn.Platform.Storage.Services
                             // performance, but complicates error handling and logging.
                             foreach (var dp in dps)
                             {
-                                await messageBus.PublishAsync(dp);
+                                using (Activity? activity = Activity.Current?.Source.StartActivity("WolverineIEs"))
+                                {
+                                    await messageBus.PublishAsync(dp);
+                                }
+
                                 await outbox.Delete(Guid.Parse(dp.InstanceId));
                             }
 
