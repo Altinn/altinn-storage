@@ -361,19 +361,18 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
                 {
                     s.CustomizeOutgoingMessagesOfType<SyncInstanceToDialogportenCommand>((envelope, cmd) =>
                     {
+                        // Set a deterministic MessageId for SyncInstanceToDialogportenCommand messages, and
+                        // deliver them at the end of a time bucket.
+                        var (id, bucketEndUtc) = DebounceHelper.TimeBucketId(cmd.InstanceId, 5.Seconds(), DateTimeOffset.UtcNow);
+                        envelope.Id = id;
+
                         if (wolverineSettings.EnableWolverineOutbox)
                         {
-                            // Set a deterministic MessageId for SyncInstanceToDialogportenCommand messages, and
-                            // deliver them at the end of a time bucket.
-                            var (id, bucketEndUtc) = DebounceHelper.TimeBucketId(cmd.InstanceId, 5.Seconds(), DateTimeOffset.UtcNow);
-
-                            envelope.Id = id;
                             envelope.ScheduledTime = bucketEndUtc;
-                            logger.LogError("Wolverine standard published instance {InstanceId} to ASB, event {Event}", cmd.InstanceId, cmd.EventType);
+                            logger.LogError("Wolverine published instance {InstanceId} to ASB, event {Event}", cmd.InstanceId, cmd.EventType);
                         }
                         else
                         {
-                            envelope.Id = Guid.Parse(cmd.InstanceId);
                             envelope.ScheduledTime = cmd.InstanceCreatedAt;
                             logger.LogError("Wolverine custom published instance {InstanceId} to ASB, event {Event}", cmd.InstanceId, cmd.EventType);
                         }

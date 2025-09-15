@@ -18,7 +18,7 @@ namespace Altinn.Platform.Storage.Repository
     public class PgOutboxRepository : IOutboxRepository
     {
         private static readonly string _baseInsertSql = @"insert into storage.outbox values
-            (@_instanceid, @_appid, @_partyid, @_validfrom, @_ismigration, @_instanceeventtype)";
+            (@_instanceid, @_appid, @_partyid, @_validfrom, @_created, @_ismigration, @_instanceeventtype)";
 
         private static readonly string _debounceInsertSql = _baseInsertSql +
             " on conflict (instanceid) do nothing";
@@ -78,6 +78,7 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue("_appid", NpgsqlDbType.Text, dp.AppId);
             pgcom.Parameters.AddWithValue("_instanceid", NpgsqlDbType.Uuid, Guid.Parse(dp.InstanceId));
             pgcom.Parameters.AddWithValue("_validfrom", NpgsqlDbType.TimestampTz, passThrough ? dp.InstanceCreatedAt : dp.InstanceCreatedAt.AddMinutes(1));
+            pgcom.Parameters.AddWithValue("_created", NpgsqlDbType.TimestampTz, dp.InstanceCreatedAt);
             pgcom.Parameters.AddWithValue("_ismigration", NpgsqlDbType.Boolean, dp.IsMigration);
             pgcom.Parameters.AddWithValue("_instanceeventtype", NpgsqlDbType.Smallint, (int)dp.EventType);
             pgcom.Parameters.AddWithValue("_partyid", NpgsqlDbType.Integer, long.Parse(dp.PartyId));
@@ -116,7 +117,7 @@ namespace Altinn.Platform.Storage.Repository
                     await reader.GetFieldValueAsync<string>("appid"),
                     (await reader.GetFieldValueAsync<long>("partyid")).ToString(),
                     (await reader.GetFieldValueAsync<Guid>("instanceid")).ToString(),
-                    await reader.GetFieldValueAsync<DateTime>("validfrom"),
+                    await reader.GetFieldValueAsync<DateTime>("created"),
                     await reader.GetFieldValueAsync<bool>("ismigration"),
                     (InstanceEventType)(await reader.GetFieldValueAsync<int>("instanceeventtype")));
 
