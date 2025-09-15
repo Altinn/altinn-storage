@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,7 +11,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Wolverine;
-using Wolverine.Attributes;
 
 namespace Altinn.Platform.Storage.Services
 {
@@ -27,6 +27,7 @@ namespace Altinn.Platform.Storage.Services
     {
         private readonly ILogger<OutboxService> _logger = logger;
         private readonly WolverineSettings _wolverineSettings = wolverineSettings.Value;
+        private static readonly ActivitySource _activitySource = new(nameof(OutboxService));
 
         /// <summary>
         /// Executes the background service logic.
@@ -58,31 +59,52 @@ namespace Altinn.Platform.Storage.Services
                 {                   
                     while (!stoppingToken.IsCancellationRequested)
                     {
+                        List<SyncInstanceToDialogportenCommand> dps = [];
                         try
                         {
-                            var dps = await outbox.Poll(_wolverineSettings.PollMaxSize);
-
-                            // TODO: Consider whether to do all deletes in a single operation. This will improve
-                            // performance, but complicates error handling and logging.
-                            foreach (var dp in dps)
-                            {
-                                using (Activity? activity = Activity.Current?.Source.StartActivity("WolverineIEs"))
-                                {
-                                    await messageBus.PublishAsync(dp);
-                                }
-
-                                await outbox.Delete(Guid.Parse(dp.InstanceId));
-                            }
-
-                            if (dps.Count < _wolverineSettings.PollMaxSize && !stoppingToken.IsCancellationRequested)
-                            {
-                                await Task.Delay(_wolverineSettings.PollIdleTimeMs, stoppingToken);
-                            }
+                            dps = await outbox.Poll(_wolverineSettings.PollMaxSize);
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "Error during outbox processing");
+                            _logger.LogError(ex, "Outbox polling");
                             await Task.Delay(TimeSpan.FromMilliseconds(_wolverineSettings.PollErrorDelayMs), stoppingToken);
+                        }
+
+                        // TODO: Consider whether to do all deletes in a single operation. This will improve
+                        // performance, but complicates error handling and logging.
+                        foreach (var dp in dps)
+                        {
+                            bool published = false;
+                            try
+                            {
+                                using (Activity activity = _activitySource.StartActivity("PublishToASB"))
+                                {
+                                    await messageBus.PublishAsync(dp);
+                                    published = true;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Outbox push to ASB");
+                            }
+
+                            if (published)
+                            {
+                                try
+                                {
+                                    await outbox.Delete(Guid.Parse(dp.InstanceId));
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogError(ex, "Outbox delete");
+                                    await Task.Delay(TimeSpan.FromMilliseconds(_wolverineSettings.PollErrorDelayMs), stoppingToken);
+                                }
+                            }
+                        }
+
+                        if (dps.Count < _wolverineSettings.PollMaxSize && !stoppingToken.IsCancellationRequested)
+                        {
+                            await Task.Delay(_wolverineSettings.PollIdleTimeMs, stoppingToken);
                         }
 
                         if (DateTime.UtcNow > leaseExpiry.AddSeconds(-_wolverineSettings.LeaseSecs * 0.8))
