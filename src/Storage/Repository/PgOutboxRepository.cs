@@ -72,6 +72,9 @@ namespace Altinn.Platform.Storage.Repository
                 return;
             }
 
+            // TODO remove logging of stack trace when debugging is no longer needed
+            _logger.LogError("Inserting to outbox: {InstanceId} {EventType} {Stack}", dp.InstanceId, dp.EventType, new System.Diagnostics.StackTrace().ToString());
+
             bool passThrough = PassThrough(dp);
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(passThrough ? _passThroughInsertSql : _debounceInsertSql);
 
