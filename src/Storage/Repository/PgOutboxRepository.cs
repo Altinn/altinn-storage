@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Messages;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -47,6 +48,7 @@ namespace Altinn.Platform.Storage.Repository
         private readonly NpgsqlDataSource _dataSource;
         private readonly ILogger<PgOutboxRepository> _logger;
         private readonly WolverineSettings _wolverineSettings;
+        private readonly IHttpContextAccessor _contextAccessor;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PgOutboxRepository"/> class.
@@ -54,14 +56,17 @@ namespace Altinn.Platform.Storage.Repository
         /// <param name="wolverineSettings">the wolverine settings</param>
         /// <param name="dataSource">The npgsql data source.</param>
         /// <param name="logger">The logger.</param>
+        /// <param name="contextAccessor">HttpContextAccessor.</param>
         public PgOutboxRepository(
             IOptions<WolverineSettings> wolverineSettings,
             NpgsqlDataSource dataSource,
-            ILogger<PgOutboxRepository> logger)
+            ILogger<PgOutboxRepository> logger,
+            IHttpContextAccessor contextAccessor)
         {
             _dataSource = dataSource;
             _logger = logger;
             _wolverineSettings = wolverineSettings.Value;
+            _contextAccessor = contextAccessor;
         }
  
         /// <inheritdoc/>
@@ -72,12 +77,15 @@ namespace Altinn.Platform.Storage.Repository
                 return;
             }
 
-            bool passThrough = PassThrough(dp);
-            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(passThrough ? _passThroughInsertSql : _debounceInsertSql);
+            // The created event is used both in the data controller and the instance controller. The first one gives an "instance create" event
+            bool isInstanceCreate = dp.EventType == InstanceEventType.Created && !(_contextAccessor.HttpContext?.Request.Path.Value?.EndsWith("/data", StringComparison.OrdinalIgnoreCase) ?? true);
+            int eventDelaySecs = isInstanceCreate ? 0 : GetEventDelaySecs(dp.EventType);
+
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(eventDelaySecs == 0 ? _passThroughInsertSql : _debounceInsertSql);
 
             pgcom.Parameters.AddWithValue("_appid", NpgsqlDbType.Text, dp.AppId);
             pgcom.Parameters.AddWithValue("_instanceid", NpgsqlDbType.Uuid, Guid.Parse(dp.InstanceId));
-            pgcom.Parameters.AddWithValue("_validfrom", NpgsqlDbType.TimestampTz, passThrough ? dp.InstanceCreatedAt : dp.InstanceCreatedAt.AddSeconds(_wolverineSettings.LowPriorityDelaySecs));
+            pgcom.Parameters.AddWithValue("_validfrom", NpgsqlDbType.TimestampTz, eventDelaySecs == 0 ? dp.InstanceCreatedAt : dp.InstanceCreatedAt.AddSeconds(eventDelaySecs));
             pgcom.Parameters.AddWithValue("_created", NpgsqlDbType.TimestampTz, dp.InstanceCreatedAt);
             pgcom.Parameters.AddWithValue("_ismigration", NpgsqlDbType.Boolean, dp.IsMigration);
             pgcom.Parameters.AddWithValue("_instanceeventtype", NpgsqlDbType.Smallint, (int)dp.EventType);
@@ -183,15 +191,17 @@ namespace Altinn.Platform.Storage.Repository
             }
         }
 
-        private static bool PassThrough(SyncInstanceToDialogportenCommand dp)
-            => dp.EventType != InstanceEventType.Saved &&
-               dp.EventType != InstanceEventType.SubstatusUpdated &&
-               dp.EventType != InstanceEventType.process_StartEvent &&
-               dp.EventType != InstanceEventType.process_EndEvent &&
-               dp.EventType != InstanceEventType.process_StartTask &&
-               dp.EventType != InstanceEventType.process_EndTask &&
-               dp.EventType != InstanceEventType.process_AbandonTask &&
-               dp.EventType != InstanceEventType.process_EndEvent &&
-               dp.EventType != InstanceEventType.process_EndEvent;
+        private int GetEventDelaySecs(InstanceEventType eventType)
+            => eventType switch
+            {
+                InstanceEventType.Saved => _wolverineSettings.LowPriorityDelaySecs,
+                InstanceEventType.SubstatusUpdated => _wolverineSettings.LowPriorityDelaySecs,
+                InstanceEventType.process_StartEvent => _wolverineSettings.LowPriorityDelaySecs,
+                InstanceEventType.process_EndEvent => _wolverineSettings.LowPriorityDelaySecs,
+                InstanceEventType.process_StartTask => _wolverineSettings.LowPriorityDelaySecs,
+                InstanceEventType.process_EndTask => _wolverineSettings.LowPriorityDelaySecs,
+                InstanceEventType.process_AbandonTask => _wolverineSettings.LowPriorityDelaySecs,
+                _ => _wolverineSettings.HighPriorityDelaySecs
+            };
     }
 }

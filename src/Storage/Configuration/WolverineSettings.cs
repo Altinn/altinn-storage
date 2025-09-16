@@ -59,5 +59,10 @@ namespace Altinn.Platform.Storage.Configuration
         /// The interval to batch up low priority messages before sending them.
         /// </summary>
         public int LowPriorityDelaySecs { get; set; } = 60;
+
+        /// <summary>
+        /// The interval to batch up high priority messages before sending them.
+        /// </summary>
+        public int HighPriorityDelaySecs { get; set; } = 10;
     }
 }
