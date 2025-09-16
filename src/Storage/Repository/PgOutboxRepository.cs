@@ -72,15 +72,12 @@ namespace Altinn.Platform.Storage.Repository
                 return;
             }
 
-            // TODO remove logging of stack trace when debugging is no longer needed
-            _logger.LogError("Inserting to outbox: {InstanceId} {EventType} {Stack}", dp.InstanceId, dp.EventType, new System.Diagnostics.StackTrace().ToString());
-
             bool passThrough = PassThrough(dp);
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(passThrough ? _passThroughInsertSql : _debounceInsertSql);
 
             pgcom.Parameters.AddWithValue("_appid", NpgsqlDbType.Text, dp.AppId);
             pgcom.Parameters.AddWithValue("_instanceid", NpgsqlDbType.Uuid, Guid.Parse(dp.InstanceId));
-            pgcom.Parameters.AddWithValue("_validfrom", NpgsqlDbType.TimestampTz, passThrough ? dp.InstanceCreatedAt : dp.InstanceCreatedAt.AddMinutes(1));
+            pgcom.Parameters.AddWithValue("_validfrom", NpgsqlDbType.TimestampTz, passThrough ? dp.InstanceCreatedAt : dp.InstanceCreatedAt.AddSeconds(_wolverineSettings.LowPriorityDelaySecs));
             pgcom.Parameters.AddWithValue("_created", NpgsqlDbType.TimestampTz, dp.InstanceCreatedAt);
             pgcom.Parameters.AddWithValue("_ismigration", NpgsqlDbType.Boolean, dp.IsMigration);
             pgcom.Parameters.AddWithValue("_instanceeventtype", NpgsqlDbType.Smallint, (int)dp.EventType);
@@ -187,6 +184,14 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         private static bool PassThrough(SyncInstanceToDialogportenCommand dp)
-            => dp.EventType == InstanceEventType.Created || dp.EventType == InstanceEventType.Deleted;
+            => dp.EventType != InstanceEventType.Saved &&
+               dp.EventType != InstanceEventType.SubstatusUpdated &&
+               dp.EventType != InstanceEventType.process_StartEvent &&
+               dp.EventType != InstanceEventType.process_EndEvent &&
+               dp.EventType != InstanceEventType.process_StartTask &&
+               dp.EventType != InstanceEventType.process_EndTask &&
+               dp.EventType != InstanceEventType.process_AbandonTask &&
+               dp.EventType != InstanceEventType.process_EndEvent &&
+               dp.EventType != InstanceEventType.process_EndEvent;
     }
 }

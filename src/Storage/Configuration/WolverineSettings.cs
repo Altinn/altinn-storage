@@ -54,5 +54,10 @@ namespace Altinn.Platform.Storage.Configuration
         /// The interval, in seconds, between attempts to acquire the poll master role.
         /// </summary>
         public int TryGettingPollMasterIntervalSecs { get; set; } = 600;
+
+        /// <summary>
+        /// The interval to batch up low priority messages before sending them.
+        /// </summary>
+        public int LowPriorityDelaySecs { get; set; } = 60;
     }
 }
