@@ -114,21 +114,18 @@ namespace Altinn.Platform.Storage.Interface.Models
         /// Gets or sets the copy instance settings
         /// </summary>
         [JsonProperty(PropertyName = "copyInstanceSettings")]
-
         public CopyInstanceSettings CopyInstanceSettings { get; set; }
 
         /// <summary>
-        /// Custom API scopes to authorize access to the app API.
-        /// By default, there are "altinn:instances.read" and "altinn:instances.write" scopes (and the serviceowner equivalents).
+        /// Gets or sets the API scopes configuration for the app
         /// </summary>
         [JsonProperty(PropertyName = "apiScopes")]
-        public ApiScopes ApiScopes { get; set; }
+        public ApiScopesConfiguration ApiScopes { get; set; }
 
         /// <summary>
         /// Gets or sets an optional account number to use a different storage account than the default.
         /// </summary>
         [JsonProperty(PropertyName = "storageAccountNumber")]
-
         public int? StorageAccountNumber { get; set; }
 
         /// <summary>
