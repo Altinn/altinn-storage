@@ -27,6 +27,7 @@ namespace Altinn.Platform.Storage.Services
     {
         private readonly ILogger<OutboxService> _logger = logger;
         private readonly WolverineSettings _wolverineSettings = wolverineSettings.Value;
+        private readonly Guid _podId = Guid.NewGuid();
         private static readonly ActivitySource _activitySource = new(nameof(OutboxService));
 
         /// <summary>
@@ -46,17 +47,16 @@ namespace Altinn.Platform.Storage.Services
             using var scope = serviceProvider.CreateScope();
             var messageBus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
             var outbox = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
-            Guid podId = Guid.NewGuid();
 
             while (!stoppingToken.IsCancellationRequested)
             {
                 DateTime leaseExpiry = DateTime.UtcNow.AddSeconds(_wolverineSettings.LeaseSecs);
-                if (!await outbox.TryAcquireLeaseAsync("outbox", podId, leaseExpiry))
+                if (!await outbox.TryAcquireLeaseAsync("outbox", _podId, leaseExpiry))
                 {
                     await Task.Delay(TimeSpan.FromSeconds(_wolverineSettings.TryGettingPollMasterIntervalSecs), stoppingToken);
                 }
                 else
-                {                   
+                {
                     while (!stoppingToken.IsCancellationRequested)
                     {
                         List<SyncInstanceToDialogportenCommand> dps = [];
@@ -111,7 +111,7 @@ namespace Altinn.Platform.Storage.Services
                         if (DateTime.UtcNow > leaseExpiry.AddSeconds(-_wolverineSettings.LeaseSecs * 0.8))
                         {
                             leaseExpiry = DateTime.UtcNow.AddSeconds(_wolverineSettings.LeaseSecs);
-                            if (!await outbox.RenewLeaseAsync("outbox", podId, leaseExpiry))
+                            if (!await outbox.RenewLeaseAsync("outbox", _podId, leaseExpiry))
                             {
                                 break;
                             }
@@ -120,9 +120,21 @@ namespace Altinn.Platform.Storage.Services
                 }
             }
 
-            await outbox.ReleaseLeaseAsync("outbox", podId);
-
             _logger.LogInformation("OutboxService is stopping.");
+        }
+
+        /// <summary>
+        /// Stops the background service.
+        /// </summary>
+        /// <param name="cancellationToken">Token to signal cancellation.</param>
+        /// <remarks>
+        /// Release the lease
+        /// </remarks>
+        public override async Task StopAsync(CancellationToken cancellationToken)
+        {
+            using var scope = serviceProvider.CreateScope();
+            var outbox = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
+            await outbox.ReleaseLeaseAsync("outbox", _podId);
         }
     }
 }
