@@ -42,8 +42,6 @@ namespace Altinn.Platform.Storage.Services
                 return;
             }
 
-            _logger.LogInformation("OutboxService started.");
-
             using var scope = serviceProvider.CreateScope();
             var messageBus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
             var outbox = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
@@ -57,6 +55,7 @@ namespace Altinn.Platform.Storage.Services
                 }
                 else
                 {
+                    _logger.LogInformation("OutboxService with id {PodId} got lease", _podId);
                     while (!stoppingToken.IsCancellationRequested)
                     {
                         List<SyncInstanceToDialogportenCommand> dps = [];
@@ -80,7 +79,7 @@ namespace Altinn.Platform.Storage.Services
                                 using (Activity activity = _activitySource.StartActivity("PublishToASB"))
                                 {
                                     await messageBus.PublishAsync(dp);
-                                    _logger.LogError("Outbox published instance {InstanceId} to ASB, event {Event}", dp.InstanceId, dp.EventType);
+                                    _logger.LogInformation("Outbox published instance {InstanceId} to ASB, event {Event}", dp.InstanceId, dp.EventType);
                                     published = true;
                                 }
                             }
@@ -135,6 +134,7 @@ namespace Altinn.Platform.Storage.Services
             using var scope = serviceProvider.CreateScope();
             var outbox = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
             await outbox.ReleaseLeaseAsync("outbox", _podId);
+            _logger.LogInformation("OutboxService with id {PodId} is shutting down", _podId);
         }
     }
 }
