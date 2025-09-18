@@ -63,6 +63,11 @@ namespace Altinn.Platform.Storage.Configuration
         /// <summary>
         /// The interval to batch up high priority messages before sending them.
         /// </summary>
-        public int HighPriorityDelaySecs { get; set; } = 10;
+        public int HighPriorityDelaySecs { get; set; } = 5;
+
+        /// <summary>
+        /// The interval to batch up instance create messages before sending them.
+        /// </summary>
+        public int CreateInstanceDelaySecs { get; set; } = 5;
     }
 }

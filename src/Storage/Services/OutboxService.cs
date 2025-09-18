@@ -69,38 +69,7 @@ namespace Altinn.Platform.Storage.Services
                             await Task.Delay(TimeSpan.FromMilliseconds(_wolverineSettings.PollErrorDelayMs), stoppingToken);
                         }
 
-                        // TODO: Consider whether to do all deletes in a single operation. This will improve
-                        // performance, but complicates error handling and logging.
-                        foreach (var dp in dps)
-                        {
-                            bool published = false;
-                            try
-                            {
-                                using (Activity activity = _activitySource.StartActivity("PublishToASB"))
-                                {
-                                    await messageBus.PublishAsync(dp);
-                                    _logger.LogInformation("Outbox published instance {InstanceId} to ASB, event {Event}", dp.InstanceId, dp.EventType);
-                                    published = true;
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, "Outbox push to ASB");
-                            }
-
-                            if (published)
-                            {
-                                try
-                                {
-                                    await outbox.Delete(Guid.Parse(dp.InstanceId));
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(ex, "Outbox delete");
-                                    await Task.Delay(TimeSpan.FromMilliseconds(_wolverineSettings.PollErrorDelayMs), stoppingToken);
-                                }
-                            }
-                        }
+                        await PublishAndDeletePolledMessages(messageBus, outbox, dps, stoppingToken);
 
                         if (dps.Count < _wolverineSettings.PollMaxSize && !stoppingToken.IsCancellationRequested)
                         {
@@ -118,8 +87,42 @@ namespace Altinn.Platform.Storage.Services
                     }
                 }
             }
+        }
 
-            _logger.LogInformation("OutboxService is stopping.");
+        private async Task PublishAndDeletePolledMessages(IMessageBus messageBus, IOutboxRepository outbox, List<SyncInstanceToDialogportenCommand> dps, CancellationToken stoppingToken)
+        {
+            // TODO: Consider whether to do all deletes in a single operation. This will improve
+            // performance, but complicates error handling and logging.
+            foreach (var dp in dps)
+            {
+                bool published = false;
+                try
+                {
+                    using (Activity activity = _activitySource.StartActivity("PublishToASB"))
+                    {
+                        await messageBus.PublishAsync(dp);
+                        _logger.LogInformation("Outbox published instance {InstanceId} to ASB, event {Event}", dp.InstanceId, dp.EventType);
+                        published = true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Outbox push to ASB");
+                }
+
+                if (published)
+                {
+                    try
+                    {
+                        await outbox.Delete(Guid.Parse(dp.InstanceId));
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Outbox delete");
+                        await Task.Delay(TimeSpan.FromMilliseconds(_wolverineSettings.PollErrorDelayMs), stoppingToken);
+                    }
+                }
+            }
         }
 
         /// <summary>

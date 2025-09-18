@@ -79,7 +79,7 @@ namespace Altinn.Platform.Storage.Repository
 
             // The created event is used both in the data controller and the instance controller. The first one gives an "instance create" event
             bool isInstanceCreate = dp.EventType == InstanceEventType.Created && !(_contextAccessor.HttpContext?.Request.Path.Value?.EndsWith("/data", StringComparison.OrdinalIgnoreCase) ?? true);
-            int eventDelaySecs = isInstanceCreate ? 0 : GetEventDelaySecs(dp.EventType);
+            int eventDelaySecs = GetEventDelaySecs(dp.EventType, isInstanceCreate);
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(eventDelaySecs == 0 ? _passThroughInsertSql : _debounceInsertSql);
 
@@ -191,9 +191,10 @@ namespace Altinn.Platform.Storage.Repository
             }
         }
 
-        private int GetEventDelaySecs(InstanceEventType eventType)
+        private int GetEventDelaySecs(InstanceEventType eventType, bool instanceCreate)
             => eventType switch
             {
+                InstanceEventType.Created => instanceCreate ? _wolverineSettings.CreateInstanceDelaySecs : _wolverineSettings.HighPriorityDelaySecs,
                 InstanceEventType.Saved => _wolverineSettings.LowPriorityDelaySecs,
                 InstanceEventType.SubstatusUpdated => _wolverineSettings.LowPriorityDelaySecs,
                 InstanceEventType.process_StartEvent => _wolverineSettings.LowPriorityDelaySecs,
