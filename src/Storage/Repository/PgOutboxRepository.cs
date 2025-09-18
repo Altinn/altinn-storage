@@ -18,7 +18,8 @@ namespace Altinn.Platform.Storage.Repository
     /// </summary>
     public class PgOutboxRepository : IOutboxRepository
     {
-        private static readonly string _baseInsertSql = @"insert into storage.outbox values
+        private static readonly string _baseInsertSql = @"insert into storage.outbox
+            (  instanceid,   appid,   partyid,   validfrom,   created,   ismigration,   instanceeventtype) values 
             (@_instanceid, @_appid, @_partyid, @_validfrom, @_created, @_ismigration, @_instanceeventtype)";
 
         private static readonly string _debounceInsertSql = _baseInsertSql +
