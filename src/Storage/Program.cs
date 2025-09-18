@@ -361,10 +361,16 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
                 {
                     s.CustomizeOutgoingMessagesOfType<SyncInstanceToDialogportenCommand>((envelope, cmd) =>
                     {
-                        // Set a deterministic MessageId for SyncInstanceToDialogportenCommand messages, and
-                        // deliver them at the end of a time bucket.
-                        (envelope.Id, envelope.ScheduledTime) = DebounceHelper.TimeBucketId(cmd.InstanceId, 5.Seconds(), DateTimeOffset.UtcNow);
-                        envelope.ScheduledTime = wolverineSettings.EnableCustomOutbox ? cmd.InstanceCreatedAt : envelope.ScheduledTime;
+                        if (wolverineSettings.EnableWolverineOutbox)
+                        {
+                            // Set a deterministic MessageId for SyncInstanceToDialogportenCommand messages, and
+                            // deliver them at the end of a time bucket.
+                            (envelope.Id, envelope.ScheduledTime) = DebounceHelper.TimeBucketId(cmd.InstanceId, 5.Seconds(), DateTimeOffset.UtcNow);
+                        }
+                        else
+                        {
+                            envelope.Id = Guid.Parse(cmd.InstanceId);
+                        }
                     });
                 })
 
