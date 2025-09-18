@@ -101,7 +101,7 @@ namespace Altinn.Platform.Storage.Services
                     using (Activity activity = _activitySource.StartActivity("PublishToASB"))
                     {
                         await messageBus.PublishAsync(dp);
-                        _logger.LogInformation("Outbox published instance {InstanceId} to ASB, event {Event}", dp.InstanceId, dp.EventType);
+                        _logger.LogInformation("Outbox published instance {InstanceId} to ASB, event {Event}, createdAt {CreatedAt}", dp.InstanceId, dp.EventType, dp.InstanceCreatedAt);
                         published = true;
                     }
                 }
