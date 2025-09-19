@@ -77,7 +77,7 @@ namespace Altinn.Platform.Storage.Controllers
                 (instance, _) = await _instanceRepository.GetOne(instanceGuid, false, CancellationToken.None);
             }
 
-            InstanceEvent result = await _repository.InsertInstanceEvent(instanceEvent, instance != null ? instance.AppId : null);
+            InstanceEvent result = await _repository.InsertInstanceEvent(instanceEvent, instance);
             if (result == null)
             {
                 return BadRequest("Unable to write new instance event to database");

@@ -69,7 +69,7 @@ namespace Altinn.Platform.Storage.Services
         {
             var instanceEvent = BuildInstanceEvent(eventType, instance);
 
-            await _repository.InsertInstanceEvent(instanceEvent, instance.AppId);
+            await _repository.InsertInstanceEvent(instanceEvent, instance);
 
             if (_wolverineSettings.EnableSending && _wolverineSettings.EnableWolverineOutbox)
             {
@@ -100,7 +100,7 @@ namespace Altinn.Platform.Storage.Services
                 Created = DateTime.UtcNow,
             };
 
-            await _repository.InsertInstanceEvent(instanceEvent, instance.AppId);
+            await _repository.InsertInstanceEvent(instanceEvent, instance);
 
             if (_wolverineSettings.EnableSending && _wolverineSettings.EnableWolverineOutbox)
             {

@@ -28,7 +28,6 @@ namespace Altinn.Platform.Storage.Services
         private readonly ILogger<OutboxService> _logger = logger;
         private readonly WolverineSettings _wolverineSettings = wolverineSettings.Value;
         private readonly Guid _podId = Guid.NewGuid();
-        private readonly SortedSet<string> _instancesWithEvent = [];
         private static readonly ActivitySource _activitySource = new(nameof(OutboxService));
 
         /// <summary>
@@ -96,16 +95,6 @@ namespace Altinn.Platform.Storage.Services
             // performance, but complicates error handling and logging.
             foreach (var dp in dps)
             {
-                if (_instancesWithEvent.Contains(dp.InstanceId))
-                {
-                    _logger.LogInformation("Outbox skipping instance {InstanceId} as it is already being processed", dp.InstanceId);
-                    continue;
-                }
-                else
-                {
-                    _instancesWithEvent.Add(dp.InstanceId);
-                }
-
                 bool published = false;
                 try
                 {

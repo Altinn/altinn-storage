@@ -291,7 +291,7 @@ namespace Altinn.Platform.Storage.Controllers
                 };
 
                 await _instanceRepository.Update(instance, updateProperties, cancellationToken);
-                await _instanceEventRepository.InsertInstanceEvent(instanceEvent, instance.AppId);
+                await _instanceEventRepository.InsertInstanceEvent(instanceEvent, instance);
 
                 if (_wolverineSettings.EnableSending && _wolverineSettings.EnableWolverineOutbox)
                 {
@@ -386,7 +386,7 @@ namespace Altinn.Platform.Storage.Controllers
             };
 
             await _instanceRepository.Update(instance, updateProperties, cancellationToken);
-            await _instanceEventRepository.InsertInstanceEvent(instanceEvent, instance.AppId);
+            await _instanceEventRepository.InsertInstanceEvent(instanceEvent, instance);
 
             if (_wolverineSettings.EnableSending && _wolverineSettings.EnableWolverineOutbox)
             {

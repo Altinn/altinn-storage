@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS storage.outbox
 	instanceid UUID PRIMARY KEY,
 	appid TEXT NOT NULL,
 	partyid INTEGER NOT NULL,
-    created TIMESTAMPTZ NOT NULL,
+    instancecreated TIMESTAMPTZ NOT NULL,
     validfrom TIMESTAMPTZ NOT NULL,
     ismigration BOOLEAN NOT NULL DEFAULT FALSE,
     instanceeventtype SMALLINT NOT NULL DEFAULT 0

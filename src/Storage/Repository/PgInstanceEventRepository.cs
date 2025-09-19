@@ -30,23 +30,23 @@ namespace Altinn.Platform.Storage.Repository
         private readonly NpgsqlDataSource _dataSource = dataSource;
 
         /// <inheritdoc/>
-        public async Task<InstanceEvent> InsertInstanceEvent(InstanceEvent instanceEvent, string appId = null)
+        public async Task<InstanceEvent> InsertInstanceEvent(InstanceEvent instanceEvent, Instance instance = null)
         {
             instanceEvent.Id ??= Guid.NewGuid();
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceEvent.InstanceId.Split('/').Last()));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceEvent.InstanceId.Split('/')[^1]));
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceEvent.Id);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, instanceEvent);
 
             await pgcom.ExecuteNonQueryAsync();
 
-            if (appId != null)
+            if (instance != null)
             {
                 SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
-                    appId,
+                    instance.AppId,
                     instanceEvent.InstanceOwnerPartyId,
-                    instanceEvent.InstanceId.Split('/').Last(),
-                    (DateTime)instanceEvent.Created,
+                    instanceEvent.InstanceId.Split('/')[^1],
+                    (DateTime)instance.Created,
                     false,
                     Enum.Parse<Interface.Enums.InstanceEventType>(instanceEvent.EventType));
                 await outboxRepository.Insert(instanceUpdateCommand);

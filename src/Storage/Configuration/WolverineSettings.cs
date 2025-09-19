@@ -69,10 +69,5 @@ namespace Altinn.Platform.Storage.Configuration
         /// The interval to batch up instance create messages before sending them.
         /// </summary>
         public int CreateInstanceDelaySecs { get; set; } = 5;
-
-        /// <summary>
-        /// Only send one event to dialogporten for each instance, regardless of how many events are created for the instance.
-        /// </summary>
-        public bool DebugOnlyOneEvent { get; set; } = false;
     }
 }

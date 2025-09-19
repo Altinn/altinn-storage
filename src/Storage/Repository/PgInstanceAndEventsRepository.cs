@@ -69,7 +69,7 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
         batch.BatchCommands.Add(updateCommand);
 
         NpgsqlBatchCommand insertEventsComand = new(_insertInstanceEventsSql);
-        insertEventsComand.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instance.Id.Split('/').Last()));
+        insertEventsComand.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instance.Id.Split('/')[^1]));
         insertEventsComand.Parameters.AddWithValue(NpgsqlDbType.Jsonb, events);
         batch.BatchCommands.Add(insertEventsComand);
 
@@ -86,8 +86,8 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
         SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
             instance.AppId,
             eventForSync.InstanceOwnerPartyId,
-            eventForSync.InstanceId.Split('/').Last(),
-            (DateTime)eventForSync.Created,
+            eventForSync.InstanceId.Split('/')[^1],
+            (DateTime)instance.Created,
             false,
             Enum.Parse<Interface.Enums.InstanceEventType>(eventForSync.EventType));
         await _outboxRepository.Insert(instanceUpdateCommand);
