@@ -25,10 +25,10 @@ namespace Altinn.Platform.Storage.Services
     /// <param name="wolverineSettings">Wolverine settings</param>
     public class OutboxService(ILogger<OutboxService> logger, IServiceProvider serviceProvider, IOptions<WolverineSettings> wolverineSettings) : BackgroundService
     {
+        private const string _outboxResource = "outbox";
         private readonly ILogger<OutboxService> _logger = logger;
         private readonly WolverineSettings _wolverineSettings = wolverineSettings.Value;
         private readonly Guid _podId = Guid.NewGuid();
-        private static readonly ActivitySource _activitySource = new(nameof(OutboxService));
 
         /// <summary>
         /// Executes the background service logic.
@@ -49,7 +49,7 @@ namespace Altinn.Platform.Storage.Services
             while (!stoppingToken.IsCancellationRequested)
             {
                 DateTime leaseExpiry = DateTime.UtcNow.AddSeconds(_wolverineSettings.LeaseSecs);
-                if (!await outbox.TryAcquireLeaseAsync("outbox", _podId, leaseExpiry))
+                if (!await outbox.TryAcquireLeaseAsync(_outboxResource, _podId, leaseExpiry))
                 {
                     await Task.Delay(TimeSpan.FromSeconds(_wolverineSettings.TryGettingPollMasterIntervalSecs), stoppingToken);
                 }
@@ -79,7 +79,7 @@ namespace Altinn.Platform.Storage.Services
                         if (DateTime.UtcNow > leaseExpiry.AddSeconds(-_wolverineSettings.LeaseSecs * 0.8))
                         {
                             leaseExpiry = DateTime.UtcNow.AddSeconds(_wolverineSettings.LeaseSecs);
-                            if (!await outbox.RenewLeaseAsync("outbox", _podId, leaseExpiry))
+                            if (!await outbox.RenewLeaseAsync(_outboxResource, _podId, leaseExpiry))
                             {
                                 break;
                             }
@@ -98,16 +98,14 @@ namespace Altinn.Platform.Storage.Services
                 bool published = false;
                 try
                 {
-                    using (Activity activity = _activitySource.StartActivity("PublishToASB"))
-                    {
-                        await messageBus.PublishAsync(dp);
-                        _logger.LogInformation("Outbox published instance {InstanceId} to ASB, event {Event}, createdAt {CreatedAt}", dp.InstanceId, dp.EventType, dp.InstanceCreatedAt);
-                        published = true;
-                    }
+                    await messageBus.PublishAsync(dp);
+                    _logger.LogInformation("Outbox published instance {InstanceId} to ASB, event {Event}, createdAt {CreatedAt}", dp.InstanceId, dp.EventType, dp.InstanceCreatedAt);
+                    published = true;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Outbox push to ASB");
+                    _logger.LogError(ex, "Outbox push to ASB for instance {InstanceId}", dp.InstanceId);
+                    await Task.Delay(TimeSpan.FromMilliseconds(_wolverineSettings.PollErrorDelayMs), stoppingToken);
                 }
 
                 if (published)
@@ -118,7 +116,7 @@ namespace Altinn.Platform.Storage.Services
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Outbox delete");
+                        _logger.LogError(ex, "Outbox delete for instance {InstanceId}", dp.InstanceId);
                         await Task.Delay(TimeSpan.FromMilliseconds(_wolverineSettings.PollErrorDelayMs), stoppingToken);
                     }
                 }
@@ -136,7 +134,7 @@ namespace Altinn.Platform.Storage.Services
         {
             using var scope = serviceProvider.CreateScope();
             var outbox = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
-            await outbox.ReleaseLeaseAsync("outbox", _podId);
+            await outbox.ReleaseLeaseAsync(_outboxResource, _podId);
             _logger.LogInformation("OutboxService with id {PodId} is shutting down", _podId);
         }
     }

@@ -68,6 +68,6 @@ namespace Altinn.Platform.Storage.Configuration
         /// <summary>
         /// The interval to batch up instance create messages before sending them.
         /// </summary>
-        public int CreateInstanceDelaySecs { get; set; } = 5;
+        public int CreateInstanceDelaySecs { get; set; } = 0;
     }
 }
