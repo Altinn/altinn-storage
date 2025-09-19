@@ -62,7 +62,7 @@ namespace Altinn.Platform.Storage.Repository
             IOptions<WolverineSettings> wolverineSettings,
             NpgsqlDataSource dataSource,
             ILogger<PgOutboxRepository> logger,
-            IHttpContextAccessor contextAccessor)
+            IHttpContextAccessor contextAccessor = null)
         {
             _dataSource = dataSource;
             _logger = logger;

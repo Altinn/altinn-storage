@@ -21,7 +21,7 @@ namespace Altinn.Platform.Storage.Repository
     /// <param name="outboxRepository">The outbox repository</param>
     public class PgInstanceEventRepository(
         NpgsqlDataSource dataSource,
-        IOutboxRepository outboxRepository) : IInstanceEventRepository
+        IOutboxRepository outboxRepository = null) : IInstanceEventRepository
     {
         private readonly string _readSql = "select * from storage.readinstanceevent($1)";
         private readonly string _deleteSql = "select * from storage.deleteInstanceevent($1)";
@@ -43,7 +43,7 @@ namespace Altinn.Platform.Storage.Repository
 
                 await pgcom.ExecuteNonQueryAsync();
 
-                if (instance != null)
+                if (instance != null && outboxRepository != null)
                 {
                     SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
                         instance.AppId,

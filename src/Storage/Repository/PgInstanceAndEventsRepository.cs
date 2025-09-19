@@ -36,7 +36,7 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
         ILogger<PgInstanceAndEventsRepository> logger,
         NpgsqlDataSource dataSource,
         IInstanceRepository instanceRepository,
-        IOutboxRepository outboxRepository)
+        IOutboxRepository outboxRepository = null)
     {
         _logger = logger;
         _dataSource = dataSource;
@@ -87,14 +87,17 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
             instance.Data = dataElements; // TODO: requery instead?
 
             InstanceEvent eventForSync = events.OrderByDescending(e => e.Created).First();
-            SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
-                instance.AppId,
-                instance.InstanceOwner.PartyId,
-                instance.Id.Split('/')[^1],
-                (DateTime)instance.Created,
-                false,
-                Enum.Parse<Interface.Enums.InstanceEventType>(eventForSync.EventType));
-            await _outboxRepository.Insert(instanceUpdateCommand);
+            if (_outboxRepository != null)
+            {
+                SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
+                    instance.AppId,
+                    instance.InstanceOwner.PartyId,
+                    instance.Id.Split('/')[^1],
+                    (DateTime)instance.Created,
+                    false,
+                    Enum.Parse<Interface.Enums.InstanceEventType>(eventForSync.EventType));
+                await _outboxRepository.Insert(instanceUpdateCommand);
+            }
 
             scope.Complete();
         }
