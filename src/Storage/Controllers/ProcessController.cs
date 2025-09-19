@@ -185,6 +185,7 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 try
                 {
+                    InstanceEventType eventType = processStateUpdate.Events.Count > 0 ? Enum.Parse<InstanceEventType>(processStateUpdate.Events.OrderByDescending(e => e.Created).First().EventType) : InstanceEventType.None;
                     using Activity? activity = Activity.Current?.Source.StartActivity("WolverineIEs");
                     SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
                         updatedInstance.AppId,
@@ -192,7 +193,7 @@ namespace Altinn.Platform.Storage.Controllers
                         updatedInstance.Id.Split("/")[1],
                         updatedInstance.Created!.Value,
                         false,
-                        Enum.Parse<InstanceEventType>(processStateUpdate.Events.OrderByDescending(e => e.Created).First().EventType));
+                        eventType);
                     await _messageBus.PublishAsync(instanceUpdateCommand);
                 }
                 catch (Exception ex)
