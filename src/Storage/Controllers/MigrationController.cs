@@ -290,7 +290,7 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 foreach (var instanceEvent in instanceEvents.Where(ie => !string.IsNullOrEmpty(ie.EventType)))
                 {
-                    await _instanceEventRepository.InsertInstanceEvent(instanceEvent);
+                    await _instanceEventRepository.InsertInstanceEvent(instanceEvent, null);
                 }
 
                 await _a2Repository.UpdateCompleteMigrationState(instanceEvents[0].InstanceId);

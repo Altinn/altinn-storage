@@ -414,7 +414,7 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
     {
         // Arrange
         Mock<IInstanceEventRepository> instanceEventRepository = new Mock<IInstanceEventRepository>();
-        instanceEventRepository.Setup(s => s.InsertInstanceEvent(It.IsAny<InstanceEvent>())).ReturnsAsync((InstanceEvent r) => r);
+        instanceEventRepository.Setup(s => s.InsertInstanceEvent(It.IsAny<InstanceEvent>(), null)).ReturnsAsync((InstanceEvent r) => r);
 
         HttpClient client = GetTestClient();
         string token = PrincipalUtil.GetToken(1337, 1337, 1);
