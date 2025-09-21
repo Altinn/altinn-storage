@@ -90,7 +90,7 @@ namespace Altinn.Platform.Storage.Repository
             pgcom.Parameters.AddWithValue("_instancecreated", NpgsqlDbType.TimestampTz, dp.InstanceCreatedAt);
             pgcom.Parameters.AddWithValue("_ismigration", NpgsqlDbType.Boolean, dp.IsMigration);
             pgcom.Parameters.AddWithValue("_instanceeventtype", NpgsqlDbType.Smallint, (int)dp.EventType);
-            pgcom.Parameters.AddWithValue("_partyid", NpgsqlDbType.Integer, long.Parse(dp.PartyId));
+            pgcom.Parameters.AddWithValue("_partyid", NpgsqlDbType.Bigint, long.Parse(dp.PartyId));
 
             try
             {
