@@ -89,6 +89,17 @@ public class SimpleInstance
     /// </summary>
     public static SimpleInstance FromInstance(Instance instance)
     {
+        if (instance.InstanceOwner?.PartyId is null)
+        {
+            throw new InvalidOperationException(
+                $"Instance {instance.Id} is missing InstanceOwner.PartyId.");
+        }
+
+        if (string.IsNullOrEmpty(instance.Org) || string.IsNullOrEmpty(instance.AppId))
+        {
+            throw new InvalidOperationException($"Instance {instance.Id} is missing Org/AppId.");
+        }
+
         var partyIdPrefix = $"{instance.InstanceOwner.PartyId}/";
         var orgPrefix = $"{instance.Org}/";
 
@@ -111,7 +122,9 @@ public class SimpleInstance
             App = instance.AppId.Substring(orgPrefix.Length),
             CurrentTaskName = instance.Process?.CurrentTask?.Name,
             CurrentTaskId = instance.Process?.CurrentTask?.ElementId,
-            IsRead = instance.Status?.ReadStatus != ReadStatus.Unread,
+            IsRead =
+                instance.Status?.ReadStatus == ReadStatus.Read
+                || instance.Status?.ReadStatus == ReadStatus.UpdatedSinceLastReview,
             ArchivedAt = instance.Status?.Archived,
             SoftDeletedAt = instance.Status?.SoftDeleted,
             HardDeletedAt = instance.Status?.HardDeleted,

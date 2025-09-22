@@ -25,7 +25,7 @@ namespace Altinn.Platform.Storage.Models
         /// Gets or sets the archive reference.
         /// </summary>
         [FromQuery(Name = "archiveReference")]
-        internal string? ArchiveReference { get; set; }
+        public string? ArchiveReference { get; set; }
 
         /// <summary>
         /// The current task identifier.

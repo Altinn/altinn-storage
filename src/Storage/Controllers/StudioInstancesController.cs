@@ -127,9 +127,9 @@ namespace Altinn.Platform.Storage.Controllers
                 QueryResponse<SimpleInstance> response = new()
                 {
                     Instances = result
-                        .Instances.Select(i => SimpleInstance.FromInstance(i))
-                        .ToList(),
-                    Count = result.Instances.Count,
+                        .Instances?.Select(SimpleInstance.FromInstance)
+                        .ToList() ?? new(),
+                    Count = result.Instances?.Count ?? 0,
                     Next = nextContinuationToken,
                 };
 
