@@ -79,7 +79,8 @@ namespace Altinn.Platform.Storage.Controllers
 
             var orgClaim = User?.GetOrg();
 
-            if (string.IsNullOrEmpty(orgClaim))
+            // This API is experimental and should not be available to other service owners yet
+            if (string.IsNullOrEmpty(orgClaim) || !orgClaim.Equals("ttd", StringComparison.InvariantCultureIgnoreCase))
             {
                 return Forbid();
             }

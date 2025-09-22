@@ -96,11 +96,23 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         public async Task GetInstances_AccessToOtherOrg_ReturnsForbid()
         {
             // Arrange
-            var authorizationMock = new Mock<IAuthorization>();
-            authorizationMock.Setup(a => a.UserHasRequiredScope(It.IsAny<string>())).Returns(true);
-
-            HttpClient client = GetTestClient(authorizationService: authorizationMock.Object);
+            HttpClient client = GetTestClient();
             string token = PrincipalUtil.GetOrgToken("ttd", scope: "altinn:serviceowner/instances.read");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // Act
+            HttpResponseMessage response = await client.GetAsync($"{BasePath}/skd/app");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task GetInstances_NotTTD_ReturnsForbid()
+        {
+            // Arrange
+            HttpClient client = GetTestClient();
+            string token = PrincipalUtil.GetOrgToken("skd", scope: "altinn:serviceowner/instances.read");
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             // Act
