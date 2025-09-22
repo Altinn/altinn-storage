@@ -37,7 +37,7 @@ namespace Altinn.Platform.Storage.Services
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            if (!_wolverineSettings.EnableCustomOutbox)
+            if (!_wolverineSettings.EnableCustomOutbox || !_wolverineSettings.EnableSending)
             {
                 return;
             }
@@ -74,9 +74,10 @@ namespace Altinn.Platform.Storage.Services
                         if (dps.Count < _wolverineSettings.PollMaxSize && !stoppingToken.IsCancellationRequested)
                         {
                             await Task.Delay(_wolverineSettings.PollIdleTimeMs, stoppingToken);
+                            messageBus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
                         }
 
-                        if (DateTime.UtcNow > leaseExpiry.AddSeconds(-_wolverineSettings.LeaseSecs * 0.8))
+                        if (DateTime.UtcNow > leaseExpiry.AddSeconds(-_wolverineSettings.LeaseSecs * 0.2))
                         {
                             leaseExpiry = DateTime.UtcNow.AddSeconds(_wolverineSettings.LeaseSecs);
                             if (!await outbox.RenewLeaseAsync(_outboxResource, _podId, leaseExpiry))

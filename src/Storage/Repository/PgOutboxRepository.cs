@@ -18,15 +18,11 @@ namespace Altinn.Platform.Storage.Repository
     /// </summary>
     public class PgOutboxRepository : IOutboxRepository
     {
-        private static readonly string _baseInsertSql = @"insert into storage.outbox
-            (  instanceid,   appid,   partyid,   validfrom,   instancecreated,   ismigration,   instanceeventtype) values 
-            (@_instanceid, @_appid, @_partyid, @_validfrom, @_instancecreated, @_ismigration, @_instanceeventtype)";
-
-        private static readonly string _debounceInsertSql = _baseInsertSql +
-            " on conflict (instanceid) do nothing";
-
-        private static readonly string _passThroughInsertSql = _baseInsertSql +
-            " on conflict (instanceid) do update set validfrom = @_validfrom";
+        private static readonly string _insertSql = @"
+            insert into storage.outbox
+                (  instanceid,   appid,   partyid,   validfrom,   instancecreated,   ismigration,   instanceeventtype) values 
+                (@_instanceid, @_appid, @_partyid, @_validfrom, @_instancecreated, @_ismigration, @_instanceeventtype)
+            on conflict (instanceid) do update set validfrom = excluded.validfrom where excluded.validfrom < storage.outbox.validfrom";
 
         private static readonly string _deleteSql = "delete from storage.outbox where instanceid = @_instanceid";
         private static readonly string _pollSql = @"select * from storage.outbox where validfrom <= now() order by validfrom
@@ -73,20 +69,19 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task Insert(SyncInstanceToDialogportenCommand dp)
         {
-            if (!_wolverineSettings.EnableCustomOutbox)
+            if (!_wolverineSettings.EnableCustomOutbox || !_wolverineSettings.EnableSending)
             {
                 return;
             }
 
             // The created event is used both in the data controller and the instance controller. The first one gives an "instance create" event
             bool isInstanceCreate = dp.EventType == InstanceEventType.Created && !(_contextAccessor.HttpContext?.Request.Path.Value?.EndsWith("/data", StringComparison.OrdinalIgnoreCase) ?? true);
-            int eventDelaySecs = GetEventDelaySecs(dp.EventType, isInstanceCreate);
 
-            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(eventDelaySecs == 0 ? _passThroughInsertSql : _debounceInsertSql);
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
 
             pgcom.Parameters.AddWithValue("_appid", NpgsqlDbType.Text, dp.AppId);
             pgcom.Parameters.AddWithValue("_instanceid", NpgsqlDbType.Uuid, Guid.Parse(dp.InstanceId));
-            pgcom.Parameters.AddWithValue("_validfrom", NpgsqlDbType.TimestampTz, eventDelaySecs == 0 ? DateTime.UtcNow : DateTime.UtcNow.AddSeconds(eventDelaySecs));
+            pgcom.Parameters.AddWithValue("_validfrom", NpgsqlDbType.TimestampTz, DateTime.UtcNow.AddSeconds(GetEventDelaySecs(dp.EventType, isInstanceCreate)));
             pgcom.Parameters.AddWithValue("_instancecreated", NpgsqlDbType.TimestampTz, dp.InstanceCreatedAt);
             pgcom.Parameters.AddWithValue("_ismigration", NpgsqlDbType.Boolean, dp.IsMigration);
             pgcom.Parameters.AddWithValue("_instanceeventtype", NpgsqlDbType.Smallint, (int)dp.EventType);
@@ -195,7 +190,8 @@ namespace Altinn.Platform.Storage.Repository
         private int GetEventDelaySecs(InstanceEventType eventType, bool instanceCreate)
             => eventType switch
             {
-                InstanceEventType.Created => instanceCreate ? _wolverineSettings.CreateInstanceDelaySecs : _wolverineSettings.HighPriorityDelaySecs,
+                InstanceEventType.Created => instanceCreate ? _wolverineSettings.UrgentPriorityDelaySecs : _wolverineSettings.HighPriorityDelaySecs,
+                InstanceEventType.Deleted => _wolverineSettings.UrgentPriorityDelaySecs,
                 InstanceEventType.Saved => _wolverineSettings.LowPriorityDelaySecs,
                 InstanceEventType.SubstatusUpdated => _wolverineSettings.LowPriorityDelaySecs,
                 InstanceEventType.process_StartEvent => _wolverineSettings.LowPriorityDelaySecs,
