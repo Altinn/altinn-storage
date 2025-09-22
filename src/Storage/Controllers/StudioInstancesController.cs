@@ -25,6 +25,7 @@ namespace Altinn.Platform.Storage.Controllers
     /// </summary>
     [Route("storage/api/v1/studio/instances")]
     [ApiController]
+    [ApiExplorerSettings(IgnoreApi = true)]
     public class StudioInstancesController : ControllerBase
     {
         private readonly GeneralSettings _generalSettings;
