@@ -240,7 +240,11 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
 
             if (generalSettings == null)
             {
-                generalSettings = Options.Create(new GeneralSettings { InstanceReadScope = new List<string>{"altinn:serviceowner/instances.read"} });
+                generalSettings = Options.Create(
+                    new GeneralSettings
+                    {
+                        InstanceReadScope = new List<string> { "altinn:serviceowner/instances.read" },
+                    });
             }
 
             var client = _factory.WithWebHostBuilder(builder =>
