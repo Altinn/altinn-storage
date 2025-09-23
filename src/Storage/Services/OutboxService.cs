@@ -42,12 +42,10 @@ namespace Altinn.Platform.Storage.Services
                 return;
             }
 
-            using var scope = serviceProvider.CreateScope();
-            var messageBus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
-            var outbox = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
-
             while (!stoppingToken.IsCancellationRequested)
             {
+                using var scope = serviceProvider.CreateScope();
+                var outbox = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
                 DateTime leaseExpiry = DateTime.UtcNow.AddSeconds(_wolverineSettings.LeaseSecs);
                 if (!await outbox.TryAcquireLeaseAsync(_outboxResource, _podId, leaseExpiry))
                 {
@@ -56,6 +54,7 @@ namespace Altinn.Platform.Storage.Services
                 else
                 {
                     _logger.LogInformation("OutboxService with id {PodId} got lease", _podId);
+                    var messageBus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
                     while (!stoppingToken.IsCancellationRequested)
                     {
                         List<SyncInstanceToDialogportenCommand> dps = [];
@@ -74,7 +73,6 @@ namespace Altinn.Platform.Storage.Services
                         if (dps.Count < _wolverineSettings.PollMaxSize && !stoppingToken.IsCancellationRequested)
                         {
                             await Task.Delay(_wolverineSettings.PollIdleTimeMs, stoppingToken);
-                            messageBus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
                         }
 
                         if (DateTime.UtcNow > leaseExpiry.AddSeconds(-_wolverineSettings.LeaseSecs * 0.2))
