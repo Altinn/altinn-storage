@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Transactions;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Messages;
 using Npgsql;
@@ -34,29 +33,29 @@ namespace Altinn.Platform.Storage.Repository
         public async Task<InstanceEvent> InsertInstanceEvent(InstanceEvent instanceEvent, Instance instance = null)
         {
             instanceEvent.Id ??= Guid.NewGuid();
-            using (var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
+
+            await using var connection = await _dataSource.OpenConnectionAsync();
+            await using var tx = await connection.BeginTransactionAsync();
+            await using NpgsqlCommand pgcom = new(_insertSql, connection);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceEvent.InstanceId.Split('/')[^1]));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceEvent.Id);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, instanceEvent);
+
+            await pgcom.ExecuteNonQueryAsync();
+
+            if (instance != null && outboxRepository != null)
             {
-                await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
-                pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceEvent.InstanceId.Split('/')[^1]));
-                pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceEvent.Id);
-                pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, instanceEvent);
-
-                await pgcom.ExecuteNonQueryAsync();
-
-                if (instance != null && outboxRepository != null)
-                {
-                    SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
-                        instance.AppId,
-                        instance.InstanceOwner.PartyId,
-                        instance.Id.Split('/')[^1],
-                        (DateTime)instance.Created,
-                        false,
-                        Enum.Parse<Interface.Enums.InstanceEventType>(instanceEvent.EventType));
-                    await outboxRepository.Insert(instanceUpdateCommand);
-                }
-
-                scope.Complete();
+                SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
+                    instance.AppId,
+                    instance.InstanceOwner.PartyId,
+                    instance.Id.Split('/')[^1],
+                    (DateTime)instance.Created,
+                    false,
+                    Enum.Parse<Interface.Enums.InstanceEventType>(instanceEvent.EventType));
+                await outboxRepository.Insert(instanceUpdateCommand, connection);
             }
+
+            await tx.CommitAsync();
 
             return instanceEvent;
         }

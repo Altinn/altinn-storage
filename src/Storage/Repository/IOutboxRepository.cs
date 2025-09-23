@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Messages;
+using Npgsql;
 
 namespace Altinn.Platform.Storage.Repository
 {
@@ -13,7 +14,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <summary>
         /// Insert outbox message
         /// </summary>
-        Task Insert(SyncInstanceToDialogportenCommand dp);
+        Task Insert(SyncInstanceToDialogportenCommand dp, NpgsqlConnection existingConnection);
 
         /// <summary>
         /// Polls the outbox for messages to be processed.
