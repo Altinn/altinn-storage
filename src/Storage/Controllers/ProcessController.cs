@@ -181,17 +181,19 @@ namespace Altinn.Platform.Storage.Controllers
 
             Instance updatedInstance = await _instanceAndEventsRepository.Update(existingInstance, updateProperties, processStateUpdate.Events, cancellationToken);
 
-            if (_wolverineSettings.EnableSending)
+            if (_wolverineSettings.EnableSending && _wolverineSettings.EnableWolverineOutbox)
             {
                 try
                 {
+                    InstanceEventType eventType = processStateUpdate.Events.Count > 0 ? Enum.Parse<InstanceEventType>(processStateUpdate.Events.OrderByDescending(e => e.Created).First().EventType) : InstanceEventType.None;
                     using Activity? activity = Activity.Current?.Source.StartActivity("WolverineIEs");
                     SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
                         updatedInstance.AppId,
                         updatedInstance.InstanceOwner.PartyId,
                         updatedInstance.Id.Split("/")[1],
                         updatedInstance.Created!.Value,
-                        false);
+                        false,
+                        eventType);
                     await _messageBus.PublishAsync(instanceUpdateCommand);
                 }
                 catch (Exception ex)

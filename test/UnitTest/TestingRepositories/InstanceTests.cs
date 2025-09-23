@@ -115,7 +115,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             List<InstanceEvent> instanceEvents = [];
             for (int i = 0; i < eventCount; i++)
             {
-                InstanceEvent instanceEvent = new() { Id = Guid.NewGuid(), InstanceId = newInstance.Id, EventType = $"et{i}", Created = DateTime.Parse("1994-06-16T11:06:59.0851832Z") };
+                InstanceEvent instanceEvent = new() { Id = Guid.NewGuid(), InstanceId = newInstance.Id, EventType = "Created", Created = DateTime.Parse("1994-06-16T11:06:59.0851832Z") };
                 instanceEvents.Add(instanceEvent);
             }
 

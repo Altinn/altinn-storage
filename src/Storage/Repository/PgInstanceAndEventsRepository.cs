@@ -4,7 +4,9 @@ using System.Data;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Transactions;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Messages;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using NpgsqlTypes;
@@ -19,6 +21,7 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
     private readonly ILogger<PgInstanceAndEventsRepository> _logger;
     private readonly NpgsqlDataSource _dataSource;
     private readonly IInstanceRepository _instanceRepository;
+    private readonly IOutboxRepository _outboxRepository;
 
     private readonly string _insertInstanceEventsSql = "call storage.insertinstanceevents($1, $2)";
 
@@ -28,14 +31,17 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
     /// <param name="logger">The logger to use when writing to logs.</param>
     /// <param name="dataSource">The npgsql data source.</param>
     /// <param name="instanceRepository">Instance repo</param>
+    /// <param name="outboxRepository">Outbox repo</param>
     public PgInstanceAndEventsRepository(
         ILogger<PgInstanceAndEventsRepository> logger,
         NpgsqlDataSource dataSource,
-        IInstanceRepository instanceRepository)
+        IInstanceRepository instanceRepository,
+        IOutboxRepository outboxRepository = null)
     {
         _logger = logger;
         _dataSource = dataSource;
         _instanceRepository = instanceRepository;
+        _outboxRepository = outboxRepository;
     }
 
     /// <inheritdoc/>
@@ -57,25 +63,44 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
 
         PgInstanceRepository.ToInternal(instance);
         instance.Data = null;
-        await using NpgsqlBatch batch = _dataSource.CreateBatch();
 
-        NpgsqlBatchCommand updateCommand = new(PgInstanceRepository.UpdateSql);
-        PgInstanceRepository.BuildUpdateCommand(instance, updateProperties, updateCommand.Parameters);
-        batch.BatchCommands.Add(updateCommand);
-
-        NpgsqlBatchCommand insertEventsComand = new(_insertInstanceEventsSql);
-        insertEventsComand.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instance.Id.Split('/').Last()));
-        insertEventsComand.Parameters.AddWithValue(NpgsqlDbType.Jsonb, events);
-        batch.BatchCommands.Add(insertEventsComand);
-
-        await using NpgsqlDataReader reader = await batch.ExecuteReaderAsync(cancellationToken);
-
-        if (await reader.ReadAsync(cancellationToken))
+        using (var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
         {
-            instance = await reader.GetFieldValueAsync<Instance>("updatedInstance", cancellationToken);
-        }
+            await using NpgsqlBatch batch = _dataSource.CreateBatch();
 
-        instance.Data = dataElements; // TODO: requery instead?
+            NpgsqlBatchCommand updateCommand = new(PgInstanceRepository.UpdateSql);
+            PgInstanceRepository.BuildUpdateCommand(instance, updateProperties, updateCommand.Parameters);
+            batch.BatchCommands.Add(updateCommand);
+
+            NpgsqlBatchCommand insertEventsComand = new(_insertInstanceEventsSql);
+            insertEventsComand.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instance.Id.Split('/')[^1]));
+            insertEventsComand.Parameters.AddWithValue(NpgsqlDbType.Jsonb, events);
+            batch.BatchCommands.Add(insertEventsComand);
+
+            await using NpgsqlDataReader reader = await batch.ExecuteReaderAsync(cancellationToken);
+
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                instance = await reader.GetFieldValueAsync<Instance>("updatedInstance", cancellationToken);
+            }
+
+            instance.Data = dataElements; // TODO: requery instead?
+
+            InstanceEvent eventForSync = events.OrderByDescending(e => e.Created).First();
+            if (_outboxRepository != null)
+            {
+                SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
+                    instance.AppId,
+                    instance.InstanceOwner.PartyId,
+                    instance.Id.Split('/')[^1],
+                    (DateTime)instance.Created,
+                    false,
+                    Enum.Parse<Interface.Enums.InstanceEventType>(eventForSync.EventType));
+                await _outboxRepository.Insert(instanceUpdateCommand);
+            }
+
+            scope.Complete();
+        }
 
         return PgInstanceRepository.ToExternal(instance);
     }
