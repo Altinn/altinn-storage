@@ -14,6 +14,7 @@ namespace Altinn.Platform.Storage.Clients
         /// <param name="correspondenceId">Altinn 2 ServiceEngine correspondence Id.</param>
         /// <param name="partyId">The party id of the user.</param>
         /// <param name="eventTimestamp">Timestamp that the event took place in Altinn 3 (UTC Time)</param>
+        /// <param name="eventType">Event type</param>
         /// <returns></returns>
         Task SyncCorrespondenceEvent(int correspondenceId, int partyId, DateTimeOffset eventTimestamp, string eventType);
     }

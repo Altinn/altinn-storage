@@ -67,7 +67,7 @@ namespace Altinn.Platform.Storage.Repository
         }
  
         /// <inheritdoc/>
-        public async Task Insert(SyncInstanceToDialogportenCommand dp)
+        public async Task Insert(SyncInstanceToDialogportenCommand dp, NpgsqlConnection existingConnection)
         {
             if (!_wolverineSettings.EnableCustomOutbox || !_wolverineSettings.EnableSending)
             {
@@ -75,9 +75,11 @@ namespace Altinn.Platform.Storage.Repository
             }
 
             // The created event is used both in the data controller and the instance controller. The first one gives an "instance create" event
-            bool isInstanceCreate = dp.EventType == InstanceEventType.Created && !(_contextAccessor.HttpContext?.Request.Path.Value?.EndsWith("/data", StringComparison.OrdinalIgnoreCase) ?? true);
+            bool isInstanceCreate =
+                dp.EventType == InstanceEventType.Created &&
+                !(_contextAccessor.HttpContext?.Request.Path.Value?.EndsWith("/data", StringComparison.OrdinalIgnoreCase) ?? true);
 
-            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
+            await using NpgsqlCommand pgcom = new(_insertSql, existingConnection);
 
             pgcom.Parameters.AddWithValue("_appid", NpgsqlDbType.Text, dp.AppId);
             pgcom.Parameters.AddWithValue("_instanceid", NpgsqlDbType.Uuid, Guid.Parse(dp.InstanceId));

@@ -32,5 +32,4 @@ namespace Altinn.Platform.Storage.Models
         [JsonProperty(PropertyName = "eventType")]
         public string EventType { get; set; }
     }
-
 }

@@ -4,7 +4,6 @@ using System.Data;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Transactions;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Messages;
 using Microsoft.Extensions.Logging;
@@ -56,39 +55,47 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
         {
             instanceEvent.Id ??= Guid.NewGuid();
         }
-        
-        // Remove last decimal digit to make postgres TIMESTAMPTZ equal to json serialized DateTime
-        instance.LastChanged = instance.LastChanged != null ? new DateTime((((DateTime)instance.LastChanged).Ticks / 10) * 10, DateTimeKind.Utc) : null;
+
+        // Align precision with Postgres (microseconds vs DateTime 100ns ticks)
+        instance.LastChanged = instance.LastChanged != null
+            ? new DateTime((((DateTime)instance.LastChanged).Ticks / 10) * 10, DateTimeKind.Utc)
+            : null;
+
         List<DataElement> dataElements = instance.Data;
 
         PgInstanceRepository.ToInternal(instance);
         instance.Data = null;
 
-        using (var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var tx = await connection.BeginTransactionAsync(cancellationToken);
+
+        try
         {
-            await using NpgsqlBatch batch = _dataSource.CreateBatch();
-
-            NpgsqlBatchCommand updateCommand = new(PgInstanceRepository.UpdateSql);
-            PgInstanceRepository.BuildUpdateCommand(instance, updateProperties, updateCommand.Parameters);
-            batch.BatchCommands.Add(updateCommand);
-
-            NpgsqlBatchCommand insertEventsComand = new(_insertInstanceEventsSql);
-            insertEventsComand.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instance.Id.Split('/')[^1]));
-            insertEventsComand.Parameters.AddWithValue(NpgsqlDbType.Jsonb, events);
-            batch.BatchCommands.Add(insertEventsComand);
-
-            await using NpgsqlDataReader reader = await batch.ExecuteReaderAsync(cancellationToken);
-
-            if (await reader.ReadAsync(cancellationToken))
+            await using (var batch = new NpgsqlBatch(connection, tx))
             {
-                instance = await reader.GetFieldValueAsync<Instance>("updatedInstance", cancellationToken);
+                // Update instance
+                var updateCommand = new NpgsqlBatchCommand(PgInstanceRepository.UpdateSql);
+                PgInstanceRepository.BuildUpdateCommand(instance, updateProperties, updateCommand.Parameters);
+                batch.BatchCommands.Add(updateCommand);
+
+                // Insert events
+                var insertEventsCommand = new NpgsqlBatchCommand(_insertInstanceEventsSql);
+                insertEventsCommand.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instance.Id.Split('/')[^1]));
+                insertEventsCommand.Parameters.AddWithValue(NpgsqlDbType.Jsonb, events);
+                batch.BatchCommands.Add(insertEventsCommand);
+
+                await using var reader = await batch.ExecuteReaderAsync(cancellationToken);
+                if (await reader.ReadAsync(cancellationToken))
+                {
+                    instance = await reader.GetFieldValueAsync<Instance>("updatedInstance", cancellationToken);
+                }
             }
 
-            instance.Data = dataElements; // TODO: requery instead?
+            instance.Data = dataElements; // (Optional) Consider re-querying to reflect persisted state.
 
-            InstanceEvent eventForSync = events.OrderByDescending(e => e.Created).First();
-            if (_outboxRepository != null)
+            if (_outboxRepository != null && events.Count > 0)
             {
+                InstanceEvent eventForSync = events.OrderByDescending(e => e.Created).First();
                 SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
                     instance.AppId,
                     instance.InstanceOwner.PartyId,
@@ -96,10 +103,17 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
                     (DateTime)instance.Created,
                     false,
                     Enum.Parse<Interface.Enums.InstanceEventType>(eventForSync.EventType));
-                await _outboxRepository.Insert(instanceUpdateCommand);
+
+                await _outboxRepository.Insert(instanceUpdateCommand, connection);
             }
 
-            scope.Complete();
+            await tx.CommitAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            await tx.RollbackAsync(CancellationToken.None);
+            _logger.LogError(ex, "Failed to update instance {InstanceId} with events (rolled back).", instance.Id);
+            throw;
         }
 
         return PgInstanceRepository.ToExternal(instance);
