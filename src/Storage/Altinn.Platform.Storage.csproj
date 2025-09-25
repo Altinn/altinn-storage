@@ -12,18 +12,18 @@
     <PackageReference Include="Altinn.Common.AccessToken" Version="5.0.5" />
     <PackageReference Include="Altinn.Common.AccessTokenClient" Version="3.0.15" />
     <PackageReference Include="Altinn.Platform.Models" Version="1.6.1" />
-    <PackageReference Include="Altinn.Platform.Storage.Interface" Version="4.0.13" />
+    <PackageReference Include="Altinn.Platform.Storage.Interface" Version="4.0.14" />
     <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.4.0" />
     <PackageReference Include="Azure.Identity" Version="1.16.0" />
     <PackageReference Include="Azure.Security.KeyVault.Secrets" Version="4.8.0" />
     <PackageReference Include="Azure.Storage.Blobs" Version="12.25.0" />
-    <PackageReference Include="Altinn.Common.PEP" Version="4.1.2" />
+    <PackageReference Include="Altinn.Common.PEP" Version="4.2.1" />
     <PackageReference Include="Azure.Storage.Queues" Version="12.23.0" />
     <PackageReference Include="JWTCookieAuthentication" Version="3.0.1" />
     <PackageReference Include="PDFsharp" Version="6.2.1" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="8.1.4" />
     <PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="8.1.4" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
     <PackageReference Include="Npgsql" Version="9.0.3" />
     <PackageReference Include="Npgsql.DependencyInjection" Version="9.0.3" />
@@ -35,9 +35,9 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.12.0" />
     <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.12.0" />
     <PackageReference Include="Npgsql.OpenTelemetry" Version="9.0.3" />
-    <PackageReference Include="WolverineFx" Version="4.12.0"/>
-    <PackageReference Include="WolverineFx.AzureServiceBus" Version="4.12.0" />
-    <PackageReference Include="WolverineFx.Postgresql" Version="4.12.0" />
+    <PackageReference Include="WolverineFx" Version="4.12.1"/>
+    <PackageReference Include="WolverineFx.AzureServiceBus" Version="4.12.1" />
+    <PackageReference Include="WolverineFx.Postgresql" Version="4.12.1" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)'=='Debug'">
