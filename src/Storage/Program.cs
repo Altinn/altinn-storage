@@ -370,7 +370,7 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
                         }
                         else
                         {
-                            envelope.Id = Guid.Parse(cmd.InstanceId);
+                            envelope.Id = Guid.NewGuid();
                         }
                     });
                 })
@@ -383,12 +383,15 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
                 .ToAzureServiceBusQueue("altinn.dialogportenadapter.webapi")
                 .ConfigureQueue(q =>
                 {
-                    // NOTE! This can ONLY be set at queue creation time
-                    q.RequiresDuplicateDetection = true;
+                    if (wolverineSettings.EnableWolverineOutbox)
+                    {
+                        // NOTE! This can ONLY be set at queue creation time
+                        q.RequiresDuplicateDetection = true;
 
-                    // 20 seconds is the minimum allowed by ASB duplicate detection according to
-                    // https://learn.microsoft.com/en-us/azure/service-bus-messaging/duplicate-detection#duplicate-detection-window-size
-                    q.DuplicateDetectionHistoryTimeWindow = TimeSpan.FromSeconds(20);
+                        // 20 seconds is the minimum allowed by ASB duplicate detection according to
+                        // https://learn.microsoft.com/en-us/azure/service-bus-messaging/duplicate-detection#duplicate-detection-window-size
+                        q.DuplicateDetectionHistoryTimeWindow = TimeSpan.FromSeconds(20);
+                    }
                 });
 
             if (wolverineSettings.EnableWolverineOutbox)
