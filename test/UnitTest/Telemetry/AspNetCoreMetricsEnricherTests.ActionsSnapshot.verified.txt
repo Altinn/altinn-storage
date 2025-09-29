@@ -184,6 +184,7 @@
     Altinn.Platform.Storage.Controllers.ProcessController.GetForAuth (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.SblBridgeController.RegisterAltinn3CorrespondenceRecipient (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.SblBridgeController.SyncAltinn3CorrespondenceEvent (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.StudioInstancesController.GetInstances (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.TextsController.Create (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.TextsController.Delete (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.TextsController.Get (Altinn.Platform.Storage),
