@@ -22,20 +22,14 @@ namespace Altinn.Platform.Storage.Services
     {
         private readonly IInstanceEventRepository _repository;
         private readonly IHttpContextAccessor _contextAccessor;
-        private readonly IMessageBus _messageBus;
-        private readonly WolverineSettings _wolverineSettings;
-        private readonly ILogger _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="InstanceEventService"/> class.
         /// </summary>
-        public InstanceEventService(IInstanceEventRepository repository, IHttpContextAccessor contextAccessor, IMessageBus messageBus, IOptions<WolverineSettings> wolverineSettings, ILogger<InstanceEventService> logger)
+        public InstanceEventService(IInstanceEventRepository repository, IHttpContextAccessor contextAccessor)
         {
             _repository = repository;
             _contextAccessor = contextAccessor;
-            _messageBus = messageBus;
-            _wolverineSettings = wolverineSettings.Value;
-            _logger = logger;
         }
 
         /// <inheritdoc/>
@@ -70,11 +64,6 @@ namespace Altinn.Platform.Storage.Services
             var instanceEvent = BuildInstanceEvent(eventType, instance);
 
             await _repository.InsertInstanceEvent(instanceEvent, instance);
-
-            if (_wolverineSettings.EnableSending && _wolverineSettings.EnableWolverineOutbox)
-            {
-                await SendUpdateMessage(instance, Enum.Parse<InstanceEventType>(instanceEvent.EventType), "WolverineIEdispatch");
-            }
         }
 
         /// <inheritdoc/>
@@ -101,32 +90,6 @@ namespace Altinn.Platform.Storage.Services
             };
 
             await _repository.InsertInstanceEvent(instanceEvent, instance);
-
-            if (_wolverineSettings.EnableSending && _wolverineSettings.EnableWolverineOutbox)
-            {
-                await SendUpdateMessage(instance, Enum.Parse<InstanceEventType>(instanceEvent.EventType), "WolverineIEdispatch2");
-            }
-        }
-
-        private async Task SendUpdateMessage(Instance instance, InstanceEventType eventType, string activityName)
-        {
-            try
-            {
-                using Activity? activity = Activity.Current?.Source.StartActivity(activityName);
-                SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
-                    instance.AppId,
-                    instance.InstanceOwner.PartyId,
-                    instance.Id.Split("/")[1],
-                    instance.Created!.Value,
-                    false,
-                    eventType);
-                await _messageBus.PublishAsync(instanceUpdateCommand);
-            }
-            catch (Exception ex)
-            {
-                // Log the error but do not return an error to the user
-                _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instance.Id);
-            }
         }
     }
 }
