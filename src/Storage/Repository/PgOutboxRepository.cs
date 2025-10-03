@@ -66,8 +66,8 @@ namespace Altinn.Platform.Storage.Repository
 
             // The created event is used both in the data controller and the instance controller. The first one gives an "instance create" event
             bool isInstanceCreate =
-                dp.EventType == InstanceEventType.Created && (contextAccessor == null /* unit test */ ||
-                !(contextAccessor.HttpContext?.Request.Path.Value?.EndsWith("/data", StringComparison.OrdinalIgnoreCase) ?? true));
+                dp.EventType == InstanceEventType.Created &&
+                !(contextAccessor.HttpContext?.Request.Path.Value?.EndsWith("/data", StringComparison.OrdinalIgnoreCase) ?? true);
 
             await using NpgsqlCommand pgcom = new(_insertSql, existingConnection);
 
