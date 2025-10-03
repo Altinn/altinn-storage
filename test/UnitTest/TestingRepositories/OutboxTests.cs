@@ -9,8 +9,10 @@ using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Extensions;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using Npgsql;
 using Xunit;
 
@@ -161,10 +163,10 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             Assert.True(ok);
         }
 
-        private static IOutboxRepository GetRepo(WolverineSettings wolverineSettings = null)
+        private static IOutboxRepository GetRepo(WolverineSettings wolverineSettings = null, string path = "/storage/api/v1/instances")
         {
             wolverineSettings ??= new WolverineSettings() { EnableSending = true };
-            var serviceList = GetServices([typeof(IOutboxRepository)], wolverineSettings);
+            var serviceList = GetServices([typeof(IOutboxRepository)], wolverineSettings, path);
             return (IOutboxRepository)serviceList.First(i => i.GetType() == typeof(PgOutboxRepository));
         }
 
@@ -174,7 +176,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             return dataSource.OpenConnection();
         }
 
-        private static List<object> GetServices(List<Type> interfaceTypes, WolverineSettings wolverineSettings)
+        private static List<object> GetServices(List<Type> interfaceTypes, WolverineSettings wolverineSettings, string path)
         {
             var builder = new ConfigurationBuilder()
                 .AddJsonFile(ServiceUtil.GetAppsettingsPath())
@@ -191,6 +193,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories
             services.AddLogging();
             services.AddPostgresRepositories(config);
             services.AddMemoryCache();
+
+            Mock<IHttpContextAccessor> httpContextAccessor = new Mock<IHttpContextAccessor>(MockBehavior.Strict);
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.Path = path;
+            httpContextAccessor.SetupGet(accessor => accessor.HttpContext).Returns(httpContext);
+            services.AddSingleton(httpContextAccessor.Object);
 
             services.Configure<GeneralSettings>(config.GetSection("GeneralSettings"));
             services.Configure<WolverineSettings>(opts =>
