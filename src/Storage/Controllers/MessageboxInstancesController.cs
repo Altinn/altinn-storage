@@ -10,20 +10,16 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Authorization;
-using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
-using Altinn.Platform.Storage.Messages;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
-using Wolverine;
 
 namespace Altinn.Platform.Storage.Controllers
 {
@@ -40,8 +36,6 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly IApplicationRepository _applicationRepository;
         private readonly IAuthorization _authorizationService;
         private readonly IApplicationService _applicationService;
-        private readonly IMessageBus _messageBus;
-        private readonly WolverineSettings _wolverineSettings;
         private readonly ILogger _logger;
 
         /// <summary>
@@ -53,8 +47,6 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="applicationRepository">the application repository handler</param>
         /// <param name="authorizationService">the authorization service</param>
         /// <param name="applicationService">the application service</param>
-        /// <param name="messageBus">Wolverines abstraction for sending messages</param>
-        /// <param name="wolverineSettings">Wolverine settings</param>
         /// <param name="logger">The logger</param>
         public MessageBoxInstancesController(
             IInstanceRepository instanceRepository,
@@ -63,8 +55,6 @@ namespace Altinn.Platform.Storage.Controllers
             IApplicationRepository applicationRepository,
             IAuthorization authorizationService,
             IApplicationService applicationService,
-            IMessageBus messageBus,
-            IOptions<WolverineSettings> wolverineSettings,
             ILogger<MessageBoxInstancesController> logger)
         {
             _instanceRepository = instanceRepository;
@@ -73,8 +63,6 @@ namespace Altinn.Platform.Storage.Controllers
             _applicationRepository = applicationRepository;
             _authorizationService = authorizationService;
             _applicationService = applicationService;
-            _messageBus = messageBus;
-            _wolverineSettings = wolverineSettings.Value;
             _logger = logger;
         }
 
@@ -293,11 +281,6 @@ namespace Altinn.Platform.Storage.Controllers
                 await _instanceRepository.Update(instance, updateProperties, cancellationToken);
                 await _instanceEventRepository.InsertInstanceEvent(instanceEvent, instance);
 
-                if (_wolverineSettings.EnableSending && _wolverineSettings.EnableWolverineOutbox)
-                {
-                    await SendUpdateMessage(instance, instanceGuid.ToString(), Enum.Parse<InstanceEventType>(instanceEvent.EventType), "WolverineUndelete");
-                }
-
                 return Ok(true);
             }
 
@@ -387,11 +370,6 @@ namespace Altinn.Platform.Storage.Controllers
 
             await _instanceRepository.Update(instance, updateProperties, cancellationToken);
             await _instanceEventRepository.InsertInstanceEvent(instanceEvent, instance);
-
-            if (_wolverineSettings.EnableSending && _wolverineSettings.EnableWolverineOutbox)
-            {
-                await SendUpdateMessage(instance, instanceGuid.ToString(), Enum.Parse<InstanceEventType>(instanceEvent.EventType), "WolverineDelete");
-            }
 
             return Ok(true);
         }
@@ -581,27 +559,6 @@ namespace Altinn.Platform.Storage.Controllers
             InstanceHelper.ReplaceTextKeys(authorizedInstances, texts, languageId);
 
             return Ok(authorizedInstances);
-        }
-
-        private async Task SendUpdateMessage(Instance instance, string instanceId, InstanceEventType eventType, string activityName)
-        {
-            try
-            {
-                using Activity? activity = Activity.Current?.Source.StartActivity(activityName);
-                SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
-                    instance.AppId,
-                    instance.InstanceOwner.PartyId,
-                    instanceId,
-                    instance.Created!.Value,
-                    false,
-                    eventType);
-                await _messageBus.PublishAsync(instanceUpdateCommand);
-            }
-            catch (Exception ex)
-            {
-                // Log the error but do not return an error to the user
-                _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceId);
-            }
         }
 
         private void AddQueryModelToTelemetry(MessageBoxQueryModel queryModel)

@@ -37,7 +37,7 @@ namespace Altinn.Platform.Storage.Services
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            if (!_wolverineSettings.EnableCustomOutbox || !_wolverineSettings.EnableSending)
+            if (!_wolverineSettings.EnableSending)
             {
                 return;
             }
