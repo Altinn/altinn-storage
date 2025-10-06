@@ -27,7 +27,6 @@ using AltinnCore.Authentication.JwtCookie;
 using Azure.Identity;
 using Azure.Monitor.OpenTelemetry.Exporter;
 using Azure.Security.KeyVault.Secrets;
-using JasperFx.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -45,7 +44,6 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Wolverine;
 using Wolverine.AzureServiceBus;
-using Wolverine.Postgresql;
 using Yuniql.AspNetCore;
 using Yuniql.PostgreSql;
 
@@ -362,16 +360,7 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
                 {
                     s.CustomizeOutgoingMessagesOfType<SyncInstanceToDialogportenCommand>((envelope, cmd) =>
                     {
-                        if (wolverineSettings.EnableWolverineOutbox)
-                        {
-                            // Set a deterministic MessageId for SyncInstanceToDialogportenCommand messages, and
-                            // deliver them at the end of a time bucket.
-                            (envelope.Id, envelope.ScheduledTime) = DebounceHelper.TimeBucketId(cmd.InstanceId, 5.Seconds(), DateTimeOffset.UtcNow);
-                        }
-                        else
-                        {
-                            envelope.Id = Guid.NewGuid();
-                        }
+                        envelope.Id = Guid.NewGuid();
                     });
                 })
 
@@ -380,26 +369,7 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
 
             // Publish CreateOrderCommand to ASB queue
             opts.PublishMessage<SyncInstanceToDialogportenCommand>()
-                .ToAzureServiceBusQueue("altinn.dialogportenadapter.webapi")
-                .ConfigureQueue(q =>
-                {
-                    if (wolverineSettings.EnableWolverineOutbox)
-                    {
-                        // NOTE! This can ONLY be set at queue creation time
-                        q.RequiresDuplicateDetection = true;
-
-                        // 20 seconds is the minimum allowed by ASB duplicate detection according to
-                        // https://learn.microsoft.com/en-us/azure/service-bus-messaging/duplicate-detection#duplicate-detection-window-size
-                        q.DuplicateDetectionHistoryTimeWindow = TimeSpan.FromSeconds(20);
-                    }
-                });
-
-            if (wolverineSettings.EnableWolverineOutbox)
-            {
-                // Outbox with Postgres
-                opts.PersistMessagesWithPostgresql(wolverineSettings.PostgresConnectionString, schemaName: "wolverine");
-                opts.Policies.UseDurableOutboxOnAllSendingEndpoints();
-            }
+                .ToAzureServiceBusQueue("altinn.dialogportenadapter.webapi");
         }
         else
         {

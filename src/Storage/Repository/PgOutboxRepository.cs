@@ -16,7 +16,18 @@ namespace Altinn.Platform.Storage.Repository
     /// <summary>
     /// Handles the outbox repository.
     /// </summary>
-    public class PgOutboxRepository : IOutboxRepository
+    /// <remarks>
+    /// Initializes a new instance of the <see cref="PgOutboxRepository"/> class.
+    /// </remarks>
+    /// <param name="wolverineSettings">the wolverine settings</param>
+    /// <param name="dataSource">The npgsql data source.</param>
+    /// <param name="logger">The logger.</param>
+    /// <param name="contextAccessor">HttpContextAccessor.</param>
+    public class PgOutboxRepository(
+        IOptions<WolverineSettings> wolverineSettings,
+        NpgsqlDataSource dataSource,
+        ILogger<PgOutboxRepository> logger,
+        IHttpContextAccessor contextAccessor = null) : IOutboxRepository
     {
         private static readonly string _insertSql = @"
             insert into storage.outbox
@@ -42,34 +53,13 @@ namespace Altinn.Platform.Storage.Repository
         private static readonly string _releaseLeaseSql = @"
             DELETE FROM storage.leases WHERE resource = @_resource AND holder = @_holder";
 
-        private readonly NpgsqlDataSource _dataSource;
-        private readonly ILogger<PgOutboxRepository> _logger;
-        private readonly WolverineSettings _wolverineSettings;
-        private readonly IHttpContextAccessor _contextAccessor;
+        private readonly ILogger<PgOutboxRepository> _logger = logger;
+        private readonly WolverineSettings _wolverineSettings = wolverineSettings.Value;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="PgOutboxRepository"/> class.
-        /// </summary>
-        /// <param name="wolverineSettings">the wolverine settings</param>
-        /// <param name="dataSource">The npgsql data source.</param>
-        /// <param name="logger">The logger.</param>
-        /// <param name="contextAccessor">HttpContextAccessor.</param>
-        public PgOutboxRepository(
-            IOptions<WolverineSettings> wolverineSettings,
-            NpgsqlDataSource dataSource,
-            ILogger<PgOutboxRepository> logger,
-            IHttpContextAccessor contextAccessor = null)
-        {
-            _dataSource = dataSource;
-            _logger = logger;
-            _wolverineSettings = wolverineSettings.Value;
-            _contextAccessor = contextAccessor;
-        }
- 
         /// <inheritdoc/>
         public async Task Insert(SyncInstanceToDialogportenCommand dp, NpgsqlConnection existingConnection)
         {
-            if (!_wolverineSettings.EnableCustomOutbox || !_wolverineSettings.EnableSending)
+            if (!_wolverineSettings.EnableSending)
             {
                 return;
             }
@@ -77,7 +67,7 @@ namespace Altinn.Platform.Storage.Repository
             // The created event is used both in the data controller and the instance controller. The first one gives an "instance create" event
             bool isInstanceCreate =
                 dp.EventType == InstanceEventType.Created &&
-                !(_contextAccessor.HttpContext?.Request.Path.Value?.EndsWith("/data", StringComparison.OrdinalIgnoreCase) ?? true);
+                !(contextAccessor?.HttpContext?.Request.Path.Value?.EndsWith("/data", StringComparison.OrdinalIgnoreCase) ?? true);
 
             await using NpgsqlCommand pgcom = new(_insertSql, existingConnection);
 
@@ -103,7 +93,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <inheritdoc/>
         public async Task Delete(Guid instanceId)
         {
-            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
+            await using NpgsqlCommand pgcom = dataSource.CreateCommand(_deleteSql);
             pgcom.Parameters.AddWithValue("_instanceid", NpgsqlDbType.Uuid, instanceId);
             await pgcom.ExecuteNonQueryAsync();
         }
@@ -112,7 +102,7 @@ namespace Altinn.Platform.Storage.Repository
         public async Task<List<SyncInstanceToDialogportenCommand>> Poll(int maxRows)
         {
             List<SyncInstanceToDialogportenCommand> dps = [];
-            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_pollSql);
+            await using NpgsqlCommand pgcom = dataSource.CreateCommand(_pollSql);
 
             pgcom.Parameters.AddWithValue("_maxrows", NpgsqlDbType.Integer, maxRows);
 
@@ -138,7 +128,7 @@ namespace Altinn.Platform.Storage.Repository
         {
             try
             {
-                await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_acquireLeaseSql);
+                await using NpgsqlCommand pgcom = dataSource.CreateCommand(_acquireLeaseSql);
                 pgcom.Parameters.AddWithValue("_resource", NpgsqlDbType.Text, resource);
                 pgcom.Parameters.AddWithValue("_holder", NpgsqlDbType.Uuid, holder);
                 pgcom.Parameters.AddWithValue("_expiresAt", NpgsqlDbType.TimestampTz, leaseExpires);
@@ -157,7 +147,7 @@ namespace Altinn.Platform.Storage.Repository
         {
             try
             {
-                await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_renewLeaseSql);
+                await using NpgsqlCommand pgcom = dataSource.CreateCommand(_renewLeaseSql);
                 pgcom.Parameters.AddWithValue("_resource", NpgsqlDbType.Text, resource);
                 pgcom.Parameters.AddWithValue("_holder", NpgsqlDbType.Uuid, holder);
                 pgcom.Parameters.AddWithValue("_expiresAt", NpgsqlDbType.TimestampTz, leaseExpires);
@@ -176,7 +166,7 @@ namespace Altinn.Platform.Storage.Repository
         {
             try
             {
-                await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_releaseLeaseSql);
+                await using NpgsqlCommand pgcom = dataSource.CreateCommand(_releaseLeaseSql);
                 pgcom.Parameters.AddWithValue("_resource", NpgsqlDbType.Text, resource);
                 pgcom.Parameters.AddWithValue("_holder", NpgsqlDbType.Uuid, holder);
 
