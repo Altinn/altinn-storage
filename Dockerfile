@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:9.0.305-alpine3.22@sha256:c802e10f4676d89b4d0bc636ffded77a7a1d17359544764a62705146743b8ca0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:9.0.305-alpine3.22@sha256:306ad935d9543becc91b59b61c20e6fecba6faed34e975fbcb378caa185e8b85 AS build
 
 COPY src/Storage ./Storage
 COPY src/DbTools ./DbTools
