@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Messages;
 using Microsoft.Extensions.Options;
@@ -209,7 +210,7 @@ namespace Altinn.Platform.Storage.Repository
                     instanceId,
                     (DateTime)instance.Created,
                     false,
-                    Interface.Enums.InstanceEventType.Created);
+                    InstanceEventType.Created);
                 await outboxRepository.Insert(instanceUpdateCommand, connection);
             }
 
