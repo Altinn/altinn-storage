@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.Platform.Storage.Repository
 {
@@ -64,7 +65,7 @@ namespace Altinn.Platform.Storage.Repository
         /// <summary>
         /// Update an a1/a2 migration state
         /// </summary>
-        Task UpdateCompleteMigrationState(string instanceGuid);
+        Task UpdateCompleteMigrationState(Instance instance);
 
         /// <summary>
         /// Delete an a1/a2 migration state
