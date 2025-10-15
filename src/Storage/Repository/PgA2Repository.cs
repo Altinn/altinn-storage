@@ -20,7 +20,7 @@ namespace Altinn.Platform.Storage.Repository
     /// </remarks>
     /// <param name="dataSource">The npgsql data source.</param>
     /// <param name="outboxRepository">The outbox repository.</param>
-    /// <param name="wolverineSettings">Wolvering settings</param>
+    /// <param name="wolverineSettings">Wolverine settings</param>
     public class PgA2Repository(NpgsqlDataSource dataSource, IOutboxRepository outboxRepository, IOptions<WolverineSettings> wolverineSettings) : IA2Repository
     {
         private static readonly string _readXslSql = "select * from storage.reada2xsls (@_org, @_app, @_lformid, @_language, @_xsltype)";
@@ -209,7 +209,7 @@ namespace Altinn.Platform.Storage.Repository
                     instance.InstanceOwner.PartyId,
                     instanceId,
                     (DateTime)instance.Created,
-                    false,
+                    true,
                     InstanceEventType.Created);
                 await outboxRepository.Insert(instanceUpdateCommand, connection);
             }
