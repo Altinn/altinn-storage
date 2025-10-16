@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [ 'csharp' ]
+        language: [ 'csharp', 'actions' ]
 
     steps:
     - name: Checkout repository
@@ -50,3 +50,5 @@ jobs:
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@755f44910c12a3d7ca0d8c6e42c048b3362f7cec # v3.30.8
+      with:
+        category: "/language:${{matrix.language}}"
