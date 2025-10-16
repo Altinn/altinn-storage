@@ -76,10 +76,13 @@ jobs:
         ENVIRONMENT: ${{ inputs.environment }}
       if: failure()
       run: |
-
-          report=":warning: Storage regression test failure in $ENVIRONMENT :warning: \n"
-          report+="\n Workflow available here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          echo "stepreport="$report >> $GITHUB_ENV
+        UUID=$(uuidgen)
+        {
+          echo "stepreport<<EOF$UUID"
+          echo ":warning: Storage regression test failure in $ENVIRONMENT :warning: \n \n"
+          echo "Workflow available here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "EOF$UUID"
+        } >> "$GITHUB_ENV"
     - name: Report failure to Slack
       if: failure()
       id: slack
