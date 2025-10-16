@@ -2,6 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Interface.Enums;
+using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Messages;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -14,8 +19,9 @@ namespace Altinn.Platform.Storage.Repository
     /// Initializes a new instance of the <see cref="PgA2Repository"/> class.
     /// </remarks>
     /// <param name="dataSource">The npgsql data source.</param>
-    public class PgA2Repository(
-        NpgsqlDataSource dataSource) : IA2Repository
+    /// <param name="outboxRepository">The outbox repository.</param>
+    /// <param name="wolverineSettings">Wolverine settings</param>
+    public class PgA2Repository(NpgsqlDataSource dataSource, IOutboxRepository outboxRepository, IOptions<WolverineSettings> wolverineSettings) : IA2Repository
     {
         private static readonly string _readXslSql = "select * from storage.reada2xsls (@_org, @_app, @_lformid, @_language, @_xsltype)";
         private static readonly string _insertXslSql = "call storage.inserta2xsl (@_org, @_app, @_lformid, @_language, @_pagenumber, @_xsl, @_xsltype, @_isportrait)";
@@ -186,12 +192,29 @@ namespace Altinn.Platform.Storage.Repository
         }
 
         /// <inheritdoc/>
-        public async Task UpdateCompleteMigrationState(string instanceGuid)
+        public async Task UpdateCompleteMigrationState(Instance instance)
         {
-            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateMigrationStateCompletedSql);
-            pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, new Guid(instanceGuid));
+            string instanceId = instance.Id.Split('/')[^1];
+            await using var connection = await _dataSource.OpenConnectionAsync();
+            await using var tx = await connection.BeginTransactionAsync();
+            await using NpgsqlCommand pgcom = new(_updateMigrationStateCompletedSql, connection);
+            pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, new Guid(instanceId));
 
             await pgcom.ExecuteNonQueryAsync();
+
+            if (wolverineSettings.Value.EnableSending && wolverineSettings.Value.EnableA2Migration)
+            {
+                SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
+                    instance.AppId,
+                    instance.InstanceOwner.PartyId,
+                    instanceId,
+                    (DateTime)instance.Created,
+                    true,
+                    InstanceEventType.Created);
+                await outboxRepository.Insert(instanceUpdateCommand, connection);
+            }
+
+            await tx.CommitAsync();
         }
 
         /// <inheritdoc/>

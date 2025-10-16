@@ -59,5 +59,10 @@ namespace Altinn.Platform.Storage.Configuration
         /// The interval to batch up urgent messages before sending them.
         /// </summary>
         public int UrgentPriorityDelaySecs { get; set; } = 0;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether A2 migration is enabled.
+        /// </summary>
+        public bool EnableA2Migration { get; set; } = false;
     }
 }
