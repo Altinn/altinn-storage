@@ -202,7 +202,7 @@ namespace Altinn.Platform.Storage.Repository
 
             await pgcom.ExecuteNonQueryAsync();
 
-            if (wolverineSettings.Value.EnableSending)
+            if (wolverineSettings.Value.EnableSending && wolverineSettings.Value.EnableA2Migration)
             {
                 SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
                     instance.AppId,
