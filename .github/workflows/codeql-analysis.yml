@@ -1,17 +1,17 @@
-name: "CodeQL"
+name: 'CodeQL'
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
-    - 'src/**'
-    - '.github/workflows/**'
+      - 'src/**'
+      - '.github/workflows/**'
   pull_request:
-    branches: [ main ]
+    branches: [main]
     types: [opened, synchronize, reopened]
     paths:
-    - 'src/**'
-    - '.github/workflows/**'
+      - 'src/**'
+      - '.github/workflows/**'
   schedule:
     - cron: '18 22 * * 3'
 
@@ -27,28 +27,28 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [ 'csharp', 'actions' ]
+        language: ['csharp', 'actions']
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-    - name: Setup .NET
-      uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
-      with:
-        dotnet-version: |
-          9.0.x
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@755f44910c12a3d7ca0d8c6e42c048b3362f7cec # v3.30.8
-      with:
-        languages: ${{ matrix.language }}
-        # If you wish to specify custom queries, you can do so here or in a config file.
-        # By default, queries listed here will override any specified in a config file.
-        # Prefix the list here with "+" to use these queries and those in the config file.
-        # queries: ./path/to/local/query, your-org/your-repo/queries@main
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@755f44910c12a3d7ca0d8c6e42c048b3362f7cec # v3.30.8
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: Setup .NET
+        uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
+        with:
+          dotnet-version: |
+            9.0.x
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@755f44910c12a3d7ca0d8c6e42c048b3362f7cec # v3.30.8
+        with:
+          languages: ${{ matrix.language }}
+          # If you wish to specify custom queries, you can do so here or in a config file.
+          # By default, queries listed here will override any specified in a config file.
+          # Prefix the list here with "+" to use these queries and those in the config file.
+          # queries: ./path/to/local/query, your-org/your-repo/queries@main
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@755f44910c12a3d7ca0d8c6e42c048b3362f7cec # v3.30.8
 
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@755f44910c12a3d7ca0d8c6e42c048b3362f7cec # v3.30.8
-      with:
-        category: "/language:${{matrix.language}}"
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@755f44910c12a3d7ca0d8c6e42c048b3362f7cec # v3.30.8
+        with:
+          category: '/language:${{matrix.language}}'
