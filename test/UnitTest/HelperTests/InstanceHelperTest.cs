@@ -540,6 +540,50 @@ namespace Altinn.Platform.Storage.UnitTest
             Assert.Equal("test.event", actual.EventType);
         }
 
+        /// <summary>
+        /// Replaces text keys, appName key is available, should be used as Title
+        /// </summary>
+        [Fact]
+        public void ReplaceTextKeys_EmptyResourceEntry_HandledGracefully()
+        {
+            // Arrange
+            List<MessageBoxInstance> instances =
+            [
+                new MessageBoxInstance
+                {
+                    Org = "ttd",
+                    AppName = "test-app"
+                },
+            ];
+
+            List<TextResource> textResources = [];
+            List<TextResourceElement> textResource =
+            [
+                new TextResourceElement
+                {
+                    Id = null,
+                    Value = null,
+                },
+                new TextResourceElement
+                {
+                    Id = "appName",
+                    Value = "ValueFromAppNameKey",
+                },
+            ];
+
+            textResources.Add(new TextResource
+            {
+                Id = "ttd-test-app-nb",
+                Resources = textResource
+            });
+
+            // Act
+            instances = InstanceHelper.ReplaceTextKeys(instances, textResources, "nb");
+
+            // Assert
+            Assert.Equal("ValueFromAppNameKey", instances[0].Title);
+        }
+
         [Theory]
         [InlineData(null, "", "")]
         [InlineData("", "", "")]
