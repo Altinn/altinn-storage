@@ -184,8 +184,8 @@ namespace Altinn.Platform.Storage.Helpers
             {
                 string id = $"{instance.Org}-{instance.AppName}-{language}";
                 string appTitle =
-                    textResources.Find(t => t.Id.Equals(id))?.Resources.Where(r => r.Id.Equals("appName")).Select(r => r.Value).FirstOrDefault() ??
-                    textResources.Find(t => t.Id.Equals(id))?.Resources.Where(r => r.Id.Equals("ServiceName")).Select(r => r.Value).FirstOrDefault();
+                    textResources.Find(t => t.Id.Equals(id))?.Resources.Where(r => r.Id != null && r.Id.Equals("appName")).Select(r => r.Value).FirstOrDefault() ??
+                    textResources.Find(t => t.Id.Equals(id))?.Resources.Where(r => r.Id != null && r.Id.Equals("ServiceName")).Select(r => r.Value).FirstOrDefault();
                 instance.Title = appTitle ?? instance.AppName;
 
                 if (!string.IsNullOrWhiteSpace(instance.PresentationText))
