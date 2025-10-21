@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
@@ -552,7 +551,12 @@ namespace Altinn.Platform.Storage.UnitTest
                 new MessageBoxInstance
                 {
                     Org = "ttd",
-                    AppName = "test-app"
+                    AppName = "test-app",
+                    Substatus = new Helpers.Substatus()
+                    {
+                        Label = "someLabel",
+                        Description = "someDescription"
+                    }
                 },
             ];
 
@@ -582,6 +586,8 @@ namespace Altinn.Platform.Storage.UnitTest
 
             // Assert
             Assert.Equal("ValueFromAppNameKey", instances[0].Title);
+            Assert.Equal("someLabel", instances[0].Substatus.Label);
+            Assert.Equal("someDescription", instances[0].Substatus.Description);
         }
 
         [Theory]
