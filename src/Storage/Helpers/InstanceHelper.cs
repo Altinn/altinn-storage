@@ -196,12 +196,12 @@ namespace Altinn.Platform.Storage.Helpers
 
                 if (instance.Substatus?.Label != null)
                 {
-                    instance.Substatus.Label = textResources.Find(t => t.Id.Equals(id))?.Resources.Where(r => r.Id.Equals(instance.Substatus.Label)).Select(r => r.Value).FirstOrDefault() ?? instance.Substatus.Label;
+                    instance.Substatus.Label = textResources.Find(t => t.Id.Equals(id))?.Resources.Where(r => r.Id != null && r.Id.Equals(instance.Substatus.Label)).Select(r => r.Value).FirstOrDefault() ?? instance.Substatus.Label;
                 }
 
                 if (instance.Substatus?.Description != null)
                 {
-                    instance.Substatus.Description = textResources.Find(t => t.Id.Equals(id))?.Resources.Where(r => r.Id.Equals(instance.Substatus.Description)).Select(r => r.Value).FirstOrDefault() ?? instance.Substatus.Description;
+                    instance.Substatus.Description = textResources.Find(t => t.Id.Equals(id))?.Resources.Where(r => r.Id != null && r.Id.Equals(instance.Substatus.Description)).Select(r => r.Value).FirstOrDefault() ?? instance.Substatus.Description;
                 }
             }
 
