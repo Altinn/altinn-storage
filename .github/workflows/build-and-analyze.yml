@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
      postgres:
-       image: postgres:16@sha256:fb9aa6d07b0fe53e94e8470977f316d1cdb39b8cdb33c45279ff0bbe32067c25
+       image: postgres:16@sha256:f554b7e953b6fc0f72fe2b34e34f935f7ecc4f5bab9d1006467b30bfc6fc7ea1
        env:
          PGHOST: localhost
          POSTGRES_USER: platform_storage_admin
