@@ -121,47 +121,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         }
 
-        [Fact]
-        public async Task Post_CreateNewEventWithWolverineEnabled_ReturnsCreated()
-        {
-            // Arrange
-            string requestUri = "storage/api/v1/instances/1337/3c42ee2a-9464-42a8-a976-16eb926bd20a/events/";
-
-            Mock<IMessageBus> messageBusMock = new();
-            SyncInstanceToDialogportenCommand savedCommand = null; // To be set properly by mock callback
-
-            messageBusMock
-                .Setup(s => s.PublishAsync(It.IsAny<SyncInstanceToDialogportenCommand>(), null))
-                .Callback<SyncInstanceToDialogportenCommand, DeliveryOptions>((cmd, opt) => savedCommand = cmd)
-                .Returns(ValueTask.CompletedTask);
-
-            HttpClient client = GetTestClient(messageBusMock, enableWolverine: true);
-            string token = PrincipalUtil.GetToken(3, 1337);
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-            InstanceEvent instance = new InstanceEvent
-            {
-                InstanceId = "3c42ee2a-9464-42a8-a976-16eb926bd20a"
-            };
-
-            var expectedCreated = DateTime.Parse("2019-07-31T09:57:23.4729995Z", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
-
-            // Act
-            JsonContent content = JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"));
-            HttpResponseMessage response = await client.PostAsync(requestUri, content);
-
-            // Assert
-            messageBusMock.VerifyAll();
-            
-            Assert.Equal("tdd/endring-av-navn", savedCommand.AppId);
-            Assert.Equal("1337", savedCommand.PartyId);
-            Assert.Equal("20475edd-dc38-4ae0-bd64-1b20643f506c", savedCommand.InstanceId);
-            Assert.Equal(expectedCreated, savedCommand.InstanceCreatedAt);
-            Assert.False(savedCommand.IsMigration);
-
-            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        }
-
         /// <summary>
         /// Test case: User has to low authentication level. 
         /// Expected: Returns status forbidden.

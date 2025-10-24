@@ -290,10 +290,12 @@ namespace Altinn.Platform.Storage.Controllers
             {
                 foreach (var instanceEvent in instanceEvents.Where(ie => !string.IsNullOrEmpty(ie.EventType)))
                 {
-                    await _instanceEventRepository.InsertInstanceEvent(instanceEvent);
+                    await _instanceEventRepository.InsertInstanceEvent(instanceEvent, null);
                 }
 
-                await _a2Repository.UpdateCompleteMigrationState(instanceEvents[0].InstanceId);
+                (Instance instance, _) = await _instanceRepository.GetOne(new Guid(instanceEvents[0].InstanceId), false, CancellationToken.None);
+
+                await _a2Repository.UpdateCompleteMigrationState(instance);
                 return Created();
             }
             catch (Exception storageException)
@@ -526,7 +528,7 @@ namespace Altinn.Platform.Storage.Controllers
                 return false;
             }
 
-            Application app = await _applicationRepository.FindOne(instance.AppId, instance.Org);
+            Application app = await _applicationRepository.FindOne(instance.AppId, instance.Org, cancellationToken);
 
             if (_generalSettings.A2UseTtdAsServiceOwner)
             {

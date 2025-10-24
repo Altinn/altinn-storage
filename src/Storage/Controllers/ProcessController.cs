@@ -35,9 +35,6 @@ namespace Altinn.Platform.Storage.Controllers
         private readonly string _storageBaseAndHost;
         private readonly IAuthorization _authorizationService;
         private readonly IInstanceEventService _instanceEventService;
-        private readonly IMessageBus _messageBus;
-        private readonly WolverineSettings _wolverineSettings;
-        private readonly ILogger _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ProcessController"/> class
@@ -48,19 +45,13 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="generalsettings">the general settings</param>
         /// <param name="authorizationService">the authorization service</param>
         /// <param name="instanceEventService">the instance event service</param>
-        /// <param name="messageBus">Wolverines abstraction for sending messages</param>
-        /// <param name="wolverineSettings">Wolverine settings</param>
-        /// <param name="logger">the logger</param>
         public ProcessController(
             IInstanceRepository instanceRepository,
             IInstanceEventRepository instanceEventRepository,
             IInstanceAndEventsRepository instanceAndEventsRepository,
             IOptions<GeneralSettings> generalsettings,
             IAuthorization authorizationService,
-            IInstanceEventService instanceEventService,
-            IMessageBus messageBus,
-            IOptions<WolverineSettings> wolverineSettings,
-            ILogger<ProcessController> logger)
+            IInstanceEventService instanceEventService)
         {
             _instanceRepository = instanceRepository;
             _instanceEventRepository = instanceEventRepository;
@@ -68,9 +59,6 @@ namespace Altinn.Platform.Storage.Controllers
             _storageBaseAndHost = $"{generalsettings.Value.Hostname}/storage/api/v1/";
             _authorizationService = authorizationService;
             _instanceEventService = instanceEventService;
-            _messageBus = messageBus;
-            _wolverineSettings = wolverineSettings.Value;
-            _logger = logger;
         }
 
         /// <summary>
@@ -180,26 +168,6 @@ namespace Altinn.Platform.Storage.Controllers
             }
 
             Instance updatedInstance = await _instanceAndEventsRepository.Update(existingInstance, updateProperties, processStateUpdate.Events, cancellationToken);
-
-            if (_wolverineSettings.EnableSending)
-            {
-                try
-                {
-                    using Activity? activity = Activity.Current?.Source.StartActivity("WolverineIEs");
-                    SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
-                        updatedInstance.AppId,
-                        updatedInstance.InstanceOwner.PartyId,
-                        updatedInstance.Id.Split("/")[1],
-                        updatedInstance.Created!.Value,
-                        false);
-                    await _messageBus.PublishAsync(instanceUpdateCommand);
-                }
-                catch (Exception ex)
-                {
-                    // Log the error but do not return an error to the user
-                    _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", updatedInstance.Id);
-                }
-            }
 
             updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
             return Ok(updatedInstance);
@@ -331,7 +299,7 @@ namespace Altinn.Platform.Storage.Controllers
             return taskType switch
             {
                 null => [],
-                "data" or "feedback" => ["write"],
+                "data" or "feedback" or "pdf" or "eFormidling" => ["write"],
                 "payment" => ["pay", "write"],
                 "confirmation" => ["confirm"],
                 "signing" => ["sign", "write"],

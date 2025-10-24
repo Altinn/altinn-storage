@@ -1,20 +1,16 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
-using Altinn.Platform.Storage.Messages;
 using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Wolverine;
 
 namespace Altinn.Platform.Storage.Controllers
 {
@@ -27,25 +23,19 @@ namespace Altinn.Platform.Storage.Controllers
     {
         private readonly IInstanceRepository _instanceRepository;
         private readonly IInstanceEventRepository _repository;
-        private readonly IMessageBus _messageBus;
         private readonly WolverineSettings _wolverineSettings;
-        private readonly ILogger _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="InstanceEventsController"/> class
         /// </summary>
         /// <param name="instanceRepository">the instance repository handler</param>
         /// <param name="instanceEventRepository">the instance event repository handler</param>
-        /// <param name="messageBus">Wolverines abstraction for sending messages</param>
         /// <param name="wolverineSettings">Wolverine settings</param>
-        /// <param name="logger">The logger</param>
-        public InstanceEventsController(IInstanceRepository instanceRepository, IInstanceEventRepository instanceEventRepository, IMessageBus messageBus, IOptions<WolverineSettings> wolverineSettings, ILogger<InstanceEventsController> logger)
+        public InstanceEventsController(IInstanceRepository instanceRepository, IInstanceEventRepository instanceEventRepository, IOptions<WolverineSettings> wolverineSettings)
         {
             _instanceRepository = instanceRepository;
             _repository = instanceEventRepository;
-            _messageBus = messageBus;
             _wolverineSettings = wolverineSettings.Value;
-            _logger = logger;
         }
 
         /// <summary>
@@ -70,33 +60,18 @@ namespace Altinn.Platform.Storage.Controllers
             
             instanceEvent.Created = instanceEvent.Created?.ToUniversalTime() ?? DateTime.UtcNow;
 
-            InstanceEvent result = await _repository.InsertInstanceEvent(instanceEvent);
+            Instance? instance = null;
+            if (_wolverineSettings.EnableSending)
+            {
+                (instance, _) = await _instanceRepository.GetOne(instanceGuid, false, CancellationToken.None);
+            }
+
+            InstanceEvent result = await _repository.InsertInstanceEvent(instanceEvent, instance);
             if (result == null)
             {
                 return BadRequest("Unable to write new instance event to database");
             }
 
-            if (_wolverineSettings.EnableSending)
-            { 
-                try
-                {
-                    using Activity? activity = Activity.Current?.Source.StartActivity("WolverineIE");
-                    (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false, CancellationToken.None);
-                    SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
-                        instance.AppId,
-                        instance.InstanceOwner.PartyId,
-                        instance.Id.Split("/")[1],
-                        instance.Created!.Value,
-                        false);
-                    await _messageBus.PublishAsync(instanceUpdateCommand);
-                }
-                catch (Exception ex)
-                {
-                    // Log the error but do not return an error to the user
-                    _logger.LogError(ex, "Failed to publish instance update command for instance {InstanceId}", instanceGuid);
-                }
-            }
-            
             return Created(result.Id.ToString(), result);
         }
 

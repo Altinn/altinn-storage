@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
-
 using Altinn.Common.AccessToken;
 using Altinn.Common.AccessToken.Configuration;
 using Altinn.Common.AccessToken.Services;
@@ -13,7 +12,6 @@ using Altinn.Common.PEP.Clients;
 using Altinn.Common.PEP.Configuration;
 using Altinn.Common.PEP.Implementation;
 using Altinn.Common.PEP.Interfaces;
-
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
@@ -25,13 +23,10 @@ using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.Telemetry;
 using Altinn.Platform.Storage.Wrappers;
-
 using AltinnCore.Authentication.JwtCookie;
-
 using Azure.Identity;
 using Azure.Monitor.OpenTelemetry.Exporter;
 using Azure.Security.KeyVault.Secrets;
-using JasperFx.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -42,16 +37,13 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-
 using Npgsql;
-
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Wolverine;
 using Wolverine.AzureServiceBus;
-using Wolverine.Postgresql;
 using Yuniql.AspNetCore;
 using Yuniql.PostgreSql;
 
@@ -345,6 +337,8 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
         }
     });
     services.AddSwaggerGenNewtonsoftSupport();
+
+    builder.Services.AddHostedService<OutboxService>();
 }
 
 void ConfigureWolverine(IServiceCollection services, IConfiguration config)
@@ -366,12 +360,7 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
                 {
                     s.CustomizeOutgoingMessagesOfType<SyncInstanceToDialogportenCommand>((envelope, cmd) =>
                     {
-                        // Set a deterministic MessageId for SyncInstanceToDialogportenCommand messages, and
-                        // deliver them at the end of a time bucket.
-                        var (id, bucketEndUtc) = DebounceHelper.TimeBucketId(cmd.InstanceId, 5.Seconds(), DateTimeOffset.UtcNow);
-
-                        envelope.Id = id;
-                        envelope.ScheduledTime = bucketEndUtc;
+                        envelope.Id = Guid.NewGuid();
                     });
                 })
 
@@ -380,20 +369,7 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
 
             // Publish CreateOrderCommand to ASB queue
             opts.PublishMessage<SyncInstanceToDialogportenCommand>()
-                .ToAzureServiceBusQueue("altinn.dialogportenadapter.webapi")
-                .ConfigureQueue(q =>
-                {
-                    // NOTE! This can ONLY be set at queue creation time
-                    q.RequiresDuplicateDetection = true;
-
-                    // 20 seconds is the minimum allowed by ASB duplicate detection according to
-                    // https://learn.microsoft.com/en-us/azure/service-bus-messaging/duplicate-detection#duplicate-detection-window-size
-                    q.DuplicateDetectionHistoryTimeWindow = TimeSpan.FromSeconds(20);
-                });
-
-            // Outbox with Postgres
-            opts.PersistMessagesWithPostgresql(wolverineSettings.PostgresConnectionString, schemaName: "wolverine");
-            opts.Policies.UseDurableOutboxOnAllSendingEndpoints();
+                .ToAzureServiceBusQueue("altinn.dialogportenadapter.webapi");
         }
         else
         {

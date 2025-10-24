@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
      postgres:
-       image: postgres:16@sha256:b477759d38be47671d54a054d832791f8ddb9f0eaf6faf51ed17516087793a66
+       image: postgres:16@sha256:f554b7e953b6fc0f72fe2b34e34f935f7ecc4f5bab9d1006467b30bfc6fc7ea1
        env:
          PGHOST: localhost
          POSTGRES_USER: platform_storage_admin
@@ -42,7 +42,7 @@ jobs:
           dotnet-version: |
             9.0.x
       - name: Set up Java
-        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v5.0.0
         with:
           distribution: 'temurin'
           java-version: 17

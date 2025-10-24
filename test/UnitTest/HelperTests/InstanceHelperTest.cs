@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
@@ -538,6 +537,57 @@ namespace Altinn.Platform.Storage.UnitTest
             Assert.Equal("64f6d272-3700-4616-beea-931361d10fc8", actual.Id.ToString());
             Assert.Equal(1337, actual.User.UserId);
             Assert.Equal("test.event", actual.EventType);
+        }
+
+        /// <summary>
+        /// Replaces text keys, appName key is available, should be used as Title
+        /// </summary>
+        [Fact]
+        public void ReplaceTextKeys_EmptyResourceEntry_HandledGracefully()
+        {
+            // Arrange
+            List<MessageBoxInstance> instances =
+            [
+                new MessageBoxInstance
+                {
+                    Org = "ttd",
+                    AppName = "test-app",
+                    Substatus = new Helpers.Substatus()
+                    {
+                        Label = "someLabel",
+                        Description = "someDescription"
+                    }
+                },
+            ];
+
+            List<TextResource> textResources = [];
+            List<TextResourceElement> textResource =
+            [
+                new TextResourceElement
+                {
+                    Id = null,
+                    Value = null,
+                },
+                new TextResourceElement
+                {
+                    Id = "appName",
+                    Value = "ValueFromAppNameKey",
+                },
+            ];
+
+            textResources.Add(new TextResource
+            {
+                Id = "ttd-test-app-nb",
+                Resources = textResource
+            });
+
+            // Act
+            instances = InstanceHelper.ReplaceTextKeys(instances, textResources, "nb");
+
+            // Assert
+            Assert.Equal("ValueFromAppNameKey", instances[0].Title);
+            Assert.Equal("someLabel", instances[0].Substatus.Label);
+            Assert.Equal("someDescription", instances[0].Substatus.Description);
         }
 
         [Theory]
