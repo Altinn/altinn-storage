@@ -6,7 +6,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
-using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Models;
@@ -14,7 +13,6 @@ using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -27,31 +25,21 @@ namespace Altinn.Platform.Storage.Controllers
     [ApiController]
     public class StudioInstancesController : ControllerBase
     {
-        private readonly GeneralSettings _generalSettings;
         private readonly IInstanceRepository _instanceRepository;
-        private readonly IAuthorization _authorizationService;
-        private readonly IHostEnvironment _hostEnvironment;
+        private readonly GeneralSettings _generalSettings;
         private readonly ILogger _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="StudioInstancesController"/> class
         /// </summary>
-        /// <param name="settings">the general settings.</param>
-        /// <param name="instanceRepository">the instance repository handler</param>
-        /// <param name="authorizationService">the authorization service</param>
-        /// <param name="hostEnvironment">the host environment</param>
-        /// <param name="logger">The logger</param>
         public StudioInstancesController(
-            IOptions<GeneralSettings> settings,
             IInstanceRepository instanceRepository,
-            IAuthorization authorizationService,
-            IHostEnvironment hostEnvironment,
-            ILogger<StudioInstancesController> logger)
+            IOptions<GeneralSettings> generalSettings,
+            ILogger<StudioInstancesController> logger
+        )
         {
-            _generalSettings = settings.Value;
             _instanceRepository = instanceRepository;
-            _authorizationService = authorizationService;
-            _hostEnvironment = hostEnvironment;
+            _generalSettings = generalSettings.Value;
             _logger = logger;
         }
 
@@ -61,42 +49,30 @@ namespace Altinn.Platform.Storage.Controllers
         /// <param name="parameters">The parameters to retrieve instance data.</param>
         /// <param name="ct">CancellationToken</param>
         /// <returns>A <seealso cref="List{T}"/> contains all instances for given instance owner.</returns>
-        [Authorize]
+        [Authorize(Policy = AuthzConstants.POLICY_STUDIO_DESIGNER)]
         [HttpGet("{org}/{app}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [Produces("application/json")]
         public async Task<ActionResult<QueryResponse<SimpleInstance>>> GetInstances(
             StudioInstanceParameters parameters,
-            CancellationToken ct)
+            CancellationToken ct
+        )
         {
-            // This API is experimental and should not be available in production yet.
-            if (_hostEnvironment.IsProduction())
+            // This API is experimental and should not be available in production or other service owners yet.
+            if (
+                !_generalSettings.Hostname.Contains(
+                    "tt02",
+                    StringComparison.InvariantCultureIgnoreCase
+                ) || !parameters.Org.Equals("ttd", StringComparison.InvariantCultureIgnoreCase)
+            )
             {
                 return NotFound();
-            }
-
-            var orgClaim = User?.GetOrg();
-
-            // This API is experimental and should not be available to other service owners yet
-            if (string.IsNullOrEmpty(orgClaim) || !orgClaim.Equals("ttd", StringComparison.InvariantCultureIgnoreCase))
-            {
-                return Forbid();
-            }
-
-            if (!_authorizationService.UserHasRequiredScope(_generalSettings.InstanceReadScope))
-            {
-                return Forbid();
             }
 
             if (string.IsNullOrEmpty(parameters.Org) || string.IsNullOrEmpty(parameters.App))
             {
                 return BadRequest("Org and App must be defined.");
-            }
-
-            if (!orgClaim.Equals(parameters.Org, StringComparison.InvariantCultureIgnoreCase))
-            {
-                return Forbid();
             }
 
             if (!string.IsNullOrEmpty(parameters.ContinuationToken))
@@ -111,13 +87,15 @@ namespace Altinn.Platform.Storage.Controllers
                 InstanceQueryResponse result = await _instanceRepository.GetInstancesFromQuery(
                     parameters.ToInstanceQueryParameters(),
                     false,
-                    ct);
+                    ct
+                );
 
                 if (!string.IsNullOrEmpty(result.Exception))
                 {
                     _logger.LogError(
                         "Unable to perform query on instances: {Exception}",
-                        result.Exception);
+                        result.Exception
+                    );
                     return StatusCode(ct.IsCancellationRequested ? 499 : 500, result.Exception);
                 }
 
@@ -125,9 +103,8 @@ namespace Altinn.Platform.Storage.Controllers
 
                 QueryResponse<SimpleInstance> response = new()
                 {
-                    Instances = result
-                        .Instances?.Select(SimpleInstance.FromInstance)
-                        .ToList() ?? new(),
+                    Instances =
+                        result.Instances?.Select(SimpleInstance.FromInstance).ToList() ?? new(),
                     Count = result.Instances?.Count ?? 0,
                     Next = nextContinuationToken,
                 };
@@ -139,7 +116,8 @@ namespace Altinn.Platform.Storage.Controllers
                 _logger.LogError(e, "Unable to perform query on instances");
                 return StatusCode(
                     ct.IsCancellationRequested ? 499 : 500,
-                    $"Unable to perform query on instances due to: {e.Message}");
+                    $"Unable to perform query on instances due to: {e.Message}"
+                );
             }
         }
     }
