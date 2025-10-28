@@ -501,6 +501,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
         [InlineData("feedback", new[] { "write" })]
         [InlineData("pdf", new[] { "write" })]
         [InlineData("eFormidling", new[] { "write" })]
+        [InlineData("fiksArkiv", new[] { "write" })]
         [InlineData("payment", new[] { "pay", "write" })]
         [InlineData("confirmation", new[] { "confirm" })]
         [InlineData("signing", new[] { "sign", "write" })]
