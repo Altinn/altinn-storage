@@ -35,8 +35,7 @@ namespace Altinn.Platform.Storage.Controllers
         public StudioInstancesController(
             IInstanceRepository instanceRepository,
             IOptions<GeneralSettings> generalSettings,
-            ILogger<StudioInstancesController> logger
-        )
+            ILogger<StudioInstancesController> logger)
         {
             _instanceRepository = instanceRepository;
             _generalSettings = generalSettings.Value;
@@ -56,16 +55,14 @@ namespace Altinn.Platform.Storage.Controllers
         [Produces("application/json")]
         public async Task<ActionResult<QueryResponse<SimpleInstance>>> GetInstances(
             StudioInstanceParameters parameters,
-            CancellationToken ct
-        )
+            CancellationToken ct)
         {
             // This API is experimental and should not be available in production or other service owners yet.
             if (
                 !_generalSettings.Hostname.Contains(
                     "tt02",
-                    StringComparison.InvariantCultureIgnoreCase
-                ) || !parameters.Org.Equals("ttd", StringComparison.InvariantCultureIgnoreCase)
-            )
+                    StringComparison.InvariantCultureIgnoreCase) 
+                || !parameters.Org.Equals("ttd", StringComparison.InvariantCultureIgnoreCase))
             {
                 return NotFound();
             }
@@ -87,15 +84,13 @@ namespace Altinn.Platform.Storage.Controllers
                 InstanceQueryResponse result = await _instanceRepository.GetInstancesFromQuery(
                     parameters.ToInstanceQueryParameters(),
                     false,
-                    ct
-                );
+                    ct);
 
                 if (!string.IsNullOrEmpty(result.Exception))
                 {
                     _logger.LogError(
                         "Unable to perform query on instances: {Exception}",
-                        result.Exception
-                    );
+                        result.Exception);
                     return StatusCode(ct.IsCancellationRequested ? 499 : 500, result.Exception);
                 }
 
@@ -116,8 +111,7 @@ namespace Altinn.Platform.Storage.Controllers
                 _logger.LogError(e, "Unable to perform query on instances");
                 return StatusCode(
                     ct.IsCancellationRequested ? 499 : 500,
-                    $"Unable to perform query on instances due to: {e.Message}"
-                );
+                    $"Unable to perform query on instances due to: {e.Message}");
             }
         }
     }
