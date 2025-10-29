@@ -208,7 +208,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers
                     new GeneralSettings
                     {
                         Hostname = "tt02.altinn.no",
-                    });
+                        StudioInstancesOrgWhiteList = new() { "ttd" },
+                    }
+                );
             }
 
             var client = _factory.WithWebHostBuilder(builder =>

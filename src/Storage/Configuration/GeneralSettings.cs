@@ -98,5 +98,10 @@ namespace Altinn.Platform.Storage.Configuration
         /// Gets or sets whether to use sign as an action when authorizing A2 search requests.
         /// </summary>
         public bool AuthorizeA2ListInstancesSign { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets which orgs can access instances through Altinn Studio.
+        /// </summary>
+        public List<string> StudioInstancesOrgWhiteList { get; set; }
     }
 }

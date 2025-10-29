@@ -62,7 +62,7 @@ namespace Altinn.Platform.Storage.Controllers
                 !_generalSettings.Hostname.Contains(
                     "tt02",
                     StringComparison.InvariantCultureIgnoreCase) 
-                || !parameters.Org.Equals("ttd", StringComparison.InvariantCultureIgnoreCase))
+                || !_generalSettings.StudioInstancesOrgWhiteList.Contains(parameters.Org))
             {
                 return NotFound();
             }
