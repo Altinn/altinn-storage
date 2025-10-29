@@ -102,6 +102,6 @@ namespace Altinn.Platform.Storage.Configuration
         /// <summary>
         /// Gets or sets which orgs can access instances through Altinn Studio.
         /// </summary>
-        public List<string> StudioInstancesOrgWhiteList { get; set; }
+        public List<string> StudioInstancesOrgWhiteList { get; set; } = new();
     }
 }
