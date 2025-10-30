@@ -299,7 +299,7 @@ namespace Altinn.Platform.Storage.Controllers
             return taskType switch
             {
                 null => [],
-                "data" or "feedback" or "pdf" or "eFormidling" => ["write"],
+                "data" or "feedback" or "pdf" or "eFormidling" or "fiksArkiv" => ["write"],
                 "payment" => ["pay", "write"],
                 "confirmation" => ["confirm"],
                 "signing" => ["sign", "write"],
