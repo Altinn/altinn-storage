@@ -141,7 +141,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
             else
             {
-                _logger.LogError("Unable to delete text resource for {org}/{app}", org, app);
+                _logger.LogError("Unable to delete text resource for {org}/{app}", org.RemoveNewlines(), app.RemoveNewlines());
                 return StatusCode(500, $"Unable to delete text resource for {org}/{app}");
             }
         }

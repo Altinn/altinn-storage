@@ -410,7 +410,7 @@ namespace Altinn.Platform.Storage.Controllers
 
                 storedInstance = await _instanceRepository.Create(instanceToCreate, cancellationToken);
                 await _instanceEventService.DispatchEvent(InstanceEventType.Created, storedInstance);
-                _logger.LogInformation("Created instance: {storedInstance.Id}", storedInstance.Id);
+                _logger.LogInformation("Created instance: {storedInstance.Id}", storedInstance.Id.RemoveNewlines());
                 storedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
 
                 await _partiesWithInstancesClient.SetHasAltinn3Instances(instanceOwnerPartyId);
@@ -418,7 +418,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
             catch (Exception storageException)
             {
-                _logger.LogError(storageException, "Unable to create {appId} instance for {instance.InstanceOwner.PartyId}", appId, instance.InstanceOwner.PartyId);
+                _logger.LogError(storageException, "Unable to create {appId} instance for {instance.InstanceOwner.PartyId}", appId.RemoveNewlines(), instance.InstanceOwner.PartyId?.RemoveNewlines());
 
                 // compensating action - delete instance
                 if (storedInstance != null)
@@ -426,7 +426,7 @@ namespace Altinn.Platform.Storage.Controllers
                     await _instanceRepository.Delete(storedInstance, cancellationToken);
                 }
 
-                _logger.LogError("Deleted instance {storedInstance.Id}", storedInstance?.Id);
+                _logger.LogError("Deleted instance {storedInstance.Id}", storedInstance?.Id.RemoveNewlines());
                 return StatusCode(500, $"Unable to create {appId} instance for {instance.InstanceOwner?.PartyId} due to {storageException.Message}");
             }
         }
