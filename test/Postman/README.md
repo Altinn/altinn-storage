@@ -9,7 +9,6 @@ The primary QA environment for external parties are the TT02 environment. Intern
 | Environment | BasePath                           | Port number     |
 |-------------|------------------------------------|-----------------|
 | Development | http://localhost                   | :5010           |
-| AT21        | https://platform.at21.altinn.cloud | :433 (or blank) |
 | AT22        | https://platform.at22.altinn.cloud | :433 (or blank) |
 | AT23        | https://platform.at23.altinn.cloud | :433 (or blank) |
 | AT24        | https://platform.at24.altinn.cloud | :433 (or blank) |
