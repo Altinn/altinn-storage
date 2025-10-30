@@ -1,6 +1,5 @@
 // This file contains baseURLs and endpoints for the APIs
 export var baseUrls = {
-  at21: "at21.altinn.cloud",
   at22: "at22.altinn.cloud",
   at23: "at23.altinn.cloud",
   at24: "at24.altinn.cloud",
@@ -17,7 +16,6 @@ var maskinportenBaseUrls = {
 // Auth cookie names in the different environments. NB: Must be updated until changes
 // are rolled out to all environments
 export var authCookieNames = {
-  at21: '.AspxAuthCloud',
   at22: '.AspxAuthCloud',
   at23: '.AspxAuthCloud',
   at24: '.AspxAuthCloud',
