@@ -140,7 +140,7 @@ namespace Altinn.Platform.Storage.Controllers
 
             Application result = await repository.Create(application);
 
-            logger.LogInformation($"Application {appId} sucessfully stored", result);
+            logger.LogInformation($"Application {appId.Replace(Environment.NewLine, string.Empty)} sucessfully stored", result);
 
             return Created(appId, result);
         }
