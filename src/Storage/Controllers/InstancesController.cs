@@ -418,7 +418,7 @@ namespace Altinn.Platform.Storage.Controllers
             }
             catch (Exception storageException)
             {
-                _logger.LogError(storageException, "Unable to create {appId} instance for {instance.InstanceOwner.PartyId}", appId.RemoveNewlines(), instance.InstanceOwner.PartyId);
+                _logger.LogError(storageException, "Unable to create {appId} instance for {instance.InstanceOwner.PartyId}", appId.RemoveNewlines(), instance.InstanceOwner.PartyId?.RemoveNewlines());
 
                 // compensating action - delete instance
                 if (storedInstance != null)
