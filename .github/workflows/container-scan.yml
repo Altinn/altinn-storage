@@ -1,9 +1,7 @@
 name: Storage Scan
 
 permissions:
-  contents: read
-  pull-requests: write
-  issues: write
+  contents: read  
 
 on:
   schedule:
