@@ -25,9 +25,7 @@ on:
         required: true
 
 permissions:
-  contents: read
-  pull-requests: write
-  issues: write
+  contents: read  
 
 jobs:
   regression-tests:
