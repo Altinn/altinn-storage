@@ -15,6 +15,12 @@ on:
       - 'test/Altinn.Platform.Storage.Interface.Tests/**'
       - 'test/UnitTest/**'
   workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   build-test-analyze:
     name: Build, test & analyze

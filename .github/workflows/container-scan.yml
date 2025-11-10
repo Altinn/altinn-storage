@@ -1,5 +1,10 @@
 name: Storage Scan
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 on:
   schedule:
   - cron: '0 8 * * 1,4'

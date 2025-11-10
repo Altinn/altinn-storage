@@ -1,7 +1,14 @@
 name: PR actions
+
 on:
   issue_comment:
     types: [created, edited]
+  
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  
 jobs:
   publish:
     name: Publish PR packages
