@@ -11,9 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      issues: read
-      pull-requests: write
-      packages: write
+      pull-requests: write      
     steps:
       - name: Check if comment author is a contributor
         env:
