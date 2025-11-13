@@ -15,15 +15,14 @@ on:
       - 'test/Altinn.Platform.Storage.Interface.Tests/**'
       - 'test/UnitTest/**'
   workflow_dispatch:
-
-permissions:
-  contents: read
-
 jobs:
   build-test-analyze:
     name: Build, test & analyze
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false))
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
     services:
      postgres:
        image: postgres:16@sha256:4eb532412200f7fbbf15d62ee0d96e020a9eae9eaed76066692474a7371c4d83

@@ -8,15 +8,14 @@ on:
       - 'test/Altinn.Platform.Storage.Interface.Tests/**'
       - 'test/UnitTest/**'
 
-permissions:
-  contents: read
-
-jobs:
+jobs:  
   test:
     if: github.actor == 'dependabot[bot]' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true)
     name: Build and Test
     runs-on: ubuntu-latest
-    steps:
+    permissions:
+      contents: read
+    steps:      
       - name: Set inotify watchers
         run: echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
       - name: Set inotify instances
