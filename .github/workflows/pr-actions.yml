@@ -6,7 +6,7 @@ jobs:
   publish:
     name: Publish PR packages
     runs-on: ubuntu-latest
-    if: github.event.issue.pull_request && contains(github.event.comment.body, '/publish')
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/publish') && github.event.comment.user.login != 'coderabbitai[bot]'
     steps:
       - name: Check if comment author is a contributor
         env:
