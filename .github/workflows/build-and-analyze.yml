@@ -20,6 +20,9 @@ jobs:
     name: Build, test & analyze
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false))
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
     services:
      postgres:
        image: postgres:16@sha256:21f6013073bc6b92830a2129570e2f5ec42a6c734b5a985a41e83aa58f54c3c1

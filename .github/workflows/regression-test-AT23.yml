@@ -4,10 +4,11 @@ on:
   workflow_dispatch:
   schedule:
   - cron: '0 12 * * 1-5'
-
 jobs:
-  at23:
-    uses: ./.github/workflows/regression-test-ATX.yml
-    with:
-      environment: AT23
-    secrets: inherit
+    at23:
+      permissions:
+        contents: read
+      uses: ./.github/workflows/regression-test-ATX.yml
+      with:
+        environment: AT23
+      secrets: inherit

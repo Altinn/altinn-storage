@@ -1,12 +1,16 @@
 name: PR actions
+
 on:
   issue_comment:
     types: [created, edited]
-jobs:
+  
+jobs: 
   publish:
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/publish')
     name: Publish PR packages
     runs-on: ubuntu-latest
-    if: github.event.issue.pull_request && contains(github.event.comment.body, '/publish')
+    permissions:
+      contents: read         
     steps:
       - name: Check if comment author is a contributor
         env:
