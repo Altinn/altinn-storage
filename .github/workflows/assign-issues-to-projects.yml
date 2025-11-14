@@ -6,10 +6,8 @@ on:
       - opened
 jobs:
   add-to-project:
-    name: Add issue to Team Platform project
+    name: Add issue to Team Core project
     runs-on: ubuntu-latest
-    permissions:      
-      issues: write
     steps:
       - uses: actions/add-to-project@main
         with:

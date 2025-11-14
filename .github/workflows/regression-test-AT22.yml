@@ -5,11 +5,10 @@ on:
   schedule:
   - cron: '0 12 * * 1-5'
 
-permissions:
-  contents: read  
-
 jobs:
   at22:
+    permissions:
+      contents: read
     uses: ./.github/workflows/regression-test-ATX.yml
     with:
       environment: AT22

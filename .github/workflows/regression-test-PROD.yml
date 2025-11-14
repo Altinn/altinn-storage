@@ -10,6 +10,8 @@ permissions:
 
 jobs:
   regression-tests:
+    permissions:
+      contents: read
     environment: PROD
     runs-on: ubuntu-latest
     steps:

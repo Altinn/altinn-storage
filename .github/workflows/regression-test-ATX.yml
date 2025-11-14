@@ -23,12 +23,10 @@ on:
         required: true
       SLACK_WEBHOOK_URL_TEST:
         required: true
-
-permissions:
-  contents: read  
-
 jobs:
   regression-tests:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
