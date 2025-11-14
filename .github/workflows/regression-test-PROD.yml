@@ -10,10 +10,10 @@ permissions:
 
 jobs:
   regression-tests:
-    permissions:
-      contents: read
     environment: PROD
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
     - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
     - name: Run regression tests for endpoint 'applications'

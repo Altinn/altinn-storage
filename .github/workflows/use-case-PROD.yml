@@ -5,13 +5,12 @@ on:
   schedule:
   - cron: '*/15 * * * *'
 
-permissions:
-  contents: read 
-
 jobs:
   usecase-test:
     environment: PROD
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest    
+    permissions:
+      contents: read
     steps:
     - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
     - name: Run use case tests for endpoint 'applications'
