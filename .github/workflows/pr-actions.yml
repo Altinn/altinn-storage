@@ -10,7 +10,8 @@ jobs:
     name: Publish PR packages
     runs-on: ubuntu-latest
     permissions:
-      contents: read         
+      contents: read
+      pull-requests: write     
     steps:
       - name: Check if comment author is a contributor
         env:

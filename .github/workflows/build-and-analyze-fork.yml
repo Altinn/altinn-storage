@@ -50,6 +50,7 @@ jobs:
     if: github.actor == 'dependabot[bot]' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true)
     name: Report code coverage
     runs-on: ubuntu-latest
+    permissions: {}
     needs: test
     steps:
       - name: Download Coverage Results
