@@ -124,6 +124,7 @@ namespace Altinn.Platform.Storage.Repository
             List<Instance> instances = [];
 
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readDeletedSql);
+            pgcom.CommandTimeout = 600; // 10 minutes
             await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken))
             {
                 while (await reader.ReadAsync(cancellationToken))
@@ -147,6 +148,7 @@ namespace Altinn.Platform.Storage.Repository
             try
             {
                 await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readDeletedElementsSql);
+                pgcom.CommandTimeout = 600; // 10 minutes
                 await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
                 long previousId = -1;
                 long id = -1;
