@@ -159,7 +159,7 @@ namespace Altinn.Platform.Storage.Controllers
             (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
             DataElement htmlElement = instance.Data.First(d => d.Id == dataGuid.ToString());
             string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;
-            DataElement xmlElement = instance.Data.First(d => d.Metadata.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id);
+            DataElement xmlElement = instance.Data.First(d => d.Metadata?.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id);
             string visiblePagesString = xmlElement.Metadata.FirstOrDefault(m => m.Key == "A2VisiblePages")?.Value;
             List<int> visiblePages = !string.IsNullOrEmpty(visiblePagesString) ? visiblePagesString.Split(';').Select(int.Parse).ToList() : null;
 
@@ -264,7 +264,7 @@ namespace Altinn.Platform.Storage.Controllers
             Application application = await _applicationRepository.FindOne(instance.AppId, instance.Org);
             DataElement htmlElement = instance.Data.First(d => d.Id == dataGuid.ToString());
             string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;
-            DataElement xmlElement = instance.Data.First(d => d.Metadata.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id);
+            DataElement xmlElement = instance.Data.First(d => d.Metadata?.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id);
             string visiblePagesString = xmlElement.Metadata.FirstOrDefault(m => m.Key == "A2VisiblePages")?.Value;
             List<int> visiblePages = !string.IsNullOrEmpty(visiblePagesString) ? visiblePagesString.Split(';').Select(int.Parse).ToList() : null;
 
