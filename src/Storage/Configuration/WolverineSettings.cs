@@ -63,6 +63,6 @@ namespace Altinn.Platform.Storage.Configuration
         /// <summary>
         /// Gets or sets a value indicating whether A2 migration is enabled.
         /// </summary>
-        public bool EnableA2Migration { get; set; } = false;
+        public bool EnableA2Migration { get; set; } = true;
     }
 }
