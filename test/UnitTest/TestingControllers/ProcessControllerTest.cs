@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Common.AccessToken.Services;
@@ -12,6 +13,7 @@ using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Messages;
 using Altinn.Platform.Storage.Repository;
@@ -22,6 +24,7 @@ using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
 using AltinnCore.Authentication.JwtCookie;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -642,9 +645,201 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         Assert.Equal(expectedActions, result);
     }
 
+    /// <summary>
+    /// Test: Verifies that process lock endpoints have authorization attributes.
+    /// Expected: Both endpoints should have the [Authorize] attribute with no policy.
+    /// </summary>
+    [Fact]
+    public void ProcessLockEndpoints_ShouldHaveAuthorizeAttribute()
+    {
+        var controllerType = typeof(ProcessController);
+        var acquireLockMethod = controllerType.GetMethod(
+            nameof(ProcessController.AcquireProcessLock)
+        );
+        var updateLockMethod = controllerType.GetMethod(
+            nameof(ProcessController.UpdateProcessLock)
+        );
+
+        var acquireAuthorizeAttribute = acquireLockMethod?.GetCustomAttribute<AuthorizeAttribute>();
+        Assert.NotNull(acquireAuthorizeAttribute);
+        Assert.Null(acquireAuthorizeAttribute.Policy);
+
+        var updateAuthorizeAttribute = updateLockMethod?.GetCustomAttribute<AuthorizeAttribute>();
+        Assert.NotNull(updateAuthorizeAttribute);
+        Assert.Null(updateAuthorizeAttribute.Policy);
+    }
+
+    /// <summary>
+    /// Test case: User acquires a lock on a valid instance
+    /// Expected: Returns 200 OK with a valid lock ID
+    /// </summary>
+    [Fact]
+    public async Task AcquireProcessLock_ValidInstance_LockAcquired_ReturnsOkWithLockId()
+    {
+        // Arrange
+        var instanceGuid = new Guid("20a1353e-91cf-44d6-8ff7-f68993638ffe");
+        var requestUri = $"storage/api/v1/instances/1337/{instanceGuid}/process/lock";
+
+        var lockRequest = new ProcessLockRequest { TtlSeconds = 300 };
+        var expectedLockId = Guid.NewGuid();
+
+        Mock<IProcessLockRepository> processLockRepoMock = new();
+        processLockRepoMock
+            .Setup(r =>
+                r.TryAcquireLock(
+                    It.IsAny<long>(),
+                    300,
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(expectedLockId);
+
+        var client = GetTestClient(processLockRepository: processLockRepoMock.Object);
+        var token = PrincipalUtil.GetToken(3, 1337, 2);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        using var response = await client.PostAsJsonAsync(requestUri, lockRequest);
+        var processLockResponse = await response.Content.ReadFromJsonAsync<ProcessLockResponse>();
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(processLockResponse);
+        Assert.Equal(expectedLockId, processLockResponse.LockId);
+    }
+
+    /// <summary>
+    /// Test case: User attempts to acquire lock for non-existent instance
+    /// Expected: Returns 404 Not Found
+    /// </summary>
+    [Fact]
+    public async Task AcquireProcessLock_InstanceNotFound_ReturnsNotFound()
+    {
+        // Arrange
+        var instanceGuid = Guid.NewGuid();
+        var requestUri = $"storage/api/v1/instances/1337/{instanceGuid}/process/lock";
+
+        var lockRequest = new ProcessLockRequest { TtlSeconds = 300 };
+
+        var client = GetTestClient();
+        var token = PrincipalUtil.GetToken(3, 1337, 2);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        using var response = await client.PostAsJsonAsync(requestUri, lockRequest);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Test case: Lock is already held by another process
+    /// Expected: Returns 409 Conflict
+    /// </summary>
+    [Fact]
+    public async Task AcquireProcessLock_LockAlreadyHeld_ReturnsConflict()
+    {
+        // Arrange
+        var instanceGuid = new Guid("20a1353e-91cf-44d6-8ff7-f68993638ffe");
+        var requestUri = $"storage/api/v1/instances/1337/{instanceGuid}/process/lock";
+
+        var lockRequest = new ProcessLockRequest { TtlSeconds = 300 };
+
+        Mock<IProcessLockRepository> processLockRepoMock = new();
+        processLockRepoMock
+            .Setup(r =>
+                r.TryAcquireLock(
+                    It.IsAny<long>(),
+                    It.IsAny<int>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync((Guid?)null);
+
+        var client = GetTestClient(processLockRepository: processLockRepoMock.Object);
+        var token = PrincipalUtil.GetToken(3, 1337, 2);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        using var response = await client.PostAsJsonAsync(requestUri, lockRequest);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Test case: User updates an existing lock with valid lock ID
+    /// Expected: Returns 204 No Content
+    /// </summary>
+    [Fact]
+    public async Task UpdateProcessLock_ValidLockId_ReturnsNoContent()
+    {
+        // Arrange
+        var lockId = Guid.NewGuid();
+        var instanceGuid = new Guid("20a1353e-91cf-44d6-8ff7-f68993638ffe");
+        var requestUri = $"storage/api/v1/instances/1337/{instanceGuid}/process/lock/{lockId}";
+
+        var lockRequest = new ProcessLockRequest { TtlSeconds = 300 };
+
+        Mock<IProcessLockRepository> processLockRepoMock = new();
+        processLockRepoMock
+            .Setup(r => r.UpdateLockExpiration(lockId, 300, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var client = GetTestClient(processLockRepository: processLockRepoMock.Object);
+        var token = PrincipalUtil.GetToken(3, 1337, 2);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        using var response = await client.PatchAsJsonAsync(requestUri, lockRequest);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Test case: Lock ID doesn't exist or has expired
+    /// Expected: Returns 404 Not Found
+    /// </summary>
+    [Fact]
+    public async Task UpdateProcessLock_LockNotFound_ReturnsNotFound()
+    {
+        // Arrange
+        var lockId = Guid.NewGuid();
+        var instanceGuid = new Guid("20a1353e-91cf-44d6-8ff7-f68993638ffe");
+        var requestUri = $"storage/api/v1/instances/1337/{instanceGuid}/process/lock/{lockId}";
+
+        var lockRequest = new ProcessLockRequest { TtlSeconds = 300 };
+
+        Mock<IProcessLockRepository> processLockRepoMock = new();
+        processLockRepoMock
+            .Setup(r =>
+                r.UpdateLockExpiration(
+                    It.IsAny<Guid>(),
+                    It.IsAny<int>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(false);
+
+        var client = GetTestClient(processLockRepository: processLockRepoMock.Object);
+
+        string token = PrincipalUtil.GetToken(3, 1337, 2);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        using var response = await client.PatchAsJsonAsync(requestUri, lockRequest);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     private HttpClient GetTestClient(
         IInstanceRepository instanceRepository = null,
         IInstanceAndEventsRepository instanceAndEventsRepository = null,
+        IProcessLockRepository processLockRepository = null,
         bool enableWolverine = false
     )
     {
@@ -705,6 +900,11 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                             IInstanceAndEventsRepository,
                             InstanceAndEventsRepositoryMock
                         >();
+                    }
+
+                    if (processLockRepository != null)
+                    {
+                        services.AddSingleton(processLockRepository);
                     }
                 });
             })

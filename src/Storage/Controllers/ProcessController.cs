@@ -32,6 +32,7 @@ public class ProcessController : ControllerBase
     private readonly IInstanceRepository _instanceRepository;
     private readonly IInstanceEventRepository _instanceEventRepository;
     private readonly IInstanceAndEventsRepository _instanceAndEventsRepository;
+    private readonly IProcessLockRepository _processLockRepository;
     private readonly string _storageBaseAndHost;
     private readonly IAuthorization _authorizationService;
     private readonly IInstanceEventService _instanceEventService;
@@ -42,6 +43,7 @@ public class ProcessController : ControllerBase
     /// <param name="instanceRepository">the instance repository handler</param>
     /// <param name="instanceEventRepository">the instance event repository service</param>
     /// <param name="instanceAndEventsRepository">the instance and events repository</param>
+    /// <param name="processLockRepository">the process lock repository</param>
     /// <param name="generalsettings">the general settings</param>
     /// <param name="authorizationService">the authorization service</param>
     /// <param name="instanceEventService">the instance event service</param>
@@ -49,6 +51,7 @@ public class ProcessController : ControllerBase
         IInstanceRepository instanceRepository,
         IInstanceEventRepository instanceEventRepository,
         IInstanceAndEventsRepository instanceAndEventsRepository,
+        IProcessLockRepository processLockRepository,
         IOptions<GeneralSettings> generalsettings,
         IAuthorization authorizationService,
         IInstanceEventService instanceEventService
@@ -57,6 +60,7 @@ public class ProcessController : ControllerBase
         _instanceRepository = instanceRepository;
         _instanceEventRepository = instanceEventRepository;
         _instanceAndEventsRepository = instanceAndEventsRepository;
+        _processLockRepository = processLockRepository;
         _storageBaseAndHost = $"{generalsettings.Value.Hostname}/storage/api/v1/";
         _authorizationService = authorizationService;
         _instanceEventService = instanceEventService;
@@ -382,5 +386,88 @@ public class ProcessController : ControllerBase
             "signing" => ["sign", "write"],
             _ => [taskType],
         };
+    }
+
+    /// <summary>
+    /// Attempts to acquire a process lock for an instance.
+    /// </summary>
+    /// <param name="instanceGuid">The id of the instance to lock.</param>
+    /// <param name="request">The lock request containing expiration time.</param>
+    /// <param name="cancellationToken">CancellationToken</param>
+    /// <returns>The lock response with lock key if successful, or Conflict if lock is already held.</returns>
+    [Authorize]
+    [HttpPost("lock")]
+    [Consumes("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [Produces("application/json")]
+    public async Task<ActionResult<ProcessLockResponse>> AcquireProcessLock(
+        Guid instanceGuid,
+        [FromBody] ProcessLockRequest request,
+        CancellationToken cancellationToken
+    )
+    {
+        (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            cancellationToken
+        );
+
+        if (instance is null)
+        {
+            return NotFound();
+        }
+
+        string userId =
+            User.GetUserOrOrgNo()
+            ?? throw new InvalidOperationException("User identity could not be determined.");
+
+        var lockId = await _processLockRepository.TryAcquireLock(
+            instanceInternalId,
+            request.TtlSeconds,
+            userId,
+            cancellationToken
+        );
+
+        if (lockId is null)
+        {
+            return Conflict();
+        }
+
+        return Ok(new ProcessLockResponse { LockId = lockId.Value });
+    }
+
+    /// <summary>
+    /// Updates TTL on a process lock.
+    /// </summary>
+    /// <param name="lockId">The ID of the lock to release.</param>
+    /// <param name="request">The lock request (TTL should be 0 for release).</param>
+    /// <param name="cancellationToken">CancellationToken</param>
+    /// <returns>NoContent if successful.</returns>
+    [Authorize]
+    [HttpPatch("lock/{lockId}")]
+    [Consumes("application/json")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Produces("application/json")]
+    public async Task<ActionResult> UpdateProcessLock(
+        Guid lockId,
+        [FromBody] ProcessLockRequest request,
+        CancellationToken cancellationToken
+    )
+    {
+        bool success = await _processLockRepository.UpdateLockExpiration(
+            lockId,
+            request.TtlSeconds,
+            cancellationToken
+        );
+
+        if (!success)
+        {
+            return NotFound();
+        }
+
+        return NoContent();
     }
 }

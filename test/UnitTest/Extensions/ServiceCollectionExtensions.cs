@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Configuration;
 using Microsoft.Extensions.Configuration;
@@ -40,6 +40,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IInstanceAndEventsRepository, PgInstanceAndEventsRepository>()
             .AddSingleton<IBlobRepository, BlobRepository>()
             .AddSingleton<IOutboxRepository, PgOutboxRepository>()
+            .AddSingleton<IProcessLockRepository, PgProcessLockRepository>()
             .AddNpgsqlDataSource(connectionString, builder => builder.EnableDynamicJson());
     }
 }
