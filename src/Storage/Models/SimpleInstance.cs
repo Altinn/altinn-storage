@@ -31,12 +31,6 @@ public class SimpleInstance
     public required string App { get; set; }
 
     /// <summary>
-    /// The name of the process element, <see cref="ProcessElementInfo"/>.
-    /// </summary>
-    [JsonPropertyName("currentTaskName")]
-    public string? CurrentTaskName { get; set; }
-
-    /// <summary>
     /// If the instance is read.
     /// </summary>
     [JsonPropertyName("isRead")]
@@ -47,6 +41,18 @@ public class SimpleInstance
     /// </summary>
     [JsonPropertyName("currentTaskId")]
     public string? CurrentTaskId { get; set; }
+
+    /// <summary>
+    /// The name of the process element, <see cref="ProcessElementInfo"/>.
+    /// </summary>
+    [JsonPropertyName("currentTaskName")]
+    public string? CurrentTaskName { get; set; }
+
+    /// <summary>
+    /// The date the instance process was completed.
+    /// </summary>
+    [JsonPropertyName("completedAt")]
+    public DateTimeOffset? CompletedAt { get; set; }
 
     /// <summary>
     /// The date the instance was archived.
@@ -120,11 +126,12 @@ public class SimpleInstance
             Id = instance.Id.Substring(partyIdPrefix.Length),
             Org = instance.Org,
             App = instance.AppId.Substring(orgPrefix.Length),
-            CurrentTaskName = instance.Process?.CurrentTask?.Name,
-            CurrentTaskId = instance.Process?.CurrentTask?.ElementId,
             IsRead =
                 instance.Status?.ReadStatus == ReadStatus.Read
                 || instance.Status?.ReadStatus == ReadStatus.UpdatedSinceLastReview,
+            CurrentTaskId = instance.Process?.CurrentTask?.ElementId,
+            CurrentTaskName = instance.Process?.CurrentTask?.Name,
+            CompletedAt = instance.Process?.Ended,
             ArchivedAt = instance.Status?.Archived,
             SoftDeletedAt = instance.Status?.SoftDeleted,
             HardDeletedAt = instance.Status?.HardDeleted,
