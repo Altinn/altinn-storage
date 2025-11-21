@@ -40,8 +40,6 @@
     <EmbeddedResource Include="AllowAnonymousOnStateless\applicationMetadata_afterChange.json" />
     <EmbeddedResource Include="AllowUserActions\applicationMetadata_afterChange.json" />
     <EmbeddedResource Include="AllowUserActions\applicationMetadata_beforeChange.json" />
-    <EmbeddedResource Include="AllowInSubform\applicationMetadata_afterChange.json" />
-    <EmbeddedResource Include="AllowInSubform\applicationMetadata_beforeChange.json" />
     <EmbeddedResource Include="SystemUser\platformUser_afterChange.json" />
     <EmbeddedResource Include="SystemUser\platformUser_beforeChange.json" />
   </ItemGroup>
