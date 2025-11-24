@@ -56,14 +56,6 @@ namespace Altinn.Platform.Storage.Interface.Models
         public bool DisallowUserDelete { get; set; }
 
         /// <summary>
-        /// Specifies whether the data type is compatible with sub form usage.
-        /// Defaults to false if not specified.
-        /// </summary>
-        [JsonProperty(PropertyName = "allowInSubform")]
-        [Obsolete("This property is no longer in use and will be removed in the future.")]
-        public bool AllowInSubform { get; set; }
-
-        /// <summary>
         /// Gets or sets a property containing configuration for shadow fields for the data type.
         /// </summary>
         [JsonProperty(PropertyName = "shadowFields")]
