@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION storage.readdeletedelements_v2()
+CREATE OR REPLACE FUNCTION storage.readdeletedelements()
     RETURNS TABLE (id BIGINT, instance JSONB, element JSONB)
     LANGUAGE 'plpgsql'  
 AS $BODY$

@@ -40,7 +40,7 @@ namespace Altinn.Platform.Storage.Repository
         private readonly string _readSql = "select * from storage.readinstance ($1)";
         private readonly string _readSqlFiltered = _readSqlFilteredInitial;
         private readonly string _readDeletedSql = "select * from storage.readdeletedinstances ()";
-        private readonly string _readDeletedElementsSql = "select * from storage.readdeletedelements_v2 ()";
+        private readonly string _readDeletedElementsSql = "select * from storage.readdeletedelements ()";
         private readonly string _readSqlNoElements = "select * from storage.readinstancenoelements ($1)";
 
         private readonly ILogger<PgInstanceRepository> _logger;
