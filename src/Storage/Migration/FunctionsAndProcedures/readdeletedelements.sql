@@ -3,16 +3,22 @@ CREATE OR REPLACE FUNCTION storage.readdeletedelements()
     LANGUAGE 'plpgsql'  
 AS $BODY$
 BEGIN
-RETURN QUERY
-    -- Use materialized cte to force join order
-    -- Target index dataelements_deletestatus_harddeleted. This index has a where clause that must match
-    -- the where clause in the data_elements query
-    WITH data_elements AS MATERIALIZED
-        (SELECT d.instanceinternalid, d.element FROM storage.dataelements d
-            WHERE (d.element -> 'DeleteStatus' -> 'IsHardDeleted')::BOOLEAN
-                AND (d.element -> 'DeleteStatus' ->> 'HardDeleted')::TIMESTAMPTZ <= NOW() - (7 ||' days')::interval
-        )
-    SELECT i.id, i.instance, data_elements.element FROM  data_elements JOIN storage.instances i ON i.id = data_elements.instanceinternalid
-        WHERE i.AltinnMainVersion >= 3; 
-    END;
+    -- Force nested loop join to avoid hash join on large instances table
+    -- With only a small count of hard-deleted records, nested loop with index lookups is optimal
+    SET LOCAL enable_hashjoin = off;
+    SET LOCAL enable_mergejoin = off;
+
+    RETURN QUERY
+    SELECT i.id, i.instance, d.element 
+    FROM (
+        -- Target index dataelements_isharddeleted
+        SELECT instanceinternalid, de.element
+        FROM storage.dataelements de
+        WHERE (de.element -> 'DeleteStatus' -> 'IsHardDeleted')::BOOLEAN
+            AND (de.element -> 'DeleteStatus' ->> 'HardDeleted')::TIMESTAMPTZ <= NOW() - INTERVAL '7 days'
+        OFFSET 0  -- Optimization fence: prevents subquery flattening which causes wrong join strategy
+    ) d
+    JOIN storage.instances i ON i.id = d.instanceinternalid
+    WHERE i.AltinnMainVersion >= 3;
+END;
 $BODY$;
