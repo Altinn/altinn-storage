@@ -28,16 +28,6 @@
     <PackageReference Include="Verify.Xunit" Version="30.20.1" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(Configuration)'=='Debug'">
-    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-    </PackageReference>
-    <AdditionalFiles Include="..\..\stylecop.json">
-      <Link>stylecop.json</Link>
-    </AdditionalFiles>
-  </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\..\src\Storage\Altinn.Platform.Storage.csproj" />
   </ItemGroup>
