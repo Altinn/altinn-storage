@@ -1,14 +1,13 @@
-namespace Altinn.Platform.Storage.Configuration
+namespace Altinn.Platform.Storage.Configuration;
+
+/// <summary>
+/// Represents a set of configuration options when communicating with the platform API.
+/// Instances of this class is initialised with values from app settings. Some values can be overridden by environment variables.
+/// </summary>
+public class RegisterServiceSettings
 {
     /// <summary>
-    /// Represents a set of configuration options when communicating with the platform API.
-    /// Instances of this class is initialised with values from app settings. Some values can be overridden by environment variables.
+    /// Gets or sets the url for the Register API endpoint.
     /// </summary>
-    public class RegisterServiceSettings
-    {
-        /// <summary>
-        /// Gets or sets the url for the Register API endpoint.
-        /// </summary>
-        public string ApiRegisterEndpoint { get; set; }
-    }
+    public string ApiRegisterEndpoint { get; set; }
 }

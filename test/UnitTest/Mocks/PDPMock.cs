@@ -6,98 +6,97 @@ using Altinn.Authorization.ABAC.Xacml;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Interfaces;
 
-namespace Altinn.Platform.Storage.UnitTest.Mocks.Authentication
+namespace Altinn.Platform.Storage.UnitTest.Mocks.Authentication;
+
+public class PDPMock : IPDP
 {
-    public class PDPMock : IPDP
+    public Task<XacmlJsonResponse> GetDecisionForRequest(XacmlJsonRequestRoot xacmlJsonRequest)
     {
-        public Task<XacmlJsonResponse> GetDecisionForRequest(XacmlJsonRequestRoot xacmlJsonRequest)
+        // Create response and result
+        XacmlJsonResponse response = new XacmlJsonResponse();
+        response.Response = new List<XacmlJsonResult>();
+        XacmlJsonResult result = new XacmlJsonResult();
+
+        List<XacmlJsonCategory> resources = xacmlJsonRequest.Request.Resource;
+
+        XacmlJsonAttribute attribute = resources.Select(r => r.Attribute.Find(a => a.Value.Equals("endring-av-navn"))).FirstOrDefault();
+
+        if (attribute != null)
         {
-            // Create response and result
-            XacmlJsonResponse response = new XacmlJsonResponse();
-            response.Response = new List<XacmlJsonResult>();
-            XacmlJsonResult result = new XacmlJsonResult();
-
-            List<XacmlJsonCategory> resources = xacmlJsonRequest.Request.Resource;
-
-            XacmlJsonAttribute attribute = resources.Select(r => r.Attribute.Find(a => a.Value.Equals("endring-av-navn"))).FirstOrDefault();
-
-            if (attribute != null)
-            {
-                // Set decision to permit
-                result.Decision = XacmlContextDecision.Permit.ToString();
-                response.Response.Add(result);
-
-                return Task.FromResult(response);
-            }
-
-            XacmlJsonAttribute attribute2 = resources.Select(r => r.Attribute.Find(a => a.Value.Equals("multiple-results"))).FirstOrDefault();
-
-            if (attribute2 != null)
-            {
-                // Set decision to permit
-                result.Decision = XacmlContextDecision.Permit.ToString();
-                response.Response.Add(result);
-                response.Response.Add(new XacmlJsonResult());
-
-                return Task.FromResult(response);
-            }
-
-            XacmlJsonAttribute attribute3 = resources.Select(r => r.Attribute.Find(a => a.Value.Equals("auth-level-2"))).FirstOrDefault();
-
-            if (attribute3 != null)
-            {
-                // Set decision to permit
-                result.Decision = XacmlContextDecision.Permit.ToString();
-
-                // Add obligation to result with a minimum authentication level attribute
-                XacmlJsonObligationOrAdvice obligation = new XacmlJsonObligationOrAdvice();
-                obligation.AttributeAssignment = new List<XacmlJsonAttributeAssignment>();
-                XacmlJsonAttributeAssignment authenticationAttribute = new XacmlJsonAttributeAssignment()
-                {
-                    Category = "urn:altinn:minimum-authenticationlevel",
-                    Value = "2"
-                };
-                obligation.AttributeAssignment.Add(authenticationAttribute);
-                result.Obligations = [obligation];
-
-                response.Response.Add(result);
-
-                return Task.FromResult(response);
-            }
-
-            XacmlJsonAttribute attribute4 = resources.Select(r => r.Attribute.Find(a => a.Value.Equals("auth-level-3"))).FirstOrDefault();
-
-            if (attribute4 != null)
-            {
-                // Set decision to permit
-                result.Decision = XacmlContextDecision.Permit.ToString();
-                response.Response.Add(result);
-
-                // Add obligation to result with a minimum authentication level attribute
-                XacmlJsonObligationOrAdvice obligation = new XacmlJsonObligationOrAdvice();
-                obligation.AttributeAssignment = new List<XacmlJsonAttributeAssignment>();
-                XacmlJsonAttributeAssignment authenticationAttribute = new XacmlJsonAttributeAssignment()
-                {
-                    Category = "urn:altinn:minimum-authenticationlevel",
-                    Value = "3"
-                };
-                obligation.AttributeAssignment.Add(authenticationAttribute);
-                result.Obligations = new List<XacmlJsonObligationOrAdvice>();
-                result.Obligations.Add(obligation);
-
-                return Task.FromResult(response);
-            }
-
-            // Set decision to deny
-            result.Decision = XacmlContextDecision.Deny.ToString();
+            // Set decision to permit
+            result.Decision = XacmlContextDecision.Permit.ToString();
             response.Response.Add(result);
 
             return Task.FromResult(response);
         }
 
-        public Task<bool> GetDecisionForUnvalidateRequest(XacmlJsonRequestRoot xacmlJsonRequest, ClaimsPrincipal user)
+        XacmlJsonAttribute attribute2 = resources.Select(r => r.Attribute.Find(a => a.Value.Equals("multiple-results"))).FirstOrDefault();
+
+        if (attribute2 != null)
         {
-            return Task.FromResult(true);
+            // Set decision to permit
+            result.Decision = XacmlContextDecision.Permit.ToString();
+            response.Response.Add(result);
+            response.Response.Add(new XacmlJsonResult());
+
+            return Task.FromResult(response);
         }
+
+        XacmlJsonAttribute attribute3 = resources.Select(r => r.Attribute.Find(a => a.Value.Equals("auth-level-2"))).FirstOrDefault();
+
+        if (attribute3 != null)
+        {
+            // Set decision to permit
+            result.Decision = XacmlContextDecision.Permit.ToString();
+
+            // Add obligation to result with a minimum authentication level attribute
+            XacmlJsonObligationOrAdvice obligation = new XacmlJsonObligationOrAdvice();
+            obligation.AttributeAssignment = new List<XacmlJsonAttributeAssignment>();
+            XacmlJsonAttributeAssignment authenticationAttribute = new XacmlJsonAttributeAssignment()
+            {
+                Category = "urn:altinn:minimum-authenticationlevel",
+                Value = "2"
+            };
+            obligation.AttributeAssignment.Add(authenticationAttribute);
+            result.Obligations = [obligation];
+
+            response.Response.Add(result);
+
+            return Task.FromResult(response);
+        }
+
+        XacmlJsonAttribute attribute4 = resources.Select(r => r.Attribute.Find(a => a.Value.Equals("auth-level-3"))).FirstOrDefault();
+
+        if (attribute4 != null)
+        {
+            // Set decision to permit
+            result.Decision = XacmlContextDecision.Permit.ToString();
+            response.Response.Add(result);
+
+            // Add obligation to result with a minimum authentication level attribute
+            XacmlJsonObligationOrAdvice obligation = new XacmlJsonObligationOrAdvice();
+            obligation.AttributeAssignment = new List<XacmlJsonAttributeAssignment>();
+            XacmlJsonAttributeAssignment authenticationAttribute = new XacmlJsonAttributeAssignment()
+            {
+                Category = "urn:altinn:minimum-authenticationlevel",
+                Value = "3"
+            };
+            obligation.AttributeAssignment.Add(authenticationAttribute);
+            result.Obligations = new List<XacmlJsonObligationOrAdvice>();
+            result.Obligations.Add(obligation);
+
+            return Task.FromResult(response);
+        }
+
+        // Set decision to deny
+        result.Decision = XacmlContextDecision.Deny.ToString();
+        response.Response.Add(result);
+
+        return Task.FromResult(response);
+    }
+
+    public Task<bool> GetDecisionForUnvalidateRequest(XacmlJsonRequestRoot xacmlJsonRequest, ClaimsPrincipal user)
+    {
+        return Task.FromResult(true);
     }
 }

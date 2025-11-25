@@ -5,52 +5,51 @@ using Altinn.Platform.Storage.Interface.Models;
 
 using Newtonsoft.Json;
 
-namespace Altinn.Platform.Storage.UnitTest.Utils
+namespace Altinn.Platform.Storage.UnitTest.Utils;
+
+public class TestDataUtil
 {
-    public class TestDataUtil
+    public static readonly object DataLock = new object();
+
+    public static Instance GetInstance(Guid instanceGuid)
     {
-        public static readonly object DataLock = new object();
-
-        public static Instance GetInstance(Guid instanceGuid)
+        string path = GetInstancePath(instanceGuid);
+        if (!File.Exists(path))
         {
-            string path = GetInstancePath(instanceGuid);
-            if (!File.Exists(path))
-            {
-                return null;
-            }
-
-            string content = File.ReadAllText(path);
-            Instance instance = (Instance)JsonConvert.DeserializeObject(content, typeof(Instance));
-            return instance;
+            return null;
         }
 
-        public static DataElement GetDataElement(string dataGuid)
-        {
-            string dataElementPath = Path.Combine(GetDataPath(), dataGuid + ".json");
+        string content = File.ReadAllText(path);
+        Instance instance = (Instance)JsonConvert.DeserializeObject(content, typeof(Instance));
+        return instance;
+    }
 
-            string content = File.ReadAllText(dataElementPath);
-            DataElement dataElement = (DataElement)JsonConvert.DeserializeObject(content, typeof(DataElement));
-            return dataElement;
-        }
+    public static DataElement GetDataElement(string dataGuid)
+    {
+        string dataElementPath = Path.Combine(GetDataPath(), dataGuid + ".json");
 
-        private static string GetInstancePath(Guid instanceGuid)
-        {
-            string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(TestDataUtil).Assembly.Location).LocalPath);
-            return Path.Combine(
-                unitTestFolder,
-                "..", 
-                "..", 
-                "..",
-                "data",
-                "postgresdata",
-                "instances",
-                instanceGuid + @".json");
-        }
+        string content = File.ReadAllText(dataElementPath);
+        DataElement dataElement = (DataElement)JsonConvert.DeserializeObject(content, typeof(DataElement));
+        return dataElement;
+    }
 
-        private static string GetDataPath()
-        {
-            string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(TestDataUtil).Assembly.Location).LocalPath);
-            return Path.Combine(unitTestFolder, "..", "..", "..", "data", "postgresdata", "dataelements");
-        }
+    private static string GetInstancePath(Guid instanceGuid)
+    {
+        string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(TestDataUtil).Assembly.Location).LocalPath);
+        return Path.Combine(
+            unitTestFolder,
+            "..",
+            "..",
+            "..",
+            "data",
+            "postgresdata",
+            "instances",
+            instanceGuid + @".json");
+    }
+
+    private static string GetDataPath()
+    {
+        string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(TestDataUtil).Assembly.Location).LocalPath);
+        return Path.Combine(unitTestFolder, "..", "..", "..", "data", "postgresdata", "dataelements");
     }
 }

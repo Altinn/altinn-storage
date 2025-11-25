@@ -3,32 +3,31 @@ using System.Threading.Tasks;
 
 using Altinn.Platform.Storage.Clients;
 
-namespace Altinn.Platform.Storage.UnitTest.Mocks.Clients
+namespace Altinn.Platform.Storage.UnitTest.Mocks.Clients;
+
+public class PartiesWithInstancesClientMock : IPartiesWithInstancesClient
 {
-    public class PartiesWithInstancesClientMock : IPartiesWithInstancesClient
+    public async Task SetHasAltinn3Instances(int instanceOwnerPartyId)
     {
-        public async Task SetHasAltinn3Instances(int instanceOwnerPartyId)
+        switch (instanceOwnerPartyId)
         {
-            switch (instanceOwnerPartyId)
-            {
-                case 1337:
-                    await Task.CompletedTask;
-                    break;
-                default:
-                    throw new ArgumentException("Unknown instanceOwnerPartyId");
-            }
+            case 1337:
+                await Task.CompletedTask;
+                break;
+            default:
+                throw new ArgumentException("Unknown instanceOwnerPartyId");
         }
-        
-        public async Task SetHasAltinn3Correspondence(int partyId)
+    }
+
+    public async Task SetHasAltinn3Correspondence(int partyId)
+    {
+        switch (partyId)
         {
-            switch (partyId)
-            {
-                case 1337:
-                    await Task.CompletedTask;
-                    break;
-                default:
-                    throw new ArgumentException("Unknown party id");
-            }
+            case 1337:
+                await Task.CompletedTask;
+                break;
+            default:
+                throw new ArgumentException("Unknown party id");
         }
     }
 }

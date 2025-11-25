@@ -8,56 +8,55 @@ using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 
-namespace Altinn.Platform.Storage.UnitTest.Mocks.Authentication
+namespace Altinn.Platform.Storage.UnitTest.Mocks.Authentication;
+
+/// <summary>
+/// Represents a stub of <see cref="ConfigurationManager{OpenIdConnectConfiguration}"/> to be used in integration tests.
+/// </summary>
+public class ConfigurationManagerStub : IConfigurationManager<OpenIdConnectConfiguration>
 {
     /// <summary>
-    /// Represents a stub of <see cref="ConfigurationManager{OpenIdConnectConfiguration}"/> to be used in integration tests.
+    /// Initializes a new instance of <see cref="ConfigurationManagerStub" />
     /// </summary>
-    public class ConfigurationManagerStub : IConfigurationManager<OpenIdConnectConfiguration>
+    /// <param name="metadataAddress">The address to obtain configuration.</param>
+    /// <param name="configRetriever">The <see cref="IConfigurationRetriever{OpenIdConnectConfiguration}" /></param>
+    /// <param name="docRetriever">The <see cref="IDocumentRetriever" /> that reaches out to obtain the configuration.</param>
+    public ConfigurationManagerStub(
+        string metadataAddress,
+        IConfigurationRetriever<OpenIdConnectConfiguration> configRetriever,
+        IDocumentRetriever docRetriever)
     {
-        /// <summary>
-        /// Initializes a new instance of <see cref="ConfigurationManagerStub" />
-        /// </summary>
-        /// <param name="metadataAddress">The address to obtain configuration.</param>
-        /// <param name="configRetriever">The <see cref="IConfigurationRetriever{OpenIdConnectConfiguration}" /></param>
-        /// <param name="docRetriever">The <see cref="IDocumentRetriever" /> that reaches out to obtain the configuration.</param>
-        public ConfigurationManagerStub(
-            string metadataAddress,
-            IConfigurationRetriever<OpenIdConnectConfiguration> configRetriever,
-            IDocumentRetriever docRetriever)
+    }
+
+    /// <inheritdoc />
+    public async Task<OpenIdConnectConfiguration> GetConfigurationAsync(CancellationToken cancel)
+    {
+        ICollection<SecurityKey> signingKeys = await GetSigningKeys();
+
+        OpenIdConnectConfiguration configuration = new OpenIdConnectConfiguration();
+        foreach (var securityKey in signingKeys)
         {
+            configuration.SigningKeys.Add(securityKey);
         }
 
-        /// <inheritdoc />
-        public async Task<OpenIdConnectConfiguration> GetConfigurationAsync(CancellationToken cancel)
-        {
-            ICollection<SecurityKey> signingKeys = await GetSigningKeys();
+        return configuration;
+    }
 
-            OpenIdConnectConfiguration configuration = new OpenIdConnectConfiguration();
-            foreach (var securityKey in signingKeys)
-            {
-                configuration.SigningKeys.Add(securityKey);
-            }
+    /// <inheritdoc />
+    public void RequestRefresh()
+    {
+        throw new NotImplementedException();
+    }
 
-            return configuration;
-        }
+    private static async Task<ICollection<SecurityKey>> GetSigningKeys()
+    {
+        List<SecurityKey> signingKeys = new List<SecurityKey>();
 
-        /// <inheritdoc />
-        public void RequestRefresh()
-        {
-            throw new NotImplementedException();
-        }
+        X509Certificate2 cert = X509CertificateLoader.LoadCertificateFromFile("selfSignedTestCertificatePublic.cer");
+        SecurityKey key = new X509SecurityKey(cert);
 
-        private static async Task<ICollection<SecurityKey>> GetSigningKeys()
-        {
-            List<SecurityKey> signingKeys = new List<SecurityKey>();
+        signingKeys.Add(key);
 
-            X509Certificate2 cert = X509CertificateLoader.LoadCertificateFromFile("selfSignedTestCertificatePublic.cer");
-            SecurityKey key = new X509SecurityKey(cert);
-
-            signingKeys.Add(key);
-
-            return await Task.FromResult(signingKeys);
-        }
+        return await Task.FromResult(signingKeys);
     }
 }

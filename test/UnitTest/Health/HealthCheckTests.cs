@@ -13,56 +13,55 @@ using Moq;
 using Wolverine;
 using Xunit;
 
-namespace Altinn.Platform.Storage.UnitTest.Health
+namespace Altinn.Platform.Storage.UnitTest.Health;
+
+public class HealthCheckTests : IClassFixture<TestApplicationFactory<HealthCheck>>
 {
-    public class HealthCheckTests : IClassFixture<TestApplicationFactory<HealthCheck>>
+    private readonly TestApplicationFactory<HealthCheck> _factory;
+
+    public HealthCheckTests(TestApplicationFactory<HealthCheck> factory)
     {
-        private readonly TestApplicationFactory<HealthCheck> _factory;
+        _factory = factory;
+    }
 
-        public HealthCheckTests(TestApplicationFactory<HealthCheck> factory)
+    /// <summary>
+    /// Verify that component responds on health check
+    /// </summary>
+    /// <returns></returns>
+    [Fact]
+    public async Task VerifyHeltCheck_OK()
+    {
+        HttpClient client = GetTestClient();
+
+        HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Get, "/health")
         {
-            _factory = factory;
-        }
+        };
 
-        /// <summary>
-        /// Verify that component responds on health check
-        /// </summary>
-        /// <returns></returns>
-        [Fact]
-        public async Task VerifyHeltCheck_OK()
+        HttpResponseMessage response = await client.SendAsync(httpRequestMessage);
+        await response.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    private HttpClient GetTestClient()
+    {
+        Mock<IMessageBus> busMock = new Mock<IMessageBus>();
+
+        HttpClient client = _factory.WithWebHostBuilder(builder =>
         {
-            HttpClient client = GetTestClient();
-
-            HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Get, "/health")
+            IConfiguration configuration = new ConfigurationBuilder()
+                .AddJsonFile(ServiceUtil.GetAppsettingsPath())
+                .Build();
+            builder.ConfigureAppConfiguration((hostingContext, config) =>
             {
-            };
+                config.AddConfiguration(configuration);
+            });
 
-            HttpResponseMessage response = await client.SendAsync(httpRequestMessage);
-            await response.Content.ReadAsStringAsync();
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        }
-
-        private HttpClient GetTestClient()
-        {
-            Mock<IMessageBus> busMock = new Mock<IMessageBus>();
-            
-            HttpClient client = _factory.WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(services =>
             {
-                IConfiguration configuration = new ConfigurationBuilder()
-                    .AddJsonFile(ServiceUtil.GetAppsettingsPath())
-                    .Build();
-                builder.ConfigureAppConfiguration((hostingContext, config) =>
-                {
-                    config.AddConfiguration(configuration);
-                });
+                services.AddSingleton(busMock.Object);
+            });
+        }).CreateClient();
 
-                builder.ConfigureTestServices(services =>
-                {
-                    services.AddSingleton(busMock.Object);
-                });
-            }).CreateClient();
-
-            return client;
-        }
+        return client;
     }
 }
