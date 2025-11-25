@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
@@ -24,9 +23,8 @@ public class ConfigurationManagerStub : IConfigurationManager<OpenIdConnectConfi
     public ConfigurationManagerStub(
         string metadataAddress,
         IConfigurationRetriever<OpenIdConnectConfiguration> configRetriever,
-        IDocumentRetriever docRetriever)
-    {
-    }
+        IDocumentRetriever docRetriever
+    ) { }
 
     /// <inheritdoc />
     public async Task<OpenIdConnectConfiguration> GetConfigurationAsync(CancellationToken cancel)
@@ -52,7 +50,9 @@ public class ConfigurationManagerStub : IConfigurationManager<OpenIdConnectConfi
     {
         List<SecurityKey> signingKeys = new List<SecurityKey>();
 
-        X509Certificate2 cert = X509CertificateLoader.LoadCertificateFromFile("selfSignedTestCertificatePublic.cer");
+        X509Certificate2 cert = X509CertificateLoader.LoadCertificateFromFile(
+            "selfSignedTestCertificatePublic.cer"
+        );
         SecurityKey key = new X509SecurityKey(cert);
 
         signingKeys.Add(key);

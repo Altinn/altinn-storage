@@ -12,7 +12,6 @@ public class QueryResponse<T>
     /// The number of items in this response.
     /// </summary>
     [JsonProperty(PropertyName = "count")]
-
     public long Count { get; set; }
 
     /// <summary>

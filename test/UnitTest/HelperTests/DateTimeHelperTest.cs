@@ -1,7 +1,5 @@
 using System;
-
 using Altinn.Platform.Storage.Helpers;
-
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest;
@@ -18,12 +16,16 @@ public class DateTimeHelperTest
         new object[] { "2023-04-01T21:13:22.276", new TimeSpan(0, 21, 13, 22, 276), 1 },
         new object[] { "2023-08-03T19:51:37.654+02", new TimeSpan(0, 17, 51, 37, 654), 3 },
         new object[] { "2023-06-01T01:36:44+02", new TimeSpan(23, 36, 44), 31 }, // UTC is day before
-        new object[] { "2023-04-30T23:17:32-02", new TimeSpan(1, 17, 32), 1 } // UTC is day after
+        new object[] { "2023-04-30T23:17:32-02", new TimeSpan(1, 17, 32), 1 }, // UTC is day after
     };
 
     [Theory]
     [MemberData(nameof(TestData))]
-    public void ParseAndConvertToUniversalTimeTest(string dateString, TimeSpan expectedTimeOfDay, int expectedDay)
+    public void ParseAndConvertToUniversalTimeTest(
+        string dateString,
+        TimeSpan expectedTimeOfDay,
+        int expectedDay
+    )
     {
         // Act
         DateTime date = DateTimeHelper.ParseAndConvertToUniversalTime(dateString);

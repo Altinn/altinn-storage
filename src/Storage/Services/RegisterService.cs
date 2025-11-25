@@ -7,15 +7,12 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
-
 using Altinn.Common.AccessTokenClient.Services;
 using Altinn.Platform.Register.Models;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Exceptions;
 using Altinn.Platform.Storage.Extensions;
-
 using AltinnCore.Authentication.Utils;
-
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.Logging;
@@ -45,10 +42,13 @@ public class RegisterService : IRegisterService
         IAccessTokenGenerator accessTokenGenerator,
         IOptions<GeneralSettings> generalSettings,
         IOptions<RegisterServiceSettings> registerServiceSettings,
-        ILogger<RegisterService> logger)
+        ILogger<RegisterService> logger
+    )
     {
         httpClient.BaseAddress = new Uri(registerServiceSettings.Value.ApiRegisterEndpoint);
-        httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        httpClient.DefaultRequestHeaders.Accept.Add(
+            new MediaTypeWithQualityHeaderValue("application/json")
+        );
         _client = httpClient;
         _httpContextAccessor = httpContextAccessor;
         _generalSettings = generalSettings.Value;
@@ -58,7 +58,7 @@ public class RegisterService : IRegisterService
         _serializerOptions = new()
         {
             PropertyNameCaseInsensitive = true,
-            Converters = { new JsonStringEnumConverter() }
+            Converters = { new JsonStringEnumConverter() },
         };
     }
 
@@ -68,7 +68,10 @@ public class RegisterService : IRegisterService
         Party party = null;
 
         string endpointUrl = $"parties/{partyId}";
-        string token = JwtTokenUtil.GetTokenFromContext(_httpContextAccessor.HttpContext, _generalSettings.RuntimeCookieName);
+        string token = JwtTokenUtil.GetTokenFromContext(
+            _httpContextAccessor.HttpContext,
+            _generalSettings.RuntimeCookieName
+        );
         string accessToken = _accessTokenGenerator.GenerateAccessToken("platform", "events");
 
         HttpResponseMessage response = await _client.GetAsync(token, endpointUrl, accessToken);
@@ -80,7 +83,11 @@ public class RegisterService : IRegisterService
         }
         else
         {
-            _logger.LogError("// Getting party with partyID {PartyId} failed with statuscode {ResponseHttpStatusCode}", partyId, responseHttpStatusCode);
+            _logger.LogError(
+                "// Getting party with partyID {PartyId} failed with statuscode {ResponseHttpStatusCode}",
+                partyId,
+                responseHttpStatusCode
+            );
         }
 
         return party;
@@ -93,13 +100,21 @@ public class RegisterService : IRegisterService
 
         PartyLookup partyLookup = new PartyLookup() { Ssn = person, OrgNo = orgNo };
 
-        string bearerToken = JwtTokenUtil.GetTokenFromContext(_httpContextAccessor.HttpContext, _generalSettings.RuntimeCookieName);
+        string bearerToken = JwtTokenUtil.GetTokenFromContext(
+            _httpContextAccessor.HttpContext,
+            _generalSettings.RuntimeCookieName
+        );
         string accessToken = _accessTokenGenerator.GenerateAccessToken("platform", "storage");
 
         StringContent content = new StringContent(JsonSerializer.Serialize(partyLookup));
         content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/json");
 
-        HttpResponseMessage response = await _client.PostAsync(bearerToken, endpointUrl, content, accessToken);
+        HttpResponseMessage response = await _client.PostAsync(
+            bearerToken,
+            endpointUrl,
+            content,
+            accessToken
+        );
         if (response.StatusCode == HttpStatusCode.OK)
         {
             Party party = await response.Content.ReadFromJsonAsync<Party>(_serializerOptions);
@@ -107,7 +122,10 @@ public class RegisterService : IRegisterService
         }
         else if (response.StatusCode == HttpStatusCode.NotFound)
         {
-            _logger.LogWarning("// RegisterService // PartyLookup // Response status code is {StatusCode}.", response.StatusCode);
+            _logger.LogWarning(
+                "// RegisterService // PartyLookup // Response status code is {StatusCode}.",
+                response.StatusCode
+            );
 
             return -1;
         }

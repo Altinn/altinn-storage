@@ -6,10 +6,8 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
-
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Interface.Models;
@@ -20,24 +18,21 @@ using Altinn.Platform.Storage.UnitTest.Mocks.Authentication;
 using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
-
 using AltinnCore.Authentication.JwtCookie;
-
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-
 using Moq;
-
 using Newtonsoft.Json;
 using Wolverine;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 
-public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<ApplicationsController>>
+public class ApplicationsControllerTests
+    : IClassFixture<TestApplicationFactory<ApplicationsController>>
 {
     private const string BasePath = "/storage/api/v1";
 
@@ -91,21 +86,31 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
         Application appInfo = CreateApplication(org, appName);
 
         Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-        applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync((Application)null);
-        applicationRepository.Setup(s => s.Create(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
+        applicationRepository
+            .Setup(s =>
+                s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync((Application)null);
+        applicationRepository
+            .Setup(s => s.Create(It.IsAny<Application>()))
+            .ReturnsAsync((Application app) => app);
 
         HttpClient client = GetTestClient(applicationRepository.Object);
         string token = PrincipalUtil.GetAccessToken("studio.designer");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
-        HttpResponseMessage response = await client.PostAsync(requestUri, JsonContent.Create(appInfo, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(appInfo, new MediaTypeHeaderValue("application/json"))
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
         string content = await response.Content.ReadAsStringAsync();
-        Application application = JsonConvert.DeserializeObject(content, typeof(Application)) as Application;
+        Application application =
+            JsonConvert.DeserializeObject(content, typeof(Application)) as Application;
 
         Assert.NotNull(application);
         Assert.NotNull(application.DataTypes);
@@ -129,15 +134,24 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
         Application appInfo = CreateApplication(org, appName);
 
         Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-        applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ThrowsAsync(new Exception());
-        applicationRepository.Setup(s => s.Create(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
+        applicationRepository
+            .Setup(s =>
+                s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ThrowsAsync(new Exception());
+        applicationRepository
+            .Setup(s => s.Create(It.IsAny<Application>()))
+            .ReturnsAsync((Application app) => app);
 
         HttpClient client = GetTestClient(applicationRepository.Object);
         string token = PrincipalUtil.GetOrgToken(org: "testOrg", scope: "altinn:invalidScope");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
-        HttpResponseMessage response = await client.PostAsync(requestUri, JsonContent.Create(appInfo, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(appInfo, new MediaTypeHeaderValue("application/json"))
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -162,15 +176,24 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
         Application appInfo = CreateApplication(org, appName);
 
         Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-        applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ThrowsAsync(new Exception());
-        applicationRepository.Setup(s => s.Create(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
+        applicationRepository
+            .Setup(s =>
+                s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ThrowsAsync(new Exception());
+        applicationRepository
+            .Setup(s => s.Create(It.IsAny<Application>()))
+            .ReturnsAsync((Application app) => app);
 
         HttpClient client = GetTestClient(applicationRepository.Object);
         string token = PrincipalUtil.GetOrgToken("testorg", scope: string.Empty);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
-        HttpResponseMessage response = await client.PostAsync(requestUri, JsonContent.Create(appInfo, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(appInfo, new MediaTypeHeaderValue("application/json"))
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -203,7 +226,10 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
-        HttpResponseMessage response = await client.PostAsync(requestUri, JsonContent.Create(appInfo, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(appInfo, new MediaTypeHeaderValue("application/json"))
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -244,28 +270,41 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
         newApp.VersionId = "v1.0.1";
 
         Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-        applicationRepository.Setup(e => e.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new Application
-        {
-            Id = newApp.Id,
-            Org = newApp.Org,
-            VersionId = newApp.VersionId,
-            Created = existingApp.Created,
-            CreatedBy = existingApp.CreatedBy
-        });
-        applicationRepository.Setup(e => e.Create(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
+        applicationRepository
+            .Setup(e =>
+                e.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(
+                new Application
+                {
+                    Id = newApp.Id,
+                    Org = newApp.Org,
+                    VersionId = newApp.VersionId,
+                    Created = existingApp.Created,
+                    CreatedBy = existingApp.CreatedBy,
+                }
+            );
+        applicationRepository
+            .Setup(e => e.Create(It.IsAny<Application>()))
+            .ReturnsAsync((Application app) => app);
 
         HttpClient client = GetTestClient(applicationRepository.Object);
         string token = PrincipalUtil.GetAccessToken("studio.designer");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
-        HttpResponseMessage postResponse = await client.PostAsync(postUri, JsonContent.Create(newApp, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage postResponse = await client.PostAsync(
+            postUri,
+            JsonContent.Create(newApp, new MediaTypeHeaderValue("application/json"))
+        );
         string postContent = await postResponse.Content.ReadAsStringAsync();
-        Application createdApp = JsonConvert.DeserializeObject(postContent, typeof(Application)) as Application;
+        Application createdApp =
+            JsonConvert.DeserializeObject(postContent, typeof(Application)) as Application;
 
         HttpResponseMessage getResponse = await client.GetAsync(getUri);
         string getContent = await getResponse.Content.ReadAsStringAsync();
-        Application retrievedApp = JsonConvert.DeserializeObject(getContent, typeof(Application)) as Application;
+        Application retrievedApp =
+            JsonConvert.DeserializeObject(getContent, typeof(Application)) as Application;
 
         // Assert
         Assert.Equal(HttpStatusCode.Created, postResponse.StatusCode);
@@ -313,26 +352,38 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
         newApp.VersionId = "v1.0.1";
 
         Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-        applicationRepository.Setup(e => e.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new Application
-        {
-            Id = newApp.Id,
-            Org = newApp.Org,
-            VersionId = newApp.VersionId,
-            Created = existingApp.Created,
-            CreatedBy = existingApp.CreatedBy
-        });
-        applicationRepository.Setup(e => e.Update(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
+        applicationRepository
+            .Setup(e =>
+                e.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(
+                new Application
+                {
+                    Id = newApp.Id,
+                    Org = newApp.Org,
+                    VersionId = newApp.VersionId,
+                    Created = existingApp.Created,
+                    CreatedBy = existingApp.CreatedBy,
+                }
+            );
+        applicationRepository
+            .Setup(e => e.Update(It.IsAny<Application>()))
+            .ReturnsAsync((Application app) => app);
 
         HttpClient client = GetTestClient(applicationRepository.Object);
         string token = PrincipalUtil.GetAccessToken("studio.designer");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
-        HttpResponseMessage putResponse = await client.PutAsync(requestUri, JsonContent.Create(newApp, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage putResponse = await client.PutAsync(
+            requestUri,
+            JsonContent.Create(newApp, new MediaTypeHeaderValue("application/json"))
+        );
 
         HttpResponseMessage getResponse = await client.GetAsync(requestUri);
         string getContent = await getResponse.Content.ReadAsStringAsync();
-        Application retrievedApp = JsonConvert.DeserializeObject(getContent, typeof(Application)) as Application;
+        Application retrievedApp =
+            JsonConvert.DeserializeObject(getContent, typeof(Application)) as Application;
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, putResponse.StatusCode);
@@ -363,8 +414,14 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
         Application appInfo = CreateApplication(org, appName);
 
         Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-        applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(appInfo);
-        applicationRepository.Setup(s => s.Update(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
+        applicationRepository
+            .Setup(s =>
+                s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(appInfo);
+        applicationRepository
+            .Setup(s => s.Update(It.IsAny<Application>()))
+            .ReturnsAsync((Application app) => app);
 
         HttpClient client = GetTestClient(applicationRepository.Object);
 
@@ -397,8 +454,14 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
         Application appInfo = CreateApplication(org, appName);
 
         Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-        applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(appInfo);
-        applicationRepository.Setup(s => s.Update(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
+        applicationRepository
+            .Setup(s =>
+                s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(appInfo);
+        applicationRepository
+            .Setup(s => s.Update(It.IsAny<Application>()))
+            .ReturnsAsync((Application app) => app);
 
         HttpClient client = GetTestClient(applicationRepository.Object);
 
@@ -433,8 +496,14 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
         Application appInfo = CreateApplication(org, appName);
 
         Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-        applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(appInfo);
-        applicationRepository.Setup(s => s.Update(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
+        applicationRepository
+            .Setup(s =>
+                s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(appInfo);
+        applicationRepository
+            .Setup(s => s.Update(It.IsAny<Application>()))
+            .ReturnsAsync((Application app) => app);
 
         HttpClient client = GetTestClient(applicationRepository.Object);
 
@@ -448,7 +517,8 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         string content = await response.Content.ReadAsStringAsync();
-        Application application = JsonConvert.DeserializeObject(content, typeof(Application)) as Application;
+        Application application =
+            JsonConvert.DeserializeObject(content, typeof(Application)) as Application;
 
         Assert.NotNull(application);
         Assert.True(application.ValidTo < DateTime.UtcNow);
@@ -468,8 +538,14 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
         Application originalApp = CreateApplication(org, appName);
 
         Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-        applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(originalApp);
-        applicationRepository.Setup(s => s.Update(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
+        applicationRepository
+            .Setup(s =>
+                s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(originalApp);
+        applicationRepository
+            .Setup(s => s.Update(It.IsAny<Application>()))
+            .ReturnsAsync((Application app) => app);
 
         HttpClient client = GetTestClient(applicationRepository.Object);
 
@@ -481,13 +557,17 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
         updatedApp.PartyTypesAllowed = new PartyTypesAllowed { BankruptcyEstate = true };
 
         // Act
-        HttpResponseMessage response = await client.PutAsync(requestUri, JsonContent.Create(updatedApp, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage response = await client.PutAsync(
+            requestUri,
+            JsonContent.Create(updatedApp, new MediaTypeHeaderValue("application/json"))
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         string content = await response.Content.ReadAsStringAsync();
-        Application application = JsonConvert.DeserializeObject(content, typeof(Application)) as Application;
+        Application application =
+            JsonConvert.DeserializeObject(content, typeof(Application)) as Application;
 
         Assert.NotNull(application);
         Assert.Equal("r34", application.VersionId);
@@ -509,8 +589,14 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
         Application originalApp = CreateApplication(org, appName);
 
         Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-        applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(originalApp);
-        applicationRepository.Setup(s => s.Update(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
+        applicationRepository
+            .Setup(s =>
+                s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(originalApp);
+        applicationRepository
+            .Setup(s => s.Update(It.IsAny<Application>()))
+            .ReturnsAsync((Application app) => app);
 
         HttpClient client = GetTestClient(applicationRepository.Object);
 
@@ -522,7 +608,10 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
         updatedApp.PartyTypesAllowed = new PartyTypesAllowed { BankruptcyEstate = true };
 
         // Act
-        HttpResponseMessage response = await client.PutAsync(requestUri, JsonContent.Create(updatedApp, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage response = await client.PutAsync(
+            requestUri,
+            JsonContent.Create(updatedApp, new MediaTypeHeaderValue("application/json"))
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -544,8 +633,14 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
         Application originalApp = CreateApplication(org, appName);
 
         Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
-        applicationRepository.Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(originalApp);
-        applicationRepository.Setup(s => s.Update(It.IsAny<Application>())).ReturnsAsync((Application app) => app);
+        applicationRepository
+            .Setup(s =>
+                s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(originalApp);
+        applicationRepository
+            .Setup(s => s.Update(It.IsAny<Application>()))
+            .ReturnsAsync((Application app) => app);
 
         HttpClient client = GetTestClient(applicationRepository.Object);
 
@@ -557,7 +652,10 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
         updatedApp.PartyTypesAllowed = new PartyTypesAllowed { BankruptcyEstate = true };
 
         // Act
-        HttpResponseMessage response = await client.PutAsync(requestUri, JsonContent.Create(updatedApp, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage response = await client.PutAsync(
+            requestUri,
+            JsonContent.Create(updatedApp, new MediaTypeHeaderValue("application/json"))
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -575,7 +673,7 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
         string requestUri = $"{BasePath}/applications";
         List<Application> expected = new List<Application>
         {
-            CreateApplication("testorg", "testapp")
+            CreateApplication("testorg", "testapp"),
         };
         Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
         applicationRepository.Setup(s => s.FindAll()).ReturnsAsync(expected);
@@ -620,9 +718,7 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
         Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
         var returnValue = new List<Application>() { new Application { Id = "test/sailor" } };
 
-        applicationRepository
-            .Setup(s => s.FindByOrg(It.IsAny<string>()))
-            .ReturnsAsync(returnValue);
+        applicationRepository.Setup(s => s.FindByOrg(It.IsAny<string>())).ReturnsAsync(returnValue);
 
         HttpClient client = GetTestClient(applicationRepository.Object);
 
@@ -645,7 +741,9 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
 
         Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
         applicationRepository
-            .Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(s =>
+                s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
             .ReturnsAsync((Application)null);
 
         HttpClient client = GetTestClient(applicationRepository.Object);
@@ -655,7 +753,10 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
 
         // Assert
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        applicationRepository.Verify(m => m.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        applicationRepository.Verify(
+            m => m.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Once
+        );
     }
 
     /// <summary>
@@ -669,7 +770,9 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
 
         Mock<IApplicationRepository> applicationRepository = new Mock<IApplicationRepository>();
         applicationRepository
-            .Setup(s => s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(s =>
+                s.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
             .ReturnsAsync(new Application { Id = "ttd/existing-app" });
 
         HttpClient client = GetTestClient(applicationRepository.Object);
@@ -679,7 +782,10 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        applicationRepository.Verify(m => m.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        applicationRepository.Verify(
+            m => m.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Once
+        );
     }
 
     private HttpClient GetTestClient(IApplicationRepository applicationRepository)
@@ -689,30 +795,40 @@ public class ApplicationsControllerTests : IClassFixture<TestApplicationFactory<
         Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
         Mock<IMessageBus> busMock = new Mock<IMessageBus>();
 
-        HttpClient client = _factory.WithWebHostBuilder(builder =>
-        {
-            IConfiguration configuration = new ConfigurationBuilder()
-                .AddJsonFile(ServiceUtil.GetAppsettingsPath())
-                .Build();
-            builder.ConfigureAppConfiguration((hostingContext, config) =>
+        HttpClient client = _factory
+            .WithWebHostBuilder(builder =>
             {
-                config.AddConfiguration(configuration);
-            });
+                IConfiguration configuration = new ConfigurationBuilder()
+                    .AddJsonFile(ServiceUtil.GetAppsettingsPath())
+                    .Build();
+                builder.ConfigureAppConfiguration(
+                    (hostingContext, config) =>
+                    {
+                        config.AddConfiguration(configuration);
+                    }
+                );
 
-            builder.ConfigureTestServices(services =>
-            {
-                services.AddMockRepositories();
+                builder.ConfigureTestServices(services =>
+                {
+                    services.AddMockRepositories();
 
-                services.AddSingleton(applicationRepository);
+                    services.AddSingleton(applicationRepository);
 
-                services.AddSingleton(keyVaultWrapper.Object);
-                services.AddSingleton(partiesWrapper.Object);
-                services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
-                services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
-                services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
-                services.AddSingleton(busMock.Object);
-            });
-        }).CreateClient();
+                    services.AddSingleton(keyVaultWrapper.Object);
+                    services.AddSingleton(partiesWrapper.Object);
+                    services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
+                    services.AddSingleton<
+                        IPostConfigureOptions<JwtCookieOptions>,
+                        JwtCookiePostConfigureOptionsStub
+                    >();
+                    services.AddSingleton<
+                        IPublicSigningKeyProvider,
+                        PublicSigningKeyProviderMock
+                    >();
+                    services.AddSingleton(busMock.Object);
+                });
+            })
+            .CreateClient();
 
         return client;
     }

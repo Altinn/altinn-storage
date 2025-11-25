@@ -3,9 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Azure.Storage.Queues;
-
 using Microsoft.Extensions.Options;
 
 namespace Altinn.Platform.Storage.Clients;
@@ -40,8 +38,9 @@ public class FileScanQueueClient : IFileScanQueueClient
         if (_fileScanQueueClient == null)
         {
             _fileScanQueueClient = new QueueClient(
-                _queueStorageSettings.ConnectionString, 
-                _queueStorageSettings.FileScanQueueName);
+                _queueStorageSettings.ConnectionString,
+                _queueStorageSettings.FileScanQueueName
+            );
 
             await _fileScanQueueClient.CreateIfNotExistsAsync();
         }

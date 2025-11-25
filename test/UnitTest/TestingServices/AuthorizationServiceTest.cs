@@ -40,7 +40,11 @@ public class AuthorizationServiceTest
         var generalSettings = new GeneralSettings { AuthorizeA2ListInstancesDelete = true };
         var options = Options.Create(generalSettings);
         _authzService = new AuthorizationService(
-            _pdpMockSI, _claimsPrincipalProviderMock.Object, Mock.Of<ILogger<AuthorizationService>>(), options);
+            _pdpMockSI,
+            _claimsPrincipalProviderMock.Object,
+            Mock.Of<ILogger<AuthorizationService>>(),
+            options
+        );
     }
 
     [Fact]
@@ -48,26 +52,28 @@ public class AuthorizationServiceTest
     {
         var res = new XacmlJsonResponse
         {
-            Response = new List<XacmlJsonResult>()
-            {
-                new XacmlJsonResult
-                {
-                    Decision = "Permit"
-                }
-            }
+            Response = new List<XacmlJsonResult>() { new XacmlJsonResult { Decision = "Permit" } },
         };
 
-        _pdpSimpleMock.Setup(pdp => pdp.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+        _pdpSimpleMock
+            .Setup(pdp => pdp.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
             .ReturnsAsync(res);
 
         var generalSettings = new GeneralSettings { AuthorizeA2ListInstancesDelete = true };
         var options = Options.Create(generalSettings);
 
         var sut = new AuthorizationService(
-            _pdpSimpleMock.Object, _claimsPrincipalProviderMock.Object, Mock.Of<ILogger<AuthorizationService>>(), options);
+            _pdpSimpleMock.Object,
+            _claimsPrincipalProviderMock.Object,
+            Mock.Of<ILogger<AuthorizationService>>(),
+            options
+        );
         await sut.GetDecisionForRequest(new XacmlJsonRequestRoot());
 
-        _pdpSimpleMock.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Once());
+        _pdpSimpleMock.Verify(
+            m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()),
+            Times.Once()
+        );
     }
 
     [Fact]
@@ -77,7 +83,14 @@ public class AuthorizationServiceTest
         string reqiured = "altinn:serviceowner/instances.read";
 
         var claims = new List<Claim>();
-        claims.Add(new Claim("urn:altinn:scope", "ALTINN:SERVICEOWNER/INSTANCES.READ", ClaimValueTypes.String, "maskinporten"));
+        claims.Add(
+            new Claim(
+                "urn:altinn:scope",
+                "ALTINN:SERVICEOWNER/INSTANCES.READ",
+                ClaimValueTypes.String,
+                "maskinporten"
+            )
+        );
 
         var identity = new ClaimsIdentity("AuthenticationTypes.Federation");
         identity.AddClaims(claims);
@@ -100,10 +113,33 @@ public class AuthorizationServiceTest
         var claims = new List<Claim>();
         string issuer = "www.altinn.no";
         claims.Add(new Claim("urn:altinn:org", "nav", ClaimValueTypes.String, issuer));
-        claims.Add(new Claim("urn:altinn:orgNumber", "123456789", ClaimValueTypes.Integer32, issuer));
-        claims.Add(new Claim(AltinnCoreClaimTypes.AuthenticateMethod, "Mock", ClaimValueTypes.String, issuer));
-        claims.Add(new Claim(AltinnCoreClaimTypes.AuthenticationLevel, "3", ClaimValueTypes.Integer32, issuer));
-        claims.Add(new Claim("urn:altinn:scope", "altinn:random.scope", ClaimValueTypes.String, "maskinporten"));
+        claims.Add(
+            new Claim("urn:altinn:orgNumber", "123456789", ClaimValueTypes.Integer32, issuer)
+        );
+        claims.Add(
+            new Claim(
+                AltinnCoreClaimTypes.AuthenticateMethod,
+                "Mock",
+                ClaimValueTypes.String,
+                issuer
+            )
+        );
+        claims.Add(
+            new Claim(
+                AltinnCoreClaimTypes.AuthenticationLevel,
+                "3",
+                ClaimValueTypes.Integer32,
+                issuer
+            )
+        );
+        claims.Add(
+            new Claim(
+                "urn:altinn:scope",
+                "altinn:random.scope",
+                ClaimValueTypes.String,
+                "maskinporten"
+            )
+        );
 
         var identity = new ClaimsIdentity("AuthenticationTypes.Federation");
         identity.AddClaims(claims);
@@ -130,7 +166,11 @@ public class AuthorizationServiceTest
         List<Instance> instances = CreateInstances();
 
         // Act
-        XacmlJsonRequestRoot requestRoot = AuthorizationService.CreateMultiDecisionRequest(CreateUserClaims(1), instances, actionTypes);
+        XacmlJsonRequestRoot requestRoot = AuthorizationService.CreateMultiDecisionRequest(
+            CreateUserClaims(1),
+            instances,
+            actionTypes
+        );
 
         // Assert
         // Checks it has the right number of attributes in each category
@@ -158,7 +198,9 @@ public class AuthorizationServiceTest
         List<Instance> instances = CreateInstances();
 
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => AuthorizationService.CreateMultiDecisionRequest(null, instances, actionTypes));
+        Assert.Throws<ArgumentNullException>(() =>
+            AuthorizationService.CreateMultiDecisionRequest(null, instances, actionTypes)
+        );
     }
 
     /// <summary>
@@ -178,12 +220,19 @@ public class AuthorizationServiceTest
         }
 
         // Act
-        XacmlJsonRequestRoot requestRoot = AuthorizationService.CreateMultiDecisionRequest(CreateUserClaims(1), instances, actionTypes);
+        XacmlJsonRequestRoot requestRoot = AuthorizationService.CreateMultiDecisionRequest(
+            CreateUserClaims(1),
+            instances,
+            actionTypes
+        );
 
         // Assert
         requestRoot.Request.Resource.ForEach(resource =>
         {
-            Assert.Contains(resource.Attribute, attr => attr.AttributeId == "urn:altinn:end-event" && attr.Value == "MigratedA1A2");
+            Assert.Contains(
+                resource.Attribute,
+                attr => attr.AttributeId == "urn:altinn:end-event" && attr.Value == "MigratedA1A2"
+            );
         });
     }
 
@@ -204,12 +253,19 @@ public class AuthorizationServiceTest
         }
 
         // Act
-        XacmlJsonRequestRoot requestRoot = AuthorizationService.CreateMultiDecisionRequest(CreateUserClaims(1), instances, actionTypes);
+        XacmlJsonRequestRoot requestRoot = AuthorizationService.CreateMultiDecisionRequest(
+            CreateUserClaims(1),
+            instances,
+            actionTypes
+        );
 
         // Assert
         requestRoot.Request.Resource.ForEach(resource =>
         {
-            Assert.Contains(resource.Attribute, attr => attr.AttributeId == "urn:altinn:end-event" && attr.Value == "MigratedA1A2");
+            Assert.Contains(
+                resource.Attribute,
+                attr => attr.AttributeId == "urn:altinn:end-event" && attr.Value == "MigratedA1A2"
+            );
         });
     }
 
@@ -230,12 +286,19 @@ public class AuthorizationServiceTest
         }
 
         // Act
-        XacmlJsonRequestRoot requestRoot = AuthorizationService.CreateMultiDecisionRequest(CreateUserClaims(1), instances, actionTypes);
+        XacmlJsonRequestRoot requestRoot = AuthorizationService.CreateMultiDecisionRequest(
+            CreateUserClaims(1),
+            instances,
+            actionTypes
+        );
 
         // Assert
         requestRoot.Request.Resource.ForEach(resource =>
         {
-            Assert.DoesNotContain(resource.Attribute, attr => attr.AttributeId == "urn:altinn:end-event" && attr.Value == "MigratedA1A2");
+            Assert.DoesNotContain(
+                resource.Attribute,
+                attr => attr.AttributeId == "urn:altinn:end-event" && attr.Value == "MigratedA1A2"
+            );
         });
     }
 
@@ -252,7 +315,10 @@ public class AuthorizationServiceTest
         _claimsPrincipalProviderMock.Setup(c => c.GetUser()).Returns(CreateUserClaims(3));
 
         // Act
-        List<MessageBoxInstance> actual = await _authzService.AuthorizeMesseageBoxInstances(instances, false);
+        List<MessageBoxInstance> actual = await _authzService.AuthorizeMesseageBoxInstances(
+            instances,
+            false
+        );
 
         // Assert
         Assert.Equal(expected, actual);
@@ -266,7 +332,7 @@ public class AuthorizationServiceTest
             // type, value, valuetype, issuer
             new Claim(UrnName, "Ola", "string", "org"),
             new Claim(UrnAuthLv, "2", "string", "org"),
-            new Claim(UrnUserId, $"{userId}", "string", "org")
+            new Claim(UrnUserId, $"{userId}", "string", "org"),
         };
 
         ClaimsPrincipal user = new ClaimsPrincipal(new ClaimsIdentity(claims));
@@ -283,41 +349,29 @@ public class AuthorizationServiceTest
                 Id = "1000/" + Guid.NewGuid(),
                 Process = new ProcessState
                 {
-                    CurrentTask = new ProcessElementInfo
-                    {
-                        Name = "test_task"
-                    }
+                    CurrentTask = new ProcessElementInfo { Name = "test_task" },
                 },
-                InstanceOwner = new InstanceOwner
-                {
-                    PartyId = "1000"
-                },
+                InstanceOwner = new InstanceOwner { PartyId = "1000" },
                 AppId = Org + "/" + App,
                 Org = Org,
-                Created = DateTime.UtcNow
+                Created = DateTime.UtcNow,
             },
             new Instance
             {
                 Id = "1002/" + Guid.NewGuid(),
-                InstanceOwner = new InstanceOwner
-                {
-                    PartyId = "1002"
-                },
+                InstanceOwner = new InstanceOwner { PartyId = "1002" },
                 AppId = Org + "/" + App,
                 Org = Org,
-                Created = DateTime.UtcNow
+                Created = DateTime.UtcNow,
             },
             new Instance
             {
                 Id = "1000/" + Guid.NewGuid(),
-                InstanceOwner = new InstanceOwner
-                {
-                    PartyId = "1000"
-                },
+                InstanceOwner = new InstanceOwner { PartyId = "1000" },
                 AppId = Org + "/" + App,
                 Org = Org,
-                Created = DateTime.UtcNow
-            }
+                Created = DateTime.UtcNow,
+            },
         };
 
         return instances;

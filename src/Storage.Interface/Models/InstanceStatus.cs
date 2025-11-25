@@ -80,7 +80,7 @@ public enum ReadStatus
     /// <summary>
     /// Instance has been updated since last review
     /// </summary>
-    UpdatedSinceLastReview
+    UpdatedSinceLastReview,
 }
 
 /// <summary>

@@ -143,7 +143,7 @@ public class SegoeWpFontResolver : IFontResolver
             // PDFsharp never calls GetFont with a face name that was not returned
             // by ResolveTypeface.
             // Comes here if faceName is from another font resolver.
-            _ => null
+            _ => null,
         };
     }
 }

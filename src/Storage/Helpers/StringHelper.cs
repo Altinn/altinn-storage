@@ -19,6 +19,9 @@ public static class StringHelper
             return value;
         }
 
-        return value.Replace("\n", string.Empty)?.Replace("\r", string.Empty)?.Replace(Environment.NewLine, string.Empty);
+        return value
+            .Replace("\n", string.Empty)
+            ?.Replace("\r", string.Empty)
+            ?.Replace(Environment.NewLine, string.Empty);
     }
 }

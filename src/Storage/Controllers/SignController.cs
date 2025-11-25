@@ -42,11 +42,22 @@ public class SignController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces("application/json")]
     public async Task<ActionResult> Sign(
-        [FromRoute] int instanceOwnerPartyId, [FromRoute] Guid instanceGuid, [FromBody] SignRequest signRequest, CancellationToken cancellationToken)
+        [FromRoute] int instanceOwnerPartyId,
+        [FromRoute] Guid instanceGuid,
+        [FromBody] SignRequest signRequest,
+        CancellationToken cancellationToken
+    )
     {
-        if (string.IsNullOrEmpty(signRequest?.Signee?.UserId) && signRequest?.Signee?.SystemUserId is null)
+        if (
+            string.IsNullOrEmpty(signRequest?.Signee?.UserId)
+            && signRequest?.Signee?.SystemUserId is null
+        )
         {
-            return Problem("The 'UserId' or 'SystemUserId' parameter must be defined for signee.", null, 400);
+            return Problem(
+                "The 'UserId' or 'SystemUserId' parameter must be defined for signee.",
+                null,
+                400
+            );
         }
 
         var performedBy = User.GetUserOrOrgNo();
@@ -55,7 +66,12 @@ public class SignController : ControllerBase
             return Unauthorized();
         }
 
-        (bool created, ServiceError serviceError) = await _signingService.CreateSignDocument(instanceGuid, signRequest, performedBy, cancellationToken);
+        (bool created, ServiceError serviceError) = await _signingService.CreateSignDocument(
+            instanceGuid,
+            signRequest,
+            performedBy,
+            cancellationToken
+        );
 
         if (created)
         {

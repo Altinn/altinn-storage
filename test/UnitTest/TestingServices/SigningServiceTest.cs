@@ -8,7 +8,6 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -25,10 +24,30 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices;
 
 public class SigningServiceTest
 {
-    public static TheoryData<Signee> SigneeData => new(
-        new Signee() { UserId = "1337", PersonNumber = "22117612345", SystemUserId = null, OrganisationNumber = null },
-        new Signee() { UserId = string.Empty, PersonNumber = null, SystemUserId = null, OrganisationNumber = "524446332" },
-        new Signee() { UserId = string.Empty, PersonNumber = null, SystemUserId = Guid.NewGuid(), OrganisationNumber = "524446332" });
+    public static TheoryData<Signee> SigneeData =>
+        new(
+            new Signee()
+            {
+                UserId = "1337",
+                PersonNumber = "22117612345",
+                SystemUserId = null,
+                OrganisationNumber = null,
+            },
+            new Signee()
+            {
+                UserId = string.Empty,
+                PersonNumber = null,
+                SystemUserId = null,
+                OrganisationNumber = "524446332",
+            },
+            new Signee()
+            {
+                UserId = string.Empty,
+                PersonNumber = null,
+                SystemUserId = Guid.NewGuid(),
+                OrganisationNumber = "524446332",
+            }
+        );
 
     [Theory]
     [MemberData(nameof(SigneeData))]
@@ -36,31 +55,70 @@ public class SigningServiceTest
     {
         // Arrange
         var instanceRepositoryMock = new Mock<IInstanceRepository>();
-        instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>())).ReturnsAsync((new Instance()
-        {
-            InstanceOwner = new(),
-            Process = new ProcessState { CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" } },
-        }, 0));
+        instanceRepositoryMock
+            .Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                (
+                    new Instance()
+                    {
+                        InstanceOwner = new(),
+                        Process = new ProcessState
+                        {
+                            CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" },
+                        },
+                    },
+                    0
+                )
+            );
 
         var applicationServiceMock = new Mock<IApplicationService>();
-        applicationServiceMock.Setup(
-                asm => asm.ValidateDataTypeForApp(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+        applicationServiceMock
+            .Setup(asm =>
+                asm.ValidateDataTypeForApp(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>()
+                )
+            )
             .ReturnsAsync((true, null));
 
         var dataServiceMock = new Mock<IDataService>();
-        dataServiceMock.Setup(
-                dsm => dsm.GenerateSha256Hash(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int?>()))
+        dataServiceMock
+            .Setup(dsm =>
+                dsm.GenerateSha256Hash(
+                    It.IsAny<string>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<int?>()
+                )
+            )
             .ReturnsAsync((Guid.NewGuid().ToString(), null));
 
-        dataServiceMock.Setup(
-            dsm => dsm.UploadDataAndCreateDataElement(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<DataElement>(), 0, It.IsAny<int?>()));
+        dataServiceMock.Setup(dsm =>
+            dsm.UploadDataAndCreateDataElement(
+                It.IsAny<string>(),
+                It.IsAny<Stream>(),
+                It.IsAny<DataElement>(),
+                0,
+                It.IsAny<int?>()
+            )
+        );
 
         var instanceEventServiceMock = new Mock<IInstanceEventService>();
-        instanceEventServiceMock.Setup(
-            esm => esm.DispatchEvent(It.Is<InstanceEventType>(ies => ies == InstanceEventType.Signed), It.IsAny<Instance>()));
+        instanceEventServiceMock.Setup(esm =>
+            esm.DispatchEvent(
+                It.Is<InstanceEventType>(ies => ies == InstanceEventType.Signed),
+                It.IsAny<Instance>()
+            )
+        );
 
         var applicationRepositoryMock = new Mock<IApplicationRepository>();
-        applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new Application());
+        applicationRepositoryMock
+            .Setup(am =>
+                am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(new Application());
 
         var blobRepositoryMock = new Mock<IBlobRepository>();
 
@@ -73,21 +131,33 @@ public class SigningServiceTest
             instanceEventServiceMock.Object,
             applicationRepositoryMock.Object,
             blobRepositoryMock.Object,
-            loggerMock.Object);
+            loggerMock.Object
+        );
 
         SignRequest signRequest = new SignRequest
         {
             SignatureDocumentDataType = "sign-data-type",
             DataElementSignatures = new List<DataElementSignature>
             {
-                new DataElementSignature { DataElementId = Guid.NewGuid().ToString(), Signed = true }
+                new DataElementSignature
+                {
+                    DataElementId = Guid.NewGuid().ToString(),
+                    Signed = true,
+                },
             },
             Signee = signee,
         };
 
         // Act
-        var performedBy = !string.IsNullOrWhiteSpace(signee.UserId) ? signee.UserId : signee.OrganisationNumber;
-        (bool created, ServiceError serviceError) = await service.CreateSignDocument(Guid.NewGuid(), signRequest, performedBy, It.IsAny<CancellationToken>());
+        var performedBy = !string.IsNullOrWhiteSpace(signee.UserId)
+            ? signee.UserId
+            : signee.OrganisationNumber;
+        (bool created, ServiceError serviceError) = await service.CreateSignDocument(
+            Guid.NewGuid(),
+            signRequest,
+            performedBy,
+            It.IsAny<CancellationToken>()
+        );
 
         // Assert
         Assert.True(created);
@@ -113,7 +183,7 @@ public class SigningServiceTest
             InstanceGuid = instanceGuid.ToString(),
             SignedTime = default,
             SigneeInfo = signee,
-            DataElementSignatures = []
+            DataElementSignatures = [],
         };
 
         DataElement oldSignatureDataElement = new() { DataType = signatureDataType };
@@ -123,38 +193,93 @@ public class SigningServiceTest
         {
             Id = instanceId,
             InstanceOwner = new InstanceOwner(),
-            Process = new ProcessState { CurrentTask = new ProcessElementInfo { ElementId = "Task_1", AltinnTaskType = "signing" } },
-            Data = [oldSignatureDataElement]
+            Process = new ProcessState
+            {
+                CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_1",
+                    AltinnTaskType = "signing",
+                },
+            },
+            Data = [oldSignatureDataElement],
         };
 
-        instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>())).ReturnsAsync((instance, 0));
+        instanceRepositoryMock
+            .Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((instance, 0));
 
         var applicationServiceMock = new Mock<IApplicationService>();
-        applicationServiceMock.Setup(
-                asm => asm.ValidateDataTypeForApp(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+        applicationServiceMock
+            .Setup(asm =>
+                asm.ValidateDataTypeForApp(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>()
+                )
+            )
             .ReturnsAsync((true, null));
 
         var dataServiceMock = new Mock<IDataService>();
-        dataServiceMock.Setup(
-                dsm => dsm.GenerateSha256Hash(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int?>()))
+        dataServiceMock
+            .Setup(dsm =>
+                dsm.GenerateSha256Hash(
+                    It.IsAny<string>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<int?>()
+                )
+            )
             .ReturnsAsync((Guid.NewGuid().ToString(), null));
 
-        dataServiceMock.Setup(x => x.DeleteImmediately(It.Is<Instance>(x => x.Id == instance.Id), It.Is<DataElement>(x => x.Id == oldSignatureDataElement.Id), It.IsAny<int?>()));
+        dataServiceMock.Setup(x =>
+            x.DeleteImmediately(
+                It.Is<Instance>(x => x.Id == instance.Id),
+                It.Is<DataElement>(x => x.Id == oldSignatureDataElement.Id),
+                It.IsAny<int?>()
+            )
+        );
 
-        dataServiceMock.Setup(
-            dsm => dsm.UploadDataAndCreateDataElement(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<DataElement>(), 0, It.IsAny<int?>()));
+        dataServiceMock.Setup(dsm =>
+            dsm.UploadDataAndCreateDataElement(
+                It.IsAny<string>(),
+                It.IsAny<Stream>(),
+                It.IsAny<DataElement>(),
+                0,
+                It.IsAny<int?>()
+            )
+        );
 
         var instanceEventServiceMock = new Mock<IInstanceEventService>();
-        instanceEventServiceMock.Setup(
-            esm => esm.DispatchEvent(It.Is<InstanceEventType>(ies => ies == InstanceEventType.Signed), It.IsAny<Instance>()));
+        instanceEventServiceMock.Setup(esm =>
+            esm.DispatchEvent(
+                It.Is<InstanceEventType>(ies => ies == InstanceEventType.Signed),
+                It.IsAny<Instance>()
+            )
+        );
 
         var applicationRepositoryMock = new Mock<IApplicationRepository>();
-        applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new Application());
+        applicationRepositoryMock
+            .Setup(am =>
+                am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(new Application());
 
         var blobRepositoryMock = new Mock<IBlobRepository>();
-        blobRepositoryMock.Setup(x => x.ReadBlob(It.IsAny<string>(), It.IsAny<string>(), null, It.IsAny<CancellationToken>())).ReturnsAsync(new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(oldSignDocument)));
+        blobRepositoryMock
+            .Setup(x =>
+                x.ReadBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    null,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(oldSignDocument)));
 
-        blobRepositoryMock.Setup(x => x.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>())).ReturnsAsync(true);
+        blobRepositoryMock
+            .Setup(x => x.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()))
+            .ReturnsAsync(true);
 
         var loggerMock = new Mock<ILogger<SigningService>>();
 
@@ -165,19 +290,33 @@ public class SigningServiceTest
             instanceEventServiceMock.Object,
             applicationRepositoryMock.Object,
             blobRepositoryMock.Object,
-            loggerMock.Object);
+            loggerMock.Object
+        );
 
         // Act
         var signRequest = new SignRequest
         {
             SignatureDocumentDataType = "sign-data-type",
             DataElementSignatures =
-                [new DataElementSignature { DataElementId = Guid.NewGuid().ToString(), Signed = true }],
+            [
+                new DataElementSignature
+                {
+                    DataElementId = Guid.NewGuid().ToString(),
+                    Signed = true,
+                },
+            ],
             Signee = signee,
         };
 
-        string? performedBy = !string.IsNullOrWhiteSpace(signee.UserId) ? signee.UserId : signee.OrganisationNumber;
-        (bool created, ServiceError serviceError) = await service.CreateSignDocument(Guid.NewGuid(), signRequest, performedBy, It.IsAny<CancellationToken>());
+        string? performedBy = !string.IsNullOrWhiteSpace(signee.UserId)
+            ? signee.UserId
+            : signee.OrganisationNumber;
+        (bool created, ServiceError serviceError) = await service.CreateSignDocument(
+            Guid.NewGuid(),
+            signRequest,
+            performedBy,
+            It.IsAny<CancellationToken>()
+        );
 
         // Assert
         Assert.True(created);
@@ -188,7 +327,13 @@ public class SigningServiceTest
         instanceEventServiceMock.VerifyAll();
 
         // Verify explicitly that the old signature was deleted
-        dataServiceMock.Verify(x => x.DeleteImmediately(It.Is<Instance>(x => x.Id == instance.Id), It.Is<DataElement>(x => x.Id == oldSignatureDataElement.Id), It.IsAny<int?>()));
+        dataServiceMock.Verify(x =>
+            x.DeleteImmediately(
+                It.Is<Instance>(x => x.Id == instance.Id),
+                It.Is<DataElement>(x => x.Id == oldSignatureDataElement.Id),
+                It.IsAny<int?>()
+            )
+        );
     }
 
     [Fact]
@@ -196,14 +341,20 @@ public class SigningServiceTest
     {
         // Arrange
         var instanceRepositoryMock = new Mock<IInstanceRepository>();
-        instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>())).ReturnsAsync(((Instance?)null, 0));
+        instanceRepositoryMock
+            .Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(((Instance?)null, 0));
 
         var applicationServiceMock = new Mock<IApplicationService>();
         var dataServiceMock = new Mock<IDataService>();
         var instanceEventServiceMock = new Mock<IInstanceEventService>();
 
         var applicationRepositoryMock = new Mock<IApplicationRepository>();
-        applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new Application());
+        applicationRepositoryMock
+            .Setup(am =>
+                am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(new Application());
 
         var blobRepositoryMock = new Mock<IBlobRepository>();
 
@@ -216,10 +367,16 @@ public class SigningServiceTest
             instanceEventServiceMock.Object,
             applicationRepositoryMock.Object,
             blobRepositoryMock.Object,
-            loggerMock.Object);
+            loggerMock.Object
+        );
 
         // Act
-        (bool created, ServiceError serviceError) = await service.CreateSignDocument(Guid.NewGuid(), new SignRequest(), "1337", It.IsAny<CancellationToken>());
+        (bool created, ServiceError serviceError) = await service.CreateSignDocument(
+            Guid.NewGuid(),
+            new SignRequest(),
+            "1337",
+            It.IsAny<CancellationToken>()
+        );
 
         // Assert
         Assert.False(created);
@@ -232,25 +389,55 @@ public class SigningServiceTest
     {
         // Arrange
         var instanceRepositoryMock = new Mock<IInstanceRepository>();
-        instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>())).ReturnsAsync((new Instance()
-        {
-            InstanceOwner = new(),
-            Process = new ProcessState { CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" } }
-        }, 0));
+        instanceRepositoryMock
+            .Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                (
+                    new Instance()
+                    {
+                        InstanceOwner = new(),
+                        Process = new ProcessState
+                        {
+                            CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" },
+                        },
+                    },
+                    0
+                )
+            );
 
         var applicationServiceMock = new Mock<IApplicationService>();
-        applicationServiceMock.Setup(
-                asm => asm.ValidateDataTypeForApp(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+        applicationServiceMock
+            .Setup(asm =>
+                asm.ValidateDataTypeForApp(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>()
+                )
+            )
             .ReturnsAsync((false, new ServiceError(404, $"Cannot find application in storage")));
 
         var dataServiceMock = new Mock<IDataService>();
         var instanceEventServiceMock = new Mock<IInstanceEventService>();
 
         var applicationRepositoryMock = new Mock<IApplicationRepository>();
-        applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new Application());
+        applicationRepositoryMock
+            .Setup(am =>
+                am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(new Application());
 
         var blobRepositoryMock = new Mock<IBlobRepository>();
-        blobRepositoryMock.Setup(x => x.ReadBlob(It.IsAny<string>(), It.IsAny<string>(), null, It.IsAny<CancellationToken>())).ReturnsAsync(new MemoryStream("whatever"u8.ToArray()));
+        blobRepositoryMock
+            .Setup(x =>
+                x.ReadBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    null,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(new MemoryStream("whatever"u8.ToArray()));
 
         var loggerMock = new Mock<ILogger<SigningService>>();
 
@@ -261,10 +448,16 @@ public class SigningServiceTest
             instanceEventServiceMock.Object,
             applicationRepositoryMock.Object,
             blobRepositoryMock.Object,
-            loggerMock.Object);
+            loggerMock.Object
+        );
 
         // Act
-        (bool created, ServiceError serviceError) = await service.CreateSignDocument(Guid.NewGuid(), new SignRequest(), "1337", It.IsAny<CancellationToken>());
+        (bool created, ServiceError serviceError) = await service.CreateSignDocument(
+            Guid.NewGuid(),
+            new SignRequest(),
+            "1337",
+            It.IsAny<CancellationToken>()
+        );
 
         // Assert
         Assert.False(created);
@@ -279,29 +472,66 @@ public class SigningServiceTest
     {
         // Arrange
         var instanceRepositoryMock = new Mock<IInstanceRepository>();
-        instanceRepositoryMock.Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>())).ReturnsAsync((new Instance()
-        {
-            InstanceOwner = new(),
-            Process = new ProcessState { CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" } }
-        }, 0));
+        instanceRepositoryMock
+            .Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                (
+                    new Instance()
+                    {
+                        InstanceOwner = new(),
+                        Process = new ProcessState
+                        {
+                            CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" },
+                        },
+                    },
+                    0
+                )
+            );
 
         var applicationServiceMock = new Mock<IApplicationService>();
-        applicationServiceMock.Setup(
-                asm => asm.ValidateDataTypeForApp(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+        applicationServiceMock
+            .Setup(asm =>
+                asm.ValidateDataTypeForApp(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>()
+                )
+            )
             .ReturnsAsync((true, null));
 
         var applicationRepositoryMock = new Mock<IApplicationRepository>();
-        applicationRepositoryMock.Setup(am => am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new Application());
+        applicationRepositoryMock
+            .Setup(am =>
+                am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(new Application());
 
         var dataServiceMock = new Mock<IDataService>();
-        dataServiceMock.Setup(
-                dsm => dsm.GenerateSha256Hash(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int?>()))
+        dataServiceMock
+            .Setup(dsm =>
+                dsm.GenerateSha256Hash(
+                    It.IsAny<string>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<int?>()
+                )
+            )
             .ReturnsAsync((null, new ServiceError(404, "DataElement not found")));
 
         var instanceEventServiceMock = new Mock<IInstanceEventService>();
 
         var blobRepositoryMock = new Mock<IBlobRepository>();
-        blobRepositoryMock.Setup(x => x.ReadBlob(It.IsAny<string>(), It.IsAny<string>(), null, It.IsAny<CancellationToken>())).ReturnsAsync(new MemoryStream("whatever"u8.ToArray()));
+        blobRepositoryMock
+            .Setup(x =>
+                x.ReadBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    null,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(new MemoryStream("whatever"u8.ToArray()));
 
         var loggerMock = new Mock<ILogger<SigningService>>();
 
@@ -312,21 +542,33 @@ public class SigningServiceTest
             instanceEventServiceMock.Object,
             applicationRepositoryMock.Object,
             blobRepositoryMock.Object,
-            loggerMock.Object);
+            loggerMock.Object
+        );
 
         SignRequest signRequest = new SignRequest
         {
             SignatureDocumentDataType = "sign-data-type",
             DataElementSignatures = new List<DataElementSignature>
             {
-                new DataElementSignature { DataElementId = Guid.NewGuid().ToString(), Signed = true }
+                new DataElementSignature
+                {
+                    DataElementId = Guid.NewGuid().ToString(),
+                    Signed = true,
+                },
             },
             Signee = signee,
         };
 
         // Act
-        var performedBy = !string.IsNullOrWhiteSpace(signee.UserId) ? signee.UserId : signee.OrganisationNumber;
-        (bool created, ServiceError serviceError) = await service.CreateSignDocument(Guid.NewGuid(), signRequest, performedBy, It.IsAny<CancellationToken>());
+        var performedBy = !string.IsNullOrWhiteSpace(signee.UserId)
+            ? signee.UserId
+            : signee.OrganisationNumber;
+        (bool created, ServiceError serviceError) = await service.CreateSignDocument(
+            Guid.NewGuid(),
+            signRequest,
+            performedBy,
+            It.IsAny<CancellationToken>()
+        );
 
         // Assert
         Assert.False(created);

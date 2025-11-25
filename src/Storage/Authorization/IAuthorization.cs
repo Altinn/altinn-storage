@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Security.Claims;
 using System.Threading.Tasks;
-
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
@@ -16,14 +15,17 @@ public interface IAuthorization
     /// <summary>
     /// Authorize instances, and returns a list of MesseageBoxInstances with information about read and write rights of each instance.
     /// </summary>
-    public Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(List<Instance> instances, bool keyAccessMode);
+    public Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(
+        List<Instance> instances,
+        bool keyAccessMode
+    );
 
     /// <summary>
     /// Authorizes a given action on an instance.
     /// </summary>
     /// <returns>true if the user is authorized.</returns>
     public Task<bool> AuthorizeInstanceAction(Instance instance, string action, string task = null);
-        
+
     /// <summary>
     /// Authorizes that the user has one or more of the actions on an instance.
     /// </summary>

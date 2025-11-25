@@ -28,7 +28,8 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 
-public class StudioInstancesControllerTests : IClassFixture<TestApplicationFactory<StudioInstancesController>>
+public class StudioInstancesControllerTests
+    : IClassFixture<TestApplicationFactory<StudioInstancesController>>
 {
     private readonly TestApplicationFactory<StudioInstancesController> _factory;
     private const string BasePath = "/storage/api/v1/studio/instances";
@@ -89,20 +90,28 @@ public class StudioInstancesControllerTests : IClassFixture<TestApplicationFacto
         // Arrange
         var instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
-            .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), false, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new InstanceQueryResponse
-            {
-                Instances = new List<Instance>
+            .Setup(ir =>
+                ir.GetInstancesFromQuery(
+                    It.IsAny<InstanceQueryParameters>(),
+                    false,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                new InstanceQueryResponse
                 {
-                    new Instance
+                    Instances = new List<Instance>
                     {
-                        Id = "1337/guid",
-                        InstanceOwner = new() { PartyId = "1337" },
-                        AppId = "ttd/app",
-                        Org = "ttd",
+                        new Instance
+                        {
+                            Id = "1337/guid",
+                            InstanceOwner = new() { PartyId = "1337" },
+                            AppId = "ttd/app",
+                            Org = "ttd",
+                        },
                     },
                 }
-            });
+            );
 
         HttpClient client = GetTestClient(instanceRepository: instanceRepositoryMock.Object);
         string token = PrincipalUtil.GetAccessToken("studio.designer");
@@ -124,7 +133,13 @@ public class StudioInstancesControllerTests : IClassFixture<TestApplicationFacto
         // Arrange
         var instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
-            .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), false, It.IsAny<CancellationToken>()))
+            .Setup(ir =>
+                ir.GetInstancesFromQuery(
+                    It.IsAny<InstanceQueryParameters>(),
+                    false,
+                    It.IsAny<CancellationToken>()
+                )
+            )
             .ReturnsAsync(new InstanceQueryResponse { Exception = "Something went wrong" });
 
         HttpClient client = GetTestClient(instanceRepository: instanceRepositoryMock.Object);
@@ -144,7 +159,13 @@ public class StudioInstancesControllerTests : IClassFixture<TestApplicationFacto
         // Arrange
         var instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
-            .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), false, It.IsAny<CancellationToken>()))
+            .Setup(ir =>
+                ir.GetInstancesFromQuery(
+                    It.IsAny<InstanceQueryParameters>(),
+                    false,
+                    It.IsAny<CancellationToken>()
+                )
+            )
             .ThrowsAsync(new Exception("Database connection error"));
 
         HttpClient client = GetTestClient(instanceRepository: instanceRepositoryMock.Object);
@@ -164,19 +185,29 @@ public class StudioInstancesControllerTests : IClassFixture<TestApplicationFacto
         // Arrange
         var instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
-            .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), false, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new InstanceQueryResponse
-            {
-                Instances = new List<Instance>(),
-                ContinuationToken = "nextToken"
-            });
+            .Setup(ir =>
+                ir.GetInstancesFromQuery(
+                    It.IsAny<InstanceQueryParameters>(),
+                    false,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                new InstanceQueryResponse
+                {
+                    Instances = new List<Instance>(),
+                    ContinuationToken = "nextToken",
+                }
+            );
 
         HttpClient client = GetTestClient(instanceRepository: instanceRepositoryMock.Object);
         string token = PrincipalUtil.GetAccessToken("studio.designer");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
-        HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app?continuationToken=someToken");
+        HttpResponseMessage response = await client.GetAsync(
+            $"{BasePath}/ttd/app?continuationToken=someToken"
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -188,7 +219,8 @@ public class StudioInstancesControllerTests : IClassFixture<TestApplicationFacto
     private HttpClient GetTestClient(
         IInstanceRepository instanceRepository = null,
         IAuthorization authorizationService = null,
-        IOptions<GeneralSettings> generalSettings = null)
+        IOptions<GeneralSettings> generalSettings = null
+    )
     {
         if (instanceRepository == null)
         {
@@ -198,7 +230,9 @@ public class StudioInstancesControllerTests : IClassFixture<TestApplicationFacto
         if (authorizationService == null)
         {
             var authorizationMock = new Mock<IAuthorization>();
-            authorizationMock.Setup(a => a.UserHasRequiredScope(It.IsAny<List<string>>())).Returns(true);
+            authorizationMock
+                .Setup(a => a.UserHasRequiredScope(It.IsAny<List<string>>()))
+                .Returns(true);
             authorizationService = authorizationMock.Object;
         }
 
@@ -209,28 +243,39 @@ public class StudioInstancesControllerTests : IClassFixture<TestApplicationFacto
                 {
                     Hostname = "tt02.altinn.no",
                     StudioInstancesOrgWhiteList = new() { "ttd" },
-                });
+                }
+            );
         }
 
-        var client = _factory.WithWebHostBuilder(builder =>
-        {
-            IConfiguration configuration = new ConfigurationBuilder()
-                .AddJsonFile(ServiceUtil.GetAppsettingsPath())
-                .Build();
-            builder.ConfigureAppConfiguration((hostingContext, config) =>
+        var client = _factory
+            .WithWebHostBuilder(builder =>
             {
-                config.AddConfiguration(configuration);
-            });
+                IConfiguration configuration = new ConfigurationBuilder()
+                    .AddJsonFile(ServiceUtil.GetAppsettingsPath())
+                    .Build();
+                builder.ConfigureAppConfiguration(
+                    (hostingContext, config) =>
+                    {
+                        config.AddConfiguration(configuration);
+                    }
+                );
 
-            builder.ConfigureTestServices(services =>
-            {
-                services.AddSingleton(instanceRepository);
-                services.AddSingleton(authorizationService);
-                services.AddSingleton(generalSettings);
-                services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
-                services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
-            });
-        }).CreateClient();
+                builder.ConfigureTestServices(services =>
+                {
+                    services.AddSingleton(instanceRepository);
+                    services.AddSingleton(authorizationService);
+                    services.AddSingleton(generalSettings);
+                    services.AddSingleton<
+                        IPostConfigureOptions<JwtCookieOptions>,
+                        JwtCookiePostConfigureOptionsStub
+                    >();
+                    services.AddSingleton<
+                        IPublicSigningKeyProvider,
+                        PublicSigningKeyProviderMock
+                    >();
+                });
+            })
+            .CreateClient();
 
         return client;
     }

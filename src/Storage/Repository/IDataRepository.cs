@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Altinn.Platform.Storage.Interface.Models;
 using Azure.Storage.Blobs.Models;
 
@@ -21,7 +20,11 @@ public interface IDataRepository
     /// <param name="instanceInternalId">the internal id of the parent instance</param>
     /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
     /// <returns>the data element with updated id</returns>
-    Task<DataElement> Create(DataElement dataElement, long instanceInternalId = 0, CancellationToken cancellationToken = default);
+    Task<DataElement> Create(
+        DataElement dataElement,
+        long instanceInternalId = 0,
+        CancellationToken cancellationToken = default
+    );
 
     /// <summary>
     /// Reads a data element metadata object. Not the actual data.
@@ -30,7 +33,11 @@ public interface IDataRepository
     /// <param name="dataElementId">The data element guid</param>
     /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
     /// <returns>The identified data element.</returns>
-    Task<DataElement> Read(Guid instanceGuid, Guid dataElementId, CancellationToken cancellationToken = default);
+    Task<DataElement> Read(
+        Guid instanceGuid,
+        Guid dataElementId,
+        CancellationToken cancellationToken = default
+    );
 
     /// <summary>
     /// Deletes the data element metadata object permanently!
@@ -56,5 +63,10 @@ public interface IDataRepository
     /// <param name="propertylist">A dictionary contaning property id (key) and object (value) to be stored</param>
     /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
     /// <remarks>Dictionary can containt at most 10 entries</remarks>
-    Task<DataElement> Update(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertylist, CancellationToken cancellationToken = default);
+    Task<DataElement> Update(
+        Guid instanceGuid,
+        Guid dataElementId,
+        Dictionary<string, object> propertylist,
+        CancellationToken cancellationToken = default
+    );
 }

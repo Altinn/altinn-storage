@@ -9,7 +9,6 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Clients;
@@ -23,14 +22,11 @@ using Altinn.Platform.Storage.UnitTest.Mocks.Authentication;
 using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
-
 using AltinnCore.Authentication.JwtCookie;
-
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-
 using Moq;
 using OpenTelemetry.Metrics;
 using Wolverine;
@@ -48,7 +44,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     private readonly TestApplicationFactory<DataController> _factory;
     private static readonly JsonSerializerOptions _serializerOptions = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
     /// <summary>
@@ -75,12 +71,16 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     [InlineData("something", 1L)]
     public async Task Post_NewData_Ok(string scope, long? invalidScopeRequests)
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
         HttpContent content = new StringContent("This is a blob file");
 
         string token = PrincipalUtil.GetToken(1337, 1337, 3, scopes: [scope]);
         HttpClient client = GetTestClient(bearerAuthToken: token);
-        HttpResponseMessage response = await client.PostAsync($"{dataPathWithData}?dataType=default", content);
+        HttpResponseMessage response = await client.PostAsync(
+            $"{dataPathWithData}?dataType=default",
+            content
+        );
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         await _testTelemetry.AssertRequestsWithInvalidScopesCountAsync(invalidScopeRequests);
@@ -90,7 +90,8 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     public async Task Post_NewDataThatRequiresFileScan_Ok()
     {
         // Arrange
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
         HttpContent content = new StringContent("This is a blob file");
 
         Mock<IFileScanQueueClient> fileScanMock = new Mock<IFileScanQueueClient>();
@@ -99,15 +100,24 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         HttpClient client = GetTestClient(null, null, fileScanMock, token);
 
         // Act
-        HttpResponseMessage response = await client.PostAsync($"{dataPathWithData}?dataType=default_with_fileScan", content);
+        HttpResponseMessage response = await client.PostAsync(
+            $"{dataPathWithData}?dataType=default_with_fileScan",
+            content
+        );
 
         // Assert
-        fileScanMock.Verify(f => f.EnqueueFileScan(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once());
+        fileScanMock.Verify(
+            f => f.EnqueueFileScan(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Once()
+        );
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
         string responseContent = await response.Content.ReadAsStringAsync();
-        DataElement actual = JsonSerializer.Deserialize<DataElement>(responseContent, _serializerOptions);
+        DataElement actual = JsonSerializer.Deserialize<DataElement>(
+            responseContent,
+            _serializerOptions
+        );
 
         Assert.Equal(FileScanResult.Pending, actual.FileScanResult);
     }
@@ -123,12 +133,16 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     [Fact]
     public async Task Post_NewData_NotAuthorized()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/69c259d1-9c1f-4ab6-9d8b-5c210042dc4f/data";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/69c259d1-9c1f-4ab6-9d8b-5c210042dc4f/data";
         HttpContent content = new StringContent("This is a blob file");
 
         string token = PrincipalUtil.GetToken(1, 1337, 3);
         HttpClient client = GetTestClient(bearerAuthToken: token);
-        HttpResponseMessage response = await client.PostAsync($"{dataPathWithData}?dataType=default", content);
+        HttpResponseMessage response = await client.PostAsync(
+            $"{dataPathWithData}?dataType=default",
+            content
+        );
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
@@ -144,39 +158,78 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     [Fact]
     public async Task Post_NewData_ToLowAuthenticationLevel()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/69c259d1-9c1f-4ab6-9d8b-5c210042dc4f/data";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/69c259d1-9c1f-4ab6-9d8b-5c210042dc4f/data";
         HttpContent content = new StringContent("This is a blob file");
 
         string token = PrincipalUtil.GetToken(3, 1337, 0);
         HttpClient client = GetTestClient(bearerAuthToken: token);
-        HttpResponseMessage response = await client.PostAsync($"{dataPathWithData}?dataType=default", content);
+        HttpResponseMessage response = await client.PostAsync(
+            $"{dataPathWithData}?dataType=default",
+            content
+        );
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Theory]
     [InlineData(SensitiveDataApp.DataTypes.Default, AuthenticationType.Org, HttpStatusCode.Created)]
-    [InlineData(SensitiveDataApp.DataTypes.Default, AuthenticationType.User, HttpStatusCode.Created)]
-    [InlineData(SensitiveDataApp.DataTypes.SensitiveRead, AuthenticationType.Org, HttpStatusCode.Created)]
-    [InlineData(SensitiveDataApp.DataTypes.SensitiveRead, AuthenticationType.User, HttpStatusCode.Created)]
-    [InlineData(SensitiveDataApp.DataTypes.SensitiveWrite, AuthenticationType.Org, HttpStatusCode.Created)]
-    [InlineData(SensitiveDataApp.DataTypes.SensitiveWrite, AuthenticationType.User, HttpStatusCode.Forbidden)]
-    [InlineData(SensitiveDataApp.DataTypes.SensitiveBoth, AuthenticationType.Org, HttpStatusCode.Created)]
-    [InlineData(SensitiveDataApp.DataTypes.SensitiveBoth, AuthenticationType.User, HttpStatusCode.Forbidden)]
-    public async Task Post_DataElement_ValidatesDataTypeWriteAccess(string dataType, AuthenticationType authenticationType, HttpStatusCode expectedStatusCode)
+    [InlineData(
+        SensitiveDataApp.DataTypes.Default,
+        AuthenticationType.User,
+        HttpStatusCode.Created
+    )]
+    [InlineData(
+        SensitiveDataApp.DataTypes.SensitiveRead,
+        AuthenticationType.Org,
+        HttpStatusCode.Created
+    )]
+    [InlineData(
+        SensitiveDataApp.DataTypes.SensitiveRead,
+        AuthenticationType.User,
+        HttpStatusCode.Created
+    )]
+    [InlineData(
+        SensitiveDataApp.DataTypes.SensitiveWrite,
+        AuthenticationType.Org,
+        HttpStatusCode.Created
+    )]
+    [InlineData(
+        SensitiveDataApp.DataTypes.SensitiveWrite,
+        AuthenticationType.User,
+        HttpStatusCode.Forbidden
+    )]
+    [InlineData(
+        SensitiveDataApp.DataTypes.SensitiveBoth,
+        AuthenticationType.Org,
+        HttpStatusCode.Created
+    )]
+    [InlineData(
+        SensitiveDataApp.DataTypes.SensitiveBoth,
+        AuthenticationType.User,
+        HttpStatusCode.Forbidden
+    )]
+    public async Task Post_DataElement_ValidatesDataTypeWriteAccess(
+        string dataType,
+        AuthenticationType authenticationType,
+        HttpStatusCode expectedStatusCode
+    )
     {
         // Arrange
         var dataPath = $"{SensitiveDataApp.GetInstanceUrl()}/data/?dataType={dataType}";
-        var token = authenticationType is AuthenticationType.User
-            ? PrincipalUtil.GetToken(1337, 1337, 3)
-            : PrincipalUtil.GetOrgToken("ttd");
+        var token =
+            authenticationType is AuthenticationType.User
+                ? PrincipalUtil.GetToken(1337, 1337, 3)
+                : PrincipalUtil.GetOrgToken("ttd");
         var client = GetTestClient(bearerAuthToken: token);
 
         // Act
         var response = await client.PostAsync(dataPath, new StringContent("Blob content"));
-        var content = async () => JsonSerializer.Deserialize<DataElement>(
-            await response.Content.ReadAsStringAsync(),
-            _serializerOptions);
+        var content = async () =>
+            JsonSerializer.Deserialize<DataElement>(
+                await response.Content.ReadAsStringAsync(),
+                _serializerOptions
+            );
 
         // Assert
         Assert.Equal(expectedStatusCode, response.StatusCode);
@@ -203,7 +256,8 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     public async Task OverwriteData_UpdateData_Ok()
     {
         // Arrange
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/649388f0-a2c0-4774-bd11-c870223ed819/data/11f7c994-6681-47a1-9626-fcf6c27308a5";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/649388f0-a2c0-4774-bd11-c870223ed819/data/11f7c994-6681-47a1-9626-fcf6c27308a5";
         HttpContent content = new StringContent("This is a blob file with updated data");
 
         string token = PrincipalUtil.GetToken(1337, 1337, 3);
@@ -216,7 +270,10 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         string responseContent = await response.Content.ReadAsStringAsync();
-        DataElement actual = JsonSerializer.Deserialize<DataElement>(responseContent, _serializerOptions);
+        DataElement actual = JsonSerializer.Deserialize<DataElement>(
+            responseContent,
+            _serializerOptions
+        );
 
         Assert.Equal(FileScanResult.NotApplicable, actual.FileScanResult);
     }
@@ -225,7 +282,8 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     public async Task OverwriteData_UpdateDataOnDataTypeWithFileScan_StartsFileScan()
     {
         // Arrange
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/649388f0-a2c0-4774-bd11-c870223ed819/data/50c60b30-cb9a-435b-a31e-bbce47c2b936";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/649388f0-a2c0-4774-bd11-c870223ed819/data/50c60b30-cb9a-435b-a31e-bbce47c2b936";
         HttpContent content = new StringContent("This is a blob file with updated data");
 
         Mock<IFileScanQueueClient> fileScanMock = new Mock<IFileScanQueueClient>();
@@ -237,12 +295,18 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         HttpResponseMessage response = await client.PutAsync(dataPathWithData, content);
 
         // Assert
-        fileScanMock.Verify(f => f.EnqueueFileScan(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once());
+        fileScanMock.Verify(
+            f => f.EnqueueFileScan(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Once()
+        );
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         string responseContent = await response.Content.ReadAsStringAsync();
-        DataElement actual = JsonSerializer.Deserialize<DataElement>(responseContent, _serializerOptions);
+        DataElement actual = JsonSerializer.Deserialize<DataElement>(
+            responseContent,
+            _serializerOptions
+        );
 
         Assert.Equal(FileScanResult.Pending, actual.FileScanResult);
     }
@@ -250,12 +314,16 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     [Fact]
     public async Task OverwriteData_DataElementDoesNotExist_ReturnsNotFound()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/649388f0-a2c0-4774-bd11-c870223ed819/data/11111111-6681-47a1-9626-fcf6c27308a5";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/649388f0-a2c0-4774-bd11-c870223ed819/data/11111111-6681-47a1-9626-fcf6c27308a5";
         HttpContent content = new StringContent("This is a blob file with updated data");
 
         string token = PrincipalUtil.GetToken(1337, 1337, 3);
         HttpClient client = GetTestClient(bearerAuthToken: token);
-        HttpResponseMessage response = await client.PutAsync($"{dataPathWithData}?dataType=default", content);
+        HttpResponseMessage response = await client.PutAsync(
+            $"{dataPathWithData}?dataType=default",
+            content
+        );
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -271,12 +339,16 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     [Fact]
     public async Task OverwriteData_UpdateData_Conflict()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/6aa47207-f089-4c11-9cb2-f00af6f66a47/data/24bfec2e-c4ce-4e82-8fa9-aa39da329fd5";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/6aa47207-f089-4c11-9cb2-f00af6f66a47/data/24bfec2e-c4ce-4e82-8fa9-aa39da329fd5";
         HttpContent content = new StringContent("This is a blob file with updated data");
 
         string token = PrincipalUtil.GetToken(1337, 1337, 3);
         HttpClient client = GetTestClient(bearerAuthToken: token);
-        HttpResponseMessage response = await client.PutAsync($"{dataPathWithData}?dataType=default", content);
+        HttpResponseMessage response = await client.PutAsync(
+            $"{dataPathWithData}?dataType=default",
+            content
+        );
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
     }
@@ -284,19 +356,48 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     [Theory]
     [InlineData(SensitiveDataApp.DataElements.Default, AuthenticationType.Org, HttpStatusCode.OK)]
     [InlineData(SensitiveDataApp.DataElements.Default, AuthenticationType.User, HttpStatusCode.OK)]
-    [InlineData(SensitiveDataApp.DataElements.SensitiveRead, AuthenticationType.Org, HttpStatusCode.OK)]
-    [InlineData(SensitiveDataApp.DataElements.SensitiveRead, AuthenticationType.User, HttpStatusCode.OK)]
-    [InlineData(SensitiveDataApp.DataElements.SensitiveWrite, AuthenticationType.Org, HttpStatusCode.OK)]
-    [InlineData(SensitiveDataApp.DataElements.SensitiveWrite, AuthenticationType.User, HttpStatusCode.Forbidden)]
-    [InlineData(SensitiveDataApp.DataElements.SensitiveBoth, AuthenticationType.Org, HttpStatusCode.OK)]
-    [InlineData(SensitiveDataApp.DataElements.SensitiveBoth, AuthenticationType.User, HttpStatusCode.Forbidden)]
-    public async Task OverwriteData_DataElement_ValidatesDataTypeWriteAccess(string dataElementId, AuthenticationType authenticationType, HttpStatusCode expectedStatusCode)
+    [InlineData(
+        SensitiveDataApp.DataElements.SensitiveRead,
+        AuthenticationType.Org,
+        HttpStatusCode.OK
+    )]
+    [InlineData(
+        SensitiveDataApp.DataElements.SensitiveRead,
+        AuthenticationType.User,
+        HttpStatusCode.OK
+    )]
+    [InlineData(
+        SensitiveDataApp.DataElements.SensitiveWrite,
+        AuthenticationType.Org,
+        HttpStatusCode.OK
+    )]
+    [InlineData(
+        SensitiveDataApp.DataElements.SensitiveWrite,
+        AuthenticationType.User,
+        HttpStatusCode.Forbidden
+    )]
+    [InlineData(
+        SensitiveDataApp.DataElements.SensitiveBoth,
+        AuthenticationType.Org,
+        HttpStatusCode.OK
+    )]
+    [InlineData(
+        SensitiveDataApp.DataElements.SensitiveBoth,
+        AuthenticationType.User,
+        HttpStatusCode.Forbidden
+    )]
+    public async Task OverwriteData_DataElement_ValidatesDataTypeWriteAccess(
+        string dataElementId,
+        AuthenticationType authenticationType,
+        HttpStatusCode expectedStatusCode
+    )
     {
         // Arrange
         var dataPath = $"{SensitiveDataApp.GetInstanceUrl()}/data/{dataElementId}";
-        var token = authenticationType is AuthenticationType.User
-            ? PrincipalUtil.GetToken(1337, 1337, 3)
-            : PrincipalUtil.GetOrgToken("ttd");
+        var token =
+            authenticationType is AuthenticationType.User
+                ? PrincipalUtil.GetToken(1337, 1337, 3)
+                : PrincipalUtil.GetOrgToken("ttd");
         var client = GetTestClient(bearerAuthToken: token);
 
         // Act
@@ -309,7 +410,8 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     [Fact]
     public async Task Delete_DataElement_Ok()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/649388f0-a2c0-4774-bd11-c870223ed819/data/11f7c994-6681-47a1-9626-fcf6c27308a5";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/649388f0-a2c0-4774-bd11-c870223ed819/data/11f7c994-6681-47a1-9626-fcf6c27308a5";
 
         string token = PrincipalUtil.GetToken(1337, 1337, 3);
         HttpClient client = GetTestClient(bearerAuthToken: token);
@@ -321,7 +423,8 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     [Fact]
     public async Task Delete_DataElementDoesNotExist_ReturnsNotFound()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/649388f0-a2c0-4774-bd11-c870223ed819/data/11111111-6681-47a1-9626-fcf6c27308a5";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/649388f0-a2c0-4774-bd11-c870223ed819/data/11111111-6681-47a1-9626-fcf6c27308a5";
 
         string token = PrincipalUtil.GetToken(1337, 1337, 3);
         HttpClient client = GetTestClient(bearerAuthToken: token);
@@ -333,7 +436,8 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     [Fact]
     public async Task Delete_DataElement_NotAuthorized()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/649388f0-a2c0-4774-bd11-c870223ed819/data/11f7c994-6681-47a1-9626-fcf6c27308a5";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/649388f0-a2c0-4774-bd11-c870223ed819/data/11f7c994-6681-47a1-9626-fcf6c27308a5";
 
         string token = PrincipalUtil.GetToken(1, 1, 3);
         HttpClient client = GetTestClient(bearerAuthToken: token);
@@ -345,19 +449,48 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     [Theory]
     [InlineData(SensitiveDataApp.DataElements.Default, AuthenticationType.Org, HttpStatusCode.OK)]
     [InlineData(SensitiveDataApp.DataElements.Default, AuthenticationType.User, HttpStatusCode.OK)]
-    [InlineData(SensitiveDataApp.DataElements.SensitiveRead, AuthenticationType.Org, HttpStatusCode.OK)]
-    [InlineData(SensitiveDataApp.DataElements.SensitiveRead, AuthenticationType.User, HttpStatusCode.OK)]
-    [InlineData(SensitiveDataApp.DataElements.SensitiveWrite, AuthenticationType.Org, HttpStatusCode.OK)]
-    [InlineData(SensitiveDataApp.DataElements.SensitiveWrite, AuthenticationType.User, HttpStatusCode.Forbidden)]
-    [InlineData(SensitiveDataApp.DataElements.SensitiveBoth, AuthenticationType.Org, HttpStatusCode.OK)]
-    [InlineData(SensitiveDataApp.DataElements.SensitiveBoth, AuthenticationType.User, HttpStatusCode.Forbidden)]
-    public async Task Delete_DataElement_ValidatesDataTypeWriteAccess(string dataElementId, AuthenticationType authenticationType, HttpStatusCode expectedStatusCode)
+    [InlineData(
+        SensitiveDataApp.DataElements.SensitiveRead,
+        AuthenticationType.Org,
+        HttpStatusCode.OK
+    )]
+    [InlineData(
+        SensitiveDataApp.DataElements.SensitiveRead,
+        AuthenticationType.User,
+        HttpStatusCode.OK
+    )]
+    [InlineData(
+        SensitiveDataApp.DataElements.SensitiveWrite,
+        AuthenticationType.Org,
+        HttpStatusCode.OK
+    )]
+    [InlineData(
+        SensitiveDataApp.DataElements.SensitiveWrite,
+        AuthenticationType.User,
+        HttpStatusCode.Forbidden
+    )]
+    [InlineData(
+        SensitiveDataApp.DataElements.SensitiveBoth,
+        AuthenticationType.Org,
+        HttpStatusCode.OK
+    )]
+    [InlineData(
+        SensitiveDataApp.DataElements.SensitiveBoth,
+        AuthenticationType.User,
+        HttpStatusCode.Forbidden
+    )]
+    public async Task Delete_DataElement_ValidatesDataTypeWriteAccess(
+        string dataElementId,
+        AuthenticationType authenticationType,
+        HttpStatusCode expectedStatusCode
+    )
     {
         // Arrange
         var dataPath = $"{SensitiveDataApp.GetInstanceUrl()}/data/{dataElementId}";
-        var token = authenticationType is AuthenticationType.User
-            ? PrincipalUtil.GetToken(1337, 1337, 3)
-            : PrincipalUtil.GetOrgToken("ttd");
+        var token =
+            authenticationType is AuthenticationType.User
+                ? PrincipalUtil.GetToken(1337, 1337, 3)
+                : PrincipalUtil.GetOrgToken("ttd");
         var client = GetTestClient(bearerAuthToken: token);
 
         // Act
@@ -374,7 +507,8 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     [InlineData("something", 1L)]
     public async Task Get_DataElement_Ok(string scope, long? invalidScopeRequests)
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/data/f4feb26c-8eed-4d1d-9d75-9239c40724e9";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/data/f4feb26c-8eed-4d1d-9d75-9239c40724e9";
 
         string token = PrincipalUtil.GetToken(1337, 1337, 3, scopes: [scope]);
         HttpClient client = GetTestClient(bearerAuthToken: token);
@@ -387,7 +521,8 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     [Fact]
     public async Task Get_DataElementDoesNotExists_ReturnsNotFound()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/data/11111111-8eed-4d1d-9d75-9239c40724e9";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/data/11111111-8eed-4d1d-9d75-9239c40724e9";
 
         string token = PrincipalUtil.GetToken(1337, 1337, 3);
         HttpClient client = GetTestClient(bearerAuthToken: token);
@@ -399,7 +534,8 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     [Fact]
     public async Task Get_DataElements_Ok()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/dataelements/";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/dataelements/";
 
         string token = PrincipalUtil.GetToken(1337, 1337, 3);
         HttpClient client = GetTestClient(bearerAuthToken: token);
@@ -411,14 +547,18 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     [Fact]
     public async Task Get_DataElementsAsEndUser_HardDeletedFilteredOut()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/dataelements/";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/dataelements/";
         int expectedCount = 2;
 
         string token = PrincipalUtil.GetToken(1337, 1337, 3);
         HttpClient client = GetTestClient(bearerAuthToken: token);
         HttpResponseMessage response = await client.GetAsync(dataPathWithData);
         string content = await response.Content.ReadAsStringAsync();
-        DataElementList actual = JsonSerializer.Deserialize<DataElementList>(content, _serializerOptions);
+        DataElementList actual = JsonSerializer.Deserialize<DataElementList>(
+            content,
+            _serializerOptions
+        );
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(expectedCount, actual.DataElements.Count);
@@ -427,14 +567,18 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     [Fact]
     public async Task Get_DataElementsAsAppOwner_HardDeletedIncluded()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/dataelements/";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/dataelements/";
         int expectedCount = 3;
 
         string token = PrincipalUtil.GetOrgToken("ttd");
         HttpClient client = GetTestClient(bearerAuthToken: token);
         HttpResponseMessage response = await client.GetAsync(dataPathWithData);
         string content = await response.Content.ReadAsStringAsync();
-        DataElementList actual = JsonSerializer.Deserialize<DataElementList>(content, _serializerOptions);
+        DataElementList actual = JsonSerializer.Deserialize<DataElementList>(
+            content,
+            _serializerOptions
+        );
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(expectedCount, actual.DataElements.Count);
@@ -443,7 +587,8 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     [Fact]
     public async Task Get_DataElements_To_Low_Auth_Level()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/dataelements/";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/dataelements/";
 
         string token = PrincipalUtil.GetToken(1337, 1337, 1);
         HttpClient client = GetTestClient(bearerAuthToken: token);
@@ -455,7 +600,8 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     [Fact]
     public async Task Get_DataElements_NotAuthorized()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/dataelements/";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/dataelements/";
 
         string token = PrincipalUtil.GetToken(1, 1, 3);
         HttpClient client = GetTestClient(bearerAuthToken: token);
@@ -477,7 +623,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
             SensitiveDataApp.DataTypes.Default,
             SensitiveDataApp.DataTypes.SensitiveRead,
             SensitiveDataApp.DataTypes.SensitiveWrite,
-            SensitiveDataApp.DataTypes.SensitiveBoth
+            SensitiveDataApp.DataTypes.SensitiveBoth,
         ];
 
         // Act
@@ -485,19 +631,29 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         foreach (var client in new[] { orgClient, userClient })
         {
             var response = await client.GetAsync(dataPath);
-            var content = JsonSerializer.Deserialize<DataElementList>(await response.Content.ReadAsStringAsync(), _serializerOptions);
+            var content = JsonSerializer.Deserialize<DataElementList>(
+                await response.Content.ReadAsStringAsync(),
+                _serializerOptions
+            );
             results.Add(content);
         }
 
         // Assert
-        Assert.All(results, x => Assert.Equal(expectedDataElementTypes.Count, x.DataElements.Count));
-        Assert.All(results, x => Assert.Equivalent(expectedDataElementTypes, x.DataElements.Select(y => y.DataType)));
+        Assert.All(
+            results,
+            x => Assert.Equal(expectedDataElementTypes.Count, x.DataElements.Count)
+        );
+        Assert.All(
+            results,
+            x => Assert.Equivalent(expectedDataElementTypes, x.DataElements.Select(y => y.DataType))
+        );
     }
 
     [Fact]
     public async Task Get_DataElement_NotAuthorized()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/data/f4feb26c-8eed-4d1d-9d75-9239c40724e9";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/data/f4feb26c-8eed-4d1d-9d75-9239c40724e9";
 
         string token = PrincipalUtil.GetToken(1, 1, 3);
         HttpClient client = GetTestClient(bearerAuthToken: token);
@@ -509,7 +665,8 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     [Fact]
     public async Task Get_DataElement_ToLowAuthenticationLevel()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/data/f4feb26c-8eed-4d1d-9d75-9239c40724e9";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/data/f4feb26c-8eed-4d1d-9d75-9239c40724e9";
 
         string token = PrincipalUtil.GetToken(1337, 1337, 1);
         HttpClient client = GetTestClient(bearerAuthToken: token);
@@ -522,7 +679,8 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     public async Task Get_DataElement_Org_Ok()
     {
         // Arrange
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/ca9da17c-904a-44d2-9771-a5420acfbcf3/data/28023597-516b-4a71-a77c-d3736912abd5";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/ca9da17c-904a-44d2-9771-a5420acfbcf3/data/28023597-516b-4a71-a77c-d3736912abd5";
 
         string token = PrincipalUtil.GetOrgToken("tdd");
         HttpClient client = GetTestClient(bearerAuthToken: token);
@@ -537,7 +695,8 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     [Fact]
     public async Task Get_DataElementAsEndUser_HardDeleted_NotFound()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe88";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe88";
 
         string token = PrincipalUtil.GetToken(1337, 1337, 3);
         HttpClient client = GetTestClient(bearerAuthToken: token);
@@ -549,7 +708,8 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     [Fact]
     public async Task Get_DataElementAsAppOwner_HardDeletedIncluded()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe88";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe88";
 
         string token = PrincipalUtil.GetOrgToken("ttd");
         HttpClient client = GetTestClient(bearerAuthToken: token);
@@ -559,21 +719,67 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     }
 
     [Theory]
-    [InlineData(SensitiveDataApp.DataElements.Default, AuthenticationType.Org, HttpStatusCode.OK, "model-content")]
-    [InlineData(SensitiveDataApp.DataElements.Default, AuthenticationType.User, HttpStatusCode.OK, "model-content")]
-    [InlineData(SensitiveDataApp.DataElements.SensitiveRead, AuthenticationType.Org, HttpStatusCode.OK, "sensitive-data-read-content")]
-    [InlineData(SensitiveDataApp.DataElements.SensitiveRead, AuthenticationType.User, HttpStatusCode.Forbidden, "")]
-    [InlineData(SensitiveDataApp.DataElements.SensitiveWrite, AuthenticationType.Org, HttpStatusCode.OK, "sensitive-data-write-content")]
-    [InlineData(SensitiveDataApp.DataElements.SensitiveWrite, AuthenticationType.User, HttpStatusCode.OK, "sensitive-data-write-content")]
-    [InlineData(SensitiveDataApp.DataElements.SensitiveBoth, AuthenticationType.Org, HttpStatusCode.OK, "sensitive-data-both-content")]
-    [InlineData(SensitiveDataApp.DataElements.SensitiveBoth, AuthenticationType.User, HttpStatusCode.Forbidden, "")]
-    public async Task Get_DataElement_ValidatesDataTypeReadAccess(string dataElementId, AuthenticationType authenticationType, HttpStatusCode expectedStatusCode, string expectedContent)
+    [InlineData(
+        SensitiveDataApp.DataElements.Default,
+        AuthenticationType.Org,
+        HttpStatusCode.OK,
+        "model-content"
+    )]
+    [InlineData(
+        SensitiveDataApp.DataElements.Default,
+        AuthenticationType.User,
+        HttpStatusCode.OK,
+        "model-content"
+    )]
+    [InlineData(
+        SensitiveDataApp.DataElements.SensitiveRead,
+        AuthenticationType.Org,
+        HttpStatusCode.OK,
+        "sensitive-data-read-content"
+    )]
+    [InlineData(
+        SensitiveDataApp.DataElements.SensitiveRead,
+        AuthenticationType.User,
+        HttpStatusCode.Forbidden,
+        ""
+    )]
+    [InlineData(
+        SensitiveDataApp.DataElements.SensitiveWrite,
+        AuthenticationType.Org,
+        HttpStatusCode.OK,
+        "sensitive-data-write-content"
+    )]
+    [InlineData(
+        SensitiveDataApp.DataElements.SensitiveWrite,
+        AuthenticationType.User,
+        HttpStatusCode.OK,
+        "sensitive-data-write-content"
+    )]
+    [InlineData(
+        SensitiveDataApp.DataElements.SensitiveBoth,
+        AuthenticationType.Org,
+        HttpStatusCode.OK,
+        "sensitive-data-both-content"
+    )]
+    [InlineData(
+        SensitiveDataApp.DataElements.SensitiveBoth,
+        AuthenticationType.User,
+        HttpStatusCode.Forbidden,
+        ""
+    )]
+    public async Task Get_DataElement_ValidatesDataTypeReadAccess(
+        string dataElementId,
+        AuthenticationType authenticationType,
+        HttpStatusCode expectedStatusCode,
+        string expectedContent
+    )
     {
         // Arrange
         var dataPath = $"{SensitiveDataApp.GetInstanceUrl()}/data/{dataElementId}";
-        var token = authenticationType is AuthenticationType.User
-            ? PrincipalUtil.GetToken(1337, 1337, 3)
-            : PrincipalUtil.GetOrgToken("ttd");
+        var token =
+            authenticationType is AuthenticationType.User
+                ? PrincipalUtil.GetToken(1337, 1337, 3)
+                : PrincipalUtil.GetOrgToken("ttd");
         var client = GetTestClient(bearerAuthToken: token);
 
         // Act
@@ -589,7 +795,8 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     public async Task Delete_Delayed_AutoDeleteMissing_BadRequest()
     {
         // Arrange
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/data/f4feb26c-8eed-4d1d-9d75-9239c40724e9?delay=true";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/data/f4feb26c-8eed-4d1d-9d75-9239c40724e9?delay=true";
         string expected = "\"DataType default does not support delayed deletion\"";
         string token = PrincipalUtil.GetToken(1337, 1337, 3);
         HttpClient client = GetTestClient(bearerAuthToken: token);
@@ -614,14 +821,20 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
             .ReturnsAsync(de);
 
         dataRepositoryMock
-            .Setup(dr => dr.Update(
-                It.IsAny<Guid>(),
-                It.IsAny<Guid>(),
-                It.Is<Dictionary<string, object>>(propertyList => VerifyDeleteStatusPresentInDictionary(propertyList)),
-                It.IsAny<CancellationToken>()))
+            .Setup(dr =>
+                dr.Update(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.Is<Dictionary<string, object>>(propertyList =>
+                        VerifyDeleteStatusPresentInDictionary(propertyList)
+                    ),
+                    It.IsAny<CancellationToken>()
+                )
+            )
             .ReturnsAsync(new DataElement());
 
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe30?delay=true";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe30?delay=true";
         string token = PrincipalUtil.GetToken(1337, 1337, 3);
         HttpClient client = GetTestClient(dataRepositoryMock, bearerAuthToken: token);
 
@@ -633,9 +846,15 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         dataRepositoryMock.VerifyAll();
     }
 
-    private static bool VerifyDeleteStatusPresentInDictionary(Dictionary<string, object> propertyList)
+    private static bool VerifyDeleteStatusPresentInDictionary(
+        Dictionary<string, object> propertyList
+    )
     {
-        if (!propertyList.ContainsKey("/deleteStatus") || !propertyList.ContainsKey("/lastChanged") || !propertyList.ContainsKey("/lastChangedBy"))
+        if (
+            !propertyList.ContainsKey("/deleteStatus")
+            || !propertyList.ContainsKey("/lastChanged")
+            || !propertyList.ContainsKey("/lastChangedBy")
+        )
         {
             return false;
         }
@@ -679,7 +898,8 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
             .Setup(dr => dr.Delete(It.IsAny<DataElement>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe30";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe30";
         string token = PrincipalUtil.GetToken(1337, 1337, 3);
         HttpClient client = GetTestClient(dataRepositoryMock, bearerAuthToken: token);
 
@@ -695,7 +915,8 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     public async Task Delete_EndUserDeletingAlreadyDeletedElement_NotFound()
     {
         // Arrange
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe88";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe88";
         string token = PrincipalUtil.GetToken(1337, 1337, 3);
         HttpClient client = GetTestClient(bearerAuthToken: token);
 
@@ -716,7 +937,8 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
             .Setup(dr => dr.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(de);
 
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe88?delay=true";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe88?delay=true";
         string token = PrincipalUtil.GetOrgToken("ttd");
         HttpClient client = GetTestClient(dataRepositoryMock, bearerAuthToken: token);
 
@@ -725,7 +947,16 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        dataRepositoryMock.Verify(dr => dr.Update(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Dictionary<string, object>>(), It.IsAny<CancellationToken>()), Times.Never);
+        dataRepositoryMock.Verify(
+            dr =>
+                dr.Update(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<Dictionary<string, object>>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
     }
 
     /// <summary>
@@ -740,28 +971,38 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     public async Task PutFileScanStatus_PlatformAccessIncluded_Ok()
     {
         // Arrange
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
         HttpContent content = new StringContent("This is a blob file");
 
         HttpClient client = GetTestClient();
-        HttpRequestMessage postRequest = new HttpRequestMessage(HttpMethod.Post, $"{dataPathWithData}?dataType=default");
+        HttpRequestMessage postRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"{dataPathWithData}?dataType=default"
+        );
         postRequest.Content = content;
-        postRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
+        postRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1337, 1337, 3)
+        );
         HttpResponseMessage createDataElementResponse = await client.SendAsync(postRequest);
 
         Assert.Equal(HttpStatusCode.Created, createDataElementResponse.StatusCode);
 
         string dataElementContent = await createDataElementResponse.Content.ReadAsStringAsync();
-        DataElement actual = JsonSerializer.Deserialize<DataElement>(dataElementContent, _serializerOptions);
+        DataElement actual = JsonSerializer.Deserialize<DataElement>(
+            dataElementContent,
+            _serializerOptions
+        );
         var dataElementId = actual.Id;
 
-        var newFileScanStatus = new FileScanStatus
+        var newFileScanStatus = new FileScanStatus { FileScanResult = FileScanResult.Clean };
+        HttpRequestMessage putRequest = new HttpRequestMessage(
+            HttpMethod.Put,
+            $"{dataPathWithData}elements/{dataElementId}/filescanstatus"
+        )
         {
-            FileScanResult = FileScanResult.Clean
-        };
-        HttpRequestMessage putRequest = new HttpRequestMessage(HttpMethod.Put, $"{dataPathWithData}elements/{dataElementId}/filescanstatus")
-        {
-            Content = JsonContent.Create(newFileScanStatus)
+            Content = JsonContent.Create(newFileScanStatus),
         };
 
         putRequest.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken());
@@ -785,25 +1026,32 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     public async Task PutFileScanStatusAsEndUser_MissingPlatformAccess_Forbidden()
     {
         // Arrange
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
         HttpContent content = new StringContent("This is a blob file");
 
         string token = PrincipalUtil.GetToken(1337, 1337, 3);
         HttpClient client = GetTestClient(bearerAuthToken: token);
-        HttpResponseMessage createDataElementResponse = await client.PostAsync($"{dataPathWithData}?dataType=default", content);
+        HttpResponseMessage createDataElementResponse = await client.PostAsync(
+            $"{dataPathWithData}?dataType=default",
+            content
+        );
 
         Assert.Equal(HttpStatusCode.Created, createDataElementResponse.StatusCode);
 
         string dataElementContent = await createDataElementResponse.Content.ReadAsStringAsync();
-        DataElement actual = JsonSerializer.Deserialize<DataElement>(dataElementContent, _serializerOptions);
+        DataElement actual = JsonSerializer.Deserialize<DataElement>(
+            dataElementContent,
+            _serializerOptions
+        );
         var dataElementId = actual.Id;
 
         // Act
-        var newFileScanStatus = new FileScanStatus
-        {
-            FileScanResult = FileScanResult.Clean
-        };
-        HttpResponseMessage setFileScanStatusResponse = await client.PutAsync($"{dataPathWithData}elements/{dataElementId}/filescanstatus", JsonContent.Create(newFileScanStatus));
+        var newFileScanStatus = new FileScanStatus { FileScanResult = FileScanResult.Clean };
+        HttpResponseMessage setFileScanStatusResponse = await client.PutAsync(
+            $"{dataPathWithData}elements/{dataElementId}/filescanstatus",
+            JsonContent.Create(newFileScanStatus)
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, setFileScanStatusResponse.StatusCode);
@@ -821,12 +1069,20 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     public async Task CreateAndUploadBlob_StreamIsEmpty_BadRequest()
     {
         // Arrange
-        string dataPathWithData = $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
         HttpContent content = new StringContent("This is a blob file");
 
         Mock<IBlobRepository> repoMock = new();
-        repoMock.
-            Setup(r => r.WriteBlob(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<int?>()))
+        repoMock
+            .Setup(r =>
+                r.WriteBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<Stream>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>()
+                )
+            )
             .ReturnsAsync((0, DateTime.UtcNow));
 
         repoMock
@@ -837,7 +1093,10 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         HttpClient client = GetTestClient(null, repoMock, null, token);
 
         // Act
-        HttpResponseMessage response = await client.PostAsync($"{dataPathWithData}?dataType=default", content);
+        HttpResponseMessage response = await client.PostAsync(
+            $"{dataPathWithData}?dataType=default",
+            content
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -848,7 +1107,8 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         Mock<IDataRepository> dataRepositoryMock = null,
         Mock<IBlobRepository> blobRepositoryMock = null,
         Mock<IFileScanQueueClient> fileScanMock = null,
-        string bearerAuthToken = null)
+        string bearerAuthToken = null
+    )
     {
         // No setup required for these services. They are not in use by the InstanceController
         Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
@@ -860,10 +1120,12 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
             IConfiguration configuration = new ConfigurationBuilder()
                 .AddJsonFile(ServiceUtil.GetAppsettingsPath())
                 .Build();
-            builder.ConfigureAppConfiguration((hostingContext, config) =>
-            {
-                config.AddConfiguration(configuration);
-            });
+            builder.ConfigureAppConfiguration(
+                (hostingContext, config) =>
+                {
+                    config.AddConfiguration(configuration);
+                }
+            );
 
             builder.ConfigureTestServices(services =>
             {
@@ -884,7 +1146,10 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
                     services.AddSingleton(fileScanMock.Object);
                 }
 
-                services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
+                services.AddSingleton<
+                    IPostConfigureOptions<JwtCookieOptions>,
+                    JwtCookiePostConfigureOptionsStub
+                >();
                 services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
 
                 services.AddSingleton(keyVaultWrapper.Object);
@@ -897,7 +1162,10 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         var client = factory.CreateClient();
         if (!string.IsNullOrEmpty(bearerAuthToken))
         {
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerAuthToken);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                "Bearer",
+                bearerAuthToken
+            );
         }
 
         _testTelemetry = factory.Services.GetRequiredService<TestTelemetry>();
@@ -908,7 +1176,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     public enum AuthenticationType
     {
         User,
-        Org
+        Org,
     }
 
     private static class SensitiveDataApp
@@ -932,6 +1200,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
             public const string SensitiveBoth = "bb64df50-fdb1-456b-943e-9c32f524943e";
         }
 
-        public static string GetInstanceUrl() => $"{_versionPrefix}/instances/{InstanceOwnerPartyId}/{InstanceGuid}";
+        public static string GetInstanceUrl() =>
+            $"{_versionPrefix}/instances/{InstanceOwnerPartyId}/{InstanceGuid}";
     }
 }

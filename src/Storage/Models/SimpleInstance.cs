@@ -98,7 +98,8 @@ public class SimpleInstance
         if (instance.InstanceOwner?.PartyId is null)
         {
             throw new InvalidOperationException(
-                $"Instance {instance.Id} is missing InstanceOwner.PartyId.");
+                $"Instance {instance.Id} is missing InstanceOwner.PartyId."
+            );
         }
 
         if (string.IsNullOrEmpty(instance.Org) || string.IsNullOrEmpty(instance.AppId))
@@ -112,13 +113,15 @@ public class SimpleInstance
         if (!instance.Id.StartsWith(partyIdPrefix))
         {
             throw new InvalidOperationException(
-                $"Instance id {instance.Id} has an unexpected format, expected '{{instanceOwnerPartyId}}/{{instanceId}}'.");
+                $"Instance id {instance.Id} has an unexpected format, expected '{{instanceOwnerPartyId}}/{{instanceId}}'."
+            );
         }
 
         if (!instance.AppId.StartsWith(orgPrefix))
         {
             throw new InvalidOperationException(
-                $"App id {instance.AppId} has an unexpected format, expected '{{org}}/{{app}}'.");
+                $"App id {instance.AppId} has an unexpected format, expected '{{org}}/{{app}}'."
+            );
         }
 
         return new SimpleInstance()

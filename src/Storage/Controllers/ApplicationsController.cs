@@ -3,11 +3,9 @@ using System.Collections.Generic;
 using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -30,7 +28,10 @@ public class ApplicationsController : ControllerBase
     /// </summary>
     /// <param name="repository">the application repository handler</param>
     /// <param name="logger">dependency injection of logger</param>
-    public ApplicationsController(IApplicationRepository repository, ILogger<ApplicationsController> logger)
+    public ApplicationsController(
+        IApplicationRepository repository,
+        ILogger<ApplicationsController> logger
+    )
     {
         this.logger = logger;
         this.repository = repository;
@@ -113,7 +114,10 @@ public class ApplicationsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces("application/json")]
-    public async Task<ActionResult<Application>> Post(string appId, [FromBody] Application application)
+    public async Task<ActionResult<Application>> Post(
+        string appId,
+        [FromBody] Application application
+    )
     {
         if (!IsValidAppId(appId))
         {
@@ -159,7 +163,11 @@ public class ApplicationsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
-    public async Task<ActionResult<Application>> Put(string org, string app, [FromBody] Application application)
+    public async Task<ActionResult<Application>> Put(
+        string org,
+        string app,
+        [FromBody] Application application
+    )
     {
         string appId = $"{org}/{app}";
 
@@ -175,7 +183,9 @@ public class ApplicationsController : ControllerBase
 
         if (application.Org == null || !application.Org.Equals(org))
         {
-            return BadRequest("Org (application owner id) from path is not matching attached object");
+            return BadRequest(
+                "Org (application owner id) from path is not matching attached object"
+            );
         }
 
         Application existingApplication;
@@ -196,7 +206,8 @@ public class ApplicationsController : ControllerBase
         existingApplication.Title = application.Title;
         existingApplication.ProcessId = application.ProcessId;
         existingApplication.DataTypes = application.DataTypes;
-        existingApplication.PartyTypesAllowed = application.PartyTypesAllowed ?? new PartyTypesAllowed();
+        existingApplication.PartyTypesAllowed =
+            application.PartyTypesAllowed ?? new PartyTypesAllowed();
         existingApplication.AutoDeleteOnProcessEnd = application.AutoDeleteOnProcessEnd;
         existingApplication.PresentationFields = application.PresentationFields;
         existingApplication.OnEntry = application.OnEntry;

@@ -19,11 +19,16 @@ public static class TaskExtensions
     /// <param name="task">Task.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns></returns>
-    public static async Task<T> WithCancellation<T>(this Task<T> task, CancellationToken cancellationToken)
+    public static async Task<T> WithCancellation<T>(
+        this Task<T> task,
+        CancellationToken cancellationToken
+    )
     {
         var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        using (cancellationToken.Register(state => ((TaskCompletionSource)state).TrySetResult(), tcs))
+        using (
+            cancellationToken.Register(state => ((TaskCompletionSource)state).TrySetResult(), tcs)
+        )
         {
             var resultTask = await Task.WhenAny(task, tcs.Task);
             if (resultTask == tcs.Task)

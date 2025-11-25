@@ -35,7 +35,8 @@ public class StudioInstancesController : ControllerBase
     public StudioInstancesController(
         IInstanceRepository instanceRepository,
         IOptions<GeneralSettings> generalSettings,
-        ILogger<StudioInstancesController> logger)
+        ILogger<StudioInstancesController> logger
+    )
     {
         _instanceRepository = instanceRepository;
         _generalSettings = generalSettings.Value;
@@ -55,14 +56,14 @@ public class StudioInstancesController : ControllerBase
     [Produces("application/json")]
     public async Task<ActionResult<QueryResponse<SimpleInstance>>> GetInstances(
         StudioInstanceParameters parameters,
-        CancellationToken ct)
+        CancellationToken ct
+    )
     {
         // This API is experimental and should not be available in production or other service owners yet.
         if (
-            !_generalSettings.Hostname.Contains(
-                "tt02",
-                StringComparison.InvariantCultureIgnoreCase)
-            || !_generalSettings.StudioInstancesOrgWhiteList.Contains(parameters.Org))
+            !_generalSettings.Hostname.Contains("tt02", StringComparison.InvariantCultureIgnoreCase)
+            || !_generalSettings.StudioInstancesOrgWhiteList.Contains(parameters.Org)
+        )
         {
             return NotFound();
         }
@@ -84,13 +85,15 @@ public class StudioInstancesController : ControllerBase
             InstanceQueryResponse result = await _instanceRepository.GetInstancesFromQuery(
                 parameters.ToInstanceQueryParameters(),
                 false,
-                ct);
+                ct
+            );
 
             if (!string.IsNullOrEmpty(result.Exception))
             {
                 _logger.LogError(
                     "Unable to perform query on instances: {Exception}",
-                    result.Exception);
+                    result.Exception
+                );
                 return StatusCode(ct.IsCancellationRequested ? 499 : 500, result.Exception);
             }
 
@@ -98,8 +101,7 @@ public class StudioInstancesController : ControllerBase
 
             QueryResponse<SimpleInstance> response = new()
             {
-                Instances =
-                    result.Instances?.Select(SimpleInstance.FromInstance).ToList() ?? new(),
+                Instances = result.Instances?.Select(SimpleInstance.FromInstance).ToList() ?? new(),
                 Count = result.Instances?.Count ?? 0,
                 Next = nextContinuationToken,
             };
@@ -111,7 +113,8 @@ public class StudioInstancesController : ControllerBase
             _logger.LogError(e, "Unable to perform query on instances");
             return StatusCode(
                 ct.IsCancellationRequested ? 499 : 500,
-                $"Unable to perform query on instances due to: {e.Message}");
+                $"Unable to perform query on instances due to: {e.Message}"
+            );
         }
     }
 }

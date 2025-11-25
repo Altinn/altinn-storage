@@ -15,10 +15,7 @@ public class ClientIpCheckActionFilterAttribute : ActionFilterAttribute
     /// </summary>
     public string Safelist
     {
-        set
-        {
-            _safeList = value.Split(';');
-        }
+        set { _safeList = value.Split(';'); }
     }
 
     /// <summary>

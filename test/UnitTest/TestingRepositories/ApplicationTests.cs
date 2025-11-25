@@ -20,9 +20,24 @@ public class ApplicationTests : IClassFixture<ApplicationFixture>
     private const string AppId3 = $"{App3}/app3";
     private readonly ApplicationFixture _applicationFixture;
 
-    private readonly Application _a1 = new() { Id = AppId1, Org = "ttd", Title = new() { { "nb", "t1" } } };
-    private readonly Application _a2 = new() { Id = AppId2, Org = "ttd", Title = new() { { "nb", "t2" } } };
-    private readonly Application _a3 = new() { Id = AppId3, Org = "skd", Title = new() { { "nb", "t3" }, { "en", "t3b" } } };
+    private readonly Application _a1 = new()
+    {
+        Id = AppId1,
+        Org = "ttd",
+        Title = new() { { "nb", "t1" } },
+    };
+    private readonly Application _a2 = new()
+    {
+        Id = AppId2,
+        Org = "ttd",
+        Title = new() { { "nb", "t2" } },
+    };
+    private readonly Application _a3 = new()
+    {
+        Id = AppId3,
+        Org = "skd",
+        Title = new() { { "nb", "t3" }, { "en", "t3b" } },
+    };
 
     public ApplicationTests(ApplicationFixture applicationFixture)
     {
@@ -44,7 +59,8 @@ public class ApplicationTests : IClassFixture<ApplicationFixture>
         Application a = await _applicationFixture.ApplicationRepo.Create(_a1);
 
         // Assert
-        string sql = $"select count(*) from storage.applications where app = '{App1}' and org = 'ttd'";
+        string sql =
+            $"select count(*) from storage.applications where app = '{App1}' and org = 'ttd'";
         int count = await PostgresUtil.RunCountQuery(sql);
         Assert.Equal(1, count);
         Assert.Equal(_a1.Id, a.Id);
@@ -66,16 +82,19 @@ public class ApplicationTests : IClassFixture<ApplicationFixture>
         await _applicationFixture.ApplicationRepo.Create(a);
 
         // Assert
-        string sql = $"select count(*) from storage.applications where app = '{App1}' and org = 'ttd'";
+        string sql =
+            $"select count(*) from storage.applications where app = '{App1}' and org = 'ttd'";
         int count = await PostgresUtil.RunCountQuery(sql);
         Assert.Equal(1, count);
         Assert.Equal(_a1.Id, a.Id);
 
-        sql = $"select count(*) from storage.applications where app = '{App1}' and org = 'ttd' and application ->> 'VersionId' = 'v1'";
+        sql =
+            $"select count(*) from storage.applications where app = '{App1}' and org = 'ttd' and application ->> 'VersionId' = 'v1'";
         count = await PostgresUtil.RunCountQuery(sql);
         Assert.Equal(1, count);
 
-        sql = $"select count(*) from storage.applications where app = '{App1}' and org = 'ttd' and application ->> 'VersionId' = '{a.VersionId}' and application ->> 'Created' = '{a.Created}' and application ->> 'CreatedBy' = '{a.CreatedBy}'";
+        sql =
+            $"select count(*) from storage.applications where app = '{App1}' and org = 'ttd' and application ->> 'VersionId' = '{a.VersionId}' and application ->> 'Created' = '{a.Created}' and application ->> 'CreatedBy' = '{a.CreatedBy}'";
         count = await PostgresUtil.RunCountQuery(sql);
         Assert.Equal(0, count);
     }
@@ -144,13 +163,16 @@ public class ApplicationTests : IClassFixture<ApplicationFixture>
         await _applicationFixture.ApplicationRepo.Create(_a3);
 
         // Act
-        Dictionary<string, string> titles = await _applicationFixture.ApplicationRepo.GetAllAppTitles();
+        Dictionary<string, string> titles =
+            await _applicationFixture.ApplicationRepo.GetAllAppTitles();
 
         // Assert
         Assert.Equal(3, titles.Count);
         Assert.True(titles.Count(t => t.Key == _a1.Id && t.Value == "t1") == 1);
         Assert.True(titles.Count(t => t.Key == _a2.Id && t.Value == "t2") == 1);
-        Assert.True(titles.Count(t => t.Key == _a3.Id && (t.Value == "t3;t3b" || t.Value == "t3b;t3")) == 1);
+        Assert.True(
+            titles.Count(t => t.Key == _a3.Id && (t.Value == "t3;t3b" || t.Value == "t3b;t3")) == 1
+        );
     }
 
     /// <summary>
@@ -166,7 +188,8 @@ public class ApplicationTests : IClassFixture<ApplicationFixture>
         bool deleted = await _applicationFixture.ApplicationRepo.Delete(AppId1, "ttd");
 
         // Assert
-        string sql = $"select count(*) from storage.applications where app = '{App1}' and org = 'ttd'";
+        string sql =
+            $"select count(*) from storage.applications where app = '{App1}' and org = 'ttd'";
         int count = await PostgresUtil.RunCountQuery(sql);
         Assert.Equal(0, count);
         Assert.True(deleted);
@@ -186,7 +209,8 @@ public class ApplicationTests : IClassFixture<ApplicationFixture>
         await _applicationFixture.ApplicationRepo.Update(_a1);
 
         // Assert
-        string sql = $"select count(*) from storage.applications where application ->> 'VersionId' = 'v1'";
+        string sql =
+            $"select count(*) from storage.applications where application ->> 'VersionId' = 'v1'";
         int count = await PostgresUtil.RunCountQuery(sql);
         Assert.Equal(1, count);
     }
@@ -198,7 +222,10 @@ public class ApplicationFixture
 
     public ApplicationFixture()
     {
-        var serviceList = ServiceUtil.GetServices(new List<Type>() { typeof(IApplicationRepository) });
-        ApplicationRepo = (IApplicationRepository)serviceList.First(i => i.GetType() == typeof(PgApplicationRepository));
+        var serviceList = ServiceUtil.GetServices(
+            new List<Type>() { typeof(IApplicationRepository) }
+        );
+        ApplicationRepo = (IApplicationRepository)
+            serviceList.First(i => i.GetType() == typeof(PgApplicationRepository));
     }
 }

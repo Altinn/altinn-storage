@@ -28,12 +28,21 @@ public class ApplicationServiceTests
         // Arrange
         Application application = CreateApplication("ttd", "test-app");
 
-        _applicationRepositoryMock.Setup(arm => arm.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(application);
+        _applicationRepositoryMock
+            .Setup(arm =>
+                arm.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(application);
 
         ApplicationService applicationService = new(_applicationRepositoryMock.Object);
 
         // Act
-        (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp("ttd", "test-app", "sign-datatype", "currentTask");
+        (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp(
+            "ttd",
+            "test-app",
+            "sign-datatype",
+            "currentTask"
+        );
 
         // Assert
         Assert.True(isValid);
@@ -48,7 +57,12 @@ public class ApplicationServiceTests
         ApplicationService applicationService = new(_applicationRepositoryMock.Object);
 
         // Act
-        (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp("ttd", "test-app", "sign-datatype", "currentTask");
+        (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp(
+            "ttd",
+            "test-app",
+            "sign-datatype",
+            "currentTask"
+        );
 
         // Assert
         Assert.False(isValid);
@@ -61,12 +75,21 @@ public class ApplicationServiceTests
         // Arrange
         Application application = CreateApplication("ttd", "test-app");
 
-        _applicationRepositoryMock.Setup(arm => arm.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(application);
+        _applicationRepositoryMock
+            .Setup(arm =>
+                arm.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(application);
 
         ApplicationService applicationService = new(_applicationRepositoryMock.Object);
 
         // Act
-        (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp("ttd", "test-app", "invalid-datatype", "currentTask");
+        (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp(
+            "ttd",
+            "test-app",
+            "invalid-datatype",
+            "currentTask"
+        );
 
         // Assert
         Assert.False(isValid);
@@ -80,12 +103,21 @@ public class ApplicationServiceTests
         // Arrange
         Application application = CreateApplication("ttd", "test-app");
 
-        _applicationRepositoryMock.Setup(arm => arm.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(application);
+        _applicationRepositoryMock
+            .Setup(arm =>
+                arm.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(application);
 
         ApplicationService applicationService = new(_applicationRepositoryMock.Object);
 
         // Act
-        (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp("ttd", "test-app", "sign-datatype", "invalidTask");
+        (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp(
+            "ttd",
+            "test-app",
+            "sign-datatype",
+            "invalidTask"
+        );
 
         // Assert
         Assert.False(isValid);
@@ -101,7 +133,10 @@ public class ApplicationServiceTests
             VersionId = "rocket",
             Title = new Dictionary<string, string>(),
             Org = org,
-            DataTypes = new List<DataType> { new DataType { Id = "sign-datatype", TaskId = "currentTask" } }
+            DataTypes = new List<DataType>
+            {
+                new DataType { Id = "sign-datatype", TaskId = "currentTask" },
+            },
         };
 
         appInfo.Title.Add("nb", "Tittel");
@@ -129,7 +164,10 @@ public class ApplicationServiceTests
         // Assert
         Assert.NotNull(app);
         Assert.Null(error);
-        _applicationRepositoryMock.Verify(repo => repo.FindOne(appId, expectedOrg, It.IsAny<CancellationToken>()), Times.Once);
+        _applicationRepositoryMock.Verify(
+            repo => repo.FindOne(appId, expectedOrg, It.IsAny<CancellationToken>()),
+            Times.Once
+        );
     }
 
     [Fact]

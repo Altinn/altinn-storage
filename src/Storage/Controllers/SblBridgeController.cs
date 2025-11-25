@@ -18,12 +18,22 @@ namespace Altinn.Platform.Storage.Controllers;
 [ApiController]
 public class SblBridgeController : ControllerBase
 {
-    private static readonly HashSet<string> _eventTypes = new(System.StringComparer.OrdinalIgnoreCase) { "read", "confirm", "delete" };
+    private static readonly HashSet<string> _eventTypes = new(
+        System.StringComparer.OrdinalIgnoreCase
+    )
+    {
+        "read",
+        "confirm",
+        "delete",
+    };
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SblBridgeController"/> class
     /// </summary>
-    public SblBridgeController(IPartiesWithInstancesClient partiesWithInstancesClient, ICorrespondenceClient correspondenceClient)
+    public SblBridgeController(
+        IPartiesWithInstancesClient partiesWithInstancesClient,
+        ICorrespondenceClient correspondenceClient
+    )
     {
         _partiesWithInstancesClient = partiesWithInstancesClient;
         _correspondenceClient = correspondenceClient;
@@ -42,7 +52,8 @@ public class SblBridgeController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces("application/json")]
     public async Task<ActionResult> RegisterAltinn3CorrespondenceRecipient(
-        [FromBody] SblBridgeParty sblBridgeParty)
+        [FromBody] SblBridgeParty sblBridgeParty
+    )
     {
         if (sblBridgeParty.PartyId <= 0)
         {
@@ -65,7 +76,8 @@ public class SblBridgeController : ControllerBase
     [ProducesResponseType(StatusCodes.Status504GatewayTimeout)]
     [Produces("application/json")]
     public async Task<ActionResult> SyncAltinn3CorrespondenceEvent(
-        [FromBody] CorrespondenceEventSync correspondenceEventSync)
+        [FromBody] CorrespondenceEventSync correspondenceEventSync
+    )
     {
         if (correspondenceEventSync.CorrespondenceId <= 0)
         {
@@ -81,9 +93,14 @@ public class SblBridgeController : ControllerBase
         }
 
         string normalizedEventType = correspondenceEventSync.EventType?.Trim();
-        if (string.IsNullOrWhiteSpace(normalizedEventType) || !_eventTypes.Contains(normalizedEventType))
+        if (
+            string.IsNullOrWhiteSpace(normalizedEventType)
+            || !_eventTypes.Contains(normalizedEventType)
+        )
         {
-            return BadRequest($"Invalid event type: {normalizedEventType} submitted. Valid values: read,confirm,delete.");
+            return BadRequest(
+                $"Invalid event type: {normalizedEventType} submitted. Valid values: read,confirm,delete."
+            );
         }
 
         try
@@ -92,7 +109,8 @@ public class SblBridgeController : ControllerBase
                 correspondenceEventSync.CorrespondenceId,
                 correspondenceEventSync.PartyId,
                 correspondenceEventSync.EventTimeStamp,
-                normalizedEventType);
+                normalizedEventType
+            );
             return Ok();
         }
         catch (ArgumentException ex)

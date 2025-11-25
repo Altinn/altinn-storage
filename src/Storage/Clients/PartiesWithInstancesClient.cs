@@ -3,9 +3,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
-
 using Altinn.Platform.Storage.Configuration;
-
 using Microsoft.Extensions.Options;
 
 namespace Altinn.Platform.Storage.Clients;
@@ -28,20 +26,30 @@ public class PartiesWithInstancesClient : IPartiesWithInstancesClient
         _client.BaseAddress = generalSettings.Value.BridgeApiAuthorizationEndpoint;
         _client.Timeout = new TimeSpan(0, 0, 30);
         _client.DefaultRequestHeaders.Clear();
-        _client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        _client.DefaultRequestHeaders.Accept.Add(
+            new MediaTypeWithQualityHeaderValue("application/json")
+        );
     }
 
     /// <inheritdoc />
     public async Task SetHasAltinn3Correspondence(int partyId)
     {
-        StringContent content = new StringContent(partyId.ToString(), Encoding.UTF8, "application/json");
+        StringContent content = new StringContent(
+            partyId.ToString(),
+            Encoding.UTF8,
+            "application/json"
+        );
         await _client.PostAsync($"partieswithmessages", content);
     }
 
     /// <inheritdoc />
     public async Task SetHasAltinn3Instances(int instanceOwnerPartyId)
     {
-        StringContent content = new StringContent(instanceOwnerPartyId.ToString(), Encoding.UTF8, "application/json");
+        StringContent content = new StringContent(
+            instanceOwnerPartyId.ToString(),
+            Encoding.UTF8,
+            "application/json"
+        );
         await _client.PostAsync("partieswithinstances", content);
     }
 }

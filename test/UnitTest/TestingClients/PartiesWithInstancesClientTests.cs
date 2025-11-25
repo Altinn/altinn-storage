@@ -3,12 +3,9 @@ using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
-
 using Microsoft.Extensions.Options;
-
 using Moq;
 using Moq.Protected;
 using Xunit;
@@ -24,21 +21,28 @@ public class PartiesWithInstancesClientTests
         int instanceOwnerPartyId = 568198;
 
         IOptions<GeneralSettings> generalSettings = Options.Create(new GeneralSettings());
-        generalSettings.Value.BridgeApiAuthorizationEndpoint = new Uri("https://bridge.altinn.no/authorization/api/");
+        generalSettings.Value.BridgeApiAuthorizationEndpoint = new Uri(
+            "https://bridge.altinn.no/authorization/api/"
+        );
 
         HttpRequestMessage requestMessage = null;
 
         Mock<HttpMessageHandler> mockHttpMessageHandler = new Mock<HttpMessageHandler>();
-        mockHttpMessageHandler.Protected()
-            .Setup<Task<HttpResponseMessage>>("SendAsync", ItExpr.IsAny<HttpRequestMessage>(), ItExpr.IsAny<CancellationToken>())
+        mockHttpMessageHandler
+            .Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
             .Callback<HttpRequestMessage, CancellationToken>((rm, ct) => requestMessage = rm)
-            .ReturnsAsync(new HttpResponseMessage
-            {
-                StatusCode = HttpStatusCode.OK
-            });
+            .ReturnsAsync(new HttpResponseMessage { StatusCode = HttpStatusCode.OK });
 
         HttpClient httpClient = new HttpClient(mockHttpMessageHandler.Object);
-        PartiesWithInstancesClient target = new PartiesWithInstancesClient(httpClient, generalSettings);
+        PartiesWithInstancesClient target = new PartiesWithInstancesClient(
+            httpClient,
+            generalSettings
+        );
 
         // Act
         await target.SetHasAltinn3Instances(instanceOwnerPartyId);

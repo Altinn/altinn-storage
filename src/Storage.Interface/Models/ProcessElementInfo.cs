@@ -1,5 +1,4 @@
 using System;
-
 using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.Interface.Models;
@@ -50,7 +49,9 @@ public class ProcessElementInfo
     /// Gets or sets the validation status.
     /// </summary>
     [JsonProperty(PropertyName = "validated")]
-    [Obsolete("ValidationStatus is no longer used by apps. Validation is performed on process changes instead")]
+    [Obsolete(
+        "ValidationStatus is no longer used by apps. Validation is performed on process changes instead"
+    )]
     public ValidationStatus Validated { get; set; }
 
     /// <summary>

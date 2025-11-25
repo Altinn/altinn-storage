@@ -21,16 +21,12 @@ using Altinn.Platform.Storage.UnitTest.Mocks.Authentication;
 using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
-
 using AltinnCore.Authentication.JwtCookie;
-
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-
 using Moq;
-
 using Newtonsoft.Json;
 using Xunit;
 
@@ -54,7 +50,8 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         string instanceId = null,
         IInstanceRepository instanceRepository = null,
         IInstanceAndEventsRepository instanceAndEventsRepository = null,
-        Action<ProcessState> configure = null)
+        Action<ProcessState> configure = null
+    )
     {
         instanceId ??= "1337/20b1353e-91cf-44d6-8ff7-f68993638ffe";
         string requestUri = $"storage/api/v1/instances/{instanceId}/process/";
@@ -81,12 +78,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         return await client.PutAsync(requestUri, jsonString);
     }
 
-    public static TheoryData<bool> UpdateTestParameters =>
-        new()
-        {
-            { true },
-            { false },
-        };
+    public static TheoryData<bool> UpdateTestParameters => new() { { true }, { false } };
 
     /// <summary>
     /// Test case: User has to low authentication level.
@@ -96,7 +88,8 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     public async Task GetProcessHistory_UserHasToLowAuthLv_ReturnStatusForbidden()
     {
         // Arrange
-        string requestUri = $"storage/api/v1/instances/1337/ba577e7f-3dfd-4ff6-b659-350308a47348/process/history";
+        string requestUri =
+            $"storage/api/v1/instances/1337/ba577e7f-3dfd-4ff6-b659-350308a47348/process/history";
 
         HttpClient client = GetTestClient();
         string token = PrincipalUtil.GetToken(3, 1337, 1);
@@ -116,7 +109,8 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     [Fact]
     public async Task GetProcessHistory_ReponseIsDeny_ReturnStatusForbidden()
     { // Arrange
-        string requestUri = $"storage/api/v1/instances/1337/ba577e7f-3dfd-4ff6-b659-350308a47348/process/history";
+        string requestUri =
+            $"storage/api/v1/instances/1337/ba577e7f-3dfd-4ff6-b659-350308a47348/process/history";
 
         HttpClient client = GetTestClient();
         string token = PrincipalUtil.GetToken(-1, 1);
@@ -137,7 +131,8 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     public async Task GetProcessHistory_UserIsAuthorized_ReturnsEmptyProcessHistoryReturnStatusForbidden()
     {
         // Arrange
-        string requestUri = $"storage/api/v1/instances/1337/17ad1851-f6cb-4573-bfcb-a17d145307b3/process/history";
+        string requestUri =
+            $"storage/api/v1/instances/1337/17ad1851-f6cb-4573-bfcb-a17d145307b3/process/history";
 
         HttpClient client = GetTestClient();
         string token = PrincipalUtil.GetToken(3, 1337, 2);
@@ -146,7 +141,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         // Act
         using HttpResponseMessage response = await client.GetAsync(requestUri);
         string responseString = await response.Content.ReadAsStringAsync();
-        ProcessHistoryList processHistory = JsonConvert.DeserializeObject<ProcessHistoryList>(responseString);
+        ProcessHistoryList processHistory = JsonConvert.DeserializeObject<ProcessHistoryList>(
+            responseString
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -164,7 +161,11 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         string token = PrincipalUtil.GetToken(3, 1337, 1);
 
         // Act
-        using HttpResponseMessage response = await SendUpdateRequest(useInstanceAndEventsEndpoint: true, token: token, instanceId: "1337/67f568ce-f114-48e7-ba12-dd422f73667a");
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint: true,
+            token: token,
+            instanceId: "1337/67f568ce-f114-48e7-ba12-dd422f73667a"
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -176,13 +177,19 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     /// </summary>
     [Theory]
     [MemberData(nameof(UpdateTestParameters))]
-    public async Task PutProcess_UserHasToLowAuthLv_ReturnStatusForbidden(bool useInstanceAndEventsEndpoint)
+    public async Task PutProcess_UserHasToLowAuthLv_ReturnStatusForbidden(
+        bool useInstanceAndEventsEndpoint
+    )
     {
         // Arrange
         string token = PrincipalUtil.GetToken(3, 1337, 1);
 
         // Act
-        using HttpResponseMessage response = await SendUpdateRequest(useInstanceAndEventsEndpoint, token: token, instanceId: "1337/ae3fe2fa-1fcb-42b4-8e63-69a42d4e3502");
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint,
+            token: token,
+            instanceId: "1337/ae3fe2fa-1fcb-42b4-8e63-69a42d4e3502"
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -194,13 +201,19 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     /// </summary>
     [Theory]
     [MemberData(nameof(UpdateTestParameters))]
-    public async Task PutProcess_PDPResponseIsDeny_ReturnStatusForbidden(bool useInstanceAndEventsEndpoint)
+    public async Task PutProcess_PDPResponseIsDeny_ReturnStatusForbidden(
+        bool useInstanceAndEventsEndpoint
+    )
     {
         // Arrange
         string token = PrincipalUtil.GetToken(-1, 1);
 
         // Act
-        using HttpResponseMessage response = await SendUpdateRequest(useInstanceAndEventsEndpoint, token: token, instanceId: "1337/ae3fe2fa-1fcb-42b4-8e63-69a42d4e3502");
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint,
+            token: token,
+            instanceId: "1337/ae3fe2fa-1fcb-42b4-8e63-69a42d4e3502"
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -218,7 +231,11 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         string token = PrincipalUtil.GetToken(3, 1337, 3);
 
         // Act
-        using HttpResponseMessage response = await SendUpdateRequest(useInstanceAndEventsEndpoint, token: token, instanceId: "1337/20a1353e-91cf-44d6-8ff7-f68993638ffe");
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint,
+            token: token,
+            instanceId: "1337/20a1353e-91cf-44d6-8ff7-f68993638ffe"
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -230,34 +247,50 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     /// </summary>
     [Theory]
     [MemberData(nameof(UpdateTestParameters))]
-    public async Task PutProcess_UserIsAuthorized_Signing_OnlyHasSignRights_ReturnsStatusOK(bool useInstanceAndEventsEndpoint)
+    public async Task PutProcess_UserIsAuthorized_Signing_OnlyHasSignRights_ReturnsStatusOK(
+        bool useInstanceAndEventsEndpoint
+    )
     {
         // Arrange
         string token = PrincipalUtil.GetToken(3, 1337, 3);
-        Instance testInstance = TestDataUtil.GetInstance(new Guid("377efa97-80ee-4cc6-8d48-09de12cc273d"));
+        Instance testInstance = TestDataUtil.GetInstance(
+            new Guid("377efa97-80ee-4cc6-8d48-09de12cc273d")
+        );
         testInstance.Id = $"{testInstance.InstanceOwner.PartyId}/{testInstance.Id}";
 
         testInstance.Process.CurrentTask = new ProcessElementInfo()
         {
             ElementId = "Task_2",
             AltinnTaskType = "signing",
-            FlowType = "CompleteCurrentMoveToNext"
+            FlowType = "CompleteCurrentMoveToNext",
         };
 
         var instanceRepoMock = new Mock<IInstanceRepository>();
-        instanceRepoMock.Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>())).ReturnsAsync((testInstance, 0));
-        instanceRepoMock.Setup(ir => ir.Update(testInstance, It.IsAny<List<string>>(), It.IsAny<CancellationToken>())).ReturnsAsync(testInstance);
+        instanceRepoMock
+            .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((testInstance, 0));
+        instanceRepoMock
+            .Setup(ir =>
+                ir.Update(testInstance, It.IsAny<List<string>>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(testInstance);
 
         // Act
-        using HttpResponseMessage response = await SendUpdateRequest(useInstanceAndEventsEndpoint, token: token, instanceId: testInstance.Id, instanceRepository: instanceRepoMock.Object, configure: state =>
-        {
-            state.CurrentTask = new ProcessElementInfo
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint,
+            token: token,
+            instanceId: testInstance.Id,
+            instanceRepository: instanceRepoMock.Object,
+            configure: state =>
             {
-                ElementId = "Task_3",
-                AltinnTaskType = "data",
-                FlowType = "CompleteCurrentMoveToNext"
-            };
-        });
+                state.CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_3",
+                    AltinnTaskType = "data",
+                    FlowType = "CompleteCurrentMoveToNext",
+                };
+            }
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -269,34 +302,50 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     /// </summary>
     [Theory]
     [MemberData(nameof(UpdateTestParameters))]
-    public async Task PutProcess_UserIsAuthorized_Signing_OnlyHasWriteRights_ReturnsStatusOK(bool useInstanceAndEventsEndpoint)
+    public async Task PutProcess_UserIsAuthorized_Signing_OnlyHasWriteRights_ReturnsStatusOK(
+        bool useInstanceAndEventsEndpoint
+    )
     {
         // Arrange
         string token = PrincipalUtil.GetToken(3, 1337, 3);
-        Instance testInstance = TestDataUtil.GetInstance(new Guid("377efa97-80ee-4cc6-8d48-09de12cc273d"));
+        Instance testInstance = TestDataUtil.GetInstance(
+            new Guid("377efa97-80ee-4cc6-8d48-09de12cc273d")
+        );
         testInstance.Id = $"{testInstance.InstanceOwner.PartyId}/{testInstance.Id}";
 
         testInstance.Process.CurrentTask = new ProcessElementInfo()
         {
             ElementId = "Task_3",
             AltinnTaskType = "signing",
-            FlowType = "CompleteCurrentMoveToNext"
+            FlowType = "CompleteCurrentMoveToNext",
         };
 
         var instanceRepoMock = new Mock<IInstanceRepository>();
-        instanceRepoMock.Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>())).ReturnsAsync((testInstance, 0));
-        instanceRepoMock.Setup(ir => ir.Update(testInstance, It.IsAny<List<string>>(), It.IsAny<CancellationToken>())).ReturnsAsync(testInstance);
+        instanceRepoMock
+            .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((testInstance, 0));
+        instanceRepoMock
+            .Setup(ir =>
+                ir.Update(testInstance, It.IsAny<List<string>>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(testInstance);
 
         // Act
-        using HttpResponseMessage response = await SendUpdateRequest(useInstanceAndEventsEndpoint, token: token, instanceId: testInstance.Id, instanceRepository: instanceRepoMock.Object, configure: state =>
-        {
-            state.CurrentTask = new ProcessElementInfo
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint,
+            token: token,
+            instanceId: testInstance.Id,
+            instanceRepository: instanceRepoMock.Object,
+            configure: state =>
             {
-                ElementId = "Task_4",
-                AltinnTaskType = "data",
-                FlowType = "CompleteCurrentMoveToNext"
-            };
-        });
+                state.CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_4",
+                    AltinnTaskType = "data",
+                    FlowType = "CompleteCurrentMoveToNext",
+                };
+            }
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -308,34 +357,50 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     /// </summary>
     [Theory]
     [MemberData(nameof(UpdateTestParameters))]
-    public async Task PutProcess_UserIsAuthorized_Payment_OnlyHasWriteRights_ReturnsStatusOK(bool useInstanceAndEventsEndpoint)
+    public async Task PutProcess_UserIsAuthorized_Payment_OnlyHasWriteRights_ReturnsStatusOK(
+        bool useInstanceAndEventsEndpoint
+    )
     {
         // Arrange
         string token = PrincipalUtil.GetToken(3, 1337, 3);
-        Instance testInstance = TestDataUtil.GetInstance(new Guid("377efa97-80ee-4cc6-8d48-09de12cc273d"));
+        Instance testInstance = TestDataUtil.GetInstance(
+            new Guid("377efa97-80ee-4cc6-8d48-09de12cc273d")
+        );
         testInstance.Id = $"{testInstance.InstanceOwner.PartyId}/{testInstance.Id}";
 
         testInstance.Process.CurrentTask = new ProcessElementInfo()
         {
             ElementId = "Task_3",
             AltinnTaskType = "payment",
-            FlowType = "CompleteCurrentMoveToNext"
+            FlowType = "CompleteCurrentMoveToNext",
         };
 
         var instanceRepoMock = new Mock<IInstanceRepository>();
-        instanceRepoMock.Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>())).ReturnsAsync((testInstance, 0));
-        instanceRepoMock.Setup(ir => ir.Update(testInstance, It.IsAny<List<string>>(), It.IsAny<CancellationToken>())).ReturnsAsync(testInstance);
+        instanceRepoMock
+            .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((testInstance, 0));
+        instanceRepoMock
+            .Setup(ir =>
+                ir.Update(testInstance, It.IsAny<List<string>>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(testInstance);
 
         // Act
-        using HttpResponseMessage response = await SendUpdateRequest(useInstanceAndEventsEndpoint, token: token, instanceId: testInstance.Id, instanceRepository: instanceRepoMock.Object, configure: state =>
-        {
-            state.CurrentTask = new ProcessElementInfo
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint,
+            token: token,
+            instanceId: testInstance.Id,
+            instanceRepository: instanceRepoMock.Object,
+            configure: state =>
             {
-                ElementId = "Task_4",
-                AltinnTaskType = "data",
-                FlowType = "CompleteCurrentMoveToNext"
-            };
-        });
+                state.CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_4",
+                    AltinnTaskType = "data",
+                    FlowType = "CompleteCurrentMoveToNext",
+                };
+            }
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -347,34 +412,50 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     /// </summary>
     [Theory]
     [MemberData(nameof(UpdateTestParameters))]
-    public async Task PutProcess_UserIsAuthorized_CustomTaskType_OnlyHasWriteRights_ReturnsStatusOK(bool useInstanceAndEventsEndpoint)
+    public async Task PutProcess_UserIsAuthorized_CustomTaskType_OnlyHasWriteRights_ReturnsStatusOK(
+        bool useInstanceAndEventsEndpoint
+    )
     {
         // Arrange
         string token = PrincipalUtil.GetToken(3, 1337, 3);
-        Instance testInstance = TestDataUtil.GetInstance(new Guid("377efa97-80ee-4cc6-8d48-09de12cc273d"));
+        Instance testInstance = TestDataUtil.GetInstance(
+            new Guid("377efa97-80ee-4cc6-8d48-09de12cc273d")
+        );
         testInstance.Id = $"{testInstance.InstanceOwner.PartyId}/{testInstance.Id}";
 
         testInstance.Process.CurrentTask = new ProcessElementInfo()
         {
             ElementId = "Task_4",
             AltinnTaskType = "custom-task-type",
-            FlowType = "CompleteCurrentMoveToNext"
+            FlowType = "CompleteCurrentMoveToNext",
         };
 
         var instanceRepoMock = new Mock<IInstanceRepository>();
-        instanceRepoMock.Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>())).ReturnsAsync((testInstance, 0));
-        instanceRepoMock.Setup(ir => ir.Update(testInstance, It.IsAny<List<string>>(), It.IsAny<CancellationToken>())).ReturnsAsync(testInstance);
+        instanceRepoMock
+            .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((testInstance, 0));
+        instanceRepoMock
+            .Setup(ir =>
+                ir.Update(testInstance, It.IsAny<List<string>>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(testInstance);
 
         // Act
-        using HttpResponseMessage response = await SendUpdateRequest(useInstanceAndEventsEndpoint, token: token, instanceId: testInstance.Id, instanceRepository: instanceRepoMock.Object, configure: state =>
-        {
-            state.CurrentTask = new ProcessElementInfo
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint,
+            token: token,
+            instanceId: testInstance.Id,
+            instanceRepository: instanceRepoMock.Object,
+            configure: state =>
             {
-                ElementId = "Task_5",
-                AltinnTaskType = "data",
-                FlowType = "CompleteCurrentMoveToNext"
-            };
-        });
+                state.CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_5",
+                    AltinnTaskType = "data",
+                    FlowType = "CompleteCurrentMoveToNext",
+                };
+            }
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -386,21 +467,28 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     /// </summary>
     [Theory]
     [MemberData(nameof(UpdateTestParameters))]
-    public async Task PutProcessGatewayReturn_UserIsAuthorized_ReturnStatusOK(bool useInstanceAndEventsEndpoint)
+    public async Task PutProcessGatewayReturn_UserIsAuthorized_ReturnStatusOK(
+        bool useInstanceAndEventsEndpoint
+    )
     {
         // Arrange
         string token = PrincipalUtil.GetToken(3, 1337, 3);
 
         // Act
-        using HttpResponseMessage response = await SendUpdateRequest(useInstanceAndEventsEndpoint, token: token, instanceId: "1337/20b1353e-91cf-44d6-8ff7-f68993638ffe", configure: state =>
-        {
-            state.CurrentTask = new ProcessElementInfo
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint,
+            token: token,
+            instanceId: "1337/20b1353e-91cf-44d6-8ff7-f68993638ffe",
+            configure: state =>
             {
-                ElementId = "Task_1",
-                FlowType = "AbandonCurrentReturnToNext",
-                AltinnTaskType = "data",
-            };
-        });
+                state.CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_1",
+                    FlowType = "AbandonCurrentReturnToNext",
+                    AltinnTaskType = "data",
+                };
+            }
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -412,13 +500,19 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     /// </summary>
     [Theory]
     [MemberData(nameof(UpdateTestParameters))]
-    public async Task PutProcessConfirm_UserIsNotAuthorized_ReturnDenied(bool useInstanceAndEventsEndpoint)
+    public async Task PutProcessConfirm_UserIsNotAuthorized_ReturnDenied(
+        bool useInstanceAndEventsEndpoint
+    )
     {
         // Arrange
         string token = PrincipalUtil.GetToken(3, 1337, 3);
 
         // Act
-        using HttpResponseMessage response = await SendUpdateRequest(useInstanceAndEventsEndpoint, token: token, instanceId: "1337/20b1353e-91cf-44d6-8ff7-f68993638ffe");
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint,
+            token: token,
+            instanceId: "1337/20b1353e-91cf-44d6-8ff7-f68993638ffe"
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -430,19 +524,44 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     /// </summary>
     [Theory]
     [MemberData(nameof(UpdateTestParameters))]
-    public async Task PutProcess_EndProcess_EnsureArchivedStateIsSet(bool useInstanceAndEventsEndpoint)
+    public async Task PutProcess_EndProcess_EnsureArchivedStateIsSet(
+        bool useInstanceAndEventsEndpoint
+    )
     {
         // Arrange
         string token = PrincipalUtil.GetToken(3, 1337, 3);
-        Instance testInstance = TestDataUtil.GetInstance(new Guid("377efa97-80ee-4cc6-8d48-09de12cc273d"));
+        Instance testInstance = TestDataUtil.GetInstance(
+            new Guid("377efa97-80ee-4cc6-8d48-09de12cc273d")
+        );
         testInstance.Id = $"{testInstance.InstanceOwner.PartyId}/{testInstance.Id}";
 
         Mock<IInstanceRepository> repositoryMock = new Mock<IInstanceRepository>();
-        Mock<IInstanceAndEventsRepository> batchRepositoryMock = new Mock<IInstanceAndEventsRepository>();
-        repositoryMock.Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>())).ReturnsAsync((testInstance, 0));
-        repositoryMock.Setup(ir => ir.Update(It.IsAny<Instance>(), It.IsAny<List<string>>(), It.IsAny<CancellationToken>())).ReturnsAsync((Instance i, List<string> _, CancellationToken _) => i);
-        batchRepositoryMock.Setup(ir => ir.Update(It.IsAny<Instance>(), It.IsAny<List<string>>(), It.IsAny<List<InstanceEvent>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Instance i, List<string> _, List<InstanceEvent> _, CancellationToken _) => i);
+        Mock<IInstanceAndEventsRepository> batchRepositoryMock =
+            new Mock<IInstanceAndEventsRepository>();
+        repositoryMock
+            .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((testInstance, 0));
+        repositoryMock
+            .Setup(ir =>
+                ir.Update(
+                    It.IsAny<Instance>(),
+                    It.IsAny<List<string>>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync((Instance i, List<string> _, CancellationToken _) => i);
+        batchRepositoryMock
+            .Setup(ir =>
+                ir.Update(
+                    It.IsAny<Instance>(),
+                    It.IsAny<List<string>>(),
+                    It.IsAny<List<InstanceEvent>>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                (Instance i, List<string> _, List<InstanceEvent> _, CancellationToken _) => i
+            );
 
         // Act
         using HttpResponseMessage response = await SendUpdateRequest(
@@ -457,12 +576,14 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                 state.StartEvent = "StartEvent_1";
                 state.Ended = DateTime.UtcNow;
                 state.EndEvent = "EndEvent_1";
-            });
+            }
+        );
 
         // Assert
         string responseContent = await response.Content.ReadAsStringAsync();
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Instance actual = (Instance)JsonConvert.DeserializeObject(responseContent, typeof(Instance));
+        Instance actual = (Instance)
+            JsonConvert.DeserializeObject(responseContent, typeof(Instance));
         Assert.True(actual.Status.IsArchived);
     }
 
@@ -472,7 +593,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     /// </summary>
     [Theory]
     [MemberData(nameof(UpdateTestParameters))]
-    public async Task PutProcess_MoveToSigning_SentToSignEventGenerated(bool useInstanceAndEventsEndpoint)
+    public async Task PutProcess_MoveToSigning_SentToSignEventGenerated(
+        bool useInstanceAndEventsEndpoint
+    )
     {
         // Arrange
         string token = PrincipalUtil.GetToken(3, 1337, 3);
@@ -488,9 +611,10 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                 {
                     ElementId = "Task_2",
                     AltinnTaskType = "signing",
-                    FlowType = "CompleteCurrentMoveToNext"
+                    FlowType = "CompleteCurrentMoveToNext",
                 };
-            });
+            }
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -506,7 +630,10 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     [InlineData("confirmation", new[] { "confirm" })]
     [InlineData("signing", new[] { "sign", "write" })]
     [InlineData("customTask", new[] { "customTask" })]
-    public void GetActionsThatAllowProcessNextForTaskType_ReturnsExpectedActions(string taskType, string[] expectedActions)
+    public void GetActionsThatAllowProcessNextForTaskType_ReturnsExpectedActions(
+        string taskType,
+        string[] expectedActions
+    )
     {
         // Act
         string[] result = ProcessController.GetActionsThatAllowProcessNextForTaskType(taskType);
@@ -518,54 +645,70 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     private HttpClient GetTestClient(
         IInstanceRepository instanceRepository = null,
         IInstanceAndEventsRepository instanceAndEventsRepository = null,
-        bool enableWolverine = false)
+        bool enableWolverine = false
+    )
     {
         // No setup required for these services. They are not in use by the ApplicationController
         Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
         Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
 
-        HttpClient client = _factory.WithWebHostBuilder(builder =>
-        {
-            IConfiguration configuration = new ConfigurationBuilder().AddJsonFile(ServiceUtil.GetAppsettingsPath()).Build();
-            builder.ConfigureAppConfiguration((hostingContext, config) =>
+        HttpClient client = _factory
+            .WithWebHostBuilder(builder =>
             {
-                config.AddConfiguration(configuration);
-            });
+                IConfiguration configuration = new ConfigurationBuilder()
+                    .AddJsonFile(ServiceUtil.GetAppsettingsPath())
+                    .Build();
+                builder.ConfigureAppConfiguration(
+                    (hostingContext, config) =>
+                    {
+                        config.AddConfiguration(configuration);
+                    }
+                );
 
-            builder.ConfigureTestServices(services =>
-            {
-                services.AddMockRepositories();
-
-                services.AddSingleton(keyVaultWrapper.Object);
-                services.AddSingleton(partiesWrapper.Object);
-                services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
-                services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
-                services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
-                services.AddSingleton<IInstanceEventRepository, InstanceEventRepositoryMock>();
-                services.Configure<WolverineSettings>(opts =>
+                builder.ConfigureTestServices(services =>
                 {
-                    opts.EnableSending = enableWolverine;
+                    services.AddMockRepositories();
+
+                    services.AddSingleton(keyVaultWrapper.Object);
+                    services.AddSingleton(partiesWrapper.Object);
+                    services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
+                    services.AddSingleton<
+                        IPublicSigningKeyProvider,
+                        PublicSigningKeyProviderMock
+                    >();
+                    services.AddSingleton<
+                        IPostConfigureOptions<JwtCookieOptions>,
+                        JwtCookiePostConfigureOptionsStub
+                    >();
+                    services.AddSingleton<IInstanceEventRepository, InstanceEventRepositoryMock>();
+                    services.Configure<WolverineSettings>(opts =>
+                    {
+                        opts.EnableSending = enableWolverine;
+                    });
+
+                    if (instanceRepository != null)
+                    {
+                        services.AddSingleton(instanceRepository);
+                    }
+                    else
+                    {
+                        services.AddSingleton<IInstanceRepository, InstanceRepositoryMock>();
+                    }
+
+                    if (instanceAndEventsRepository != null)
+                    {
+                        services.AddSingleton(instanceAndEventsRepository);
+                    }
+                    else
+                    {
+                        services.AddSingleton<
+                            IInstanceAndEventsRepository,
+                            InstanceAndEventsRepositoryMock
+                        >();
+                    }
                 });
-
-                if (instanceRepository != null)
-                {
-                    services.AddSingleton(instanceRepository);
-                }
-                else
-                {
-                    services.AddSingleton<IInstanceRepository, InstanceRepositoryMock>();
-                }
-
-                if (instanceAndEventsRepository != null)
-                {
-                    services.AddSingleton(instanceAndEventsRepository);
-                }
-                else
-                {
-                    services.AddSingleton<IInstanceAndEventsRepository, InstanceAndEventsRepositoryMock>();
-                }
-            });
-        }).CreateClient();
+            })
+            .CreateClient();
 
         return client;
     }

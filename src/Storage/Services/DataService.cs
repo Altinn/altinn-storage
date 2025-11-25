@@ -4,7 +4,6 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
@@ -27,7 +26,12 @@ public class DataService : IDataService
     /// <summary>
     /// Initializes a new instance of the <see cref="DataService"/> class.
     /// </summary>
-    public DataService(IFileScanQueueClient fileScanQueueClient, IDataRepository dataRepository, IBlobRepository blobRepository, IInstanceEventService instanceEventService)
+    public DataService(
+        IFileScanQueueClient fileScanQueueClient,
+        IDataRepository dataRepository,
+        IBlobRepository blobRepository,
+        IInstanceEventService instanceEventService
+    )
     {
         _fileScanQueueClient = fileScanQueueClient;
         _dataRepository = dataRepository;
@@ -36,7 +40,14 @@ public class DataService : IDataService
     }
 
     /// <inheritdoc/>
-    public async Task StartFileScan(Instance instance, DataType dataType, DataElement dataElement, DateTimeOffset blobTimestamp, int? storageAccountNumber, CancellationToken ct)
+    public async Task StartFileScan(
+        Instance instance,
+        DataType dataType,
+        DataElement dataElement,
+        DateTimeOffset blobTimestamp,
+        int? storageAccountNumber,
+        CancellationToken ct
+    )
     {
         if (dataType.EnableFileScan)
         {
@@ -48,29 +59,46 @@ public class DataService : IDataService
                 BlobStoragePath = dataElement.BlobStoragePath,
                 Filename = dataElement.Filename,
                 Org = instance.Org,
-                StorageAccountNumber = storageAccountNumber
+                StorageAccountNumber = storageAccountNumber,
             };
 
             string serialisedRequest = JsonSerializer.Serialize(
-                fileScanRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+                fileScanRequest,
+                new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }
+            );
 
             await _fileScanQueueClient.EnqueueFileScan(serialisedRequest, ct);
         }
     }
 
     /// <inheritdoc/>
-    public async Task<(string FileHash, ServiceError ServiceError)> GenerateSha256Hash(string org, Guid instanceGuid, Guid dataElementId, int? storageAccountNumber)
+    public async Task<(string FileHash, ServiceError ServiceError)> GenerateSha256Hash(
+        string org,
+        Guid instanceGuid,
+        Guid dataElementId,
+        int? storageAccountNumber
+    )
     {
         DataElement dataElement = await _dataRepository.Read(instanceGuid, dataElementId);
         if (dataElement == null)
         {
-            return (null, new ServiceError(404, $"DataElement not found, dataElementId: {dataElementId}"));
+            return (
+                null,
+                new ServiceError(404, $"DataElement not found, dataElementId: {dataElementId}")
+            );
         }
 
-        Stream filestream = await _blobRepository.ReadBlob(org, dataElement.BlobStoragePath, storageAccountNumber);
+        Stream filestream = await _blobRepository.ReadBlob(
+            org,
+            dataElement.BlobStoragePath,
+            storageAccountNumber
+        );
         if (filestream == null || !filestream.CanRead)
         {
-            return (null, new ServiceError(404, $"Failed reading file, dataElementId: {dataElementId}"));
+            return (
+                null,
+                new ServiceError(404, $"Failed reading file, dataElementId: {dataElementId}")
+            );
         }
 
         using var sha256 = SHA256.Create();
@@ -79,18 +107,37 @@ public class DataService : IDataService
     }
 
     /// <inheritdoc/>
-    public async Task UploadDataAndCreateDataElement(string org, Stream stream, DataElement dataElement, long instanceInternalId, int? storageAccountNumber)
+    public async Task UploadDataAndCreateDataElement(
+        string org,
+        Stream stream,
+        DataElement dataElement,
+        long instanceInternalId,
+        int? storageAccountNumber
+    )
     {
-        (long length, _) = await _blobRepository.WriteBlob(org, stream, dataElement.BlobStoragePath, storageAccountNumber);
+        (long length, _) = await _blobRepository.WriteBlob(
+            org,
+            stream,
+            dataElement.BlobStoragePath,
+            storageAccountNumber
+        );
         dataElement.Size = length;
 
         await _dataRepository.Create(dataElement, instanceInternalId);
     }
 
     /// <inheritdoc/>
-    public async Task<DataElement> DeleteImmediately(Instance instance, DataElement dataElement, int? storageAccountNumber)
+    public async Task<DataElement> DeleteImmediately(
+        Instance instance,
+        DataElement dataElement,
+        int? storageAccountNumber
+    )
     {
-        string storageFileName = DataElementHelper.DataFileName(instance.AppId, dataElement.InstanceGuid, dataElement.Id);
+        string storageFileName = DataElementHelper.DataFileName(
+            instance.AppId,
+            dataElement.InstanceGuid,
+            dataElement.Id
+        );
 
         await _blobRepository.DeleteBlob(instance.Org, storageFileName, storageAccountNumber);
 

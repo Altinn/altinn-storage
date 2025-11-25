@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-
 using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.Interface.Models;
@@ -113,7 +112,10 @@ public class Instance : ChangableElement
         {
             foreach (DataElement element in Data)
             {
-                element.SetPlatformSelfLinks(storageHostAndBase, int.Parse(this.InstanceOwner.PartyId));
+                element.SetPlatformSelfLinks(
+                    storageHostAndBase,
+                    int.Parse(this.InstanceOwner.PartyId)
+                );
             }
         }
     }

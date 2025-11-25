@@ -9,7 +9,7 @@ internal sealed class ConcurrentList<T> : IList<T>, IReadOnlyList<T>
     public ConcurrentList()
     {
         _inner = new List<T>();
-    }   
+    }
 
     public T this[int index]
     {
@@ -20,7 +20,6 @@ internal sealed class ConcurrentList<T> : IList<T>, IReadOnlyList<T>
                 return _inner[index];
             }
         }
-
         set
         {
             lock (_inner)
@@ -127,5 +126,6 @@ internal sealed class ConcurrentList<T> : IList<T>, IReadOnlyList<T>
         }
     }
 
-    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() =>
+        GetEnumerator();
 }

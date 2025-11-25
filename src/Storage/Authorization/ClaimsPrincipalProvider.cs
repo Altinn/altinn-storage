@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
-
 using Microsoft.AspNetCore.Http;
 
 namespace Altinn.Platform.Storage.Authorization;
@@ -14,7 +13,8 @@ namespace Altinn.Platform.Storage.Authorization;
 /// </remarks>
 /// <param name="httpContextAccessor">The http context accessor</param>
 [ExcludeFromCodeCoverage]
-public class ClaimsPrincipalProvider(IHttpContextAccessor httpContextAccessor) : IClaimsPrincipalProvider
+public class ClaimsPrincipalProvider(IHttpContextAccessor httpContextAccessor)
+    : IClaimsPrincipalProvider
 {
     private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
 

@@ -1,10 +1,8 @@
 using System;
 using System.Threading.Tasks;
-
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -45,7 +43,11 @@ public class TextsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces("application/json")]
     [Authorize(Policy = AuthzConstants.POLICY_STUDIO_DESIGNER)]
-    public async Task<ActionResult<TextResource>> Create(string org, string app, [FromBody] TextResource textResource)
+    public async Task<ActionResult<TextResource>> Create(
+        string org,
+        string app,
+        [FromBody] TextResource textResource
+    )
     {
         if (!LanguageHelper.IsTwoLetters(textResource.Language))
         {
@@ -99,7 +101,12 @@ public class TextsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
     [Authorize(Policy = AuthzConstants.POLICY_STUDIO_DESIGNER)]
-    public async Task<ActionResult<TextResource>> Update(string org, string app, string language, [FromBody] TextResource textResource)
+    public async Task<ActionResult<TextResource>> Update(
+        string org,
+        string app,
+        string language,
+        [FromBody] TextResource textResource
+    )
     {
         if (!LanguageHelper.IsTwoLetters(textResource.Language))
         {
@@ -108,7 +115,9 @@ public class TextsController : ControllerBase
 
         if (!language.Equals(textResource.Language))
         {
-            return BadRequest($"The language specified in the textResource {textResource.Language} does not match the api path: {language}");
+            return BadRequest(
+                $"The language specified in the textResource {textResource.Language} does not match the api path: {language}"
+            );
         }
 
         TextResource updatedResource = await _textRepository.Update(org, app, textResource);
@@ -141,7 +150,11 @@ public class TextsController : ControllerBase
         }
         else
         {
-            _logger.LogError("Unable to delete text resource for {org}/{app}", org.RemoveNewlines(), app.RemoveNewlines());
+            _logger.LogError(
+                "Unable to delete text resource for {org}/{app}",
+                org.RemoveNewlines(),
+                app.RemoveNewlines()
+            );
             return StatusCode(500, $"Unable to delete text resource for {org}/{app}");
         }
     }

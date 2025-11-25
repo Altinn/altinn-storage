@@ -1,6 +1,5 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
-
 using TextJson = System.Text.Json.Serialization;
 
 namespace Altinn.Platform.Storage.Interface.Enums;
@@ -16,9 +15,9 @@ public enum ReferenceType
     /// The connected object is a data element
     /// </summary>
     DataElement,
-    
+
     /// <summary>
     /// The connected object is a task
     /// </summary>
-    Task
+    Task,
 }

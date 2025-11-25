@@ -23,7 +23,11 @@ namespace Altinn.Platform.Storage.Services;
 /// <param name="logger">The logger to use for logging information.</param>
 /// <param name="serviceProvider">The service provider to resolve dependencies.</param>
 /// <param name="wolverineSettings">Wolverine settings</param>
-public class OutboxService(ILogger<OutboxService> logger, IServiceProvider serviceProvider, IOptions<WolverineSettings> wolverineSettings) : BackgroundService
+public class OutboxService(
+    ILogger<OutboxService> logger,
+    IServiceProvider serviceProvider,
+    IOptions<WolverineSettings> wolverineSettings
+) : BackgroundService
 {
     private const string _outboxResource = "outbox";
     private readonly ILogger<OutboxService> _logger = logger;
@@ -49,7 +53,10 @@ public class OutboxService(ILogger<OutboxService> logger, IServiceProvider servi
             DateTime leaseExpiry = DateTime.UtcNow.AddSeconds(_wolverineSettings.LeaseSecs);
             if (!await outbox.TryAcquireLeaseAsync(_outboxResource, _podId, leaseExpiry))
             {
-                await Task.Delay(TimeSpan.FromSeconds(_wolverineSettings.TryGettingPollMasterIntervalSecs), stoppingToken);
+                await Task.Delay(
+                    TimeSpan.FromSeconds(_wolverineSettings.TryGettingPollMasterIntervalSecs),
+                    stoppingToken
+                );
             }
             else
             {
@@ -65,17 +72,26 @@ public class OutboxService(ILogger<OutboxService> logger, IServiceProvider servi
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Outbox polling");
-                        await Task.Delay(TimeSpan.FromMilliseconds(_wolverineSettings.PollErrorDelayMs), stoppingToken);
+                        await Task.Delay(
+                            TimeSpan.FromMilliseconds(_wolverineSettings.PollErrorDelayMs),
+                            stoppingToken
+                        );
                     }
 
                     await PublishAndDeletePolledMessages(messageBus, outbox, dps, stoppingToken);
 
-                    if (dps.Count < _wolverineSettings.PollMaxSize && !stoppingToken.IsCancellationRequested)
+                    if (
+                        dps.Count < _wolverineSettings.PollMaxSize
+                        && !stoppingToken.IsCancellationRequested
+                    )
                     {
                         await Task.Delay(_wolverineSettings.PollIdleTimeMs, stoppingToken);
                     }
 
-                    if (DateTime.UtcNow > leaseExpiry.AddSeconds(-_wolverineSettings.LeaseSecs * 0.2))
+                    if (
+                        DateTime.UtcNow
+                        > leaseExpiry.AddSeconds(-_wolverineSettings.LeaseSecs * 0.2)
+                    )
                     {
                         leaseExpiry = DateTime.UtcNow.AddSeconds(_wolverineSettings.LeaseSecs);
                         if (!await outbox.RenewLeaseAsync(_outboxResource, _podId, leaseExpiry))
@@ -88,7 +104,12 @@ public class OutboxService(ILogger<OutboxService> logger, IServiceProvider servi
         }
     }
 
-    private async Task PublishAndDeletePolledMessages(IMessageBus messageBus, IOutboxRepository outbox, List<SyncInstanceToDialogportenCommand> dps, CancellationToken stoppingToken)
+    private async Task PublishAndDeletePolledMessages(
+        IMessageBus messageBus,
+        IOutboxRepository outbox,
+        List<SyncInstanceToDialogportenCommand> dps,
+        CancellationToken stoppingToken
+    )
     {
         // TODO: Consider whether to do all deletes in a single operation. This will improve
         // performance, but complicates error handling and logging.
@@ -98,13 +119,21 @@ public class OutboxService(ILogger<OutboxService> logger, IServiceProvider servi
             try
             {
                 await messageBus.PublishAsync(dp);
-                _logger.LogInformation("Outbox published instance {InstanceId} to ASB, event {Event}, createdAt {CreatedAt}", dp.InstanceId, dp.EventType, dp.InstanceCreatedAt);
+                _logger.LogInformation(
+                    "Outbox published instance {InstanceId} to ASB, event {Event}, createdAt {CreatedAt}",
+                    dp.InstanceId,
+                    dp.EventType,
+                    dp.InstanceCreatedAt
+                );
                 published = true;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Outbox push to ASB for instance {InstanceId}", dp.InstanceId);
-                await Task.Delay(TimeSpan.FromMilliseconds(_wolverineSettings.PollErrorDelayMs), stoppingToken);
+                await Task.Delay(
+                    TimeSpan.FromMilliseconds(_wolverineSettings.PollErrorDelayMs),
+                    stoppingToken
+                );
             }
 
             if (published)
@@ -116,7 +145,10 @@ public class OutboxService(ILogger<OutboxService> logger, IServiceProvider servi
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Outbox delete for instance {InstanceId}", dp.InstanceId);
-                    await Task.Delay(TimeSpan.FromMilliseconds(_wolverineSettings.PollErrorDelayMs), stoppingToken);
+                    await Task.Delay(
+                        TimeSpan.FromMilliseconds(_wolverineSettings.PollErrorDelayMs),
+                        stoppingToken
+                    );
                 }
             }
         }

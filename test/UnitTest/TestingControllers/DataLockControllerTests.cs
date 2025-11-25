@@ -4,7 +4,6 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
-
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Clients;
@@ -62,10 +61,14 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
     [Fact]
     public async Task User_with_write_is_allowed_to_lock()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dccc/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dccc/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
 
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 500004, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1337, 500004, 3)
+        );
         HttpResponseMessage response = await client.PutAsync($"{dataPathWithData}", null);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -76,10 +79,14 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
     [Fact]
     public async Task User_with_write_is_allowed_to_lock_already_locked_dataelement()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
 
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 500004, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1337, 500004, 3)
+        );
         HttpResponseMessage response = await client.PutAsync($"{dataPathWithData}", null);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -90,10 +97,14 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
     [Fact]
     public async Task PUT_lock_return_NotFound_when_datalement_not_present()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff00/lock";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff00/lock";
 
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 500004, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1337, 500004, 3)
+        );
         HttpResponseMessage response = await client.PutAsync($"{dataPathWithData}", null);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
@@ -102,10 +113,14 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
     [Fact]
     public async Task User_with_read_write_unlock_is_allowed_to_lock()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dccc/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dccc/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
 
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(10016, 500004, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(10016, 500004, 3)
+        );
         HttpResponseMessage response = await client.PutAsync($"{dataPathWithData}", null);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -116,10 +131,14 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
     [Fact]
     public async Task User_with_read_is_not_allowed_to_lock()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dccc/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dccc/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
 
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 500004, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 500004, 3)
+        );
         HttpResponseMessage response = await client.PutAsync($"{dataPathWithData}", null);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -128,10 +147,14 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
     [Fact]
     public async Task User_with_unlock_is_not_allowed_to_lock()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dccc/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dccc/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
 
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1, 500004, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1, 500004, 3)
+        );
         HttpResponseMessage response = await client.PutAsync($"{dataPathWithData}", null);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -140,10 +163,14 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
     [Fact]
     public async Task User_with_write_on_Task_1_is_not_allowed_to_lock_data_if_current_task_is_Task_2()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcde/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcde/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
 
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 500004, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1337, 500004, 3)
+        );
         HttpResponseMessage response = await client.PutAsync($"{dataPathWithData}", null);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -152,10 +179,14 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
     [Fact]
     public async Task User_with_write_is_allowed_to_unlock()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
 
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 500004, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1337, 500004, 3)
+        );
         HttpResponseMessage response = await client.DeleteAsync($"{dataPathWithData}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -166,10 +197,14 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
     [Fact]
     public async Task User_with_write_is_allowed_to_unlock_already_unlocked_dataelement()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
 
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 500004, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1337, 500004, 3)
+        );
         HttpResponseMessage response = await client.DeleteAsync($"{dataPathWithData}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -180,10 +215,14 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
     [Fact]
     public async Task User_with_read_write_unlock_is_allowed_to_unlock()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
 
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(10016, 500004, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(10016, 500004, 3)
+        );
         HttpResponseMessage response = await client.DeleteAsync($"{dataPathWithData}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -194,10 +233,14 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
     [Fact]
     public async Task Users_not_allowed_to_lock_when_partyId_not_same_as_instance_partyId()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcde/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcde/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
 
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1337, 1337, 3)
+        );
         HttpResponseMessage response = await client.PutAsync($"{dataPathWithData}", null);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -206,10 +249,14 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
     [Fact]
     public async Task DELETE_lock_return_NotFound_when_datalement_not_present()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff00/lock";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff00/lock";
 
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 500004, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1337, 500004, 3)
+        );
         HttpResponseMessage response = await client.DeleteAsync($"{dataPathWithData}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
@@ -218,10 +265,14 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
     [Fact]
     public async Task User_with_read_is_not_allowed_to_unlock()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
 
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 500004, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 500004, 3)
+        );
         HttpResponseMessage response = await client.DeleteAsync($"{dataPathWithData}");
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -230,36 +281,54 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
     [Fact]
     public async Task User_with_unlock_is_allowed_to_unlock()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
 
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1, 500004, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1, 500004, 3)
+        );
         HttpResponseMessage response = await client.DeleteAsync($"{dataPathWithData}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        AssertDataLockHasCorrectStatus(await response.Content.ReadFromJsonAsync<DataElement>(), false);
+        AssertDataLockHasCorrectStatus(
+            await response.Content.ReadFromJsonAsync<DataElement>(),
+            false
+        );
     }
 
     [Fact]
     public async Task User_with_reject_is_allowed_to_unlock()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
 
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(5, 500004, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(5, 500004, 3)
+        );
         HttpResponseMessage response = await client.DeleteAsync($"{dataPathWithData}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        AssertDataLockHasCorrectStatus(await response.Content.ReadFromJsonAsync<DataElement>(), false);
+        AssertDataLockHasCorrectStatus(
+            await response.Content.ReadFromJsonAsync<DataElement>(),
+            false
+        );
     }
 
     [Fact]
     public async Task Users_not_allowed_to_unlock_when_user_has_no_allowed_actions_on_current_task()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcde/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcde/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
 
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1, 500004, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1, 500004, 3)
+        );
         HttpResponseMessage response = await client.DeleteAsync($"{dataPathWithData}");
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -268,16 +337,23 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
     [Fact]
     public async Task Users_not_allowed_to_unlock_when_partyId_not_same_as_instance_partyId()
     {
-        string dataPathWithData = $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcde/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcde/data/998c5e56-6f73-494a-9730-6ebd11bfff99/lock";
 
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1337, 1337, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1337, 1337, 3)
+        );
         HttpResponseMessage response = await client.DeleteAsync($"{dataPathWithData}");
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
-    private static void AssertDataLockHasCorrectStatus(DataElement dataElement, bool expectedLockStatus)
+    private static void AssertDataLockHasCorrectStatus(
+        DataElement dataElement,
+        bool expectedLockStatus
+    )
     {
         if (dataElement == null)
         {
@@ -286,7 +362,12 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
 
         if (expectedLockStatus != dataElement.Locked)
         {
-            Assert.Fail("Data element lock status is not as expected. Expected: " + expectedLockStatus + " Actual: " + dataElement.Locked);
+            Assert.Fail(
+                "Data element lock status is not as expected. Expected: "
+                    + expectedLockStatus
+                    + " Actual: "
+                    + dataElement.Locked
+            );
         }
     }
 
@@ -297,34 +378,44 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
         Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
         Mock<IMessageBus> busMock = new Mock<IMessageBus>();
 
-        HttpClient client = _factory.WithWebHostBuilder(builder =>
-        {
-            IConfiguration configuration = new ConfigurationBuilder()
-                .AddJsonFile(ServiceUtil.GetAppsettingsPath())
-                .Build();
-            builder.ConfigureAppConfiguration((hostingContext, config) =>
+        HttpClient client = _factory
+            .WithWebHostBuilder(builder =>
             {
-                config.AddConfiguration(configuration);
-            });
+                IConfiguration configuration = new ConfigurationBuilder()
+                    .AddJsonFile(ServiceUtil.GetAppsettingsPath())
+                    .Build();
+                builder.ConfigureAppConfiguration(
+                    (hostingContext, config) =>
+                    {
+                        config.AddConfiguration(configuration);
+                    }
+                );
 
-            builder.ConfigureTestServices(services =>
-            {
-                services.AddMockRepositories();
-
-                if (repositoryMock is not null)
+                builder.ConfigureTestServices(services =>
                 {
-                    services.AddSingleton(repositoryMock.Object);
-                }
+                    services.AddMockRepositories();
 
-                services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
-                services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
+                    if (repositoryMock is not null)
+                    {
+                        services.AddSingleton(repositoryMock.Object);
+                    }
 
-                services.AddSingleton(keyVaultWrapper.Object);
-                services.AddSingleton(partiesWrapper.Object);
-                services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
-                services.AddSingleton(busMock.Object);
-            });
-        }).CreateClient();
+                    services.AddSingleton<
+                        IPostConfigureOptions<JwtCookieOptions>,
+                        JwtCookiePostConfigureOptionsStub
+                    >();
+                    services.AddSingleton<
+                        IPublicSigningKeyProvider,
+                        PublicSigningKeyProviderMock
+                    >();
+
+                    services.AddSingleton(keyVaultWrapper.Object);
+                    services.AddSingleton(partiesWrapper.Object);
+                    services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
+                    services.AddSingleton(busMock.Object);
+                });
+            })
+            .CreateClient();
 
         return client;
     }

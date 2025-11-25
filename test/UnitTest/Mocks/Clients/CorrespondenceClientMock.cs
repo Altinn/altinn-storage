@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-
 using Altinn.Platform.Storage.Clients;
 
 namespace Altinn.Platform.Storage.UnitTest.Mocks.Clients;
@@ -10,7 +9,12 @@ public class CorrespondenceClientMock : ICorrespondenceClient
 {
     private readonly string[] _eventTypes = ["read", "confirm", "delete"];
 
-    public async Task SyncCorrespondenceEvent(int correspondenceId, int partyId, DateTimeOffset eventTimestamp, string eventType)
+    public async Task SyncCorrespondenceEvent(
+        int correspondenceId,
+        int partyId,
+        DateTimeOffset eventTimestamp,
+        string eventType
+    )
     {
         switch (correspondenceId)
         {

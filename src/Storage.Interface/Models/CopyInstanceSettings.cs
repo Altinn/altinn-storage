@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-
 using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.Interface.Models;
@@ -32,5 +31,4 @@ public class CopyInstanceSettings
     /// </summary>
     [JsonProperty(PropertyName = "includeAttachments")]
     public bool IncludeAttachments { get; set; }
-
 }

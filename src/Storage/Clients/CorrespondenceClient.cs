@@ -3,9 +3,7 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
-
 using Altinn.Platform.Storage.Configuration;
-
 using Microsoft.Extensions.Options;
 
 namespace Altinn.Platform.Storage.Clients;
@@ -16,11 +14,13 @@ namespace Altinn.Platform.Storage.Clients;
 public class CorrespondenceClient : ICorrespondenceClient
 {
     private readonly HttpClient _client;
-    private readonly Dictionary<string, string> _routes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    private readonly Dictionary<string, string> _routes = new Dictionary<string, string>(
+        StringComparer.OrdinalIgnoreCase
+    )
     {
         ["read"] = "syncmarkasread",
         ["confirm"] = "syncconfirm",
-        ["delete"] = "syncdelete"
+        ["delete"] = "syncdelete",
     };
 
     /// <summary>
@@ -34,25 +34,34 @@ public class CorrespondenceClient : ICorrespondenceClient
         var endpoint = generalSettings.Value.BridgeApiCorrespondenceEndpoint;
         if (endpoint is null)
         {
-            throw new InvalidOperationException("GeneralSettings.BridgeApiCorrespondenceEndpoint must be configured.");
+            throw new InvalidOperationException(
+                "GeneralSettings.BridgeApiCorrespondenceEndpoint must be configured."
+            );
         }
-            
+
         // Ensure trailing slash so relative routes append rather than replace the last segment
         var endpointStr = endpoint.ToString().Trim();
         if (!endpointStr.EndsWith('/'))
         {
             endpoint = new Uri(endpointStr + "/", UriKind.Absolute);
         }
-            
+
         _client.BaseAddress = endpoint;
 
         _client.Timeout = new TimeSpan(0, 0, 30);
         _client.DefaultRequestHeaders.Clear();
-        _client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        _client.DefaultRequestHeaders.Accept.Add(
+            new MediaTypeWithQualityHeaderValue("application/json")
+        );
     }
 
     /// <inheritdoc />
-    public async Task SyncCorrespondenceEvent(int correspondenceId, int partyId, DateTimeOffset eventTimeStamp, string eventType)
+    public async Task SyncCorrespondenceEvent(
+        int correspondenceId,
+        int partyId,
+        DateTimeOffset eventTimeStamp,
+        string eventType
+    )
     {
         if (!_routes.TryGetValue(eventType, out string route))
         {
@@ -63,10 +72,16 @@ public class CorrespondenceClient : ICorrespondenceClient
             route,
             new System.Collections.Generic.Dictionary<string, string>
             {
-                ["seReporteeElementId"] = correspondenceId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["seReporteeElementId"] = correspondenceId.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture
+                ),
                 ["partyId"] = partyId.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                ["eventOccurredUtc"] = eventTimeStamp.UtcDateTime.ToString("O", System.Globalization.CultureInfo.InvariantCulture)
-            });
+                ["eventOccurredUtc"] = eventTimeStamp.UtcDateTime.ToString(
+                    "O",
+                    System.Globalization.CultureInfo.InvariantCulture
+                ),
+            }
+        );
 
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
         var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);

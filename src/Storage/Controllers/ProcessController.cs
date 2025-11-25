@@ -51,7 +51,8 @@ public class ProcessController : ControllerBase
         IInstanceAndEventsRepository instanceAndEventsRepository,
         IOptions<GeneralSettings> generalsettings,
         IAuthorization authorizationService,
-        IInstanceEventService instanceEventService)
+        IInstanceEventService instanceEventService
+    )
     {
         _instanceRepository = instanceRepository;
         _instanceEventRepository = instanceEventRepository;
@@ -79,16 +80,24 @@ public class ProcessController : ControllerBase
         int instanceOwnerPartyId,
         Guid instanceGuid,
         [FromBody] ProcessState processState,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        (Instance existingInstance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
+        (Instance existingInstance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            true,
+            cancellationToken
+        );
 
         if (existingInstance is null)
         {
             return NotFound();
         }
 
-        bool atLeastOneActionAuthorized = await AuthorizeProcessNext(processState, existingInstance);
+        bool atLeastOneActionAuthorized = await AuthorizeProcessNext(
+            processState,
+            existingInstance
+        );
 
         if (!atLeastOneActionAuthorized)
         {
@@ -97,11 +106,18 @@ public class ProcessController : ControllerBase
 
         UpdateInstance(existingInstance, processState, out var updateProperties);
 
-        Instance updatedInstance = await _instanceRepository.Update(existingInstance, updateProperties, cancellationToken);
+        Instance updatedInstance = await _instanceRepository.Update(
+            existingInstance,
+            updateProperties,
+            cancellationToken
+        );
 
         if (processState?.CurrentTask?.AltinnTaskType == "signing")
         {
-            await _instanceEventService.DispatchEvent(InstanceEventType.SentToSign, updatedInstance);
+            await _instanceEventService.DispatchEvent(
+                InstanceEventType.SentToSign,
+                updatedInstance
+            );
         }
 
         updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
@@ -127,9 +143,14 @@ public class ProcessController : ControllerBase
         int instanceOwnerPartyId,
         Guid instanceGuid,
         [FromBody] ProcessStateUpdate processStateUpdate,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        (Instance existingInstance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
+        (Instance existingInstance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            true,
+            cancellationToken
+        );
 
         if (existingInstance is null)
         {
@@ -152,7 +173,10 @@ public class ProcessController : ControllerBase
 
         ProcessState processState = processStateUpdate.State;
 
-        bool atLeastOneActionAuthorized = await AuthorizeProcessNext(processState, existingInstance);
+        bool atLeastOneActionAuthorized = await AuthorizeProcessNext(
+            processState,
+            existingInstance
+        );
 
         if (!atLeastOneActionAuthorized)
         {
@@ -163,11 +187,19 @@ public class ProcessController : ControllerBase
         UpdateInstance(existingInstance, processState, out var updateProperties);
         if (processState?.CurrentTask?.AltinnTaskType == "signing")
         {
-            InstanceEvent instanceEvent = _instanceEventService.BuildInstanceEvent(InstanceEventType.SentToSign, existingInstance);
+            InstanceEvent instanceEvent = _instanceEventService.BuildInstanceEvent(
+                InstanceEventType.SentToSign,
+                existingInstance
+            );
             processStateUpdate.Events.Add(instanceEvent);
         }
 
-        Instance updatedInstance = await _instanceAndEventsRepository.Update(existingInstance, updateProperties, processStateUpdate.Events, cancellationToken);
+        Instance updatedInstance = await _instanceAndEventsRepository.Update(
+            existingInstance,
+            updateProperties,
+            processStateUpdate.Events,
+            cancellationToken
+        );
 
         updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
         return Ok(updatedInstance);
@@ -185,14 +217,24 @@ public class ProcessController : ControllerBase
     [Produces("application/json")]
     public async Task<ActionResult<ProcessHistoryList>> GetProcessHistory(
         [FromRoute] int instanceOwnerPartyId,
-        [FromRoute] Guid instanceGuid)
+        [FromRoute] Guid instanceGuid
+    )
     {
-        string[] eventTypes = Enum.GetNames(typeof(InstanceEventType)).Where(x => x.StartsWith("process")).ToArray();
+        string[] eventTypes = Enum.GetNames(typeof(InstanceEventType))
+            .Where(x => x.StartsWith("process"))
+            .ToArray();
         string instanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
         ProcessHistoryList processHistoryList = new ProcessHistoryList();
 
-        List<InstanceEvent> processEvents = await _instanceEventRepository.ListInstanceEvents(instanceId, eventTypes, null, null);
-        processHistoryList.ProcessHistory = ProcessHelper.MapInstanceEventsToProcessHistory(processEvents);
+        List<InstanceEvent> processEvents = await _instanceEventRepository.ListInstanceEvents(
+            instanceId,
+            eventTypes,
+            null,
+            null
+        );
+        processHistoryList.ProcessHistory = ProcessHelper.MapInstanceEventsToProcessHistory(
+            processEvents
+        );
 
         return Ok(processHistoryList);
     }
@@ -209,12 +251,20 @@ public class ProcessController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
     [ApiExplorerSettings(IgnoreApi = true)]
-    public async Task<ActionResult<AuthInfo>> GetForAuth(int instanceOwnerPartyId, Guid instanceGuid, CancellationToken cancellationToken)
+    public async Task<ActionResult<AuthInfo>> GetForAuth(
+        int instanceOwnerPartyId,
+        Guid instanceGuid,
+        CancellationToken cancellationToken
+    )
     {
         string? message = null;
         try
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
+            (Instance instance, _) = await _instanceRepository.GetOne(
+                instanceGuid,
+                false,
+                cancellationToken
+            );
             if (instance.InstanceOwner.PartyId == instanceOwnerPartyId.ToString())
             {
                 return Ok(new AuthInfo() { Process = instance.Process, AppId = instance.AppId });
@@ -225,16 +275,23 @@ public class ProcessController : ControllerBase
             message = e.Message;
         }
 
-        return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}: {message}");
+        return NotFound(
+            $"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}: {message}"
+        );
     }
 
-    private void UpdateInstance(Instance existingInstance, ProcessState processState, out List<string> updateProperties)
+    private void UpdateInstance(
+        Instance existingInstance,
+        ProcessState processState,
+        out List<string> updateProperties
+    )
     {
         // Archiving instance if process was ended
-        updateProperties = [
+        updateProperties =
+        [
             nameof(existingInstance.Process),
             nameof(existingInstance.LastChanged),
-            nameof(existingInstance.LastChangedBy)
+            nameof(existingInstance.LastChangedBy),
         ];
         if (existingInstance.Process?.Ended is null && processState?.Ended is not null)
         {
@@ -251,13 +308,23 @@ public class ProcessController : ControllerBase
         existingInstance.LastChanged = DateTime.UtcNow;
     }
 
-    private async Task<bool> AuthorizeProcessNext(ProcessState processState, Instance existingInstance)
+    private async Task<bool> AuthorizeProcessNext(
+        ProcessState processState,
+        Instance existingInstance
+    )
     {
-        (string[] actionsThatAllowProcessNext, string? taskId) = GetActionsToAuthorize(processState, existingInstance);
+        (string[] actionsThatAllowProcessNext, string? taskId) = GetActionsToAuthorize(
+            processState,
+            existingInstance
+        );
 
         foreach (string action in actionsThatAllowProcessNext)
         {
-            bool actionIsAuthorized = await _authorizationService.AuthorizeInstanceAction(existingInstance, action, taskId);
+            bool actionIsAuthorized = await _authorizationService.AuthorizeInstanceAction(
+                existingInstance,
+                action,
+                taskId
+            );
             if (actionIsAuthorized)
             {
                 return true;
@@ -267,7 +334,10 @@ public class ProcessController : ControllerBase
         return false;
     }
 
-    private static (string[] Actions, string? TaskId) GetActionsToAuthorize(ProcessState processState, Instance existingInstance)
+    private static (string[] Actions, string? TaskId) GetActionsToAuthorize(
+        ProcessState processState,
+        Instance existingInstance
+    )
     {
         string? taskId = existingInstance.Process?.CurrentTask?.ElementId;
         string? altinnTaskType = existingInstance.Process?.CurrentTask?.AltinnTaskType;
@@ -278,14 +348,18 @@ public class ProcessController : ControllerBase
         }
 
         // Think this IF is related to gateways, but not sure.
-        if (processState?.CurrentTask?.FlowType is not null
-            && processState.CurrentTask.FlowType != "CompleteCurrentMoveToNext")
+        if (
+            processState?.CurrentTask?.FlowType is not null
+            && processState.CurrentTask.FlowType != "CompleteCurrentMoveToNext"
+        )
         {
             altinnTaskType = processState.CurrentTask.AltinnTaskType;
             taskId = processState.CurrentTask.ElementId;
         }
 
-        string[] actionsThatAllowProcessNextForTaskType = GetActionsThatAllowProcessNextForTaskType(altinnTaskType);
+        string[] actionsThatAllowProcessNextForTaskType = GetActionsThatAllowProcessNextForTaskType(
+            altinnTaskType
+        );
 
         return (actionsThatAllowProcessNextForTaskType, taskId);
     }
@@ -303,7 +377,7 @@ public class ProcessController : ControllerBase
             "payment" => ["pay", "write"],
             "confirmation" => ["confirm"],
             "signing" => ["sign", "write"],
-            _ => [taskType]
+            _ => [taskType],
         };
     }
 }

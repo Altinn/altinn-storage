@@ -12,7 +12,6 @@ using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
-
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using PdfSharp.Drawing;
@@ -25,7 +24,9 @@ namespace Altinn.Platform.Storage.Controllers;
 /// <summary>
 /// Implements endpoints on demand content generation
 /// </summary>
-[Route("storage/api/v1/ondemand/{org}/{app}/{instanceOwnerPartyId:int}/{instanceGuid:guid}/{dataGuid:guid}/{language}")]
+[Route(
+    "storage/api/v1/ondemand/{org}/{app}/{instanceOwnerPartyId:int}/{instanceGuid:guid}/{dataGuid:guid}/{language}"
+)]
 [ApiExplorerSettings(IgnoreApi = true)]
 [ApiController]
 public class ContentOnDemandController : Controller
@@ -66,7 +67,8 @@ public class ContentOnDemandController : Controller
         IApplicationRepository applicationRepository,
         IOptions<GeneralSettings> settings,
         IA2OndemandFormattingService a2OndemandFormattingService,
-        IPdfGeneratorClient pdfGeneratorClient)
+        IPdfGeneratorClient pdfGeneratorClient
+    )
     {
         _instanceRepository = instanceRepository;
         _blobRepository = blobRepository;
@@ -96,19 +98,34 @@ public class ContentOnDemandController : Controller
     /// <returns>The formatted content</returns>
     [HttpGet("signature")]
     public async Task<ActionResult> GetSignatureAsHtml(
-        [FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language, CancellationToken cancellationToken)
+        [FromRoute] string org,
+        [FromRoute] string app,
+        [FromRoute] Guid instanceGuid,
+        [FromRoute] Guid dataGuid,
+        [FromRoute] string language,
+        CancellationToken cancellationToken
+    )
     {
-        (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
-        Application application = await _applicationRepository.FindOne(instance.AppId, instance.Org);
+        (Instance instance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            true,
+            cancellationToken
+        );
+        Application application = await _applicationRepository.FindOne(
+            instance.AppId,
+            instance.Org
+        );
         DataElement signatureElement = instance.Data.First(d => d.DataType == "signature-data");
 
         List<SignatureView> view = await JsonSerializer.DeserializeAsync<List<SignatureView>>(
             await _blobRepository.ReadBlob(
                 $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
                 $"{instance.Org}/{app}/{instanceGuid}/data/{signatureElement.Id}",
-                application.StorageAccountNumber),
+                application.StorageAccountNumber
+            ),
             (JsonSerializerOptions)null,
-            cancellationToken);
+            cancellationToken
+        );
 
         return View("Signature", view);
     }
@@ -125,19 +142,34 @@ public class ContentOnDemandController : Controller
     /// <returns>The formatted content</returns>
     [HttpGet("payment")]
     public async Task<ActionResult> GetPaymentAsHtml(
-        [FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language, CancellationToken cancellationToken)
+        [FromRoute] string org,
+        [FromRoute] string app,
+        [FromRoute] Guid instanceGuid,
+        [FromRoute] Guid dataGuid,
+        [FromRoute] string language,
+        CancellationToken cancellationToken
+    )
     {
-        (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
-        Application application = await _applicationRepository.FindOne(instance.AppId, instance.Org);
+        (Instance instance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            true,
+            cancellationToken
+        );
+        Application application = await _applicationRepository.FindOne(
+            instance.AppId,
+            instance.Org
+        );
         DataElement paymentElement = instance.Data.First(d => d.DataType == "payment-data");
 
         PaymentView view = await JsonSerializer.DeserializeAsync<PaymentView>(
             await _blobRepository.ReadBlob(
                 $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
                 $"{instance.Org}/{app}/{instanceGuid}/data/{paymentElement.Id}",
-                application.StorageAccountNumber),
+                application.StorageAccountNumber
+            ),
             (JsonSerializerOptions)null,
-            cancellationToken);
+            cancellationToken
+        );
 
         return View("Payment", view);
     }
@@ -154,23 +186,55 @@ public class ContentOnDemandController : Controller
     /// <returns>The formatted content</returns>
     [HttpGet("formdatapdf")]
     public async Task<Stream> GetFormdataAsPdf(
-        [FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language, CancellationToken cancellationToken)
+        [FromRoute] string org,
+        [FromRoute] string app,
+        [FromRoute] Guid instanceGuid,
+        [FromRoute] Guid dataGuid,
+        [FromRoute] string language,
+        CancellationToken cancellationToken
+    )
     {
-        (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
+        (Instance instance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            true,
+            cancellationToken
+        );
         DataElement htmlElement = instance.Data.First(d => d.Id == dataGuid.ToString());
         string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;
-        DataElement xmlElement = instance.Data.First(d => d.Metadata?.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id);
-        string visiblePagesString = xmlElement.Metadata.FirstOrDefault(m => m.Key == "A2VisiblePages")?.Value;
-        List<int> visiblePages = !string.IsNullOrEmpty(visiblePagesString) ? visiblePagesString.Split(';').Select(int.Parse).ToList() : null;
+        DataElement xmlElement = instance.Data.First(d =>
+            d.Metadata?.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id
+        );
+        string visiblePagesString = xmlElement
+            .Metadata.FirstOrDefault(m => m.Key == "A2VisiblePages")
+            ?.Value;
+        List<int> visiblePages = !string.IsNullOrEmpty(visiblePagesString)
+            ? visiblePagesString.Split(';').Select(int.Parse).ToList()
+            : null;
 
         int lformid = int.Parse(xmlElement.Metadata.First(m => m.Key == "lformid").Value);
         PrintViewXslBEList printViews = [];
         int pageNumber = 1;
-        foreach ((string view, bool isPortrait) in await _a2Repository.GetXsls(instance.Org, app, lformid, language, 3))
+        foreach (
+            (string view, bool isPortrait) in await _a2Repository.GetXsls(
+                instance.Org,
+                app,
+                lformid,
+                language,
+                3
+            )
+        )
         {
             if (visiblePages == null || visiblePages.Contains(pageNumber))
             {
-                printViews.Add(new PrintViewXslBE() { PrintViewXsl = view, Id = $"{lformid}-{pageNumber}{language}", IsPortrait = isPortrait, PageNumber = pageNumber });
+                printViews.Add(
+                    new PrintViewXslBE()
+                    {
+                        PrintViewXsl = view,
+                        Id = $"{lformid}-{pageNumber}{language}",
+                        IsPortrait = isPortrait,
+                        PageNumber = pageNumber,
+                    }
+                );
             }
 
             ++pageNumber;
@@ -181,12 +245,26 @@ public class ContentOnDemandController : Controller
         using var mergedDoc = new PdfDocument();
         foreach (var view in printViews)
         {
-            (string html, PrintViewXslBEList updatedViews) = await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, 3, cancellationToken, view.PageNumber);
-            var pdfPages = await _pdfGeneratorClient.GeneratePdf(html, view.IsPortrait, GetScale(updatedViews[0]));
+            (string html, PrintViewXslBEList updatedViews) = await GetFormdataAsHtmlString(
+                app,
+                instanceGuid,
+                dataGuid,
+                language,
+                3,
+                cancellationToken,
+                view.PageNumber
+            );
+            var pdfPages = await _pdfGeneratorClient.GeneratePdf(
+                html,
+                view.IsPortrait,
+                GetScale(updatedViews[0])
+            );
             using var pageDoc = PdfReader.Open(pdfPages, PdfDocumentOpenMode.Import);
             for (var i = 0; i < pageDoc.PageCount; i++)
             {
-                pageDoc.Pages[i].Orientation = view.IsPortrait ? PdfSharp.PageOrientation.Portrait : PdfSharp.PageOrientation.Landscape;
+                pageDoc.Pages[i].Orientation = view.IsPortrait
+                    ? PdfSharp.PageOrientation.Portrait
+                    : PdfSharp.PageOrientation.Landscape;
                 mergedDoc.AddPage(pageDoc.Pages[i]);
             }
         }
@@ -197,16 +275,22 @@ public class ContentOnDemandController : Controller
         DateTime created;
         if (instance.DataValues.TryGetValue("A2ArchRefTs", out string a2ArchRefTs))
         {
-            created = DateTime.ParseExact(a2ArchRefTs, "dd-MM-yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+            created = DateTime.ParseExact(
+                a2ArchRefTs,
+                "dd-MM-yyyy HH:mm:ss",
+                CultureInfo.InvariantCulture
+            );
         }
         else
         {
             created = ((DateTime)instance.Created).ToLocalTime();
         }
 
-        string timestampFormat = language == "en" ? "MM/dd/yyyy hh:mm:ss tt" : "dd.MM.yyyy HH:mm:ss";
-        string watermark = created.ToString(timestampFormat, CultureInfo.InvariantCulture)
-                           + $" AR{instance.DataValues["A2ArchRef"]}";
+        string timestampFormat =
+            language == "en" ? "MM/dd/yyyy hh:mm:ss tt" : "dd.MM.yyyy HH:mm:ss";
+        string watermark =
+            created.ToString(timestampFormat, CultureInfo.InvariantCulture)
+            + $" AR{instance.DataValues["A2ArchRef"]}";
 
         using var finalPdfDocument = PdfReader.Open(pdfStream, PdfDocumentOpenMode.Modify);
         AddWaterMarksAndPageNumber(finalPdfDocument, watermark);
@@ -228,9 +312,24 @@ public class ContentOnDemandController : Controller
     /// <returns>The formatted content</returns>
     [HttpGet("formdatahtml/{singlepagenr?}")]
     public async Task<(Stream Html, PrintViewXslBEList Views)> GetFormdataAsHtml(
-        [FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language, CancellationToken cancellationToken, [FromRoute(Name = "singlepagenr")] int singlePageNr = -1)
+        [FromRoute] string org,
+        [FromRoute] string app,
+        [FromRoute] Guid instanceGuid,
+        [FromRoute] Guid dataGuid,
+        [FromRoute] string language,
+        CancellationToken cancellationToken,
+        [FromRoute(Name = "singlepagenr")] int singlePageNr = -1
+    )
     {
-        return await GetFormdataAsHtmlStream(app, instanceGuid, dataGuid, language, 3, cancellationToken, singlePageNr);
+        return await GetFormdataAsHtmlStream(
+            app,
+            instanceGuid,
+            dataGuid,
+            language,
+            3,
+            cancellationToken,
+            singlePageNr
+        );
     }
 
     /// <summary>
@@ -244,38 +343,109 @@ public class ContentOnDemandController : Controller
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>The formatted content</returns>
     [HttpGet("formsummaryhtml")]
-    public async Task<Stream> GetFormSummaryAsHtml([FromRoute] string org, [FromRoute] string app, [FromRoute] Guid instanceGuid, [FromRoute] Guid dataGuid, [FromRoute] string language, CancellationToken cancellationToken)
+    public async Task<Stream> GetFormSummaryAsHtml(
+        [FromRoute] string org,
+        [FromRoute] string app,
+        [FromRoute] Guid instanceGuid,
+        [FromRoute] Guid dataGuid,
+        [FromRoute] string language,
+        CancellationToken cancellationToken
+    )
     {
-        (Stream html, _) = await GetFormdataAsHtmlStream(app, instanceGuid, dataGuid, language, 2, cancellationToken);
+        (Stream html, _) = await GetFormdataAsHtmlStream(
+            app,
+            instanceGuid,
+            dataGuid,
+            language,
+            2,
+            cancellationToken
+        );
         return html;
     }
 
     private async Task<(Stream Html, PrintViewXslBEList Views)> GetFormdataAsHtmlStream(
-        string app, Guid instanceGuid, Guid dataGuid, string language, int viewType, CancellationToken cancellationToken, int singlePageNr = -1)
+        string app,
+        Guid instanceGuid,
+        Guid dataGuid,
+        string language,
+        int viewType,
+        CancellationToken cancellationToken,
+        int singlePageNr = -1
+    )
     {
-        (string html, PrintViewXslBEList views) = await GetFormdataAsHtmlString(app, instanceGuid, dataGuid, language, viewType, cancellationToken, singlePageNr);
+        (string html, PrintViewXslBEList views) = await GetFormdataAsHtmlString(
+            app,
+            instanceGuid,
+            dataGuid,
+            language,
+            viewType,
+            cancellationToken,
+            singlePageNr
+        );
         return (new MemoryStream(Encoding.UTF8.GetBytes(html)), views);
     }
 
     private async Task<(string Html, PrintViewXslBEList Views)> GetFormdataAsHtmlString(
-        string app, Guid instanceGuid, Guid dataGuid, string language, int viewType, CancellationToken cancellationToken, int singlePageNr = -1)
+        string app,
+        Guid instanceGuid,
+        Guid dataGuid,
+        string language,
+        int viewType,
+        CancellationToken cancellationToken,
+        int singlePageNr = -1
+    )
     {
-        (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
-        Application application = await _applicationRepository.FindOne(instance.AppId, instance.Org);
+        (Instance instance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            true,
+            cancellationToken
+        );
+        Application application = await _applicationRepository.FindOne(
+            instance.AppId,
+            instance.Org
+        );
         DataElement htmlElement = instance.Data.First(d => d.Id == dataGuid.ToString());
         string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;
-        DataElement xmlElement = instance.Data.First(d => d.Metadata?.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id);
-        string visiblePagesString = xmlElement.Metadata.FirstOrDefault(m => m.Key == "A2VisiblePages")?.Value;
-        List<int> visiblePages = !string.IsNullOrEmpty(visiblePagesString) ? visiblePagesString.Split(';').Select(int.Parse).ToList() : null;
+        DataElement xmlElement = instance.Data.First(d =>
+            d.Metadata?.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id
+        );
+        string visiblePagesString = xmlElement
+            .Metadata.FirstOrDefault(m => m.Key == "A2VisiblePages")
+            ?.Value;
+        List<int> visiblePages = !string.IsNullOrEmpty(visiblePagesString)
+            ? visiblePagesString.Split(';').Select(int.Parse).ToList()
+            : null;
 
         PrintViewXslBEList views = [];
         int lformid = int.Parse(xmlElement.Metadata.First(m => m.Key == "lformid").Value);
         int pageNumber = 1;
-        foreach ((string view, bool isPortrait) in await _a2Repository.GetXsls(instance.Org, app, lformid, language, viewType))
+        foreach (
+            (string view, bool isPortrait) in await _a2Repository.GetXsls(
+                instance.Org,
+                app,
+                lformid,
+                language,
+                viewType
+            )
+        )
         {
-            if ((singlePageNr != -1 && singlePageNr == pageNumber) || (singlePageNr == -1 && (visiblePages == null || visiblePages.Contains(pageNumber))))
+            if (
+                (singlePageNr != -1 && singlePageNr == pageNumber)
+                || (
+                    singlePageNr == -1
+                    && (visiblePages == null || visiblePages.Contains(pageNumber))
+                )
+            )
             {
-                views.Add(new PrintViewXslBE() { PrintViewXsl = view, Id = $"{lformid}-{pageNumber}{language}", IsPortrait = isPortrait, PageNumber = pageNumber });
+                views.Add(
+                    new PrintViewXslBE()
+                    {
+                        PrintViewXsl = view,
+                        Id = $"{lformid}-{pageNumber}{language}",
+                        IsPortrait = isPortrait,
+                        PageNumber = pageNumber,
+                    }
+                );
             }
 
             ++pageNumber;
@@ -286,7 +456,8 @@ public class ContentOnDemandController : Controller
         Stream blob = await _blobRepository.ReadBlob(
             $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
             $"{instance.Org}/{app}/{instanceGuid}/data/{xmlElement.Id}",
-            application.StorageAccountNumber);
+            application.StorageAccountNumber
+        );
 
         return (_a2OndemandFormattingService.GetFormdataHtml(views, blob), views);
     }
@@ -318,27 +489,46 @@ public class ContentOnDemandController : Controller
             using XGraphics gfx = XGraphics.FromPdfPage(page, XGraphicsPdfPageOptions.Append);
 
             var state = gfx.Save();
-            DrawWatermark(gfx, page.Width.Point - _watermarkMarginW, _watermarkPosition, -90, watermark);
+            DrawWatermark(
+                gfx,
+                page.Width.Point - _watermarkMarginW,
+                _watermarkPosition,
+                -90,
+                watermark
+            );
             gfx.Restore(state);
             state = gfx.Save();
-            DrawWatermark(gfx, _watermarkMarginW, page.Height.Point - _watermarkPosition, 90, watermark);
+            DrawWatermark(
+                gfx,
+                _watermarkMarginW,
+                page.Height.Point - _watermarkPosition,
+                90,
+                watermark
+            );
             gfx.Restore(state);
             gfx.DrawString(
                 (idx + 1).ToString(),
                 GetFont(),
                 XBrushes.Black,
-                new XPoint(page.Width.Point - 23, page.Height.Point - 5));
+                new XPoint(page.Width.Point - 23, page.Height.Point - 5)
+            );
         }
     }
 
-    private static void DrawWatermark(XGraphics gfx, double x, double y, double angle, string watermark)
+    private static void DrawWatermark(
+        XGraphics gfx,
+        double x,
+        double y,
+        double angle,
+        string watermark
+    )
     {
         XRect rect = new(x, y, _watermarkHeigth, _watermarkWidth);
         XBrush brush = XBrushes.Red;
         XStringFormat format = new()
         {
             Alignment = XStringAlignment.Center,
-            LineAlignment = XLineAlignment.Center
+            LineAlignment = XLineAlignment.Center,
         };
         gfx.RotateAtTransform(angle, new XPoint(x, y));
         gfx.DrawRectangle(XPens.Red, rect);

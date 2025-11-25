@@ -19,9 +19,18 @@ public static class HttpClientExtension
     /// <param name="content">The http content</param>
     /// <param name="platformAccessToken">The platformAccess tokens</param>
     /// <returns>A HttpResponseMessage</returns>
-    public static Task<HttpResponseMessage> PostAsync(this HttpClient httpClient, string authorizationToken, string requestUri, HttpContent content, string platformAccessToken = null)
+    public static Task<HttpResponseMessage> PostAsync(
+        this HttpClient httpClient,
+        string authorizationToken,
+        string requestUri,
+        HttpContent content,
+        string platformAccessToken = null
+    )
     {
-        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, new Uri(requestUri, UriKind.Relative));
+        HttpRequestMessage request = new HttpRequestMessage(
+            HttpMethod.Post,
+            new Uri(requestUri, UriKind.Relative)
+        );
         request.Headers.Add("Authorization", "Bearer " + authorizationToken);
         request.Content = content;
 
@@ -41,7 +50,12 @@ public static class HttpClientExtension
     /// <param name="requestUri">The request Uri</param>
     /// <param name="platformAccessToken">The platformAccess tokens</param>
     /// <returns>A HttpResponseMessage</returns>
-    public static Task<HttpResponseMessage> GetAsync(this HttpClient httpClient, string authorizationToken, string requestUri, string platformAccessToken = null)
+    public static Task<HttpResponseMessage> GetAsync(
+        this HttpClient httpClient,
+        string authorizationToken,
+        string requestUri,
+        string platformAccessToken = null
+    )
     {
         HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, requestUri);
         request.Headers.Add("Authorization", "Bearer " + authorizationToken);
@@ -50,6 +64,10 @@ public static class HttpClientExtension
             request.Headers.Add("PlatformAccessToken", platformAccessToken);
         }
 
-        return httpClient.SendAsync(request, HttpCompletionOption.ResponseContentRead, CancellationToken.None);
+        return httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseContentRead,
+            CancellationToken.None
+        );
     }
 }

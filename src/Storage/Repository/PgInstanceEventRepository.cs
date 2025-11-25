@@ -20,24 +20,32 @@ namespace Altinn.Platform.Storage.Repository;
 /// <param name="outboxRepository">The outbox repository</param>
 public class PgInstanceEventRepository(
     NpgsqlDataSource dataSource,
-    IOutboxRepository outboxRepository = null) : IInstanceEventRepository
+    IOutboxRepository outboxRepository = null
+) : IInstanceEventRepository
 {
     private readonly string _readSql = "select * from storage.readinstanceevent($1)";
     private readonly string _deleteSql = "select * from storage.deleteInstanceevent($1)";
     private readonly string _insertSql = "call storage.insertInstanceevent($1, $2, $3)";
-    private readonly string _filterSql = "select * from storage.filterinstanceevent($1, $2, $3, $4)";
+    private readonly string _filterSql =
+        "select * from storage.filterinstanceevent($1, $2, $3, $4)";
 
     private readonly NpgsqlDataSource _dataSource = dataSource;
 
     /// <inheritdoc/>
-    public async Task<InstanceEvent> InsertInstanceEvent(InstanceEvent instanceEvent, Instance instance = null)
+    public async Task<InstanceEvent> InsertInstanceEvent(
+        InstanceEvent instanceEvent,
+        Instance instance = null
+    )
     {
         instanceEvent.Id ??= Guid.NewGuid();
 
         await using var connection = await _dataSource.OpenConnectionAsync();
         await using var tx = await connection.BeginTransactionAsync();
         await using NpgsqlCommand pgcom = new(_insertSql, connection);
-        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceEvent.InstanceId.Split('/')[^1]));
+        pgcom.Parameters.AddWithValue(
+            NpgsqlDbType.Uuid,
+            new Guid(instanceEvent.InstanceId.Split('/')[^1])
+        );
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceEvent.Id);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, instanceEvent);
 
@@ -51,7 +59,8 @@ public class PgInstanceEventRepository(
                 instance.Id.Split('/')[^1],
                 (DateTime)instance.Created,
                 false,
-                Enum.Parse<Interface.Enums.InstanceEventType>(instanceEvent.EventType));
+                Enum.Parse<Interface.Enums.InstanceEventType>(instanceEvent.EventType)
+            );
             await outboxRepository.Insert(instanceUpdateCommand, connection);
         }
 
@@ -81,14 +90,18 @@ public class PgInstanceEventRepository(
         string instanceId,
         string[] eventTypes,
         DateTime? fromDateTime,
-        DateTime? toDateTime)
+        DateTime? toDateTime
+    )
     {
         List<InstanceEvent> events = [];
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_filterSql);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceId.Split('/').Last()));
         pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, fromDateTime ?? DateTime.MinValue);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, toDateTime ?? DateTime.MaxValue);
-        pgcom.Parameters.AddWithValue(NpgsqlDbType.Array | NpgsqlDbType.Text, eventTypes == null || eventTypes.Length == 0 ? (object)DBNull.Value : eventTypes);
+        pgcom.Parameters.AddWithValue(
+            NpgsqlDbType.Array | NpgsqlDbType.Text,
+            eventTypes == null || eventTypes.Length == 0 ? (object)DBNull.Value : eventTypes
+        );
 
         await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
         {

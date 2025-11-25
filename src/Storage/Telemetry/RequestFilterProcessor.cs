@@ -22,11 +22,14 @@ public class RequestFilterProcessor : BaseProcessor<Activity>
     private const string RequestKind = "Microsoft.AspNetCore.Hosting.HttpRequestIn";
     private readonly bool _disableTelemetryForMigration;
     private readonly IHttpContextAccessor _httpContextAccessor;
-    private static readonly FrozenDictionary<string, Action<Claim, Activity>> _claimActions = InitClaimActions();
+    private static readonly FrozenDictionary<string, Action<Claim, Activity>> _claimActions =
+        InitClaimActions();
 
     private static FrozenDictionary<string, Action<Claim, Activity>> InitClaimActions()
     {
-        var actions = new Dictionary<string, Action<Claim, Activity>>(StringComparer.OrdinalIgnoreCase)
+        var actions = new Dictionary<string, Action<Claim, Activity>>(
+            StringComparer.OrdinalIgnoreCase
+        )
         {
             {
                 AltinnCoreClaimTypes.UserId,
@@ -67,9 +70,14 @@ public class RequestFilterProcessor : BaseProcessor<Activity>
                 "authorization_details",
                 static (claim, activity) =>
                 {
-                    SystemUserClaim claimValue = JsonSerializer.Deserialize<SystemUserClaim>(claim.Value);
+                    SystemUserClaim claimValue = JsonSerializer.Deserialize<SystemUserClaim>(
+                        claim.Value
+                    );
                     activity.SetTag("user.system.id", claimValue?.Systemuser_id[0] ?? null);
-                    activity.SetTag("user.system.owner.number", claimValue?.Systemuser_org.ID ?? null);
+                    activity.SetTag(
+                        "user.system.owner.number",
+                        claimValue?.Systemuser_org.ID ?? null
+                    );
                 }
             },
         };
@@ -80,7 +88,11 @@ public class RequestFilterProcessor : BaseProcessor<Activity>
     /// <summary>
     /// Initializes a new instance of the <see cref="RequestFilterProcessor"/> class.
     /// </summary>
-    public RequestFilterProcessor(GeneralSettings generalSettings, IHttpContextAccessor httpContextAccessor = null) : base()
+    public RequestFilterProcessor(
+        GeneralSettings generalSettings,
+        IHttpContextAccessor httpContextAccessor = null
+    )
+        : base()
     {
         _disableTelemetryForMigration = generalSettings.DisableTelemetryForMigration;
         _httpContextAccessor = httpContextAccessor;
@@ -96,7 +108,9 @@ public class RequestFilterProcessor : BaseProcessor<Activity>
         {
             skip = ExcludeRequest(_httpContextAccessor.HttpContext.Request.Path.Value);
         }
-        else if (!(activity.Parent?.ActivityTraceFlags.HasFlag(ActivityTraceFlags.Recorded) ?? true))
+        else if (
+            !(activity.Parent?.ActivityTraceFlags.HasFlag(ActivityTraceFlags.Recorded) ?? true)
+        )
         {
             skip = true;
         }
@@ -115,7 +129,12 @@ public class RequestFilterProcessor : BaseProcessor<Activity>
     {
         if (activity.OperationName == RequestKind && _httpContextAccessor.HttpContext is not null)
         {
-            if (_httpContextAccessor.HttpContext.Request.Headers.TryGetValue("X-Forwarded-For", out StringValues ipAddress))
+            if (
+                _httpContextAccessor.HttpContext.Request.Headers.TryGetValue(
+                    "X-Forwarded-For",
+                    out StringValues ipAddress
+                )
+            )
             {
                 activity.SetTag("ipAddress", ipAddress.FirstOrDefault());
             }
@@ -134,9 +153,12 @@ public class RequestFilterProcessor : BaseProcessor<Activity>
     {
         return localpath switch
         {
-            var path when _disableTelemetryForMigration && path.TrimEnd('/').EndsWith("/health", StringComparison.OrdinalIgnoreCase) => true,
+            var path
+                when _disableTelemetryForMigration
+                    && path.TrimEnd('/').EndsWith("/health", StringComparison.OrdinalIgnoreCase) =>
+                true,
             "/storage/api/v1/migration" => true,
-            _ => false
+            _ => false,
         };
     }
 }

@@ -22,7 +22,17 @@ public static class DataElementHelper
     /// Creates a data element based on element type, instance id, content type, content file name and file size.
     /// </summary>
     /// <returns>DataElement</returns>
-    public static DataElement CreateDataElement(string dataType, List<Guid> refs, Instance instance, DateTime creationTime, string contentType, string contentFileName, long fileSize, string user, string generatedFromTask)
+    public static DataElement CreateDataElement(
+        string dataType,
+        List<Guid> refs,
+        Instance instance,
+        DateTime creationTime,
+        string contentType,
+        string contentFileName,
+        long fileSize,
+        string user,
+        string generatedFromTask
+    )
     {
         string dataId = Guid.NewGuid().ToString();
 
@@ -57,8 +67,8 @@ public static class DataElementHelper
                 {
                     Relation = Interface.Enums.RelationType.GeneratedFrom,
                     Value = generatedFromTask,
-                    ValueType = Interface.Enums.ReferenceType.Task
-                }
+                    ValueType = Interface.Enums.ReferenceType.Task,
+                },
             };
         }
 
@@ -81,7 +91,12 @@ public static class DataElementHelper
     /// <param name="request">The request</param>
     /// <param name="limit">MultipartBoundaryLengthLimit</param>
     /// <returns></returns>
-    public static async Task<(Stream Stream, string ContentType, string ContentFileName, long FileSize)> GetStream(HttpRequest request, int limit)
+    public static async Task<(
+        Stream Stream,
+        string ContentType,
+        string ContentFileName,
+        long FileSize
+    )> GetStream(HttpRequest request, int limit)
     {
         string contentType;
         string contentFileName = null;
@@ -99,7 +114,10 @@ public static class DataElementHelper
             stream = section.Body;
             contentType = section.ContentType;
 
-            bool hasContentDisposition = ContentDispositionHeaderValue.TryParse(section.ContentDisposition, out ContentDispositionHeaderValue contentDisposition);
+            bool hasContentDisposition = ContentDispositionHeaderValue.TryParse(
+                section.ContentDisposition,
+                out ContentDispositionHeaderValue contentDisposition
+            );
 
             if (hasContentDisposition)
             {
@@ -112,7 +130,10 @@ public static class DataElementHelper
             stream = request.Body;
             if (request.Headers.TryGetValue("Content-Disposition", out StringValues headerValues))
             {
-                bool hasContentDisposition = ContentDispositionHeaderValue.TryParse(headerValues.ToString(), out ContentDispositionHeaderValue contentDisposition);
+                bool hasContentDisposition = ContentDispositionHeaderValue.TryParse(
+                    headerValues.ToString(),
+                    out ContentDispositionHeaderValue contentDisposition
+                );
 
                 if (hasContentDisposition)
                 {

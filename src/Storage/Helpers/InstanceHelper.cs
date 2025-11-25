@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 
@@ -23,7 +22,10 @@ public static class InstanceHelper
 
         string instanceGuid = instance.Id.Contains('/') ? instance.Id.Split('/')[1] : instance.Id;
 
-        DateTime createdDateTime = visibleAfter != null && visibleAfter > instance.Created ? (DateTime)visibleAfter : instance.Created.Value;
+        DateTime createdDateTime =
+            visibleAfter != null && visibleAfter > instance.Created
+                ? (DateTime)visibleAfter
+                : instance.Created.Value;
 
         MessageBoxInstance messageBoxInstance = new()
         {
@@ -38,14 +40,19 @@ public static class InstanceHelper
             AllowNewCopy = false,
             DeletedDateTime = status.SoftDeleted,
             ArchivedDateTime = status.Archived,
-            DeleteStatus = status.SoftDeleted.HasValue ? DeleteStatusType.SoftDeleted : DeleteStatusType.Default,
+            DeleteStatus = status.SoftDeleted.HasValue
+                ? DeleteStatusType.SoftDeleted
+                : DeleteStatusType.Default,
             ReadStatus = status.ReadStatus,
-            DataValues = instance.DataValues
+            DataValues = instance.DataValues,
         };
 
         if (instance.PresentationTexts is not null)
         {
-            messageBoxInstance.PresentationText = string.Join(", ", instance.PresentationTexts.Select(pt => pt.Value).ToArray());
+            messageBoxInstance.PresentationText = string.Join(
+                ", ",
+                instance.PresentationTexts.Select(pt => pt.Value).ToArray()
+            );
         }
 
         if (instance.Status?.Substatus != null)
@@ -53,7 +60,7 @@ public static class InstanceHelper
             messageBoxInstance.Substatus = new Substatus
             {
                 Label = instance.Status.Substatus.Label,
-                Description = instance.Status.Substatus.Description
+                Description = instance.Status.Substatus.Description,
             };
         }
 
@@ -72,7 +79,9 @@ public static class InstanceHelper
     /// Converts list of instance events to a list of simplified sbl instance events
     /// </summary>
     /// <param name="instanceEvents">List of instance events to convert.</param>
-    public static List<SblInstanceEvent> ConvertToSBLInstanceEvent(List<InstanceEvent> instanceEvents)
+    public static List<SblInstanceEvent> ConvertToSBLInstanceEvent(
+        List<InstanceEvent> instanceEvents
+    )
     {
         List<SblInstanceEvent> simpleEvents = [];
         foreach (InstanceEvent instanceEvent in instanceEvents)
@@ -85,8 +94,9 @@ public static class InstanceHelper
                     CreatedDateTime = instanceEvent.Created,
                     EventType = instanceEvent.EventType,
                     AdditionalInfo = instanceEvent.AdditionalInfo,
-                    RelatedUser = instanceEvent.RelatedUser
-                });
+                    RelatedUser = instanceEvent.RelatedUser,
+                }
+            );
         }
 
         return simpleEvents;
@@ -151,7 +161,8 @@ public static class InstanceHelper
         List<DataElement> newerDataElements = instance.Data.FindAll(dataElement =>
             dataElement.LastChanged != null
             && dataElement.LastChangedBy != null
-            && dataElement.LastChanged > instance.LastChanged);
+            && dataElement.LastChanged > instance.LastChanged
+        );
 
         if (newerDataElements.Count == 0)
         {
@@ -159,14 +170,16 @@ public static class InstanceHelper
         }
 
         lastChanged = (DateTime)instance.LastChanged;
-        newerDataElements.ForEach((DataElement dataElement) =>
-        {
-            if (dataElement.LastChanged > lastChanged)
+        newerDataElements.ForEach(
+            (DataElement dataElement) =>
             {
-                lastChangedBy = dataElement.LastChangedBy;
-                lastChanged = (DateTime)dataElement.LastChanged;
+                if (dataElement.LastChanged > lastChanged)
+                {
+                    lastChangedBy = dataElement.LastChangedBy;
+                    lastChanged = (DateTime)dataElement.LastChanged;
+                }
             }
-        });
+        );
 
         return (lastChangedBy, lastChanged);
     }
@@ -178,14 +191,26 @@ public static class InstanceHelper
     /// <param name="textResources">list of text resources</param>
     /// <param name="language">the language</param>
     /// <returns>list of instances with updated texts</returns>
-    public static List<MessageBoxInstance> ReplaceTextKeys(List<MessageBoxInstance> instances, List<TextResource> textResources, string language)
+    public static List<MessageBoxInstance> ReplaceTextKeys(
+        List<MessageBoxInstance> instances,
+        List<TextResource> textResources,
+        string language
+    )
     {
         foreach (MessageBoxInstance instance in instances)
         {
             string id = $"{instance.Org}-{instance.AppName}-{language}";
             string appTitle =
-                textResources.Find(t => t.Id.Equals(id))?.Resources.Where(r => r.Id != null && r.Id.Equals("appName")).Select(r => r.Value).FirstOrDefault() ??
-                textResources.Find(t => t.Id.Equals(id))?.Resources.Where(r => r.Id != null && r.Id.Equals("ServiceName")).Select(r => r.Value).FirstOrDefault();
+                textResources
+                    .Find(t => t.Id.Equals(id))
+                    ?.Resources.Where(r => r.Id != null && r.Id.Equals("appName"))
+                    .Select(r => r.Value)
+                    .FirstOrDefault()
+                ?? textResources
+                    .Find(t => t.Id.Equals(id))
+                    ?.Resources.Where(r => r.Id != null && r.Id.Equals("ServiceName"))
+                    .Select(r => r.Value)
+                    .FirstOrDefault();
             instance.Title = appTitle ?? instance.AppName;
 
             if (!string.IsNullOrWhiteSpace(instance.PresentationText))
@@ -196,12 +221,26 @@ public static class InstanceHelper
 
             if (instance.Substatus?.Label != null)
             {
-                instance.Substatus.Label = textResources.Find(t => t.Id.Equals(id))?.Resources.Where(r => r.Id != null && r.Id.Equals(instance.Substatus.Label)).Select(r => r.Value).FirstOrDefault() ?? instance.Substatus.Label;
+                instance.Substatus.Label =
+                    textResources
+                        .Find(t => t.Id.Equals(id))
+                        ?.Resources.Where(r =>
+                            r.Id != null && r.Id.Equals(instance.Substatus.Label)
+                        )
+                        .Select(r => r.Value)
+                        .FirstOrDefault() ?? instance.Substatus.Label;
             }
 
             if (instance.Substatus?.Description != null)
             {
-                instance.Substatus.Description = textResources.Find(t => t.Id.Equals(id))?.Resources.Where(r => r.Id != null && r.Id.Equals(instance.Substatus.Description)).Select(r => r.Value).FirstOrDefault() ?? instance.Substatus.Description;
+                instance.Substatus.Description =
+                    textResources
+                        .Find(t => t.Id.Equals(id))
+                        ?.Resources.Where(r =>
+                            r.Id != null && r.Id.Equals(instance.Substatus.Description)
+                        )
+                        .Select(r => r.Value)
+                        .FirstOrDefault() ?? instance.Substatus.Description;
             }
         }
 
@@ -213,7 +252,10 @@ public static class InstanceHelper
     /// </summary>
     /// <param name="applications">The list of applications</param>
     /// <param name="instances">The list of applications to process.</param>
-    public static void RemoveHiddenInstances(Dictionary<string, Application> applications, List<Instance> instances)
+    public static void RemoveHiddenInstances(
+        Dictionary<string, Application> applications,
+        List<Instance> instances
+    )
     {
         List<Instance> instancesToRemove = [];
 
@@ -254,7 +296,10 @@ public static class InstanceHelper
     /// Parsing instanceOwnerIdentifier string and find the number type and value.
     /// </summary>
     /// <param name="instanceOwnerIdentifier">The list of applications</param>
-    public static (string InstanceOwnerIdType, string InstanceOwnerIdValue) GetIdentifierFromInstanceOwnerIdentifier(string instanceOwnerIdentifier)
+    public static (
+        string InstanceOwnerIdType,
+        string InstanceOwnerIdValue
+    ) GetIdentifierFromInstanceOwnerIdentifier(string instanceOwnerIdentifier)
     {
         if (string.IsNullOrEmpty(instanceOwnerIdentifier))
         {
@@ -283,15 +328,23 @@ public static class InstanceHelper
     /// </summary>
     /// <param name="instanceStatus">The status of the instance to check</param>
     /// <param name="application">The application the instance belongs to</param>
-    public static bool IsPreventedFromDeletion(InstanceStatus instanceStatus, Application application)
+    public static bool IsPreventedFromDeletion(
+        InstanceStatus instanceStatus,
+        Application application
+    )
     {
-        if (!instanceStatus.Archived.HasValue || !application.PreventInstanceDeletionForDays.HasValue)
+        if (
+            !instanceStatus.Archived.HasValue
+            || !application.PreventInstanceDeletionForDays.HasValue
+        )
         {
             return false;
         }
 
         DateTime archivedDateTime = instanceStatus.Archived.Value;
-        DateTime dueDate = archivedDateTime.AddDays(application.PreventInstanceDeletionForDays.Value);
+        DateTime dueDate = archivedDateTime.AddDays(
+            application.PreventInstanceDeletionForDays.Value
+        );
 
         return DateTime.UtcNow < dueDate;
     }

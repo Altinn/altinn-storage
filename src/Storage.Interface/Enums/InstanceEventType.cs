@@ -128,5 +128,5 @@ public enum InstanceEventType
     /// <summary>
     /// Message read event.
     /// </summary>
-    MessageRead
+    MessageRead,
 }

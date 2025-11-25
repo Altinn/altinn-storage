@@ -8,10 +8,8 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
-
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
@@ -26,18 +24,14 @@ using Altinn.Platform.Storage.UnitTest.Mocks.Authentication;
 using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
-
 using AltinnCore.Authentication.JwtCookie;
-
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-
 using Moq;
-
 using Newtonsoft.Json;
 using Xunit;
 
@@ -47,8 +41,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 /// Initializes a new instance of the <see cref="MessageBoxInstancesControllerTests"/> class with the given <see cref="WebApplicationFactory{TStartup}"/>.
 /// </summary>
 /// <param name="factory">The <see cref="TestApplicationFactory{TStartup}"/> to use when setting up the test server.</param>
-public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBoxInstancesController> factory)
-    : IClassFixture<TestApplicationFactory<MessageBoxInstancesController>>
+public class MessageBoxInstancesControllerTests(
+    TestApplicationFactory<MessageBoxInstancesController> factory
+) : IClassFixture<TestApplicationFactory<MessageBoxInstancesController>>
 {
     private readonly TestApplicationFactory<MessageBoxInstancesController> _factory = factory;
 
@@ -71,16 +66,23 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         string expectedSubstatusLabel = "Application approved";
 
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1337, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
 
         // Act
-        HttpResponseMessage responseMessage = await client.GetAsync($"{BasePath}/sbl/instances/{instanceId}?language=en");
+        HttpResponseMessage responseMessage = await client.GetAsync(
+            $"{BasePath}/sbl/instances/{instanceId}?language=en"
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
 
         string responseContent = await responseMessage.Content.ReadAsStringAsync();
-        MessageBoxInstance actual = JsonConvert.DeserializeObject<MessageBoxInstance>(responseContent);
+        MessageBoxInstance actual = JsonConvert.DeserializeObject<MessageBoxInstance>(
+            responseContent
+        );
 
         Assert.Equal(expectedTitle, actual.Title);
         Assert.True(actual.AllowDelete);
@@ -103,16 +105,23 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         string instanceId = "1606/6323a337-26e7-4d40-89e8-f5bb3d80be3b";
 
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1606, 3)
+        );
 
         // Act
-        HttpResponseMessage responseMessage = await client.GetAsync($"{BasePath}/sbl/instances/{instanceId}?language=en");
+        HttpResponseMessage responseMessage = await client.GetAsync(
+            $"{BasePath}/sbl/instances/{instanceId}?language=en"
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
 
         string responseContent = await responseMessage.Content.ReadAsStringAsync();
-        MessageBoxInstance actual = JsonConvert.DeserializeObject<MessageBoxInstance>(responseContent);
+        MessageBoxInstance actual = JsonConvert.DeserializeObject<MessageBoxInstance>(
+            responseContent
+        );
 
         Assert.False(actual.AllowDelete);
         Assert.True(actual.AuthorizedForWrite);
@@ -133,10 +142,15 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         string instanceId = "1337/6323a337-26e7-4d40-89e8-f5bb3d80be3a";
 
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1, 1606, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1, 1606, 3)
+        );
 
         // Act
-        HttpResponseMessage responseMessage = await client.GetAsync($"{BasePath}/sbl/instances/{instanceId}?language=en");
+        HttpResponseMessage responseMessage = await client.GetAsync(
+            $"{BasePath}/sbl/instances/{instanceId}?language=en"
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, responseMessage.StatusCode);
@@ -149,18 +163,23 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         string instanceId = "1337/07274f48-8313-4e2d-9788-bbdacef5a54e";
 
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1337, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
 
         // Act
-        HttpResponseMessage responseMessage =
-            await client.GetAsync($"{BasePath}/sbl/instances/{instanceId}?language=en");
+        HttpResponseMessage responseMessage = await client.GetAsync(
+            $"{BasePath}/sbl/instances/{instanceId}?language=en"
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
 
         string responseContent = await responseMessage.Content.ReadAsStringAsync();
-        MessageBoxInstance actual = JsonConvert.DeserializeObject<MessageBoxInstance>(responseContent);
+        MessageBoxInstance actual = JsonConvert.DeserializeObject<MessageBoxInstance>(
+            responseContent
+        );
 
         Assert.True(actual.AllowNewCopy);
     }
@@ -178,10 +197,16 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
     {
         // Arrange
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1337, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
 
         // Act
-        HttpResponseMessage response = await client.PutAsync($"{BasePath}/sbl/instances/{1337}/da1f620f-1764-4f98-9f03-74e5e20f10fe/undelete", null);
+        HttpResponseMessage response = await client.PutAsync(
+            $"{BasePath}/sbl/instances/{1337}/da1f620f-1764-4f98-9f03-74e5e20f10fe/undelete",
+            null
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -207,7 +232,10 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
-        HttpResponseMessage response = await client.PutAsync($"{BasePath}/sbl/instances/{1337}/cd41b024-f6b8-4ca7-9080-adc9eca5f0d1/undelete", null);
+        HttpResponseMessage response = await client.PutAsync(
+            $"{BasePath}/sbl/instances/{1337}/cd41b024-f6b8-4ca7-9080-adc9eca5f0d1/undelete",
+            null
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -230,7 +258,10 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
-        HttpResponseMessage response = await client.PutAsync($"{BasePath}/sbl/instances/{1337}/cd41b024-f6b8-4ca7-9080-adc9eca5f0d1/undelete", null);
+        HttpResponseMessage response = await client.PutAsync(
+            $"{BasePath}/sbl/instances/{1337}/cd41b024-f6b8-4ca7-9080-adc9eca5f0d1/undelete",
+            null
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -251,10 +282,16 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
     {
         // Arrange
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1337, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
 
         // Act
-        HttpResponseMessage response = await client.PutAsync($"{BasePath}/sbl/instances/1337/f888c42b-8749-41d6-8048-8fc28c70beaa/undelete", null);
+        HttpResponseMessage response = await client.PutAsync(
+            $"{BasePath}/sbl/instances/1337/f888c42b-8749-41d6-8048-8fc28c70beaa/undelete",
+            null
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
@@ -276,10 +313,16 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
     {
         // Arrange
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1337, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
 
         // Act
-        HttpResponseMessage response = await client.PutAsync($"{BasePath}/sbl/instances/1337/4be22ede-a16c-4a93-be7f-c529788d6a4c/undelete", null);
+        HttpResponseMessage response = await client.PutAsync(
+            $"{BasePath}/sbl/instances/1337/4be22ede-a16c-4a93-be7f-c529788d6a4c/undelete",
+            null
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
@@ -298,10 +341,15 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
     {
         // Arrange
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1337, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
 
         // Act
-        HttpResponseMessage response = await client.DeleteAsync($"{BasePath}/sbl/instances/1337/08274f48-8313-4e2d-9788-bbdacef5a54e?hard=false");
+        HttpResponseMessage response = await client.DeleteAsync(
+            $"{BasePath}/sbl/instances/1337/08274f48-8313-4e2d-9788-bbdacef5a54e?hard=false"
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -321,15 +369,20 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
     public async Task Delete_UserHasTooLowAuthLv_ReturnsStatusForbidden()
     {
         // Arrange
-        Mock<IInstanceEventRepository> instanceEventRepository = new Mock<IInstanceEventRepository>();
-        instanceEventRepository.Setup(s => s.InsertInstanceEvent(It.IsAny<InstanceEvent>(), null)).ReturnsAsync((InstanceEvent r, object o) => r);
+        Mock<IInstanceEventRepository> instanceEventRepository =
+            new Mock<IInstanceEventRepository>();
+        instanceEventRepository
+            .Setup(s => s.InsertInstanceEvent(It.IsAny<InstanceEvent>(), null))
+            .ReturnsAsync((InstanceEvent r, object o) => r);
 
         HttpClient client = GetTestClient();
         string token = PrincipalUtil.GetToken(1337, 1337, 1);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
-        HttpResponseMessage response = await client.DeleteAsync($"{BasePath}/sbl/instances/1337/6323a337-26e7-4d40-89e8-f5bb3d80be3a?hard=false");
+        HttpResponseMessage response = await client.DeleteAsync(
+            $"{BasePath}/sbl/instances/1337/6323a337-26e7-4d40-89e8-f5bb3d80be3a?hard=false"
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -352,7 +405,9 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
-        HttpResponseMessage response = await client.DeleteAsync($"{BasePath}/sbl/instances/1337/6323a337-26e7-4d40-89e8-f5bb3d80be3a?hard=false");
+        HttpResponseMessage response = await client.DeleteAsync(
+            $"{BasePath}/sbl/instances/1337/6323a337-26e7-4d40-89e8-f5bb3d80be3a?hard=false"
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -373,10 +428,15 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
     {
         // Arrange
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1337, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
 
         // Act
-        HttpResponseMessage response = await client.DeleteAsync($"{BasePath}/sbl/instances/1337/7a951b5b-ef96-4032-9273-f8d7651266f4?hard=true");
+        HttpResponseMessage response = await client.DeleteAsync(
+            $"{BasePath}/sbl/instances/1337/7a951b5b-ef96-4032-9273-f8d7651266f4?hard=true"
+        );
 
         // Assert
         HttpStatusCode actualStatusCode = response.StatusCode;
@@ -402,10 +462,15 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
     {
         // Arrange
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1337, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
 
         // Act
-        HttpResponseMessage response = await client.DeleteAsync($"{BasePath}/sbl/instances/1337/d9a586ca-17ab-453d-9fc5-35eaadb3369b?hard=true");
+        HttpResponseMessage response = await client.DeleteAsync(
+            $"{BasePath}/sbl/instances/1337/d9a586ca-17ab-453d-9fc5-35eaadb3369b?hard=true"
+        );
         string content = await response.Content.ReadAsStringAsync();
         bool actualResult = JsonConvert.DeserializeObject<bool>(content);
 
@@ -426,10 +491,15 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
     {
         // Arrange
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1, 1, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1, 1, 3)
+        );
 
         // Act
-        HttpResponseMessage response = await client.DeleteAsync($"{BasePath}/sbl/instances/1337/e6efc10e-913b-4a81-a36a-02376f5f5678?hard=true");
+        HttpResponseMessage response = await client.DeleteAsync(
+            $"{BasePath}/sbl/instances/1337/e6efc10e-913b-4a81-a36a-02376f5f5678?hard=true"
+        );
         HttpStatusCode actualStatusCode = response.StatusCode;
 
         // Assert
@@ -449,10 +519,15 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
     {
         // Arrange
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1337, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
 
         // Act
-        HttpResponseMessage response = await client.DeleteAsync($"{BasePath}/sbl/instances/1337/3b67392f-36c6-42dc-998f-c367e771dcdd?hard=false");
+        HttpResponseMessage response = await client.DeleteAsync(
+            $"{BasePath}/sbl/instances/1337/3b67392f-36c6-42dc-998f-c367e771dcdd?hard=false"
+        );
         HttpStatusCode actualStatusCode = response.StatusCode;
         string content = await response.Content.ReadAsStringAsync();
         bool actualResult = JsonConvert.DeserializeObject<bool>(content);
@@ -475,10 +550,15 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
     {
         // Arrange
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1, 1337, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1, 1337, 3)
+        );
 
         // Act
-        HttpResponseMessage response = await client.DeleteAsync($"{BasePath}/sbl/instances/1337/367a5e5a-12c6-4a74-b72b-766d95f859b0?hard=false");
+        HttpResponseMessage response = await client.DeleteAsync(
+            $"{BasePath}/sbl/instances/1337/367a5e5a-12c6-4a74-b72b-766d95f859b0?hard=false"
+        );
         HttpStatusCode actualStatusCode = response.StatusCode;
 
         // Assert
@@ -498,13 +578,20 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
     {
         // Arrange
         Mock<IApplicationService> applicationService = new();
-        applicationService.Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>())).ReturnsAsync((null, new ServiceError(500, "Something went wrong")));
+        applicationService
+            .Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>()))
+            .ReturnsAsync((null, new ServiceError(500, "Something went wrong")));
 
         HttpClient client = GetTestClient(applicationServiceMock: applicationService);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1337, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
 
         // Act
-        HttpResponseMessage response = await client.DeleteAsync($"{BasePath}/sbl/instances/1337/367a5e5a-12c6-4a74-b72b-766d95f859b0?hard=false");
+        HttpResponseMessage response = await client.DeleteAsync(
+            $"{BasePath}/sbl/instances/1337/367a5e5a-12c6-4a74-b72b-766d95f859b0?hard=false"
+        );
         HttpStatusCode actualStatusCode = response.StatusCode;
 
         // Assert
@@ -529,7 +616,9 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         string requestUri = $"{BasePath}/sbl/instances/{instanceOwnerId}/{instanceGuid}";
 
         Mock<IApplicationService> applicationService = new();
-        applicationService.Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>())).ReturnsAsync((null, new ServiceError(404, "Not found")));
+        applicationService
+            .Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>()))
+            .ReturnsAsync((null, new ServiceError(404, "Not found")));
 
         HttpClient client = GetTestClient(applicationServiceMock: applicationService);
         string token = PrincipalUtil.GetToken(1337, 1337);
@@ -551,7 +640,9 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public async Task Delete_EndUserSoftDeletesInstancePreventedFromDeletion_ReturnsStatusForbidden(bool hard)
+    public async Task Delete_EndUserSoftDeletesInstancePreventedFromDeletion_ReturnsStatusForbidden(
+        bool hard
+    )
     {
         // Arrange
         int instanceOwnerId = 1337;
@@ -568,7 +659,9 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
 
         Application application = new() { PreventInstanceDeletionForDays = daysSinceArchived + 10 }; // Prevent deletion for longer than the instance has been archived
         Mock<IApplicationService> applicationServiceMock = new();
-        applicationServiceMock.Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>())).ReturnsAsync((application, null));
+        applicationServiceMock
+            .Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>()))
+            .ReturnsAsync((application, null));
 
         HttpClient client = GetTestClient(applicationServiceMock: applicationServiceMock);
         string token = PrincipalUtil.GetToken(1337, 1337);
@@ -580,7 +673,10 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        Assert.Contains("Instance cannot be deleted yet due to application restrictions.", responseMessage);
+        Assert.Contains(
+            "Instance cannot be deleted yet due to application restrictions.",
+            responseMessage
+        );
     }
 
     /// <summary>
@@ -599,7 +695,9 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
 
         Application application = new() { PreventInstanceDeletionForDays = 30 };
         Mock<IApplicationService> applicationServiceMock = new();
-        applicationServiceMock.Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>())).ReturnsAsync((application, null));
+        applicationServiceMock
+            .Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>()))
+            .ReturnsAsync((application, null));
 
         HttpClient client = GetTestClient(applicationServiceMock: applicationServiceMock);
         string token = PrincipalUtil.GetToken(1337, 1337);
@@ -636,14 +734,16 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
 
         Application application = new() { PreventInstanceDeletionForDays = 30 };
         Mock<IApplicationService> applicationServiceMock = new();
-        applicationServiceMock.Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>())).ReturnsAsync((application, null));
+        applicationServiceMock
+            .Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>()))
+            .ReturnsAsync((application, null));
 
         Instance instance = new()
         {
             Status = new InstanceStatus(),
             AppId = "org123/app456",
             Id = "org123/app456",
-            InstanceOwner = new InstanceOwner { PartyId = "1337" }
+            InstanceOwner = new InstanceOwner { PartyId = "1337" },
         };
 
         HttpClient client = GetTestClient(applicationServiceMock: applicationServiceMock);
@@ -675,7 +775,10 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         MessageBoxQueryModel queryModel = GetMessageBoxQueryModel(1337);
 
         // Act
-        HttpResponseMessage responseMessage = await client.PostAsync($"{BasePath}/sbl/instances/search", JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage responseMessage = await client.PostAsync(
+            $"{BasePath}/sbl/instances/search",
+            JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json"))
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.Unauthorized, responseMessage.StatusCode);
@@ -694,20 +797,33 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
     {
         // Arrange
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1600, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1600, 3)
+        );
         MessageBoxQueryModel queryModel = GetMessageBoxQueryModel(1600);
         queryModel.AppId = "ttd/steffens-2020-v2";
 
         // Act
-        HttpResponseMessage responseMessage = await client.PostAsync($"{BasePath}/sbl/instances/search", JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage responseMessage = await client.PostAsync(
+            $"{BasePath}/sbl/instances/search",
+            JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json"))
+        );
         string content = await responseMessage.Content.ReadAsStringAsync();
-        List<MessageBoxInstance> actualResult = JsonConvert.DeserializeObject<List<MessageBoxInstance>>(content);
+        List<MessageBoxInstance> actualResult = JsonConvert.DeserializeObject<
+            List<MessageBoxInstance>
+        >(content);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
         Assert.Equal(1, actualResult.Count(i => i.DeleteStatus == DeleteStatusType.SoftDeleted));
         Assert.Equal(1, actualResult.Count(i => i.ProcessCurrentTask == "FormFilling"));
-        Assert.Equal(1, actualResult.Count(i => i.ProcessCurrentTask == "Archived" && i.DeleteStatus == DeleteStatusType.Default));
+        Assert.Equal(
+            1,
+            actualResult.Count(i =>
+                i.ProcessCurrentTask == "Archived" && i.DeleteStatus == DeleteStatusType.Default
+            )
+        );
     }
 
     /// <summary>
@@ -723,7 +839,10 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
     {
         // Arrange
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1, 1606, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1, 1606, 3)
+        );
         MessageBoxQueryModel queryModel = GetMessageBoxQueryModel(1600);
         queryModel.AppId = "ttd/complete-test";
         queryModel.Language = "en";
@@ -731,10 +850,13 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         // Act
         HttpResponseMessage responseMessage = await client.PostAsync(
             $"{BasePath}/sbl/instances/search",
-            JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json")));
+            JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json"))
+        );
 
         string content = await responseMessage.Content.ReadAsStringAsync();
-        List<MessageBoxInstance> actualResult = JsonConvert.DeserializeObject<List<MessageBoxInstance>>(content);
+        List<MessageBoxInstance> actualResult = JsonConvert.DeserializeObject<
+            List<MessageBoxInstance>
+        >(content);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
@@ -754,11 +876,17 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
     {
         // Arrange
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1606, 3)
+        );
         MessageBoxQueryModel queryModel = new MessageBoxQueryModel();
 
         // Act
-        HttpResponseMessage responseMessage = await client.PostAsync($"{BasePath}/sbl/instances/search", JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage responseMessage = await client.PostAsync(
+            $"{BasePath}/sbl/instances/search",
+            JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json"))
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.BadRequest, responseMessage.StatusCode);
@@ -779,17 +907,34 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         InstanceQueryParameters actual = new InstanceQueryParameters();
         Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
-            .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .Callback<InstanceQueryParameters, bool, CancellationToken>((query, includeDataelements, cancellationToken) => { actual = query; })
+            .Setup(ir =>
+                ir.GetInstancesFromQuery(
+                    It.IsAny<InstanceQueryParameters>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .Callback<InstanceQueryParameters, bool, CancellationToken>(
+                (query, includeDataelements, cancellationToken) =>
+                {
+                    actual = query;
+                }
+            )
             .ReturnsAsync((InstanceQueryResponse)null);
 
         HttpClient client = GetTestClient(instanceRepositoryMock);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1606, 3)
+        );
         MessageBoxQueryModel queryModel = GetMessageBoxQueryModel(1606);
         queryModel.IncludeActive = true;
 
         // Act
-        HttpResponseMessage responseMessage = await client.PostAsync($"{BasePath}/sbl/instances/search", JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage responseMessage = await client.PostAsync(
+            $"{BasePath}/sbl/instances/search",
+            JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json"))
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
@@ -815,18 +960,35 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         InstanceQueryParameters actual = new InstanceQueryParameters();
         Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
-            .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .Callback<InstanceQueryParameters, bool, CancellationToken>((query, includeDataelements, cancellationToken) => { actual = query; })
+            .Setup(ir =>
+                ir.GetInstancesFromQuery(
+                    It.IsAny<InstanceQueryParameters>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .Callback<InstanceQueryParameters, bool, CancellationToken>(
+                (query, includeDataelements, cancellationToken) =>
+                {
+                    actual = query;
+                }
+            )
             .ReturnsAsync((InstanceQueryResponse)null);
 
         HttpClient client = GetTestClient(instanceRepositoryMock);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1606, 3)
+        );
 
         MessageBoxQueryModel queryModel = GetMessageBoxQueryModel(1606);
         queryModel.IncludeArchived = true;
 
         // Act
-        HttpResponseMessage responseMessage = await client.PostAsync($"{BasePath}/sbl/instances/search", JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage responseMessage = await client.PostAsync(
+            $"{BasePath}/sbl/instances/search",
+            JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json"))
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
@@ -851,12 +1013,26 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         InstanceQueryParameters actual = new InstanceQueryParameters();
         Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
-            .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .Callback<InstanceQueryParameters, bool, CancellationToken>((query, includeDataelements, cancellationToken) => { actual = query; })
+            .Setup(ir =>
+                ir.GetInstancesFromQuery(
+                    It.IsAny<InstanceQueryParameters>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .Callback<InstanceQueryParameters, bool, CancellationToken>(
+                (query, includeDataelements, cancellationToken) =>
+                {
+                    actual = query;
+                }
+            )
             .ReturnsAsync((InstanceQueryResponse)null);
 
         HttpClient client = GetTestClient(instanceRepositoryMock);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1606, 3)
+        );
 
         MessageBoxQueryModel queryModel = GetMessageBoxQueryModel(1606);
         queryModel.IncludeArchived = true;
@@ -864,7 +1040,10 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         queryModel.IncludeDeleted = true;
 
         // Act
-        HttpResponseMessage responseMessage = await client.PostAsync($"{BasePath}/sbl/instances/search", JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage responseMessage = await client.PostAsync(
+            $"{BasePath}/sbl/instances/search",
+            JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json"))
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
@@ -887,21 +1066,38 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         InstanceQueryParameters actual = new InstanceQueryParameters();
         Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
-            .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .Callback<InstanceQueryParameters, bool, CancellationToken>((query, includeDataelements, cancellationToken) => { actual = query; })
+            .Setup(ir =>
+                ir.GetInstancesFromQuery(
+                    It.IsAny<InstanceQueryParameters>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .Callback<InstanceQueryParameters, bool, CancellationToken>(
+                (query, includeDataelements, cancellationToken) =>
+                {
+                    actual = query;
+                }
+            )
             .ReturnsAsync((InstanceQueryResponse)null);
 
         string expectedSortBy = "desc:lastChanged";
 
         HttpClient client = GetTestClient(instanceRepositoryMock);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1606, 3)
+        );
 
         MessageBoxQueryModel queryModel = GetMessageBoxQueryModel(1606);
         queryModel.IncludeArchived = true;
         queryModel.IncludeDeleted = true;
 
         // Act
-        HttpResponseMessage responseMessage = await client.PostAsync($"{BasePath}/sbl/instances/search", JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage responseMessage = await client.PostAsync(
+            $"{BasePath}/sbl/instances/search",
+            JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json"))
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
@@ -926,19 +1122,36 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         InstanceQueryParameters actual = new InstanceQueryParameters();
         Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
-            .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .Callback<InstanceQueryParameters, bool, CancellationToken>((query, includeDataelements, cancellationToken) => { actual = query; })
+            .Setup(ir =>
+                ir.GetInstancesFromQuery(
+                    It.IsAny<InstanceQueryParameters>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .Callback<InstanceQueryParameters, bool, CancellationToken>(
+                (query, includeDataelements, cancellationToken) =>
+                {
+                    actual = query;
+                }
+            )
             .ReturnsAsync((InstanceQueryResponse)null);
 
         HttpClient client = GetTestClient(instanceRepositoryMock);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1606, 3)
+        );
 
         MessageBoxQueryModel queryModel = GetMessageBoxQueryModel(1606);
         queryModel.IncludeActive = true;
         queryModel.IncludeDeleted = true;
 
         // Act
-        HttpResponseMessage responseMessage = await client.PostAsync($"{BasePath}/sbl/instances/search", JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage responseMessage = await client.PostAsync(
+            $"{BasePath}/sbl/instances/search",
+            JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json"))
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
@@ -961,20 +1174,34 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         // Arrange
         Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
-            .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Setup(ir =>
+                ir.GetInstancesFromQuery(
+                    It.IsAny<InstanceQueryParameters>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
             .ReturnsAsync((InstanceQueryResponse)null);
 
         HttpClient client = GetTestClient(instanceRepositoryMock);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1606, 3)
+        );
 
         MessageBoxQueryModel queryModel = GetMessageBoxQueryModel(1606);
         queryModel.AppId = "ttd/endring-av-navn";
         queryModel.SearchString = "karpeDiem";
 
         // Act
-        HttpResponseMessage responseMessage = await client.PostAsync($"{BasePath}/sbl/instances/search", JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage responseMessage = await client.PostAsync(
+            $"{BasePath}/sbl/instances/search",
+            JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json"))
+        );
         string responseContent = await responseMessage.Content.ReadAsStringAsync();
-        List<MessageBoxInstance> actual = JsonConvert.DeserializeObject<List<MessageBoxInstance>>(responseContent);
+        List<MessageBoxInstance> actual = JsonConvert.DeserializeObject<List<MessageBoxInstance>>(
+            responseContent
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
@@ -995,19 +1222,33 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         // Arrange
         Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
-            .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Setup(ir =>
+                ir.GetInstancesFromQuery(
+                    It.IsAny<InstanceQueryParameters>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
             .ReturnsAsync((InstanceQueryResponse)null);
 
         HttpClient client = GetTestClient(instanceRepositoryMock);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1606, 3)
+        );
 
         MessageBoxQueryModel queryModel = GetMessageBoxQueryModel(1606);
         queryModel.SearchString = "karpeDiem";
 
         // Act
-        HttpResponseMessage responseMessage = await client.PostAsync($"{BasePath}/sbl/instances/search", JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage responseMessage = await client.PostAsync(
+            $"{BasePath}/sbl/instances/search",
+            JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json"))
+        );
         string responseContent = await responseMessage.Content.ReadAsStringAsync();
-        List<MessageBoxInstance> actual = JsonConvert.DeserializeObject<List<MessageBoxInstance>>(responseContent);
+        List<MessageBoxInstance> actual = JsonConvert.DeserializeObject<List<MessageBoxInstance>>(
+            responseContent
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
@@ -1029,19 +1270,36 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         InstanceQueryParameters actual = new InstanceQueryParameters();
         Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
-            .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .Callback<InstanceQueryParameters, bool, CancellationToken>((query, includeDataelements, cancellationToken) => { actual = query; })
+            .Setup(ir =>
+                ir.GetInstancesFromQuery(
+                    It.IsAny<InstanceQueryParameters>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .Callback<InstanceQueryParameters, bool, CancellationToken>(
+                (query, includeDataelements, cancellationToken) =>
+                {
+                    actual = query;
+                }
+            )
             .ReturnsAsync((InstanceQueryResponse)null);
         string expectedAppId = "tdd/endring-av-navn";
 
         HttpClient client = GetTestClient(instanceRepositoryMock);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1606, 3)
+        );
 
         MessageBoxQueryModel queryModel = GetMessageBoxQueryModel(1606);
         queryModel.SearchString = "navn";
 
         // Act
-        HttpResponseMessage responseMessage = await client.PostAsync($"{BasePath}/sbl/instances/search", JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage responseMessage = await client.PostAsync(
+            $"{BasePath}/sbl/instances/search",
+            JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json"))
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
@@ -1065,19 +1323,36 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         InstanceQueryParameters actual = new InstanceQueryParameters();
         Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
-            .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .Callback<InstanceQueryParameters, bool, CancellationToken>((query, includeDataelements, cancellationToken) => { actual = query; })
+            .Setup(ir =>
+                ir.GetInstancesFromQuery(
+                    It.IsAny<InstanceQueryParameters>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .Callback<InstanceQueryParameters, bool, CancellationToken>(
+                (query, includeDataelements, cancellationToken) =>
+                {
+                    actual = query;
+                }
+            )
             .ReturnsAsync((InstanceQueryResponse)null);
         int expectedCount = 3;
 
         HttpClient client = GetTestClient(instanceRepositoryMock);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1606, 3)
+        );
 
         MessageBoxQueryModel queryModel = GetMessageBoxQueryModel(1606);
         queryModel.SearchString = "TEST";
 
         // Act
-        HttpResponseMessage responseMessage = await client.PostAsync($"{BasePath}/sbl/instances/search", JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage responseMessage = await client.PostAsync(
+            $"{BasePath}/sbl/instances/search",
+            JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json"))
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
@@ -1101,17 +1376,25 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         int expectedCount = 3;
         int expectedDistinctInstanceOwners = 2;
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1, 1600, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1, 1600, 3)
+        );
 
         MessageBoxQueryModel queryModel = GetMessageBoxQueryModel(1600);
         queryModel.InstanceOwnerPartyIdList.Add(1000);
         queryModel.AppId = "ttd/complete-test";
 
         // Act
-        HttpResponseMessage responseMessage = await client.PostAsync($"{BasePath}/sbl/instances/search", JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage responseMessage = await client.PostAsync(
+            $"{BasePath}/sbl/instances/search",
+            JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json"))
+        );
 
         string content = await responseMessage.Content.ReadAsStringAsync();
-        List<MessageBoxInstance> actual = JsonConvert.DeserializeObject<List<MessageBoxInstance>>(content);
+        List<MessageBoxInstance> actual = JsonConvert.DeserializeObject<List<MessageBoxInstance>>(
+            content
+        );
         int distinctInstanceOwners = actual.Select(i => i.InstanceOwnerId).Distinct().Count();
 
         // Assert
@@ -1135,18 +1418,35 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         InstanceQueryParameters actual = new InstanceQueryParameters();
         Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
-            .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .Callback<InstanceQueryParameters, bool, CancellationToken>((query, includeDataelements, cancellationToken) => { actual = query; })
+            .Setup(ir =>
+                ir.GetInstancesFromQuery(
+                    It.IsAny<InstanceQueryParameters>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .Callback<InstanceQueryParameters, bool, CancellationToken>(
+                (query, includeDataelements, cancellationToken) =>
+                {
+                    actual = query;
+                }
+            )
             .ReturnsAsync((InstanceQueryResponse)null);
 
         HttpClient client = GetTestClient(instanceRepositoryMock);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1, 1600, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1, 1600, 3)
+        );
 
         MessageBoxQueryModel queryModel = GetMessageBoxQueryModel(1600);
         queryModel.ArchiveReference = "bdb2a09da7ea";
 
         // Act
-        HttpResponseMessage responseMessage = await client.PostAsync($"{BasePath}/sbl/instances/search", JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage responseMessage = await client.PostAsync(
+            $"{BasePath}/sbl/instances/search",
+            JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json"))
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
@@ -1170,12 +1470,26 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         InstanceQueryParameters actual = new InstanceQueryParameters();
         Mock<IInstanceRepository> instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
-            .Setup(ir => ir.GetInstancesFromQuery(It.IsAny<InstanceQueryParameters>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
-            .Callback<InstanceQueryParameters, bool, CancellationToken>((query, includeDataelements, cancellationToken) => { actual = query; })
+            .Setup(ir =>
+                ir.GetInstancesFromQuery(
+                    It.IsAny<InstanceQueryParameters>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .Callback<InstanceQueryParameters, bool, CancellationToken>(
+                (query, includeDataelements, cancellationToken) =>
+                {
+                    actual = query;
+                }
+            )
             .ReturnsAsync((InstanceQueryResponse)null);
 
         HttpClient client = GetTestClient(instanceRepositoryMock);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1, 1600, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1, 1600, 3)
+        );
 
         MessageBoxQueryModel queryModel = GetMessageBoxQueryModel(1600);
         queryModel.ArchiveReference = "bdb2a09da7ea";
@@ -1183,7 +1497,10 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         queryModel.IncludeDeleted = true;
 
         // Act
-        HttpResponseMessage responseMessage = await client.PostAsync($"{BasePath}/sbl/instances/search", JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage responseMessage = await client.PostAsync(
+            $"{BasePath}/sbl/instances/search",
+            JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json"))
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
@@ -1205,15 +1522,23 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
     {
         // Arrange
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(3, 1606, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1606, 3)
+        );
 
         MessageBoxQueryModel queryModel = GetMessageBoxQueryModel(1606);
 
         // Act
-        HttpResponseMessage responseMessage = await client.PostAsync($"{BasePath}/sbl/instances/search?instanceOwner.partyId=1606", JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage responseMessage = await client.PostAsync(
+            $"{BasePath}/sbl/instances/search?instanceOwner.partyId=1606",
+            JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json"))
+        );
 
         string content = await responseMessage.Content.ReadAsStringAsync();
-        List<MessageBoxInstance> actual = JsonConvert.DeserializeObject<List<MessageBoxInstance>>(content);
+        List<MessageBoxInstance> actual = JsonConvert.DeserializeObject<List<MessageBoxInstance>>(
+            content
+        );
 
         // Assert
         Assert.Single(actual);
@@ -1232,17 +1557,23 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
     {
         // Arrange
         HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1, 1600, 3));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1, 1600, 3)
+        );
         MessageBoxQueryModel queryModel = GetMessageBoxQueryModel(1600);
         queryModel.AppId = "ttd/signing-app";
 
         // Act
         HttpResponseMessage responseMessage = await client.PostAsync(
             $"{BasePath}/sbl/instances/search",
-            JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json")));
+            JsonContent.Create(queryModel, new MediaTypeHeaderValue("application/json"))
+        );
 
         string content = await responseMessage.Content.ReadAsStringAsync();
-        List<MessageBoxInstance> actualResult = JsonConvert.DeserializeObject<List<MessageBoxInstance>>(content);
+        List<MessageBoxInstance> actualResult = JsonConvert.DeserializeObject<
+            List<MessageBoxInstance>
+        >(content);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, responseMessage.StatusCode);
@@ -1253,19 +1584,40 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
     [Fact]
     public async Task GetMessageBoxInstanceEvents_AllEventTypesIncludedInSearch()
     {
-        // Arrange            
-        string[] extepctedEventTypes = { "Created", "Deleted", "Undeleted", "Saved", "Submited", "SubstatusUpdated", "Signed", "SentToSign" };
+        // Arrange
+        string[] extepctedEventTypes =
+        {
+            "Created",
+            "Deleted",
+            "Undeleted",
+            "Saved",
+            "Submited",
+            "SubstatusUpdated",
+            "Signed",
+            "SentToSign",
+        };
 
         Mock<IInstanceEventRepository> repoMock = new();
         repoMock
-            .Setup(rm => rm.ListInstanceEvents(
-                It.IsAny<string>(),
-                It.Is<string[]>(eventTypes => !extepctedEventTypes.Except(eventTypes).Any()),
-                It.IsAny<DateTime?>(),
-                It.IsAny<DateTime?>()))
+            .Setup(rm =>
+                rm.ListInstanceEvents(
+                    It.IsAny<string>(),
+                    It.Is<string[]>(eventTypes => !extepctedEventTypes.Except(eventTypes).Any()),
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<DateTime?>()
+                )
+            )
             .ReturnsAsync(new List<InstanceEvent>());
 
-        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null, null);
+        var sut = new MessageBoxInstancesController(
+            null,
+            repoMock.Object,
+            null,
+            null,
+            null,
+            null,
+            null
+        );
 
         // Act
         await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid());
@@ -1286,53 +1638,59 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
         {
             Created = DateTime.Parse("1994-06-16T11:06:59.0851832Z"),
             EventType = "Saved",
-            User = new()
-            {
-                UserId = 1337
-            }
+            User = new() { UserId = 1337 },
         };
 
         var eventB = new InstanceEvent
         {
             Created = DateTime.Parse("1994-06-16T11:07:59.0851832Z"),
             EventType = "Saved",
-            User = new()
-            {
-                UserId = 1337
-            }
+            User = new() { UserId = 1337 },
         };
 
         var eventC = new InstanceEvent
         {
             Created = DateTime.Parse("1994-06-16T11:08:02.0851832Z"),
             EventType = "Saved",
-            User = new()
-            {
-                UserId = 2008
-            }
+            User = new() { UserId = 2008 },
         };
 
         List<InstanceEvent> eventList = new() { eventA, eventB, eventC };
 
         Mock<IInstanceEventRepository> repoMock = new();
         repoMock
-            .Setup(rm => rm.ListInstanceEvents(
-                It.IsAny<string>(),
-                It.IsAny<string[]>(),
-                It.IsAny<DateTime?>(),
-                It.IsAny<DateTime?>()))
+            .Setup(rm =>
+                rm.ListInstanceEvents(
+                    It.IsAny<string>(),
+                    It.IsAny<string[]>(),
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<DateTime?>()
+                )
+            )
             .ReturnsAsync(eventList);
 
-        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null, null);
+        var sut = new MessageBoxInstancesController(
+            null,
+            repoMock.Object,
+            null,
+            null,
+            null,
+            null,
+            null
+        );
 
         // Act
-        var response = await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid()) as OkObjectResult;
+        var response =
+            await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid()) as OkObjectResult;
         var actual = response.Value as List<SblInstanceEvent>;
 
         // Assert
         Assert.Equal(2, actual.Count);
         Assert.Single(actual, e => e.User.UserId == 1337);
-        Assert.Contains(actual, e => e.CreatedDateTime == DateTime.Parse("1994-06-16T11:07:59.0851832Z"));
+        Assert.Contains(
+            actual,
+            e => e.CreatedDateTime == DateTime.Parse("1994-06-16T11:07:59.0851832Z")
+        );
         repoMock.VerifyAll();
     }
 
@@ -1344,16 +1702,40 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
     public async Task GetMessageBoxInstanceEvents_LargeNumberOfEvents_ReturnsAllEvents()
     {
         // Arrange
-        var largeNumberOfEvents = Enumerable.Range(1, 1000).Select(i => new InstanceEvent { Created = DateTime.UtcNow, EventType = "Event", User = new() { UserId = i } }).ToList();
+        var largeNumberOfEvents = Enumerable
+            .Range(1, 1000)
+            .Select(i => new InstanceEvent
+            {
+                Created = DateTime.UtcNow,
+                EventType = "Event",
+                User = new() { UserId = i },
+            })
+            .ToList();
         var repoMock = new Mock<IInstanceEventRepository>();
         repoMock
-            .Setup(rm => rm.ListInstanceEvents(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<DateTime?>(), It.IsAny<DateTime?>()))
+            .Setup(rm =>
+                rm.ListInstanceEvents(
+                    It.IsAny<string>(),
+                    It.IsAny<string[]>(),
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<DateTime?>()
+                )
+            )
             .ReturnsAsync(largeNumberOfEvents);
 
-        var sut = new MessageBoxInstancesController(null, repoMock.Object, null, null, null, null, null);
+        var sut = new MessageBoxInstancesController(
+            null,
+            repoMock.Object,
+            null,
+            null,
+            null,
+            null,
+            null
+        );
 
         // Act
-        var response = await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid()) as OkObjectResult;
+        var response =
+            await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid()) as OkObjectResult;
         var actual = response.Value as List<SblInstanceEvent>;
 
         // Assert
@@ -1364,55 +1746,65 @@ public class MessageBoxInstancesControllerTests(TestApplicationFactory<MessageBo
     {
         return new MessageBoxQueryModel
         {
-            InstanceOwnerPartyIdList = new List<int>
-            {
-                instanceOwnerPartyId
-            }
+            InstanceOwnerPartyIdList = new List<int> { instanceOwnerPartyId },
         };
     }
 
     private HttpClient GetTestClient(
         Mock<IInstanceRepository> instanceRepositoryMock = null,
         Mock<IApplicationService> applicationServiceMock = null,
-        bool enableWolverine = false)
+        bool enableWolverine = false
+    )
     {
         // No setup required for these services. They are not in use by the MessageBoxInstancesController
         Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
         Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
 
-        HttpClient client = _factory.WithWebHostBuilder(builder =>
-        {
-            IConfiguration configuration = new ConfigurationBuilder().AddJsonFile(ServiceUtil.GetAppsettingsPath()).Build();
-            builder.ConfigureAppConfiguration((hostingContext, config) =>
+        HttpClient client = _factory
+            .WithWebHostBuilder(builder =>
             {
-                config.AddConfiguration(configuration);
-            });
+                IConfiguration configuration = new ConfigurationBuilder()
+                    .AddJsonFile(ServiceUtil.GetAppsettingsPath())
+                    .Build();
+                builder.ConfigureAppConfiguration(
+                    (hostingContext, config) =>
+                    {
+                        config.AddConfiguration(configuration);
+                    }
+                );
 
-            builder.ConfigureTestServices(services =>
-            {
-                services.AddMockRepositories();
-
-                if (instanceRepositoryMock != null)
+                builder.ConfigureTestServices(services =>
                 {
-                    services.AddSingleton(instanceRepositoryMock.Object);
-                }
+                    services.AddMockRepositories();
 
-                if (applicationServiceMock != null)
-                {
-                    services.AddSingleton(applicationServiceMock.Object);
-                }
+                    if (instanceRepositoryMock != null)
+                    {
+                        services.AddSingleton(instanceRepositoryMock.Object);
+                    }
 
-                services.AddSingleton(keyVaultWrapper.Object);
-                services.AddSingleton(partiesWrapper.Object);
-                services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
-                services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
-                services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
-                services.Configure<WolverineSettings>(opts =>
-                {
-                    opts.EnableSending = enableWolverine;
+                    if (applicationServiceMock != null)
+                    {
+                        services.AddSingleton(applicationServiceMock.Object);
+                    }
+
+                    services.AddSingleton(keyVaultWrapper.Object);
+                    services.AddSingleton(partiesWrapper.Object);
+                    services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
+                    services.AddSingleton<
+                        IPostConfigureOptions<JwtCookieOptions>,
+                        JwtCookiePostConfigureOptionsStub
+                    >();
+                    services.AddSingleton<
+                        IPublicSigningKeyProvider,
+                        PublicSigningKeyProviderMock
+                    >();
+                    services.Configure<WolverineSettings>(opts =>
+                    {
+                        opts.EnableSending = enableWolverine;
+                    });
                 });
-            });
-        }).CreateClient();
+            })
+            .CreateClient();
 
         return client;
     }

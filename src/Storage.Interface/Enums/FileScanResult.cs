@@ -1,6 +1,5 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
-
 using TextJson = System.Text.Json.Serialization;
 
 namespace Altinn.Platform.Storage.Interface.Enums;
@@ -30,5 +29,5 @@ public enum FileScanResult
     /// <summary>
     /// The file scan found malware in the file.
     /// </summary>
-    Infected
+    Infected,
 }

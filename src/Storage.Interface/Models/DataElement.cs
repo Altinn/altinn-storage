@@ -1,11 +1,8 @@
 using System;
 using System.Collections.Generic;
-
 using Altinn.Platform.Storage.Interface.Enums;
-
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
-
 using TextJson = System.Text.Json.Serialization;
 
 namespace Altinn.Platform.Storage.Interface.Models;
@@ -151,7 +148,8 @@ public class DataElement : ChangableElement
             SelfLinks = new ResourceLinks();
         }
 
-        SelfLinks.Platform = $"https://platform.{storageHostAndBase}instances/{instanceOwnerPartyId}/{InstanceGuid}/data/{Id}";
+        SelfLinks.Platform =
+            $"https://platform.{storageHostAndBase}instances/{instanceOwnerPartyId}/{InstanceGuid}/data/{Id}";
     }
 }
 

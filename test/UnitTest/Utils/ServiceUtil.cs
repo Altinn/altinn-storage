@@ -10,7 +10,10 @@ namespace Altinn.Platform.Storage.UnitTest.Utils;
 
 public static class ServiceUtil
 {
-    public static List<object> GetServices(List<Type> interfaceTypes, Dictionary<string, string> envVariables = null)
+    public static List<object> GetServices(
+        List<Type> interfaceTypes,
+        Dictionary<string, string> envVariables = null
+    )
     {
         if (envVariables != null)
         {
@@ -26,9 +29,7 @@ public static class ServiceUtil
 
         var config = builder.Build();
 
-        WebApplication.CreateBuilder()
-                       .Build()
-                       .SetUpPostgreSql(true, config);
+        WebApplication.CreateBuilder().Build().SetUpPostgreSql(true, config);
 
         IServiceCollection services = new ServiceCollection();
 

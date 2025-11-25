@@ -37,7 +37,7 @@ public static class LanguageHelper
             string en when en.Contains("UL=1033") => "en",
             string nb when nb.Contains("UL=1044") => "nb",
             string nn when nn.Contains("UL=2068") => "nn",
-            _ => "nb"
+            _ => "nb",
         };
     }
 }

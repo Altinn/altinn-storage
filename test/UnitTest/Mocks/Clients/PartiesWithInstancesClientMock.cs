@@ -1,6 +1,5 @@
 using System;
 using System.Threading.Tasks;
-
 using Altinn.Platform.Storage.Clients;
 
 namespace Altinn.Platform.Storage.UnitTest.Mocks.Clients;

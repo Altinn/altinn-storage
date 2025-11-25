@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-
 using Microsoft.Net.Http.Headers;
 
 namespace Altinn.Platform.Storage.Helpers;
@@ -28,7 +27,8 @@ public static class MultipartRequestHelper
         if (boundary.Length > lengthLimit)
         {
             throw new InvalidDataException(
-                $"Multipart boundary length limit {lengthLimit} exceeded.");
+                $"Multipart boundary length limit {lengthLimit} exceeded."
+            );
         }
 
         return boundary;
@@ -42,7 +42,7 @@ public static class MultipartRequestHelper
     public static bool IsMultipartContentType(string contentType)
     {
         return !string.IsNullOrEmpty(contentType)
-               && contentType.Contains("multipart/", StringComparison.OrdinalIgnoreCase);
+            && contentType.Contains("multipart/", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -50,13 +50,15 @@ public static class MultipartRequestHelper
     /// </summary>
     /// <param name="contentDisposition">The content disposition to check</param>
     /// <returns>A value indication whether the supplied content disposition is form data</returns>
-    public static bool HasFormDataContentDisposition(ContentDispositionHeaderValue contentDisposition)
+    public static bool HasFormDataContentDisposition(
+        ContentDispositionHeaderValue contentDisposition
+    )
     {
         // Content-Disposition: form-data; name="key";
         return contentDisposition != null
-               && contentDisposition.DispositionType.Equals("form-data")
-               && string.IsNullOrEmpty(contentDisposition.FileName.Value)
-               && string.IsNullOrEmpty(contentDisposition.FileNameStar.Value);
+            && contentDisposition.DispositionType.Equals("form-data")
+            && string.IsNullOrEmpty(contentDisposition.FileName.Value)
+            && string.IsNullOrEmpty(contentDisposition.FileNameStar.Value);
     }
 
     /// <summary>
@@ -68,8 +70,10 @@ public static class MultipartRequestHelper
     {
         // Content-Disposition: form-data; name="myfile1"; filename="Misc 002.jpg"
         return contentDisposition != null
-               && contentDisposition.DispositionType.Equals("form-data")
-               && (!string.IsNullOrEmpty(contentDisposition.FileName.Value)
-                   || !string.IsNullOrEmpty(contentDisposition.FileNameStar.Value));
+            && contentDisposition.DispositionType.Equals("form-data")
+            && (
+                !string.IsNullOrEmpty(contentDisposition.FileName.Value)
+                || !string.IsNullOrEmpty(contentDisposition.FileNameStar.Value)
+            );
     }
 }

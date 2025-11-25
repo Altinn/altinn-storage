@@ -15,7 +15,10 @@ public static class StringExtensions
     /// <param name="input">The input variable to be sanitized.</param>
     /// <param name="throwExceptionOnInvalidCharacters">Throw exception instead of replacing invalid characters with '_'.</param>
     /// <returns>A filename cleaned of any impurities.</returns>
-    public static string AsFileName(this string input, bool throwExceptionOnInvalidCharacters = true)
+    public static string AsFileName(
+        this string input,
+        bool throwExceptionOnInvalidCharacters = true
+    )
     {
         if (string.IsNullOrWhiteSpace(input))
         {

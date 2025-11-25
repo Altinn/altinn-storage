@@ -24,7 +24,7 @@ public class MessageBoxQueryModelTests
             SearchString = "app",
             ArchiveReference = "123",
             Language = "en",
-            FilterMigrated = true
+            FilterMigrated = true,
         };
 
         // Act

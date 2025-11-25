@@ -26,7 +26,10 @@ public class InstanceEventService : IInstanceEventService
     /// <summary>
     /// Initializes a new instance of the <see cref="InstanceEventService"/> class.
     /// </summary>
-    public InstanceEventService(IInstanceEventRepository repository, IHttpContextAccessor contextAccessor)
+    public InstanceEventService(
+        IInstanceEventRepository repository,
+        IHttpContextAccessor contextAccessor
+    )
     {
         _repository = repository;
         _contextAccessor = contextAccessor;
@@ -67,7 +70,11 @@ public class InstanceEventService : IInstanceEventService
     }
 
     /// <inheritdoc/>
-    public async Task DispatchEvent(InstanceEventType eventType, Instance instance, DataElement dataElement)
+    public async Task DispatchEvent(
+        InstanceEventType eventType,
+        Instance instance,
+        DataElement dataElement
+    )
     {
         var user = _contextAccessor.HttpContext!.User;
 

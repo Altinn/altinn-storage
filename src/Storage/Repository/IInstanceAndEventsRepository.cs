@@ -8,7 +8,7 @@ namespace Altinn.Platform.Storage.Repository;
 /// <summary>
 /// Represents an implementation of <see cref="IInstanceAndEventsRepository"/>.
 /// </summary>
-public interface IInstanceAndEventsRepository 
+public interface IInstanceAndEventsRepository
 {
     /// <summary>
     /// update existing instance including instance events
@@ -18,5 +18,10 @@ public interface IInstanceAndEventsRepository
     /// <param name="events">the events to add</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>The updated instance</returns>
-    Task<Instance> Update(Instance instance, List<string> updateProperties, List<InstanceEvent> events, CancellationToken cancellationToken);
+    Task<Instance> Update(
+        Instance instance,
+        List<string> updateProperties,
+        List<InstanceEvent> events,
+        CancellationToken cancellationToken
+    );
 }

@@ -5,7 +5,8 @@ namespace Altinn.Platform.Storage.UnitTest.Utils;
 
 public static class RequestTracker
 {
-    private static Dictionary<string, List<object>> _tracker = new Dictionary<string, List<object>>();
+    private static Dictionary<string, List<object>> _tracker =
+        new Dictionary<string, List<object>>();
 
     private static readonly object DataLock = new object();
 

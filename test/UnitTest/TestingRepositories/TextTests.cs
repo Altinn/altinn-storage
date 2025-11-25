@@ -17,12 +17,49 @@ public class TextTests : IClassFixture<TextFixture>
     private const string AppId1 = $"{App1}/app1";
     private const string AppId2 = $"{App2}/app2";
 
-    private readonly Application _a1 = new() { Id = AppId1, Org = "ttd", Title = new() { { "nb", "t1" } } };
-    private readonly Application _a2 = new() { Id = AppId2, Org = "ttd", Title = new() { { "nb", "t2" } } };
+    private readonly Application _a1 = new()
+    {
+        Id = AppId1,
+        Org = "ttd",
+        Title = new() { { "nb", "t1" } },
+    };
+    private readonly Application _a2 = new()
+    {
+        Id = AppId2,
+        Org = "ttd",
+        Title = new() { { "nb", "t2" } },
+    };
 
-    private readonly TextResource _tr1 = new() { Org = "ttd", Language = "nb", Resources = new() { new() { Id = "i1", Value = "v1" }, new() { Id = "i2", Value = "v2" } } };
-    private readonly TextResource _tr2 = new() { Org = "ttd", Language = "nn", Resources = new() { new() { Id = "i3", Value = "v3" }, new() { Id = "i4", Value = "v4" } } };
-    private readonly TextResource _tr3 = new() { Org = "ttd", Language = "nb", Resources = new() { new() { Id = "i5", Value = "v5" }, new() { Id = "i6", Value = "v6" } } };
+    private readonly TextResource _tr1 = new()
+    {
+        Org = "ttd",
+        Language = "nb",
+        Resources = new()
+        {
+            new() { Id = "i1", Value = "v1" },
+            new() { Id = "i2", Value = "v2" },
+        },
+    };
+    private readonly TextResource _tr2 = new()
+    {
+        Org = "ttd",
+        Language = "nn",
+        Resources = new()
+        {
+            new() { Id = "i3", Value = "v3" },
+            new() { Id = "i4", Value = "v4" },
+        },
+    };
+    private readonly TextResource _tr3 = new()
+    {
+        Org = "ttd",
+        Language = "nb",
+        Resources = new()
+        {
+            new() { Id = "i5", Value = "v5" },
+            new() { Id = "i6", Value = "v6" },
+        },
+    };
 
     private readonly TextFixture _textFixture;
 
@@ -69,7 +106,9 @@ public class TextTests : IClassFixture<TextFixture>
         string sql = $"select count(*) from storage.texts where org = 'ttd' and app = 'app1';";
         int count = await PostgresUtil.RunCountQuery(sql);
         Assert.Equal(1, count);
-        text = await PostgresUtil.RunQuery<TextResource>($"select textresource from storage.texts where org = 'ttd' and app = 'app1';");
+        text = await PostgresUtil.RunQuery<TextResource>(
+            $"select textresource from storage.texts where org = 'ttd' and app = 'app1';"
+        );
         Assert.Single(text.Resources);
     }
 
@@ -167,8 +206,11 @@ public class TextFixture
 
     public TextFixture()
     {
-        var serviceList = ServiceUtil.GetServices(new List<Type>() { typeof(ITextRepository), typeof(IApplicationRepository) });
+        var serviceList = ServiceUtil.GetServices(
+            new List<Type>() { typeof(ITextRepository), typeof(IApplicationRepository) }
+        );
         TextRepo = (ITextRepository)serviceList.First(i => i.GetType() == typeof(PgTextRepository));
-        ApplicationRepo = (IApplicationRepository)serviceList.First(i => i.GetType() == typeof(PgApplicationRepository));
+        ApplicationRepo = (IApplicationRepository)
+            serviceList.First(i => i.GetType() == typeof(PgApplicationRepository));
     }
 }

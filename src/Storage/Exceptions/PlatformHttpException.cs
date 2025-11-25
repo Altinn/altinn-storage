@@ -32,7 +32,8 @@ public class PlatformHttpException : Exception
     /// </summary>
     /// <param name="response">the response</param>
     /// <param name="message">the message</param>
-    public PlatformHttpException(HttpResponseMessage response, string message) : base(message)
+    public PlatformHttpException(HttpResponseMessage response, string message)
+        : base(message)
     {
         this.Response = response;
     }

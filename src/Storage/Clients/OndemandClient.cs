@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
-
 using Altinn.Platform.Storage.Configuration;
 using AltinnCore.Authentication.Utils;
 using Microsoft.AspNetCore.Http;
@@ -25,7 +24,11 @@ public class OnDemandClient : IOnDemandClient
     /// <param name="client">A HttpClient provided by a HttpClientFactory.</param>
     /// <param name="httpContextAccessor">Http context access</param>
     /// <param name="generalSettings">The general settings configured for Storage.</param>
-    public OnDemandClient(HttpClient client, IHttpContextAccessor httpContextAccessor, IOptions<GeneralSettings> generalSettings)
+    public OnDemandClient(
+        HttpClient client,
+        IHttpContextAccessor httpContextAccessor,
+        IOptions<GeneralSettings> generalSettings
+    )
     {
         _client = client;
         _client.BaseAddress = new Uri(generalSettings.Value.OndemandEndpoint);
@@ -37,7 +40,10 @@ public class OnDemandClient : IOnDemandClient
     /// <inheritdoc />
     public async Task<Stream> GetStreamAsync(string path)
     {
-        string token = JwtTokenUtil.GetTokenFromContext(_httpContextAccessor.HttpContext, _generalSettings.RuntimeCookieName);
+        string token = JwtTokenUtil.GetTokenFromContext(
+            _httpContextAccessor.HttpContext,
+            _generalSettings.RuntimeCookieName
+        );
         JwtTokenUtil.AddTokenToRequestHeader(_client, token);
         return await _client.GetStreamAsync(path);
     }

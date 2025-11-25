@@ -2,7 +2,6 @@ using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
-
 using Altinn.Platform.Storage.Health;
 using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Utils;
@@ -34,8 +33,7 @@ public class HealthCheckTests : IClassFixture<TestApplicationFactory<HealthCheck
         HttpClient client = GetTestClient();
 
         HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Get, "/health")
-        {
-        };
+        { };
 
         HttpResponseMessage response = await client.SendAsync(httpRequestMessage);
         await response.Content.ReadAsStringAsync();
@@ -46,21 +44,25 @@ public class HealthCheckTests : IClassFixture<TestApplicationFactory<HealthCheck
     {
         Mock<IMessageBus> busMock = new Mock<IMessageBus>();
 
-        HttpClient client = _factory.WithWebHostBuilder(builder =>
-        {
-            IConfiguration configuration = new ConfigurationBuilder()
-                .AddJsonFile(ServiceUtil.GetAppsettingsPath())
-                .Build();
-            builder.ConfigureAppConfiguration((hostingContext, config) =>
+        HttpClient client = _factory
+            .WithWebHostBuilder(builder =>
             {
-                config.AddConfiguration(configuration);
-            });
+                IConfiguration configuration = new ConfigurationBuilder()
+                    .AddJsonFile(ServiceUtil.GetAppsettingsPath())
+                    .Build();
+                builder.ConfigureAppConfiguration(
+                    (hostingContext, config) =>
+                    {
+                        config.AddConfiguration(configuration);
+                    }
+                );
 
-            builder.ConfigureTestServices(services =>
-            {
-                services.AddSingleton(busMock.Object);
-            });
-        }).CreateClient();
+                builder.ConfigureTestServices(services =>
+                {
+                    services.AddSingleton(busMock.Object);
+                });
+            })
+            .CreateClient();
 
         return client;
     }

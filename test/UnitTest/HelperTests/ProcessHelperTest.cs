@@ -1,11 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
-
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.HelperTests;
@@ -18,9 +16,12 @@ public class ProcessHelperTest
         InstanceEvent instanceEvent,
         string expectedPerformedBy,
         string expectedEventType,
-        DateTime? expectedOccured)
+        DateTime? expectedOccured
+    )
     {
-        ProcessHistoryItem actual = ProcessHelper.MapInstanceEventsToProcessHistory(new List<InstanceEvent> { instanceEvent })[0];
+        ProcessHistoryItem actual = ProcessHelper.MapInstanceEventsToProcessHistory(
+            new List<InstanceEvent> { instanceEvent }
+        )[0];
         Assert.Equal(expectedPerformedBy, actual.PerformedBy);
         Assert.Equal(expectedEventType, actual.EventType);
         Assert.Equal(expectedOccured, actual.Occured);
@@ -46,12 +47,12 @@ public class ProcessHelperTest
                     {
                         AuthenticationLevel = 2,
                         UserId = 1337,
-                        NationalIdentityNumber = "16069412345"
-                    }
+                        NationalIdentityNumber = "16069412345",
+                    },
                 },
                 "16069412345",
                 "process_StartEvent",
-                ReferenceTimestamp.AddSeconds(1)
+                ReferenceTimestamp.AddSeconds(1),
             },
             new object[]
             {
@@ -68,18 +69,14 @@ public class ProcessHelperTest
                             Flow = 2,
                             Started = ReferenceTimestamp.AddSeconds(2),
                             ElementId = "Task_1",
-                            Name = "Utfylling"
-                        }
+                            Name = "Utfylling",
+                        },
                     },
-                    User = new PlatformUser
-                    {
-                        AuthenticationLevel = 2,
-                        OrgId = "888472312"
-                    }
+                    User = new PlatformUser { AuthenticationLevel = 2, OrgId = "888472312" },
                 },
                 "888472312",
                 "process_StartTask",
-                ReferenceTimestamp.AddSeconds(1)
+                ReferenceTimestamp.AddSeconds(1),
             },
             new object[]
             {
@@ -97,18 +94,14 @@ public class ProcessHelperTest
                             Started = ReferenceTimestamp.AddSeconds(2),
                             ElementId = "Task_1",
                             Name = "Utfylling",
-                            FlowType = "CompleteCurrentMoveToNext"
-                        }
+                            FlowType = "CompleteCurrentMoveToNext",
+                        },
                     },
-                    User = new PlatformUser
-                    {
-                        AuthenticationLevel = 2,
-                        OrgId = "888472312"
-                    }
+                    User = new PlatformUser { AuthenticationLevel = 2, OrgId = "888472312" },
                 },
                 "888472312",
                 "process_EndTask",
-                ReferenceTimestamp
+                ReferenceTimestamp,
             },
             new object[]
             {
@@ -121,17 +114,13 @@ public class ProcessHelperTest
                         StartEvent = "StartEvent_1",
                         Started = ReferenceTimestamp.AddSeconds(1),
                         Ended = ReferenceTimestamp.AddSeconds(2),
-                        EndEvent = "EndEvent_1"
+                        EndEvent = "EndEvent_1",
                     },
-                    User = new PlatformUser
-                    {
-                        AuthenticationLevel = 2,
-                        UserId = 1337
-                    }
+                    User = new PlatformUser { AuthenticationLevel = 2, UserId = 1337 },
                 },
                 string.Empty,
                 "process_EndEvent",
-                ReferenceTimestamp.AddSeconds(2)
+                ReferenceTimestamp.AddSeconds(2),
             },
             new object[]
             {
@@ -143,12 +132,12 @@ public class ProcessHelperTest
                     {
                         AuthenticationLevel = 2,
                         UserId = 1337,
-                        NationalIdentityNumber = "16069412345"
-                    }
+                        NationalIdentityNumber = "16069412345",
+                    },
                 },
                 "16069412345",
                 "process_StartEvent",
-                ReferenceTimestamp
+                ReferenceTimestamp,
             },
         };
 }

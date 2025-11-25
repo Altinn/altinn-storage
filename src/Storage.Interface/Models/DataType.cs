@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-
 using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.Interface.Models;
@@ -39,7 +38,9 @@ public class DataType
     /// Value should be preceded by an approved key.
     /// If null or empty no contributer restrictions are set.
     /// </summary>
-    [Obsolete("Use AllowedContributors instead. This property will be removed in a future version.")]
+    [Obsolete(
+        "Use AllowedContributors instead. This property will be removed in a future version."
+    )]
     [JsonProperty(PropertyName = "allowedContributers")]
     public List<string> AllowedContributers { get; set; }
 

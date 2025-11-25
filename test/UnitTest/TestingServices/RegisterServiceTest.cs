@@ -5,21 +5,17 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Altinn.Common.AccessTokenClient.Services;
 using Altinn.Platform.Register.Enums;
 using Altinn.Platform.Register.Models;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Exceptions;
 using Altinn.Platform.Storage.Services;
-
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-
 using Moq;
 using Moq.Protected;
-
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingServices;
@@ -51,13 +47,17 @@ public class RegisterServiceTest
         {
             PartyId = 500000,
             OrgNumber = "897069650",
-            PartyTypeName = PartyType.Organisation
+            PartyTypeName = PartyType.Organisation,
         };
         int expected = 500000;
         HttpResponseMessage httpResponseMessage = new HttpResponseMessage
         {
             StatusCode = HttpStatusCode.OK,
-            Content = new StringContent(JsonSerializer.Serialize(party), Encoding.UTF8, "application/json")
+            Content = new StringContent(
+                JsonSerializer.Serialize(party),
+                Encoding.UTF8,
+                "application/json"
+            ),
         };
 
         HttpRequestMessage actualRequest = null;
@@ -72,7 +72,8 @@ public class RegisterServiceTest
             _accessTokenGenerator.Object,
             _generalSettings.Object,
             _registerServiceSettings.Object,
-            new Mock<ILogger<RegisterService>>().Object);
+            new Mock<ILogger<RegisterService>>().Object
+        );
 
         // Act
         int actual = await target.PartyLookup("897069650", null);
@@ -87,19 +88,20 @@ public class RegisterServiceTest
         // Arrange
         PartyType expectedPartyType = PartyType.Organisation;
 
-        string repsonseString = "{\"partyId\": 500000," +
-                                "\"partyTypeName\": \"Organisation\"," +
-                                "\"orgNumber\": \"897069650\"," +
-                                "\"unitType\": \"AS\"," +
-                                "\"name\": \"DDG Fitness\"," +
-                                "\"isDeleted\": false," +
-                                "\"onlyHierarchyElementWithNoAccess\": false," +
-                                "\"organization\": {\"orgNumber\": \"897069650\",\"name\": \"DDG Fitness\",\"unitType\": \"AS\",\"telephoneNumber\": \"12345678\",\"mobileNumber\": \"92010000\",\"faxNumber\": \"92110000\",\"eMailAddress\": \"central@ddgfitness.no\",\"internetAddress\": \"http://ddgfitness.no\",\"mailingAddress\": \"Sofies Gate 1\",\"mailingPostalCode\": \"0170\",\"mailingPostalCity\": \"Oslo\",\"businessAddress\": \"Sofies Gate 1\",\"businessPostalCode\": \"0170\",\"businessPostalCity\": \"By\",\"unitStatus\": null},\"childParties\": null\r\n}";
+        string repsonseString =
+            "{\"partyId\": 500000,"
+            + "\"partyTypeName\": \"Organisation\","
+            + "\"orgNumber\": \"897069650\","
+            + "\"unitType\": \"AS\","
+            + "\"name\": \"DDG Fitness\","
+            + "\"isDeleted\": false,"
+            + "\"onlyHierarchyElementWithNoAccess\": false,"
+            + "\"organization\": {\"orgNumber\": \"897069650\",\"name\": \"DDG Fitness\",\"unitType\": \"AS\",\"telephoneNumber\": \"12345678\",\"mobileNumber\": \"92010000\",\"faxNumber\": \"92110000\",\"eMailAddress\": \"central@ddgfitness.no\",\"internetAddress\": \"http://ddgfitness.no\",\"mailingAddress\": \"Sofies Gate 1\",\"mailingPostalCode\": \"0170\",\"mailingPostalCity\": \"Oslo\",\"businessAddress\": \"Sofies Gate 1\",\"businessPostalCode\": \"0170\",\"businessPostalCity\": \"By\",\"unitStatus\": null},\"childParties\": null\r\n}";
 
         HttpResponseMessage httpResponseMessage = new()
         {
             StatusCode = HttpStatusCode.OK,
-            Content = new StringContent(repsonseString, Encoding.UTF8, "application/json")
+            Content = new StringContent(repsonseString, Encoding.UTF8, "application/json"),
         };
 
         HttpRequestMessage actualRequest = null;
@@ -114,7 +116,8 @@ public class RegisterServiceTest
             _accessTokenGenerator.Object,
             _generalSettings.Object,
             _registerServiceSettings.Object,
-            new Mock<ILogger<RegisterService>>().Object);
+            new Mock<ILogger<RegisterService>>().Object
+        );
 
         // Act
         Party actual = await target.GetParty(500000);
@@ -128,12 +131,10 @@ public class RegisterServiceTest
     {
         // Arrange
         int partyId = 500000;
-        string loggedMessasge = "// Getting party with partyID 500000 failed with statuscode BadRequest";
+        string loggedMessasge =
+            "// Getting party with partyID 500000 failed with statuscode BadRequest";
 
-        HttpResponseMessage httpResponseMessage = new()
-        {
-            StatusCode = HttpStatusCode.BadRequest
-        };
+        HttpResponseMessage httpResponseMessage = new() { StatusCode = HttpStatusCode.BadRequest };
 
         HttpRequestMessage actualRequest = null;
         void SetRequest(HttpRequestMessage request) => actualRequest = request;
@@ -147,20 +148,24 @@ public class RegisterServiceTest
             _accessTokenGenerator.Object,
             _generalSettings.Object,
             _registerServiceSettings.Object,
-            _loggerRegisterService.Object);
+            _loggerRegisterService.Object
+        );
 
         // Act
         Party actual = await target.GetParty(partyId);
 
         // Assert
         _loggerRegisterService.Verify(
-            x => x.Log(
-                LogLevel.Error,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((o, t) => o.ToString().Equals(loggedMessasge)),
-                It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception, string>>()),
-            Times.Once);
+            x =>
+                x.Log(
+                    LogLevel.Error,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>((o, t) => o.ToString().Equals(loggedMessasge)),
+                    It.IsAny<Exception>(),
+                    It.IsAny<Func<It.IsAnyType, Exception, string>>()
+                ),
+            Times.Once
+        );
     }
 
     [Fact]
@@ -170,7 +175,7 @@ public class RegisterServiceTest
         HttpResponseMessage httpResponseMessage = new HttpResponseMessage
         {
             StatusCode = HttpStatusCode.NotFound,
-            Content = new StringContent(string.Empty)
+            Content = new StringContent(string.Empty),
         };
 
         HttpRequestMessage actualRequest = null;
@@ -185,7 +190,8 @@ public class RegisterServiceTest
             _accessTokenGenerator.Object,
             _generalSettings.Object,
             _registerServiceSettings.Object,
-            new Mock<ILogger<RegisterService>>().Object);
+            new Mock<ILogger<RegisterService>>().Object
+        );
 
         // Act
         int actual = await target.PartyLookup("16069412345", null);
@@ -201,7 +207,7 @@ public class RegisterServiceTest
         HttpResponseMessage httpResponseMessage = new HttpResponseMessage
         {
             StatusCode = HttpStatusCode.Forbidden,
-            Content = new StringContent(string.Empty)
+            Content = new StringContent(string.Empty),
         };
 
         HttpRequestMessage actualRequest = null;
@@ -216,38 +222,48 @@ public class RegisterServiceTest
             _accessTokenGenerator.Object,
             _generalSettings.Object,
             _registerServiceSettings.Object,
-            new Mock<ILogger<RegisterService>>().Object);
+            new Mock<ILogger<RegisterService>>().Object
+        );
 
         // Act & Assert
-        await Assert.ThrowsAsync<PlatformHttpException>(async () => { await target.PartyLookup("16069412345", null); });
+        await Assert.ThrowsAsync<PlatformHttpException>(async () =>
+        {
+            await target.PartyLookup("16069412345", null);
+        });
     }
 
-    private void InitializeMocks(HttpResponseMessage httpResponseMessage, Action<HttpRequestMessage> callback)
+    private void InitializeMocks(
+        HttpResponseMessage httpResponseMessage,
+        Action<HttpRequestMessage> callback
+    )
     {
         RegisterServiceSettings registerServiceSettings = new RegisterServiceSettings
         {
-            ApiRegisterEndpoint = "http://localhost:5101/register/api/v1/"
+            ApiRegisterEndpoint = "http://localhost:5101/register/api/v1/",
         };
 
         _registerServiceSettings.Setup(s => s.Value).Returns(registerServiceSettings);
 
         GeneralSettings generalSettings = new GeneralSettings
         {
-            RuntimeCookieName = "AltinnStudioRuntime"
+            RuntimeCookieName = "AltinnStudioRuntime",
         };
 
         _generalSettings.Setup(s => s.Value).Returns(generalSettings);
 
         _contextAccessor.Setup(s => s.HttpContext).Returns(new DefaultHttpContext());
 
-        _accessTokenGenerator.Setup(s => s.GenerateAccessToken(It.IsAny<string>(), It.IsAny<string>()))
+        _accessTokenGenerator
+            .Setup(s => s.GenerateAccessToken(It.IsAny<string>(), It.IsAny<string>()))
             .Returns(string.Empty);
 
-        _handlerMock.Protected()
+        _handlerMock
+            .Protected()
             .Setup<Task<HttpResponseMessage>>(
                 "SendAsync",
                 ItExpr.IsAny<HttpRequestMessage>(),
-                ItExpr.IsAny<CancellationToken>())
+                ItExpr.IsAny<CancellationToken>()
+            )
             .Callback<HttpRequestMessage, CancellationToken>((request, _) => callback(request))
             .ReturnsAsync(httpResponseMessage)
             .Verifiable();

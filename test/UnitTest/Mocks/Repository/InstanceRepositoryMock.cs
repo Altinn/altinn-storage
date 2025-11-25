@@ -5,14 +5,11 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
-
 using Microsoft.Extensions.Primitives;
-
 using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository;
@@ -22,10 +19,14 @@ public class InstanceRepositoryMock : IInstanceRepository
     private static readonly JsonSerializerOptions _options = new()
     {
         PropertyNameCaseInsensitive = true,
-        WriteIndented = true
+        WriteIndented = true,
     };
 
-    public async Task<Instance> Create(Instance instance, CancellationToken cancellationToken, int altinnMainVersion = 3)
+    public async Task<Instance> Create(
+        Instance instance,
+        CancellationToken cancellationToken,
+        int altinnMainVersion = 3
+    )
     {
         string partyId = instance.InstanceOwner.PartyId;
         Guid instanceGuid = Guid.NewGuid();
@@ -48,7 +49,11 @@ public class InstanceRepositoryMock : IInstanceRepository
         throw new NotImplementedException();
     }
 
-    public Task<InstanceQueryResponse> GetInstancesFromQuery(InstanceQueryParameters queryParams, bool includeDataelements, CancellationToken cancellationToken)
+    public Task<InstanceQueryResponse> GetInstancesFromQuery(
+        InstanceQueryParameters queryParams,
+        bool includeDataelements,
+        CancellationToken cancellationToken
+    )
     {
         List<Instance> instances = [];
         InstanceQueryResponse response = new();
@@ -57,12 +62,17 @@ public class InstanceRepositoryMock : IInstanceRepository
 
         if (Directory.Exists(instancesPath))
         {
-            string[] files = Directory.GetFiles(instancesPath, "*.json", SearchOption.AllDirectories);
+            string[] files = Directory.GetFiles(
+                instancesPath,
+                "*.json",
+                SearchOption.AllDirectories
+            );
 
             foreach (var file in files)
             {
                 string content = File.ReadAllText(file);
-                Instance instance = (Instance)JsonConvert.DeserializeObject(content, typeof(Instance));
+                Instance instance = (Instance)
+                    JsonConvert.DeserializeObject(content, typeof(Instance));
                 PostProcess(instance);
                 instances.Add(instance);
             }
@@ -70,21 +80,34 @@ public class InstanceRepositoryMock : IInstanceRepository
 
         if (!string.IsNullOrEmpty(queryParams.Org))
         {
-            instances.RemoveAll(i => !i.Org.Equals(queryParams.Org, StringComparison.OrdinalIgnoreCase));
+            instances.RemoveAll(i =>
+                !i.Org.Equals(queryParams.Org, StringComparison.OrdinalIgnoreCase)
+            );
         }
 
         if (!string.IsNullOrEmpty(queryParams.AppId))
         {
-            instances.RemoveAll(i => !i.AppId.Equals(queryParams.AppId, StringComparison.OrdinalIgnoreCase));
+            instances.RemoveAll(i =>
+                !i.AppId.Equals(queryParams.AppId, StringComparison.OrdinalIgnoreCase)
+            );
         }
 
         if (queryParams.InstanceOwnerPartyId.HasValue)
         {
-            instances.RemoveAll(i => queryParams.InstanceOwnerPartyId != Convert.ToInt32(i.InstanceOwner.PartyId));
+            instances.RemoveAll(i =>
+                queryParams.InstanceOwnerPartyId != Convert.ToInt32(i.InstanceOwner.PartyId)
+            );
         }
-        else if (queryParams.InstanceOwnerPartyIds != null && queryParams.InstanceOwnerPartyIds.Length > 0)
+        else if (
+            queryParams.InstanceOwnerPartyIds != null
+            && queryParams.InstanceOwnerPartyIds.Length > 0
+        )
         {
-            instances.RemoveAll(i => !queryParams.InstanceOwnerPartyIds.Contains(Convert.ToInt32(i.InstanceOwner.PartyId)));
+            instances.RemoveAll(i =>
+                !queryParams.InstanceOwnerPartyIds.Contains(
+                    Convert.ToInt32(i.InstanceOwner.PartyId)
+                )
+            );
         }
 
         if (!string.IsNullOrEmpty(queryParams.ArchiveReference))
@@ -115,7 +138,11 @@ public class InstanceRepositoryMock : IInstanceRepository
         return Task.FromResult(response);
     }
 
-    public Task<(Instance Instance, long InternalId)> GetOne(Guid instanceGuid, bool includeElements, CancellationToken cancellationToken)
+    public Task<(Instance Instance, long InternalId)> GetOne(
+        Guid instanceGuid,
+        bool includeElements,
+        CancellationToken cancellationToken
+    )
     {
         string instancePath = GetInstancePath(instanceGuid);
         if (File.Exists(instancePath))
@@ -130,7 +157,11 @@ public class InstanceRepositoryMock : IInstanceRepository
         return Task.FromResult<(Instance, long)>((null, 0));
     }
 
-    public Task<Instance> Update(Instance instance, List<string> updateProperties, CancellationToken cancellationToken)
+    public Task<Instance> Update(
+        Instance instance,
+        List<string> updateProperties,
+        CancellationToken cancellationToken
+    )
     {
         if (instance.Id.Equals("1337/d3b326de-2dd8-49a1-834a-b1d23b11e540"))
         {
@@ -166,7 +197,10 @@ public class InstanceRepositoryMock : IInstanceRepository
         foreach (string elementPath in dataElementPaths)
         {
             string content = File.ReadAllText(elementPath);
-            DataElement dataElement = System.Text.Json.JsonSerializer.Deserialize<DataElement>(content, _options);
+            DataElement dataElement = System.Text.Json.JsonSerializer.Deserialize<DataElement>(
+                content,
+                _options
+            );
             if (dataElement.InstanceGuid.Contains(instanceGuid.ToString()))
             {
                 dataElements.Add(dataElement);
@@ -178,13 +212,25 @@ public class InstanceRepositoryMock : IInstanceRepository
 
     private static string GetDataElementsPath()
     {
-        string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(InstanceRepositoryMock).Assembly.Location).LocalPath);
-        return Path.Combine(unitTestFolder, "..", "..", "..", "data", "postgresdata", "dataelements");
+        string unitTestFolder = Path.GetDirectoryName(
+            new Uri(typeof(InstanceRepositoryMock).Assembly.Location).LocalPath
+        );
+        return Path.Combine(
+            unitTestFolder,
+            "..",
+            "..",
+            "..",
+            "data",
+            "postgresdata",
+            "dataelements"
+        );
     }
 
     private static string GetInstancesPath()
     {
-        string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(InstanceRepositoryMock).Assembly.Location).LocalPath);
+        string unitTestFolder = Path.GetDirectoryName(
+            new Uri(typeof(InstanceRepositoryMock).Assembly.Location).LocalPath
+        );
         return Path.Combine(unitTestFolder, "..", "..", "..", "data", "postgresdata", "instances");
     }
 
@@ -211,7 +257,10 @@ public class InstanceRepositoryMock : IInstanceRepository
         {
             instance.Status.ReadStatus = ReadStatus.UpdatedSinceLastReview;
         }
-        else if (instance.Status.ReadStatus == ReadStatus.Read && !instance.Data.Exists(d => d.IsRead))
+        else if (
+            instance.Status.ReadStatus == ReadStatus.Read
+            && !instance.Data.Exists(d => d.IsRead)
+        )
         {
             instance.Status.ReadStatus = ReadStatus.Unread;
         }

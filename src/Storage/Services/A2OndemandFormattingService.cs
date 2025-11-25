@@ -20,7 +20,8 @@ namespace Altinn.Platform.Storage.Services;
 /// </summary>
 public class A2OndemandFormattingService : IA2OndemandFormattingService
 {
-    private const string _css = "<style>div, h1, h2, h3, h4, h5, h6, span, html, body, table, tr, td { box-sizing: border-box !important;}\r\ntr { background-color: transparent !important; color: inherit !important;}\r\nbody {margin-left: 0px !important; margin-right: 0px !important; margin-top: 15px !important;}\r\nspan.xdTextBox, span.xdExpressionBox {-webkit-user-modify:read-write; }\r\nspan.xdTextBox:not([style*=\"DISPLAY: none\"]), span.xdExpressionBox:not([style*=\"DISPLAY: none\"]) { display: inline-block !important }\r\nspan.xdTextBox {text-overflow: clip !important;}\r\nspan.xdTextBox[style*=\"WIDTH: 100%\"], div.xdDTPicker { width: 99% !important }\r\nthead.xdTableHeader {background-color : inherit !important;}\r\n.xdRepeatingSection, .xdExpressionBox, .xdSection.xdRepeating { height: auto !important; }\r\n[style*=\"FONT-SIZE: xx-small\"] { font-size: 7.5pt !important }\r\n[style*=\"FONT-SIZE: x-small\"] { font-size: 10pt !important }\r\n[style*=\"FONT-SIZE: small\"] { font-size: 12pt !important }\r\n[style*=\"FONT-SIZE: medium\"] { font-size: 13.5pt !important }\r\n[style*=\"FONT-SIZE: large\"] { font-size: 18pt !important }\r\n[style*=\"FONT-SIZE: x-large\"] { font-size: 24pt !important }\r\n[style*=\"FONT-SIZE: xx-large\"] { font-size: 36pt !important }\r\ndiv.xdSection.xdRepeating[style*=\"WIDTH: 100%\"] { width: auto !important }\r\nspan.xdDTText, div.xdDTPicker { display: inline-block !important }\r\ninput[type='radio'] { -webkit-appearance: none; width: 12px; height: 12px; border: 1px solid darkgray; border-radius: 50%; outline: none; background-color: white; }\r\ninput[type='radio']:before { content: ''; display: block; width: 60%; height: 60%; margin-left: 25%; margin-top: 20%; border-radius: 50%; }\r\ninput[type='radio']:checked:before { background: black; }\r\n</style>";
+    private const string _css =
+        "<style>div, h1, h2, h3, h4, h5, h6, span, html, body, table, tr, td { box-sizing: border-box !important;}\r\ntr { background-color: transparent !important; color: inherit !important;}\r\nbody {margin-left: 0px !important; margin-right: 0px !important; margin-top: 15px !important;}\r\nspan.xdTextBox, span.xdExpressionBox {-webkit-user-modify:read-write; }\r\nspan.xdTextBox:not([style*=\"DISPLAY: none\"]), span.xdExpressionBox:not([style*=\"DISPLAY: none\"]) { display: inline-block !important }\r\nspan.xdTextBox {text-overflow: clip !important;}\r\nspan.xdTextBox[style*=\"WIDTH: 100%\"], div.xdDTPicker { width: 99% !important }\r\nthead.xdTableHeader {background-color : inherit !important;}\r\n.xdRepeatingSection, .xdExpressionBox, .xdSection.xdRepeating { height: auto !important; }\r\n[style*=\"FONT-SIZE: xx-small\"] { font-size: 7.5pt !important }\r\n[style*=\"FONT-SIZE: x-small\"] { font-size: 10pt !important }\r\n[style*=\"FONT-SIZE: small\"] { font-size: 12pt !important }\r\n[style*=\"FONT-SIZE: medium\"] { font-size: 13.5pt !important }\r\n[style*=\"FONT-SIZE: large\"] { font-size: 18pt !important }\r\n[style*=\"FONT-SIZE: x-large\"] { font-size: 24pt !important }\r\n[style*=\"FONT-SIZE: xx-large\"] { font-size: 36pt !important }\r\ndiv.xdSection.xdRepeating[style*=\"WIDTH: 100%\"] { width: auto !important }\r\nspan.xdDTText, div.xdDTPicker { display: inline-block !important }\r\ninput[type='radio'] { -webkit-appearance: none; width: 12px; height: 12px; border: 1px solid darkgray; border-radius: 50%; outline: none; background-color: white; }\r\ninput[type='radio']:before { content: ''; display: block; width: 60%; height: 60%; margin-left: 25%; margin-top: 20%; border-radius: 50%; }\r\ninput[type='radio']:checked:before { background: black; }\r\n</style>";
 
     private readonly IA2Repository _a2Repository;
     private readonly ILogger<A2OndemandFormattingService> _logger;
@@ -29,7 +30,11 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
     /// <summary>
     /// Initializes a new instance of the <see cref="A2OndemandFormattingService"/> class
     /// </summary>
-    public A2OndemandFormattingService(IA2Repository a2Repository, ILogger<A2OndemandFormattingService> logger, IMemoryCache memoryCache)
+    public A2OndemandFormattingService(
+        IA2Repository a2Repository,
+        ILogger<A2OndemandFormattingService> logger,
+        IMemoryCache memoryCache
+    )
     {
         _a2Repository = a2Repository;
         _logger = logger;
@@ -54,20 +59,52 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
             string htmlToTranslate = null;
 
             // Add formatting object to perform stringFormat of dates.
-            A2FormServerXslFunction obj = new() { MainDomDocument = xmlDoc, A2Repository = _a2Repository, MemoryCache = _memoryCache };
+            A2FormServerXslFunction obj = new()
+            {
+                MainDomDocument = xmlDoc,
+                A2Repository = _a2Repository,
+                MemoryCache = _memoryCache,
+            };
             XsltArgumentList xslArg = new();
-            xslArg.AddExtensionObject("http://schemas.microsoft.com/office/infopath/2003/xslt/formatting", obj);
-            xslArg.AddExtensionObject("http://schemas.microsoft.com/office/infopath/2003/xslt/xDocument", obj);
-            xslArg.AddExtensionObject("http://schemas.microsoft.com/office/infopath/2003/xslt/Math", obj);
-            xslArg.AddExtensionObject("http://schemas.microsoft.com/office/infopath/2003/xslt/Util", obj);
-            xslArg.AddExtensionObject("http://schemas.microsoft.com/office/infopath/2003/xslt/Date", obj);
+            xslArg.AddExtensionObject(
+                "http://schemas.microsoft.com/office/infopath/2003/xslt/formatting",
+                obj
+            );
+            xslArg.AddExtensionObject(
+                "http://schemas.microsoft.com/office/infopath/2003/xslt/xDocument",
+                obj
+            );
+            xslArg.AddExtensionObject(
+                "http://schemas.microsoft.com/office/infopath/2003/xslt/Math",
+                obj
+            );
+            xslArg.AddExtensionObject(
+                "http://schemas.microsoft.com/office/infopath/2003/xslt/Util",
+                obj
+            );
+            xslArg.AddExtensionObject(
+                "http://schemas.microsoft.com/office/infopath/2003/xslt/Date",
+                obj
+            );
 
             string cacheKeyXslt = $"xslt:{printViewXslBE.Id}";
             string cacheKeyPdfParams = $"pdf:{printViewXslBE.Id}";
-            if (!_memoryCache.TryGetValue(cacheKeyXslt, out XslCompiledTransform xslCompiledTransform) ||
-                !_memoryCache.TryGetValue(cacheKeyPdfParams, out PdfModificationParametersBE pdfModParams))
+            if (
+                !_memoryCache.TryGetValue(
+                    cacheKeyXslt,
+                    out XslCompiledTransform xslCompiledTransform
+                )
+                || !_memoryCache.TryGetValue(
+                    cacheKeyPdfParams,
+                    out PdfModificationParametersBE pdfModParams
+                )
+            )
             {
-                xslCompiledTransform = GetXslCompiledTransformForPrint(printViewXslBE, xmlDoc, xslArg);
+                xslCompiledTransform = GetXslCompiledTransformForPrint(
+                    printViewXslBE,
+                    xmlDoc,
+                    xslArg
+                );
                 pdfModParams = printViewXslBE.PdfModificationParams;
 
                 MemoryCacheEntryOptions cacheEntryOptions = new MemoryCacheEntryOptions()
@@ -75,7 +112,11 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
                     .SetAbsoluteExpiration(new TimeSpan(0, 0, 300));
 
                 _memoryCache.Set(cacheKeyXslt, xslCompiledTransform, cacheEntryOptions);
-                _memoryCache.Set(cacheKeyPdfParams, printViewXslBE.PdfModificationParams, cacheEntryOptions);
+                _memoryCache.Set(
+                    cacheKeyPdfParams,
+                    printViewXslBE.PdfModificationParams,
+                    cacheEntryOptions
+                );
             }
 
             printViewXslBE.PdfModificationParams = pdfModParams;
@@ -102,7 +143,10 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
     {
         // Doctype for HTML5
         htmlMain = htmlMain.Replace("<html", "<!DOCTYPE html><html");
-        htmlMain = htmlMain.Replace("<META http-equiv=\"Content-Type\" content=\"text/html; charset=utf-16\">", "<META charset=\"utf-8\">");
+        htmlMain = htmlMain.Replace(
+            "<META http-equiv=\"Content-Type\" content=\"text/html; charset=utf-16\">",
+            "<META charset=\"utf-8\">"
+        );
 
         // Making the html uneditable
         htmlMain = htmlMain.Replace("contentEditable=\"true\"", "contentEditable=\"false\"");
@@ -110,7 +154,10 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
         htmlMain = htmlMain.Replace("type=\"checkbox\"", "type=\"checkbox\" disabled=\"\"");
 
         // Embedding the CSS to the HTML
-        htmlMain = htmlMain.Replace("<style controlStyle", "<style type=\"text/css\">" + Css.PrintHtmlCss + "</style><style controlStyle");
+        htmlMain = htmlMain.Replace(
+            "<style controlStyle",
+            "<style type=\"text/css\">" + Css.PrintHtmlCss + "</style><style controlStyle"
+        );
 
         // Set height and width of controls
         htmlMain = htmlMain.Replace("WIDTH: 100%", "WIDTH: 98%");
@@ -133,18 +180,34 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
     private XslCompiledTransform GetXslCompiledTransformForPrint(
         PrintViewXslBE printViewXslBE,
         XmlDocument xmlDoc,
-        XsltArgumentList xslArg)
+        XsltArgumentList xslArg
+    )
     {
         // Remove the DatePicker button. It should not be visible in HTML and PDF.
-        printViewXslBE.PrintViewXsl = printViewXslBE.PrintViewXsl.Replace(".xdDTButton{", ".xdDTButton{display:none;");
+        printViewXslBE.PrintViewXsl = printViewXslBE.PrintViewXsl.Replace(
+            ".xdDTButton{",
+            ".xdDTButton{display:none;"
+        );
 
         // Picture button should not be visible in HTML and PDF. Adding display:none in the Picture button css class "xdPictureButton".
-        printViewXslBE.PrintViewXsl = printViewXslBE.PrintViewXsl.Replace(".xdPictureButton{", ".xdPictureButton{display:none;");
+        printViewXslBE.PrintViewXsl = printViewXslBE.PrintViewXsl.Replace(
+            ".xdPictureButton{",
+            ".xdPictureButton{display:none;"
+        );
 
         // Rename get-DOM() to GetMainDOM() to support for filtering on values from main data source in xpath expressions.
-        printViewXslBE.PrintViewXsl = printViewXslBE.PrintViewXsl.Replace("xdXDocument:get-DOM()", "xdXDocument:GetMainDOM()");
-        printViewXslBE.PrintViewXsl = printViewXslBE.PrintViewXsl.Replace(".langFont {", ".langFont{display:none;");
-        printViewXslBE.PrintViewXsl = printViewXslBE.PrintViewXsl.Replace(".optionalPlaceholder {", ".optionalPlaceholder{display:none;");
+        printViewXslBE.PrintViewXsl = printViewXslBE.PrintViewXsl.Replace(
+            "xdXDocument:get-DOM()",
+            "xdXDocument:GetMainDOM()"
+        );
+        printViewXslBE.PrintViewXsl = printViewXslBE.PrintViewXsl.Replace(
+            ".langFont {",
+            ".langFont{display:none;"
+        );
+        printViewXslBE.PrintViewXsl = printViewXslBE.PrintViewXsl.Replace(
+            ".optionalPlaceholder {",
+            ".optionalPlaceholder{display:none;"
+        );
 
         PdfModificationParametersBE pdfModParamBE = new();
         int extraFirstDivPadding = 0;
@@ -155,7 +218,11 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
             XmlDocument xslDoc = new();
             xslDoc.LoadXml(xsl);
 
-            XmlNode apos = xslDoc.CreateElement("xsl", "variable", "http://www.w3.org/1999/XSL/Transform");
+            XmlNode apos = xslDoc.CreateElement(
+                "xsl",
+                "variable",
+                "http://www.w3.org/1999/XSL/Transform"
+            );
             apos.InnerText = "'";
             XmlAttribute xmlAttribute = xslDoc.CreateAttribute("name");
             xmlAttribute.Value = "aposVariable";
@@ -165,7 +232,10 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
             XmlNode bodyStyleNode = xslDoc.SelectSingleNode("//body/@style");
             if (bodyStyleNode != null && bodyStyleNode.InnerXml.IndexOf("BACKGROUND-COLOR:") > -1)
             {
-                string color = bodyStyleNode.InnerXml.Substring(bodyStyleNode.InnerXml.IndexOf("BACKGROUND-COLOR: ") + 18, 7);
+                string color = bodyStyleNode.InnerXml.Substring(
+                    bodyStyleNode.InnerXml.IndexOf("BACKGROUND-COLOR: ") + 18,
+                    7
+                );
                 if (!color.Equals("#ffffff"))
                 {
                     pdfModParamBE.BackgroundColor = color;
@@ -245,7 +315,9 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
                                         string widthString = style.Substring(start, length).Trim();
                                         if (widthString.Contains("px"))
                                         {
-                                            int width = int.Parse(widthString.Replace("px", string.Empty));
+                                            int width = int.Parse(
+                                                widthString.Replace("px", string.Empty)
+                                            );
                                             if (extraFirstDivPadding < width)
                                             {
                                                 extraFirstDivPadding = width;
@@ -281,7 +353,10 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
                                 {
                                     if (!style.Value.Contains("page-break-inside: avoid"))
                                     {
-                                        style.Value = string.Format("{0};page-break-inside: avoid", style.Value);
+                                        style.Value = string.Format(
+                                            "{0};page-break-inside: avoid",
+                                            style.Value
+                                        );
                                     }
                                 }
                                 else
@@ -321,8 +396,10 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
                 nsmgr.AddNamespace("xsl", "http://www.w3.org/1999/XSL/Transform");
             }
 
-            XmlNodeList plainTextMultiLine =
-                xslDoc.SelectNodes("//span[@xd:datafmt='\"string\",\"plainMultiline\"'][@xd:xctname='PlainText']", nsmgr);
+            XmlNodeList plainTextMultiLine = xslDoc.SelectNodes(
+                "//span[@xd:datafmt='\"string\",\"plainMultiline\"'][@xd:xctname='PlainText']",
+                nsmgr
+            );
             if (plainTextMultiLine != null)
             {
                 foreach (XmlNode node in plainTextMultiLine)
@@ -336,17 +413,26 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
                         }
                         else
                         {
-                            XmlNode styleNode = node.SelectSingleNode(".//xsl:attribute[@name='style']", nsmgr);
+                            XmlNode styleNode = node.SelectSingleNode(
+                                ".//xsl:attribute[@name='style']",
+                                nsmgr
+                            );
                             if (styleNode != null && styleNode.InnerText.Contains("HEIGHT"))
                             {
-                                styleNode.InnerXml = styleNode.InnerXml.Insert(styleNode.InnerXml.Length, ";HEIGHT: auto");
+                                styleNode.InnerXml = styleNode.InnerXml.Insert(
+                                    styleNode.InnerXml.Length,
+                                    ";HEIGHT: auto"
+                                );
                             }
                         }
                     }
                 }
             }
 
-            XmlNodeList repeatingDiv = xslDoc.SelectNodes("//div[@xd:xctname='RepeatingSection']", nsmgr);
+            XmlNodeList repeatingDiv = xslDoc.SelectNodes(
+                "//div[@xd:xctname='RepeatingSection']",
+                nsmgr
+            );
             if (repeatingDiv != null)
             {
                 foreach (XmlNode node in repeatingDiv)
@@ -356,7 +442,10 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
                     {
                         if (!style.Value.Contains("page-break-inside: avoid"))
                         {
-                            style.Value = string.Format("{0};page-break-inside: avoid", style.Value);
+                            style.Value = string.Format(
+                                "{0};page-break-inside: avoid",
+                                style.Value
+                            );
                         }
                     }
                     else
@@ -368,21 +457,35 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
                 }
             }
 
-            XmlNodeList repeatingTableHeader = xslDoc.SelectNodes("//tbody[@class='xdTableHeader']");
+            XmlNodeList repeatingTableHeader = xslDoc.SelectNodes(
+                "//tbody[@class='xdTableHeader']"
+            );
             if (repeatingTableHeader != null)
             {
                 foreach (XmlNode node in repeatingTableHeader)
                 {
-                    string xml = node.OuterXml.Replace("<tbody", "<thead").Replace("<td", "<th").Replace("</tbody>", "</thead>").Replace("</td>", "</th>");
+                    string xml = node
+                        .OuterXml.Replace("<tbody", "<thead")
+                        .Replace("<td", "<th")
+                        .Replace("</tbody>", "</thead>")
+                        .Replace("</td>", "</th>");
                     XmlDocumentFragment df = xslDoc.CreateDocumentFragment();
                     df.InnerXml = xml;
                     node.ParentNode.ReplaceChild(df, node);
                 }
 
                 XmlNode styleNode = xslDoc.SelectSingleNode("//style");
-                if (styleNode != null && !styleNode.InnerText.ToLower().Contains("thead {display: table-header-group;text-align: left;} th{ font-weight:normal;}"))
+                if (
+                    styleNode != null
+                    && !styleNode
+                        .InnerText.ToLower()
+                        .Contains(
+                            "thead {display: table-header-group;text-align: left;} th{ font-weight:normal;}"
+                        )
+                )
                 {
-                    styleNode.InnerText += " thead {display: table-header-group;text-align: left;} th{ font-weight:normal;} ";
+                    styleNode.InnerText +=
+                        " thead {display: table-header-group;text-align: left;} th{ font-weight:normal;} ";
                 }
             }
 
@@ -481,7 +584,10 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
                 if (selectClass != null && selectClass.Value.Contains("xdComboBox"))
                 {
                     XmlAttribute selectStyle = selectNode.Attributes["style"];
-                    styleNode = selectNode.SelectSingleNode("xsl:attribute[@name='style']", nsManager);
+                    styleNode = selectNode.SelectSingleNode(
+                        "xsl:attribute[@name='style']",
+                        nsManager
+                    );
 
                     Dictionary<string, string> spanAttributes = [];
                     if (selectStyle != null)
@@ -514,24 +620,42 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
                                 Dictionary<string, string> xslVOAttributes = [];
                                 if (displayValue.Contains('\''))
                                 {
-                                    xslVOAttributes.Add("select", "concat(" + "'" + displayValue.Replace("'", "',$aposVariable,'") + "')");
+                                    xslVOAttributes.Add(
+                                        "select",
+                                        "concat("
+                                            + "'"
+                                            + displayValue.Replace("'", "',$aposVariable,'")
+                                            + "')"
+                                    );
                                 }
                                 else
                                 {
                                     xslVOAttributes.Add("select", "'" + displayValue + "'");
                                 }
 
-                                XmlNode xslVONode = CreateXslNodeElement(xslDoc, xslVOAttributes, "value-of", "xsl", "http://www.w3.org/1999/XSL/Transform");
+                                XmlNode xslVONode = CreateXslNodeElement(
+                                    xslDoc,
+                                    xslVOAttributes,
+                                    "value-of",
+                                    "xsl",
+                                    "http://www.w3.org/1999/XSL/Transform"
+                                );
                                 ifNode.AppendChild(xslVONode);
                                 spanTag.AppendChild(ifNode);
                             }
                         }
                     }
 
-                    XmlNodeList whenNodeList = selectNode.SelectNodes("//xsl:when[@test]", nsManager);
+                    XmlNodeList whenNodeList = selectNode.SelectNodes(
+                        "//xsl:when[@test]",
+                        nsManager
+                    );
                     foreach (XmlNode node in whenNodeList)
                     {
-                        if (node.Attributes["test"].Value == "function-available('xdXDocument:GetDOM')")
+                        if (
+                            node.Attributes["test"].Value
+                            == "function-available('xdXDocument:GetDOM')"
+                        )
                         {
                             codelistWhenNode = true;
                         }
@@ -543,23 +667,47 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
                         XmlNode chooseWhenNode = null;
                         foreach (XmlNode chooseNode in chooseNodes)
                         {
-                            chooseWhenNode = chooseNode.SelectSingleNode("./xsl:when[@test]", nsManager);
-                            if (chooseWhenNode != null && chooseWhenNode.Attributes["test"] != null && chooseWhenNode.Attributes["test"].Value == "function-available('xdXDocument:GetDOM')")
+                            chooseWhenNode = chooseNode.SelectSingleNode(
+                                "./xsl:when[@test]",
+                                nsManager
+                            );
+                            if (
+                                chooseWhenNode != null
+                                && chooseWhenNode.Attributes["test"] != null
+                                && chooseWhenNode.Attributes["test"].Value
+                                    == "function-available('xdXDocument:GetDOM')"
+                            )
                             {
-                                XmlNode emptyOptionNode = chooseWhenNode.SelectSingleNode("./option", nsManager);
+                                XmlNode emptyOptionNode = chooseWhenNode.SelectSingleNode(
+                                    "./option",
+                                    nsManager
+                                );
                                 if (emptyOptionNode != null)
                                 {
                                     chooseWhenNode.RemoveChild(emptyOptionNode);
                                 }
 
-                                XmlNode foreachNode = chooseWhenNode.SelectSingleNode("./xsl:for-each", nsManager);
+                                XmlNode foreachNode = chooseWhenNode.SelectSingleNode(
+                                    "./xsl:for-each",
+                                    nsManager
+                                );
                                 if (foreachNode != null)
                                 {
-                                    XmlNode foreachOptionNode = foreachNode.SelectSingleNode("./option", nsManager);
+                                    XmlNode foreachOptionNode = foreachNode.SelectSingleNode(
+                                        "./option",
+                                        nsManager
+                                    );
                                     if (foreachOptionNode != null)
                                     {
-                                        XmlNode ifTestNode = foreachOptionNode.SelectSingleNode("./xsl:if", nsManager);
-                                        XmlNode optionValueNode = foreachOptionNode.SelectSingleNode("./xsl:value-of", nsManager);
+                                        XmlNode ifTestNode = foreachOptionNode.SelectSingleNode(
+                                            "./xsl:if",
+                                            nsManager
+                                        );
+                                        XmlNode optionValueNode =
+                                            foreachOptionNode.SelectSingleNode(
+                                                "./xsl:value-of",
+                                                nsManager
+                                            );
                                         if (ifTestNode != null && optionValueNode != null)
                                         {
                                             ifTestNode.InnerXml = string.Empty;
@@ -605,7 +753,13 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
         }
     }
 
-    private static XmlNode CreateXslNodeElement(XmlDocument xDoc, Dictionary<string, string> attributes, string nodeName, string prefix, string nsUrl)
+    private static XmlNode CreateXslNodeElement(
+        XmlDocument xDoc,
+        Dictionary<string, string> attributes,
+        string nodeName,
+        string prefix,
+        string nsUrl
+    )
     {
         XmlNode node = xDoc.CreateElement(prefix, nodeName, nsUrl);
         foreach (KeyValuePair<string, string> attribute in attributes)
@@ -676,7 +830,9 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
 /// <summary>
 /// Class description
 /// </summary>
-[DataContract(Namespace = "http://schemas.altinn.no/services/ServiceEngine/ServiceMetaData/2009/10")]
+[DataContract(
+    Namespace = "http://schemas.altinn.no/services/ServiceEngine/ServiceMetaData/2009/10"
+)]
 public class PrintViewXslBE
 {
     #region Data contract members
@@ -729,10 +885,10 @@ public class PrintViewXslBE
 /// <summary>
 /// Collection of printViewXSLBE
 /// </summary>
-[CollectionDataContract(Namespace = "http://schemas.altinn.no/services/ServiceEngine/ServiceMetaData/2009/10")]
-public class PrintViewXslBEList : List<PrintViewXslBE>
-{
-}
+[CollectionDataContract(
+    Namespace = "http://schemas.altinn.no/services/ServiceEngine/ServiceMetaData/2009/10"
+)]
+public class PrintViewXslBEList : List<PrintViewXslBE> { }
 
 /// <summary>
 /// PdfModificationParametersBE
@@ -760,7 +916,8 @@ public static class Css
     /// <summary>
     /// PrintCss
     /// </summary>
-    public static readonly string PrintHtmlCss = @"
+    public static readonly string PrintHtmlCss =
+        @"
             div, h1, h2, h3, h4, h5, h6, span, html, body, table, tr, td { box-sizing: border-box !important; }
             tr { background-color: transparent !important; color: inherit !important; height: auto; }
             h1, h2, h3 { text-transform: none !important; }

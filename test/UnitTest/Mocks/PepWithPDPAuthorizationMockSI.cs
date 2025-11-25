@@ -6,24 +6,20 @@ using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
-
 using Altinn.Authorization.ABAC;
 using Altinn.Authorization.ABAC.Constants;
 using Altinn.Authorization.ABAC.Utils;
 using Altinn.Authorization.ABAC.Xacml;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
-
 using Altinn.Common.PEP.Constants;
 using Altinn.Common.PEP.Helpers;
 using Altinn.Common.PEP.Interfaces;
-
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Constants;
 using Altinn.Platform.Storage.UnitTest.Models;
 using Altinn.Platform.Storage.UnitTest.Utils;
-
 using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.UnitTest.Mocks;
@@ -47,17 +43,25 @@ public class PepWithPDPAuthorizationMockSI : IPDP
         this._instanceService = instanceService;
     }
 
-    public async Task<XacmlJsonResponse> GetDecisionForRequest(XacmlJsonRequestRoot xacmlJsonRequest)
+    public async Task<XacmlJsonResponse> GetDecisionForRequest(
+        XacmlJsonRequestRoot xacmlJsonRequest
+    )
     {
-        RequestTracker.AddRequest("GetDecisionForRequest" + GetInstanceID(xacmlJsonRequest), xacmlJsonRequest);
+        RequestTracker.AddRequest(
+            "GetDecisionForRequest" + GetInstanceID(xacmlJsonRequest),
+            xacmlJsonRequest
+        );
 
         return await Authorize(xacmlJsonRequest.Request);
     }
 
     private async Task<XacmlJsonResponse> Authorize(XacmlJsonRequest decisionRequest)
     {
-        if (decisionRequest.MultiRequests == null || decisionRequest.MultiRequests.RequestReference == null
-                                                  || decisionRequest.MultiRequests.RequestReference.Count < 2)
+        if (
+            decisionRequest.MultiRequests == null
+            || decisionRequest.MultiRequests.RequestReference == null
+            || decisionRequest.MultiRequests.RequestReference.Count < 2
+        )
         {
             XacmlContextRequest request = XacmlJsonXmlConverter.ConvertRequest(decisionRequest);
             XacmlContextResponse xmlResponse = await Authorize(request);
@@ -66,13 +70,19 @@ public class PepWithPDPAuthorizationMockSI : IPDP
         else
         {
             XacmlJsonResponse multiResponse = new XacmlJsonResponse();
-            foreach (XacmlJsonRequestReference xacmlJsonRequestReference in decisionRequest.MultiRequests.RequestReference)
+            foreach (
+                XacmlJsonRequestReference xacmlJsonRequestReference in decisionRequest
+                    .MultiRequests
+                    .RequestReference
+            )
             {
                 XacmlJsonRequest jsonMultiRequestPart = new XacmlJsonRequest();
 
                 foreach (string refer in xacmlJsonRequestReference.ReferenceId)
                 {
-                    List<XacmlJsonCategory> resourceCategoriesPart = decisionRequest.Resource.Where(i => i.Id.Equals(refer)).ToList();
+                    List<XacmlJsonCategory> resourceCategoriesPart = decisionRequest
+                        .Resource.Where(i => i.Id.Equals(refer))
+                        .ToList();
 
                     if (resourceCategoriesPart.Count > 0)
                     {
@@ -84,7 +94,9 @@ public class PepWithPDPAuthorizationMockSI : IPDP
                         jsonMultiRequestPart.Resource.AddRange(resourceCategoriesPart);
                     }
 
-                    List<XacmlJsonCategory> subjectCategoriesPart = decisionRequest.AccessSubject.Where(i => i.Id.Equals(refer)).ToList();
+                    List<XacmlJsonCategory> subjectCategoriesPart = decisionRequest
+                        .AccessSubject.Where(i => i.Id.Equals(refer))
+                        .ToList();
 
                     if (subjectCategoriesPart.Count > 0)
                     {
@@ -96,7 +108,9 @@ public class PepWithPDPAuthorizationMockSI : IPDP
                         jsonMultiRequestPart.AccessSubject.AddRange(subjectCategoriesPart);
                     }
 
-                    List<XacmlJsonCategory> actionCategoriesPart = decisionRequest.Action.Where(i => i.Id.Equals(refer)).ToList();
+                    List<XacmlJsonCategory> actionCategoriesPart = decisionRequest
+                        .Action.Where(i => i.Id.Equals(refer))
+                        .ToList();
 
                     if (actionCategoriesPart.Count > 0)
                     {
@@ -109,8 +123,12 @@ public class PepWithPDPAuthorizationMockSI : IPDP
                     }
                 }
 
-                XacmlContextResponse partResponse = await Authorize(XacmlJsonXmlConverter.ConvertRequest(jsonMultiRequestPart));
-                XacmlJsonResponse xacmlJsonResponsePart = XacmlJsonXmlConverter.ConvertResponse(partResponse);
+                XacmlContextResponse partResponse = await Authorize(
+                    XacmlJsonXmlConverter.ConvertRequest(jsonMultiRequestPart)
+                );
+                XacmlJsonResponse xacmlJsonResponsePart = XacmlJsonXmlConverter.ConvertResponse(
+                    partResponse
+                );
 
                 if (multiResponse.Response == null)
                 {
@@ -154,7 +172,10 @@ public class PepWithPDPAuthorizationMockSI : IPDP
         return instanceId;
     }
 
-    public async Task<bool> GetDecisionForUnvalidateRequest(XacmlJsonRequestRoot xacmlJsonRequest, ClaimsPrincipal user)
+    public async Task<bool> GetDecisionForUnvalidateRequest(
+        XacmlJsonRequestRoot xacmlJsonRequest,
+        ClaimsPrincipal user
+    )
     {
         XacmlJsonResponse response = await GetDecisionForRequest(xacmlJsonRequest);
         return DecisionHelper.ValidatePdpDecision(response.Response, user);
@@ -170,34 +191,42 @@ public class PepWithPDPAuthorizationMockSI : IPDP
     private async Task EnrichResourceAttributes(XacmlContextRequest request)
     {
         XacmlContextAttributes resourceContextAttributes = request.GetResourceAttributes();
-        XacmlResourceAttributes resourceAttributes = GetResourceAttributeValues(resourceContextAttributes);
+        XacmlResourceAttributes resourceAttributes = GetResourceAttributeValues(
+            resourceContextAttributes
+        );
 
         bool resourceAttributeComplete = false;
 
-        if (!string.IsNullOrEmpty(resourceAttributes.OrgValue) &&
-            !string.IsNullOrEmpty(resourceAttributes.AppValue) &&
-            !string.IsNullOrEmpty(resourceAttributes.InstanceValue) &&
-            !string.IsNullOrEmpty(resourceAttributes.ResourcePartyValue) &&
-            !string.IsNullOrEmpty(resourceAttributes.TaskValue))
+        if (
+            !string.IsNullOrEmpty(resourceAttributes.OrgValue)
+            && !string.IsNullOrEmpty(resourceAttributes.AppValue)
+            && !string.IsNullOrEmpty(resourceAttributes.InstanceValue)
+            && !string.IsNullOrEmpty(resourceAttributes.ResourcePartyValue)
+            && !string.IsNullOrEmpty(resourceAttributes.TaskValue)
+        )
         {
             // The resource attributes are complete
             resourceAttributeComplete = true;
         }
-        else if (!string.IsNullOrEmpty(resourceAttributes.OrgValue) &&
-                 !string.IsNullOrEmpty(resourceAttributes.AppValue) &&
-                 string.IsNullOrEmpty(resourceAttributes.InstanceValue) &&
-                 !string.IsNullOrEmpty(resourceAttributes.ResourcePartyValue) &&
-                 string.IsNullOrEmpty(resourceAttributes.TaskValue))
+        else if (
+            !string.IsNullOrEmpty(resourceAttributes.OrgValue)
+            && !string.IsNullOrEmpty(resourceAttributes.AppValue)
+            && string.IsNullOrEmpty(resourceAttributes.InstanceValue)
+            && !string.IsNullOrEmpty(resourceAttributes.ResourcePartyValue)
+            && string.IsNullOrEmpty(resourceAttributes.TaskValue)
+        )
         {
             // The resource attributes are complete
             resourceAttributeComplete = true;
         }
-        else if (!string.IsNullOrEmpty(resourceAttributes.OrgValue) &&
-                 !string.IsNullOrEmpty(resourceAttributes.AppValue) &&
-                 !string.IsNullOrEmpty(resourceAttributes.InstanceValue) &&
-                 !string.IsNullOrEmpty(resourceAttributes.ResourcePartyValue) &&
-                 !string.IsNullOrEmpty(resourceAttributes.AppResourceValue) &&
-                 resourceAttributes.AppResourceValue.Equals("events"))
+        else if (
+            !string.IsNullOrEmpty(resourceAttributes.OrgValue)
+            && !string.IsNullOrEmpty(resourceAttributes.AppValue)
+            && !string.IsNullOrEmpty(resourceAttributes.InstanceValue)
+            && !string.IsNullOrEmpty(resourceAttributes.ResourcePartyValue)
+            && !string.IsNullOrEmpty(resourceAttributes.AppResourceValue)
+            && resourceAttributes.AppResourceValue.Equals("events")
+        )
         {
             // The resource attributes are complete
             resourceAttributeComplete = true;
@@ -205,23 +234,52 @@ public class PepWithPDPAuthorizationMockSI : IPDP
 
         if (!resourceAttributeComplete && !string.IsNullOrEmpty(resourceAttributes.InstanceValue))
         {
-            (Instance instanceData, _) = await _instanceService.GetOne(Guid.Parse(resourceAttributes.InstanceValue.Split('/')[1]), true, CancellationToken.None);
+            (Instance instanceData, _) = await _instanceService.GetOne(
+                Guid.Parse(resourceAttributes.InstanceValue.Split('/')[1]),
+                true,
+                CancellationToken.None
+            );
 
             if (instanceData != null)
             {
-                AddIfValueDoesNotExist(resourceContextAttributes, XacmlRequestAttribute.OrgAttribute, resourceAttributes.OrgValue, instanceData.Org);
+                AddIfValueDoesNotExist(
+                    resourceContextAttributes,
+                    XacmlRequestAttribute.OrgAttribute,
+                    resourceAttributes.OrgValue,
+                    instanceData.Org
+                );
                 string app = instanceData.AppId.Split("/")[1];
-                AddIfValueDoesNotExist(resourceContextAttributes, XacmlRequestAttribute.AppAttribute, resourceAttributes.AppValue, app);
+                AddIfValueDoesNotExist(
+                    resourceContextAttributes,
+                    XacmlRequestAttribute.AppAttribute,
+                    resourceAttributes.AppValue,
+                    app
+                );
                 if (instanceData.Process?.CurrentTask != null)
                 {
-                    AddIfValueDoesNotExist(resourceContextAttributes, XacmlRequestAttribute.TaskAttribute, resourceAttributes.TaskValue, instanceData.Process.CurrentTask.ElementId);
+                    AddIfValueDoesNotExist(
+                        resourceContextAttributes,
+                        XacmlRequestAttribute.TaskAttribute,
+                        resourceAttributes.TaskValue,
+                        instanceData.Process.CurrentTask.ElementId
+                    );
                 }
                 else if (instanceData.Process?.EndEvent != null)
                 {
-                    AddIfValueDoesNotExist(resourceContextAttributes, XacmlRequestAttribute.EndEventAttribute, null, instanceData.Process.EndEvent);
+                    AddIfValueDoesNotExist(
+                        resourceContextAttributes,
+                        XacmlRequestAttribute.EndEventAttribute,
+                        null,
+                        instanceData.Process.EndEvent
+                    );
                 }
 
-                AddIfValueDoesNotExist(resourceContextAttributes, XacmlRequestAttribute.PartyAttribute, resourceAttributes.ResourcePartyValue, instanceData.InstanceOwner.PartyId);
+                AddIfValueDoesNotExist(
+                    resourceContextAttributes,
+                    XacmlRequestAttribute.PartyAttribute,
+                    resourceAttributes.ResourcePartyValue,
+                    instanceData.InstanceOwner.PartyId
+                );
                 resourceAttributes.ResourcePartyValue = instanceData.InstanceOwner.PartyId;
             }
         }
@@ -229,7 +287,12 @@ public class PepWithPDPAuthorizationMockSI : IPDP
         await EnrichSubjectAttributes(request, resourceAttributes.ResourcePartyValue);
     }
 
-    private static void AddIfValueDoesNotExist(XacmlContextAttributes resourceAttributes, string attributeId, string attributeValue, string newAttributeValue)
+    private static void AddIfValueDoesNotExist(
+        XacmlContextAttributes resourceAttributes,
+        string attributeId,
+        string attributeValue,
+        string newAttributeValue
+    )
     {
         if (string.IsNullOrEmpty(attributeValue))
         {
@@ -246,7 +309,9 @@ public class PepWithPDPAuthorizationMockSI : IPDP
             attribute.IncludeInResult = true;
         }
 
-        attribute.AttributeValues.Add(new XacmlAttributeValue(new Uri(XacmlConstants.DataTypes.XMLString), attributeValue));
+        attribute.AttributeValues.Add(
+            new XacmlAttributeValue(new Uri(XacmlConstants.DataTypes.XMLString), attributeValue)
+        );
         return attribute;
     }
 
@@ -284,12 +349,16 @@ public class PepWithPDPAuthorizationMockSI : IPDP
             return;
         }
 
-        List<Role> roleList = await GetDecisionPointRoles(subjectUserId, systemUserId, resourcePartyId) ?? new List<Role>();
+        List<Role> roleList =
+            await GetDecisionPointRoles(subjectUserId, systemUserId, resourcePartyId)
+            ?? new List<Role>();
 
         subjectContextAttributes.Attributes.Add(GetRoleAttribute(roleList));
     }
 
-    private static XacmlResourceAttributes GetResourceAttributeValues(XacmlContextAttributes resourceContextAttributes)
+    private static XacmlResourceAttributes GetResourceAttributeValues(
+        XacmlContextAttributes resourceContextAttributes
+    )
     {
         XacmlResourceAttributes resourceAttributes = new XacmlResourceAttributes();
 
@@ -305,7 +374,9 @@ public class PepWithPDPAuthorizationMockSI : IPDP
                 resourceAttributes.AppValue = attribute.AttributeValues.First().Value;
             }
 
-            if (attribute.AttributeId.OriginalString.Equals(XacmlRequestAttribute.InstanceAttribute))
+            if (
+                attribute.AttributeId.OriginalString.Equals(XacmlRequestAttribute.InstanceAttribute)
+            )
             {
                 resourceAttributes.InstanceValue = attribute.AttributeValues.First().Value;
             }
@@ -320,7 +391,11 @@ public class PepWithPDPAuthorizationMockSI : IPDP
                 resourceAttributes.TaskValue = attribute.AttributeValues.First().Value;
             }
 
-            if (attribute.AttributeId.OriginalString.Equals(XacmlRequestAttribute.AppResourceAttribute))
+            if (
+                attribute.AttributeId.OriginalString.Equals(
+                    XacmlRequestAttribute.AppResourceAttribute
+                )
+            )
             {
                 resourceAttributes.AppResourceValue = attribute.AttributeValues.First().Value;
             }
@@ -334,13 +409,19 @@ public class PepWithPDPAuthorizationMockSI : IPDP
         XacmlAttribute attribute = new XacmlAttribute(new Uri(_altinnRoleAttributeId), false);
         foreach (Role role in roles)
         {
-            attribute.AttributeValues.Add(new XacmlAttributeValue(new Uri(XacmlConstants.DataTypes.XMLString), role.Value));
+            attribute.AttributeValues.Add(
+                new XacmlAttributeValue(new Uri(XacmlConstants.DataTypes.XMLString), role.Value)
+            );
         }
 
         return attribute;
     }
 
-    public Task<List<Role>> GetDecisionPointRoles(int coveredByUserId, string coveredBySystemUserId, int offeredByPartyId)
+    public Task<List<Role>> GetDecisionPointRoles(
+        int coveredByUserId,
+        string coveredBySystemUserId,
+        int offeredByPartyId
+    )
     {
         string rolesPath = string.Empty;
 
@@ -366,14 +447,38 @@ public class PepWithPDPAuthorizationMockSI : IPDP
 
     private static string GetRolesPath(int userId, int resourcePartyId)
     {
-        string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(PepWithPDPAuthorizationMockSI).Assembly.Location).LocalPath);
-        return Path.Combine(unitTestFolder, "..", "..", "..", "data", "roles", "user_" + userId, "party_" + resourcePartyId, "roles.json");
+        string unitTestFolder = Path.GetDirectoryName(
+            new Uri(typeof(PepWithPDPAuthorizationMockSI).Assembly.Location).LocalPath
+        );
+        return Path.Combine(
+            unitTestFolder,
+            "..",
+            "..",
+            "..",
+            "data",
+            "roles",
+            "user_" + userId,
+            "party_" + resourcePartyId,
+            "roles.json"
+        );
     }
 
     private static string GetRolesPath(string systemId, int resourcePartyId)
     {
-        string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(PepWithPDPAuthorizationMockSI).Assembly.Location).LocalPath);
-        return Path.Combine(unitTestFolder, "..", "..", "..", "data", "roles", "system_" + systemId.Split('-')[0], "party_" + resourcePartyId, "roles.json");
+        string unitTestFolder = Path.GetDirectoryName(
+            new Uri(typeof(PepWithPDPAuthorizationMockSI).Assembly.Location).LocalPath
+        );
+        return Path.Combine(
+            unitTestFolder,
+            "..",
+            "..",
+            "..",
+            "data",
+            "roles",
+            "system_" + systemId.Split('-')[0],
+            "party_" + resourcePartyId,
+            "roles.json"
+        );
     }
 
     private async Task<XacmlPolicy> GetPolicyAsync(XacmlContextRequest request)
@@ -431,7 +536,20 @@ public class PepWithPDPAuthorizationMockSI : IPDP
 
     private static string GetAltinnAppsPolicyPath(string org, string app)
     {
-        string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(PepWithPDPAuthorizationMockSI).Assembly.Location).LocalPath);
-        return Path.Combine(unitTestFolder, "..", "..", "..", "data", "apps", org, app, "config", "authorization");
+        string unitTestFolder = Path.GetDirectoryName(
+            new Uri(typeof(PepWithPDPAuthorizationMockSI).Assembly.Location).LocalPath
+        );
+        return Path.Combine(
+            unitTestFolder,
+            "..",
+            "..",
+            "..",
+            "data",
+            "apps",
+            org,
+            app,
+            "config",
+            "authorization"
+        );
     }
 }

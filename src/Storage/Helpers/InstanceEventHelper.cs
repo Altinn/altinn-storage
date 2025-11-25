@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 
@@ -21,19 +20,26 @@ public static class InstanceEventHelper
     /// <returns>A sorted and filtered list of instance events.</returns>
     public static List<InstanceEvent> RemoveDuplicateEvents(List<InstanceEvent> originalList)
     {
-        foreach (InstanceEvent item in originalList.Where(ie => !string.IsNullOrEmpty(ie.DataId) && ie.EventType.Equals(InstanceEventType.Created.ToString())))
+        foreach (
+            InstanceEvent item in originalList.Where(ie =>
+                !string.IsNullOrEmpty(ie.DataId)
+                && ie.EventType.Equals(InstanceEventType.Created.ToString())
+            )
+        )
         {
             item.EventType = InstanceEventType.Saved.ToString();
         }
 
-        List<InstanceEvent> orderedEnumerable =
-            originalList
-                .Where(ie =>
-                    string.IsNullOrEmpty(ie.DataId) ||
-                    ie.EventType.Equals(
-                        InstanceEventType.Saved.ToString(),
-                        StringComparison.InvariantCultureIgnoreCase))
-                .OrderBy(ie => ie.Created).ToList();
+        List<InstanceEvent> orderedEnumerable = originalList
+            .Where(ie =>
+                string.IsNullOrEmpty(ie.DataId)
+                || ie.EventType.Equals(
+                    InstanceEventType.Saved.ToString(),
+                    StringComparison.InvariantCultureIgnoreCase
+                )
+            )
+            .OrderBy(ie => ie.Created)
+            .ToList();
 
         List<InstanceEvent> finalResult = new List<InstanceEvent>();
 
@@ -51,20 +57,24 @@ public static class InstanceEventHelper
                 continue;
             }
 
-            if (currentInstanceEvent.EventType != nextInstanceEvent.EventType
-                || currentInstanceEvent.EventType != InstanceEventType.Saved.ToString())
+            if (
+                currentInstanceEvent.EventType != nextInstanceEvent.EventType
+                || currentInstanceEvent.EventType != InstanceEventType.Saved.ToString()
+            )
             {
                 finalResult.Add(currentInstanceEvent);
                 continue;
             }
 
-            string currentSubject = currentInstanceEvent.User?.UserId != null
-                ? currentInstanceEvent.User?.UserId.ToString()
-                : currentInstanceEvent.User?.OrgId;
+            string currentSubject =
+                currentInstanceEvent.User?.UserId != null
+                    ? currentInstanceEvent.User?.UserId.ToString()
+                    : currentInstanceEvent.User?.OrgId;
 
-            string nextSubject = nextInstanceEvent.User?.UserId != null
-                ? nextInstanceEvent.User?.UserId.ToString()
-                : nextInstanceEvent.User?.OrgId;
+            string nextSubject =
+                nextInstanceEvent.User?.UserId != null
+                    ? nextInstanceEvent.User?.UserId.ToString()
+                    : nextInstanceEvent.User?.OrgId;
 
             if (currentSubject != nextSubject)
             {

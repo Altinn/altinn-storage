@@ -4,7 +4,6 @@ using System.Data;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
@@ -22,14 +21,22 @@ public class PgTextRepository : ITextRepository
 {
     private const string _missingResourceId = "MissingResource";
 
-    private static readonly string _readSql = "select textresource from storage.texts where org = $1 and app = $2 and language = $3";
-    private static readonly string _readAppSql = "select id from storage.applications where app = $1 and org = $2";
-    private static readonly string _deleteSql = "delete from storage.texts where org = $1 and app = $2 and language = $3";
-    private static readonly string _updateSql = "update storage.texts set textresource = $4 where org = $1 and app = $2 and language = $3";
-    private static readonly string _createSql = "insert into storage.texts (org, app, language, textresource, applicationinternalid) values ($1, $2, $3, jsonb_strip_nulls($4), $5)" +
-                                                " on conflict on constraint textalternateid do update set textResource = jsonb_strip_nulls($4)";
+    private static readonly string _readSql =
+        "select textresource from storage.texts where org = $1 and app = $2 and language = $3";
+    private static readonly string _readAppSql =
+        "select id from storage.applications where app = $1 and org = $2";
+    private static readonly string _deleteSql =
+        "delete from storage.texts where org = $1 and app = $2 and language = $3";
+    private static readonly string _updateSql =
+        "update storage.texts set textresource = $4 where org = $1 and app = $2 and language = $3";
+    private static readonly string _createSql =
+        "insert into storage.texts (org, app, language, textresource, applicationinternalid) values ($1, $2, $3, jsonb_strip_nulls($4), $5)"
+        + " on conflict on constraint textalternateid do update set textResource = jsonb_strip_nulls($4)";
 
-    private static readonly TextResource _missingResourcePlaceholder = new() { Id = _missingResourceId };
+    private static readonly TextResource _missingResourcePlaceholder = new()
+    {
+        Id = _missingResourceId,
+    };
 
     private readonly IMemoryCache _memoryCache;
     private readonly MemoryCacheEntryOptions _cacheEntryOptions;
@@ -44,12 +51,15 @@ public class PgTextRepository : ITextRepository
     public PgTextRepository(
         IOptions<GeneralSettings> generalSettings,
         IMemoryCache memoryCache,
-        NpgsqlDataSource dataSource)
+        NpgsqlDataSource dataSource
+    )
     {
         _memoryCache = memoryCache;
         _cacheEntryOptions = new MemoryCacheEntryOptions()
             .SetPriority(CacheItemPriority.High)
-            .SetAbsoluteExpiration(new TimeSpan(0, 0, generalSettings.Value.TextResourceCacheLifeTimeInSeconds));
+            .SetAbsoluteExpiration(
+                new TimeSpan(0, 0, generalSettings.Value.TextResourceCacheLifeTimeInSeconds)
+            );
         _dataSource = dataSource;
     }
 
@@ -67,7 +77,12 @@ public class PgTextRepository : ITextRepository
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             if (await reader.ReadAsync())
             {
-                textResource = PostProcess(org, app, language, await reader.GetFieldValueAsync<TextResource>("textResource"));
+                textResource = PostProcess(
+                    org,
+                    app,
+                    language,
+                    await reader.GetFieldValueAsync<TextResource>("textResource")
+                );
             }
             else
             {
@@ -175,7 +190,12 @@ public class PgTextRepository : ITextRepository
     /// <summary>
     /// Post processes the text resource. Creates id and adds partition key org
     /// </summary>
-    private static TextResource PostProcess(string org, string app, string language, TextResource textResource)
+    private static TextResource PostProcess(
+        string org,
+        string app,
+        string language,
+        TextResource textResource
+    )
     {
         textResource.Id = GetTextId(org, app, language);
         textResource.Org = org;

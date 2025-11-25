@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.UnitTest.Extensions;
@@ -71,8 +70,8 @@ public class InstanceHelperTest
             new DataElement()
             {
                 LastChanged = Convert.ToDateTime("2019-08-21T19:19:22.2135489Z"),
-                LastChangedBy = lastChangedBy
-            }
+                LastChangedBy = lastChangedBy,
+            },
         };
 
         // Act
@@ -158,9 +157,9 @@ public class InstanceHelperTest
                     Started = DateTime.Parse("2021-01-18T16:41:24.6560293Z"),
                     ElementId = "Task_2",
                     Name = "Bekreft skjemadata",
-                    AltinnTaskType = "confirmation"
-                }
-            }
+                    AltinnTaskType = "confirmation",
+                },
+            },
         };
 
         string sblStatus = InstanceHelper.GetSBLStatusForCurrentTask(instance);
@@ -187,9 +186,9 @@ public class InstanceHelperTest
                     Started = DateTime.Parse("2021-01-18T16:41:24.6560293Z"),
                     ElementId = "Task_2",
                     Name = "Venter på tilbakemelding",
-                    AltinnTaskType = "feedback"
-                }
-            }
+                    AltinnTaskType = "feedback",
+                },
+            },
         };
 
         string sblStatus = InstanceHelper.GetSBLStatusForCurrentTask(instance);
@@ -216,9 +215,9 @@ public class InstanceHelperTest
                     Started = DateTime.Parse("2021-01-18T16:41:24.6560293Z"),
                     ElementId = "Task_2",
                     Name = "Signering",
-                    AltinnTaskType = "signing"
-                }
-            }
+                    AltinnTaskType = "signing",
+                },
+            },
         };
 
         string sblStatus = InstanceHelper.GetSBLStatusForCurrentTask(instance);
@@ -278,7 +277,9 @@ public class InstanceHelperTest
         // Arrange
         Instance instance = TestData.Instance_2_1;
         string expectedlastChangedBy = "20000001";
-        DateTime expectedlastChanged = Convert.ToDateTime("2019-10-20T21:19:22.2135489Z").ToUniversalTime();
+        DateTime expectedlastChanged = Convert
+            .ToDateTime("2019-10-20T21:19:22.2135489Z")
+            .ToUniversalTime();
 
         // Act
         (string lastChangedBy, DateTime? lastChanged) = InstanceHelper.FindLastChanged(instance);
@@ -298,36 +299,27 @@ public class InstanceHelperTest
         Dictionary<string, Application> apps = new();
 
         apps.Add("ttd/no-hideSettings", new Application { Id = "ttd/no-hideSettings" });
-        apps.Add("ttd/hide-task-1", new Application
-        {
-            Id = "ttd/hide-task-1",
-            MessageBoxConfig = new()
+        apps.Add(
+            "ttd/hide-task-1",
+            new Application
             {
-                HideSettings = new()
+                Id = "ttd/hide-task-1",
+                MessageBoxConfig = new()
                 {
-                    HideOnTask = new()
-                    {
-                        "Task_1"
-                    }
-                }
+                    HideSettings = new() { HideOnTask = new() { "Task_1" } },
+                },
             }
-        });
+        );
 
-        Instance i1 = new Instance
-        {
-            AppId = "ttd/no-hideSettings"
-        };
+        Instance i1 = new Instance { AppId = "ttd/no-hideSettings" };
 
         Instance i2 = new Instance
         {
             AppId = "ttd/hide-task-1",
             Process = new ProcessState
             {
-                CurrentTask = new ProcessElementInfo
-                {
-                    ElementId = "Task_2"
-                }
-            }
+                CurrentTask = new ProcessElementInfo { ElementId = "Task_2" },
+            },
         };
 
         List<Instance> instances = new() { i1, i2 };
@@ -349,36 +341,27 @@ public class InstanceHelperTest
         Dictionary<string, Application> apps = new();
 
         apps.Add("ttd/no-hideSettings", new Application { Id = "ttd/no-hideSettings" });
-        apps.Add("ttd/hide-task-1", new Application
-        {
-            Id = "ttd/hide-task-1",
-            MessageBoxConfig = new()
+        apps.Add(
+            "ttd/hide-task-1",
+            new Application
             {
-                HideSettings = new()
+                Id = "ttd/hide-task-1",
+                MessageBoxConfig = new()
                 {
-                    HideOnTask = new()
-                    {
-                        "Task_1"
-                    }
-                }
+                    HideSettings = new() { HideOnTask = new() { "Task_1" } },
+                },
             }
-        });
+        );
 
-        Instance i1 = new Instance
-        {
-            AppId = "ttd/no-hideSettings"
-        };
+        Instance i1 = new Instance { AppId = "ttd/no-hideSettings" };
 
         Instance i2 = new Instance
         {
             AppId = "ttd/hide-task-1",
             Process = new ProcessState
             {
-                CurrentTask = new ProcessElementInfo
-                {
-                    ElementId = "Task_1"
-                }
-            }
+                CurrentTask = new ProcessElementInfo { ElementId = "Task_1" },
+            },
         };
 
         List<Instance> instances = new() { i1, i2 };
@@ -405,27 +388,16 @@ public class InstanceHelperTest
                 Id = "ttd/hideAlwayshideSettings",
                 MessageBoxConfig = new MessageBoxConfig()
                 {
-                    HideSettings = new()
-                    {
-                        HideAlways = true
-                    }
-                }
-            });
+                    HideSettings = new() { HideAlways = true },
+                },
+            }
+        );
 
-        Instance i1 = new Instance
-        {
-            AppId = "ttd/hideAlwayshideSettings"
-        };
+        Instance i1 = new Instance { AppId = "ttd/hideAlwayshideSettings" };
 
-        Instance i2 = new Instance
-        {
-            AppId = "ttd/hideAlwayshideSettings"
-        };
+        Instance i2 = new Instance { AppId = "ttd/hideAlwayshideSettings" };
 
-        Instance i3 = new Instance
-        {
-            AppId = "ttd/hideAlwayshideSettings"
-        };
+        Instance i3 = new Instance { AppId = "ttd/hideAlwayshideSettings" };
 
         List<Instance> instances = new() { i1, i2, i3 };
 
@@ -444,30 +416,16 @@ public class InstanceHelperTest
     {
         // Arrange
         List<MessageBoxInstance> instances = new();
-        instances.Add(new MessageBoxInstance
-        {
-            Org = "ttd",
-            AppName = "test-app"
-        });
+        instances.Add(new MessageBoxInstance { Org = "ttd", AppName = "test-app" });
 
         List<TextResource> textResources = new();
         List<TextResourceElement> textResource = new();
-        textResource.Add(new TextResourceElement
-        {
-            Value = "ValueFromAppNameKey",
-            Id = "appName",
-        });
-        textResource.Add(new TextResourceElement
-        {
-            Value = "ValueFromServiceNameKey",
-            Id = "ServiceName",
-        });
+        textResource.Add(new TextResourceElement { Value = "ValueFromAppNameKey", Id = "appName" });
+        textResource.Add(
+            new TextResourceElement { Value = "ValueFromServiceNameKey", Id = "ServiceName" }
+        );
 
-        textResources.Add(new TextResource
-        {
-            Id = "ttd-test-app-nb",
-            Resources = textResource
-        });
+        textResources.Add(new TextResource { Id = "ttd-test-app-nb", Resources = textResource });
 
         // Act
         instances = InstanceHelper.ReplaceTextKeys(instances, textResources, "nb");
@@ -484,25 +442,15 @@ public class InstanceHelperTest
     {
         // Arrange
         List<MessageBoxInstance> instances = new();
-        instances.Add(new MessageBoxInstance
-        {
-            Org = "ttd",
-            AppName = "test-app"
-        });
+        instances.Add(new MessageBoxInstance { Org = "ttd", AppName = "test-app" });
 
         List<TextResource> textResources = new();
         List<TextResourceElement> textResource = new();
-        textResource.Add(new TextResourceElement
-        {
-            Value = "ValueFromServiceNameKey",
-            Id = "ServiceName",
-        });
+        textResource.Add(
+            new TextResourceElement { Value = "ValueFromServiceNameKey", Id = "ServiceName" }
+        );
 
-        textResources.Add(new TextResource
-        {
-            Id = "ttd-test-app-nb",
-            Resources = textResource
-        });
+        textResources.Add(new TextResource { Id = "ttd-test-app-nb", Resources = textResource });
 
         // Act
         instances = InstanceHelper.ReplaceTextKeys(instances, textResources, "nb");
@@ -520,13 +468,10 @@ public class InstanceHelperTest
             new InstanceEvent
             {
                 Id = Guid.Parse("64f6d272-3700-4616-beea-931361d10fc8"),
-                User = new()
-                {
-                    UserId = 1337
-                },
+                User = new() { UserId = 1337 },
                 EventType = "test.event",
-                Created = DateTime.Now
-            }
+                Created = DateTime.Now,
+            },
         };
 
         // Act
@@ -555,31 +500,19 @@ public class InstanceHelperTest
                 Substatus = new Helpers.Substatus()
                 {
                     Label = "someLabel",
-                    Description = "someDescription"
-                }
+                    Description = "someDescription",
+                },
             },
         ];
 
         List<TextResource> textResources = [];
         List<TextResourceElement> textResource =
         [
-            new TextResourceElement
-            {
-                Id = null,
-                Value = null,
-            },
-            new TextResourceElement
-            {
-                Id = "appName",
-                Value = "ValueFromAppNameKey",
-            },
+            new TextResourceElement { Id = null, Value = null },
+            new TextResourceElement { Id = "appName", Value = "ValueFromAppNameKey" },
         ];
 
-        textResources.Add(new TextResource
-        {
-            Id = "ttd-test-app-nb",
-            Resources = textResource
-        });
+        textResources.Add(new TextResource { Id = "ttd-test-app-nb", Resources = textResource });
 
         // Act
         instances = InstanceHelper.ReplaceTextKeys(instances, textResources, "nb");
@@ -604,10 +537,16 @@ public class InstanceHelperTest
     [InlineData("organization:12345", "", "")]
     [InlineData("organisation:67890", "organisation", "67890")]
     [InlineData(" organisation : 456 78", "organisation", "45678")]
-    public void GetIdentifierFromInstanceOwnerIdentifier_ValidInput_ReturnsCorrectTuple(string instanceOwnerIdentifier, string expectedType, string expectedValue)
+    public void GetIdentifierFromInstanceOwnerIdentifier_ValidInput_ReturnsCorrectTuple(
+        string instanceOwnerIdentifier,
+        string expectedType,
+        string expectedValue
+    )
     {
         // Act
-        var result = InstanceHelper.GetIdentifierFromInstanceOwnerIdentifier(instanceOwnerIdentifier);
+        var result = InstanceHelper.GetIdentifierFromInstanceOwnerIdentifier(
+            instanceOwnerIdentifier
+        );
 
         // Assert
         Assert.Equal((expectedType, expectedValue), result);
@@ -619,21 +558,24 @@ public class InstanceHelperTest
     [InlineData(1, null, false)]
     [InlineData(1, 2, false)]
     [InlineData(2, 1, true)]
-    public void IsPreventedFromDeletion_WithValidInput_ReturnsCorrectResult(int? preventForDays, int? daysSinceArchived, bool expected)
+    public void IsPreventedFromDeletion_WithValidInput_ReturnsCorrectResult(
+        int? preventForDays,
+        int? daysSinceArchived,
+        bool expected
+    )
     {
         // Arrange
         Instance instance = new()
         {
             Status = new InstanceStatus
             {
-                Archived = daysSinceArchived.HasValue ? DateTime.UtcNow.AddDays(-daysSinceArchived.Value) : null
-            }
+                Archived = daysSinceArchived.HasValue
+                    ? DateTime.UtcNow.AddDays(-daysSinceArchived.Value)
+                    : null,
+            },
         };
 
-        Application app = new()
-        {
-            PreventInstanceDeletionForDays = preventForDays
-        };
+        Application app = new() { PreventInstanceDeletionForDays = preventForDays };
 
         // Act
         bool result = InstanceHelper.IsPreventedFromDeletion(instance.Status, app);

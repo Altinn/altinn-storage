@@ -34,7 +34,12 @@ public interface IInstanceEventRepository
     /// <param name="fromDateTime"> Lower bound for DateTime span to filter events by.</param>
     /// <param name="toDateTime"> Upper bound for DateTime span to filter events by.</param>
     /// <returns>List of instance events.</returns>
-    Task<List<InstanceEvent>> ListInstanceEvents(string instanceId, string[] eventTypes, DateTime? fromDateTime, DateTime? toDateTime);
+    Task<List<InstanceEvent>> ListInstanceEvents(
+        string instanceId,
+        string[] eventTypes,
+        DateTime? fromDateTime,
+        DateTime? toDateTime
+    );
 
     /// <summary>
     /// Deletes all events related to an instance id.

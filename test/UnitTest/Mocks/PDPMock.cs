@@ -19,7 +19,9 @@ public class PDPMock : IPDP
 
         List<XacmlJsonCategory> resources = xacmlJsonRequest.Request.Resource;
 
-        XacmlJsonAttribute attribute = resources.Select(r => r.Attribute.Find(a => a.Value.Equals("endring-av-navn"))).FirstOrDefault();
+        XacmlJsonAttribute attribute = resources
+            .Select(r => r.Attribute.Find(a => a.Value.Equals("endring-av-navn")))
+            .FirstOrDefault();
 
         if (attribute != null)
         {
@@ -30,7 +32,9 @@ public class PDPMock : IPDP
             return Task.FromResult(response);
         }
 
-        XacmlJsonAttribute attribute2 = resources.Select(r => r.Attribute.Find(a => a.Value.Equals("multiple-results"))).FirstOrDefault();
+        XacmlJsonAttribute attribute2 = resources
+            .Select(r => r.Attribute.Find(a => a.Value.Equals("multiple-results")))
+            .FirstOrDefault();
 
         if (attribute2 != null)
         {
@@ -42,7 +46,9 @@ public class PDPMock : IPDP
             return Task.FromResult(response);
         }
 
-        XacmlJsonAttribute attribute3 = resources.Select(r => r.Attribute.Find(a => a.Value.Equals("auth-level-2"))).FirstOrDefault();
+        XacmlJsonAttribute attribute3 = resources
+            .Select(r => r.Attribute.Find(a => a.Value.Equals("auth-level-2")))
+            .FirstOrDefault();
 
         if (attribute3 != null)
         {
@@ -52,11 +58,12 @@ public class PDPMock : IPDP
             // Add obligation to result with a minimum authentication level attribute
             XacmlJsonObligationOrAdvice obligation = new XacmlJsonObligationOrAdvice();
             obligation.AttributeAssignment = new List<XacmlJsonAttributeAssignment>();
-            XacmlJsonAttributeAssignment authenticationAttribute = new XacmlJsonAttributeAssignment()
-            {
-                Category = "urn:altinn:minimum-authenticationlevel",
-                Value = "2"
-            };
+            XacmlJsonAttributeAssignment authenticationAttribute =
+                new XacmlJsonAttributeAssignment()
+                {
+                    Category = "urn:altinn:minimum-authenticationlevel",
+                    Value = "2",
+                };
             obligation.AttributeAssignment.Add(authenticationAttribute);
             result.Obligations = [obligation];
 
@@ -65,7 +72,9 @@ public class PDPMock : IPDP
             return Task.FromResult(response);
         }
 
-        XacmlJsonAttribute attribute4 = resources.Select(r => r.Attribute.Find(a => a.Value.Equals("auth-level-3"))).FirstOrDefault();
+        XacmlJsonAttribute attribute4 = resources
+            .Select(r => r.Attribute.Find(a => a.Value.Equals("auth-level-3")))
+            .FirstOrDefault();
 
         if (attribute4 != null)
         {
@@ -76,11 +85,12 @@ public class PDPMock : IPDP
             // Add obligation to result with a minimum authentication level attribute
             XacmlJsonObligationOrAdvice obligation = new XacmlJsonObligationOrAdvice();
             obligation.AttributeAssignment = new List<XacmlJsonAttributeAssignment>();
-            XacmlJsonAttributeAssignment authenticationAttribute = new XacmlJsonAttributeAssignment()
-            {
-                Category = "urn:altinn:minimum-authenticationlevel",
-                Value = "3"
-            };
+            XacmlJsonAttributeAssignment authenticationAttribute =
+                new XacmlJsonAttributeAssignment()
+                {
+                    Category = "urn:altinn:minimum-authenticationlevel",
+                    Value = "3",
+                };
             obligation.AttributeAssignment.Add(authenticationAttribute);
             result.Obligations = new List<XacmlJsonObligationOrAdvice>();
             result.Obligations.Add(obligation);
@@ -95,7 +105,10 @@ public class PDPMock : IPDP
         return Task.FromResult(response);
     }
 
-    public Task<bool> GetDecisionForUnvalidateRequest(XacmlJsonRequestRoot xacmlJsonRequest, ClaimsPrincipal user)
+    public Task<bool> GetDecisionForUnvalidateRequest(
+        XacmlJsonRequestRoot xacmlJsonRequest,
+        ClaimsPrincipal user
+    )
     {
         return Task.FromResult(true);
     }

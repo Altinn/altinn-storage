@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
-
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
@@ -32,7 +31,8 @@ public class TextRepositoryMock : ITextRepository
             string content = File.ReadAllText(textResourcePath);
             TextResource textResource = JsonSerializer.Deserialize<TextResource>(
                 content,
-                new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+                new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }
+            );
             return Task.FromResult(textResource);
         }
 
@@ -75,7 +75,12 @@ public class TextRepositoryMock : ITextRepository
     /// <summary>
     /// Pre processes the text resource. Creates id and adds partition key org
     /// </summary>
-    private static void PreProcess(string org, string app, string language, TextResource textResource)
+    private static void PreProcess(
+        string org,
+        string app,
+        string language,
+        TextResource textResource
+    )
     {
         textResource.Id = GetTextId(org, app, language);
         textResource.Org = org;
@@ -101,7 +106,18 @@ public class TextRepositoryMock : ITextRepository
 
     private static string GetTextsPath(string id)
     {
-        string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(TextRepositoryMock).Assembly.Location).LocalPath);
-        return Path.Combine(unitTestFolder, "..", "..", "..", "data", "postgresdata", "texts", id + ".json");
+        string unitTestFolder = Path.GetDirectoryName(
+            new Uri(typeof(TextRepositoryMock).Assembly.Location).LocalPath
+        );
+        return Path.Combine(
+            unitTestFolder,
+            "..",
+            "..",
+            "..",
+            "data",
+            "postgresdata",
+            "texts",
+            id + ".json"
+        );
     }
 }

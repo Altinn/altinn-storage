@@ -31,7 +31,11 @@ public class InstanceEventsController : ControllerBase
     /// <param name="instanceRepository">the instance repository handler</param>
     /// <param name="instanceEventRepository">the instance event repository handler</param>
     /// <param name="wolverineSettings">Wolverine settings</param>
-    public InstanceEventsController(IInstanceRepository instanceRepository, IInstanceEventRepository instanceEventRepository, IOptions<WolverineSettings> wolverineSettings)
+    public InstanceEventsController(
+        IInstanceRepository instanceRepository,
+        IInstanceEventRepository instanceEventRepository,
+        IOptions<WolverineSettings> wolverineSettings
+    )
     {
         _instanceRepository = instanceRepository;
         _repository = instanceEventRepository;
@@ -51,11 +55,17 @@ public class InstanceEventsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces("application/json")]
-    public async Task<ActionResult<string>> Post(int instanceOwnerPartyId, Guid instanceGuid, [FromBody] InstanceEvent instanceEvent)
+    public async Task<ActionResult<string>> Post(
+        int instanceOwnerPartyId,
+        Guid instanceGuid,
+        [FromBody] InstanceEvent instanceEvent
+    )
     {
         if (instanceEvent?.InstanceId == null)
         {
-            return BadRequest("Missing parameter values: instance event must exist and instanceId must be set");
+            return BadRequest(
+                "Missing parameter values: instance event must exist and instanceId must be set"
+            );
         }
 
         instanceEvent.Created = instanceEvent.Created?.ToUniversalTime() ?? DateTime.UtcNow;
@@ -63,7 +73,11 @@ public class InstanceEventsController : ControllerBase
         Instance? instance = null;
         if (_wolverineSettings.EnableSending)
         {
-            (instance, _) = await _instanceRepository.GetOne(instanceGuid, false, CancellationToken.None);
+            (instance, _) = await _instanceRepository.GetOne(
+                instanceGuid,
+                false,
+                CancellationToken.None
+            );
         }
 
         InstanceEvent result = await _repository.InsertInstanceEvent(instanceEvent, instance);
@@ -87,7 +101,11 @@ public class InstanceEventsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
-    public async Task<ActionResult<InstanceEvent>> GetOne(int instanceOwnerPartyId, Guid instanceGuid, Guid eventGuid)
+    public async Task<ActionResult<InstanceEvent>> GetOne(
+        int instanceOwnerPartyId,
+        Guid instanceGuid,
+        Guid eventGuid
+    )
     {
         string instanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
         InstanceEvent theEvent = await _repository.GetOneEvent(instanceId, eventGuid);
@@ -126,7 +144,8 @@ public class InstanceEventsController : ControllerBase
         [FromRoute] Guid instanceGuid,
         [FromQuery] string[] eventTypes,
         [FromQuery] string? from,
-        [FromQuery] string? to)
+        [FromQuery] string? to
+    )
     {
         string instanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
 
@@ -135,7 +154,8 @@ public class InstanceEventsController : ControllerBase
             return BadRequest("Unable to perform query.");
         }
 
-        DateTime? fromDateTime = null, toDateTime = null;
+        DateTime? fromDateTime = null,
+            toDateTime = null;
 
         if (!(string.IsNullOrEmpty(from) || string.IsNullOrEmpty(to)))
         {
@@ -146,13 +166,23 @@ public class InstanceEventsController : ControllerBase
             }
             catch
             {
-                return BadRequest("Unable to perform query. Invalid format for time span. Use string format of UTC.");
+                return BadRequest(
+                    "Unable to perform query. Invalid format for time span. Use string format of UTC."
+                );
             }
         }
 
-        List<InstanceEvent> instanceEvents = await _repository.ListInstanceEvents(instanceId, eventTypes, fromDateTime, toDateTime);
+        List<InstanceEvent> instanceEvents = await _repository.ListInstanceEvents(
+            instanceId,
+            eventTypes,
+            fromDateTime,
+            toDateTime
+        );
 
-        InstanceEventList instanceEventList = new InstanceEventList { InstanceEvents = instanceEvents };
+        InstanceEventList instanceEventList = new InstanceEventList
+        {
+            InstanceEvents = instanceEvents,
+        };
 
         return Ok(instanceEventList);
     }

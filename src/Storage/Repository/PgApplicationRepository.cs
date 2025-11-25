@@ -19,15 +19,20 @@ namespace Altinn.Platform.Storage.Repository;
 public class PgApplicationRepository : IApplicationRepository
 {
     private static readonly string _readSql = "select application from storage.applications";
-    private static readonly string _readByOrgSql = "select application from storage.applications where org = $1";
-    private static readonly string _readByIdSql = "select application from storage.applications where app = $1 and org = $2";
-    private static readonly string _deleteSql = "delete from storage.applications where app = $1 and org = $2";
-    private static readonly string _updateSql = "update storage.applications set application = $3 ||" +
-                                                " jsonb_build_object($4, storage.applications.application->>$4) || jsonb_build_object($5, storage.applications.application->>$5) where app = $1 and org = $2";
+    private static readonly string _readByOrgSql =
+        "select application from storage.applications where org = $1";
+    private static readonly string _readByIdSql =
+        "select application from storage.applications where app = $1 and org = $2";
+    private static readonly string _deleteSql =
+        "delete from storage.applications where app = $1 and org = $2";
+    private static readonly string _updateSql =
+        "update storage.applications set application = $3 ||"
+        + " jsonb_build_object($4, storage.applications.application->>$4) || jsonb_build_object($5, storage.applications.application->>$5) where app = $1 and org = $2";
 
-    private static readonly string _createSql = "insert into storage.applications (app, org, application) values ($1, $2, jsonb_strip_nulls($3))" +
-                                                " on conflict on constraint app_org do update set application = jsonb_strip_nulls($3) ||" +
-                                                " jsonb_build_object($4, storage.applications.application->>$4) || jsonb_build_object($5, storage.applications.application->>$5)";
+    private static readonly string _createSql =
+        "insert into storage.applications (app, org, application) values ($1, $2, jsonb_strip_nulls($3))"
+        + " on conflict on constraint app_org do update set application = jsonb_strip_nulls($3) ||"
+        + " jsonb_build_object($4, storage.applications.application->>$4) || jsonb_build_object($5, storage.applications.application->>$5)";
 
     private readonly IMemoryCache _memoryCache;
     private readonly MemoryCacheEntryOptions _cacheEntryOptionsTitles;
@@ -44,16 +49,21 @@ public class PgApplicationRepository : IApplicationRepository
     public PgApplicationRepository(
         IOptions<GeneralSettings> generalSettings,
         IMemoryCache memoryCache,
-        NpgsqlDataSource dataSource)
+        NpgsqlDataSource dataSource
+    )
     {
         _dataSource = dataSource;
         _memoryCache = memoryCache;
         _cacheEntryOptionsTitles = new MemoryCacheEntryOptions()
             .SetPriority(CacheItemPriority.High)
-            .SetAbsoluteExpiration(new TimeSpan(0, 0, generalSettings.Value.AppTitleCacheLifeTimeInSeconds));
+            .SetAbsoluteExpiration(
+                new TimeSpan(0, 0, generalSettings.Value.AppTitleCacheLifeTimeInSeconds)
+            );
         _cacheEntryOptionsMetadata = new MemoryCacheEntryOptions()
             .SetPriority(CacheItemPriority.High)
-            .SetAbsoluteExpiration(new TimeSpan(0, 0, generalSettings.Value.AppMetadataCacheLifeTimeInSeconds));
+            .SetAbsoluteExpiration(
+                new TimeSpan(0, 0, generalSettings.Value.AppMetadataCacheLifeTimeInSeconds)
+            );
     }
 
     /// <inheritdoc/>
@@ -88,7 +98,11 @@ public class PgApplicationRepository : IApplicationRepository
     }
 
     /// <inheritdoc/>
-    public async Task<Application> FindOne(string appId, string org, CancellationToken cancellationToken = default)
+    public async Task<Application> FindOne(
+        string appId,
+        string org,
+        CancellationToken cancellationToken = default
+    )
     {
         string cacheKey = $"aid:{appId}";
         if (!_memoryCache.TryGetValue(cacheKey, out Application application))
@@ -99,7 +113,10 @@ public class PgApplicationRepository : IApplicationRepository
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
             if (await reader.ReadAsync(cancellationToken))
             {
-                application = await reader.GetFieldValueAsync<Application>("application", cancellationToken);
+                application = await reader.GetFieldValueAsync<Application>(
+                    "application",
+                    cancellationToken
+                );
                 _memoryCache.Set(cacheKey, application, _cacheEntryOptionsMetadata);
             }
             else

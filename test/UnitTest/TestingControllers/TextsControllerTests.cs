@@ -6,10 +6,8 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Threading.Tasks;
-
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
-
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Interface.Models;
@@ -20,14 +18,11 @@ using Altinn.Platform.Storage.UnitTest.Mocks.Authentication;
 using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
-
 using AltinnCore.Authentication.JwtCookie;
-
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-
 using Moq;
 using Wolverine;
 using Xunit;
@@ -65,7 +60,8 @@ public class TextsControllerTests : IClassFixture<TestApplicationFactory<TextsCo
 
         HttpResponseMessage response = await _httpClient.PostAsync(
             requestUri,
-            JsonContent.Create(GetValidTextResource(), new MediaTypeHeaderValue("application/json")));
+            JsonContent.Create(GetValidTextResource(), new MediaTypeHeaderValue("application/json"))
+        );
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         string content = await response.Content.ReadAsStringAsync();
@@ -89,7 +85,11 @@ public class TextsControllerTests : IClassFixture<TestApplicationFactory<TextsCo
 
         HttpResponseMessage response = await _httpClient.PostAsync(
             requestUri,
-            JsonContent.Create(GetTextResourceThatAlreadyExists(), new MediaTypeHeaderValue("application/json")));
+            JsonContent.Create(
+                GetTextResourceThatAlreadyExists(),
+                new MediaTypeHeaderValue("application/json")
+            )
+        );
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
@@ -207,7 +207,10 @@ public class TextsControllerTests : IClassFixture<TestApplicationFactory<TextsCo
     [Fact]
     public async Task UnauthorizedRequests_ReturnsUnauthorized()
     {
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "notvalidtoken");
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            "notvalidtoken"
+        );
         string org = "testOrg";
         string app = "testApp";
         string requestUriPost = $"{BasePath}/{org}/{app}/texts";
@@ -215,8 +218,14 @@ public class TextsControllerTests : IClassFixture<TestApplicationFactory<TextsCo
 
         HttpResponseMessage responseGet = await _httpClient.GetAsync(requestUriOthers);
         HttpResponseMessage responseDelete = await _httpClient.DeleteAsync(requestUriOthers);
-        HttpResponseMessage responseCreate = await _httpClient.PostAsync(requestUriPost, JsonContent.Create(GetValidTextResource(), new MediaTypeHeaderValue("application/json")));
-        HttpResponseMessage responsePut = await _httpClient.PutAsync(requestUriOthers, JsonContent.Create(GetValidTextResource(), new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage responseCreate = await _httpClient.PostAsync(
+            requestUriPost,
+            JsonContent.Create(GetValidTextResource(), new MediaTypeHeaderValue("application/json"))
+        );
+        HttpResponseMessage responsePut = await _httpClient.PutAsync(
+            requestUriOthers,
+            JsonContent.Create(GetValidTextResource(), new MediaTypeHeaderValue("application/json"))
+        );
 
         Assert.Equal(HttpStatusCode.Unauthorized, responseGet.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, responseDelete.StatusCode);
@@ -224,7 +233,10 @@ public class TextsControllerTests : IClassFixture<TestApplicationFactory<TextsCo
         Assert.Equal(HttpStatusCode.Unauthorized, responsePut.StatusCode);
 
         // reset auth header
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetOrgToken("testOrg"));
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetOrgToken("testOrg")
+        );
     }
 
     /// <summary>
@@ -238,7 +250,10 @@ public class TextsControllerTests : IClassFixture<TestApplicationFactory<TextsCo
     [Fact]
     public async Task RegularTokenShouldNotBeAbleToPostPutAndDelete()
     {
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", PrincipalUtil.GetToken(1, 1000));
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1, 1000)
+        );
         string org = "testOrg";
         string app = "testApp";
         string requestUriPost = $"{BasePath}/{org}/{app}/texts";
@@ -246,8 +261,14 @@ public class TextsControllerTests : IClassFixture<TestApplicationFactory<TextsCo
 
         HttpResponseMessage responseGet = await _httpClient.GetAsync(requestUriOthers);
         HttpResponseMessage responseDelete = await _httpClient.DeleteAsync(requestUriOthers);
-        HttpResponseMessage responseCreate = await _httpClient.PostAsync(requestUriPost, JsonContent.Create(GetValidTextResource(), new MediaTypeHeaderValue("application/json")));
-        HttpResponseMessage responsePut = await _httpClient.PutAsync(requestUriOthers, JsonContent.Create(GetValidTextResource(), new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage responseCreate = await _httpClient.PostAsync(
+            requestUriPost,
+            JsonContent.Create(GetValidTextResource(), new MediaTypeHeaderValue("application/json"))
+        );
+        HttpResponseMessage responsePut = await _httpClient.PutAsync(
+            requestUriOthers,
+            JsonContent.Create(GetValidTextResource(), new MediaTypeHeaderValue("application/json"))
+        );
 
         Assert.Equal(HttpStatusCode.OK, responseGet.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, responseDelete.StatusCode);
@@ -260,18 +281,26 @@ public class TextsControllerTests : IClassFixture<TestApplicationFactory<TextsCo
         Mock<ITextRepository> mockTextRepo = new Mock<ITextRepository>();
         mockTextRepo
             .Setup(s => s.Get(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-            .ReturnsAsync((string org, string app, string language) =>
-            {
-                if (org.Equals("testOrg") && app.Equals("testApp") && language.Equals("en"))
+            .ReturnsAsync(
+                (string org, string app, string language) =>
                 {
-                    return new TextResource { Language = language };
-                }
+                    if (org.Equals("testOrg") && app.Equals("testApp") && language.Equals("en"))
+                    {
+                        return new TextResource { Language = language };
+                    }
 
-                return null;
-            });
-        mockTextRepo.Setup(s => s.Create(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TextResource>())).ReturnsAsync(new TextResource());
-        mockTextRepo.Setup(s => s.Update(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TextResource>())).ReturnsAsync(new TextResource());
-        mockTextRepo.Setup(s => s.Delete(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(true);
+                    return null;
+                }
+            );
+        mockTextRepo
+            .Setup(s => s.Create(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TextResource>()))
+            .ReturnsAsync(new TextResource());
+        mockTextRepo
+            .Setup(s => s.Update(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TextResource>()))
+            .ReturnsAsync(new TextResource());
+        mockTextRepo
+            .Setup(s => s.Delete(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(true);
         return mockTextRepo;
     }
 
@@ -282,28 +311,40 @@ public class TextsControllerTests : IClassFixture<TestApplicationFactory<TextsCo
         Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
         Mock<IMessageBus> busMock = new Mock<IMessageBus>();
 
-        HttpClient client = _factory.WithWebHostBuilder(builder =>
-        {
-            IConfiguration configuration = new ConfigurationBuilder().AddJsonFile(ServiceUtil.GetAppsettingsPath()).Build();
-            builder.ConfigureAppConfiguration((hostingContext, config) =>
+        HttpClient client = _factory
+            .WithWebHostBuilder(builder =>
             {
-                config.AddConfiguration(configuration);
-            });
+                IConfiguration configuration = new ConfigurationBuilder()
+                    .AddJsonFile(ServiceUtil.GetAppsettingsPath())
+                    .Build();
+                builder.ConfigureAppConfiguration(
+                    (hostingContext, config) =>
+                    {
+                        config.AddConfiguration(configuration);
+                    }
+                );
 
-            builder.ConfigureTestServices(services =>
-            {
-                services.AddMockRepositories();
+                builder.ConfigureTestServices(services =>
+                {
+                    services.AddMockRepositories();
 
-                services.AddSingleton(textRepository);
+                    services.AddSingleton(textRepository);
 
-                services.AddSingleton(keyVaultWrapper.Object);
-                services.AddSingleton(partiesWrapper.Object);
-                services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
-                services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
-                services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
-                services.AddSingleton(busMock.Object);
-            });
-        }).CreateClient();
+                    services.AddSingleton(keyVaultWrapper.Object);
+                    services.AddSingleton(partiesWrapper.Object);
+                    services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
+                    services.AddSingleton<
+                        IPostConfigureOptions<JwtCookieOptions>,
+                        JwtCookiePostConfigureOptionsStub
+                    >();
+                    services.AddSingleton<
+                        IPublicSigningKeyProvider,
+                        PublicSigningKeyProviderMock
+                    >();
+                    services.AddSingleton(busMock.Object);
+                });
+            })
+            .CreateClient();
 
         string token = PrincipalUtil.GetAccessToken("studio.designer");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -319,8 +360,8 @@ public class TextsControllerTests : IClassFixture<TestApplicationFactory<TextsCo
             Resources = new List<TextResourceElement>
             {
                 new TextResourceElement { Id = "some.id", Value = "Some value" },
-                new TextResourceElement { Id = "some.other.id", Value = "Some other value" }
-            }
+                new TextResourceElement { Id = "some.other.id", Value = "Some other value" },
+            },
         };
     }
 
@@ -332,8 +373,8 @@ public class TextsControllerTests : IClassFixture<TestApplicationFactory<TextsCo
             Resources = new List<TextResourceElement>
             {
                 new TextResourceElement { Id = "some.id", Value = "Some value" },
-                new TextResourceElement { Id = "some.other.id", Value = "Some other value" }
-            }
+                new TextResourceElement { Id = "some.other.id", Value = "Some other value" },
+            },
         };
     }
 }

@@ -24,7 +24,7 @@ public class TextResource
     /// <summary>
     /// Gets or sets the language. Should be a two letter ISO name.
     /// </summary>
-    [JsonProperty(PropertyName= "language")]
+    [JsonProperty(PropertyName = "language")]
     public string Language { get; set; }
 
     /// <summary>

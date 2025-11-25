@@ -1,5 +1,4 @@
 using System;
-
 using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.Interface.Models;
@@ -8,7 +7,9 @@ namespace Altinn.Platform.Storage.Interface.Models;
 /// Represents the validation status of a data element.
 /// </summary>
 [JsonObject(ItemNullValueHandling = NullValueHandling.Ignore)]
-[Obsolete("ValidationStatus is no longer used by apps. Validation is performed on process changes instead")]
+[Obsolete(
+    "ValidationStatus is no longer used by apps. Validation is performed on process changes instead"
+)]
 public class ValidationStatus
 {
     /// <summary>

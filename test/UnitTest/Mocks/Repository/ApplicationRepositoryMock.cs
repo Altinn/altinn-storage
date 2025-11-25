@@ -3,10 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
-
 using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository;
@@ -23,7 +21,11 @@ public class ApplicationRepositoryMock : IApplicationRepository
         throw new NotImplementedException();
     }
 
-    public async Task<Application> FindOne(string appId, string org, CancellationToken cancellationToken = default)
+    public async Task<Application> FindOne(
+        string appId,
+        string org,
+        CancellationToken cancellationToken = default
+    )
     {
         return await Task.FromResult(GetTestApplication(org, appId.Split("/")[1]));
     }
@@ -56,11 +58,16 @@ public class ApplicationRepositoryMock : IApplicationRepository
 
                 foreach (var appDirectory in appDirectiories)
                 {
-                    string metadataPath = Path.Combine(appDirectory, "config", "applicationmetadata.json");
+                    string metadataPath = Path.Combine(
+                        appDirectory,
+                        "config",
+                        "applicationmetadata.json"
+                    );
                     if (File.Exists(metadataPath))
                     {
                         string content = File.ReadAllText(metadataPath);
-                        Application application = (Application)JsonConvert.DeserializeObject(content, typeof(Application));
+                        Application application = (Application)
+                            JsonConvert.DeserializeObject(content, typeof(Application));
                         string titles = string.Empty;
                         if (application.Title != null)
                         {
@@ -81,11 +88,18 @@ public class ApplicationRepositoryMock : IApplicationRepository
 
     private static Application GetTestApplication(string org, string app)
     {
-        string applicationPath = Path.Combine(GetAppsPath(), org, app, "config", "applicationmetadata.json");
+        string applicationPath = Path.Combine(
+            GetAppsPath(),
+            org,
+            app,
+            "config",
+            "applicationmetadata.json"
+        );
         if (File.Exists(applicationPath))
         {
             string content = File.ReadAllText(applicationPath);
-            Application application = (Application)JsonConvert.DeserializeObject(content, typeof(Application));
+            Application application = (Application)
+                JsonConvert.DeserializeObject(content, typeof(Application));
             return application;
         }
 
@@ -94,7 +108,9 @@ public class ApplicationRepositoryMock : IApplicationRepository
 
     private static string GetAppsPath()
     {
-        string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(ApplicationRepositoryMock).Assembly.Location).LocalPath);
+        string unitTestFolder = Path.GetDirectoryName(
+            new Uri(typeof(ApplicationRepositoryMock).Assembly.Location).LocalPath
+        );
         return Path.Combine(unitTestFolder, "..", "..", "..", "data", "apps");
     }
 }

@@ -19,7 +19,12 @@ public interface IBlobRepository
     /// <param name="blobStoragePath">Path to save the stream to in blob storage.</param>
     /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
     /// <returns>The size of the blob.</returns>
-    Task<(long ContentLength, DateTimeOffset LastModified)> WriteBlob(string org, Stream stream, string blobStoragePath, int? storageAccountNumber);
+    Task<(long ContentLength, DateTimeOffset LastModified)> WriteBlob(
+        string org,
+        Stream stream,
+        string blobStoragePath,
+        int? storageAccountNumber
+    );
 
     /// <summary>
     /// Reads a data file from blob storage
@@ -29,7 +34,12 @@ public interface IBlobRepository
     /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The stream with the file</returns>
-    Task<Stream> ReadBlob(string org, string blobStoragePath, int? storageAccountNumber, CancellationToken cancellationToken = default);
+    Task<Stream> ReadBlob(
+        string org,
+        string blobStoragePath,
+        int? storageAccountNumber,
+        CancellationToken cancellationToken = default
+    );
 
     /// <summary>
     /// Deletes the blob element permanently

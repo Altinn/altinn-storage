@@ -1,5 +1,4 @@
 ﻿using System.Threading.Tasks;
-
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 
@@ -31,5 +30,9 @@ public interface IInstanceEventService
     /// <param name="eventType">The event type</param>
     /// <param name="instance">The instance the event is related to</param>
     /// <param name="dataElement">The data element the event is related to</param>
-    public Task DispatchEvent(InstanceEventType eventType, Instance instance, DataElement dataElement);
+    public Task DispatchEvent(
+        InstanceEventType eventType,
+        Instance instance,
+        DataElement dataElement
+    );
 }

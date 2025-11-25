@@ -4,7 +4,6 @@ using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
@@ -20,29 +19,38 @@ public class DataRepositoryMock : IDataRepository
     public DataRepositoryMock()
     {
         _tempRepository = new();
-        _options = new()
-        {
-            PropertyNameCaseInsensitive = true,
-            WriteIndented = true
-        };
+        _options = new() { PropertyNameCaseInsensitive = true, WriteIndented = true };
     }
 
-    public async Task<DataElement> Create(DataElement dataElement, long instanceInternalId = 0, CancellationToken cancellationToken = default)
+    public async Task<DataElement> Create(
+        DataElement dataElement,
+        long instanceInternalId = 0,
+        CancellationToken cancellationToken = default
+    )
     {
         _tempRepository.Add(dataElement.Id, JsonSerializer.Serialize(dataElement, _options));
         return await Task.FromResult(dataElement);
     }
 
-    public async Task<bool> Delete(DataElement dataElement, CancellationToken cancellationToken = default) =>
-        await Task.FromResult(true);
+    public async Task<bool> Delete(
+        DataElement dataElement,
+        CancellationToken cancellationToken = default
+    ) => await Task.FromResult(true);
 
-    public async Task<DataElement> Read(Guid instanceGuid, Guid dataElementId, CancellationToken cancellationToken = default)
+    public async Task<DataElement> Read(
+        Guid instanceGuid,
+        Guid dataElementId,
+        CancellationToken cancellationToken = default
+    )
     {
         DataElement dataElement = null;
 
         lock (TestDataUtil.DataLock)
         {
-            string elementPath = Path.Combine(GetDataElementsPath(), dataElementId.ToString() + ".json");
+            string elementPath = Path.Combine(
+                GetDataElementsPath(),
+                dataElementId.ToString() + ".json"
+            );
             if (File.Exists(elementPath))
             {
                 string content = File.ReadAllText(elementPath);
@@ -60,7 +68,12 @@ public class DataRepositoryMock : IDataRepository
         return null;
     }
 
-    public async Task<DataElement> Update(Guid instanceGuid, Guid dataElementId, Dictionary<string, object> propertylist, CancellationToken cancellationToken = default)
+    public async Task<DataElement> Update(
+        Guid instanceGuid,
+        Guid dataElementId,
+        Dictionary<string, object> propertylist,
+        CancellationToken cancellationToken = default
+    )
     {
         DataElement dataElement = null;
         if (_tempRepository.TryGetValue(dataElementId.ToString(), out string serializedDataElement))
@@ -74,7 +87,10 @@ public class DataRepositoryMock : IDataRepository
 
         if (dataElement == null)
         {
-            throw new RepositoryException("Data element not found", System.Net.HttpStatusCode.NotFound);
+            throw new RepositoryException(
+                "Data element not found",
+                System.Net.HttpStatusCode.NotFound
+            );
         }
 
         foreach (var entry in propertylist)
@@ -95,12 +111,24 @@ public class DataRepositoryMock : IDataRepository
         return dataElement;
     }
 
-    public Task<bool> DeleteForInstance(string instanceId, CancellationToken cancellationToken = default) =>
-        throw new NotImplementedException();
+    public Task<bool> DeleteForInstance(
+        string instanceId,
+        CancellationToken cancellationToken = default
+    ) => throw new NotImplementedException();
 
     private static string GetDataElementsPath()
     {
-        string unitTestFolder = Path.GetDirectoryName(new Uri(typeof(DataRepositoryMock).Assembly.Location).LocalPath);
-        return Path.Combine(unitTestFolder, "..", "..", "..", "data", "postgresdata", "dataelements");
+        string unitTestFolder = Path.GetDirectoryName(
+            new Uri(typeof(DataRepositoryMock).Assembly.Location).LocalPath
+        );
+        return Path.Combine(
+            unitTestFolder,
+            "..",
+            "..",
+            "..",
+            "data",
+            "postgresdata",
+            "dataelements"
+        );
     }
 }

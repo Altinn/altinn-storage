@@ -16,5 +16,10 @@ public interface ICorrespondenceClient
     /// <param name="eventTimestamp">Timestamp that the event took place in Altinn 3 (UTC Time)</param>
     /// <param name="eventType">Event type</param>
     /// <returns></returns>
-    Task SyncCorrespondenceEvent(int correspondenceId, int partyId, DateTimeOffset eventTimestamp, string eventType);
+    Task SyncCorrespondenceEvent(
+        int correspondenceId,
+        int partyId,
+        DateTimeOffset eventTimestamp,
+        string eventType
+    );
 }

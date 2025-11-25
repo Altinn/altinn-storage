@@ -26,8 +26,8 @@ public class JsonHelper
             {
                 TypeInfoResolver = new DefaultJsonTypeInfoResolver
                 {
-                    Modifiers = { new PropertyModifier(propertiesToSerialize).ModifyTypeInfo }
-                }
+                    Modifiers = { new PropertyModifier(propertiesToSerialize).ModifyTypeInfo },
+                },
             };
 
             return JsonSerializer.Serialize(obj, options);
@@ -42,8 +42,8 @@ public class JsonHelper
         /// Initialize with properties to serialize
         /// </summary>
         /// <param name="propertiesToSerialize">Properties to serialize</param>
-        public PropertyModifier(List<string> propertiesToSerialize)
-            => _propertiesToSerialize = propertiesToSerialize;
+        public PropertyModifier(List<string> propertiesToSerialize) =>
+            _propertiesToSerialize = propertiesToSerialize;
 
         /// <summary>
         /// Callback in system.text.json

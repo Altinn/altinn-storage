@@ -7,16 +7,12 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
-
 using Microsoft.Extensions.Logging;
-
 using Npgsql;
 using NpgsqlTypes;
-
 using static Altinn.Platform.Storage.Repository.JsonHelper;
 
 namespace Altinn.Platform.Storage.Repository;
@@ -26,22 +22,27 @@ namespace Altinn.Platform.Storage.Repository;
 /// </summary>
 public class PgInstanceRepository : IInstanceRepository
 {
-    private const string _readSqlFilteredInitial = "select * from storage.readinstancefromquery_v6 (";
+    private const string _readSqlFilteredInitial =
+        "select * from storage.readinstancefromquery_v6 (";
     private readonly string _deleteSql = "select * from storage.deleteinstance ($1)";
-    private readonly string _insertSql = "call storage.insertinstance_v3 (@_partyid, @_alternateid, @_instance, @_created, @_lastchanged," +
-                                         " @_org, @_appid, @_taskid, @_altinnmainversion, @_confirmed)";
+    private readonly string _insertSql =
+        "call storage.insertinstance_v3 (@_partyid, @_alternateid, @_instance, @_created, @_lastchanged,"
+        + " @_org, @_appid, @_taskid, @_altinnmainversion, @_confirmed)";
 
     /// <summary>
     /// SQL for updating an instance.
     /// </summary>
-    internal static readonly string UpdateSql = "select * from storage.updateinstance_v3 (@_alternateid, @_toplevelsimpleprops, @_datavalues," +
-                                                " @_completeconfirmations, @_presentationtexts, @_status, @_substatus, @_process, @_lastchanged, @_taskid, @_confirmed)";
+    internal static readonly string UpdateSql =
+        "select * from storage.updateinstance_v3 (@_alternateid, @_toplevelsimpleprops, @_datavalues,"
+        + " @_completeconfirmations, @_presentationtexts, @_status, @_substatus, @_process, @_lastchanged, @_taskid, @_confirmed)";
 
     private readonly string _readSql = "select * from storage.readinstance ($1)";
     private readonly string _readSqlFiltered = _readSqlFilteredInitial;
     private readonly string _readDeletedSql = "select * from storage.readdeletedinstances ()";
-    private readonly string _readDeletedElementsSql = "select * from storage.readdeletedelements ()";
-    private readonly string _readSqlNoElements = "select * from storage.readinstancenoelements ($1)";
+    private readonly string _readDeletedElementsSql =
+        "select * from storage.readdeletedelements ()";
+    private readonly string _readSqlNoElements =
+        "select * from storage.readinstancenoelements ($1)";
 
     private readonly ILogger<PgInstanceRepository> _logger;
     private readonly NpgsqlDataSource _dataSource;
@@ -51,9 +52,7 @@ public class PgInstanceRepository : IInstanceRepository
     /// </summary>
     /// <param name="logger">The logger to use when writing to logs.</param>
     /// <param name="dataSource">The npgsql data source.</param>
-    public PgInstanceRepository(
-        ILogger<PgInstanceRepository> logger,
-        NpgsqlDataSource dataSource)
+    public PgInstanceRepository(ILogger<PgInstanceRepository> logger, NpgsqlDataSource dataSource)
     {
         _logger = logger;
         _dataSource = dataSource;
@@ -67,25 +66,57 @@ public class PgInstanceRepository : IInstanceRepository
     }
 
     /// <inheritdoc/>
-    public async Task<Instance> Create(Instance instance, CancellationToken cancellationToken, int altinnMainVersion = 3)
+    public async Task<Instance> Create(
+        Instance instance,
+        CancellationToken cancellationToken,
+        int altinnMainVersion = 3
+    )
     {
         // Remove last decimal digit to make postgres TIMESTAMPTZ equal to json serialized DateTime
-        instance.LastChanged = instance.LastChanged != null ? new DateTime((((DateTime)instance.LastChanged).Ticks / 10) * 10, DateTimeKind.Utc) : null;
+        instance.LastChanged =
+            instance.LastChanged != null
+                ? new DateTime((((DateTime)instance.LastChanged).Ticks / 10) * 10, DateTimeKind.Utc)
+                : null;
 
         instance.Id ??= Guid.NewGuid().ToString();
         ToInternal(instance);
         instance.Data = null;
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
-        pgcom.Parameters.AddWithValue("_partyid", NpgsqlDbType.Bigint, long.Parse(instance.InstanceOwner.PartyId));
+        pgcom.Parameters.AddWithValue(
+            "_partyid",
+            NpgsqlDbType.Bigint,
+            long.Parse(instance.InstanceOwner.PartyId)
+        );
         pgcom.Parameters.AddWithValue("_alternateid", NpgsqlDbType.Uuid, new Guid(instance.Id));
         pgcom.Parameters.AddWithValue("_instance", NpgsqlDbType.Jsonb, instance);
-        pgcom.Parameters.AddWithValue("_created", NpgsqlDbType.TimestampTz, instance.Created ?? DateTime.UtcNow);
-        pgcom.Parameters.AddWithValue("_lastchanged", NpgsqlDbType.TimestampTz, instance.LastChanged ?? DateTime.UtcNow);
+        pgcom.Parameters.AddWithValue(
+            "_created",
+            NpgsqlDbType.TimestampTz,
+            instance.Created ?? DateTime.UtcNow
+        );
+        pgcom.Parameters.AddWithValue(
+            "_lastchanged",
+            NpgsqlDbType.TimestampTz,
+            instance.LastChanged ?? DateTime.UtcNow
+        );
         pgcom.Parameters.AddWithValue("_org", NpgsqlDbType.Text, instance.Org);
         pgcom.Parameters.AddWithValue("_appid", NpgsqlDbType.Text, instance.AppId);
-        pgcom.Parameters.AddWithValue("_taskid", NpgsqlDbType.Text, instance.Process?.CurrentTask?.ElementId ?? (object)DBNull.Value);
-        pgcom.Parameters.AddWithValue("_altinnmainversion", NpgsqlDbType.Integer, altinnMainVersion);
-        pgcom.Parameters.AddWithValue("_confirmed", NpgsqlDbType.Boolean, instance.CompleteConfirmations != null && instance.CompleteConfirmations.Any(c => c.StakeholderId == instance.Org));
+        pgcom.Parameters.AddWithValue(
+            "_taskid",
+            NpgsqlDbType.Text,
+            instance.Process?.CurrentTask?.ElementId ?? (object)DBNull.Value
+        );
+        pgcom.Parameters.AddWithValue(
+            "_altinnmainversion",
+            NpgsqlDbType.Integer,
+            altinnMainVersion
+        );
+        pgcom.Parameters.AddWithValue(
+            "_confirmed",
+            NpgsqlDbType.Boolean,
+            instance.CompleteConfirmations != null
+                && instance.CompleteConfirmations.Any(c => c.StakeholderId == instance.Org)
+        );
 
         await pgcom.ExecuteNonQueryAsync(cancellationToken);
 
@@ -105,7 +136,11 @@ public class PgInstanceRepository : IInstanceRepository
     }
 
     /// <inheritdoc/>
-    public async Task<InstanceQueryResponse> GetInstancesFromQuery(InstanceQueryParameters queryParams, bool includeDataElements, CancellationToken cancellationToken)
+    public async Task<InstanceQueryResponse> GetInstancesFromQuery(
+        InstanceQueryParameters queryParams,
+        bool includeDataElements,
+        CancellationToken cancellationToken
+    )
     {
         try
         {
@@ -114,7 +149,12 @@ public class PgInstanceRepository : IInstanceRepository
         catch (Exception e)
         {
             _logger.LogError(e, "Error running GetInstancesFromQuery");
-            return new() { Count = 0, Instances = [], Exception = e.Message };
+            return new()
+            {
+                Count = 0,
+                Instances = [],
+                Exception = e.Message,
+            };
         }
     }
 
@@ -129,9 +169,19 @@ public class PgInstanceRepository : IInstanceRepository
         {
             while (await reader.ReadAsync(cancellationToken))
             {
-                Instance i = await reader.GetFieldValueAsync<Instance>("instance", cancellationToken);
-                if ((i.CompleteConfirmations != null && i.CompleteConfirmations.Exists(c => c.StakeholderId.ToLower().Equals(i.Org) && c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7)))
-                    || !i.Status.IsArchived)
+                Instance i = await reader.GetFieldValueAsync<Instance>(
+                    "instance",
+                    cancellationToken
+                );
+                if (
+                    (
+                        i.CompleteConfirmations != null
+                        && i.CompleteConfirmations.Exists(c =>
+                            c.StakeholderId.ToLower().Equals(i.Org)
+                            && c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7)
+                        )
+                    ) || !i.Status.IsArchived
+                )
                 {
                     instances.Add(i);
                 }
@@ -142,7 +192,9 @@ public class PgInstanceRepository : IInstanceRepository
     }
 
     /// <inheritdoc/>
-    public async Task<List<DataElement>> GetHardDeletedDataElements(CancellationToken cancellationToken)
+    public async Task<List<DataElement>> GetHardDeletedDataElements(
+        CancellationToken cancellationToken
+    )
     {
         List<DataElement> elements = [];
         try
@@ -158,17 +210,24 @@ public class PgInstanceRepository : IInstanceRepository
                 id = await reader.GetFieldValueAsync<long>("id", cancellationToken);
                 if (id != previousId)
                 {
-                    Instance instance = await reader.GetFieldValueAsync<Instance>("instance", cancellationToken);
+                    Instance instance = await reader.GetFieldValueAsync<Instance>(
+                        "instance",
+                        cancellationToken
+                    );
                     currentInstanceAllowsDelete =
-                        instance.CompleteConfirmations != null &&
-                        instance.CompleteConfirmations.Exists(c => c.StakeholderId.Equals(instance.Org, StringComparison.OrdinalIgnoreCase) &&
-                                                                   c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7));
+                        instance.CompleteConfirmations != null
+                        && instance.CompleteConfirmations.Exists(c =>
+                            c.StakeholderId.Equals(instance.Org, StringComparison.OrdinalIgnoreCase)
+                            && c.ConfirmedOn <= DateTime.UtcNow.AddDays(-7)
+                        );
                     previousId = id;
                 }
 
                 if (currentInstanceAllowsDelete)
                 {
-                    elements.Add(await reader.GetFieldValueAsync<DataElement>("element", cancellationToken));
+                    elements.Add(
+                        await reader.GetFieldValueAsync<DataElement>("element", cancellationToken)
+                    );
                 }
             }
         }
@@ -192,14 +251,21 @@ public class PgInstanceRepository : IInstanceRepository
                 {
                     NpgsqlDbType.Text => $"'{value}'",
                     NpgsqlDbType.Bigint => $"{value}",
-                    NpgsqlDbType.TimestampTz => $"{((DateTime)value != DateTime.MinValue ? "'" + ((DateTime)value).ToString(DateTimeHelper.Iso8601UtcFormat, CultureInfo.InvariantCulture) + "'::timestamptz" : "NULL")}",
+                    NpgsqlDbType.TimestampTz =>
+                        $"{((DateTime)value != DateTime.MinValue ? "'" + ((DateTime)value).ToString(DateTimeHelper.Iso8601UtcFormat, CultureInfo.InvariantCulture) + "'::timestamptz" : "NULL")}",
                     NpgsqlDbType.Integer => $"{value}",
                     NpgsqlDbType.Smallint => $"{value}::smallint",
                     NpgsqlDbType.Boolean => $"{value}",
-                    NpgsqlDbType.Text | NpgsqlDbType.Array => ArrayVariableFromText((string[])value),
-                    NpgsqlDbType.Jsonb | NpgsqlDbType.Array => ArrayVariableFromJsonText((string[])value),
-                    NpgsqlDbType.Integer | NpgsqlDbType.Array => ArrayVariableFromInteger((int?[])value),
-                    _ => throw new NotImplementedException(_paramTypes[name].ToString())
+                    NpgsqlDbType.Text | NpgsqlDbType.Array => ArrayVariableFromText(
+                        (string[])value
+                    ),
+                    NpgsqlDbType.Jsonb | NpgsqlDbType.Array => ArrayVariableFromJsonText(
+                        (string[])value
+                    ),
+                    NpgsqlDbType.Integer | NpgsqlDbType.Array => ArrayVariableFromInteger(
+                        (int?[])value
+                    ),
+                    _ => throw new NotImplementedException(_paramTypes[name].ToString()),
                 };
             }
             else
@@ -264,7 +330,8 @@ public class PgInstanceRepository : IInstanceRepository
     private async Task<InstanceQueryResponse> GetInstancesInternal(
         InstanceQueryParameters queryParams,
         bool includeDataelements,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         DateTime lastChanged = DateTime.MinValue;
         InstanceQueryResponse queryResponse = new() { Count = 0, Instances = [] };
@@ -275,7 +342,10 @@ public class PgInstanceRepository : IInstanceRepository
         postgresParams.Add("_includeElements", includeDataelements);
         foreach (string name in _paramTypes.Keys)
         {
-            pgcom.Parameters.AddWithValue(_paramTypes[name], postgresParams.TryGetValue(name, out object value) ? value : DBNull.Value);
+            pgcom.Parameters.AddWithValue(
+                _paramTypes[name],
+                postgresParams.TryGetValue(name, out object value) ? value : DBNull.Value
+            );
         }
 
         if (_logger.IsEnabled(LogLevel.Debug))
@@ -300,7 +370,10 @@ public class PgInstanceRepository : IInstanceRepository
                         ToExternal(instance);
                     }
 
-                    instance = await reader.GetFieldValueAsync<Instance>("instance", cancellationToken);
+                    instance = await reader.GetFieldValueAsync<Instance>(
+                        "instance",
+                        cancellationToken
+                    );
                     lastChanged = instance.LastChanged ?? DateTime.MinValue;
                     queryResponse.Instances.Add(instance);
                     instance.Data = [];
@@ -309,7 +382,9 @@ public class PgInstanceRepository : IInstanceRepository
 
                 if (!await reader.IsDBNullAsync("element", cancellationToken))
                 {
-                    instance.Data.Add(await reader.GetFieldValueAsync<DataElement>("element", cancellationToken));
+                    instance.Data.Add(
+                        await reader.GetFieldValueAsync<DataElement>("element", cancellationToken)
+                    );
                 }
             }
 
@@ -318,7 +393,10 @@ public class PgInstanceRepository : IInstanceRepository
                 ToExternal(instance);
             }
 
-            queryResponse.ContinuationToken = queryResponse.Instances.Count == queryParams.Size ? $"{lastChanged.Ticks};{id}" : null;
+            queryResponse.ContinuationToken =
+                queryResponse.Instances.Count == queryParams.Size
+                    ? $"{lastChanged.Ticks};{id}"
+                    : null;
         }
 
         queryResponse.Count = queryResponse.Instances.Count;
@@ -328,13 +406,19 @@ public class PgInstanceRepository : IInstanceRepository
     }
 
     /// <inheritdoc/>
-    public async Task<(Instance Instance, long InternalId)> GetOne(Guid instanceGuid, bool includeElements, CancellationToken cancellationToken)
+    public async Task<(Instance Instance, long InternalId)> GetOne(
+        Guid instanceGuid,
+        bool includeElements,
+        CancellationToken cancellationToken
+    )
     {
         Instance instance = null;
         List<DataElement> instanceData = [];
         long instanceInternalId = 0;
 
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(includeElements ? _readSql : _readSqlNoElements);
+        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(
+            includeElements ? _readSql : _readSqlNoElements
+        );
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
 
         await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken))
@@ -345,13 +429,21 @@ public class PgInstanceRepository : IInstanceRepository
                 if (!instanceCreated)
                 {
                     instanceCreated = true;
-                    instance = await reader.GetFieldValueAsync<Instance>("instance", cancellationToken);
-                    instanceInternalId = await reader.GetFieldValueAsync<long>("id", cancellationToken);
+                    instance = await reader.GetFieldValueAsync<Instance>(
+                        "instance",
+                        cancellationToken
+                    );
+                    instanceInternalId = await reader.GetFieldValueAsync<long>(
+                        "id",
+                        cancellationToken
+                    );
                 }
 
                 if (includeElements && !await reader.IsDBNullAsync("element", cancellationToken))
                 {
-                    instanceData.Add(await reader.GetFieldValueAsync<DataElement>("element", cancellationToken));
+                    instanceData.Add(
+                        await reader.GetFieldValueAsync<DataElement>("element", cancellationToken)
+                    );
                 }
             }
 
@@ -369,10 +461,17 @@ public class PgInstanceRepository : IInstanceRepository
     }
 
     /// <inheritdoc/>
-    public async Task<Instance> Update(Instance instance, List<string> updateProperties, CancellationToken cancellationToken)
+    public async Task<Instance> Update(
+        Instance instance,
+        List<string> updateProperties,
+        CancellationToken cancellationToken
+    )
     {
         // Remove last decimal digit to make postgres TIMESTAMPTZ equal to json serialized DateTime
-        instance.LastChanged = instance.LastChanged != null ? new DateTime((((DateTime)instance.LastChanged).Ticks / 10) * 10, DateTimeKind.Utc) : null;
+        instance.LastChanged =
+            instance.LastChanged != null
+                ? new DateTime((((DateTime)instance.LastChanged).Ticks / 10) * 10, DateTimeKind.Utc)
+                : null;
         List<DataElement> dataElements = instance.Data;
 
         ToInternal(instance);
@@ -383,7 +482,10 @@ public class PgInstanceRepository : IInstanceRepository
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
         if (await reader.ReadAsync(cancellationToken))
         {
-            instance = await reader.GetFieldValueAsync<Instance>("updatedInstance", cancellationToken);
+            instance = await reader.GetFieldValueAsync<Instance>(
+                "updatedInstance",
+                cancellationToken
+            );
         }
 
         instance.Data = dataElements;
@@ -396,19 +498,76 @@ public class PgInstanceRepository : IInstanceRepository
     /// <param name="instance">Instance</param>
     /// <param name="updateProperties">Updated props</param>
     /// <param name="parameters">Parameters</param>
-    internal static void BuildUpdateCommand(Instance instance, List<string> updateProperties, NpgsqlParameterCollection parameters)
+    internal static void BuildUpdateCommand(
+        Instance instance,
+        List<string> updateProperties,
+        NpgsqlParameterCollection parameters
+    )
     {
         parameters.AddWithValue("_alternateid", NpgsqlDbType.Uuid, new Guid(instance.Id));
-        parameters.AddWithValue("_toplevelsimpleprops", NpgsqlDbType.Jsonb, CustomSerializer.Serialize(instance, updateProperties));
-        parameters.AddWithValue("_datavalues", NpgsqlDbType.Jsonb, updateProperties.Contains(nameof(instance.DataValues)) ? instance.DataValues : DBNull.Value);
-        parameters.AddWithValue("_completeconfirmations", NpgsqlDbType.Jsonb, updateProperties.Contains(nameof(instance.CompleteConfirmations)) ? instance.CompleteConfirmations : DBNull.Value);
-        parameters.AddWithValue("_presentationtexts", NpgsqlDbType.Jsonb, updateProperties.Contains(nameof(instance.PresentationTexts)) ? instance.PresentationTexts : DBNull.Value);
-        parameters.AddWithValue("_status", NpgsqlDbType.Jsonb, updateProperties.Contains(nameof(instance.Status)) ? CustomSerializer.Serialize(instance.Status, updateProperties) : DBNull.Value);
-        parameters.AddWithValue("_substatus", NpgsqlDbType.Jsonb, updateProperties.Contains(nameof(instance.Status.Substatus)) ? instance.Status.Substatus : DBNull.Value);
-        parameters.AddWithValue("_process", NpgsqlDbType.Jsonb, updateProperties.Contains(nameof(instance.Process)) ? instance.Process : DBNull.Value);
-        parameters.AddWithValue("_lastchanged", NpgsqlDbType.TimestampTz, instance.LastChanged ?? DateTime.UtcNow);
-        parameters.AddWithValue("_taskid", NpgsqlDbType.Text, instance.Process?.CurrentTask?.ElementId ?? (object)DBNull.Value);
-        parameters.AddWithValue("_confirmed", NpgsqlDbType.Boolean, instance.CompleteConfirmations != null && instance.CompleteConfirmations.Any(c => c.StakeholderId == instance.Org) ? true : DBNull.Value);
+        parameters.AddWithValue(
+            "_toplevelsimpleprops",
+            NpgsqlDbType.Jsonb,
+            CustomSerializer.Serialize(instance, updateProperties)
+        );
+        parameters.AddWithValue(
+            "_datavalues",
+            NpgsqlDbType.Jsonb,
+            updateProperties.Contains(nameof(instance.DataValues))
+                ? instance.DataValues
+                : DBNull.Value
+        );
+        parameters.AddWithValue(
+            "_completeconfirmations",
+            NpgsqlDbType.Jsonb,
+            updateProperties.Contains(nameof(instance.CompleteConfirmations))
+                ? instance.CompleteConfirmations
+                : DBNull.Value
+        );
+        parameters.AddWithValue(
+            "_presentationtexts",
+            NpgsqlDbType.Jsonb,
+            updateProperties.Contains(nameof(instance.PresentationTexts))
+                ? instance.PresentationTexts
+                : DBNull.Value
+        );
+        parameters.AddWithValue(
+            "_status",
+            NpgsqlDbType.Jsonb,
+            updateProperties.Contains(nameof(instance.Status))
+                ? CustomSerializer.Serialize(instance.Status, updateProperties)
+                : DBNull.Value
+        );
+        parameters.AddWithValue(
+            "_substatus",
+            NpgsqlDbType.Jsonb,
+            updateProperties.Contains(nameof(instance.Status.Substatus))
+                ? instance.Status.Substatus
+                : DBNull.Value
+        );
+        parameters.AddWithValue(
+            "_process",
+            NpgsqlDbType.Jsonb,
+            updateProperties.Contains(nameof(instance.Process)) ? instance.Process : DBNull.Value
+        );
+        parameters.AddWithValue(
+            "_lastchanged",
+            NpgsqlDbType.TimestampTz,
+            instance.LastChanged ?? DateTime.UtcNow
+        );
+        parameters.AddWithValue(
+            "_taskid",
+            NpgsqlDbType.Text,
+            instance.Process?.CurrentTask?.ElementId ?? (object)DBNull.Value
+        );
+        parameters.AddWithValue(
+            "_confirmed",
+            NpgsqlDbType.Boolean,
+            instance.CompleteConfirmations != null
+            && instance.CompleteConfirmations.Any(c => c.StakeholderId == instance.Org)
+                ? true
+                : DBNull.Value
+        );
     }
 
     /// <summary>

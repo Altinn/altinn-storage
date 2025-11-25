@@ -18,5 +18,10 @@ public interface ISigningService
     /// <param name="signRequest">Sign request containing data element ids and sign status</param>
     /// <param name="performedBy">User id or org no for the authenticated user</param>
     /// <param name="cancellationToken">CancellationToken</param>
-    Task<(bool Created, ServiceError ServiceError)> CreateSignDocument(Guid instanceGuid, SignRequest signRequest, string performedBy, CancellationToken cancellationToken);
+    Task<(bool Created, ServiceError ServiceError)> CreateSignDocument(
+        Guid instanceGuid,
+        SignRequest signRequest,
+        string performedBy,
+        CancellationToken cancellationToken
+    );
 }

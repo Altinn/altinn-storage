@@ -174,7 +174,14 @@ public class A2FormServerXslFunction
                 continue;
             }
 
-            if (double.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture.NumberFormat, out double currentValue))
+            if (
+                double.TryParse(
+                    str,
+                    NumberStyles.Any,
+                    CultureInfo.InvariantCulture.NumberFormat,
+                    out double currentValue
+                )
+            )
             {
                 sum += currentValue;
                 count++;
@@ -238,7 +245,16 @@ public class A2FormServerXslFunction
                 CodeListBE codelist;
                 if (wsParams.Length > 3)
                 {
-                    codelist = GetFilteredCodeList(wsParams[0], int.Parse(wsParams[1]), int.Parse(wsParams[2]), wsParams[3], wsParams[4], wsParams[5], wsParams[6], (FilterMatchType)Enum.Parse(typeof(FilterMatchType), wsParams[7]));
+                    codelist = GetFilteredCodeList(
+                        wsParams[0],
+                        int.Parse(wsParams[1]),
+                        int.Parse(wsParams[2]),
+                        wsParams[3],
+                        wsParams[4],
+                        wsParams[5],
+                        wsParams[6],
+                        (FilterMatchType)Enum.Parse(typeof(FilterMatchType), wsParams[7])
+                    );
                     foreach (CodeRowBE row in codelist.CodeListRows)
                     {
                         xml.AppendFormat(
@@ -246,12 +262,17 @@ public class A2FormServerXslFunction
                             EscapeXmlEntities(row.Code),
                             EscapeXmlEntities(row.Value1),
                             EscapeXmlEntities(row.Value2),
-                            EscapeXmlEntities(row.Value3));
+                            EscapeXmlEntities(row.Value3)
+                        );
                     }
                 }
                 else
                 {
-                    codelist = GetCodeList(wsParams[0], int.Parse(wsParams[1]), int.Parse(wsParams[2]));
+                    codelist = GetCodeList(
+                        wsParams[0],
+                        int.Parse(wsParams[1]),
+                        int.Parse(wsParams[2])
+                    );
                     if (codelist != null && codelist.CodeListRows != null)
                     {
                         foreach (CodeRowBE row in codelist.CodeListRows)
@@ -261,7 +282,8 @@ public class A2FormServerXslFunction
                                 EscapeXmlEntities(row.Code),
                                 EscapeXmlEntities(row.Value1),
                                 EscapeXmlEntities(row.Value2),
-                                EscapeXmlEntities(row.Value3));
+                                EscapeXmlEntities(row.Value3)
+                            );
                         }
                     }
                 }
@@ -293,7 +315,11 @@ public class A2FormServerXslFunction
         return xdoc;
     }
 
-    [SuppressMessage("Microsoft.StyleCop.CSharp.MaintainabilityRules", "SA1408:ConditionalExpressionsMustDeclarePrecedence", Justification = "Old code")]
+    [SuppressMessage(
+        "Microsoft.StyleCop.CSharp.MaintainabilityRules",
+        "SA1408:ConditionalExpressionsMustDeclarePrecedence",
+        Justification = "Old code"
+    )]
     private CodeListBE GetFilteredCodeList(
         string codeListName,
         int codeListVersion,
@@ -302,7 +328,8 @@ public class A2FormServerXslFunction
         string value1Filter,
         string value2Filter,
         string value3Filter,
-        FilterMatchType filterMatchType)
+        FilterMatchType filterMatchType
+    )
     {
         CodeListBE codeList = GetCodeListInternal(codeListName, codeListVersion, languageID);
 
@@ -311,41 +338,109 @@ public class A2FormServerXslFunction
 
         if (codeList != null && codeList.CodeListRows != null && codeList.CodeListRows.Count > 0)
         {
-            if ((!string.IsNullOrEmpty(code) || !string.IsNullOrEmpty(value1Filter) || !string.IsNullOrEmpty(value2Filter)
-                 || !string.IsNullOrEmpty(value3Filter)) && filterMatchType != FilterMatchType.DEFAULT)
+            if (
+                (
+                    !string.IsNullOrEmpty(code)
+                    || !string.IsNullOrEmpty(value1Filter)
+                    || !string.IsNullOrEmpty(value2Filter)
+                    || !string.IsNullOrEmpty(value3Filter)
+                )
+                && filterMatchType != FilterMatchType.DEFAULT
+            )
             {
-                List<CodeRowBE> codeListRows =
-                    codeList.CodeListRows.Where(
-                        codeListRow =>
-                            (!string.IsNullOrEmpty(code) && codeListRow.Code.ToLower() == code.ToLower() || string.IsNullOrEmpty(code))
-                            && (filterMatchType == FilterMatchType.EXACT
-                                && (!string.IsNullOrEmpty(value1Filter) && codeListRow.Value1.ToLower() == value1Filter.ToLower()
-                                    || string.IsNullOrEmpty(value1Filter))
-                                && (!string.IsNullOrEmpty(value2Filter) && codeListRow.Value2.ToLower() == value2Filter.ToLower()
-                                    || string.IsNullOrEmpty(value2Filter))
-                                && (!string.IsNullOrEmpty(value3Filter) && codeListRow.Value3.ToLower() == value3Filter.ToLower()
-                                    || string.IsNullOrEmpty(value3Filter))
-                                || filterMatchType == FilterMatchType.STARTSWITH
-                                && (!string.IsNullOrEmpty(value1Filter) && codeListRow.Value1.ToLower().StartsWith(value1Filter.ToLower())
-                                    || string.IsNullOrEmpty(value1Filter))
-                                && (!string.IsNullOrEmpty(value2Filter) && codeListRow.Value2.ToLower().StartsWith(value2Filter.ToLower())
-                                    || string.IsNullOrEmpty(value2Filter))
-                                && (!string.IsNullOrEmpty(value3Filter) && codeListRow.Value3.ToLower().StartsWith(value3Filter.ToLower())
-                                    || string.IsNullOrEmpty(value3Filter))
-                                || filterMatchType == FilterMatchType.ENDSWITH
-                                && (!string.IsNullOrEmpty(value1Filter) && codeListRow.Value1.ToLower().EndsWith(value1Filter.ToLower())
-                                    || string.IsNullOrEmpty(value1Filter))
-                                && (!string.IsNullOrEmpty(value2Filter) && codeListRow.Value2.ToLower().EndsWith(value2Filter.ToLower())
-                                    || string.IsNullOrEmpty(value2Filter))
-                                && (!string.IsNullOrEmpty(value3Filter) && codeListRow.Value3.ToLower().EndsWith(value3Filter.ToLower())
-                                    || string.IsNullOrEmpty(value3Filter))
-                                || filterMatchType == FilterMatchType.CONTAINS
-                                && (!string.IsNullOrEmpty(value1Filter) && codeListRow.Value1.ToLower().Contains(value1Filter.ToLower())
-                                    || string.IsNullOrEmpty(value1Filter))
-                                && (!string.IsNullOrEmpty(value2Filter) && codeListRow.Value2.ToLower().Contains(value2Filter.ToLower())
-                                    || string.IsNullOrEmpty(value2Filter))
-                                && (!string.IsNullOrEmpty(value3Filter) && codeListRow.Value3.ToLower().Contains(value3Filter.ToLower())
-                                    || string.IsNullOrEmpty(value3Filter)))).ToList();
+                List<CodeRowBE> codeListRows = codeList
+                    .CodeListRows.Where(codeListRow =>
+                        (
+                            !string.IsNullOrEmpty(code)
+                                && codeListRow.Code.ToLower() == code.ToLower()
+                            || string.IsNullOrEmpty(code)
+                        )
+                        && (
+                            filterMatchType == FilterMatchType.EXACT
+                                && (
+                                    !string.IsNullOrEmpty(value1Filter)
+                                        && codeListRow.Value1.ToLower() == value1Filter.ToLower()
+                                    || string.IsNullOrEmpty(value1Filter)
+                                )
+                                && (
+                                    !string.IsNullOrEmpty(value2Filter)
+                                        && codeListRow.Value2.ToLower() == value2Filter.ToLower()
+                                    || string.IsNullOrEmpty(value2Filter)
+                                )
+                                && (
+                                    !string.IsNullOrEmpty(value3Filter)
+                                        && codeListRow.Value3.ToLower() == value3Filter.ToLower()
+                                    || string.IsNullOrEmpty(value3Filter)
+                                )
+                            || filterMatchType == FilterMatchType.STARTSWITH
+                                && (
+                                    !string.IsNullOrEmpty(value1Filter)
+                                        && codeListRow
+                                            .Value1.ToLower()
+                                            .StartsWith(value1Filter.ToLower())
+                                    || string.IsNullOrEmpty(value1Filter)
+                                )
+                                && (
+                                    !string.IsNullOrEmpty(value2Filter)
+                                        && codeListRow
+                                            .Value2.ToLower()
+                                            .StartsWith(value2Filter.ToLower())
+                                    || string.IsNullOrEmpty(value2Filter)
+                                )
+                                && (
+                                    !string.IsNullOrEmpty(value3Filter)
+                                        && codeListRow
+                                            .Value3.ToLower()
+                                            .StartsWith(value3Filter.ToLower())
+                                    || string.IsNullOrEmpty(value3Filter)
+                                )
+                            || filterMatchType == FilterMatchType.ENDSWITH
+                                && (
+                                    !string.IsNullOrEmpty(value1Filter)
+                                        && codeListRow
+                                            .Value1.ToLower()
+                                            .EndsWith(value1Filter.ToLower())
+                                    || string.IsNullOrEmpty(value1Filter)
+                                )
+                                && (
+                                    !string.IsNullOrEmpty(value2Filter)
+                                        && codeListRow
+                                            .Value2.ToLower()
+                                            .EndsWith(value2Filter.ToLower())
+                                    || string.IsNullOrEmpty(value2Filter)
+                                )
+                                && (
+                                    !string.IsNullOrEmpty(value3Filter)
+                                        && codeListRow
+                                            .Value3.ToLower()
+                                            .EndsWith(value3Filter.ToLower())
+                                    || string.IsNullOrEmpty(value3Filter)
+                                )
+                            || filterMatchType == FilterMatchType.CONTAINS
+                                && (
+                                    !string.IsNullOrEmpty(value1Filter)
+                                        && codeListRow
+                                            .Value1.ToLower()
+                                            .Contains(value1Filter.ToLower())
+                                    || string.IsNullOrEmpty(value1Filter)
+                                )
+                                && (
+                                    !string.IsNullOrEmpty(value2Filter)
+                                        && codeListRow
+                                            .Value2.ToLower()
+                                            .Contains(value2Filter.ToLower())
+                                    || string.IsNullOrEmpty(value2Filter)
+                                )
+                                && (
+                                    !string.IsNullOrEmpty(value3Filter)
+                                        && codeListRow
+                                            .Value3.ToLower()
+                                            .Contains(value3Filter.ToLower())
+                                    || string.IsNullOrEmpty(value3Filter)
+                                )
+                        )
+                    )
+                    .ToList();
 
                 foreach (CodeRowBE codeListRow in codeListRows)
                 {
@@ -373,7 +468,16 @@ public class A2FormServerXslFunction
 
     private CodeListBE GetCodeList(string codeListName, int codeListVersion, int languageID)
     {
-        return GetFilteredCodeList(codeListName, codeListVersion, languageID, null, null, null, null, FilterMatchType.EXACT);
+        return GetFilteredCodeList(
+            codeListName,
+            codeListVersion,
+            languageID,
+            null,
+            null,
+            null,
+            null,
+            FilterMatchType.EXACT
+        );
     }
 
     private CodeListBE GetCodeListInternal(string codeListName, int codeListVersion, int language)
@@ -385,7 +489,7 @@ public class A2FormServerXslFunction
             {
                 CodeListName = codeListName,
                 CodeListVersion = codeListVersion,
-                LanguageTypeID = language
+                LanguageTypeID = language,
             };
 
             string codeListContent = GetCodeListXml(codeListName, language);
@@ -466,8 +570,14 @@ public class A2FormServerXslFunction
     {
         _map =
         [
-            new Map('c', @"\p{_xmlC}"), new Map('C', @"\P{_xmlC}"), new Map('d', @"\p{_xmlD}"), new Map('D', @"\P{_xmlD}"),
-            new Map('i', @"\p{_xmlI}"), new Map('I', @"\P{_xmlI}"), new Map('w', @"\p{_xmlW}"), new Map('W', @"\P{_xmlW}")
+            new Map('c', @"\p{_xmlC}"),
+            new Map('C', @"\P{_xmlC}"),
+            new Map('d', @"\p{_xmlD}"),
+            new Map('D', @"\P{_xmlD}"),
+            new Map('i', @"\p{_xmlI}"),
+            new Map('I', @"\P{_xmlI}"),
+            new Map('w', @"\p{_xmlW}"),
+            new Map('W', @"\P{_xmlW}"),
         ];
 
         bool isMatch = Regex.IsMatch(value, Preprocess(pattern), RegexOptions.None);
@@ -500,7 +610,14 @@ public class A2FormServerXslFunction
                 continue;
             }
 
-            if (double.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture.NumberFormat, out double currentValue))
+            if (
+                double.TryParse(
+                    str,
+                    NumberStyles.Any,
+                    CultureInfo.InvariantCulture.NumberFormat,
+                    out double currentValue
+                )
+            )
             {
                 if (currentValue > maxValue)
                 {
@@ -554,7 +671,14 @@ public class A2FormServerXslFunction
                 continue;
             }
 
-            if (double.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture.NumberFormat, out double currentValue))
+            if (
+                double.TryParse(
+                    str,
+                    NumberStyles.Any,
+                    CultureInfo.InvariantCulture.NumberFormat,
+                    out double currentValue
+                )
+            )
             {
                 if (currentValue < minValue)
                 {
@@ -641,7 +765,11 @@ public class A2FormServerXslFunction
     /// <returns>
     /// Formatted string
     /// </returns>
-    [SuppressMessage("StyleCop.CSharp.NamingRules", "SA1300:Element should begin with upper-case letter", Justification = "Must match infopath callback name")]
+    [SuppressMessage(
+        "StyleCop.CSharp.NamingRules",
+        "SA1300:Element should begin with upper-case letter",
+        Justification = "Must match infopath callback name"
+    )]
     public string formatString(string str, string type, string format)
     {
         try
@@ -691,10 +819,16 @@ public class A2FormServerXslFunction
                             dateStr = date.ToLongDateString();
                             break;
                         case "Year Month":
-                            dateStr = DateTimeFormatInfo.CurrentInfo.MonthNames[date.Month - 1] + " " + date.Year;
+                            dateStr =
+                                DateTimeFormatInfo.CurrentInfo.MonthNames[date.Month - 1]
+                                + " "
+                                + date.Year;
                             break;
                         case "none":
-                            if (formatParams.ContainsKey("noSeconds") && formatParams["noSeconds"].Equals("1"))
+                            if (
+                                formatParams.ContainsKey("noSeconds")
+                                && formatParams["noSeconds"].Equals("1")
+                            )
                             {
                                 timeStr = date.ToShortTimeString();
                             }
@@ -718,7 +852,10 @@ public class A2FormServerXslFunction
                                 break;
                             default:
                                 int locale = int.Parse(formatParams["locale"].ToString());
-                                if (formatParams.ContainsKey("noSeconds") && formatParams["noSeconds"].Equals("1"))
+                                if (
+                                    formatParams.ContainsKey("noSeconds")
+                                    && formatParams["noSeconds"].Equals("1")
+                                )
                                 {
                                     formatString = formatString.Replace(":ss", string.Empty);
                                 }
@@ -734,13 +871,19 @@ public class A2FormServerXslFunction
                 case "currency":
                 case "number":
                 case "percentage":
-                    NumberFormatInfo numinfo = new CultureInfo(Thread.CurrentThread.CurrentCulture.LCID).NumberFormat;
+                    NumberFormatInfo numinfo = new CultureInfo(
+                        Thread.CurrentThread.CurrentCulture.LCID
+                    ).NumberFormat;
                     if (formatParams.ContainsKey("currencyLocale"))
                     {
-                        numinfo = new CultureInfo(int.Parse(formatParams["currencyLocale"].ToString())).NumberFormat;
+                        numinfo = new CultureInfo(
+                            int.Parse(formatParams["currencyLocale"].ToString())
+                        ).NumberFormat;
                     }
 
-                    if (formatParams.ContainsKey("grouping") && formatParams["grouping"].Equals("0"))
+                    if (
+                        formatParams.ContainsKey("grouping") && formatParams["grouping"].Equals("0")
+                    )
                     {
                         numinfo.CurrencyGroupSeparator = string.Empty;
                         numinfo.NumberGroupSeparator = string.Empty;
@@ -757,7 +900,8 @@ public class A2FormServerXslFunction
                     {
                         if (formatParams["numDigits"].Equals("auto"))
                         {
-                            numinfo.NumberDecimalDigits = str.IndexOf('.') > 0 ? str[(str.IndexOf('.') + 1)..].Length : 0;
+                            numinfo.NumberDecimalDigits =
+                                str.IndexOf('.') > 0 ? str[(str.IndexOf('.') + 1)..].Length : 0;
                         }
                         else
                         {
@@ -773,15 +917,21 @@ public class A2FormServerXslFunction
                     {
                         if (type.Equals("currency"))
                         {
-                            numinfo.CurrencyNegativePattern = int.Parse(formatParams["negativeOrder"].ToString());
+                            numinfo.CurrencyNegativePattern = int.Parse(
+                                formatParams["negativeOrder"].ToString()
+                            );
                             if (formatParams.ContainsKey("positiveOrder"))
                             {
-                                numinfo.CurrencyPositivePattern = int.Parse(formatParams["positiveOrder"].ToString());
+                                numinfo.CurrencyPositivePattern = int.Parse(
+                                    formatParams["positiveOrder"].ToString()
+                                );
                             }
                         }
                         else
                         {
-                            numinfo.NumberNegativePattern = int.Parse(formatParams["negativeOrder"].ToString());
+                            numinfo.NumberNegativePattern = int.Parse(
+                                formatParams["negativeOrder"].ToString()
+                            );
                         }
                     }
 
@@ -913,15 +1063,34 @@ public class A2FormServerXslFunction
     /// <returns>
     /// True if date calculated
     /// </returns>
-    private static bool DateCalculationHelper(string absolute, string increment, bool seconds, out string output)
+    private static bool DateCalculationHelper(
+        string absolute,
+        string increment,
+        bool seconds,
+        out string output
+    )
     {
         int num;
         output = null;
-        if (DateTime.TryParse(absolute, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime time))
+        if (
+            DateTime.TryParse(
+                absolute,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out DateTime time
+            )
+        )
         {
             if (increment.Length != 0)
             {
-                if (!int.TryParse(increment, NumberStyles.Integer, CultureInfo.InvariantCulture, out num))
+                if (
+                    !int.TryParse(
+                        increment,
+                        NumberStyles.Integer,
+                        CultureInfo.InvariantCulture,
+                        out num
+                    )
+                )
                 {
                     return false;
                 }
@@ -954,7 +1123,11 @@ public class A2FormServerXslFunction
             return str;
         }
 
-        return str.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;").Replace("'", "&apos;");
+        return str.Replace("&", "&amp;")
+            .Replace("<", "&lt;")
+            .Replace(">", "&gt;")
+            .Replace("\"", "&quot;")
+            .Replace("'", "&apos;");
     }
 
     #endregion
@@ -996,7 +1169,10 @@ public class A2FormServerXslFunction
 /// CodeListBE
 /// </summary>
 [Serializable]
-[DataContract(Name = "CodeList", Namespace = "http://schemas.altinn.no/services/ServiceEngine/ServiceMetaData/2009/10")]
+[DataContract(
+    Name = "CodeList",
+    Namespace = "http://schemas.altinn.no/services/ServiceEngine/ServiceMetaData/2009/10"
+)]
 public class CodeListBE
 {
     #region Data contract members
@@ -1038,16 +1214,19 @@ public class CodeListBE
 /// Collection of CodeListBE
 /// </summary>
 [Serializable]
-[CollectionDataContract(Namespace = "http://schemas.altinn.no/services/ServiceEngine/ServiceMetaData/2009/10")]
-public class CodeListBEList : List<CodeListBE>
-{
-}
+[CollectionDataContract(
+    Namespace = "http://schemas.altinn.no/services/ServiceEngine/ServiceMetaData/2009/10"
+)]
+public class CodeListBEList : List<CodeListBE> { }
 
 /// <summary>
 /// CodeRowBE
 /// </summary>
 [Serializable]
-[DataContract(Name = "CodeListRow", Namespace = "http://schemas.altinn.no/services/ServiceEngine/ServiceMetaData/2009/10")]
+[DataContract(
+    Name = "CodeListRow",
+    Namespace = "http://schemas.altinn.no/services/ServiceEngine/ServiceMetaData/2009/10"
+)]
 public class CodeRowBE
 {
     #region Data contract members
@@ -1083,15 +1262,18 @@ public class CodeRowBE
 /// Collection of CodeRowBE
 /// </summary>
 [Serializable]
-[CollectionDataContract(Namespace = "http://schemas.altinn.no/services/ServiceEngine/ServiceMetaData/2009/10")]
-public class CodeRowBEList : List<CodeRowBE>
-{
-}
+[CollectionDataContract(
+    Namespace = "http://schemas.altinn.no/services/ServiceEngine/ServiceMetaData/2009/10"
+)]
+public class CodeRowBEList : List<CodeRowBE> { }
 
 /// <summary>
 /// FilterMatchType
 /// </summary>
-[DataContract(Name = "FilterMatchType", Namespace = "http://schemas.altinn.no/serviceengine/formsengine/2009/10")]
+[DataContract(
+    Name = "FilterMatchType",
+    Namespace = "http://schemas.altinn.no/serviceengine/formsengine/2009/10"
+)]
 public enum FilterMatchType : int
 {
     /// <summary>
@@ -1122,5 +1304,5 @@ public enum FilterMatchType : int
     /// The PSAN form
     /// </summary>
     [EnumMember]
-    CONTAINS = 4
+    CONTAINS = 4,
 }

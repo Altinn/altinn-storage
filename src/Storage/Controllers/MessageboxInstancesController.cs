@@ -8,7 +8,6 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
@@ -55,7 +54,8 @@ public class MessageBoxInstancesController : ControllerBase
         IApplicationRepository applicationRepository,
         IAuthorization authorizationService,
         IApplicationService applicationService,
-        ILogger<MessageBoxInstancesController> logger)
+        ILogger<MessageBoxInstancesController> logger
+    )
     {
         _instanceRepository = instanceRepository;
         _instanceEventRepository = instanceEventRepository;
@@ -74,16 +74,26 @@ public class MessageBoxInstancesController : ControllerBase
     /// <returns>List of messagebox instances</returns>
     [Authorize]
     [HttpPost("search")]
-    public async Task<ActionResult> SearchMessageBoxInstances([FromBody] MessageBoxQueryModel queryModel, CancellationToken cancellationToken)
+    public async Task<ActionResult> SearchMessageBoxInstances(
+        [FromBody] MessageBoxQueryModel queryModel,
+        CancellationToken cancellationToken
+    )
     {
         if (!string.IsNullOrEmpty(queryModel.ArchiveReference))
         {
-            if ((queryModel.IncludeActive == queryModel.IncludeArchived) && (queryModel.IncludeActive == queryModel.IncludeDeleted))
+            if (
+                (queryModel.IncludeActive == queryModel.IncludeArchived)
+                && (queryModel.IncludeActive == queryModel.IncludeDeleted)
+            )
             {
                 queryModel.IncludeDeleted = true;
                 queryModel.IncludeArchived = true;
             }
-            else if (queryModel.IncludeActive && !queryModel.IncludeArchived && !queryModel.IncludeDeleted)
+            else if (
+                queryModel.IncludeActive
+                && !queryModel.IncludeArchived
+                && !queryModel.IncludeDeleted
+            )
             {
                 return Ok(new List<MessageBoxInstance>());
             }
@@ -94,7 +104,12 @@ public class MessageBoxInstancesController : ControllerBase
         try
         {
             InstanceQueryParameters queryParams = GetQueryParams(queryModel);
-            GetStatusFromQueryParams(queryModel.IncludeActive, queryModel.IncludeArchived, queryModel.IncludeDeleted, queryParams);
+            GetStatusFromQueryParams(
+                queryModel.IncludeActive,
+                queryModel.IncludeArchived,
+                queryModel.IncludeDeleted,
+                queryParams
+            );
             queryParams.Size = 5000;
             queryParams.IsHardDeleted = false;
             queryParams.SortBy = "desc:lastChanged";
@@ -104,16 +119,27 @@ public class MessageBoxInstancesController : ControllerBase
                 queryParams.AppIds = await MatchStringToAppTitle(queryModel.SearchString);
             }
 
-            InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesFromQuery(queryParams, false, cancellationToken);
+            InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesFromQuery(
+                queryParams,
+                false,
+                cancellationToken
+            );
 
             AddQueryModelToTelemetry(queryModel);
 
             if (queryResponse?.Exception != null)
             {
-                return StatusCode(cancellationToken.IsCancellationRequested ? 499 : 500, queryResponse.Exception);
+                return StatusCode(
+                    cancellationToken.IsCancellationRequested ? 499 : 500,
+                    queryResponse.Exception
+                );
             }
 
-            return await ProcessQueryResponse(queryResponse, queryModel.Language, cancellationToken);
+            return await ProcessQueryResponse(
+                queryResponse,
+                queryModel.Language,
+                cancellationToken
+            );
         }
         catch (Exception e)
         {
@@ -123,7 +149,10 @@ public class MessageBoxInstancesController : ControllerBase
             }
 
             _logger.LogError(e, "Unable to perform query on instances");
-            return StatusCode(cancellationToken.IsCancellationRequested ? 499 : 500, $"Unable to perform query on instances due to: {e.Message}");
+            return StatusCode(
+                cancellationToken.IsCancellationRequested ? 499 : 500,
+                $"Unable to perform query on instances due to: {e.Message}"
+            );
         }
     }
 
@@ -141,7 +170,8 @@ public class MessageBoxInstancesController : ControllerBase
         int instanceOwnerPartyId,
         Guid instanceGuid,
         [FromQuery] string? language,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         string[] acceptedLanguages = { "en", "nb", "nn" };
         string languageId = "nb";
@@ -151,7 +181,11 @@ public class MessageBoxInstancesController : ControllerBase
             languageId = language;
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
+        (Instance instance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            cancellationToken
+        );
 
         if (instance == null)
         {
@@ -161,12 +195,18 @@ public class MessageBoxInstancesController : ControllerBase
         bool includeInstantiate = false;
         if (instance.Status.IsArchived)
         {
-            var application = await _applicationRepository.FindOne(instance.AppId, instance.AppId.Split("/")[0]);
+            var application = await _applicationRepository.FindOne(
+                instance.AppId,
+                instance.AppId.Split("/")[0]
+            );
             includeInstantiate = application?.CopyInstanceSettings?.Enabled == true;
         }
 
         List<MessageBoxInstance> authorizedInstanceList =
-            await _authorizationService.AuthorizeMesseageBoxInstances(new List<Instance> { instance }, includeInstantiate);
+            await _authorizationService.AuthorizeMesseageBoxInstances(
+                new List<Instance> { instance },
+                includeInstantiate
+            );
         if (authorizedInstanceList.Count <= 0)
         {
             return Forbid();
@@ -175,8 +215,15 @@ public class MessageBoxInstancesController : ControllerBase
         MessageBoxInstance authorizedInstance = authorizedInstanceList[0];
 
         // get app texts and exchange all text keys.
-        List<TextResource> texts = await _textRepository.Get(new List<string> { instance.AppId }, languageId);
-        InstanceHelper.ReplaceTextKeys(new List<MessageBoxInstance> { authorizedInstance }, texts, languageId);
+        List<TextResource> texts = await _textRepository.Get(
+            new List<string> { instance.AppId },
+            languageId
+        );
+        InstanceHelper.ReplaceTextKeys(
+            new List<MessageBoxInstance> { authorizedInstance },
+            texts,
+            languageId
+        );
 
         return Ok(authorizedInstance);
     }
@@ -191,7 +238,8 @@ public class MessageBoxInstancesController : ControllerBase
     [HttpGet("{instanceOwnerPartyId:int}/{instanceGuid:guid}/events")]
     public async Task<ActionResult> GetMessageBoxInstanceEvents(
         [FromRoute] int instanceOwnerPartyId,
-        [FromRoute] Guid instanceGuid)
+        [FromRoute] Guid instanceGuid
+    )
     {
         string instanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
         string[] eventTypes =
@@ -219,10 +267,16 @@ public class MessageBoxInstancesController : ControllerBase
             return BadRequest("Unable to perform query.");
         }
 
-        List<InstanceEvent> allInstanceEvents =
-            await _instanceEventRepository.ListInstanceEvents(instanceId, eventTypes, null, null);
+        List<InstanceEvent> allInstanceEvents = await _instanceEventRepository.ListInstanceEvents(
+            instanceId,
+            eventTypes,
+            null,
+            null
+        );
 
-        List<InstanceEvent> filteredInstanceEvents = InstanceEventHelper.RemoveDuplicateEvents(allInstanceEvents);
+        List<InstanceEvent> filteredInstanceEvents = InstanceEventHelper.RemoveDuplicateEvents(
+            allInstanceEvents
+        );
 
         return Ok(InstanceHelper.ConvertToSBLInstanceEvent(filteredInstanceEvents));
     }
@@ -236,13 +290,23 @@ public class MessageBoxInstancesController : ControllerBase
     /// <returns>True if the instance was restored.</returns>
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_DELETE)]
     [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/undelete")]
-    public async Task<ActionResult> Undelete(int instanceOwnerPartyId, Guid instanceGuid, CancellationToken cancellationToken)
+    public async Task<ActionResult> Undelete(
+        int instanceOwnerPartyId,
+        Guid instanceGuid,
+        CancellationToken cancellationToken
+    )
     {
-        (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
+        (Instance instance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            cancellationToken
+        );
 
         if (instance == null)
         {
-            return NotFound($"Didn't find the object that should be restored with instanceId={instanceOwnerPartyId}/{instanceGuid}");
+            return NotFound(
+                $"Didn't find the object that should be restored with instanceId={instanceOwnerPartyId}/{instanceGuid}"
+            );
         }
 
         if (instance.Status.IsHardDeleted)
@@ -275,7 +339,7 @@ public class MessageBoxInstancesController : ControllerBase
                     OrgId = User.GetOrg(),
                     SystemUserId = User.GetSystemUserId(),
                     SystemUserOwnerOrgNo = User.GetSystemUserOwner(),
-                }
+                },
             };
 
             await _instanceRepository.Update(instance, updateProperties, cancellationToken);
@@ -298,19 +362,31 @@ public class MessageBoxInstancesController : ControllerBase
     /// DELETE /instances/{instanceId}?instanceOwnerPartyId={instanceOwnerPartyId}?hard={bool}
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_DELETE)]
     [HttpDelete("{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
-    public async Task<ActionResult> Delete(Guid instanceGuid, int instanceOwnerPartyId, bool hard, CancellationToken cancellationToken)
+    public async Task<ActionResult> Delete(
+        Guid instanceGuid,
+        int instanceOwnerPartyId,
+        bool hard,
+        CancellationToken cancellationToken
+    )
     {
         string instanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
 
-        (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
+        (Instance instance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            cancellationToken
+        );
         if (instance == null)
         {
-            return NotFound($"Didn't find the object that should be deleted with instanceId={instanceId}");
+            return NotFound(
+                $"Didn't find the object that should be deleted with instanceId={instanceId}"
+            );
         }
 
         instance.Status ??= new InstanceStatus();
 
-        (Application appInfo, ServiceError appInfoError) = await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
+        (Application appInfo, ServiceError appInfoError) =
+            await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
 
         if (appInfoError != null)
         {
@@ -323,7 +399,10 @@ public class MessageBoxInstancesController : ControllerBase
 
         if (InstanceHelper.IsPreventedFromDeletion(instance.Status, appInfo))
         {
-            return StatusCode(403, "Instance cannot be deleted yet due to application restrictions.");
+            return StatusCode(
+                403,
+                "Instance cannot be deleted yet due to application restrictions."
+            );
         }
 
         DateTime now = DateTime.UtcNow;
@@ -379,7 +458,13 @@ public class MessageBoxInstancesController : ControllerBase
         List<string> appIds = new List<string>();
 
         Dictionary<string, string> appTitles = await _applicationRepository.GetAllAppTitles();
-        appIds.AddRange(appTitles.Where(entry => entry.Value.Contains(searchString.Trim(), StringComparison.OrdinalIgnoreCase)).Select(entry => entry.Key));
+        appIds.AddRange(
+            appTitles
+                .Where(entry =>
+                    entry.Value.Contains(searchString.Trim(), StringComparison.OrdinalIgnoreCase)
+                )
+                .Select(entry => entry.Key)
+        );
         return new StringValues(appIds.ToArray());
     }
 
@@ -387,7 +472,8 @@ public class MessageBoxInstancesController : ControllerBase
         bool includeActive,
         bool includeArchived,
         bool includeDeleted,
-        InstanceQueryParameters queryParams)
+        InstanceQueryParameters queryParams
+    )
     {
         if ((includeActive == includeArchived) && (includeActive == includeDeleted))
         {
@@ -446,7 +532,9 @@ public class MessageBoxInstancesController : ControllerBase
         InstanceQueryParameters queryParams = new();
         if (queryModel.FromLastChanged != null || queryModel.ToLastChanged != null)
         {
-            queryParams.LastChanged = new string[(queryModel.FromLastChanged == null || queryModel.ToLastChanged == null) ? 1 : 2];
+            queryParams.LastChanged = new string[
+                (queryModel.FromLastChanged == null || queryModel.ToLastChanged == null) ? 1 : 2
+            ];
         }
 
         if (queryModel.InstanceOwnerPartyIdList.Count == 1)
@@ -455,7 +543,9 @@ public class MessageBoxInstancesController : ControllerBase
         }
         else
         {
-            queryParams.InstanceOwnerPartyIds = queryModel.InstanceOwnerPartyIdList.Cast<int?>().ToArray();
+            queryParams.InstanceOwnerPartyIds = queryModel
+                .InstanceOwnerPartyIdList.Cast<int?>()
+                .ToArray();
         }
 
         if (!string.IsNullOrEmpty(queryModel.AppId))
@@ -465,28 +555,40 @@ public class MessageBoxInstancesController : ControllerBase
 
         if (queryModel.FromLastChanged != null)
         {
-            queryParams.LastChanged[0] = $"gte:{queryModel.FromLastChanged?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}";
+            queryParams.LastChanged[0] =
+                $"gte:{queryModel.FromLastChanged?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}";
         }
 
         if (queryModel.ToLastChanged != null)
         {
-            queryParams.LastChanged[queryModel.FromLastChanged != null ? 1 : 0] = $"lte:{queryModel.ToLastChanged?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}";
+            queryParams.LastChanged[queryModel.FromLastChanged != null ? 1 : 0] =
+                $"lte:{queryModel.ToLastChanged?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}";
         }
 
         if (queryModel.FromCreated != null)
         {
-            queryParams.MsgBoxInterval = [$"gte:{queryModel.FromCreated?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}"];
+            queryParams.MsgBoxInterval =
+            [
+                $"gte:{queryModel.FromCreated?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}",
+            ];
         }
 
         if (queryModel.ToCreated != null)
         {
             if (queryParams.MsgBoxInterval == null || queryParams.MsgBoxInterval.Length == 0)
             {
-                queryParams.MsgBoxInterval = [$"lte:{queryModel.ToCreated?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}"];
+                queryParams.MsgBoxInterval =
+                [
+                    $"lte:{queryModel.ToCreated?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}",
+                ];
             }
             else
             {
-                queryParams.MsgBoxInterval = queryParams.MsgBoxInterval.Concat([$"lte:{queryModel.ToCreated?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}"]).ToArray();
+                queryParams.MsgBoxInterval = queryParams
+                    .MsgBoxInterval.Concat([
+                        $"lte:{queryModel.ToCreated?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}",
+                    ])
+                    .ToArray();
             }
         }
 
@@ -508,7 +610,11 @@ public class MessageBoxInstancesController : ControllerBase
         return queryParams;
     }
 
-    private async Task<ActionResult> ProcessQueryResponse(InstanceQueryResponse? queryResponse, string language, CancellationToken cancellationToken)
+    private async Task<ActionResult> ProcessQueryResponse(
+        InstanceQueryResponse? queryResponse,
+        string language,
+        CancellationToken cancellationToken
+    )
     {
         string[] acceptedLanguages = { "en", "nb", "nn" };
 
@@ -553,7 +659,10 @@ public class MessageBoxInstancesController : ControllerBase
             return Ok(new List<MessageBoxInstance>());
         }
 
-        List<string> appIds = authorizedInstances.Select(i => InstanceHelper.GetAppId(i)).Distinct().ToList();
+        List<string> appIds = authorizedInstances
+            .Select(i => InstanceHelper.GetAppId(i))
+            .Distinct()
+            .ToList();
 
         List<TextResource> texts = await _textRepository.Get(appIds, languageId);
         InstanceHelper.ReplaceTextKeys(authorizedInstances, texts, languageId);
@@ -571,16 +680,24 @@ public class MessageBoxInstancesController : ControllerBase
         }
         else
         {
-            Activity.Current?.AddTag("search.queryModel", JsonSerializer.Serialize(queryModel.CloneWithEmptyInstanceOwnerPartyIdList()));
+            Activity.Current?.AddTag(
+                "search.queryModel",
+                JsonSerializer.Serialize(queryModel.CloneWithEmptyInstanceOwnerPartyIdList())
+            );
 
             Activity.Current?.AddTag(
                 "search.queryModel.instanceOwnerPartyIdList",
-                $"Too large to log here. Logged in separate trace. Size: {queryModel.InstanceOwnerPartyIdList.Count}");
+                $"Too large to log here. Logged in separate trace. Size: {queryModel.InstanceOwnerPartyIdList.Count}"
+            );
 
             for (int i = 0; i <= queryModel.InstanceOwnerPartyIdList.Count / maxCountInTag; i++)
             {
                 StringBuilder parties = new();
-                for (int j = i * maxCountInTag; j < (i + 1) * maxCountInTag && j < queryModel.InstanceOwnerPartyIdList.Count; j++)
+                for (
+                    int j = i * maxCountInTag;
+                    j < (i + 1) * maxCountInTag && j < queryModel.InstanceOwnerPartyIdList.Count;
+                    j++
+                )
                 {
                     parties.Append(queryModel.InstanceOwnerPartyIdList[j]);
                     parties.Append(',');
@@ -588,7 +705,11 @@ public class MessageBoxInstancesController : ControllerBase
 
                 if (parties.Length > 0)
                 {
-                    _logger.LogInformation("InstanceOwnerPartyIdList {I}: {Parties}", i, parties.ToString()[..^1]);
+                    _logger.LogInformation(
+                        "InstanceOwnerPartyIdList {I}: {Parties}",
+                        i,
+                        parties.ToString()[..^1]
+                    );
                 }
             }
         }

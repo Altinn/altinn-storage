@@ -39,12 +39,13 @@ public class SblBridgeControllerTests : IClassFixture<TestApplicationFactory<Sbl
     {
         var client = GetTestClient();
         string token = PrincipalUtil.GetOrgToken("foo", scope: "altinn:correspondence.sblbridge");
-        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
-        var response = await client.PostAsync("storage/api/v1/sblbridge/correspondencerecipient?partyId=1337", JsonContent.Create(new
-        {
-            partyId = 1337
-        }));
+        var response = await client.PostAsync(
+            "storage/api/v1/sblbridge/correspondencerecipient?partyId=1337",
+            JsonContent.Create(new { partyId = 1337 })
+        );
         Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
     }
 
@@ -53,12 +54,13 @@ public class SblBridgeControllerTests : IClassFixture<TestApplicationFactory<Sbl
     {
         var client = GetTestClient();
         string token = PrincipalUtil.GetOrgToken("foo", scope: "altinn:correspondence.sblbridge");
-        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
-        var response = await client.PostAsync("storage/api/v1/sblbridge/correspondencerecipient?partyId=0", JsonContent.Create(new
-        {
-            partyId = 0
-        }));
+        var response = await client.PostAsync(
+            "storage/api/v1/sblbridge/correspondencerecipient?partyId=0",
+            JsonContent.Create(new { partyId = 0 })
+        );
         Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
     }
 
@@ -67,16 +69,30 @@ public class SblBridgeControllerTests : IClassFixture<TestApplicationFactory<Sbl
     {
         var client = GetTestClient();
         string token = PrincipalUtil.GetOrgToken("foo", scope: "altinn:correspondence.sblbridge");
-        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-        DateTimeOffset dateTimeOffset = new DateTimeOffset(2025, 05, 01, 11, 0, 0, TimeSpan.FromHours(0));
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        DateTimeOffset dateTimeOffset = new DateTimeOffset(
+            2025,
+            05,
+            01,
+            11,
+            0,
+            0,
+            TimeSpan.FromHours(0)
+        );
 
-        var response = await client.PostAsync("storage/api/v1/sblbridge/synccorrespondenceevent", JsonContent.Create(new
-        {
-            correspondenceId = 0,
-            partyId = 223,
-            eventTimeStamp = dateTimeOffset,
-            eventType = "read"
-        }));
+        var response = await client.PostAsync(
+            "storage/api/v1/sblbridge/synccorrespondenceevent",
+            JsonContent.Create(
+                new
+                {
+                    correspondenceId = 0,
+                    partyId = 223,
+                    eventTimeStamp = dateTimeOffset,
+                    eventType = "read",
+                }
+            )
+        );
         Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
     }
 
@@ -85,16 +101,30 @@ public class SblBridgeControllerTests : IClassFixture<TestApplicationFactory<Sbl
     {
         var client = GetTestClient();
         string token = PrincipalUtil.GetOrgToken("foo", scope: "altinn:correspondence.sblbridge");
-        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-        DateTimeOffset dateTimeOffset = new DateTimeOffset(2025, 05, 01, 11, 0, 0, TimeSpan.FromHours(0));
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        DateTimeOffset dateTimeOffset = new DateTimeOffset(
+            2025,
+            05,
+            01,
+            11,
+            0,
+            0,
+            TimeSpan.FromHours(0)
+        );
 
-        var response = await client.PostAsync("storage/api/v1/sblbridge/synccorrespondenceevent", JsonContent.Create(new
-        {
-            correspondenceId = 2674,
-            partyId = 0,
-            eventTimeStamp = dateTimeOffset,
-            eventType = "read"
-        }));
+        var response = await client.PostAsync(
+            "storage/api/v1/sblbridge/synccorrespondenceevent",
+            JsonContent.Create(
+                new
+                {
+                    correspondenceId = 2674,
+                    partyId = 0,
+                    eventTimeStamp = dateTimeOffset,
+                    eventType = "read",
+                }
+            )
+        );
         Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
     }
 
@@ -103,16 +133,22 @@ public class SblBridgeControllerTests : IClassFixture<TestApplicationFactory<Sbl
     {
         var client = GetTestClient();
         string token = PrincipalUtil.GetOrgToken("foo", scope: "altinn:correspondence.sblbridge");
-        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         DateTimeOffset dateTimeOffset = DateTimeOffset.MinValue;
 
-        var response = await client.PostAsync("storage/api/v1/sblbridge/synccorrespondenceevent", JsonContent.Create(new
-        {
-            correspondenceId = 2674,
-            partyId = 223,
-            eventTimeStamp = dateTimeOffset,
-            eventType = "read"
-        }));
+        var response = await client.PostAsync(
+            "storage/api/v1/sblbridge/synccorrespondenceevent",
+            JsonContent.Create(
+                new
+                {
+                    correspondenceId = 2674,
+                    partyId = 223,
+                    eventTimeStamp = dateTimeOffset,
+                    eventType = "read",
+                }
+            )
+        );
         Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
     }
 
@@ -121,16 +157,30 @@ public class SblBridgeControllerTests : IClassFixture<TestApplicationFactory<Sbl
     {
         var client = GetTestClient();
         string token = PrincipalUtil.GetOrgToken("foo", scope: "altinn:correspondence.sblbridge");
-        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-        DateTimeOffset dateTimeOffset = new DateTimeOffset(2025, 05, 01, 11, 0, 0, TimeSpan.FromHours(0));
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        DateTimeOffset dateTimeOffset = new DateTimeOffset(
+            2025,
+            05,
+            01,
+            11,
+            0,
+            0,
+            TimeSpan.FromHours(0)
+        );
 
-        var response = await client.PostAsync("storage/api/v1/sblbridge/synccorrespondenceevent", JsonContent.Create(new
-        {
-            correspondenceId = 2674,
-            partyId = 223,
-            eventTimeStamp = dateTimeOffset,
-            eventType = "invalidRead"
-        }));
+        var response = await client.PostAsync(
+            "storage/api/v1/sblbridge/synccorrespondenceevent",
+            JsonContent.Create(
+                new
+                {
+                    correspondenceId = 2674,
+                    partyId = 223,
+                    eventTimeStamp = dateTimeOffset,
+                    eventType = "invalidRead",
+                }
+            )
+        );
         Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
     }
 
@@ -139,40 +189,69 @@ public class SblBridgeControllerTests : IClassFixture<TestApplicationFactory<Sbl
     {
         var client = GetTestClient();
         string token = PrincipalUtil.GetOrgToken("foo", scope: "altinn:correspondence.sblbridge");
-        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-        DateTimeOffset dateTimeOffset = new DateTimeOffset(2025, 05, 01, 11, 0, 0, TimeSpan.FromHours(0));
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        DateTimeOffset dateTimeOffset = new DateTimeOffset(
+            2025,
+            05,
+            01,
+            11,
+            0,
+            0,
+            TimeSpan.FromHours(0)
+        );
 
-        var response = await client.PostAsync("storage/api/v1/sblbridge/synccorrespondenceevent", JsonContent.Create(new
-        {
-            correspondenceId = 2674,
-            partyId = 223,
-            eventTimeStamp = dateTimeOffset,
-            eventType = "read"
-        }));
+        var response = await client.PostAsync(
+            "storage/api/v1/sblbridge/synccorrespondenceevent",
+            JsonContent.Create(
+                new
+                {
+                    correspondenceId = 2674,
+                    partyId = 223,
+                    eventTimeStamp = dateTimeOffset,
+                    eventType = "read",
+                }
+            )
+        );
         Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
     }
 
     private HttpClient GetTestClient()
     {
-        HttpClient client = _factory.WithWebHostBuilder(builder =>
-        {
-            IConfiguration configuration = new ConfigurationBuilder().AddJsonFile(ServiceUtil.GetAppsettingsPath()).Build();
-            Mock<IMessageBus> busMock = new Mock<IMessageBus>();
-
-            builder.ConfigureAppConfiguration((hostingContext, config) =>
+        HttpClient client = _factory
+            .WithWebHostBuilder(builder =>
             {
-                config.AddConfiguration(configuration);
-            });
+                IConfiguration configuration = new ConfigurationBuilder()
+                    .AddJsonFile(ServiceUtil.GetAppsettingsPath())
+                    .Build();
+                Mock<IMessageBus> busMock = new Mock<IMessageBus>();
 
-            builder.ConfigureTestServices(services =>
-            {
-                services.AddSingleton<ICorrespondenceClient, CorrespondenceClientMock>();
-                services.AddSingleton<IPartiesWithInstancesClient, PartiesWithInstancesClientMock>();
-                services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
-                services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
-                services.AddSingleton(busMock.Object);
-            });
-        }).CreateClient();
+                builder.ConfigureAppConfiguration(
+                    (hostingContext, config) =>
+                    {
+                        config.AddConfiguration(configuration);
+                    }
+                );
+
+                builder.ConfigureTestServices(services =>
+                {
+                    services.AddSingleton<ICorrespondenceClient, CorrespondenceClientMock>();
+                    services.AddSingleton<
+                        IPartiesWithInstancesClient,
+                        PartiesWithInstancesClientMock
+                    >();
+                    services.AddSingleton<
+                        IPublicSigningKeyProvider,
+                        PublicSigningKeyProviderMock
+                    >();
+                    services.AddSingleton<
+                        IPostConfigureOptions<JwtCookieOptions>,
+                        JwtCookiePostConfigureOptionsStub
+                    >();
+                    services.AddSingleton(busMock.Object);
+                });
+            })
+            .CreateClient();
 
         return client;
     }

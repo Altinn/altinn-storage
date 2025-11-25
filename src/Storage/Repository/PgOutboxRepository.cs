@@ -27,37 +27,47 @@ public class PgOutboxRepository(
     IOptions<WolverineSettings> wolverineSettings,
     NpgsqlDataSource dataSource,
     ILogger<PgOutboxRepository> logger,
-    IHttpContextAccessor contextAccessor = null) : IOutboxRepository
+    IHttpContextAccessor contextAccessor = null
+) : IOutboxRepository
 {
-    private static readonly string _insertSql = @"
+    private static readonly string _insertSql =
+        @"
             insert into storage.outbox
                 (  instanceid,   appid,   partyid,   validfrom,   instancecreated,   ismigration,   instanceeventtype) values
                 (@_instanceid, @_appid, @_partyid, @_validfrom, @_instancecreated, @_ismigration, @_instanceeventtype)
             on conflict (instanceid) do update set validfrom = excluded.validfrom where excluded.validfrom < storage.outbox.validfrom";
 
-    private static readonly string _deleteSql = "delete from storage.outbox where instanceid = @_instanceid";
-    private static readonly string _pollSql = @"select * from storage.outbox where validfrom <= now() order by validfrom
+    private static readonly string _deleteSql =
+        "delete from storage.outbox where instanceid = @_instanceid";
+    private static readonly string _pollSql =
+        @"select * from storage.outbox where validfrom <= now() order by validfrom
             limit @_maxrows";
 
-    private static readonly string _acquireLeaseSql = @"
+    private static readonly string _acquireLeaseSql =
+        @"
             INSERT INTO storage.leases (resource, holder, expires_at)
             VALUES (@_resource, @_holder, @_expiresAt)
             ON CONFLICT (resource)
             DO UPDATE SET holder = EXCLUDED.holder, expires_at = EXCLUDED.expires_at
             WHERE leases.expires_at <= NOW()";
 
-    private static readonly string _renewLeaseSql = @"
+    private static readonly string _renewLeaseSql =
+        @"
             UPDATE storage.leases SET expires_at = @_expiresAt
             WHERE resource = @_resource AND holder = @_holder AND expires_at > NOW()";
 
-    private static readonly string _releaseLeaseSql = @"
+    private static readonly string _releaseLeaseSql =
+        @"
             DELETE FROM storage.leases WHERE resource = @_resource AND holder = @_holder";
 
     private readonly ILogger<PgOutboxRepository> _logger = logger;
     private readonly WolverineSettings _wolverineSettings = wolverineSettings.Value;
 
     /// <inheritdoc/>
-    public async Task Insert(SyncInstanceToDialogportenCommand dp, NpgsqlConnection existingConnection)
+    public async Task Insert(
+        SyncInstanceToDialogportenCommand dp,
+        NpgsqlConnection existingConnection
+    )
     {
         if (!_wolverineSettings.EnableSending)
         {
@@ -66,17 +76,34 @@ public class PgOutboxRepository(
 
         // The created event is used both in the data controller and the instance controller. The first one gives an "instance create" event
         bool isInstanceCreate =
-            dp.EventType == InstanceEventType.Created &&
-            !(contextAccessor?.HttpContext?.Request.Path.Value?.EndsWith("/data", StringComparison.OrdinalIgnoreCase) ?? true);
+            dp.EventType == InstanceEventType.Created
+            && !(
+                contextAccessor?.HttpContext?.Request.Path.Value?.EndsWith(
+                    "/data",
+                    StringComparison.OrdinalIgnoreCase
+                ) ?? true
+            );
 
         await using NpgsqlCommand pgcom = new(_insertSql, existingConnection);
 
         pgcom.Parameters.AddWithValue("_appid", NpgsqlDbType.Text, dp.AppId);
         pgcom.Parameters.AddWithValue("_instanceid", NpgsqlDbType.Uuid, Guid.Parse(dp.InstanceId));
-        pgcom.Parameters.AddWithValue("_validfrom", NpgsqlDbType.TimestampTz, DateTime.UtcNow.AddSeconds(GetEventDelaySecs(dp.EventType, isInstanceCreate)));
-        pgcom.Parameters.AddWithValue("_instancecreated", NpgsqlDbType.TimestampTz, dp.InstanceCreatedAt);
+        pgcom.Parameters.AddWithValue(
+            "_validfrom",
+            NpgsqlDbType.TimestampTz,
+            DateTime.UtcNow.AddSeconds(GetEventDelaySecs(dp.EventType, isInstanceCreate))
+        );
+        pgcom.Parameters.AddWithValue(
+            "_instancecreated",
+            NpgsqlDbType.TimestampTz,
+            dp.InstanceCreatedAt
+        );
         pgcom.Parameters.AddWithValue("_ismigration", NpgsqlDbType.Boolean, dp.IsMigration);
-        pgcom.Parameters.AddWithValue("_instanceeventtype", NpgsqlDbType.Smallint, (int)dp.EventType);
+        pgcom.Parameters.AddWithValue(
+            "_instanceeventtype",
+            NpgsqlDbType.Smallint,
+            (int)dp.EventType
+        );
         pgcom.Parameters.AddWithValue("_partyid", NpgsqlDbType.Bigint, long.Parse(dp.PartyId));
 
         try
@@ -115,7 +142,8 @@ public class PgOutboxRepository(
                 (await reader.GetFieldValueAsync<Guid>("instanceid")).ToString(),
                 await reader.GetFieldValueAsync<DateTime>("instancecreated"),
                 await reader.GetFieldValueAsync<bool>("ismigration"),
-                (InstanceEventType)(await reader.GetFieldValueAsync<int>("instanceeventtype")));
+                (InstanceEventType)(await reader.GetFieldValueAsync<int>("instanceeventtype"))
+            );
 
             dps.Add(dp);
         }
@@ -124,7 +152,11 @@ public class PgOutboxRepository(
     }
 
     /// <inheritdoc/>
-    public async Task<bool> TryAcquireLeaseAsync(string resource, Guid holder, DateTime leaseExpires)
+    public async Task<bool> TryAcquireLeaseAsync(
+        string resource,
+        Guid holder,
+        DateTime leaseExpires
+    )
     {
         try
         {
@@ -179,10 +211,12 @@ public class PgOutboxRepository(
         }
     }
 
-    private int GetEventDelaySecs(InstanceEventType eventType, bool instanceCreate)
-        => eventType switch
+    private int GetEventDelaySecs(InstanceEventType eventType, bool instanceCreate) =>
+        eventType switch
         {
-            InstanceEventType.Created => instanceCreate ? _wolverineSettings.UrgentPriorityDelaySecs : _wolverineSettings.HighPriorityDelaySecs,
+            InstanceEventType.Created => instanceCreate
+                ? _wolverineSettings.UrgentPriorityDelaySecs
+                : _wolverineSettings.HighPriorityDelaySecs,
             InstanceEventType.Deleted => _wolverineSettings.UrgentPriorityDelaySecs,
             InstanceEventType.Saved => _wolverineSettings.LowPriorityDelaySecs,
             InstanceEventType.SubstatusUpdated => _wolverineSettings.LowPriorityDelaySecs,
@@ -191,6 +225,6 @@ public class PgOutboxRepository(
             InstanceEventType.process_StartTask => _wolverineSettings.LowPriorityDelaySecs,
             InstanceEventType.process_EndTask => _wolverineSettings.LowPriorityDelaySecs,
             InstanceEventType.process_AbandonTask => _wolverineSettings.LowPriorityDelaySecs,
-            _ => _wolverineSettings.HighPriorityDelaySecs
+            _ => _wolverineSettings.HighPriorityDelaySecs,
         };
 }

@@ -44,7 +44,8 @@ public class SignDocument
     /// </summary>
     [JsonProperty(PropertyName = "dataElementSignatures")]
     [JsonPropertyName("dataElementSignatures")]
-    public List<DataElementSignature> DataElementSignatures { get; set; } = new List<DataElementSignature>();
+    public List<DataElementSignature> DataElementSignatures { get; set; } =
+        new List<DataElementSignature>();
 
     /// <summary>
     /// The DataElementSignature.

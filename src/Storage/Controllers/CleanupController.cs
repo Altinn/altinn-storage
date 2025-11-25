@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
-
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -35,7 +34,8 @@ public class CleanupController(
     IBlobRepository blobRepository,
     IDataRepository dataRepository,
     IInstanceEventRepository instanceEventRepository,
-    ILogger<CleanupController> logger) : ControllerBase
+    ILogger<CleanupController> logger
+) : ControllerBase
 {
     private readonly ILogger<CleanupController> _logger = logger;
 
@@ -51,25 +51,39 @@ public class CleanupController(
     {
         try
         {
-            List<Instance> instances = await instanceRepository.GetHardDeletedInstances(cancellationToken);
+            List<Instance> instances = await instanceRepository.GetHardDeletedInstances(
+                cancellationToken
+            );
             List<string> autoDeleteAppIds = (await applicationRepository.FindAll())
-                .Where(a => instances.Select(i => i.AppId).ToList().Contains(a.Id) && a.AutoDeleteOnProcessEnd)
-                .Select(a => a.Id).ToList();
+                .Where(a =>
+                    instances.Select(i => i.AppId).ToList().Contains(a.Id)
+                    && a.AutoDeleteOnProcessEnd
+                )
+                .Select(a => a.Id)
+                .ToList();
 
             Stopwatch stopwatch = Stopwatch.StartNew();
-            int successfullyDeleted = await CleanupInstancesInternal(instances, autoDeleteAppIds, cancellationToken);
+            int successfullyDeleted = await CleanupInstancesInternal(
+                instances,
+                autoDeleteAppIds,
+                cancellationToken
+            );
             stopwatch.Stop();
 
             _logger.LogInformation(
                 "CleanupController// CleanupInstances // {DeleteCount} of {OriginalCount} instances deleted in {Duration} s",
                 successfullyDeleted,
                 instances.Count,
-                stopwatch.Elapsed.TotalSeconds);
+                stopwatch.Elapsed.TotalSeconds
+            );
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "CleanupController error");
-            return StatusCode(StatusCodes.Status500InternalServerError, "CleanupController error: " + ex.Message);
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                "CleanupController error: " + ex.Message
+            );
         }
 
         return Ok();
@@ -82,7 +96,10 @@ public class CleanupController(
     [HttpDelete("cleanupinstancesforapp/{appId}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ApiExplorerSettings(IgnoreApi = true)]
-    public async Task<ActionResult> CleanupInstancesForApp(string appId, CancellationToken cancellationToken)
+    public async Task<ActionResult> CleanupInstancesForApp(
+        string appId,
+        CancellationToken cancellationToken
+    )
     {
         int successfullyDeleted = 0;
         int processed = 0;
@@ -95,21 +112,29 @@ public class CleanupController(
             {
                 Size = 5000,
                 AppId = appId,
-                ContinuationToken = instancesResponse.ContinuationToken
+                ContinuationToken = instancesResponse.ContinuationToken,
             };
 
-            instancesResponse = await instanceRepository.GetInstancesFromQuery(queryParameters, true, cancellationToken);
-            successfullyDeleted += await CleanupInstancesInternal(instancesResponse.Instances, [], cancellationToken);
+            instancesResponse = await instanceRepository.GetInstancesFromQuery(
+                queryParameters,
+                true,
+                cancellationToken
+            );
+            successfullyDeleted += await CleanupInstancesInternal(
+                instancesResponse.Instances,
+                [],
+                cancellationToken
+            );
             processed += (int)instancesResponse.Count;
-        }
-        while (instancesResponse.ContinuationToken != null);
+        } while (instancesResponse.ContinuationToken != null);
         stopwatch.Stop();
 
         _logger.LogInformation(
             "CleanupController // CleanupInstancesForApp // {DeleteCount} of {OriginalCount} instances deleted in {Duration} s",
             successfullyDeleted,
             processed,
-            stopwatch.Elapsed.TotalSeconds);
+            stopwatch.Elapsed.TotalSeconds
+        );
 
         return Ok();
     }
@@ -125,7 +150,9 @@ public class CleanupController(
     [ApiExplorerSettings(IgnoreApi = true)]
     public async Task<ActionResult> CleanupDataelements(CancellationToken cancellationToken)
     {
-        List<DataElement> dataElements = await instanceRepository.GetHardDeletedDataElements(cancellationToken);
+        List<DataElement> dataElements = await instanceRepository.GetHardDeletedDataElements(
+            cancellationToken
+        );
 
         int successfullyDeleted = 0;
 
@@ -139,23 +166,35 @@ public class CleanupController(
             {
                 if (instance == null || instance.Id.Split('/')[1] != dataElement.InstanceGuid)
                 {
-                    (instance, _) = await instanceRepository.GetOne(new Guid(dataElement.InstanceGuid), false, cancellationToken);
+                    (instance, _) = await instanceRepository.GetOne(
+                        new Guid(dataElement.InstanceGuid),
+                        false,
+                        cancellationToken
+                    );
                     app = await applicationRepository.FindOne(instance.AppId, instance.Org);
                 }
 
-                if (!await blobRepository.DeleteBlob(dataElement.BlobStoragePath.Split('/')[0], dataElement.BlobStoragePath, app.StorageAccountNumber))
+                if (
+                    !await blobRepository.DeleteBlob(
+                        dataElement.BlobStoragePath.Split('/')[0],
+                        dataElement.BlobStoragePath,
+                        app.StorageAccountNumber
+                    )
+                )
                 {
                     _logger.LogError(
                         "CleanupController // CleanupDataelements // Blob not found for dataElement Id: {dataElement.Id} Blobstoragepath: {blobStoragePath}",
                         dataElement.Id,
-                        dataElement.BlobStoragePath);
+                        dataElement.BlobStoragePath
+                    );
                 }
 
                 if (!await dataRepository.Delete(dataElement))
                 {
                     _logger.LogError(
                         "CleanupController // CleanupDataelements // Data element not found for dataElement Id: {dataElement.Id}",
-                        dataElement.Id);
+                        dataElement.Id
+                    );
                 }
                 else
                 {
@@ -164,10 +203,14 @@ public class CleanupController(
             }
             catch (Exception e)
             {
-                string template = "CleanupController // CleanupDataelements // Error occured when deleting dataElement Id: {0} Blobstoragepath: {1}";
+                string template =
+                    "CleanupController // CleanupDataelements // Error occured when deleting dataElement Id: {0} Blobstoragepath: {1}";
                 _logger.LogError(e, template, dataElement.Id, dataElement.BlobStoragePath);
                 stopwatch.Stop();
-                return StatusCode(StatusCodes.Status500InternalServerError, string.Format(template, dataElement.Id, dataElement.BlobStoragePath));
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    string.Format(template, dataElement.Id, dataElement.BlobStoragePath)
+                );
             }
         }
 
@@ -176,12 +219,17 @@ public class CleanupController(
             "CleanupController // CleanupDataelements // {successfullyDeleted} of {count} data elements deleted in {totalSeconds} s",
             successfullyDeleted,
             dataElements.Count,
-            stopwatch.Elapsed.TotalSeconds);
+            stopwatch.Elapsed.TotalSeconds
+        );
 
         return Ok();
     }
 
-    private async Task<int> CleanupInstancesInternal(List<Instance> instances, List<string> autoDeleteAppIds, CancellationToken cancellationToken)
+    private async Task<int> CleanupInstancesInternal(
+        List<Instance> instances,
+        List<string> autoDeleteAppIds,
+        CancellationToken cancellationToken
+    )
     {
         int successfullyDeleted = 0;
         foreach (Instance instance in instances)
@@ -193,11 +241,16 @@ public class CleanupController(
             try
             {
                 Application app = await applicationRepository.FindOne(instance.AppId, instance.Org);
-                blobsNoException = await blobRepository.DeleteDataBlobs(instance, app.StorageAccountNumber);
+                blobsNoException = await blobRepository.DeleteDataBlobs(
+                    instance,
+                    app.StorageAccountNumber
+                );
 
                 if (blobsNoException)
                 {
-                    dataElementsNoException = await dataRepository.DeleteForInstance(instance.Id.Split('/')[^1]);
+                    dataElementsNoException = await dataRepository.DeleteForInstance(
+                        instance.Id.Split('/')[^1]
+                    );
                 }
 
                 try
@@ -213,11 +266,14 @@ public class CleanupController(
                     _logger.LogError(
                         ex,
                         "CleanupController // CleanupInstancesInternal // Error deleting instance events for id {id}",
-                        instance.Id);
+                        instance.Id
+                    );
                 }
 
-                if (dataElementsNoException
-                    && (!autoDeleteAppIds.Contains(instance.AppId) || instanceEventsNoException))
+                if (
+                    dataElementsNoException
+                    && (!autoDeleteAppIds.Contains(instance.AppId) || instanceEventsNoException)
+                )
                 {
                     if (await instanceRepository.Delete(instance, cancellationToken))
                     {
@@ -227,7 +283,8 @@ public class CleanupController(
                     {
                         _logger.LogError(
                             "CleanupController // CleanupInstancesInternal // Instance not found for id {id}",
-                            instance.Id);
+                            instance.Id
+                        );
                     }
                 }
             }
@@ -237,7 +294,8 @@ public class CleanupController(
                     e,
                     "CleanupController // CleanupInstancesInternal // Error occured when deleting instance: {AppId}/{InstanceId}",
                     instance.AppId,
-                    $"{instance.InstanceOwner.PartyId}/{instance.Id}");
+                    $"{instance.InstanceOwner.PartyId}/{instance.Id}"
+                );
             }
         }
 

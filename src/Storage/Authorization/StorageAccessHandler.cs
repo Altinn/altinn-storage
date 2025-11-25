@@ -60,7 +60,8 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
         IOptions<PepSettings> pepSettings,
         ILogger<StorageAccessHandler> logger,
         IInstanceRepository instanceRepository,
-        IMemoryCache memoryCache)
+        IMemoryCache memoryCache
+    )
     {
         _httpContextAccessor = httpContextAccessor;
         _pdp = pdp;
@@ -79,7 +80,10 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
     /// <param name="context">The context</param>
     /// <param name="requirement">The requirement</param>
     /// <returns>A Task</returns>
-    protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, AppAccessRequirement requirement)
+    protected override async Task HandleRequirementAsync(
+        AuthorizationHandlerContext context,
+        AppAccessRequirement requirement
+    )
     {
         if (IsValidSyncAdapterRequest(requirement))
         {
@@ -87,9 +91,16 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
             return;
         }
 
-        XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(context, requirement, _httpContextAccessor.HttpContext.GetRouteData());
+        XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
+            context,
+            requirement,
+            _httpContextAccessor.HttpContext.GetRouteData()
+        );
 
-        _logger.LogInformation("// Storage PEP // AppAccessHandler // Request sent: {request}", JsonConvert.SerializeObject(request));
+        _logger.LogInformation(
+            "// Storage PEP // AppAccessHandler // Request sent: {request}",
+            JsonConvert.SerializeObject(request)
+        );
 
         XacmlJsonResponse response;
 
@@ -164,7 +175,11 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
             return null;
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(Guid.Parse(instanceId.Split("/")[1]), false, CancellationToken.None);
+        (Instance instance, _) = await _instanceRepository.GetOne(
+            Guid.Parse(instanceId.Split("/")[1]),
+            false,
+            CancellationToken.None
+        );
         return instance;
     }
 
@@ -207,11 +222,17 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
 
     private bool IsValidSyncAdapterRequest(AppAccessRequirement requirement)
     {
-        if (requirement.ActionType != "read" && requirement.ActionType != "write" && requirement.ActionType != "delete")
+        if (
+            requirement.ActionType != "read"
+            && requirement.ActionType != "write"
+            && requirement.ActionType != "delete"
+        )
         {
             return false;
         }
 
-        return _authorizationService.UserHasRequiredScope([_generalSettings.InstanceSyncAdapterScope]);
+        return _authorizationService.UserHasRequiredScope([
+            _generalSettings.InstanceSyncAdapterScope,
+        ]);
     }
 }

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-
 using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.Platform.Storage.UnitTest;
@@ -24,23 +23,32 @@ public class MessageBoxTestData
     private static readonly string AppId_2 = $"{Org_1.ToLower()}/{App_2}";
     private static readonly string AppId_3 = $"{Org_2.ToLower()}/{App_3}";
 
-    private static readonly Dictionary<string, string> AppTitles_App1 = new Dictionary<string, string>()
+    private static readonly Dictionary<string, string> AppTitles_App1 = new Dictionary<
+        string,
+        string
+    >()
     {
         { "nb", "Test applikasjon 1 bokmål" },
         { "en", "Test application 1 english" },
-        { "nn", "Test applikasjon 1 nynorsk" }
+        { "nn", "Test applikasjon 1 nynorsk" },
     };
 
-    private static readonly Dictionary<string, string> AppTitles_App2 = new Dictionary<string, string>()
+    private static readonly Dictionary<string, string> AppTitles_App2 = new Dictionary<
+        string,
+        string
+    >()
     {
         { "nb", "Test applikasjon 2 bokmål" },
-        { "en", "Test application 2 english" }
+        { "en", "Test application 2 english" },
     };
 
-    private static readonly Dictionary<string, string> AppTitles_App3 = new Dictionary<string, string>()
+    private static readonly Dictionary<string, string> AppTitles_App3 = new Dictionary<
+        string,
+        string
+    >()
     {
         { "nb", "Test applikasjon 3 bokmål" },
-        { "nn", "Test applikasjon 3 nynorsk" }
+        { "nn", "Test applikasjon 3 nynorsk" },
     };
 
     private static readonly Application Application_1 = new Application()
@@ -48,7 +56,7 @@ public class MessageBoxTestData
         Id = AppId_1,
         Created = Convert.ToDateTime("2019-08-20T12:26:07.4135026Z"),
         Org = Org_1,
-        Title = AppTitles_App1
+        Title = AppTitles_App1,
     };
 
     private static readonly Application Application_2 = new Application()
@@ -56,7 +64,7 @@ public class MessageBoxTestData
         Id = AppId_2,
         Created = Convert.ToDateTime("2019-06-20T12:26:07.4135026Z"),
         Org = Org_1,
-        Title = AppTitles_App2
+        Title = AppTitles_App2,
     };
 
     private static readonly Application Application_3 = new Application()
@@ -64,7 +72,7 @@ public class MessageBoxTestData
         Id = AppId_3,
         Created = Convert.ToDateTime("2019-08-20T12:26:07.4135026Z"),
         Org = Org_2,
-        Title = AppTitles_App3
+        Title = AppTitles_App3,
     };
 
     // Active instance of app 1
@@ -79,7 +87,7 @@ public class MessageBoxTestData
         LastChangedBy = UserId_1,
         LastChanged = Convert.ToDateTime("2019-08-20T19:19:22.2135489Z"),
         Org = Org_1,
-        Process = CreateProcessState()
+        Process = CreateProcessState(),
     };
 
     // Archived instance of app 1
@@ -90,10 +98,7 @@ public class MessageBoxTestData
         CreatedBy = UserId_1,
         Created = Convert.ToDateTime("2019-08-20T19:20:21.7920255Z"),
         InstanceOwner = new InstanceOwner { PartyId = InstanceOwnerPartyId_1 },
-        Status = new InstanceStatus
-        {
-            Archived = DateTime.UtcNow,
-        },
+        Status = new InstanceStatus { Archived = DateTime.UtcNow },
         LastChangedBy = UserId_1,
         LastChanged = Convert.ToDateTime("2019-08-20T21:19:22.2135489Z"),
         Org = Org_1,
@@ -108,11 +113,7 @@ public class MessageBoxTestData
         CreatedBy = UserId_1,
         Created = Convert.ToDateTime("2019-08-20T19:20:21.7920255Z"),
         InstanceOwner = new InstanceOwner { PartyId = InstanceOwnerPartyId_1 },
-        Status = new InstanceStatus
-        {
-            Archived = DateTime.UtcNow,
-            SoftDeleted = DateTime.UtcNow,
-        },
+        Status = new InstanceStatus { Archived = DateTime.UtcNow, SoftDeleted = DateTime.UtcNow },
         LastChangedBy = UserId_1,
         LastChanged = Convert.ToDateTime("2019-08-20T21:19:22.2135489Z"),
         Org = Org_1,
@@ -206,42 +207,61 @@ public class MessageBoxTestData
         CreatedBy = UserId_1,
         Created = Convert.ToDateTime("2019-08-20T19:20:21.7920255Z"),
         InstanceOwner = new InstanceOwner { PartyId = InstanceOwnerPartyId_1 },
-        Status = new InstanceStatus
-        {
-            Archived = DateTime.UtcNow,
-        },
+        Status = new InstanceStatus { Archived = DateTime.UtcNow },
         LastChangedBy = UserId_1,
         LastChanged = Convert.ToDateTime("2019-08-20T21:19:22.2135489Z"),
         Org = Org_1,
-        Process = new ProcessState { EndEvent = "EndTask" }
+        Process = new ProcessState { EndEvent = "EndTask" },
     };
 
     private static ProcessState CreateProcessState()
     {
         return new ProcessState
         {
-            CurrentTask = new ProcessElementInfo
-            {
-                ElementId = "Task_1",
-                Name = "FormFilling",
-            },
+            CurrentTask = new ProcessElementInfo { ElementId = "Task_1", Name = "FormFilling" },
         };
     }
 
-    private static readonly List<Instance> InstanceList_App1 = new List<Instance>() { Instance_1_1, Instance_1_2, Instance_1_3 };
-    private static readonly List<Instance> InstanceList_App2 = new List<Instance>() { Instance_2_1, Instance_2_2 };
-    private static readonly List<Instance> InstanceList_App3 = new List<Instance>() { Instance_3_1, Instance_3_2 };
-    private static readonly List<Instance> InstanceList_App4 = new List<Instance>() { Instance_4_1 };
-    private static readonly List<Instance> InstanceList_InstanceOwner1 = new List<Instance>() { Instance_1_1, Instance_1_2, Instance_1_3, Instance_1_4, Instance_2_1, Instance_2_2, Instance_3_1, Instance_3_2 };
+    private static readonly List<Instance> InstanceList_App1 = new List<Instance>()
+    {
+        Instance_1_1,
+        Instance_1_2,
+        Instance_1_3,
+    };
+    private static readonly List<Instance> InstanceList_App2 = new List<Instance>()
+    {
+        Instance_2_1,
+        Instance_2_2,
+    };
+    private static readonly List<Instance> InstanceList_App3 = new List<Instance>()
+    {
+        Instance_3_1,
+        Instance_3_2,
+    };
+    private static readonly List<Instance> InstanceList_App4 = new List<Instance>()
+    {
+        Instance_4_1,
+    };
+    private static readonly List<Instance> InstanceList_InstanceOwner1 = new List<Instance>()
+    {
+        Instance_1_1,
+        Instance_1_2,
+        Instance_1_3,
+        Instance_1_4,
+        Instance_2_1,
+        Instance_2_2,
+        Instance_3_1,
+        Instance_3_2,
+    };
 
-    public static readonly Dictionary<string, Dictionary<string, string>> AppTitles_Dict_App1 = new Dictionary<string, Dictionary<string, string>>
-        { { Application_1.Id, AppTitles_App1 } };
+    public static readonly Dictionary<string, Dictionary<string, string>> AppTitles_Dict_App1 =
+        new Dictionary<string, Dictionary<string, string>> { { Application_1.Id, AppTitles_App1 } };
 
-    public static readonly Dictionary<string, Dictionary<string, string>> AppTitles_Dict_App2 = new Dictionary<string, Dictionary<string, string>>
-        { { Application_2.Id, AppTitles_App2 } };
+    public static readonly Dictionary<string, Dictionary<string, string>> AppTitles_Dict_App2 =
+        new Dictionary<string, Dictionary<string, string>> { { Application_2.Id, AppTitles_App2 } };
 
-    public static readonly Dictionary<string, Dictionary<string, string>> AppTitles_Dict_App3 = new Dictionary<string, Dictionary<string, string>>
-        { { Application_3.Id, AppTitles_App3 } };
+    public static readonly Dictionary<string, Dictionary<string, string>> AppTitles_Dict_App3 =
+        new Dictionary<string, Dictionary<string, string>> { { Application_3.Id, AppTitles_App3 } };
 
     /// <summary>
     /// Gets instance owner id for all test instances

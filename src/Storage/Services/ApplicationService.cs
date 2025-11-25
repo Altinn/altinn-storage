@@ -22,7 +22,12 @@ public class ApplicationService : IApplicationService
     }
 
     /// <inheritdoc/>
-    public async Task<(bool IsValid, ServiceError ServiceError)> ValidateDataTypeForApp(string org, string appId, string dataType, string currentTask)
+    public async Task<(bool IsValid, ServiceError ServiceError)> ValidateDataTypeForApp(
+        string org,
+        string appId,
+        string dataType,
+        string currentTask
+    )
     {
         Application application = await _applicationRepository.FindOne(appId, org);
 
@@ -31,12 +36,22 @@ public class ApplicationService : IApplicationService
             return (false, new ServiceError(404, $"Cannot find application {appId} in storage"));
         }
 
-        if (application.DataTypes.Exists(e => e.Id == dataType && (string.IsNullOrEmpty(e.TaskId) || e.TaskId == currentTask)))
+        if (
+            application.DataTypes.Exists(e =>
+                e.Id == dataType && (string.IsNullOrEmpty(e.TaskId) || e.TaskId == currentTask)
+            )
+        )
         {
             return (true, null);
         }
 
-        return (false, new ServiceError(405, $"DataType {dataType} is not declared in application metadata for app {appId}"));
+        return (
+            false,
+            new ServiceError(
+                405,
+                $"DataType {dataType} is not declared in application metadata for app {appId}"
+            )
+        );
     }
 
     /// <summary>
@@ -44,7 +59,10 @@ public class ApplicationService : IApplicationService
     /// </summary>
     /// <param name="appId">The application id</param>
     /// <returns></returns>
-    public async Task<(Application Application, ServiceError ServiceError)> GetApplicationOrErrorAsync(string appId)
+    public async Task<(
+        Application Application,
+        ServiceError ServiceError
+    )> GetApplicationOrErrorAsync(string appId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(appId);
 

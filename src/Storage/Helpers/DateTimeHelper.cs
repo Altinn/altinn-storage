@@ -40,8 +40,15 @@ public static class DateTimeHelper
             else if (timestamp.Kind == DateTimeKind.Unspecified)
             {
                 // force unspecified timezone to be interpreted as UTC
-                string unspecifiedTimezoneDateTime = timestamp.ToString(Iso8601Format, CultureInfo.InvariantCulture);
-                DateTime utc = DateTime.ParseExact(unspecifiedTimezoneDateTime + "Z", Iso8601UtcFormat, CultureInfo.InvariantCulture);
+                string unspecifiedTimezoneDateTime = timestamp.ToString(
+                    Iso8601Format,
+                    CultureInfo.InvariantCulture
+                );
+                DateTime utc = DateTime.ParseExact(
+                    unspecifiedTimezoneDateTime + "Z",
+                    Iso8601UtcFormat,
+                    CultureInfo.InvariantCulture
+                );
                 return utc.ToUniversalTime();
             }
         }
@@ -56,7 +63,11 @@ public static class DateTimeHelper
     /// <returns>The parsed DateTime value.</returns>
     public static DateTime ParseAndConvertToUniversalTime(string serializedDateTime)
     {
-        return DateTime.Parse(serializedDateTime, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
+        return DateTime.Parse(
+            serializedDateTime,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal
+        );
     }
 
     /// <summary>

@@ -6,7 +6,6 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Clients;
@@ -22,18 +21,14 @@ using Altinn.Platform.Storage.UnitTest.Mocks.Clients;
 using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
-
 using AltinnCore.Authentication.JwtCookie;
-
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-
 using Moq;
 using Wolverine;
 using Xunit;
-
 using static Altinn.Platform.Storage.Interface.Models.SignRequest;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
@@ -53,9 +48,22 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
         _factory = factory;
     }
 
-    public static TheoryData<Signee> SigneeData => new(
-        new Signee() { UserId = "1337", PersonNumber = "22117612345", SystemUserId = null, OrganisationNumber = null },
-        new Signee() { PersonNumber = null, SystemUserId = Guid.Parse("f58fe166-bc22-4899-beb7-c3e8e3332f43"), OrganisationNumber = "524446332" });
+    public static TheoryData<Signee> SigneeData =>
+        new(
+            new Signee()
+            {
+                UserId = "1337",
+                PersonNumber = "22117612345",
+                SystemUserId = null,
+                OrganisationNumber = null,
+            },
+            new Signee()
+            {
+                PersonNumber = null,
+                SystemUserId = Guid.Parse("f58fe166-bc22-4899-beb7-c3e8e3332f43"),
+                OrganisationNumber = "524446332",
+            }
+        );
 
     [Theory]
     [MemberData(nameof(SigneeData))]
@@ -67,14 +75,24 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
         string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/sign";
 
         Mock<ISigningService> instanceServiceMock = new Mock<ISigningService>();
-        instanceServiceMock.Setup(ism =>
-                ism.CreateSignDocument(It.IsAny<Guid>(), It.IsAny<SignRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        instanceServiceMock
+            .Setup(ism =>
+                ism.CreateSignDocument(
+                    It.IsAny<Guid>(),
+                    It.IsAny<SignRequest>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
             .ReturnsAsync((true, null));
 
         HttpClient client = GetTestClient(instanceServiceMock);
-        string token = !string.IsNullOrWhiteSpace(signee.UserId) ?
-            PrincipalUtil.GetToken(10016, 1600, 2) :
-            PrincipalUtil.GetSystemUserToken(signee.SystemUserId.ToString(), signee.OrganisationNumber);
+        string token = !string.IsNullOrWhiteSpace(signee.UserId)
+            ? PrincipalUtil.GetToken(10016, 1600, 2)
+            : PrincipalUtil.GetSystemUserToken(
+                signee.SystemUserId.ToString(),
+                signee.OrganisationNumber
+            );
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         SignRequest signRequest = new SignRequest
@@ -82,13 +100,20 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
             SignatureDocumentDataType = "sign-data-type",
             DataElementSignatures = new List<DataElementSignature>
             {
-                new DataElementSignature { DataElementId = Guid.NewGuid().ToString(), Signed = true }
+                new DataElementSignature
+                {
+                    DataElementId = Guid.NewGuid().ToString(),
+                    Signed = true,
+                },
             },
             Signee = signee,
         };
 
         // Act
-        HttpResponseMessage response = await client.PostAsync(requestUri, JsonContent.Create(signRequest, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(signRequest, new MediaTypeHeaderValue("application/json"))
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -109,7 +134,10 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
         SignRequest signRequest = new SignRequest();
 
         // Act
-        HttpResponseMessage response = await client.PostAsync(requestUri, JsonContent.Create(signRequest, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(signRequest, new MediaTypeHeaderValue("application/json"))
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -130,7 +158,10 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
         SignRequest signRequest = new SignRequest();
 
         // Act
-        HttpResponseMessage response = await client.PostAsync(requestUri, JsonContent.Create(signRequest, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(signRequest, new MediaTypeHeaderValue("application/json"))
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -145,8 +176,15 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
         string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/sign";
 
         Mock<ISigningService> instanceServiceMock = new Mock<ISigningService>();
-        instanceServiceMock.Setup(ism =>
-                ism.CreateSignDocument(It.IsAny<Guid>(), It.IsAny<SignRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        instanceServiceMock
+            .Setup(ism =>
+                ism.CreateSignDocument(
+                    It.IsAny<Guid>(),
+                    It.IsAny<SignRequest>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
             .ReturnsAsync((false, new ServiceError(404, "Instance not found")));
 
         HttpClient client = GetTestClient(instanceServiceMock);
@@ -158,13 +196,20 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
             SignatureDocumentDataType = "sign-data-type",
             DataElementSignatures = new List<DataElementSignature>
             {
-                new DataElementSignature { DataElementId = Guid.NewGuid().ToString(), Signed = true }
+                new DataElementSignature
+                {
+                    DataElementId = Guid.NewGuid().ToString(),
+                    Signed = true,
+                },
             },
-            Signee = new Signee { UserId = "1337", PersonNumber = "22117612345" }
+            Signee = new Signee { UserId = "1337", PersonNumber = "22117612345" },
         };
 
         // Act
-        HttpResponseMessage response = await client.PostAsync(requestUri, JsonContent.Create(signRequest, new MediaTypeHeaderValue("application/json")));
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(signRequest, new MediaTypeHeaderValue("application/json"))
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
@@ -176,30 +221,45 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
         Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
         Mock<IMessageBus> busMock = new Mock<IMessageBus>();
 
-        HttpClient client = _factory.WithWebHostBuilder(builder =>
-        {
-            IConfiguration configuration = new ConfigurationBuilder().AddJsonFile(ServiceUtil.GetAppsettingsPath()).Build();
-            builder.ConfigureAppConfiguration((hostingContext, config) =>
+        HttpClient client = _factory
+            .WithWebHostBuilder(builder =>
             {
-                config.AddConfiguration(configuration);
-            });
+                IConfiguration configuration = new ConfigurationBuilder()
+                    .AddJsonFile(ServiceUtil.GetAppsettingsPath())
+                    .Build();
+                builder.ConfigureAppConfiguration(
+                    (hostingContext, config) =>
+                    {
+                        config.AddConfiguration(configuration);
+                    }
+                );
 
-            builder.ConfigureTestServices(services =>
-            {
-                if (instanceServiceMock != null)
+                builder.ConfigureTestServices(services =>
                 {
-                    services.AddSingleton(instanceServiceMock.Object);
-                }
+                    if (instanceServiceMock != null)
+                    {
+                        services.AddSingleton(instanceServiceMock.Object);
+                    }
 
-                services.AddMockRepositories();
-                services.AddSingleton(keyVaultWrapper.Object);
-                services.AddSingleton<IPartiesWithInstancesClient, PartiesWithInstancesClientMock>();
-                services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
-                services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
-                services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
-                services.AddSingleton(busMock.Object);
-            });
-        }).CreateClient();
+                    services.AddMockRepositories();
+                    services.AddSingleton(keyVaultWrapper.Object);
+                    services.AddSingleton<
+                        IPartiesWithInstancesClient,
+                        PartiesWithInstancesClientMock
+                    >();
+                    services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
+                    services.AddSingleton<
+                        IPostConfigureOptions<JwtCookieOptions>,
+                        JwtCookiePostConfigureOptionsStub
+                    >();
+                    services.AddSingleton<
+                        IPublicSigningKeyProvider,
+                        PublicSigningKeyProviderMock
+                    >();
+                    services.AddSingleton(busMock.Object);
+                });
+            })
+            .CreateClient();
 
         return client;
     }

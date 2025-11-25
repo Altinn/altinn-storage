@@ -34,12 +34,17 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Arrange
 
         // Act
-        Instance newInstance = await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone(), CancellationToken.None);
+        Instance newInstance = await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone(),
+            CancellationToken.None
+        );
 
         // Assert
-        string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
+        string sql =
+            $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
         int count = await PostgresUtil.RunCountQuery(sql);
-        sql = $"select confirmed from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
+        sql =
+            $"select confirmed from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
         bool? confirmed = await PostgresUtil.RunQuery<bool?>(sql);
         Assert.Equal(1, count);
         Assert.Equal(TestData.Instance_1_1.Id, newInstance.Id);
@@ -56,7 +61,10 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Instance newInstance = TestData.Instance_1_1.Clone();
         newInstance.Process.CurrentTask.Name = "Before update";
         newInstance.Process.StartEvent = "s1";
-        newInstance = await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
+        newInstance = await _instanceFixture.InstanceRepo.Create(
+            newInstance,
+            CancellationToken.None
+        );
         newInstance.Process.CurrentTask.ElementId = "Task_2";
         newInstance.Process.CurrentTask.Name = "After update";
         newInstance.Process.StartEvent = null;
@@ -70,15 +78,23 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         updateProperties.Add(nameof(newInstance.Process));
 
         // Act
-        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties, CancellationToken.None);
+        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(
+            newInstance,
+            updateProperties,
+            CancellationToken.None
+        );
 
         // Assert
-        string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'" +
-                     $" and taskid = 'Task_2'";
+        string sql =
+            $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'"
+            + $" and taskid = 'Task_2'";
         int count = await PostgresUtil.RunCountQuery(sql);
         Assert.Equal(1, count);
         Assert.Equal("Task_2", updatedInstance.Process.CurrentTask.ElementId);
-        Assert.Equal(newInstance.Process.CurrentTask.Name, updatedInstance.Process.CurrentTask.Name);
+        Assert.Equal(
+            newInstance.Process.CurrentTask.Name,
+            updatedInstance.Process.CurrentTask.Name
+        );
         Assert.Equal("After update", updatedInstance.Process.CurrentTask.Name);
         Assert.Equal("e1", newInstance.Process.EndEvent);
         Assert.Null(newInstance.Process.StartEvent);
@@ -99,7 +115,10 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Instance newInstance = TestData.Instance_1_1.Clone();
         newInstance.Process.CurrentTask.Name = "Before update";
         newInstance.Process.StartEvent = "s1";
-        newInstance = await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
+        newInstance = await _instanceFixture.InstanceRepo.Create(
+            newInstance,
+            CancellationToken.None
+        );
         newInstance.Process.CurrentTask.ElementId = "Task_2";
         newInstance.Process.CurrentTask.Name = "After update";
         newInstance.Process.StartEvent = null;
@@ -115,18 +134,30 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         List<InstanceEvent> instanceEvents = [];
         for (int i = 0; i < eventCount; i++)
         {
-            InstanceEvent instanceEvent = new() { Id = Guid.NewGuid(), InstanceId = newInstance.Id, EventType = "Created", Created = DateTime.Parse("1994-06-16T11:06:59.0851832Z") };
+            InstanceEvent instanceEvent = new()
+            {
+                Id = Guid.NewGuid(),
+                InstanceId = newInstance.Id,
+                EventType = "Created",
+                Created = DateTime.Parse("1994-06-16T11:06:59.0851832Z"),
+            };
             instanceEvents.Add(instanceEvent);
         }
 
         // Act
-        Instance updatedInstance = await _instanceFixture.InstanceAndEventsRepo.Update(newInstance, updateProperties, instanceEvents, CancellationToken.None);
+        Instance updatedInstance = await _instanceFixture.InstanceAndEventsRepo.Update(
+            newInstance,
+            updateProperties,
+            instanceEvents,
+            CancellationToken.None
+        );
 
         // Assert
         if (instanceEvents.Count > 0)
         {
             string ids = string.Join(", ", instanceEvents.Select(e => $"'{e.Id}'"));
-            string sql = $"select count(*) from storage.instanceevents where alternateid in ({ids}) AND instance = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
+            string sql =
+                $"select count(*) from storage.instanceevents where alternateid in ({ids}) AND instance = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
             int count = await PostgresUtil.RunCountQuery(sql);
             Assert.Equal(instanceEvents.Count, count);
         }
@@ -144,30 +175,42 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Instance newInstance = TestData.Instance_1_1.Clone();
         newInstance.Status.IsArchived = true;
         newInstance.Status.Substatus = new() { Description = "desc " };
-        newInstance = await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
+        newInstance = await _instanceFixture.InstanceRepo.Create(
+            newInstance,
+            CancellationToken.None
+        );
         newInstance.LastChanged = DateTime.UtcNow;
         newInstance.Status.IsSoftDeleted = true;
         newInstance.LastChangedBy = "unittest";
 
-        List<string> updateProperties = [
+        List<string> updateProperties =
+        [
             nameof(newInstance.Status),
             nameof(newInstance.Status.IsSoftDeleted),
             nameof(newInstance.LastChanged),
-            nameof(newInstance.LastChangedBy)
+            nameof(newInstance.LastChangedBy),
         ];
 
         // Act
-        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties, CancellationToken.None);
+        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(
+            newInstance,
+            updateProperties,
+            CancellationToken.None
+        );
 
         // Assert
-        string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
+        string sql =
+            $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
         int count = await PostgresUtil.RunCountQuery(sql);
         Assert.Equal(1, count);
         Assert.Equal(newInstance.Status.IsArchived, updatedInstance.Status.IsArchived);
         Assert.Equal(newInstance.Status.IsSoftDeleted, updatedInstance.Status.IsSoftDeleted);
         Assert.Equal(newInstance.LastChanged, updatedInstance.LastChanged);
         Assert.Equal(newInstance.LastChangedBy, updatedInstance.LastChangedBy);
-        Assert.Equal(newInstance.Status.Substatus.Description, updatedInstance.Status.Substatus.Description);
+        Assert.Equal(
+            newInstance.Status.Substatus.Description,
+            updatedInstance.Status.Substatus.Description
+        );
     }
 
     /// <summary>
@@ -180,23 +223,32 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Instance newInstance = TestData.Instance_1_1.Clone();
         newInstance.Status.IsArchived = true;
         newInstance.Status.Substatus = new() { Description = "substatustest-desc" };
-        newInstance = await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
+        newInstance = await _instanceFixture.InstanceRepo.Create(
+            newInstance,
+            CancellationToken.None
+        );
         newInstance.Status.Substatus = new() { Label = "substatustest-label" };
         newInstance.LastChanged = DateTime.UtcNow;
         newInstance.LastChangedBy = "unittest";
         newInstance.Status.IsArchived = false;
 
-        List<string> updateProperties = [
+        List<string> updateProperties =
+        [
             nameof(newInstance.Status.Substatus),
             nameof(newInstance.LastChanged),
-            nameof(newInstance.LastChangedBy)
+            nameof(newInstance.LastChangedBy),
         ];
 
         // Act
-        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties, CancellationToken.None);
+        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(
+            newInstance,
+            updateProperties,
+            CancellationToken.None
+        );
 
         // Assert
-        string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
+        string sql =
+            $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
         int count = await PostgresUtil.RunCountQuery(sql);
         Assert.Equal(1, count);
         Assert.Equal("substatustest-label", updatedInstance.Status.Substatus.Label);
@@ -215,7 +267,10 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Arrange
         Instance newInstance = TestData.Instance_1_1.Clone();
         newInstance.PresentationTexts = new() { { "k1", "v1" }, { "k2", "v2" } };
-        newInstance = await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
+        newInstance = await _instanceFixture.InstanceRepo.Create(
+            newInstance,
+            CancellationToken.None
+        );
         newInstance.PresentationTexts = new() { { "k2", null }, { "k3", "v3" } };
         newInstance.LastChanged = DateTime.UtcNow;
         newInstance.LastChangedBy = "unittest";
@@ -226,11 +281,16 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         updateProperties.Add(nameof(newInstance.PresentationTexts));
 
         // Act
-        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties, CancellationToken.None);
+        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(
+            newInstance,
+            updateProperties,
+            CancellationToken.None
+        );
 
         // Assert
-        string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'" +
-                     $" and instance ->> 'LastChangedBy' = 'unittest'";
+        string sql =
+            $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'"
+            + $" and instance ->> 'LastChangedBy' = 'unittest'";
         int count = await PostgresUtil.RunCountQuery(sql);
         Assert.Equal(1, count);
         Assert.Equal(2, updatedInstance.PresentationTexts.Count);
@@ -250,21 +310,22 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         DateTime unchangedSofteDeleted = DateTime.UtcNow.AddYears(-2);
         Instance newInstance = TestData.Instance_1_1.Clone();
         newInstance.Status.SoftDeleted = unchangedSofteDeleted;
-        newInstance = await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
+        newInstance = await _instanceFixture.InstanceRepo.Create(
+            newInstance,
+            CancellationToken.None
+        );
         newInstance.Process = new()
         {
-            CurrentTask = new()
-            {
-                AltinnTaskType = "Task_3"
-            },
-            Ended = DateTime.Parse("2023-12-24")
+            CurrentTask = new() { AltinnTaskType = "Task_3" },
+            Ended = DateTime.Parse("2023-12-24"),
         };
         newInstance.LastChanged = DateTime.UtcNow;
         newInstance.LastChangedBy = "unittest";
         newInstance.Status.HardDeleted = DateTime.UtcNow;
         newInstance.Status.SoftDeleted = unchangedSofteDeleted.AddYears(1);
 
-        List<string> updateProperties = [
+        List<string> updateProperties =
+        [
             nameof(newInstance.Process),
             nameof(newInstance.LastChanged),
             nameof(newInstance.LastChangedBy),
@@ -273,14 +334,22 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         ];
 
         // Act
-        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties, CancellationToken.None);
+        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(
+            newInstance,
+            updateProperties,
+            CancellationToken.None
+        );
 
         // Assert
-        string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'" +
-                     $" and instance ->> 'LastChangedBy' = 'unittest'";
+        string sql =
+            $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'"
+            + $" and instance ->> 'LastChangedBy' = 'unittest'";
         int count = await PostgresUtil.RunCountQuery(sql);
         Assert.Equal(1, count);
-        Assert.Equal(newInstance.Process.CurrentTask.AltinnTaskType, updatedInstance.Process.CurrentTask.AltinnTaskType);
+        Assert.Equal(
+            newInstance.Process.CurrentTask.AltinnTaskType,
+            updatedInstance.Process.CurrentTask.AltinnTaskType
+        );
         Assert.Equal(newInstance.Process.Ended, updatedInstance.Process.Ended);
         Assert.Equal(newInstance.LastChanged, updatedInstance.LastChanged);
         Assert.Equal(newInstance.LastChangedBy, updatedInstance.LastChangedBy);
@@ -298,34 +367,43 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         DateTime unchangedSofteDeleted = DateTime.UtcNow.AddYears(-2);
         Instance newInstance = TestData.Instance_1_1.Clone();
         newInstance.Status.SoftDeleted = unchangedSofteDeleted;
-        newInstance = await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
+        newInstance = await _instanceFixture.InstanceRepo.Create(
+            newInstance,
+            CancellationToken.None
+        );
         newInstance.Process = new()
         {
-            CurrentTask = new()
-            {
-                AltinnTaskType = "Task_3"
-            },
-            Ended = DateTime.Parse("2023-12-24")
+            CurrentTask = new() { AltinnTaskType = "Task_3" },
+            Ended = DateTime.Parse("2023-12-24"),
         };
         newInstance.LastChanged = DateTime.UtcNow;
         newInstance.LastChangedBy = "unittest";
         newInstance.Status.SoftDeleted = unchangedSofteDeleted.AddYears(1);
 
-        List<string> updateProperties = [
+        List<string> updateProperties =
+        [
             nameof(newInstance.Process),
             nameof(newInstance.LastChanged),
             nameof(newInstance.LastChangedBy),
         ];
 
         // Act
-        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties, CancellationToken.None);
+        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(
+            newInstance,
+            updateProperties,
+            CancellationToken.None
+        );
 
         // Assert
-        string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'" +
-                     $" and instance ->> 'LastChangedBy' = 'unittest'";
+        string sql =
+            $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'"
+            + $" and instance ->> 'LastChangedBy' = 'unittest'";
         int count = await PostgresUtil.RunCountQuery(sql);
         Assert.Equal(1, count);
-        Assert.Equal(newInstance.Process.CurrentTask.AltinnTaskType, updatedInstance.Process.CurrentTask.AltinnTaskType);
+        Assert.Equal(
+            newInstance.Process.CurrentTask.AltinnTaskType,
+            updatedInstance.Process.CurrentTask.AltinnTaskType
+        );
         Assert.Equal(newInstance.Process.Ended, updatedInstance.Process.Ended);
         Assert.Equal(newInstance.LastChanged, updatedInstance.LastChanged);
         Assert.Equal(newInstance.LastChangedBy, updatedInstance.LastChangedBy);
@@ -341,7 +419,10 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Arrange
         Instance newInstance = TestData.Instance_1_1.Clone();
         newInstance.DataValues = new() { { "k1", "v1" }, { "k2", "v2" } };
-        newInstance = await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
+        newInstance = await _instanceFixture.InstanceRepo.Create(
+            newInstance,
+            CancellationToken.None
+        );
         newInstance.DataValues = new() { { "k2", null }, { "k3", "v3" } };
         newInstance.LastChanged = DateTime.UtcNow;
         newInstance.LastChangedBy = "unittest";
@@ -352,11 +433,16 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         updateProperties.Add(nameof(newInstance.DataValues));
 
         // Act
-        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties, CancellationToken.None);
+        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(
+            newInstance,
+            updateProperties,
+            CancellationToken.None
+        );
 
         // Assert
-        string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'" +
-                     $" and instance ->> 'LastChangedBy' = 'unittest'";
+        string sql =
+            $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'"
+            + $" and instance ->> 'LastChangedBy' = 'unittest'";
         int count = await PostgresUtil.RunCountQuery(sql);
         Assert.Equal(1, count);
         Assert.Equal(2, updatedInstance.DataValues.Count);
@@ -374,9 +460,26 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     {
         // Arrange
         Instance newInstance = TestData.Instance_1_1.Clone();
-        newInstance.CompleteConfirmations = [new CompleteConfirmation() { ConfirmedOn = DateTime.UtcNow.AddYears(-1), StakeholderId = "TTD" }];
-        newInstance = await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
-        newInstance.CompleteConfirmations = [new CompleteConfirmation() { ConfirmedOn = DateTime.UtcNow.AddYears(-2), StakeholderId = "s2" }];
+        newInstance.CompleteConfirmations =
+        [
+            new CompleteConfirmation()
+            {
+                ConfirmedOn = DateTime.UtcNow.AddYears(-1),
+                StakeholderId = "TTD",
+            },
+        ];
+        newInstance = await _instanceFixture.InstanceRepo.Create(
+            newInstance,
+            CancellationToken.None
+        );
+        newInstance.CompleteConfirmations =
+        [
+            new CompleteConfirmation()
+            {
+                ConfirmedOn = DateTime.UtcNow.AddYears(-2),
+                StakeholderId = "s2",
+            },
+        ];
         newInstance.LastChanged = DateTime.UtcNow;
         newInstance.LastChangedBy = "unittest";
 
@@ -386,13 +489,19 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         updateProperties.Add(nameof(newInstance.CompleteConfirmations));
 
         // Act
-        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties, CancellationToken.None);
+        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(
+            newInstance,
+            updateProperties,
+            CancellationToken.None
+        );
 
         // Assert
-        string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'" +
-                     $" and instance ->> 'LastChangedBy' = 'unittest'";
+        string sql =
+            $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'"
+            + $" and instance ->> 'LastChangedBy' = 'unittest'";
         int count = await PostgresUtil.RunCountQuery(sql);
-        sql = $"select confirmed from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
+        sql =
+            $"select confirmed from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
         bool? confirmed = await PostgresUtil.RunQuery<bool?>(sql);
         Assert.Equal(1, count);
         Assert.Equal(2, updatedInstance.CompleteConfirmations.Count);
@@ -409,9 +518,26 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     {
         // Arrange
         Instance newInstance = TestData.Instance_1_1.Clone();
-        newInstance.CompleteConfirmations = [new CompleteConfirmation() { ConfirmedOn = DateTime.UtcNow.AddYears(-1), StakeholderId = "s1" }];
-        newInstance = await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
-        newInstance.CompleteConfirmations = [new CompleteConfirmation() { ConfirmedOn = DateTime.UtcNow.AddYears(-2), StakeholderId = "s2" }];
+        newInstance.CompleteConfirmations =
+        [
+            new CompleteConfirmation()
+            {
+                ConfirmedOn = DateTime.UtcNow.AddYears(-1),
+                StakeholderId = "s1",
+            },
+        ];
+        newInstance = await _instanceFixture.InstanceRepo.Create(
+            newInstance,
+            CancellationToken.None
+        );
+        newInstance.CompleteConfirmations =
+        [
+            new CompleteConfirmation()
+            {
+                ConfirmedOn = DateTime.UtcNow.AddYears(-2),
+                StakeholderId = "s2",
+            },
+        ];
         newInstance.LastChanged = DateTime.UtcNow;
         newInstance.LastChangedBy = "unittest";
 
@@ -421,13 +547,19 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         updateProperties.Add(nameof(newInstance.CompleteConfirmations));
 
         // Act
-        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(newInstance, updateProperties, CancellationToken.None);
+        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(
+            newInstance,
+            updateProperties,
+            CancellationToken.None
+        );
 
         // Assert
-        string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'" +
-                     $" and instance ->> 'LastChangedBy' = 'unittest'";
+        string sql =
+            $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'"
+            + $" and instance ->> 'LastChangedBy' = 'unittest'";
         int count = await PostgresUtil.RunCountQuery(sql);
-        sql = $"select confirmed from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
+        sql =
+            $"select confirmed from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
         bool confirmed = await PostgresUtil.RunQuery<bool>(sql);
         Assert.Equal(1, count);
         Assert.Equal(2, updatedInstance.CompleteConfirmations.Count);
@@ -443,13 +575,20 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_Delete_Ok()
     {
         // Arrange
-        Instance newInstance = await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone(), CancellationToken.None);
+        Instance newInstance = await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone(),
+            CancellationToken.None
+        );
 
         // Act
-        bool deleted = await _instanceFixture.InstanceRepo.Delete(newInstance, CancellationToken.None);
+        bool deleted = await _instanceFixture.InstanceRepo.Delete(
+            newInstance,
+            CancellationToken.None
+        );
 
         // Assert
-        string sql = $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
+        string sql =
+            $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
         int count = await PostgresUtil.RunCountQuery(sql);
         Assert.Equal(0, count);
         Assert.True(deleted);
@@ -466,8 +605,16 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Instance instance = await InsertInstanceAndData(TestData.Instance_1_1.Clone(), data);
 
         // Act
-        (Instance instanceNoData, _) = await _instanceFixture.InstanceRepo.GetOne(Guid.Parse(instance.Id.Split('/').Last()), false, CancellationToken.None);
-        (Instance instanceWithData, _) = await _instanceFixture.InstanceRepo.GetOne(Guid.Parse(instance.Id.Split('/').Last()), true, CancellationToken.None);
+        (Instance instanceNoData, _) = await _instanceFixture.InstanceRepo.GetOne(
+            Guid.Parse(instance.Id.Split('/').Last()),
+            false,
+            CancellationToken.None
+        );
+        (Instance instanceWithData, _) = await _instanceFixture.InstanceRepo.GetOne(
+            Guid.Parse(instance.Id.Split('/').Last()),
+            true,
+            CancellationToken.None
+        );
 
         // Assert
         Assert.Equal(instanceNoData.Id, instance.Id);
@@ -483,12 +630,23 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_GetHardDeletedInstances_Ok()
     {
         // Arrange
-        await _instanceFixture.InstanceRepo.Create(HardDelete(TestData.Instance_1_1.Clone()), CancellationToken.None);
-        await _instanceFixture.InstanceRepo.Create(HardDelete(TestData.Instance_2_1.Clone()), CancellationToken.None);
-        await _instanceFixture.InstanceRepo.Create(TestData.Instance_3_1.Clone(), CancellationToken.None);
+        await _instanceFixture.InstanceRepo.Create(
+            HardDelete(TestData.Instance_1_1.Clone()),
+            CancellationToken.None
+        );
+        await _instanceFixture.InstanceRepo.Create(
+            HardDelete(TestData.Instance_2_1.Clone()),
+            CancellationToken.None
+        );
+        await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_3_1.Clone(),
+            CancellationToken.None
+        );
 
         // Act
-        var instances = await _instanceFixture.InstanceRepo.GetHardDeletedInstances(CancellationToken.None);
+        var instances = await _instanceFixture.InstanceRepo.GetHardDeletedInstances(
+            CancellationToken.None
+        );
 
         // Assert
         Assert.Equal(2, instances.Count);
@@ -509,9 +667,17 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         await InsertInstanceAndDataHardDelete(TestData.Instance_3_1.Clone(), data3);
 
         // Act
-        var dataElements3 = await _instanceFixture.InstanceRepo.GetHardDeletedDataElements(CancellationToken.None);
-        await _instanceFixture.DataRepo.Update(Guid.Empty, Guid.Parse(data1.Id), new Dictionary<string, object>() { { "/deleteStatus", new DeleteStatus() } });
-        var dataElements2 = await _instanceFixture.InstanceRepo.GetHardDeletedDataElements(CancellationToken.None);
+        var dataElements3 = await _instanceFixture.InstanceRepo.GetHardDeletedDataElements(
+            CancellationToken.None
+        );
+        await _instanceFixture.DataRepo.Update(
+            Guid.Empty,
+            Guid.Parse(data1.Id),
+            new Dictionary<string, object>() { { "/deleteStatus", new DeleteStatus() } }
+        );
+        var dataElements2 = await _instanceFixture.InstanceRepo.GetHardDeletedDataElements(
+            CancellationToken.None
+        );
 
         // Assert
         Assert.Equal(3, dataElements3.Count);
@@ -525,17 +691,36 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_GetInstancesFromQuery_Ok()
     {
         // Arrange
-        await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone(), CancellationToken.None);
-        await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_2.Clone(), CancellationToken.None);
-        await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_3.Clone(), CancellationToken.None);
+        await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone(),
+            CancellationToken.None
+        );
+        await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_2.Clone(),
+            CancellationToken.None
+        );
+        await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_3.Clone(),
+            CancellationToken.None
+        );
 
         InstanceQueryParameters queryParams = new() { Size = 100 };
 
         // Act
-        var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
+        var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            queryParams,
+            true,
+            CancellationToken.None
+        );
 
-        queryParams.InstanceOwnerPartyId = Convert.ToInt32(TestData.Instance_1_3.InstanceOwner.PartyId);
-        var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
+        queryParams.InstanceOwnerPartyId = Convert.ToInt32(
+            TestData.Instance_1_3.InstanceOwner.PartyId
+        );
+        var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            queryParams,
+            true,
+            CancellationToken.None
+        );
 
         // Assert
         Assert.Equal(3, instances3.Count);
@@ -549,26 +734,43 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_GetInstancesFromQuery_Continuation_Ok()
     {
         // Arrange
-        await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone(), CancellationToken.None);
-        await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_2.Clone(), CancellationToken.None);
-        await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_3.Clone(), CancellationToken.None);
-        InstanceQueryParameters queryParams = new()
-        {
-            Size = 1,
-            SortBy = "asc:"
-        };
+        await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone(),
+            CancellationToken.None
+        );
+        await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_2.Clone(),
+            CancellationToken.None
+        );
+        await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_3.Clone(),
+            CancellationToken.None
+        );
+        InstanceQueryParameters queryParams = new() { Size = 1, SortBy = "asc:" };
 
         // Act
-        var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
+        var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            queryParams,
+            true,
+            CancellationToken.None
+        );
         string contToken1 = instances1.ContinuationToken;
         queryParams.ContinuationToken = contToken1;
 
-        var instances2 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
+        var instances2 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            queryParams,
+            true,
+            CancellationToken.None
+        );
         string contToken2 = instances2.ContinuationToken;
         queryParams.ContinuationToken = contToken2;
 
         queryParams.Size = 2;
-        var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
+        var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            queryParams,
+            true,
+            CancellationToken.None
+        );
         string contToken3 = instances3.ContinuationToken;
 
         // Assert
@@ -589,16 +791,23 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_GetInstancesFromQuery_AppId_Ok()
     {
         // Arrange
-        await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone(), CancellationToken.None);
+        await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone(),
+            CancellationToken.None
+        );
 
         InstanceQueryParameters queryParams = new()
         {
             Size = 100,
-            AppId = "ttd/test-applikasjon-1"
+            AppId = "ttd/test-applikasjon-1",
         };
 
         // Act
-        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
+        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            queryParams,
+            true,
+            CancellationToken.None
+        );
 
         // Assert
         Assert.Equal(1, instances.Count);
@@ -614,19 +823,16 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         InstanceQueryParameters queryParamsWithExcludeOwner = new()
         {
             ExcludeConfirmedBy = "TTD",
-            Org = "TTD"
+            Org = "TTD",
         };
 
         InstanceQueryParameters queryParamsWithExcludeOther = new()
         {
             ExcludeConfirmedBy = "SKD",
-            Org = "TTD"
+            Org = "TTD",
         };
 
-        InstanceQueryParameters queryParamsWithoutExclude = new()
-        {
-            Org = "TTD"
-        };
+        InstanceQueryParameters queryParamsWithoutExclude = new() { Org = "TTD" };
 
         // Act
         var sqlParamsWithExcludeOwner = queryParamsWithExcludeOwner.GeneratePostgreSQLParameters();
@@ -659,11 +865,15 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         {
             Size = 100,
             SearchString = "nomatchj",
-            AppIds = []
+            AppIds = [],
         };
 
         // Act
-        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
+        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            queryParams,
+            true,
+            CancellationToken.None
+        );
 
         // Assert
         Assert.Equal(0, instances.Count);
@@ -684,11 +894,15 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         {
             Size = 100,
             SearchString = "bing",
-            AppIds = []
+            AppIds = [],
         };
 
         // Act
-        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
+        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            queryParams,
+            true,
+            CancellationToken.None
+        );
 
         // Assert
         Assert.Equal(1, instances.Count);
@@ -702,18 +916,25 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     {
         // Arrange
         Instance newInstance = TestData.Instance_1_1.Clone();
-        newInstance.CompleteConfirmations = new() { new() { StakeholderId = "TTD", ConfirmedOn = DateTime.Now } };
+        newInstance.CompleteConfirmations = new()
+        {
+            new() { StakeholderId = "TTD", ConfirmedOn = DateTime.Now },
+        };
         await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
 
         InstanceQueryParameters queryParams = new()
         {
             Size = 100,
             ExcludeConfirmedBy = "TTD",
-            Org = "TTD"
+            Org = "TTD",
         };
 
         // Act
-        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
+        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            queryParams,
+            true,
+            CancellationToken.None
+        );
 
         // Assert
         Assert.Equal(0, instances.Count);
@@ -727,18 +948,25 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     {
         // Arrange
         Instance newInstance = TestData.Instance_1_1.Clone();
-        newInstance.CompleteConfirmations = new() { new() { StakeholderId = "TTD", ConfirmedOn = DateTime.Now } };
+        newInstance.CompleteConfirmations = new()
+        {
+            new() { StakeholderId = "TTD", ConfirmedOn = DateTime.Now },
+        };
         await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
 
         InstanceQueryParameters queryParams = new()
         {
             Size = 100,
             ExcludeConfirmedBy = "SKD",
-            Org = "TTD"
+            Org = "TTD",
         };
 
         // Act
-        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
+        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            queryParams,
+            true,
+            CancellationToken.None
+        );
 
         // Assert
         Assert.Equal(1, instances.Count);
@@ -752,18 +980,25 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     {
         // Arrange
         Instance newInstance = TestData.Instance_1_1.Clone();
-        newInstance.CompleteConfirmations = new() { new() { StakeholderId = "SKD", ConfirmedOn = DateTime.Now } };
+        newInstance.CompleteConfirmations = new()
+        {
+            new() { StakeholderId = "SKD", ConfirmedOn = DateTime.Now },
+        };
         await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
 
         InstanceQueryParameters queryParams = new()
         {
             Size = 100,
             ExcludeConfirmedBy = "SKD",
-            Org = "TTD"
+            Org = "TTD",
         };
 
         // Act
-        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
+        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            queryParams,
+            true,
+            CancellationToken.None
+        );
 
         // Assert
         Assert.Equal(0, instances.Count);
@@ -777,18 +1012,25 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     {
         // Arrange
         Instance newInstance = TestData.Instance_1_1.Clone();
-        newInstance.CompleteConfirmations = new() { new() { StakeholderId = "SKD", ConfirmedOn = DateTime.Now } };
+        newInstance.CompleteConfirmations = new()
+        {
+            new() { StakeholderId = "SKD", ConfirmedOn = DateTime.Now },
+        };
         await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
 
         InstanceQueryParameters queryParams = new()
         {
             Size = 100,
             ExcludeConfirmedBy = "TTD",
-            Org = "TTD"
+            Org = "TTD",
         };
 
         // Act
-        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
+        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            queryParams,
+            true,
+            CancellationToken.None
+        );
 
         // Assert
         Assert.Equal(1, instances.Count);
@@ -809,11 +1051,15 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         {
             Size = 100,
             SearchString = "nomatch",
-            AppIds = ["ttd/test-applikasjon-1", "ttd/test-applikasjon-2"]
+            AppIds = ["ttd/test-applikasjon-1", "ttd/test-applikasjon-2"],
         };
 
         // Act
-        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
+        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            queryParams,
+            true,
+            CancellationToken.None
+        );
 
         // Assert
         Assert.Equal(1, instances.Count);
@@ -837,11 +1083,19 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         {
             Size = 100,
             SearchString = "ing",
-            AppIds = new List<string>() { "ttd/test-applikasjon-3", "ttd/test-applikasjon-2" }.ToArray()
+            AppIds = new List<string>()
+            {
+                "ttd/test-applikasjon-3",
+                "ttd/test-applikasjon-2",
+            }.ToArray(),
         };
 
         // Act
-        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
+        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            queryParams,
+            true,
+            CancellationToken.None
+        );
 
         // Assert
         Assert.Equal(2, instances.Count);
@@ -857,12 +1111,36 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         await PrepareDateSearch();
 
         // Act
-        var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2021", "2021"), true, CancellationToken.None);
-        var instances2 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2022", "2022"), true, CancellationToken.None);
-        var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2023", "2023"), true, CancellationToken.None);
-        var instances4 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2024", "2024"), true, CancellationToken.None);
-        var instances5 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2019", "2019"), true, CancellationToken.None);
-        var instances6 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(GetDateQueryParams("2021", "2024"), true, CancellationToken.None);
+        var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            GetDateQueryParams("2021", "2021"),
+            true,
+            CancellationToken.None
+        );
+        var instances2 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            GetDateQueryParams("2022", "2022"),
+            true,
+            CancellationToken.None
+        );
+        var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            GetDateQueryParams("2023", "2023"),
+            true,
+            CancellationToken.None
+        );
+        var instances4 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            GetDateQueryParams("2024", "2024"),
+            true,
+            CancellationToken.None
+        );
+        var instances5 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            GetDateQueryParams("2019", "2019"),
+            true,
+            CancellationToken.None
+        );
+        var instances6 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            GetDateQueryParams("2021", "2024"),
+            true,
+            CancellationToken.None
+        );
 
         // Assert
         Assert.Equal(1, instances1.Count);
@@ -880,31 +1158,55 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_GetInstancesFromQuery_InvalidDate()
     {
         // Arrange
-        await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_1.Clone(), CancellationToken.None);
-        await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_2.Clone(), CancellationToken.None);
-        await _instanceFixture.InstanceRepo.Create(TestData.Instance_1_3.Clone(), CancellationToken.None);
+        await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone(),
+            CancellationToken.None
+        );
+        await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_2.Clone(),
+            CancellationToken.None
+        );
+        await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_3.Clone(),
+            CancellationToken.None
+        );
 
         InstanceQueryParameters queryParams = new()
         {
             Size = 100,
             ProcessEnded = ["true"],
-            InstanceOwnerPartyId = Convert.ToInt32(TestData.Instance_1_3.InstanceOwner.PartyId)
+            InstanceOwnerPartyId = Convert.ToInt32(TestData.Instance_1_3.InstanceOwner.PartyId),
         };
 
         // Act
-        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(queryParams, true, CancellationToken.None);
+        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            queryParams,
+            true,
+            CancellationToken.None
+        );
 
         // Assert
         Assert.Equal(0, instances.Count);
         Assert.NotNull(instances.Exception);
     }
 
-    private async Task<Instance> InsertInstanceAndDataHardDelete(Instance instance, DataElement dataelement)
+    private async Task<Instance> InsertInstanceAndDataHardDelete(
+        Instance instance,
+        DataElement dataelement
+    )
     {
-        dataelement.DeleteStatus = new() { IsHardDeleted = true, HardDeleted = DateTime.Now.AddDays(-8).ToUniversalTime() };
+        dataelement.DeleteStatus = new()
+        {
+            IsHardDeleted = true,
+            HardDeleted = DateTime.Now.AddDays(-8).ToUniversalTime(),
+        };
         instance.CompleteConfirmations = new()
         {
-            new CompleteConfirmation() { ConfirmedOn = DateTime.Now.AddDays(-8).ToUniversalTime(), StakeholderId = instance.Org }
+            new CompleteConfirmation()
+            {
+                ConfirmedOn = DateTime.Now.AddDays(-8).ToUniversalTime(),
+                StakeholderId = instance.Org,
+            },
         };
 
         return await InsertInstanceAndData(instance, dataelement);
@@ -913,7 +1215,11 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     private async Task<Instance> InsertInstanceAndData(Instance instance, DataElement dataelement)
     {
         instance = await _instanceFixture.InstanceRepo.Create(instance, CancellationToken.None);
-        (_, long internalId) = await _instanceFixture.InstanceRepo.GetOne(Guid.Parse(instance.Id.Split('/').Last()), true, CancellationToken.None);
+        (_, long internalId) = await _instanceFixture.InstanceRepo.GetOne(
+            Guid.Parse(instance.Id.Split('/').Last()),
+            true,
+            CancellationToken.None
+        );
         await _instanceFixture.DataRepo.Create(dataelement, internalId);
         return instance;
     }
@@ -931,7 +1237,11 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         return new InstanceQueryParameters
         {
             Size = 100,
-            MsgBoxInterval = [$"gt:{fromYear}-01-01T23:00:00.000Z", $"lt:{toYear}-01-12T23:00:00.000Z"]
+            MsgBoxInterval =
+            [
+                $"gt:{fromYear}-01-01T23:00:00.000Z",
+                $"lt:{toYear}-01-12T23:00:00.000Z",
+            ],
         };
     }
 
@@ -969,9 +1279,18 @@ public class InstanceFixture
 
     public InstanceFixture()
     {
-        var serviceList = ServiceUtil.GetServices(new List<Type>() { typeof(IInstanceRepository), typeof(IInstanceAndEventsRepository), typeof(IDataRepository) });
-        InstanceRepo = (IInstanceRepository)serviceList.First(i => i.GetType() == typeof(PgInstanceRepository));
-        InstanceAndEventsRepo = (IInstanceAndEventsRepository)serviceList.First(i => i.GetType() == typeof(PgInstanceAndEventsRepository));
+        var serviceList = ServiceUtil.GetServices(
+            new List<Type>()
+            {
+                typeof(IInstanceRepository),
+                typeof(IInstanceAndEventsRepository),
+                typeof(IDataRepository),
+            }
+        );
+        InstanceRepo = (IInstanceRepository)
+            serviceList.First(i => i.GetType() == typeof(PgInstanceRepository));
+        InstanceAndEventsRepo = (IInstanceAndEventsRepository)
+            serviceList.First(i => i.GetType() == typeof(PgInstanceAndEventsRepository));
         DataRepo = (IDataRepository)serviceList.First(i => i.GetType() == typeof(PgDataRepository));
     }
 }

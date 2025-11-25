@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
-
 using Altinn.AccessManagement.Core.Models;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Helpers;
@@ -17,7 +16,6 @@ using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
@@ -26,9 +24,7 @@ using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
-
 using Newtonsoft.Json;
-
 using Substatus = Altinn.Platform.Storage.Interface.Models.Substatus;
 
 namespace Altinn.Platform.Storage.Controllers;
@@ -69,7 +65,8 @@ public class InstancesController : ControllerBase
         IInstanceEventService instanceEventService,
         IRegisterService registerService,
         IApplicationService applicationService,
-        IOptions<GeneralSettings> settings)
+        IOptions<GeneralSettings> settings
+    )
     {
         _instanceRepository = instanceRepository;
         _partiesWithInstancesClient = partiesWithInstancesClient;
@@ -94,26 +91,39 @@ public class InstancesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces("application/json")]
-    public async Task<ActionResult<QueryResponse<Instance>>> GetInstances(InstanceQueryParameters queryParameters, CancellationToken cancellationToken)
+    public async Task<ActionResult<QueryResponse<Instance>>> GetInstances(
+        InstanceQueryParameters queryParameters,
+        CancellationToken cancellationToken
+    )
     {
         if (queryParameters.IsInvalidInstanceOwnerCombination())
         {
-            return BadRequest("Both InstanceOwner.PartyId and InstanceOwnerIdentifier cannot be present at the same time.");
+            return BadRequest(
+                "Both InstanceOwner.PartyId and InstanceOwnerIdentifier cannot be present at the same time."
+            );
         }
 
         string orgClaim = User.GetOrg();
         int? userId = User.GetUserId();
         SystemUserClaim systemUser = User.GetSystemUser();
-        bool hasSyncAdapterScope = _authorizationService.UserHasRequiredScope(_generalSettings.InstanceSyncAdapterScope);
+        bool hasSyncAdapterScope = _authorizationService.UserHasRequiredScope(
+            _generalSettings.InstanceSyncAdapterScope
+        );
 
         if (orgClaim != null)
         {
-            if (!hasSyncAdapterScope && !_authorizationService.UserHasRequiredScope(_generalSettings.InstanceReadScope))
+            if (
+                !hasSyncAdapterScope
+                && !_authorizationService.UserHasRequiredScope(_generalSettings.InstanceReadScope)
+            )
             {
                 return Forbid();
             }
 
-            if (string.IsNullOrEmpty(queryParameters.Org) && string.IsNullOrEmpty(queryParameters.AppId))
+            if (
+                string.IsNullOrEmpty(queryParameters.Org)
+                && string.IsNullOrEmpty(queryParameters.AppId)
+            )
             {
                 return BadRequest("Org or AppId must be defined.");
             }
@@ -123,7 +133,13 @@ public class InstancesController : ControllerBase
                 queryParameters.Org = queryParameters.AppId.Split('/')[0];
             }
 
-            if (!hasSyncAdapterScope && !orgClaim.Equals(queryParameters.Org, StringComparison.InvariantCultureIgnoreCase))
+            if (
+                !hasSyncAdapterScope
+                && !orgClaim.Equals(
+                    queryParameters.Org,
+                    StringComparison.InvariantCultureIgnoreCase
+                )
+            )
             {
                 if (string.IsNullOrEmpty(queryParameters.AppId))
                 {
@@ -132,8 +148,15 @@ public class InstancesController : ControllerBase
 
                 var appId = ValidateAppId(queryParameters.AppId).Split("/")[1];
 
-                XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(queryParameters.Org, appId, HttpContext.User, "read");
-                XacmlJsonResponse response = await _authorizationService.GetDecisionForRequest(request);
+                XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
+                    queryParameters.Org,
+                    appId,
+                    HttpContext.User,
+                    "read"
+                );
+                XacmlJsonResponse response = await _authorizationService.GetDecisionForRequest(
+                    request
+                );
 
                 if (!DecisionHelper.ValidatePdpDecision(response?.Response, HttpContext.User))
                 {
@@ -143,9 +166,14 @@ public class InstancesController : ControllerBase
         }
         else if (userId is not null || systemUser is not null)
         {
-            if (queryParameters.InstanceOwnerPartyId == null && string.IsNullOrEmpty(queryParameters.InstanceOwnerIdentifier))
+            if (
+                queryParameters.InstanceOwnerPartyId == null
+                && string.IsNullOrEmpty(queryParameters.InstanceOwnerIdentifier)
+            )
             {
-                return BadRequest("Either InstanceOwnerPartyId or InstanceOwnerIdentifier need to be defined.");
+                return BadRequest(
+                    "Either InstanceOwnerPartyId or InstanceOwnerIdentifier need to be defined."
+                );
             }
         }
         else
@@ -155,9 +183,15 @@ public class InstancesController : ControllerBase
 
         if (!string.IsNullOrEmpty(queryParameters.InstanceOwnerIdentifier))
         {
-            (string instanceOwnerIdType, string instanceOwnerIdValue) = InstanceHelper.GetIdentifierFromInstanceOwnerIdentifier(queryParameters.InstanceOwnerIdentifier);
+            (string instanceOwnerIdType, string instanceOwnerIdValue) =
+                InstanceHelper.GetIdentifierFromInstanceOwnerIdentifier(
+                    queryParameters.InstanceOwnerIdentifier
+                );
 
-            if (string.IsNullOrEmpty(instanceOwnerIdType) || string.IsNullOrEmpty(instanceOwnerIdValue))
+            if (
+                string.IsNullOrEmpty(instanceOwnerIdType)
+                || string.IsNullOrEmpty(instanceOwnerIdValue)
+            )
             {
                 return BadRequest("Invalid InstanceOwnerIdentifier.");
             }
@@ -170,7 +204,11 @@ public class InstancesController : ControllerBase
                 switch (partyType)
                 {
                     case PartyType.Person:
-                        if (!InstanceOwnerIdRegExHelper.ElevenDigitRegex().IsMatch(instanceOwnerIdValue))
+                        if (
+                            !InstanceOwnerIdRegExHelper
+                                .ElevenDigitRegex()
+                                .IsMatch(instanceOwnerIdValue)
+                        )
                         {
                             return BadRequest("Person number needs to be exactly 11 digits.");
                         }
@@ -179,7 +217,11 @@ public class InstancesController : ControllerBase
                         break;
 
                     case PartyType.Organisation:
-                        if (!InstanceOwnerIdRegExHelper.NineDigitRegex().IsMatch(instanceOwnerIdValue))
+                        if (
+                            !InstanceOwnerIdRegExHelper
+                                .NineDigitRegex()
+                                .IsMatch(instanceOwnerIdValue)
+                        )
                         {
                             return BadRequest("Organization number needs to be exactly 9 digits.");
                         }
@@ -189,7 +231,10 @@ public class InstancesController : ControllerBase
                 }
             }
 
-            queryParameters.InstanceOwnerPartyId = await _registerService.PartyLookup(person, orgNo);
+            queryParameters.InstanceOwnerPartyId = await _registerService.PartyLookup(
+                person,
+                orgNo
+            );
 
             if (queryParameters.InstanceOwnerPartyId < 0)
             {
@@ -201,10 +246,13 @@ public class InstancesController : ControllerBase
         if (!string.IsNullOrEmpty(queryParameters.ContinuationToken))
         {
             selfContinuationToken = queryParameters.ContinuationToken;
-            queryParameters.ContinuationToken = HttpUtility.UrlDecode(queryParameters.ContinuationToken);
+            queryParameters.ContinuationToken = HttpUtility.UrlDecode(
+                queryParameters.ContinuationToken
+            );
         }
 
-        bool appOwnerOrSyncAdapterRequestingInstances = hasSyncAdapterScope || User.HasServiceOwnerScope();
+        bool appOwnerOrSyncAdapterRequestingInstances =
+            hasSyncAdapterScope || User.HasServiceOwnerScope();
 
         // filter out hard deleted instances if it isn't the appOwner or the sync adapter requesting instances
         if (!appOwnerOrSyncAdapterRequestingInstances)
@@ -214,7 +262,7 @@ public class InstancesController : ControllerBase
                 return new QueryResponse<Instance>()
                 {
                     Instances = [],
-                    Self = BuildRequestLink(selfContinuationToken)
+                    Self = BuildRequestLink(selfContinuationToken),
                 };
             }
 
@@ -227,7 +275,10 @@ public class InstancesController : ControllerBase
         }
 
         // Default is to exclude migrated altinn 1 and 2 instances
-        if (queryParameters.MainVersionExclude == null && queryParameters.MainVersionInclude == null)
+        if (
+            queryParameters.MainVersionExclude == null
+            && queryParameters.MainVersionInclude == null
+        )
         {
             queryParameters.MainVersionInclude = 3;
         }
@@ -236,12 +287,22 @@ public class InstancesController : ControllerBase
 
         try
         {
-            InstanceQueryResponse result = await _instanceRepository.GetInstancesFromQuery(queryParameters, true, cancellationToken);
+            InstanceQueryResponse result = await _instanceRepository.GetInstancesFromQuery(
+                queryParameters,
+                true,
+                cancellationToken
+            );
 
             if (!string.IsNullOrEmpty(result.Exception))
             {
-                _logger.LogError("Unable to perform query on instances: {Exception}", result.Exception);
-                return StatusCode(cancellationToken.IsCancellationRequested ? 499 : 500, result.Exception);
+                _logger.LogError(
+                    "Unable to perform query on instances: {Exception}",
+                    result.Exception
+                );
+                return StatusCode(
+                    cancellationToken.IsCancellationRequested ? 499 : 500,
+                    result.Exception
+                );
             }
 
             if (!appOwnerOrSyncAdapterRequestingInstances)
@@ -266,7 +327,7 @@ public class InstancesController : ControllerBase
             {
                 Instances = result.Instances,
                 Count = result.Instances.Count,
-                Self = BuildRequestLink(selfContinuationToken)
+                Self = BuildRequestLink(selfContinuationToken),
             };
 
             if (!string.IsNullOrEmpty(nextContinuationToken))
@@ -282,7 +343,10 @@ public class InstancesController : ControllerBase
         catch (Exception e)
         {
             _logger.LogError(e, "Unable to perform query on instances");
-            return StatusCode(cancellationToken.IsCancellationRequested ? 499 : 500, $"Unable to perform query on instances due to: {e.Message}");
+            return StatusCode(
+                cancellationToken.IsCancellationRequested ? 499 : 500,
+                $"Unable to perform query on instances due to: {e.Message}"
+            );
         }
     }
 
@@ -298,13 +362,26 @@ public class InstancesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
-    public async Task<ActionResult<Instance>> Get(int instanceOwnerPartyId, Guid instanceGuid, CancellationToken cancellationToken)
+    public async Task<ActionResult<Instance>> Get(
+        int instanceOwnerPartyId,
+        Guid instanceGuid,
+        CancellationToken cancellationToken
+    )
     {
         try
         {
-            (Instance result, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
+            (Instance result, _) = await _instanceRepository.GetOne(
+                instanceGuid,
+                true,
+                cancellationToken
+            );
 
-            if (User.GetOrg() != result.Org && !_authorizationService.UserHasRequiredScope([_generalSettings.InstanceSyncAdapterScope]))
+            if (
+                User.GetOrg() != result.Org
+                && !_authorizationService.UserHasRequiredScope([
+                    _generalSettings.InstanceSyncAdapterScope,
+                ])
+            )
             {
                 FilterOutDeletedDataElements(result);
             }
@@ -334,13 +411,18 @@ public class InstancesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
-    public async Task<ActionResult<Instance>> Post(string appId, [FromBody] Instance instance, CancellationToken cancellationToken)
+    public async Task<ActionResult<Instance>> Post(
+        string appId,
+        [FromBody] Instance instance,
+        CancellationToken cancellationToken
+    )
     {
         int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
 
         appId = ValidateAppId(appId);
 
-        (Application appInfo, ServiceError appInfoError) = await _applicationService.GetApplicationOrErrorAsync(appId);
+        (Application appInfo, ServiceError appInfoError) =
+            await _applicationService.GetApplicationOrErrorAsync(appId);
 
         if (appInfoError != null)
         {
@@ -360,11 +442,23 @@ public class InstancesController : ControllerBase
         XacmlJsonRequestRoot request;
         try
         {
-            request = DecisionHelper.CreateDecisionRequest(appInfo.Org, appInfo.Id.Split('/')[1], HttpContext.User, "instantiate", instanceOwnerPartyId, null);
+            request = DecisionHelper.CreateDecisionRequest(
+                appInfo.Org,
+                appInfo.Id.Split('/')[1],
+                HttpContext.User,
+                "instantiate",
+                instanceOwnerPartyId,
+                null
+            );
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Something went wrong during CreateDecisionRequest for application id: {appId} AppInfo: {appInfo}", appId, appInfo.ToString());
+            _logger.LogError(
+                ex,
+                "Something went wrong during CreateDecisionRequest for application id: {appId} AppInfo: {appInfo}",
+                appId,
+                appInfo.ToString()
+            );
             throw;
         }
 
@@ -375,13 +469,21 @@ public class InstancesController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Something went wrong during GetDecisionForRequest for application id: {appId} AppInfo: {appInfo}", appId, appInfo.ToString());
+            _logger.LogError(
+                ex,
+                "Something went wrong during GetDecisionForRequest for application id: {appId} AppInfo: {appInfo}",
+                appId,
+                appInfo.ToString()
+            );
             throw;
         }
 
         if (response?.Response == null)
         {
-            _logger.LogInformation("// Instances Controller // Authorization of instantiation failed with request: {request}.", JsonConvert.SerializeObject(request));
+            _logger.LogInformation(
+                "// Instances Controller // Authorization of instantiation failed with request: {request}.",
+                JsonConvert.SerializeObject(request)
+            );
             return Forbid();
         }
 
@@ -392,7 +494,12 @@ public class InstancesController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Something went wrong during ValidatePdpDecision for application id: {appId} AppInfo: {appInfo}", appId, appInfo.ToString());
+            _logger.LogError(
+                ex,
+                "Something went wrong during ValidatePdpDecision for application id: {appId} AppInfo: {appInfo}",
+                appId,
+                appInfo.ToString()
+            );
             throw;
         }
 
@@ -406,11 +513,19 @@ public class InstancesController : ControllerBase
         {
             DateTime creationTime = DateTime.UtcNow;
 
-            Instance instanceToCreate = CreateInstanceFromTemplate(appInfo, instance, creationTime, User.GetUserOrOrgNo());
+            Instance instanceToCreate = CreateInstanceFromTemplate(
+                appInfo,
+                instance,
+                creationTime,
+                User.GetUserOrOrgNo()
+            );
 
             storedInstance = await _instanceRepository.Create(instanceToCreate, cancellationToken);
             await _instanceEventService.DispatchEvent(InstanceEventType.Created, storedInstance);
-            _logger.LogInformation("Created instance: {storedInstance.Id}", storedInstance.Id.RemoveNewlines());
+            _logger.LogInformation(
+                "Created instance: {storedInstance.Id}",
+                storedInstance.Id.RemoveNewlines()
+            );
             storedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
 
             await _partiesWithInstancesClient.SetHasAltinn3Instances(instanceOwnerPartyId);
@@ -418,7 +533,12 @@ public class InstancesController : ControllerBase
         }
         catch (Exception storageException)
         {
-            _logger.LogError(storageException, "Unable to create {appId} instance for {instance.InstanceOwner.PartyId}", appId.RemoveNewlines(), instance.InstanceOwner.PartyId?.RemoveNewlines());
+            _logger.LogError(
+                storageException,
+                "Unable to create {appId} instance for {instance.InstanceOwner.PartyId}",
+                appId.RemoveNewlines(),
+                instance.InstanceOwner.PartyId?.RemoveNewlines()
+            );
 
             // compensating action - delete instance
             if (storedInstance != null)
@@ -426,8 +546,14 @@ public class InstancesController : ControllerBase
                 await _instanceRepository.Delete(storedInstance, cancellationToken);
             }
 
-            _logger.LogError("Deleted instance {storedInstance.Id}", storedInstance?.Id.RemoveNewlines());
-            return StatusCode(500, $"Unable to create {appId} instance for {instance.InstanceOwner?.PartyId} due to {storageException.Message}");
+            _logger.LogError(
+                "Deleted instance {storedInstance.Id}",
+                storedInstance?.Id.RemoveNewlines()
+            );
+            return StatusCode(
+                500,
+                $"Unable to create {appId} instance for {instance.InstanceOwner?.PartyId} due to {storageException.Message}"
+            );
         }
     }
 
@@ -447,7 +573,12 @@ public class InstancesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
-    public async Task<ActionResult<Instance>> Delete(int instanceOwnerPartyId, Guid instanceGuid, [FromQuery] bool hard, CancellationToken cancellationToken)
+    public async Task<ActionResult<Instance>> Delete(
+        int instanceOwnerPartyId,
+        Guid instanceGuid,
+        [FromQuery] bool hard,
+        CancellationToken cancellationToken
+    )
     {
         Instance instance;
 
@@ -455,12 +586,15 @@ public class InstancesController : ControllerBase
 
         if (instance == null)
         {
-            return NotFound($"Didn't find the object that should be deleted with instanceId={instanceOwnerPartyId}/{instanceGuid}");
+            return NotFound(
+                $"Didn't find the object that should be deleted with instanceId={instanceOwnerPartyId}/{instanceGuid}"
+            );
         }
 
         instance.Status ??= new InstanceStatus();
 
-        (Application appInfo, ServiceError appInfoError) = await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
+        (Application appInfo, ServiceError appInfoError) =
+            await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
 
         if (appInfoError != null)
         {
@@ -473,7 +607,10 @@ public class InstancesController : ControllerBase
 
         if (InstanceHelper.IsPreventedFromDeletion(instance.Status, appInfo))
         {
-            return StatusCode(403, "Instance cannot be deleted yet due to application restrictions.");
+            return StatusCode(
+                403,
+                "Instance cannot be deleted yet due to application restrictions."
+            );
         }
 
         DateTime now = DateTime.UtcNow;
@@ -504,14 +641,25 @@ public class InstancesController : ControllerBase
 
         try
         {
-            Instance deletedInstance = await _instanceRepository.Update(instance, updateProperties, cancellationToken);
+            Instance deletedInstance = await _instanceRepository.Update(
+                instance,
+                updateProperties,
+                cancellationToken
+            );
 
             return Ok(deletedInstance);
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Unexpected exception when deleting instance {instance.Id}", instance.Id);
-            return StatusCode(500, $"Unexpected exception when deleting instance {instance.Id}: {e.Message}");
+            _logger.LogError(
+                e,
+                "Unexpected exception when deleting instance {instance.Id}",
+                instance.Id
+            );
+            return StatusCode(
+                500,
+                $"Unexpected exception when deleting instance {instance.Id}: {e.Message}"
+            );
         }
     }
 
@@ -534,10 +682,15 @@ public class InstancesController : ControllerBase
     public async Task<ActionResult<Instance>> AddCompleteConfirmation(
         [FromRoute] int instanceOwnerPartyId,
         [FromRoute] Guid instanceGuid,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         List<string> updateProperties = [];
-        (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
+        (Instance instance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            true,
+            cancellationToken
+        );
 
         string org = User.GetOrg();
 
@@ -548,7 +701,9 @@ public class InstancesController : ControllerBase
             return Ok(instance);
         }
 
-        instance.CompleteConfirmations.Add(new CompleteConfirmation { StakeholderId = org, ConfirmedOn = DateTime.UtcNow });
+        instance.CompleteConfirmations.Add(
+            new CompleteConfirmation { StakeholderId = org, ConfirmedOn = DateTime.UtcNow }
+        );
         instance.LastChanged = DateTime.UtcNow;
         instance.LastChangedBy = User.GetUserOrOrgNo();
 
@@ -559,16 +714,28 @@ public class InstancesController : ControllerBase
         Instance updatedInstance;
         try
         {
-            updatedInstance = await _instanceRepository.Update(instance, updateProperties, cancellationToken);
+            updatedInstance = await _instanceRepository.Update(
+                instance,
+                updateProperties,
+                cancellationToken
+            );
             updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Unable to update instance {instanceOwnerPartyId}/{instanceGuid}", instanceOwnerPartyId, instanceGuid);
+            _logger.LogError(
+                e,
+                "Unable to update instance {instanceOwnerPartyId}/{instanceGuid}",
+                instanceOwnerPartyId,
+                instanceGuid
+            );
             return StatusCode(StatusCodes.Status500InternalServerError);
         }
 
-        await _instanceEventService.DispatchEvent(InstanceEventType.ConfirmedComplete, updatedInstance);
+        await _instanceEventService.DispatchEvent(
+            InstanceEventType.ConfirmedComplete,
+            updatedInstance
+        );
 
         return Ok(updatedInstance);
     }
@@ -590,16 +757,27 @@ public class InstancesController : ControllerBase
         [FromRoute] int instanceOwnerPartyId,
         [FromRoute] Guid instanceGuid,
         [FromQuery] string status,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         if (!Enum.TryParse(status, true, out ReadStatus newStatus))
         {
-            return BadRequest($"Invalid read status: {status}. Accepted types include: {string.Join(", ", Enum.GetNames(typeof(ReadStatus)))}");
+            return BadRequest(
+                $"Invalid read status: {status}. Accepted types include: {string.Join(", ", Enum.GetNames(typeof(ReadStatus)))}"
+            );
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
+        (Instance instance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            true,
+            cancellationToken
+        );
 
-        List<string> updateProperties = [nameof(instance.Status), nameof(instance.Status.ReadStatus)];
+        List<string> updateProperties =
+        [
+            nameof(instance.Status),
+            nameof(instance.Status.ReadStatus),
+        ];
         Instance updatedInstance;
         try
         {
@@ -615,12 +793,24 @@ public class InstancesController : ControllerBase
 
             instance.Status.ReadStatus = newStatus;
 
-            updatedInstance = (oldStatus == null || oldStatus != newStatus) ? await _instanceRepository.Update(instance, updateProperties, cancellationToken) : instance;
+            updatedInstance =
+                (oldStatus == null || oldStatus != newStatus)
+                    ? await _instanceRepository.Update(
+                        instance,
+                        updateProperties,
+                        cancellationToken
+                    )
+                    : instance;
             updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Unable to update read status for instance {instanceOwnerPartyId}/{instanceGuid}", instanceOwnerPartyId, instanceGuid);
+            _logger.LogError(
+                e,
+                "Unable to update read status for instance {instanceOwnerPartyId}/{instanceGuid}",
+                instanceOwnerPartyId,
+                instanceGuid
+            );
             return StatusCode(StatusCodes.Status500InternalServerError);
         }
 
@@ -644,16 +834,23 @@ public class InstancesController : ControllerBase
         [FromRoute] int instanceOwnerPartyId,
         [FromRoute] Guid instanceGuid,
         [FromBody] Substatus substatus,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         DateTime creationTime = DateTime.UtcNow;
 
         if (substatus == null || string.IsNullOrEmpty(substatus.Label))
         {
-            return BadRequest($"Invalid sub status: {JsonConvert.SerializeObject(substatus)}. Substatus must be defined and include a label.");
+            return BadRequest(
+                $"Invalid sub status: {JsonConvert.SerializeObject(substatus)}. Substatus must be defined and include a label."
+            );
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
+        (Instance instance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            true,
+            cancellationToken
+        );
 
         string org = User.GetOrg();
         if (!instance.Org.Equals(org))
@@ -664,10 +861,11 @@ public class InstancesController : ControllerBase
         Instance updatedInstance;
         try
         {
-            List<string> updateProperties = [
+            List<string> updateProperties =
+            [
                 nameof(instance.Status.Substatus),
                 nameof(instance.LastChanged),
-                nameof(instance.LastChangedBy)
+                nameof(instance.LastChangedBy),
             ];
             if (instance.Status == null)
             {
@@ -678,16 +876,28 @@ public class InstancesController : ControllerBase
             instance.LastChanged = creationTime;
             instance.LastChangedBy = User.GetOrgNumber();
 
-            updatedInstance = await _instanceRepository.Update(instance, updateProperties, cancellationToken);
+            updatedInstance = await _instanceRepository.Update(
+                instance,
+                updateProperties,
+                cancellationToken
+            );
             updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Unable to update sub status for instance {instaneOwnerPartyId}/{instanceGuid}", instanceOwnerPartyId, instanceGuid);
+            _logger.LogError(
+                e,
+                "Unable to update sub status for instance {instaneOwnerPartyId}/{instanceGuid}",
+                instanceOwnerPartyId,
+                instanceGuid
+            );
             return StatusCode(StatusCodes.Status500InternalServerError);
         }
 
-        await _instanceEventService.DispatchEvent(InstanceEventType.SubstatusUpdated, updatedInstance);
+        await _instanceEventService.DispatchEvent(
+            InstanceEventType.SubstatusUpdated,
+            updatedInstance
+        );
         return Ok(updatedInstance);
     }
 
@@ -708,14 +918,19 @@ public class InstancesController : ControllerBase
         [FromRoute] int instanceOwnerPartyId,
         [FromRoute] Guid instanceGuid,
         [FromBody] PresentationTexts presentationTexts,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         if (presentationTexts?.Texts == null)
         {
             return BadRequest($"Missing parameter value: presentationTexts is misformed or empty");
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
+        (Instance instance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            true,
+            cancellationToken
+        );
 
         if (instance.PresentationTexts == null)
         {
@@ -736,7 +951,11 @@ public class InstancesController : ControllerBase
             }
         }
 
-        Instance updatedInstance = await _instanceRepository.Update(instance, updateProperties, cancellationToken);
+        Instance updatedInstance = await _instanceRepository.Update(
+            instance,
+            updateProperties,
+            cancellationToken
+        );
         return updatedInstance;
     }
 
@@ -758,14 +977,19 @@ public class InstancesController : ControllerBase
         [FromRoute] int instanceOwnerPartyId,
         [FromRoute] Guid instanceGuid,
         [FromBody] DataValues dataValues,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         if (dataValues?.Values == null)
         {
             return BadRequest($"Missing parameter value: dataValues is misformed or empty");
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
+        (Instance instance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            true,
+            cancellationToken
+        );
 
         instance.DataValues ??= new Dictionary<string, string>();
 
@@ -783,11 +1007,20 @@ public class InstancesController : ControllerBase
             }
         }
 
-        var updatedInstance = await _instanceRepository.Update(instance, updateProperties, cancellationToken);
+        var updatedInstance = await _instanceRepository.Update(
+            instance,
+            updateProperties,
+            cancellationToken
+        );
         return Ok(updatedInstance);
     }
 
-    private static Instance CreateInstanceFromTemplate(Application appInfo, Instance instanceTemplate, DateTime creationTime, string performedBy)
+    private static Instance CreateInstanceFromTemplate(
+        Application appInfo,
+        Instance instanceTemplate,
+        DateTime creationTime,
+        string performedBy
+    )
     {
         Instance createdInstance = new Instance
         {
@@ -798,7 +1031,9 @@ public class InstancesController : ControllerBase
             LastChanged = creationTime,
             AppId = appInfo.Id,
             Org = appInfo.Org,
-            VisibleAfter = DateTimeHelper.ConvertToUniversalTime(instanceTemplate.VisibleAfter) ?? creationTime,
+            VisibleAfter =
+                DateTimeHelper.ConvertToUniversalTime(instanceTemplate.VisibleAfter)
+                ?? creationTime,
             Status = instanceTemplate.Status ?? new InstanceStatus(),
             DueBefore = DateTimeHelper.ConvertToUniversalTime(instanceTemplate.DueBefore),
             Data = new List<DataElement>(),
@@ -813,7 +1048,9 @@ public class InstancesController : ControllerBase
     {
         if (instance?.Data != null)
         {
-            instance.Data = instance.Data.Where(e => e.DeleteStatus?.IsHardDeleted != true).ToList();
+            instance.Data = instance
+                .Data.Where(e => e.DeleteStatus?.IsHardDeleted != true)
+                .ToList();
         }
     }
 
@@ -830,13 +1067,16 @@ public class InstancesController : ControllerBase
 
         Dictionary<string, StringValues> queryParams = QueryHelpers.ParseQuery(queryString);
 
-        var flattenedQueryParams = queryParams.SelectMany(x => x.Value, (col, value) => new KeyValuePair<string, string>(col.Key, value)).Where(e => e.Key != "continuationToken");
+        var flattenedQueryParams = queryParams
+            .SelectMany(
+                x => x.Value,
+                (col, value) => new KeyValuePair<string, string>(col.Key, value)
+            )
+            .Where(e => e.Key != "continuationToken");
 
         var queryBuilder = new QueryBuilder(flattenedQueryParams)
         {
-            {
-                "continuationToken", continuationToken
-            }
+            { "continuationToken", continuationToken },
         };
 
         var newQueryString = queryBuilder.ToQueryString().Value;

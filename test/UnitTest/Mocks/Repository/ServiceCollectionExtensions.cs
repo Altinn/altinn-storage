@@ -1,5 +1,4 @@
 using Altinn.Platform.Storage.Repository;
-
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository;

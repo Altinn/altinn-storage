@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
-
 using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.Platform.Storage.Helpers;
@@ -129,7 +128,7 @@ public enum DeleteStatusType : int
     /// Instance has been soft deleted.
     /// </summary>
     [EnumMember]
-    SoftDeleted = 1
+    SoftDeleted = 1,
 }
 
 /// <summary>

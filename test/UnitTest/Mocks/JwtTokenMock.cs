@@ -2,7 +2,6 @@ using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography.X509Certificates;
-
 using Microsoft.IdentityModel.Tokens;
 
 namespace Altinn.Platform.Storage.UnitTest.Mocks;
@@ -19,7 +18,11 @@ public static class JwtTokenMock
     /// <param name="tokenExpiry">How long the token should be valid for.</param>
     /// <param name="issuer">The issuer identifier.</param>
     /// <returns>A new token.</returns>
-    public static string GenerateToken(ClaimsPrincipal principal, TimeSpan tokenExpiry, string issuer = "UnitTest")
+    public static string GenerateToken(
+        ClaimsPrincipal principal,
+        TimeSpan tokenExpiry,
+        string issuer = "UnitTest"
+    )
     {
         JwtSecurityTokenHandler tokenHandler = new JwtSecurityTokenHandler();
         SecurityTokenDescriptor tokenDescriptor = new SecurityTokenDescriptor
@@ -28,7 +31,7 @@ public static class JwtTokenMock
             Expires = DateTime.UtcNow.AddSeconds(tokenExpiry.TotalSeconds),
             SigningCredentials = GetSigningCredentials(issuer),
             Audience = "altinn.no",
-            Issuer = issuer
+            Issuer = issuer,
         };
 
         SecurityToken token = tokenHandler.CreateToken(tokenDescriptor);
@@ -44,7 +47,10 @@ public static class JwtTokenMock
         {
             certPath = $"{issuer}-org.pfx";
 
-            X509Certificate2 certIssuer = X509CertificateLoader.LoadPkcs12FromFile(certPath, string.Empty);
+            X509Certificate2 certIssuer = X509CertificateLoader.LoadPkcs12FromFile(
+                certPath,
+                string.Empty
+            );
             return new X509SigningCredentials(certIssuer, SecurityAlgorithms.RsaSha256);
         }
 

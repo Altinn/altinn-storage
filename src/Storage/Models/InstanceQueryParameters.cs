@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using Altinn.Platform.Storage.Helpers;
-
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
 
@@ -36,7 +35,8 @@ public class InstanceQueryParameters
     private const string _processIsCompleteParameterName = "process.isComplete";
     private const string _sizeParameterName = "size";
     private const string _statusIsActiveOrSoftDeletedParameterName = "status.isActiveOrSoftDeleted";
-    private const string _statusIsArchivedOrSoftDeletedParameterName = "status.isArchivedOrSoftDeleted";
+    private const string _statusIsArchivedOrSoftDeletedParameterName =
+        "status.isArchivedOrSoftDeleted";
     private const string _statusIsArchivedParameterName = "status.isArchived";
     private const string _statusIsHardDeletedParameterName = "status.isHardDeleted";
     private const string _statusIsSoftDeletedParameterName = "status.isSoftDeleted";
@@ -233,8 +233,16 @@ public class InstanceQueryParameters
         AddParamIfNotNull(postgresParams, _statusIsHardDeletedParameterName, IsHardDeleted);
         AddParamIfNotNull(postgresParams, _processIsCompleteParameterName, ProcessIsComplete);
         AddParamIfNotNull(postgresParams, _instanceOwnerPartyIdParameterName, InstanceOwnerPartyId);
-        AddParamIfNotNull(postgresParams, _statusIsActiveOrSoftDeletedParameterName, IsActiveOrSoftDeleted);
-        AddParamIfNotNull(postgresParams, _statusIsArchivedOrSoftDeletedParameterName, IsArchivedOrSoftDeleted);
+        AddParamIfNotNull(
+            postgresParams,
+            _statusIsActiveOrSoftDeletedParameterName,
+            IsActiveOrSoftDeleted
+        );
+        AddParamIfNotNull(
+            postgresParams,
+            _statusIsArchivedOrSoftDeletedParameterName,
+            IsArchivedOrSoftDeleted
+        );
         AddParamIfNotNull(postgresParams, _mainVersionExcludeParameterName, MainVersionExclude);
         AddParamIfNotNull(postgresParams, _mainVersionIncludeParameterName, MainVersionInclude);
         AddParamIfNotNull(postgresParams, _confirmedParameterName, GetConfirmed());
@@ -242,13 +250,30 @@ public class InstanceQueryParameters
         AddParamIfNotEmpty(postgresParams, _orgParameterName, Org);
         AddParamIfNotEmpty(postgresParams, _appIdsParameterName, AppIds);
         AddParamIfNotEmpty(postgresParams, _currentTaskParameterName, ProcessCurrentTask);
-        AddParamIfNotEmpty(postgresParams, _instanceOwnerPartyIdsParameterName, InstanceOwnerPartyIds);
-        AddParamIfNotEmpty(postgresParams, _archiveReferenceParameterName, ArchiveReference?.ToLower());
-        AddParamIfNotEmpty(postgresParams, _excludeConfirmedByParameterName, GetExcludeConfirmedBy(ExcludeConfirmedBy));
+        AddParamIfNotEmpty(
+            postgresParams,
+            _instanceOwnerPartyIdsParameterName,
+            InstanceOwnerPartyIds
+        );
+        AddParamIfNotEmpty(
+            postgresParams,
+            _archiveReferenceParameterName,
+            ArchiveReference?.ToLower()
+        );
+        AddParamIfNotEmpty(
+            postgresParams,
+            _excludeConfirmedByParameterName,
+            GetExcludeConfirmedBy(ExcludeConfirmedBy)
+        );
 
         AddDateParamIfNotNull(postgresParams, _creationDateParameterName, Created, false);
         AddDateParamIfNotNull(postgresParams, _lastChangedParameterName, LastChanged, false);
-        AddDateParamIfNotNull(postgresParams, _messageBoxIntervalParameterName, MsgBoxInterval, false);
+        AddDateParamIfNotNull(
+            postgresParams,
+            _messageBoxIntervalParameterName,
+            MsgBoxInterval,
+            false
+        );
 
         AddDateParamIfNotNull(postgresParams, _dueBeforeParameterName, DueBefore, true);
         AddDateParamIfNotNull(postgresParams, _visibleAfterParameterName, VisibleAfter, true);
@@ -256,7 +281,10 @@ public class InstanceQueryParameters
 
         if (!string.IsNullOrEmpty(SortBy))
         {
-            postgresParams.Add(_sortAscendingParameterName, !SortBy.StartsWith("desc:", StringComparison.OrdinalIgnoreCase));
+            postgresParams.Add(
+                _sortAscendingParameterName,
+                !SortBy.StartsWith("desc:", StringComparison.OrdinalIgnoreCase)
+            );
         }
 
         if (!string.IsNullOrEmpty(SearchString))
@@ -273,7 +301,10 @@ public class InstanceQueryParameters
         {
             var tokens = ContinuationToken.Split(';');
             postgresParams.Add(_continueIndexParameterName, long.Parse(tokens[1]));
-            postgresParams.Add(_lastChangedIndexParameterName, new DateTime(long.Parse(tokens[0]), DateTimeKind.Utc));
+            postgresParams.Add(
+                _lastChangedIndexParameterName,
+                new DateTime(long.Parse(tokens[0]), DateTimeKind.Utc)
+            );
         }
 
         return postgresParams;
@@ -287,7 +318,8 @@ public class InstanceQueryParameters
     /// </returns>
     public bool IsInvalidInstanceOwnerCombination()
     {
-        return (InstanceOwnerPartyId.HasValue || InstanceOwnerPartyIds != null) && !string.IsNullOrEmpty(InstanceOwnerIdentifier);
+        return (InstanceOwnerPartyId.HasValue || InstanceOwnerPartyIds != null)
+            && !string.IsNullOrEmpty(InstanceOwnerIdentifier);
     }
 
     /// <summary>
@@ -296,7 +328,11 @@ public class InstanceQueryParameters
     /// <param name="postgresParams">The dictionary to add the parameter to.</param>
     /// <param name="paramName">The name of the parameter.</param>
     /// <param name="value">The value of the parameter.</param>
-    private static void AddParamIfNotEmpty(Dictionary<string, object> postgresParams, string paramName, object value)
+    private static void AddParamIfNotEmpty(
+        Dictionary<string, object> postgresParams,
+        string paramName,
+        object value
+    )
     {
         if (value == null)
         {
@@ -318,7 +354,11 @@ public class InstanceQueryParameters
     /// <param name="postgresParams">The dictionary to add the parameter to.</param>
     /// <param name="paramName">The name of the parameter.</param>
     /// <param name="value">The value of the parameter.</param>
-    private static void AddParamIfNotNull(Dictionary<string, object> postgresParams, string paramName, object value)
+    private static void AddParamIfNotNull(
+        Dictionary<string, object> postgresParams,
+        string paramName,
+        object value
+    )
     {
         if (value == null)
         {
@@ -335,7 +375,12 @@ public class InstanceQueryParameters
     /// <param name="paramName">The name of the parameter.</param>
     /// <param name="queryValues">The query values containing the date.</param>
     /// <param name="useStringValue">Indicates whether to use the date value as a string.</param>
-    private static void AddDateParamIfNotNull(Dictionary<string, object> postgresParams, string paramName, StringValues queryValues, bool useStringValue)
+    private static void AddDateParamIfNotNull(
+        Dictionary<string, object> postgresParams,
+        string paramName,
+        StringValues queryValues,
+        bool useStringValue
+    )
     {
         if (StringValues.IsNullOrEmpty(queryValues))
         {
@@ -349,11 +394,18 @@ public class InstanceQueryParameters
                 string @operator = value.Split(':')[0];
                 string dateValue = value[(@operator.Length + 1)..];
                 string postgresParamName = GetPgParamName($"{paramName}_{@operator}");
-                postgresParams.Add(postgresParamName, useStringValue ? dateValue : DateTimeHelper.ParseAndConvertToUniversalTime(dateValue));
+                postgresParams.Add(
+                    postgresParamName,
+                    useStringValue
+                        ? dateValue
+                        : DateTimeHelper.ParseAndConvertToUniversalTime(dateValue)
+                );
             }
             catch
             {
-                throw new ArgumentException($"Invalid date expression: {value} for query key: {paramName}");
+                throw new ArgumentException(
+                    $"Invalid date expression: {value} for query key: {paramName}"
+                );
             }
         }
     }
@@ -365,7 +417,12 @@ public class InstanceQueryParameters
             return Confirmed.Value;
         }
 
-        return (!string.IsNullOrEmpty(ExcludeConfirmedBy) && ExcludeConfirmedBy.Equals(Org, StringComparison.OrdinalIgnoreCase)) ? false : null;
+        return (
+            !string.IsNullOrEmpty(ExcludeConfirmedBy)
+            && ExcludeConfirmedBy.Equals(Org, StringComparison.OrdinalIgnoreCase)
+        )
+            ? false
+            : null;
     }
 
     /// <summary>
@@ -375,7 +432,10 @@ public class InstanceQueryParameters
     /// <returns>An array of exclude confirmed by values.</returns>
     private string[] GetExcludeConfirmedBy(string queryValue)
     {
-        if (string.IsNullOrEmpty(queryValue) || queryValue.Equals(Org, StringComparison.OrdinalIgnoreCase))
+        if (
+            string.IsNullOrEmpty(queryValue)
+            || queryValue.Equals(Org, StringComparison.OrdinalIgnoreCase)
+        )
         {
             return null;
         }

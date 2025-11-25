@@ -1,7 +1,5 @@
 using System;
-
 using AltinnCore.Authentication.JwtCookie;
-
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Protocols;
@@ -39,6 +37,7 @@ public class JwtCookiePostConfigureOptionsStub : IPostConfigureOptions<JwtCookie
         options.ConfigurationManager = new ConfigurationManagerStub(
             options.MetadataAddress,
             new OpenIdConnectConfigurationRetriever(),
-            new HttpDocumentRetriever());
+            new HttpDocumentRetriever()
+        );
     }
 }

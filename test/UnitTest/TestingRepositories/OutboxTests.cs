@@ -32,8 +32,8 @@ public class OutboxTests
         string appId = "app",
         string partyId = "123",
         bool migration = false,
-        DateTime? created = null)
-        => new(appId, partyId, instanceId, created ?? DateTime.UtcNow.AddMinutes(-5), migration, evt);
+        DateTime? created = null
+    ) => new(appId, partyId, instanceId, created ?? DateTime.UtcNow.AddMinutes(-5), migration, evt);
 
     [Fact]
     public async Task Insert_EnableSendingFalse_DoesNotInsertRow()
@@ -86,7 +86,11 @@ public class OutboxTests
         var now = DateTime.UtcNow;
         var first = CreateCommand(sharedId, created: now, evt: InstanceEventType.Created);
         var second = CreateCommand(sharedId, created: now, evt: InstanceEventType.Deleted);
-        var third = CreateCommand(Guid.NewGuid().ToString(), created: now, evt: InstanceEventType.Created);
+        var third = CreateCommand(
+            Guid.NewGuid().ToString(),
+            created: now,
+            evt: InstanceEventType.Created
+        );
 
         await GetRepo().Insert(first, GetConnection());
         await GetRepo().Insert(second, GetConnection());
@@ -117,16 +121,19 @@ public class OutboxTests
         var holder2 = Guid.NewGuid();
 
         // First acquire
-        var ok1 = await GetRepo().TryAcquireLeaseAsync(resource, holder, DateTime.UtcNow.AddSeconds(2));
+        var ok1 = await GetRepo()
+            .TryAcquireLeaseAsync(resource, holder, DateTime.UtcNow.AddSeconds(2));
         Assert.True(ok1);
 
         // Second acquire by different holder before expiry should fail
-        var ok2 = await GetRepo().TryAcquireLeaseAsync(resource, holder2, DateTime.UtcNow.AddSeconds(2));
+        var ok2 = await GetRepo()
+            .TryAcquireLeaseAsync(resource, holder2, DateTime.UtcNow.AddSeconds(2));
         Assert.False(ok2);
 
         // Wait until expired
         await Task.Delay(2100);
-        var ok3 = await GetRepo().TryAcquireLeaseAsync(resource, holder2, DateTime.UtcNow.AddSeconds(2));
+        var ok3 = await GetRepo()
+            .TryAcquireLeaseAsync(resource, holder2, DateTime.UtcNow.AddSeconds(2));
         Assert.True(ok3);
     }
 
@@ -136,14 +143,17 @@ public class OutboxTests
         var resource = "r2";
         var holder = Guid.NewGuid();
 
-        var ok1 = await GetRepo().TryAcquireLeaseAsync(resource, holder, DateTime.UtcNow.AddSeconds(1));
+        var ok1 = await GetRepo()
+            .TryAcquireLeaseAsync(resource, holder, DateTime.UtcNow.AddSeconds(1));
         Assert.True(ok1);
 
-        var renewed = await GetRepo().RenewLeaseAsync(resource, holder, DateTime.UtcNow.AddSeconds(3));
+        var renewed = await GetRepo()
+            .RenewLeaseAsync(resource, holder, DateTime.UtcNow.AddSeconds(3));
         Assert.True(renewed);
 
         // Should still block other holder
-        var other = await GetRepo().TryAcquireLeaseAsync(resource, Guid.NewGuid(), DateTime.UtcNow.AddSeconds(1));
+        var other = await GetRepo()
+            .TryAcquireLeaseAsync(resource, Guid.NewGuid(), DateTime.UtcNow.AddSeconds(1));
         Assert.False(other);
     }
 
@@ -153,17 +163,23 @@ public class OutboxTests
         var resource = "r3";
         var holder = Guid.NewGuid();
 
-        Assert.True(await GetRepo().TryAcquireLeaseAsync(resource, holder, DateTime.UtcNow.AddSeconds(5)));
+        Assert.True(
+            await GetRepo().TryAcquireLeaseAsync(resource, holder, DateTime.UtcNow.AddSeconds(5))
+        );
 
         var released = await GetRepo().ReleaseLeaseAsync(resource, holder);
         Assert.True(released);
 
         // Now acquisition by someone else should succeed immediately
-        var ok = await GetRepo().TryAcquireLeaseAsync(resource, Guid.NewGuid(), DateTime.UtcNow.AddSeconds(2));
+        var ok = await GetRepo()
+            .TryAcquireLeaseAsync(resource, Guid.NewGuid(), DateTime.UtcNow.AddSeconds(2));
         Assert.True(ok);
     }
 
-    private static IOutboxRepository GetRepo(WolverineSettings wolverineSettings = null, string path = "/storage/api/v1/instances")
+    private static IOutboxRepository GetRepo(
+        WolverineSettings wolverineSettings = null,
+        string path = "/storage/api/v1/instances"
+    )
     {
         wolverineSettings ??= new WolverineSettings() { EnableSending = true };
         var serviceList = GetServices([typeof(IOutboxRepository)], wolverineSettings, path);
@@ -172,11 +188,16 @@ public class OutboxTests
 
     private static NpgsqlConnection GetConnection()
     {
-        NpgsqlDataSource dataSource = (NpgsqlDataSource)ServiceUtil.GetServices([typeof(NpgsqlDataSource)])[0]!;
+        NpgsqlDataSource dataSource = (NpgsqlDataSource)
+            ServiceUtil.GetServices([typeof(NpgsqlDataSource)])[0]!;
         return dataSource.OpenConnection();
     }
 
-    private static List<object> GetServices(List<Type> interfaceTypes, WolverineSettings wolverineSettings, string path)
+    private static List<object> GetServices(
+        List<Type> interfaceTypes,
+        WolverineSettings wolverineSettings,
+        string path
+    )
     {
         var builder = new ConfigurationBuilder()
             .AddJsonFile(ServiceUtil.GetAppsettingsPath())
@@ -184,9 +205,7 @@ public class OutboxTests
 
         var config = builder.Build();
 
-        WebApplication.CreateBuilder()
-            .Build()
-            .SetUpPostgreSql(true, config);
+        WebApplication.CreateBuilder().Build().SetUpPostgreSql(true, config);
 
         IServiceCollection services = new ServiceCollection();
 
@@ -194,7 +213,9 @@ public class OutboxTests
         services.AddPostgresRepositories(config);
         services.AddMemoryCache();
 
-        Mock<IHttpContextAccessor> httpContextAccessor = new Mock<IHttpContextAccessor>(MockBehavior.Strict);
+        Mock<IHttpContextAccessor> httpContextAccessor = new Mock<IHttpContextAccessor>(
+            MockBehavior.Strict
+        );
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Path = path;
         httpContextAccessor.SetupGet(accessor => accessor.HttpContext).Returns(httpContext);

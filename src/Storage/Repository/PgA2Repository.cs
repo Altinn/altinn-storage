@@ -21,28 +21,53 @@ namespace Altinn.Platform.Storage.Repository;
 /// <param name="dataSource">The npgsql data source.</param>
 /// <param name="outboxRepository">The outbox repository.</param>
 /// <param name="wolverineSettings">Wolverine settings</param>
-public class PgA2Repository(NpgsqlDataSource dataSource, IOutboxRepository outboxRepository, IOptions<WolverineSettings> wolverineSettings) : IA2Repository
+public class PgA2Repository(
+    NpgsqlDataSource dataSource,
+    IOutboxRepository outboxRepository,
+    IOptions<WolverineSettings> wolverineSettings
+) : IA2Repository
 {
-    private static readonly string _readXslSql = "select * from storage.reada2xsls (@_org, @_app, @_lformid, @_language, @_xsltype)";
-    private static readonly string _insertXslSql = "call storage.inserta2xsl (@_org, @_app, @_lformid, @_language, @_pagenumber, @_xsl, @_xsltype, @_isportrait)";
-    private static readonly string _insertCodelistSql = "call storage.inserta2codelist (@_name, @_language, @_version, @_codelist)";
+    private static readonly string _readXslSql =
+        "select * from storage.reada2xsls (@_org, @_app, @_lformid, @_language, @_xsltype)";
+    private static readonly string _insertXslSql =
+        "call storage.inserta2xsl (@_org, @_app, @_lformid, @_language, @_pagenumber, @_xsl, @_xsltype, @_isportrait)";
+    private static readonly string _insertCodelistSql =
+        "call storage.inserta2codelist (@_name, @_language, @_version, @_codelist)";
     private static readonly string _insertImageSql = "call storage.inserta2image (@_name, @_image)";
-    private static readonly string _readCodelistSql = "select * from storage.reada2codelist (@_name, @_language)";
+    private static readonly string _readCodelistSql =
+        "select * from storage.reada2codelist (@_name, @_language)";
     private static readonly string _readImageSql = "select * from storage.reada2image (@_name)";
 
-    private static readonly string _readA1MigrationStateSql = "select * from storage.reada1migrationstate (@_a1archivereference)";
-    private static readonly string _readA2MigrationStateSql = "select * from storage.reada2migrationstate (@_a2archivereference)";
-    private static readonly string _insertA1MigrationStateSql = "call storage.inserta1migrationstate (@_a1archivereference)";
-    private static readonly string _insertA2MigrationStateSql = "call storage.inserta2migrationstate (@_a2archivereference)";
-    private static readonly string _updateA1MigrationStateStartedSql = "call storage.updatea1migrationstatestarted (@_a1archivereference, @_instanceguid)";
-    private static readonly string _updateA2MigrationStateStartedSql = "call storage.updatea2migrationstatestarted (@_a2archivereference, @_instanceguid)";
-    private static readonly string _updateMigrationStateCompletedSql = "call storage.updatemigrationstatecompleted (@_instanceguid)";
-    private static readonly string _deleteMigrationStateSql = "call storage.deletemigrationstate (@_instanceguid)";
+    private static readonly string _readA1MigrationStateSql =
+        "select * from storage.reada1migrationstate (@_a1archivereference)";
+    private static readonly string _readA2MigrationStateSql =
+        "select * from storage.reada2migrationstate (@_a2archivereference)";
+    private static readonly string _insertA1MigrationStateSql =
+        "call storage.inserta1migrationstate (@_a1archivereference)";
+    private static readonly string _insertA2MigrationStateSql =
+        "call storage.inserta2migrationstate (@_a2archivereference)";
+    private static readonly string _updateA1MigrationStateStartedSql =
+        "call storage.updatea1migrationstatestarted (@_a1archivereference, @_instanceguid)";
+    private static readonly string _updateA2MigrationStateStartedSql =
+        "call storage.updatea2migrationstatestarted (@_a2archivereference, @_instanceguid)";
+    private static readonly string _updateMigrationStateCompletedSql =
+        "call storage.updatemigrationstatecompleted (@_instanceguid)";
+    private static readonly string _deleteMigrationStateSql =
+        "call storage.deletemigrationstate (@_instanceguid)";
 
     private readonly NpgsqlDataSource _dataSource = dataSource;
 
     /// <inheritdoc/>
-    public async Task CreateXsl(string org, string app, int lformId, string language, int pageNumber, string xsl, int xslType, bool isPortrait)
+    public async Task CreateXsl(
+        string org,
+        string app,
+        int lformId,
+        string language,
+        int pageNumber,
+        string xsl,
+        int xslType,
+        bool isPortrait
+    )
     {
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertXslSql);
         pgcom.Parameters.AddWithValue("_org", NpgsqlDbType.Text, org);
@@ -80,7 +105,13 @@ public class PgA2Repository(NpgsqlDataSource dataSource, IOutboxRepository outbo
     }
 
     /// <inheritdoc/>
-    public async Task<List<(string Xsl, bool IsPortrait)>> GetXsls(string org, string app, int lformId, string language, int xslType)
+    public async Task<List<(string Xsl, bool IsPortrait)>> GetXsls(
+        string org,
+        string app,
+        int lformId,
+        string language,
+        int xslType
+    )
     {
         List<(string Xsl, bool IsPortraitl)> xsls = [];
 
@@ -99,7 +130,12 @@ public class PgA2Repository(NpgsqlDataSource dataSource, IOutboxRepository outbo
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
-                xsls.Add((await reader.GetFieldValueAsync<string>("xsl"), await reader.GetFieldValueAsync<bool>("isportrait")));
+                xsls.Add(
+                    (
+                        await reader.GetFieldValueAsync<string>("xsl"),
+                        await reader.GetFieldValueAsync<bool>("isportrait")
+                    )
+                );
             }
 
             if (xsls.Count > 0)
@@ -157,7 +193,11 @@ public class PgA2Repository(NpgsqlDataSource dataSource, IOutboxRepository outbo
     public async Task CreateA1MigrationState(int a1ArchiveReference)
     {
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertA1MigrationStateSql);
-        pgcom.Parameters.AddWithValue("_a1archivereference", NpgsqlDbType.Bigint, a1ArchiveReference);
+        pgcom.Parameters.AddWithValue(
+            "_a1archivereference",
+            NpgsqlDbType.Bigint,
+            a1ArchiveReference
+        );
 
         await pgcom.ExecuteNonQueryAsync();
     }
@@ -166,7 +206,11 @@ public class PgA2Repository(NpgsqlDataSource dataSource, IOutboxRepository outbo
     public async Task CreateA2MigrationState(int a2ArchiveReference)
     {
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertA2MigrationStateSql);
-        pgcom.Parameters.AddWithValue("_a2archivereference", NpgsqlDbType.Bigint, a2ArchiveReference);
+        pgcom.Parameters.AddWithValue(
+            "_a2archivereference",
+            NpgsqlDbType.Bigint,
+            a2ArchiveReference
+        );
 
         await pgcom.ExecuteNonQueryAsync();
     }
@@ -174,8 +218,14 @@ public class PgA2Repository(NpgsqlDataSource dataSource, IOutboxRepository outbo
     /// <inheritdoc/>
     public async Task UpdateStartA1MigrationState(int a1ArchiveReference, string instanceGuid)
     {
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateA1MigrationStateStartedSql);
-        pgcom.Parameters.AddWithValue("_a1archivereference", NpgsqlDbType.Bigint, a1ArchiveReference);
+        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(
+            _updateA1MigrationStateStartedSql
+        );
+        pgcom.Parameters.AddWithValue(
+            "_a1archivereference",
+            NpgsqlDbType.Bigint,
+            a1ArchiveReference
+        );
         pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, new Guid(instanceGuid));
 
         await pgcom.ExecuteNonQueryAsync();
@@ -184,8 +234,14 @@ public class PgA2Repository(NpgsqlDataSource dataSource, IOutboxRepository outbo
     /// <inheritdoc/>
     public async Task UpdateStartA2MigrationState(int a2ArchiveReference, string instanceGuid)
     {
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateA2MigrationStateStartedSql);
-        pgcom.Parameters.AddWithValue("_a2archivereference", NpgsqlDbType.Bigint, a2ArchiveReference);
+        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(
+            _updateA2MigrationStateStartedSql
+        );
+        pgcom.Parameters.AddWithValue(
+            "_a2archivereference",
+            NpgsqlDbType.Bigint,
+            a2ArchiveReference
+        );
         pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, new Guid(instanceGuid));
 
         await pgcom.ExecuteNonQueryAsync();
@@ -210,7 +266,8 @@ public class PgA2Repository(NpgsqlDataSource dataSource, IOutboxRepository outbo
                 instanceId,
                 (DateTime)instance.Created,
                 true,
-                InstanceEventType.Created);
+                InstanceEventType.Created
+            );
             await outboxRepository.Insert(instanceUpdateCommand, connection);
         }
 
@@ -231,12 +288,18 @@ public class PgA2Repository(NpgsqlDataSource dataSource, IOutboxRepository outbo
     {
         string instanceId = null;
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readA1MigrationStateSql);
-        pgcom.Parameters.AddWithValue("_a1archivereference", NpgsqlDbType.Bigint, a1ArchiveReference);
+        pgcom.Parameters.AddWithValue(
+            "_a1archivereference",
+            NpgsqlDbType.Bigint,
+            a1ArchiveReference
+        );
 
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
         if (await reader.ReadAsync())
         {
-            instanceId = await reader.IsDBNullAsync("instanceguid") ? null : (await reader.GetFieldValueAsync<Guid>("instanceguid")).ToString();
+            instanceId = await reader.IsDBNullAsync("instanceguid")
+                ? null
+                : (await reader.GetFieldValueAsync<Guid>("instanceguid")).ToString();
         }
 
         return instanceId;
@@ -247,12 +310,18 @@ public class PgA2Repository(NpgsqlDataSource dataSource, IOutboxRepository outbo
     {
         string instanceId = null;
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readA2MigrationStateSql);
-        pgcom.Parameters.AddWithValue("_a2archivereference", NpgsqlDbType.Bigint, a2ArchiveReference);
+        pgcom.Parameters.AddWithValue(
+            "_a2archivereference",
+            NpgsqlDbType.Bigint,
+            a2ArchiveReference
+        );
 
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
         if (await reader.ReadAsync())
         {
-            instanceId = await reader.IsDBNullAsync("instanceguid") ? null : (await reader.GetFieldValueAsync<Guid>("instanceguid")).ToString();
+            instanceId = await reader.IsDBNullAsync("instanceguid")
+                ? null
+                : (await reader.GetFieldValueAsync<Guid>("instanceguid")).ToString();
         }
 
         return instanceId;
