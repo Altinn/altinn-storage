@@ -23,6 +23,10 @@ on:
         required: true
       SLACK_WEBHOOK_URL_TEST:
         required: true
+      ORG_NUMBER:
+        required: true
+      ORG_PARTY_ID:
+        required: true
 jobs:
   regression-tests:
     runs-on: ubuntu-latest
