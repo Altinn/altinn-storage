@@ -417,6 +417,11 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        if (string.IsNullOrWhiteSpace(instance.InstanceOwner.PartyId))
+        {
+            return BadRequest("Cannot create an instance without an instanceOwner.PartyId.");
+        }
+
         int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
 
         appId = ValidateAppId(appId);
@@ -431,11 +436,6 @@ public class InstancesController : ControllerBase
                 404 => NotFound(appInfoError.ErrorMessage),
                 _ => StatusCode(appInfoError.ErrorCode, appInfoError.ErrorMessage),
             };
-        }
-
-        if (string.IsNullOrWhiteSpace(instance.InstanceOwner.PartyId))
-        {
-            return BadRequest("Cannot create an instance without an instanceOwner.PartyId.");
         }
 
         // Checking that user is authorized to instantiate.

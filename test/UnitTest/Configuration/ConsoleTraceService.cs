@@ -15,16 +15,16 @@ public class ConsoleTraceService : ITraceService
     /// </summary>
     public bool IsDebugEnabled { get; set; } = false;
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public bool IsTraceSensitiveData { get; set; } = false;
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public bool IsTraceToFile { get; set; } = false;
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public bool IsTraceToDirectory { get; set; } = false;
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public string TraceDirectory { get; set; }
 
     /// <summary>

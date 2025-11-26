@@ -765,12 +765,9 @@ public class A2FormServerXslFunction
     /// <returns>
     /// Formatted string
     /// </returns>
-    [SuppressMessage(
-        "StyleCop.CSharp.NamingRules",
-        "SA1300:Element should begin with upper-case letter",
-        Justification = "Must match infopath callback name"
-    )]
+#pragma warning disable IDE1006 // Naming Styles: Must match infopath callback name
     public string formatString(string str, string type, string format)
+#pragma warning restore IDE1006 // Naming Styles
     {
         try
         {

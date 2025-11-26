@@ -10,22 +10,22 @@ namespace Altinn.Platform.Storage.Configuration;
 [ExcludeFromCodeCoverage]
 public class ConsoleTraceService : ITraceService
 {
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public bool IsDebugEnabled { get; set; } = false;
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public bool IsTraceSensitiveData { get; set; } = false;
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public bool IsTraceToFile { get; set; } = false;
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public bool IsTraceToDirectory { get; set; } = false;
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public string TraceDirectory { get; set; }
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public void Info(string message, object payload = null)
     {
         var traceMessage =
@@ -33,7 +33,7 @@ public class ConsoleTraceService : ITraceService
         Console.Write(traceMessage);
     }
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public void Error(string message, object payload = null)
     {
         var traceMessage =
@@ -41,7 +41,7 @@ public class ConsoleTraceService : ITraceService
         Console.Write(traceMessage);
     }
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public void Debug(string message, object payload = null)
     {
         if (IsDebugEnabled)
@@ -52,7 +52,7 @@ public class ConsoleTraceService : ITraceService
         }
     }
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public void Success(string message, object payload = null)
     {
         var traceMessage =
@@ -60,7 +60,7 @@ public class ConsoleTraceService : ITraceService
         Console.Write(traceMessage);
     }
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public void Warn(string message, object payload = null)
     {
         var traceMessage =

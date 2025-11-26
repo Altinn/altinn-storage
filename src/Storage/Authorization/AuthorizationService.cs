@@ -47,7 +47,7 @@ public class AuthorizationService(
     private const string ActionId = "a";
     private const string ResourceId = "r";
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public async Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(
         List<Instance> instances,
         bool keyAccessMode
@@ -162,7 +162,7 @@ public class AuthorizationService(
         return authorizedInstanceList.Values.ToList();
     }
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public async Task<bool> AuthorizeInstanceAction(
         Instance instance,
         string action,
@@ -215,7 +215,7 @@ public class AuthorizationService(
         return authorized;
     }
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public async Task<bool> AuthorizeAnyOfInstanceActions(Instance instance, List<string> actions)
     {
         if (actions.Count == 0)
@@ -254,7 +254,7 @@ public class AuthorizationService(
         return false;
     }
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public async Task<List<Instance>> AuthorizeInstances(List<Instance> instances)
     {
         if (instances.Count <= 0)
@@ -301,7 +301,7 @@ public class AuthorizationService(
         return authorizedInstanceList;
     }
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public bool UserHasRequiredScope(List<string> requiredScope)
     {
         var contextScope = GetContextScope();
@@ -316,7 +316,7 @@ public class AuthorizationService(
         return false;
     }
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public bool UserHasRequiredScope(string requiredScope)
     {
         var contextScope = GetContextScope();
@@ -332,7 +332,7 @@ public class AuthorizationService(
         return false;
     }
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public async Task<XacmlJsonResponse> GetDecisionForRequest(
         XacmlJsonRequestRoot xacmlJsonRequest
     )
