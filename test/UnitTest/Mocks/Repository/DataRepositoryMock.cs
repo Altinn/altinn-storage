@@ -14,12 +14,15 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 public class DataRepositoryMock : IDataRepository
 {
     private readonly Dictionary<string, string> _tempRepository;
-    private readonly JsonSerializerOptions _options;
+    private static readonly JsonSerializerOptions _options = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        WriteIndented = true,
+    };
 
     public DataRepositoryMock()
     {
         _tempRepository = new();
-        _options = new() { PropertyNameCaseInsensitive = true, WriteIndented = true };
     }
 
     public async Task<DataElement> Create(

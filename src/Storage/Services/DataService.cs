@@ -18,6 +18,10 @@ namespace Altinn.Platform.Storage.Services;
 /// </summary>
 public class DataService : IDataService
 {
+    private static readonly JsonSerializerOptions _jsonSerializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
     private readonly IFileScanQueueClient _fileScanQueueClient;
     private readonly IDataRepository _dataRepository;
     private readonly IBlobRepository _blobRepository;
@@ -64,7 +68,7 @@ public class DataService : IDataService
 
             string serialisedRequest = JsonSerializer.Serialize(
                 fileScanRequest,
-                new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }
+                _jsonSerializerOptions
             );
 
             await _fileScanQueueClient.EnqueueFileScan(serialisedRequest, ct);
