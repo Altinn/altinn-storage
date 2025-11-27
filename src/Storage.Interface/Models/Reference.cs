@@ -15,7 +15,7 @@ public class Reference
     /// </summary>
     [JsonProperty(PropertyName = "value")]
     public string Value { get; set; }
-    
+
     /// <summary>
     /// The type of relation to the connected object see <see cref="RelationType"/>
     /// </summary>
@@ -23,7 +23,7 @@ public class Reference
     [JsonConverter(typeof(StringEnumConverter))]
     [TextJson.JsonConverter(typeof(TextJson.JsonStringEnumConverter))]
     public RelationType? Relation { get; set; }
-    
+
     /// <summary>
     /// The value type of the connected object see <see cref="ReferenceType"/>
     /// </summary>

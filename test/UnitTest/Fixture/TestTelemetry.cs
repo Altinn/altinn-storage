@@ -56,18 +56,20 @@ internal sealed class TestTelemetry
             return null;
         }
 
-        var points = metric.MetricPoints.Where(p =>
-        {
-            foreach (var tag in p.Tags)
+        var points = metric
+            .MetricPoints.Where(p =>
             {
-                if (tag.Key == "invalid_scopes" && tag.Value is true)
+                foreach (var tag in p.Tags)
                 {
-                    return true;
+                    if (tag.Key == "invalid_scopes" && tag.Value is true)
+                    {
+                        return true;
+                    }
                 }
-            }
 
-            return false;
-        }).ToArray();
+                return false;
+            })
+            .ToArray();
         if (points.Length == 0)
         {
             return null;

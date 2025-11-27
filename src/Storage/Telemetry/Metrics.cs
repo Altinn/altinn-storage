@@ -3,7 +3,7 @@ using System.Diagnostics.Metrics;
 namespace Altinn.Platform.Storage.Telemetry;
 
 /// <summary>
-/// Metrics 
+/// Metrics
 /// </summary>
 internal static class Metrics
 {

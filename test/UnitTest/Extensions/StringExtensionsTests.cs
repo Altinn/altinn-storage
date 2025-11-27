@@ -1,71 +1,69 @@
 using System;
 using Altinn.Platform.Storage.Extensions;
-
 using Xunit;
 
-namespace Altinn.Platform.Storage.UnitTest.Extensions
+namespace Altinn.Platform.Storage.UnitTest.Extensions;
+
+public class StringExtensionsTests
 {
-    public class StringExtensionsTests
+    [Fact]
+    public void AsFileName_InputHasNoInvalidCharacters_ReturnsSameFilename()
     {
-        [Fact]
-        public void AsFileName_InputHasNoInvalidCharacters_ReturnsSameFilename()
-        {
-            // Arrange
-            string inputFilename = "noinvalidcharacters.txt";
+        // Arrange
+        string inputFilename = "noinvalidcharacters.txt";
 
-            // Act
+        // Act
+        string cleanFilename = inputFilename.AsFileName();
+
+        // Assert
+        Assert.Equal(inputFilename, cleanFilename);
+    }
+
+    [Fact]
+    public void AsFileName_InputHasInvalidCharacters_ExceptionsEnabled_ThrowsException()
+    {
+        // Arrange
+        string inputFilename = "noinvalid/characters.txt";
+
+        ArgumentOutOfRangeException actualException = null;
+
+        // Act
+        try
+        {
             string cleanFilename = inputFilename.AsFileName();
-
-            // Assert
-            Assert.Equal(inputFilename, cleanFilename);
         }
-
-        [Fact]
-        public void AsFileName_InputHasInvalidCharacters_ExceptionsEnabled_ThrowsException()
+        catch (ArgumentOutOfRangeException argex)
         {
-            // Arrange
-            string inputFilename = "noinvalid/characters.txt";
-
-            ArgumentOutOfRangeException actualException = null;
-
-            // Act
-            try
-            {
-                string cleanFilename = inputFilename.AsFileName();
-            }
-            catch (ArgumentOutOfRangeException argex)
-            {
-                actualException = argex;
-            }
-
-            // Assert
-            Assert.NotNull(actualException);
+            actualException = argex;
         }
 
-        [Fact]
-        public void AsFileName_InputHasInvalidCharacters_ExceptionsDisabled_ReturnsValidFilename()
-        {
-            // Arrange
-            string inputFilename = "noinvalid/characters.txt";
+        // Assert
+        Assert.NotNull(actualException);
+    }
 
-            // Act
-            string cleanFilename = inputFilename.AsFileName(false);
+    [Fact]
+    public void AsFileName_InputHasInvalidCharacters_ExceptionsDisabled_ReturnsValidFilename()
+    {
+        // Arrange
+        string inputFilename = "noinvalid/characters.txt";
 
-            // Assert
-            Assert.Equal("noinvalid_characters.txt", cleanFilename);
-        }
+        // Act
+        string cleanFilename = inputFilename.AsFileName(false);
 
-        [Fact]
-        public void AsFileName_InputIsEmpty_ReturnsEmpty()
-        {
-            // Arrange
-            string inputFilename = " ";
+        // Assert
+        Assert.Equal("noinvalid_characters.txt", cleanFilename);
+    }
 
-            // Act
-            string cleanFilename = inputFilename.AsFileName(false);
+    [Fact]
+    public void AsFileName_InputIsEmpty_ReturnsEmpty()
+    {
+        // Arrange
+        string inputFilename = " ";
 
-            // Assert
-            Assert.Equal(" ", cleanFilename);
-        }
+        // Act
+        string cleanFilename = inputFilename.AsFileName(false);
+
+        // Assert
+        Assert.Equal(" ", cleanFilename);
     }
 }

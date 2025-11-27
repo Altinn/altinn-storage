@@ -27,10 +27,11 @@ namespace Altinn.Platform.Storage.Authorization;
 /// <param name="logger">The logger</param>
 /// <param name="settings">General configuration settings</param>
 public class AuthorizationService(
-    IPDP pdp, 
-    IClaimsPrincipalProvider claimsPrincipalProvider, 
+    IPDP pdp,
+    IClaimsPrincipalProvider claimsPrincipalProvider,
     ILogger<AuthorizationService> logger,
-    IOptions<GeneralSettings> settings) : IAuthorization
+    IOptions<GeneralSettings> settings
+) : IAuthorization
 {
     private readonly IPDP _pdp = pdp;
     private readonly IClaimsPrincipalProvider _claimsPrincipalProvider = claimsPrincipalProvider;
@@ -46,8 +47,11 @@ public class AuthorizationService(
     private const string ActionId = "a";
     private const string ResourceId = "r";
 
-    /// <inheritdoc/>>
-    public async Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(List<Instance> instances, bool keyAccessMode)
+    /// <inheritdoc />
+    public async Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(
+        List<Instance> instances,
+        bool keyAccessMode
+    )
     {
         if (instances.Count <= 0)
         {
@@ -71,19 +75,34 @@ public class AuthorizationService(
             actionTypes.Add("instantiate");
         }
 
-        if ((_settings.AuthorizeA2ListInstancesSign || keyAccessMode)
-            && instances.Exists(i => "Signing".Equals(i.Process?.CurrentTask?.AltinnTaskType?.ToString(), StringComparison.InvariantCultureIgnoreCase)))
+        if (
+            (_settings.AuthorizeA2ListInstancesSign || keyAccessMode)
+            && instances.Exists(i =>
+                "Signing".Equals(
+                    i.Process?.CurrentTask?.AltinnTaskType?.ToString(),
+                    StringComparison.InvariantCultureIgnoreCase
+                )
+            )
+        )
         {
             actionTypes.Add("sign");
         }
 
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
-        XacmlJsonRequestRoot xacmlJsonRequest = CreateMultiDecisionRequest(user, instances, actionTypes);
+        XacmlJsonRequestRoot xacmlJsonRequest = CreateMultiDecisionRequest(
+            user,
+            instances,
+            actionTypes
+        );
 
         XacmlJsonResponse response = await _pdp.GetDecisionForRequest(xacmlJsonRequest);
         if (response != null && response.Response?.Count > 0)
         {
-            foreach (XacmlJsonResult result in response.Response.Where(result => DecisionHelper.ValidateDecisionResult(result, user)))
+            foreach (
+                XacmlJsonResult result in response.Response.Where(result =>
+                    DecisionHelper.ValidateDecisionResult(result, user)
+                )
+            )
             {
                 string instanceId = string.Empty;
                 string actiontype = string.Empty;
@@ -107,9 +126,16 @@ public class AuthorizationService(
                 Instance authorizedInstance = instances.First(i => i.Id == instanceId);
 
                 string id = authorizedInstance.Id.Split("/")[1];
-                if (!authorizedInstanceList.TryGetValue(id, out MessageBoxInstance authorizedMessageBoxInstance))
+                if (
+                    !authorizedInstanceList.TryGetValue(
+                        id,
+                        out MessageBoxInstance authorizedMessageBoxInstance
+                    )
+                )
                 {
-                    authorizedMessageBoxInstance = InstanceHelper.ConvertToMessageBoxInstance(authorizedInstance);
+                    authorizedMessageBoxInstance = InstanceHelper.ConvertToMessageBoxInstance(
+                        authorizedInstance
+                    );
                     authorizedInstanceList[id] = authorizedMessageBoxInstance;
                 }
 
@@ -136,8 +162,12 @@ public class AuthorizationService(
         return authorizedInstanceList.Values.ToList();
     }
 
-    /// <inheritdoc/>>
-    public async Task<bool> AuthorizeInstanceAction(Instance instance, string action, string task = null)
+    /// <inheritdoc />
+    public async Task<bool> AuthorizeInstanceAction(
+        Instance instance,
+        string action,
+        string task = null
+    )
     {
         string org = instance.Org;
         string app = instance.AppId.Split('/')[1];
@@ -147,19 +177,37 @@ public class AuthorizationService(
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
         if (instance.Id == null)
         {
-            request = DecisionHelper.CreateDecisionRequest(org, app, user, action, instanceOwnerPartyId, null);
+            request = DecisionHelper.CreateDecisionRequest(
+                org,
+                app,
+                user,
+                action,
+                instanceOwnerPartyId,
+                null
+            );
         }
         else
         {
             Guid instanceGuid = Guid.Parse(instance.Id.Split('/')[1]);
-            request = DecisionHelper.CreateDecisionRequest(org, app, user, action, instanceOwnerPartyId, instanceGuid, task);
+            request = DecisionHelper.CreateDecisionRequest(
+                org,
+                app,
+                user,
+                action,
+                instanceOwnerPartyId,
+                instanceGuid,
+                task
+            );
         }
 
         XacmlJsonResponse response = await _pdp.GetDecisionForRequest(request);
 
         if (response?.Response == null)
         {
-            _logger.LogInformation("// Authorization Helper // Authorize instance action failed for request: {request}.", JsonSerializer.Serialize(request));
+            _logger.LogInformation(
+                "// Authorization Helper // Authorize instance action failed for request: {request}.",
+                JsonSerializer.Serialize(request)
+            );
             return false;
         }
 
@@ -167,7 +215,7 @@ public class AuthorizationService(
         return authorized;
     }
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public async Task<bool> AuthorizeAnyOfInstanceActions(Instance instance, List<string> actions)
     {
         if (actions.Count == 0)
@@ -176,22 +224,37 @@ public class AuthorizationService(
         }
 
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
-        XacmlJsonRequestRoot request = CreateMultiDecisionRequest(user, new List<Instance>() { instance }, actions);
+        XacmlJsonRequestRoot request = CreateMultiDecisionRequest(
+            user,
+            new List<Instance>() { instance },
+            actions
+        );
 
-        _logger.LogDebug("// Authorization Helper // AuthorizeAnyOfInstanceActions // request: {Request}", JsonSerializer.Serialize(request));
+        _logger.LogDebug(
+            "// Authorization Helper // AuthorizeAnyOfInstanceActions // request: {Request}",
+            JsonSerializer.Serialize(request)
+        );
         XacmlJsonResponse response = await _pdp.GetDecisionForRequest(request);
-        
-        _logger.LogDebug("// Authorization Helper // AuthorizeAnyOfInstanceActions // response: {Response}", JsonSerializer.Serialize(response));
+
+        _logger.LogDebug(
+            "// Authorization Helper // AuthorizeAnyOfInstanceActions // response: {Response}",
+            JsonSerializer.Serialize(response)
+        );
         if (response?.Response != null)
         {
-            return response.Response.Exists(result => DecisionHelper.ValidateDecisionResult(result, user));
+            return response.Response.Exists(result =>
+                DecisionHelper.ValidateDecisionResult(result, user)
+            );
         }
 
-        _logger.LogInformation("// Authorization Helper // Authorize instance action failed for request: {request}.", JsonSerializer.Serialize(request));
+        _logger.LogInformation(
+            "// Authorization Helper // Authorize instance action failed for request: {request}.",
+            JsonSerializer.Serialize(request)
+        );
         return false;
     }
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public async Task<List<Instance>> AuthorizeInstances(List<Instance> instances)
     {
         if (instances.Count <= 0)
@@ -203,17 +266,29 @@ public class AuthorizationService(
         List<string> actionTypes = new() { "read" };
 
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
-        XacmlJsonRequestRoot xacmlJsonRequest = CreateMultiDecisionRequest(user, instances, actionTypes);
+        XacmlJsonRequestRoot xacmlJsonRequest = CreateMultiDecisionRequest(
+            user,
+            instances,
+            actionTypes
+        );
         XacmlJsonResponse response = await _pdp.GetDecisionForRequest(xacmlJsonRequest);
 
-        foreach (XacmlJsonResult result in response.Response.Where(result => DecisionHelper.ValidateDecisionResult(result, user)))
+        foreach (
+            XacmlJsonResult result in response.Response.Where(result =>
+                DecisionHelper.ValidateDecisionResult(result, user)
+            )
+        )
         {
             string instanceId = string.Empty;
 
             // Loop through all attributes in Category from the response
             foreach (var attributes in result.Category.Select(category => category.Attribute))
             {
-                foreach (var attribute in attributes.Where(a => a.AttributeId.Equals(AltinnXacmlUrns.InstanceId)))
+                foreach (
+                    var attribute in attributes.Where(a =>
+                        a.AttributeId.Equals(AltinnXacmlUrns.InstanceId)
+                    )
+                )
                 {
                     instanceId = attribute.Value;
                 }
@@ -226,34 +301,41 @@ public class AuthorizationService(
         return authorizedInstanceList;
     }
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public bool UserHasRequiredScope(List<string> requiredScope)
     {
         var contextScope = GetContextScope();
 
         if (!string.IsNullOrWhiteSpace(contextScope))
         {
-            return requiredScope.Exists(scope => contextScope.Contains(scope, StringComparison.InvariantCultureIgnoreCase));
+            return requiredScope.Exists(scope =>
+                contextScope.Contains(scope, StringComparison.InvariantCultureIgnoreCase)
+            );
         }
 
         return false;
     }
 
-    /// <inheritdoc/>>
+    /// <inheritdoc />
     public bool UserHasRequiredScope(string requiredScope)
     {
         var contextScope = GetContextScope();
 
         if (!string.IsNullOrWhiteSpace(contextScope))
         {
-            return contextScope.Contains(requiredScope, StringComparison.InvariantCultureIgnoreCase);
+            return contextScope.Contains(
+                requiredScope,
+                StringComparison.InvariantCultureIgnoreCase
+            );
         }
 
         return false;
     }
 
-    /// <inheritdoc/>>
-    public async Task<XacmlJsonResponse> GetDecisionForRequest(XacmlJsonRequestRoot xacmlJsonRequest)
+    /// <inheritdoc />
+    public async Task<XacmlJsonResponse> GetDecisionForRequest(
+        XacmlJsonRequestRoot xacmlJsonRequest
+    )
     {
         return await _pdp.GetDecisionForRequest(xacmlJsonRequest);
     }
@@ -261,19 +343,24 @@ public class AuthorizationService(
     /// <summary>
     /// Creates multi decision request.
     /// </summary>
-    public static XacmlJsonRequestRoot CreateMultiDecisionRequest(ClaimsPrincipal user, List<Instance> instances, List<string> actionTypes)
+    public static XacmlJsonRequestRoot CreateMultiDecisionRequest(
+        ClaimsPrincipal user,
+        List<Instance> instances,
+        List<string> actionTypes
+    )
     {
         ArgumentNullException.ThrowIfNull(user);
 
-        XacmlJsonRequest request = new()
-        {
-            AccessSubject = new List<XacmlJsonCategory>()
-        };
+        XacmlJsonRequest request = new() { AccessSubject = new List<XacmlJsonCategory>() };
 
         request.AccessSubject.Add(CreateMultipleSubjectCategory(user.Claims));
         request.Action = CreateMultipleActionCategory(actionTypes);
         request.Resource = CreateMultipleResourceCategory(instances);
-        request.MultiRequests = CreateMultiRequestsCategory(request.AccessSubject, request.Action, request.Resource);
+        request.MultiRequests = CreateMultiRequestsCategory(
+            request.AccessSubject,
+            request.Action,
+            request.Resource
+        );
 
         XacmlJsonRequestRoot jsonRequest = new() { Request = request };
 
@@ -293,44 +380,97 @@ public class AuthorizationService(
 
         if (instanceProps.Task != null)
         {
-            resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(XacmlResourceTaskId, instanceProps.Task, DefaultType, DefaultIssuer));
+            resourceCategory.Attribute.Add(
+                DecisionHelper.CreateXacmlJsonAttribute(
+                    XacmlResourceTaskId,
+                    instanceProps.Task,
+                    DefaultType,
+                    DefaultIssuer
+                )
+            );
         }
         else if (instance.Process?.EndEvent != null)
         {
-            resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(XacmlResourceEndId, instance.Process.EndEvent, DefaultType, DefaultIssuer));
+            resourceCategory.Attribute.Add(
+                DecisionHelper.CreateXacmlJsonAttribute(
+                    XacmlResourceEndId,
+                    instance.Process.EndEvent,
+                    DefaultType,
+                    DefaultIssuer
+                )
+            );
         }
 
         if (!string.IsNullOrWhiteSpace(instanceProps.InstanceId))
         {
-            resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.InstanceId, instanceProps.InstanceId, DefaultType, DefaultIssuer, true));
+            resourceCategory.Attribute.Add(
+                DecisionHelper.CreateXacmlJsonAttribute(
+                    AltinnXacmlUrns.InstanceId,
+                    instanceProps.InstanceId,
+                    DefaultType,
+                    DefaultIssuer,
+                    true
+                )
+            );
         }
 
-        resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.PartyId, instanceProps.InstanceOwnerPartyId, DefaultType, DefaultIssuer));
-        resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.OrgId, instanceProps.Org, DefaultType, DefaultIssuer));
-        resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.AppId, instanceProps.App, DefaultType, DefaultIssuer));
+        resourceCategory.Attribute.Add(
+            DecisionHelper.CreateXacmlJsonAttribute(
+                AltinnXacmlUrns.PartyId,
+                instanceProps.InstanceOwnerPartyId,
+                DefaultType,
+                DefaultIssuer
+            )
+        );
+        resourceCategory.Attribute.Add(
+            DecisionHelper.CreateXacmlJsonAttribute(
+                AltinnXacmlUrns.OrgId,
+                instanceProps.Org,
+                DefaultType,
+                DefaultIssuer
+            )
+        );
+        resourceCategory.Attribute.Add(
+            DecisionHelper.CreateXacmlJsonAttribute(
+                AltinnXacmlUrns.AppId,
+                instanceProps.App,
+                DefaultType,
+                DefaultIssuer
+            )
+        );
 
         // Replaces the current Resource attributes
-        jsonRequest.Request.Resource = new List<XacmlJsonCategory>
-        {
-            resourceCategory
-        };
+        jsonRequest.Request.Resource = new List<XacmlJsonCategory> { resourceCategory };
     }
 
     private string GetContextScope()
     {
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
-        string contextScope = user.Identities?
-            .FirstOrDefault(i => i.AuthenticationType != null && i.AuthenticationType.Equals("AuthenticationTypes.Federation"))
-            ?.Claims
-            .Where(c => c.Type.Equals("urn:altinn:scope"))
-            ?.Select(c => c.Value).FirstOrDefault();
+        string contextScope = user
+            .Identities?.FirstOrDefault(i =>
+                i.AuthenticationType != null
+                && i.AuthenticationType.Equals("AuthenticationTypes.Federation")
+            )
+            ?.Claims.Where(c => c.Type.Equals("urn:altinn:scope"))
+            ?.Select(c => c.Value)
+            .FirstOrDefault();
 
-        contextScope ??= user.Claims.Where(c => c.Type.Equals("scope")).Select(c => c.Value).FirstOrDefault();
+        contextScope ??= user
+            .Claims.Where(c => c.Type.Equals("scope"))
+            .Select(c => c.Value)
+            .FirstOrDefault();
 
         return contextScope;
     }
 
-    private static (string InstanceId, string InstanceGuid, string Task, string InstanceOwnerPartyId, string Org, string App) GetInstanceProperties(Instance instance)
+    private static (
+        string InstanceId,
+        string InstanceGuid,
+        string Task,
+        string InstanceOwnerPartyId,
+        string Org,
+        string App
+    ) GetInstanceProperties(Instance instance)
     {
         string instanceId = instance.Id.Contains('/') ? instance.Id : null;
         string instanceGuid = instance.Id.Contains('/') ? instance.Id.Split("/")[1] : instance.Id;
@@ -374,36 +514,103 @@ public class AuthorizationService(
 
         foreach (Instance instance in instances)
         {
-            XacmlJsonCategory resourceCategory = new() { Attribute = new List<XacmlJsonAttribute>() };
+            XacmlJsonCategory resourceCategory = new()
+            {
+                Attribute = new List<XacmlJsonAttribute>(),
+            };
 
             var instanceProps = GetInstanceProperties(instance);
 
             if (instanceProps.Task != null)
             {
-                resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(XacmlResourceTaskId, instanceProps.Task, DefaultType, DefaultIssuer));
+                resourceCategory.Attribute.Add(
+                    DecisionHelper.CreateXacmlJsonAttribute(
+                        XacmlResourceTaskId,
+                        instanceProps.Task,
+                        DefaultType,
+                        DefaultIssuer
+                    )
+                );
             }
             else if (instance.Process?.EndEvent != null)
             {
-                resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(XacmlResourceEndId, instance.Process.EndEvent, DefaultType, DefaultIssuer));
+                resourceCategory.Attribute.Add(
+                    DecisionHelper.CreateXacmlJsonAttribute(
+                        XacmlResourceEndId,
+                        instance.Process.EndEvent,
+                        DefaultType,
+                        DefaultIssuer
+                    )
+                );
             }
-            else if (instance.DataValues != null && (instance.DataValues.ContainsKey("A1ArchRef") || instance.DataValues.ContainsKey("A2ArchRef")))
+            else if (
+                instance.DataValues != null
+                && (
+                    instance.DataValues.ContainsKey("A1ArchRef")
+                    || instance.DataValues.ContainsKey("A2ArchRef")
+                )
+            )
             {
                 // Add a dummy end event for migrated a1/a2 instances
-                resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(XacmlResourceEndId, "MigratedA1A2", DefaultType, DefaultIssuer));
+                resourceCategory.Attribute.Add(
+                    DecisionHelper.CreateXacmlJsonAttribute(
+                        XacmlResourceEndId,
+                        "MigratedA1A2",
+                        DefaultType,
+                        DefaultIssuer
+                    )
+                );
             }
 
             if (!string.IsNullOrWhiteSpace(instanceProps.InstanceId))
             {
-                resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.InstanceId, instanceProps.InstanceId, DefaultType, DefaultIssuer, true));
+                resourceCategory.Attribute.Add(
+                    DecisionHelper.CreateXacmlJsonAttribute(
+                        AltinnXacmlUrns.InstanceId,
+                        instanceProps.InstanceId,
+                        DefaultType,
+                        DefaultIssuer,
+                        true
+                    )
+                );
             }
             else if (!string.IsNullOrEmpty(instanceProps.InstanceGuid))
             {
-                resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.InstanceId, instanceProps.InstanceOwnerPartyId + "/" + instanceProps.InstanceGuid, DefaultType, DefaultIssuer, true));
+                resourceCategory.Attribute.Add(
+                    DecisionHelper.CreateXacmlJsonAttribute(
+                        AltinnXacmlUrns.InstanceId,
+                        instanceProps.InstanceOwnerPartyId + "/" + instanceProps.InstanceGuid,
+                        DefaultType,
+                        DefaultIssuer,
+                        true
+                    )
+                );
             }
 
-            resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.PartyId, instanceProps.InstanceOwnerPartyId, DefaultType, DefaultIssuer));
-            resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.OrgId, instanceProps.Org, DefaultType, DefaultIssuer));
-            resourceCategory.Attribute.Add(DecisionHelper.CreateXacmlJsonAttribute(AltinnXacmlUrns.AppId, instanceProps.App, DefaultType, DefaultIssuer));
+            resourceCategory.Attribute.Add(
+                DecisionHelper.CreateXacmlJsonAttribute(
+                    AltinnXacmlUrns.PartyId,
+                    instanceProps.InstanceOwnerPartyId,
+                    DefaultType,
+                    DefaultIssuer
+                )
+            );
+            resourceCategory.Attribute.Add(
+                DecisionHelper.CreateXacmlJsonAttribute(
+                    AltinnXacmlUrns.OrgId,
+                    instanceProps.Org,
+                    DefaultType,
+                    DefaultIssuer
+                )
+            );
+            resourceCategory.Attribute.Add(
+                DecisionHelper.CreateXacmlJsonAttribute(
+                    AltinnXacmlUrns.AppId,
+                    instanceProps.App,
+                    DefaultType,
+                    DefaultIssuer
+                )
+            );
             resourceCategory.Id = ResourceId + counter.ToString();
             resourcesCategories.Add(resourceCategory);
             counter++;
@@ -412,7 +619,11 @@ public class AuthorizationService(
         return resourcesCategories;
     }
 
-    private static XacmlJsonMultiRequests CreateMultiRequestsCategory(List<XacmlJsonCategory> subjects, List<XacmlJsonCategory> actions, List<XacmlJsonCategory> resources)
+    private static XacmlJsonMultiRequests CreateMultiRequestsCategory(
+        List<XacmlJsonCategory> subjects,
+        List<XacmlJsonCategory> actions,
+        List<XacmlJsonCategory> resources
+    )
     {
         List<string> subjectIds = subjects.Select(s => s.Id).ToList();
         List<string> actionIds = actions.Select(a => a.Id).ToList();
@@ -420,13 +631,17 @@ public class AuthorizationService(
 
         XacmlJsonMultiRequests multiRequests = new()
         {
-            RequestReference = CreateRequestReference(subjectIds, actionIds, resourceIds)
+            RequestReference = CreateRequestReference(subjectIds, actionIds, resourceIds),
         };
 
         return multiRequests;
     }
 
-    private static List<XacmlJsonRequestReference> CreateRequestReference(List<string> subjectIds, List<string> actionIds, List<string> resourceIds)
+    private static List<XacmlJsonRequestReference> CreateRequestReference(
+        List<string> subjectIds,
+        List<string> actionIds,
+        List<string> resourceIds
+    )
     {
         List<XacmlJsonRequestReference> references = new();
 
@@ -437,12 +652,7 @@ public class AuthorizationService(
                 foreach (string subjectId in subjectIds)
                 {
                     XacmlJsonRequestReference reference = new();
-                    List<string> referenceId = new()
-                    {
-                        subjectId,
-                        actionId,
-                        resourceId
-                    };
+                    List<string> referenceId = new() { subjectId, actionId, resourceId };
                     reference.ReferenceId = referenceId;
                     references.Add(reference);
                 }

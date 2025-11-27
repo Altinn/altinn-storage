@@ -13,83 +13,89 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Wolverine;
 
-namespace Altinn.Platform.Storage.Services
+namespace Altinn.Platform.Storage.Services;
+
+/// <summary>
+/// Service class with business logic related to instanced events.
+/// </summary>
+public class InstanceEventService : IInstanceEventService
 {
+    private readonly IInstanceEventRepository _repository;
+    private readonly IHttpContextAccessor _contextAccessor;
+
     /// <summary>
-    /// Service class with business logic related to instanced events.
+    /// Initializes a new instance of the <see cref="InstanceEventService"/> class.
     /// </summary>
-    public class InstanceEventService : IInstanceEventService
+    public InstanceEventService(
+        IInstanceEventRepository repository,
+        IHttpContextAccessor contextAccessor
+    )
     {
-        private readonly IInstanceEventRepository _repository;
-        private readonly IHttpContextAccessor _contextAccessor;
+        _repository = repository;
+        _contextAccessor = contextAccessor;
+    }
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="InstanceEventService"/> class.
-        /// </summary>
-        public InstanceEventService(IInstanceEventRepository repository, IHttpContextAccessor contextAccessor)
+    /// <inheritdoc/>
+    public InstanceEvent BuildInstanceEvent(InstanceEventType eventType, Instance instance)
+    {
+        var user = _contextAccessor.HttpContext!.User;
+
+        InstanceEvent instanceEvent = new()
         {
-            _repository = repository;
-            _contextAccessor = contextAccessor;
-        }
-
-        /// <inheritdoc/>
-        public InstanceEvent BuildInstanceEvent(InstanceEventType eventType, Instance instance)
-        {
-            var user = _contextAccessor.HttpContext!.User;
-
-            InstanceEvent instanceEvent = new()
+            EventType = eventType.ToString(),
+            InstanceId = instance.Id,
+            InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
+            User = new PlatformUser
             {
-                EventType = eventType.ToString(),
-                InstanceId = instance.Id,
-                InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
-                User = new PlatformUser
-                {
-                    UserId = user.GetUserId(),
-                    AuthenticationLevel = user.GetAuthenticationLevel(),
-                    OrgId = user.GetOrg(),
-                    SystemUserId = user.GetSystemUserId(),
-                    SystemUserOwnerOrgNo = user.GetSystemUserOwner(),
-                },
+                UserId = user.GetUserId(),
+                AuthenticationLevel = user.GetAuthenticationLevel(),
+                OrgId = user.GetOrg(),
+                SystemUserId = user.GetSystemUserId(),
+                SystemUserOwnerOrgNo = user.GetSystemUserOwner(),
+            },
 
-                ProcessInfo = instance.Process,
-                Created = DateTime.UtcNow,
-            };
+            ProcessInfo = instance.Process,
+            Created = DateTime.UtcNow,
+        };
 
-            return instanceEvent;
-        }
+        return instanceEvent;
+    }
 
-        /// <inheritdoc/>
-        public async Task DispatchEvent(InstanceEventType eventType, Instance instance)
+    /// <inheritdoc/>
+    public async Task DispatchEvent(InstanceEventType eventType, Instance instance)
+    {
+        var instanceEvent = BuildInstanceEvent(eventType, instance);
+
+        await _repository.InsertInstanceEvent(instanceEvent, instance);
+    }
+
+    /// <inheritdoc/>
+    public async Task DispatchEvent(
+        InstanceEventType eventType,
+        Instance instance,
+        DataElement dataElement
+    )
+    {
+        var user = _contextAccessor.HttpContext!.User;
+
+        InstanceEvent instanceEvent = new()
         {
-            var instanceEvent = BuildInstanceEvent(eventType, instance);
-
-            await _repository.InsertInstanceEvent(instanceEvent, instance);
-        }
-
-        /// <inheritdoc/>
-        public async Task DispatchEvent(InstanceEventType eventType, Instance instance, DataElement dataElement)
-        {
-            var user = _contextAccessor.HttpContext!.User;
-
-            InstanceEvent instanceEvent = new()
+            EventType = eventType.ToString(),
+            InstanceId = instance.Id,
+            DataId = dataElement.Id,
+            InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
+            User = new PlatformUser
             {
-                EventType = eventType.ToString(),
-                InstanceId = instance.Id,
-                DataId = dataElement.Id,
-                InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
-                User = new PlatformUser
-                {
-                    UserId = user.GetUserId(),
-                    AuthenticationLevel = user.GetAuthenticationLevel(),
-                    OrgId = user.GetOrg(),
-                    SystemUserId = user.GetSystemUserId(),
-                    SystemUserOwnerOrgNo = user.GetSystemUserOwner(),
-                },
-                ProcessInfo = instance.Process,
-                Created = DateTime.UtcNow,
-            };
+                UserId = user.GetUserId(),
+                AuthenticationLevel = user.GetAuthenticationLevel(),
+                OrgId = user.GetOrg(),
+                SystemUserId = user.GetSystemUserId(),
+                SystemUserOwnerOrgNo = user.GetSystemUserOwner(),
+            },
+            ProcessInfo = instance.Process,
+            Created = DateTime.UtcNow,
+        };
 
-            await _repository.InsertInstanceEvent(instanceEvent, instance);
-        }
+        await _repository.InsertInstanceEvent(instanceEvent, instance);
     }
 }

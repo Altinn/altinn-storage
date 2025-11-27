@@ -17,7 +17,8 @@ internal static class DataTypeExtensions
         this DataType dataType,
         IAuthorization authorizationService,
         Instance instance,
-        string? task = null)
+        string? task = null
+    )
     {
         if (string.IsNullOrWhiteSpace(dataType.ActionRequiredToRead))
         {
@@ -27,7 +28,8 @@ internal static class DataTypeExtensions
         return await authorizationService.AuthorizeInstanceAction(
             instance,
             dataType.ActionRequiredToRead,
-            task ?? instance.Process?.CurrentTask?.ElementId);
+            task ?? instance.Process?.CurrentTask?.ElementId
+        );
     }
 
     /// <summary>
@@ -37,7 +39,8 @@ internal static class DataTypeExtensions
         this DataType dataType,
         IAuthorization authorizationService,
         Instance instance,
-        string? task = null)
+        string? task = null
+    )
     {
         if (string.IsNullOrWhiteSpace(dataType.ActionRequiredToWrite))
         {
@@ -47,6 +50,7 @@ internal static class DataTypeExtensions
         return await authorizationService.AuthorizeInstanceAction(
             instance,
             dataType.ActionRequiredToWrite,
-            task ?? instance.Process?.CurrentTask?.ElementId);
+            task ?? instance.Process?.CurrentTask?.ElementId
+        );
     }
 }

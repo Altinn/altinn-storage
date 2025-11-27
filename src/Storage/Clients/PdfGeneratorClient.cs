@@ -16,12 +16,15 @@ namespace Altinn.Platform.Storage.Clients;
 /// Implementation of the <see cref="IPdfGeneratorClient"/> interface using a HttpClient to send
 /// requests to the PDF Generator service.
 /// </summary>
-public class PdfGeneratorClient: IPdfGeneratorClient
+public class PdfGeneratorClient : IPdfGeneratorClient
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger<PdfGeneratorClient> _logger;
-    private static readonly JsonSerializerOptions _jsonSerializerOptions =
-        new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
+    private static readonly JsonSerializerOptions _jsonSerializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+    };
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PdfGeneratorClient"/> class.
@@ -32,7 +35,8 @@ public class PdfGeneratorClient: IPdfGeneratorClient
     public PdfGeneratorClient(
         HttpClient httpClient,
         IOptions<GeneralSettings> generalSettings,
-        ILogger<PdfGeneratorClient> logger)
+        ILogger<PdfGeneratorClient> logger
+    )
     {
         _httpClient = httpClient;
         _httpClient.BaseAddress = new Uri(generalSettings.Value.PdfGeneratorEndpoint);
@@ -45,10 +49,13 @@ public class PdfGeneratorClient: IPdfGeneratorClient
         var request = new PdfGeneratorRequest
         {
             Html = html,
-            Options = new() { Landscape = !isPortrait, Scale = scale }
+            Options = new() { Landscape = !isPortrait, Scale = scale },
         };
         string requestContent = JsonSerializer.Serialize(request, _jsonSerializerOptions);
-        var httpResponseMessage = await _httpClient.PostAsync(_httpClient.BaseAddress, new StringContent(requestContent, Encoding.UTF8, "application/json"));
+        var httpResponseMessage = await _httpClient.PostAsync(
+            _httpClient.BaseAddress,
+            new StringContent(requestContent, Encoding.UTF8, "application/json")
+        );
 
         if (!httpResponseMessage.IsSuccessStatusCode)
         {
@@ -62,7 +69,8 @@ public class PdfGeneratorClient: IPdfGeneratorClient
                 "Pdf generation failed. Status code: {StatusCode}, response content: {Content}, reason: {Reason}",
                 content,
                 httpResponseMessage.StatusCode.ToString(),
-                httpResponseMessage.ReasonPhrase);
+                httpResponseMessage.ReasonPhrase
+            );
 
             throw ex;
         }

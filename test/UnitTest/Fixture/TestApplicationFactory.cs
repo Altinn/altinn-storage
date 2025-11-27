@@ -12,15 +12,20 @@ public sealed class TestApplicationFactory<TEntryPoint> : WebApplicationFactory<
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.ConfigureTestServices((services) =>
-        {
-            ConcurrentList<MetricSnapshot> metricsList = [];
-            services.AddSingleton(sp => ActivatorUtilities.CreateInstance<TestTelemetry>(sp, metricsList));
-            services.AddOpenTelemetry()
-                .WithMetrics(metrics =>
-                {
-                    metrics.AddInMemoryExporter(metricsList);
-                });
-        });
+        builder.ConfigureTestServices(
+            (services) =>
+            {
+                ConcurrentList<MetricSnapshot> metricsList = [];
+                services.AddSingleton(sp =>
+                    ActivatorUtilities.CreateInstance<TestTelemetry>(sp, metricsList)
+                );
+                services
+                    .AddOpenTelemetry()
+                    .WithMetrics(metrics =>
+                    {
+                        metrics.AddInMemoryExporter(metricsList);
+                    });
+            }
+        );
     }
 }
