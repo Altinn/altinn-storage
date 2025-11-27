@@ -118,11 +118,17 @@ public class MigrationController : ControllerBase
         Instance storedInstance;
         try
         {
-            int a1ArchiveReference = instance.DataValues.ContainsKey("A1ArchRef")
-                ? int.Parse(instance.DataValues["A1ArchRef"])
+            int a1ArchiveReference = instance.DataValues.TryGetValue(
+                "A1ArchRef",
+                out string a1refStr
+            )
+                ? int.Parse(a1refStr)
                 : -1;
-            int a2ArchiveReference = instance.DataValues.ContainsKey("A2ArchRef")
-                ? int.Parse(instance.DataValues["A2ArchRef"])
+            int a2ArchiveReference = instance.DataValues.TryGetValue(
+                "A2ArchRef",
+                out string a2refStr
+            )
+                ? int.Parse(a2refStr)
                 : -1;
             bool isA1 = a1ArchiveReference > -1;
             if (!isA1 && a2ArchiveReference == -1)

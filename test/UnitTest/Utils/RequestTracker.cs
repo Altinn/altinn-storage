@@ -12,9 +12,9 @@ public static class RequestTracker
 
     public static int GetRequestCount(string requestKey)
     {
-        if (_tracker.ContainsKey(requestKey))
+        if (_tracker.TryGetValue(requestKey, out List<object> value))
         {
-            return _tracker[requestKey].Count;
+            return value.Count;
         }
 
         return 0;
@@ -24,12 +24,13 @@ public static class RequestTracker
     {
         lock (DataLock)
         {
-            if (!_tracker.ContainsKey(requestKey))
+            if (!_tracker.TryGetValue(requestKey, out List<object> value))
             {
-                _tracker.Add(requestKey, new List<object>());
+                value = new List<object>();
+                _tracker.Add(requestKey, value);
             }
 
-            _tracker[requestKey].Add(request);
+            value.Add(request);
         }
     }
 

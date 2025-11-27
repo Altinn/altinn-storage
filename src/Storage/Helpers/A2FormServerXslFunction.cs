@@ -482,64 +482,66 @@ public class A2FormServerXslFunction
 
     private CodeListBE GetCodeListInternal(string codeListName, int codeListVersion, int language)
     {
-        if (!_codelists.ContainsKey(codeListName))
+        if (_codelists.TryGetValue(codeListName, out CodeListBE value))
         {
-            // Declare the CodeListBE to populate with CodeList details retrieved from the DB, and this BE is returned from this method
-            CodeListBE codeList = new()
+            // Return the CodeListBE populated
+            return value;
+        }
+        // Declare the CodeListBE to populate with CodeList details retrieved from the DB, and this BE is returned from this method
+        CodeListBE codeList = new()
+        {
+            CodeListName = codeListName,
+            CodeListVersion = codeListVersion,
+            LanguageTypeID = language,
+        };
+
+        string codeListContent = GetCodeListXml(codeListName, language);
+
+        if (!string.IsNullOrEmpty(codeListContent))
+        {
+            XmlDocument codeListXml = new();
+            codeListXml.LoadXml(codeListContent);
+
+            // get Collection of CodeList Row
+            XmlNodeList codeRowCollection = codeListXml.SelectNodes("//CodeRow");
+
+            if (codeRowCollection != null)
             {
-                CodeListName = codeListName,
-                CodeListVersion = codeListVersion,
-                LanguageTypeID = language,
-            };
-
-            string codeListContent = GetCodeListXml(codeListName, language);
-
-            if (!string.IsNullOrEmpty(codeListContent))
-            {
-                XmlDocument codeListXml = new();
-                codeListXml.LoadXml(codeListContent);
-
-                // get Collection of CodeList Row
-                XmlNodeList codeRowCollection = codeListXml.SelectNodes("//CodeRow");
-
-                if (codeRowCollection != null)
+                codeList.CodeListRows = [];
+                foreach (XmlNode codeListRow in codeRowCollection)
                 {
-                    codeList.CodeListRows = [];
-                    foreach (XmlNode codeListRow in codeRowCollection)
+                    CodeRowBE codeRow = new();
+
+                    // This should not happen but in case if values are not provided in TUL
+                    if (codeListRow.SelectSingleNode("Code") != null)
                     {
-                        CodeRowBE codeRow = new();
-
-                        // This should not happen but in case if values are not provided in TUL
-                        if (codeListRow.SelectSingleNode("Code") != null)
-                        {
-                            codeRow.Code = codeListRow.SelectSingleNode("Code").InnerText;
-                        }
-
-                        if (codeListRow.SelectSingleNode("Value1") != null)
-                        {
-                            codeRow.Value1 = codeListRow.SelectSingleNode("Value1").InnerText;
-                        }
-
-                        if (codeListRow.SelectSingleNode("Value2") != null)
-                        {
-                            codeRow.Value2 = codeListRow.SelectSingleNode("Value2").InnerText;
-                        }
-
-                        if (codeListRow.SelectSingleNode("Value3") != null)
-                        {
-                            codeRow.Value3 = codeListRow.SelectSingleNode("Value3").InnerText;
-                        }
-
-                        codeList.CodeListRows.Add(codeRow);
+                        codeRow.Code = codeListRow.SelectSingleNode("Code").InnerText;
                     }
+
+                    if (codeListRow.SelectSingleNode("Value1") != null)
+                    {
+                        codeRow.Value1 = codeListRow.SelectSingleNode("Value1").InnerText;
+                    }
+
+                    if (codeListRow.SelectSingleNode("Value2") != null)
+                    {
+                        codeRow.Value2 = codeListRow.SelectSingleNode("Value2").InnerText;
+                    }
+
+                    if (codeListRow.SelectSingleNode("Value3") != null)
+                    {
+                        codeRow.Value3 = codeListRow.SelectSingleNode("Value3").InnerText;
+                    }
+
+                    codeList.CodeListRows.Add(codeRow);
                 }
             }
-
-            _codelists[codeListName] = codeList;
         }
 
+        _codelists[codeListName] = codeList;
+
         // Return the CodeListBE populated
-        return _codelists[codeListName];
+        return codeList;
     }
 
     private string GetCodeListXml(string name, int lang)
