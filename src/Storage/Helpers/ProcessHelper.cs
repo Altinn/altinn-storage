@@ -24,7 +24,7 @@ public static class ProcessHelper
 
         foreach (InstanceEvent instanceEvent in events)
         {
-            switch (Enum.Parse(typeof(InstanceEventType), instanceEvent.EventType))
+            switch (Enum.Parse<InstanceEventType>(instanceEvent.EventType))
             {
                 case InstanceEventType.process_StartEvent:
                     history.Add(

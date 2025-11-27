@@ -253,7 +253,7 @@ public class A2FormServerXslFunction
                         wsParams[4],
                         wsParams[5],
                         wsParams[6],
-                        (FilterMatchType)Enum.Parse(typeof(FilterMatchType), wsParams[7])
+                        Enum.Parse<FilterMatchType>(wsParams[7])
                     );
                     foreach (CodeRowBE row in codelist.CodeListRows)
                     {

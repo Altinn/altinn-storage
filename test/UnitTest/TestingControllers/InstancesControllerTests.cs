@@ -1638,7 +1638,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         int instanceOwnerPartyId = 1337;
         string instanceGuid = "d9a586ca-17ab-453d-9fc5-35eaadb3369b";
         string expectedMessage =
-            $"Invalid read status: invalid. Accepted types include: {string.Join(", ", Enum.GetNames(typeof(ReadStatus)))}";
+            $"Invalid read status: invalid. Accepted types include: {string.Join(", ", Enum.GetNames<ReadStatus>())}";
 
         string requestUri =
             $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/readstatus?status=invalid";

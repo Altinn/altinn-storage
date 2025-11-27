@@ -220,7 +220,7 @@ public class ProcessController : ControllerBase
         [FromRoute] Guid instanceGuid
     )
     {
-        string[] eventTypes = Enum.GetNames(typeof(InstanceEventType))
+        string[] eventTypes = Enum.GetNames<InstanceEventType>()
             .Where(x => x.StartsWith("process"))
             .ToArray();
         string instanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
