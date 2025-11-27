@@ -71,8 +71,7 @@ public class InstanceRepositoryMock : IInstanceRepository
             foreach (var file in files)
             {
                 string content = File.ReadAllText(file);
-                Instance instance = (Instance)
-                    JsonConvert.DeserializeObject(content, typeof(Instance));
+                Instance instance = JsonConvert.DeserializeObject<Instance>(content);
                 PostProcess(instance);
                 instances.Add(instance);
             }
@@ -148,7 +147,7 @@ public class InstanceRepositoryMock : IInstanceRepository
         if (File.Exists(instancePath))
         {
             string content = File.ReadAllText(instancePath);
-            Instance instance = (Instance)JsonConvert.DeserializeObject(content, typeof(Instance));
+            Instance instance = JsonConvert.DeserializeObject<Instance>(content);
             instance.Data = includeElements ? GetDataElements(instanceGuid) : null;
             PostProcess(instance);
             return Task.FromResult<(Instance, long)>((instance, 0));

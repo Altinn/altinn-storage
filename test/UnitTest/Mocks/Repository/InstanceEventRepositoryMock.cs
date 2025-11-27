@@ -50,8 +50,7 @@ public class InstanceEventRepositoryMock : IInstanceEventRepository
                 foreach (string path in instanceEventPath)
                 {
                     string content = File.ReadAllText(path);
-                    InstanceEvent instance = (InstanceEvent)
-                        JsonConvert.DeserializeObject(content, typeof(InstanceEvent));
+                    InstanceEvent instance = JsonConvert.DeserializeObject<InstanceEvent>(content);
                     events.Add(instance);
                 }
             }

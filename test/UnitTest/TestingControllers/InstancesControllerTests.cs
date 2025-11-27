@@ -90,8 +90,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         string responseContent = await response.Content.ReadAsStringAsync();
-        Instance instance = (Instance)
-            JsonConvert.DeserializeObject(responseContent, typeof(Instance));
+        Instance instance = JsonConvert.DeserializeObject<Instance>(responseContent);
         Assert.Equal("1337", instance.InstanceOwner.PartyId);
         await _testTelemetry.AssertRequestsWithInvalidScopesCountAsync(invalidScopeRequests);
     }
@@ -122,8 +121,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         );
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         string responseContent = await response.Content.ReadAsStringAsync();
-        Instance instance = (Instance)
-            JsonConvert.DeserializeObject(responseContent, typeof(Instance));
+        Instance instance = JsonConvert.DeserializeObject<Instance>(responseContent);
         Assert.Equal("1337", instance.InstanceOwner.PartyId);
         Assert.Equal(HttpStatusCode.OK, response2.StatusCode);
     }
@@ -156,8 +154,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         ); // We should not be hitting the PDP as sync adapter
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         string responseContent = await response.Content.ReadAsStringAsync();
-        Instance instance = (Instance)
-            JsonConvert.DeserializeObject(responseContent, typeof(Instance));
+        Instance instance = JsonConvert.DeserializeObject<Instance>(responseContent);
         Assert.Equal("1337", instance.InstanceOwner.PartyId);
     }
 

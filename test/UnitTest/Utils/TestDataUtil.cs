@@ -18,7 +18,7 @@ public class TestDataUtil
         }
 
         string content = File.ReadAllText(path);
-        Instance instance = (Instance)JsonConvert.DeserializeObject(content, typeof(Instance));
+        Instance instance = JsonConvert.DeserializeObject<Instance>(content);
         return instance;
     }
 
@@ -27,8 +27,7 @@ public class TestDataUtil
         string dataElementPath = Path.Combine(GetDataPath(), dataGuid + ".json");
 
         string content = File.ReadAllText(dataElementPath);
-        DataElement dataElement = (DataElement)
-            JsonConvert.DeserializeObject(content, typeof(DataElement));
+        DataElement dataElement = JsonConvert.DeserializeObject<DataElement>(content);
         return dataElement;
     }
 

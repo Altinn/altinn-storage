@@ -66,8 +66,9 @@ public class ApplicationRepositoryMock : IApplicationRepository
                     if (File.Exists(metadataPath))
                     {
                         string content = File.ReadAllText(metadataPath);
-                        Application application = (Application)
-                            JsonConvert.DeserializeObject(content, typeof(Application));
+                        Application application = JsonConvert.DeserializeObject<Application>(
+                            content
+                        );
                         string titles = string.Empty;
                         if (application.Title != null)
                         {
@@ -98,8 +99,7 @@ public class ApplicationRepositoryMock : IApplicationRepository
         if (File.Exists(applicationPath))
         {
             string content = File.ReadAllText(applicationPath);
-            Application application = (Application)
-                JsonConvert.DeserializeObject(content, typeof(Application));
+            Application application = JsonConvert.DeserializeObject<Application>(content);
             return application;
         }
 
