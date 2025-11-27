@@ -1,6 +1,5 @@
 ﻿using System.Linq;
 using Altinn.Platform.Storage.Interface.Models;
-using FluentAssertions;
 using Xunit;
 
 namespace Altinn.Platform.Storage.Interface.Tests.AllowUserActions;
@@ -15,14 +14,12 @@ public class AllowUserActions
                 "AllowUserActions.applicationMetadata_beforeChange.json"
             );
 
-        applicationBefore
-            .DataTypes.First(d => d.Id == "Veileder")
-            .AppLogic.DisallowUserCreate.Should()
-            .BeFalse();
-        applicationBefore
-            .DataTypes.First(d => d.Id == "Veileder")
-            .AppLogic.DisallowUserDelete.Should()
-            .BeFalse();
+        Assert.False(
+            applicationBefore.DataTypes.First(d => d.Id == "Veileder").AppLogic.DisallowUserCreate
+        );
+        Assert.False(
+            applicationBefore.DataTypes.First(d => d.Id == "Veileder").AppLogic.DisallowUserDelete
+        );
     }
 
     [Fact]
@@ -33,13 +30,11 @@ public class AllowUserActions
                 "AllowUserActions.applicationMetadata_afterChange.json"
             );
 
-        applicationBefore
-            .DataTypes.First(d => d.Id == "Veileder")
-            .AppLogic.DisallowUserCreate.Should()
-            .BeTrue();
-        applicationBefore
-            .DataTypes.First(d => d.Id == "Veileder")
-            .AppLogic.DisallowUserDelete.Should()
-            .BeFalse();
+        Assert.True(
+            applicationBefore.DataTypes.First(d => d.Id == "Veileder").AppLogic.DisallowUserCreate
+        );
+        Assert.False(
+            applicationBefore.DataTypes.First(d => d.Id == "Veileder").AppLogic.DisallowUserDelete
+        );
     }
 }

@@ -1,6 +1,5 @@
 using System.Linq;
 using Altinn.Platform.Storage.Interface.Models;
-using FluentAssertions;
 using Xunit;
 
 namespace Altinn.Platform.Storage.Interface.Tests;
@@ -15,10 +14,11 @@ public class ApplicationTests
                 "AllowAnonymousOnStateless.applicationMetadata_beforeChange.json"
             );
 
-        applicationBefore
-            .DataTypes.First(d => d.Id == "Veileder")
-            .AppLogic.AllowAnonymousOnStateless.Should()
-            .BeFalse();
+        Assert.False(
+            applicationBefore
+                .DataTypes.First(d => d.Id == "Veileder")
+                .AppLogic.AllowAnonymousOnStateless
+        );
     }
 
     [Fact]
@@ -29,9 +29,10 @@ public class ApplicationTests
                 "AllowAnonymousOnStateless.applicationMetadata_afterChange.json"
             );
 
-        applicationBefore
-            .DataTypes.First(d => d.Id == "Veileder")
-            .AppLogic.AllowAnonymousOnStateless.Should()
-            .BeTrue();
+        Assert.True(
+            applicationBefore
+                .DataTypes.First(d => d.Id == "Veileder")
+                .AppLogic.AllowAnonymousOnStateless
+        );
     }
 }
