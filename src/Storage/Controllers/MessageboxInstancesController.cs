@@ -197,7 +197,8 @@ public class MessageBoxInstancesController : ControllerBase
         {
             var application = await _applicationRepository.FindOne(
                 instance.AppId,
-                instance.AppId.Split("/")[0]
+                instance.AppId.Split("/")[0],
+                cancellationToken
             );
             includeInstantiate = application?.CopyInstanceSettings?.Enabled == true;
         }

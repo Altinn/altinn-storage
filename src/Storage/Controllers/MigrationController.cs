@@ -227,7 +227,11 @@ public class MigrationController : ControllerBase
             return BadRequest("Instance not found");
         }
 
-        Application app = await _applicationRepository.FindOne(instance.AppId, instance.Org);
+        Application app = await _applicationRepository.FindOne(
+            instance.AppId,
+            instance.Org,
+            cancellationToken
+        );
         bool isA2 = app.Id.Contains("/a2-");
         if (!isA2 && !app.Id.Contains("/a1-"))
         {
