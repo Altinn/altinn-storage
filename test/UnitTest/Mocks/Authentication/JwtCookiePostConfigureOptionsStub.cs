@@ -27,7 +27,7 @@ public class JwtCookiePostConfigureOptionsStub : IPostConfigureOptions<JwtCookie
 
         if (!string.IsNullOrEmpty(options.MetadataAddress))
         {
-            if (!options.MetadataAddress.EndsWith("/", StringComparison.Ordinal))
+            if (!options.MetadataAddress.EndsWith('/'))
             {
                 options.MetadataAddress += "/";
             }

@@ -274,8 +274,7 @@ public class BlobRepository(
                 if (storageAccountNumber != null)
                 {
                     accountName =
-                        accountName.Substring(0, accountName.Length - 2)
-                        + ((int)storageAccountNumber).ToString("D2");
+                        $"{accountName.AsSpan(0, accountName.Length - 2)}{(int)storageAccountNumber:D2}";
                 }
 
                 UriBuilder fullUri = new()
@@ -304,7 +303,7 @@ public class BlobRepository(
         return blobContainerClient;
     }
 
-    private TokenCredential GetCachedCredentials()
+    private DefaultAzureCredential GetCachedCredentials()
     {
         if (!_memoryCache.TryGetValue(_credsCacheKey, out DefaultAzureCredential creds))
         {

@@ -218,7 +218,7 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
             XmlDocument xslDoc = new();
             xslDoc.LoadXml(xsl);
 
-            XmlNode apos = xslDoc.CreateElement(
+            XmlElement apos = xslDoc.CreateElement(
                 "xsl",
                 "variable",
                 "http://www.w3.org/1999/XSL/Transform"
@@ -303,9 +303,9 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
                                     if (start > -1)
                                     {
                                         int length = 0;
-                                        if (style.IndexOf(";", start) > -1)
+                                        if (style.IndexOf(';', start) > -1)
                                         {
-                                            length = style.IndexOf(";", start - 13) - start;
+                                            length = style.IndexOf(';', start - 13) - start;
                                         }
                                         else
                                         {
@@ -477,11 +477,10 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
                 XmlNode styleNode = xslDoc.SelectSingleNode("//style");
                 if (
                     styleNode != null
-                    && !styleNode
-                        .InnerText.ToLower()
-                        .Contains(
-                            "thead {display: table-header-group;text-align: left;} th{ font-weight:normal;}"
-                        )
+                    && !styleNode.InnerText.Contains(
+                        "thead {display: table-header-group;text-align: left;} th{ font-weight:normal;}",
+                        StringComparison.OrdinalIgnoreCase
+                    )
                 )
                 {
                     styleNode.InnerText +=
@@ -500,7 +499,7 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
                         try
                         {
                             int start = -1;
-                            if (style.IndexOf("WIDTH:") == 0)
+                            if (style.StartsWith("WIDTH:"))
                             {
                                 start = style.IndexOf("WIDTH:") + 6;
                             }
@@ -512,9 +511,9 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
                             if (start > -1)
                             {
                                 int length = 0;
-                                if (style.IndexOf(";", start) > -1)
+                                if (style.IndexOf(';', start) > -1)
                                 {
-                                    length = style.IndexOf(";", start - 6) - start;
+                                    length = style.IndexOf(';', start - 6) - start;
                                 }
                                 else
                                 {
@@ -596,7 +595,7 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
                     }
 
                     spanAttributes.Add("class", "xdTextBox");
-                    XmlNode spanTag = xslDoc.CreateElement("span");
+                    XmlElement spanTag = xslDoc.CreateElement("span");
                     foreach (KeyValuePair<string, string> attribute in spanAttributes)
                     {
                         XmlAttribute xmlAttribute = xslDoc.CreateAttribute(attribute.Key);
@@ -739,7 +738,7 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
                     {
                         foreach (XmlNode optionNode in optionNodeList)
                         {
-                            XmlNode newNode = xslDoc.CreateElement("span");
+                            XmlElement newNode = xslDoc.CreateElement("span");
                             newNode.InnerXml = optionNode.InnerXml;
                             optionNode.ParentNode?.ReplaceChild(newNode, optionNode);
                         }
@@ -753,7 +752,7 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
         }
     }
 
-    private static XmlNode CreateXslNodeElement(
+    private static XmlElement CreateXslNodeElement(
         XmlDocument xDoc,
         Dictionary<string, string> attributes,
         string nodeName,
@@ -761,7 +760,7 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
         string nsUrl
     )
     {
-        XmlNode node = xDoc.CreateElement(prefix, nodeName, nsUrl);
+        XmlElement node = xDoc.CreateElement(prefix, nodeName, nsUrl);
         foreach (KeyValuePair<string, string> attribute in attributes)
         {
             XmlAttribute xmlAttribute = xDoc.CreateAttribute(attribute.Key);

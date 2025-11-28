@@ -104,7 +104,7 @@ public class InstanceEventTests : IClassFixture<InstanceEventFixture>
         );
         List<InstanceEvent> ies2 = await _instanceEventFixture.InstanceEventRepo.ListInstanceEvents(
             _instanceId,
-            new string[] { "et1" },
+            ["et1"],
             null,
             null
         );

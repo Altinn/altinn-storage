@@ -209,7 +209,9 @@ public class CleanupController(
             {
                 string template =
                     "CleanupController // CleanupDataelements // Error occured when deleting dataElement Id: {0} Blobstoragepath: {1}";
+#pragma warning disable CA2254 // Template should be a static expression
                 _logger.LogError(e, template, dataElement.Id, dataElement.BlobStoragePath);
+#pragma warning restore CA2254 // Template should be a static expression
                 stopwatch.Stop();
                 return StatusCode(
                     StatusCodes.Status500InternalServerError,

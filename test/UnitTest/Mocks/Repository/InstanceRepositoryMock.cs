@@ -240,7 +240,7 @@ public class InstanceRepositoryMock : IInstanceRepository
     private static void PostProcess(Instance instance)
     {
         instance.Id = $"{instance.InstanceOwner.PartyId}/{instance.Id}";
-        if (instance.Data != null && instance.Data.Any())
+        if (instance.Data != null && instance.Data.Count != 0)
         {
             SetReadStatus(instance);
         }
