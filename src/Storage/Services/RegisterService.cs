@@ -31,7 +31,11 @@ public class RegisterService : IRegisterService
     private readonly IAccessTokenGenerator _accessTokenGenerator;
     private readonly ILogger<IRegisterService> _logger;
 
-    private readonly JsonSerializerOptions _serializerOptions;
+    private static readonly JsonSerializerOptions _serializerOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        Converters = { new JsonStringEnumConverter() },
+    };
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RegisterService"/> class.
@@ -54,12 +58,6 @@ public class RegisterService : IRegisterService
         _generalSettings = generalSettings.Value;
         _accessTokenGenerator = accessTokenGenerator;
         _logger = logger;
-
-        _serializerOptions = new()
-        {
-            PropertyNameCaseInsensitive = true,
-            Converters = { new JsonStringEnumConverter() },
-        };
     }
 
     /// <inheritdoc/>

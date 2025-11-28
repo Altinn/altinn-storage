@@ -763,7 +763,7 @@ public class InstancesController : ControllerBase
         if (!Enum.TryParse(status, true, out ReadStatus newStatus))
         {
             return BadRequest(
-                $"Invalid read status: {status}. Accepted types include: {string.Join(", ", Enum.GetNames(typeof(ReadStatus)))}"
+                $"Invalid read status: {status}. Accepted types include: {string.Join(", ", Enum.GetNames<ReadStatus>())}"
             );
         }
 

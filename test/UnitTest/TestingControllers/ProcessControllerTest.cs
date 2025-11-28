@@ -582,8 +582,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         // Assert
         string responseContent = await response.Content.ReadAsStringAsync();
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Instance actual = (Instance)
-            JsonConvert.DeserializeObject(responseContent, typeof(Instance));
+        Instance actual = JsonConvert.DeserializeObject<Instance>(responseContent);
         Assert.True(actual.Status.IsArchived);
     }
 

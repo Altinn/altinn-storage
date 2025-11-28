@@ -11,6 +11,11 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 
 public class TextRepositoryMock : ITextRepository
 {
+    private static readonly JsonSerializerOptions _jsonSerializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
     public Task<TextResource> Create(string org, string app, TextResource textResource)
     {
         string language = textResource.Language;
@@ -31,7 +36,7 @@ public class TextRepositoryMock : ITextRepository
             string content = File.ReadAllText(textResourcePath);
             TextResource textResource = JsonSerializer.Deserialize<TextResource>(
                 content,
-                new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }
+                _jsonSerializerOptions
             );
             return Task.FromResult(textResource);
         }

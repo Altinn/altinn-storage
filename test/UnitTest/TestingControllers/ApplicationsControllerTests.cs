@@ -109,8 +109,7 @@ public class ApplicationsControllerTests
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
         string content = await response.Content.ReadAsStringAsync();
-        Application application =
-            JsonConvert.DeserializeObject(content, typeof(Application)) as Application;
+        Application application = JsonConvert.DeserializeObject<Application>(content);
 
         Assert.NotNull(application);
         Assert.NotNull(application.DataTypes);
@@ -298,13 +297,11 @@ public class ApplicationsControllerTests
             JsonContent.Create(newApp, new MediaTypeHeaderValue("application/json"))
         );
         string postContent = await postResponse.Content.ReadAsStringAsync();
-        Application createdApp =
-            JsonConvert.DeserializeObject(postContent, typeof(Application)) as Application;
+        Application createdApp = JsonConvert.DeserializeObject<Application>(postContent);
 
         HttpResponseMessage getResponse = await client.GetAsync(getUri);
         string getContent = await getResponse.Content.ReadAsStringAsync();
-        Application retrievedApp =
-            JsonConvert.DeserializeObject(getContent, typeof(Application)) as Application;
+        Application retrievedApp = JsonConvert.DeserializeObject<Application>(getContent);
 
         // Assert
         Assert.Equal(HttpStatusCode.Created, postResponse.StatusCode);
@@ -382,8 +379,7 @@ public class ApplicationsControllerTests
 
         HttpResponseMessage getResponse = await client.GetAsync(requestUri);
         string getContent = await getResponse.Content.ReadAsStringAsync();
-        Application retrievedApp =
-            JsonConvert.DeserializeObject(getContent, typeof(Application)) as Application;
+        Application retrievedApp = JsonConvert.DeserializeObject<Application>(getContent);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, putResponse.StatusCode);
@@ -517,8 +513,7 @@ public class ApplicationsControllerTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         string content = await response.Content.ReadAsStringAsync();
-        Application application =
-            JsonConvert.DeserializeObject(content, typeof(Application)) as Application;
+        Application application = JsonConvert.DeserializeObject<Application>(content);
 
         Assert.NotNull(application);
         Assert.True(application.ValidTo < DateTime.UtcNow);
@@ -566,8 +561,7 @@ public class ApplicationsControllerTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         string content = await response.Content.ReadAsStringAsync();
-        Application application =
-            JsonConvert.DeserializeObject(content, typeof(Application)) as Application;
+        Application application = JsonConvert.DeserializeObject<Application>(content);
 
         Assert.NotNull(application);
         Assert.Equal("r34", application.VersionId);
