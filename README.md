@@ -83,3 +83,10 @@ The Storage components can be run locally when developing/debugging. Follow the 
 
 The storage solution is now available locally at http://localhost:5010/.
 To access swagger use http://localhost:5010/swagger.
+
+## Git blame
+This repo has had a few commits that changes lots of files in insignificatn ways (csharpier and file scoped namespaces), that changed a lot of lines so if you keep seeing the same huge commit in git blame, we recommend the following command in the root of the repo.
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
