@@ -81,12 +81,12 @@ public class A2FormServerXslFunction
         {
             if (DateCalculationHelper(str, str2, false, out string str3))
             {
-                if (str.IndexOf('T') != -1)
+                if (str.Contains('T'))
                 {
                     return str3;
                 }
 
-                if (str.IndexOf(':', StringComparison.Ordinal) == -1)
+                if (!str.Contains(':'))
                 {
                     return str3[..str3.IndexOf('T')];
                 }
@@ -124,7 +124,7 @@ public class A2FormServerXslFunction
                 return "#ERR?";
             }
 
-            if (str.IndexOf('T') != -1)
+            if (str.Contains('T'))
             {
                 return str3;
             }
@@ -134,12 +134,12 @@ public class A2FormServerXslFunction
             return string.Empty;
         }
 
-        if (str.IndexOf('-') != -1)
+        if (str.Contains('-'))
         {
             return str3;
         }
 
-        if (str.IndexOf('/') != -1)
+        if (str.Contains('/'))
         {
             return str3;
         }
@@ -320,6 +320,10 @@ public class A2FormServerXslFunction
         "SA1408:ConditionalExpressionsMustDeclarePrecedence",
         Justification = "Old code"
     )]
+    [SuppressMessage(
+        "Performance",
+        "CA1862:Use the \'StringComparison\' method overloads to perform case-insensitive string comparisons"
+    )]
     private CodeListBE GetFilteredCodeList(
         string codeListName,
         int codeListVersion,
@@ -352,7 +356,11 @@ public class A2FormServerXslFunction
                     .CodeListRows.Where(codeListRow =>
                         (
                             !string.IsNullOrEmpty(code)
-                                && codeListRow.Code.ToLower() == code.ToLower()
+                                && string.Equals(
+                                    codeListRow.Code,
+                                    code,
+                                    StringComparison.OrdinalIgnoreCase
+                                )
                             || string.IsNullOrEmpty(code)
                         )
                         && (

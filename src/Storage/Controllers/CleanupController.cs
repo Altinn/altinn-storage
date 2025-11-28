@@ -207,13 +207,20 @@ public class CleanupController(
             }
             catch (Exception e)
             {
-                string template =
-                    "CleanupController // CleanupDataelements // Error occured when deleting dataElement Id: {0} Blobstoragepath: {1}";
-                _logger.LogError(e, template, dataElement.Id, dataElement.BlobStoragePath);
+                _logger.LogError(
+                    e,
+                    "CleanupController // CleanupDataelements // Error occured when deleting dataElement Id: {Id} Blobstoragepath: {Blobstoragepath}",
+                    dataElement.Id,
+                    dataElement.BlobStoragePath
+                );
                 stopwatch.Stop();
                 return StatusCode(
                     StatusCodes.Status500InternalServerError,
-                    string.Format(template, dataElement.Id, dataElement.BlobStoragePath)
+                    string.Format(
+                        "CleanupController // CleanupDataelements // Error occured when deleting dataElement Id: {0} Blobstoragepath: {1}",
+                        dataElement.Id,
+                        dataElement.BlobStoragePath
+                    )
                 );
             }
         }
