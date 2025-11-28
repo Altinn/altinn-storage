@@ -171,7 +171,11 @@ public class CleanupController(
                         false,
                         cancellationToken
                     );
-                    app = await applicationRepository.FindOne(instance.AppId, instance.Org);
+                    app = await applicationRepository.FindOne(
+                        instance.AppId,
+                        instance.Org,
+                        cancellationToken
+                    );
                 }
 
                 if (
@@ -189,7 +193,7 @@ public class CleanupController(
                     );
                 }
 
-                if (!await dataRepository.Delete(dataElement))
+                if (!await dataRepository.Delete(dataElement, cancellationToken))
                 {
                     _logger.LogError(
                         "CleanupController // CleanupDataelements // Data element not found for dataElement Id: {dataElement.Id}",

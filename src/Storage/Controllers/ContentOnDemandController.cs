@@ -113,7 +113,8 @@ public class ContentOnDemandController : Controller
         );
         Application application = await _applicationRepository.FindOne(
             instance.AppId,
-            instance.Org
+            instance.Org,
+            cancellationToken
         );
         DataElement signatureElement = instance.Data.First(d => d.DataType == "signature-data");
 
@@ -121,7 +122,8 @@ public class ContentOnDemandController : Controller
             await _blobRepository.ReadBlob(
                 $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
                 $"{instance.Org}/{app}/{instanceGuid}/data/{signatureElement.Id}",
-                application.StorageAccountNumber
+                application.StorageAccountNumber,
+                cancellationToken
             ),
             (JsonSerializerOptions)null,
             cancellationToken
@@ -157,7 +159,8 @@ public class ContentOnDemandController : Controller
         );
         Application application = await _applicationRepository.FindOne(
             instance.AppId,
-            instance.Org
+            instance.Org,
+            cancellationToken
         );
         DataElement paymentElement = instance.Data.First(d => d.DataType == "payment-data");
 
@@ -165,7 +168,8 @@ public class ContentOnDemandController : Controller
             await _blobRepository.ReadBlob(
                 $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
                 $"{instance.Org}/{app}/{instanceGuid}/data/{paymentElement.Id}",
-                application.StorageAccountNumber
+                application.StorageAccountNumber,
+                cancellationToken
             ),
             (JsonSerializerOptions)null,
             cancellationToken

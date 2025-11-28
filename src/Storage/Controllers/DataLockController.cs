@@ -90,7 +90,8 @@ public class DataLockController : ControllerBase
             DataElement updatedDataElement = await _dataRepository.Update(
                 instanceGuid,
                 dataGuid,
-                propertyList
+                propertyList,
+                cancellationToken
             );
             return Created(updatedDataElement.Id, updatedDataElement);
         }
@@ -150,7 +151,8 @@ public class DataLockController : ControllerBase
             DataElement updatedDataElement = await _dataRepository.Update(
                 instanceGuid,
                 dataGuid,
-                propertyList
+                propertyList,
+                cancellationToken
             );
             return Ok(updatedDataElement);
         }
