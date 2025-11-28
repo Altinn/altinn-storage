@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DbTools/DbTools.csproj" />
+    <Project Path="src/Storage.Interface/Altinn.Platform.Storage.Interface.csproj" />
+    <Project Path="src/Storage/Altinn.Platform.Storage.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/Altinn.Platform.Storage.Interface.Tests/Altinn.Platform.Storage.Interface.Tests.csproj" />
+    <Project Path="test/UnitTest/Altinn.Platform.Storage.UnitTest.csproj" />
+  </Folder>
+</Solution>
