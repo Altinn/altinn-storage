@@ -53,7 +53,7 @@ cd altinn-storage
 You can run the tests by executing
 
 ```bash
-dotnet test Altinn.Platform.Storage.sln
+dotnet test Altinn.Platform.Storage.slnx
 ```
 
 ### Running the application in a docker container
