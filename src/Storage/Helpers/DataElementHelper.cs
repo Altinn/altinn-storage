@@ -31,7 +31,7 @@ public static class DataElementHelper
         string contentFileName,
         long fileSize,
         string user,
-        string generatedFromTask, 
+        string generatedFromTask,
         List<KeyValueEntry> metadata
     )
     {

@@ -399,7 +399,7 @@ public class DataController : ControllerBase
     /// <param name="refs">An optional array of data element references.</param>
     /// <param name="generatedFromTask">An optional id of the task the data element was generated from</param>
     /// <param name="metadata">Metadata in the element</param>
-   /// <returns>The metadata of the new data element.</returns>
+    /// <returns>The metadata of the new data element.</returns>
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
     [HttpPost("data")]
     [DisableFormValueModelBinding]
@@ -415,7 +415,7 @@ public class DataController : ControllerBase
         [FromQuery(Name = "refs")] List<Guid> refs = null,
         [FromQuery(Name = "generatedFromTask")] string generatedFromTask = null,
         [FromQuery(Name = "metadata")] List<KeyValueEntry> metadata = null
-     )
+    )
     {
         if (instanceOwnerPartyId == 0 || string.IsNullOrEmpty(dataType) || Request.Body == null)
         {
