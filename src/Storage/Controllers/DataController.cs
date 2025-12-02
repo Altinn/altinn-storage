@@ -398,7 +398,8 @@ public class DataController : ControllerBase
     /// <param name="cancellationToken">CancellationToken</param>
     /// <param name="refs">An optional array of data element references.</param>
     /// <param name="generatedFromTask">An optional id of the task the data element was generated from</param>
-    /// <returns>The metadata of the new data element.</returns>
+    /// <param name="metadata">Metadata in the element</param>
+   /// <returns>The metadata of the new data element.</returns>
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
     [HttpPost("data")]
     [DisableFormValueModelBinding]
@@ -412,8 +413,9 @@ public class DataController : ControllerBase
         [FromQuery] string dataType,
         CancellationToken cancellationToken,
         [FromQuery(Name = "refs")] List<Guid> refs = null,
-        [FromQuery(Name = "generatedFromTask")] string generatedFromTask = null
-    )
+        [FromQuery(Name = "generatedFromTask")] string generatedFromTask = null,
+        [FromQuery(Name = "metadata")] List<KeyValueEntry> metadata = null
+     )
     {
         if (instanceOwnerPartyId == 0 || string.IsNullOrEmpty(dataType) || Request.Body == null)
         {
@@ -460,6 +462,7 @@ public class DataController : ControllerBase
             dataType,
             refs,
             generatedFromTask,
+            null,
             instance
         );
         Stream theStream = streamAndDataElement.Stream;
@@ -623,6 +626,7 @@ public class DataController : ControllerBase
             dataElement.DataType,
             refs,
             generatedFromTask,
+            null,
             instance
         );
         Stream theStream = streamAndDataElement.Stream;
@@ -818,6 +822,7 @@ public class DataController : ControllerBase
         string elementType,
         List<Guid> refs,
         string generatedForTask,
+        List<KeyValueEntry> metadata,
         Instance instance
     )
     {
@@ -840,7 +845,8 @@ public class DataController : ControllerBase
             contentFileName,
             fileSize,
             user,
-            generatedForTask
+            generatedForTask,
+            metadata
         );
 
         return (theStream, newData);
