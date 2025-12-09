@@ -143,7 +143,19 @@ public class MigrationController : ControllerBase
                 : await _a2Repository.GetA2MigrationInstanceId(a2ArchiveReference);
             if (instanceId != null)
             {
+                (storedInstance, _) = await _instanceRepository.GetOne(
+                    Guid.Parse(instanceId),
+                    false,
+                    cancellationToken
+                );
+                bool hasDialog = storedInstance?.DataValues?.ContainsKey("dialog.id") ?? false;
+
                 await CleanupOldMigrationInternal(instanceId, cancellationToken);
+
+                if (hasDialog)
+                {
+                    await _a2Repository.SendDeleteToDialogporten(storedInstance);
+                }
             }
 
             if (isA1)

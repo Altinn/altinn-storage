@@ -83,6 +83,11 @@ public interface IA2Repository
     Task UpdateCompleteMigrationState(Instance instance);
 
     /// <summary>
+    /// Update dialogporten with deleted instance
+    /// </summary>
+    Task SendDeleteToDialogporten(Instance instance);
+
+    /// <summary>
     /// Delete an a1/a2 migration state
     /// </summary>
     Task DeleteMigrationState(string instanceGuid);
