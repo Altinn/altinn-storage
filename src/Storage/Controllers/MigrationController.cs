@@ -149,65 +149,12 @@ public class MigrationController : ControllerBase
                     cancellationToken
                 );
                 bool hasDialog = storedInstance?.DataValues?.ContainsKey("dialog.id") ?? false;
-                if (
-                    (
-                        instance.Status.IsSoftDeleted
-                        || instance.Status.IsHardDeleted
-                        || storedInstance.Status.IsSoftDeleted
-                        || storedInstance.Status.IsHardDeleted
-                    ) && hasDialog
-                )
+
+                await CleanupOldMigrationInternal(instanceId, cancellationToken);
+
+                if (hasDialog)
                 {
-                    instance.Id = storedInstance.Id;
-                    List<string> updateProperties = new() { "Status" };
-                    if (instance.Status.IsHardDeleted)
-                    {
-                        updateProperties.Add("IsHardDeleted");
-                        updateProperties.Add("HardDeleted");
-                    }
-
-                    if (instance.Status.IsSoftDeleted)
-                    {
-                        updateProperties.Add("IsSoftDeleted");
-                        updateProperties.Add("SoftDeleted");
-                    }
-
-                    if (
-                        storedInstance.Status.IsSoftDeleted
-                        && !instance.Status.IsSoftDeleted
-                        && !instance.Status.IsHardDeleted
-                    )
-                    {
-                        updateProperties.Add("IsSoftDeleted");
-                        updateProperties.Add("SoftDeleted");
-                    }
-
-                    if (updateProperties.Count > 0)
-                    {
-                        await _instanceRepository.Update(
-                            instance,
-                            updateProperties,
-                            cancellationToken
-                        );
-                    }
-
-                    if (hasDialog)
-                    {
-                        await _a2Repository.UpdateCompleteMigrationState(instance);
-                    }
-
-                    return Created((string)null, storedInstance);
-                }
-                else
-                {
-                    if (hasDialog)
-                    {
-                        throw new Exception(
-                            $"Remigration is not supported for instances sent to Dialogporten - instance {instance.Id}"
-                        );
-                    }
-
-                    await CleanupOldMigrationInternal(instanceId, cancellationToken);
+                    await _a2Repository.SendDeleteToDialogporten(storedInstance);
                 }
             }
 
