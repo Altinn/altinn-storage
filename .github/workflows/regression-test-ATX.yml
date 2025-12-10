@@ -33,6 +33,18 @@ jobs:
     permissions:
       contents: read
     environment: ${{ inputs.environment }}
+    env: # Shared environment variables in k6 scripts
+      altinn_env: ${{ vars.ENV }}
+      apimSubsKey: ${{ secrets.APIM_SUBSKEY }}
+      app: ${{ vars.APP }}
+      org: ${{ vars.ORG }}
+      partyId: ${{ secrets.PARTY_ID }}
+      pid: ${{ secrets.PERSON_NUMBER }}
+      runFullTestSet: true
+      tokenGeneratorUserName: ${{ secrets.TOKENGENERATOR_USERNAME }}
+      tokenGeneratorUserPwd: ${{ secrets.TOKENGENERATOR_USERPASSWORD }}
+      userId: ${{ secrets.USER_ID }}
+      useTestTokenGenerator: true
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - uses: grafana/setup-k6-action@ffe7d7290dfa715e48c2ccc924d068444c94bde2 # v1.1.0
@@ -40,43 +52,38 @@ jobs:
         uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
         with:
           path: test/k6/src/tests/applications.js
-          flags: -e runFullTestSet=true -e env=${{ vars.ENV }} -e org=${{ vars.ORG }} -e app=${{ vars.APP }}
       - name: Run regression tests for endpoint 'instances'
         if: always()
         uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
         with:
           path: test/k6/src/tests/instances.js
-          flags: -e runFullTestSet=true -e tokenGeneratorUserName=${{ secrets.TOKENGENERATOR_USERNAME }} -e tokenGeneratorUserPwd=${{ secrets.TOKENGENERATOR_USERPASSWORD }} -e env=${{ vars.ENV }} -e pid=${{ secrets.PERSON_NUMBER }} -e partyId=${{ secrets.PARTY_ID }} -e userId=${{ secrets.USER_ID }} -e orgNumber=${{ secrets.ORG_NUMBER }} -e orgPartyId=${{ secrets.ORG_PARTY_ID }} -e org=${{ vars.ORG }} -e app=${{ vars.APP }} -e apimSubsKey=${{ secrets.APIM_SUBSKEY }} -e useTestTokenGenerator=true
+          flags: -e orgNumber=${{ secrets.ORG_NUMBER }} -e orgPartyId=${{ secrets.ORG_PARTY_ID }}
       - name: Run regression tests for endpoint 'instances/sbl'
         if: always()
         uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
         with:
           path: test/k6/src/tests/messageboxinstances.js
-          flags: -e runFullTestSet=true -e tokenGeneratorUserName=${{ secrets.TOKENGENERATOR_USERNAME }} -e tokenGeneratorUserPwd=${{ secrets.TOKENGENERATOR_USERPASSWORD }} -e env=${{ vars.ENV }} -e pid=${{ secrets.PERSON_NUMBER }} -e partyId=${{ secrets.PARTY_ID }} -e userId=${{ secrets.USER_ID }} -e org=${{ vars.ORG }} -e app=${{ vars.APP }} -e apimSubsKey=${{ secrets.APIM_SUBSKEY }} -e apimSblSubsKey=${{ secrets.APIM_SBL_SUBSKEY }} -e useTestTokenGenerator=true
+          flags: -e apimSblSubsKey=${{ secrets.APIM_SBL_SUBSKEY }}
       - name: Run regression tests for endpoint 'data'
         if: always()
         uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
         with:
           path: test/k6/src/tests/data.js
-          flags: -e runFullTestSet=true -e tokenGeneratorUserName=${{ secrets.TOKENGENERATOR_USERNAME }} -e tokenGeneratorUserPwd=${{ secrets.TOKENGENERATOR_USERPASSWORD }} -e env=${{ vars.ENV }} -e pid=${{ secrets.PERSON_NUMBER }} -e partyId=${{ secrets.PARTY_ID }} -e userId=${{ secrets.USER_ID }} -e org=${{ vars.ORG }} -e app=${{ vars.APP }} -e apimSubsKey=${{ secrets.APIM_SUBSKEY }} -e useTestTokenGenerator=true
       - name: Run regression tests for endpoint 'process'
         if: always()
         uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
         with:
           path: test/k6/src/tests/process.js
-          flags: -e runFullTestSet=true -e tokenGeneratorUserName=${{ secrets.TOKENGENERATOR_USERNAME }} -e tokenGeneratorUserPwd=${{ secrets.TOKENGENERATOR_USERPASSWORD }} -e env=${{ vars.ENV }} -e pid=${{ secrets.PERSON_NUMBER }} -e partyId=${{ secrets.PARTY_ID }} -e userId=${{ secrets.USER_ID }} -e org=${{ vars.ORG }} -e app=${{ vars.APP }} -e apimSubsKey=${{ secrets.APIM_SUBSKEY }} -e useTestTokenGenerator=true
       - name: Run regression tests for endpoint 'sign'
         if: always()
         uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
         with:
           path: test/k6/src/tests/sign.js
-          flags: -e runFullTestSet=true -e tokenGeneratorUserName=${{ secrets.TOKENGENERATOR_USERNAME }} -e tokenGeneratorUserPwd=${{ secrets.TOKENGENERATOR_USERPASSWORD }} -e env=${{ vars.ENV }} -e pid=${{ secrets.PERSON_NUMBER }} -e partyId=${{ secrets.PARTY_ID }} -e userId=${{ secrets.USER_ID }}  -e org=${{ vars.ORG }} -e app=${{ vars.APP }} -e apimSubsKey=${{ secrets.APIM_SUBSKEY }} -e useTestTokenGenerator=true
       - name: Run regression tests for endpoint 'texts'
         if: always()
         uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
         with:
           path: test/k6/src/tests/texts.js
-          flags: -e runFullTestSet=true -e tokenGeneratorUserName=${{ secrets.TOKENGENERATOR_USERNAME }} -e tokenGeneratorUserPwd=${{ secrets.TOKENGENERATOR_USERPASSWORD }} -e env=${{ vars.ENV }} -e pid=${{ secrets.PERSON_NUMBER }} -e partyId=${{ secrets.PARTY_ID }} -e userId=${{ secrets.USER_ID }} -e org=${{ vars.ORG }} -e app=${{ vars.APP }} -e apimSubsKey=${{ secrets.APIM_SUBSKEY }} -e useTestTokenGenerator=true
       - name: Build failure report
         env:
           ENVIRONMENT: ${{ inputs.environment }}
