@@ -10,7 +10,7 @@ import { postPartieslookup } from '../../../api/platform/register.js';
 
 const appOwner = __ENV.org;
 const level2App = __ENV.level2app;
-const environment = __ENV.env.toLowerCase();
+const environment = __ENV.altinn_env.toLowerCase();
 const fileName = 'users_' + environment + '.json';
 
 let instanceFormDataXml = open('../../../data/' + level2App + '.xml');
