@@ -4,9 +4,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '*/15 * * * *'
-  pull_request:
-    branches: [main]
-    types: [opened, synchronize, reopened]
 jobs:
   usecase-test:
     strategy:
