@@ -15,7 +15,7 @@ namespace Altinn.Platform.Storage.Repository;
 /// <summary>
 /// Represents an implementation of <see cref="IInstanceAndEventsRepository"/>.
 /// </summary>
-public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository 
+public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
 {
     private readonly ILogger<PgInstanceAndEventsRepository> _logger;
     private readonly NpgsqlDataSource _dataSource;
@@ -35,7 +35,8 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
         ILogger<PgInstanceAndEventsRepository> logger,
         NpgsqlDataSource dataSource,
         IInstanceRepository instanceRepository,
-        IOutboxRepository outboxRepository = null)
+        IOutboxRepository outboxRepository = null
+    )
     {
         _logger = logger;
         _dataSource = dataSource;
@@ -44,7 +45,12 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
     }
 
     /// <inheritdoc/>
-    public async Task<Instance> Update(Instance instance, List<string> updateProperties, List<InstanceEvent> events, CancellationToken cancellationToken)
+    public async Task<Instance> Update(
+        Instance instance,
+        List<string> updateProperties,
+        List<InstanceEvent> events,
+        CancellationToken cancellationToken
+    )
     {
         if (events.Count == 0)
         {
@@ -57,9 +63,10 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
         }
 
         // Align precision with Postgres (microseconds vs DateTime 100ns ticks)
-        instance.LastChanged = instance.LastChanged != null
-            ? new DateTime((((DateTime)instance.LastChanged).Ticks / 10) * 10, DateTimeKind.Utc)
-            : null;
+        instance.LastChanged =
+            instance.LastChanged != null
+                ? new DateTime((((DateTime)instance.LastChanged).Ticks / 10) * 10, DateTimeKind.Utc)
+                : null;
 
         List<DataElement> dataElements = instance.Data;
 
@@ -75,19 +82,29 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
             {
                 // Update instance
                 var updateCommand = new NpgsqlBatchCommand(PgInstanceRepository.UpdateSql);
-                PgInstanceRepository.BuildUpdateCommand(instance, updateProperties, updateCommand.Parameters);
+                PgInstanceRepository.BuildUpdateCommand(
+                    instance,
+                    updateProperties,
+                    updateCommand.Parameters
+                );
                 batch.BatchCommands.Add(updateCommand);
 
                 // Insert events
                 var insertEventsCommand = new NpgsqlBatchCommand(_insertInstanceEventsSql);
-                insertEventsCommand.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instance.Id.Split('/')[^1]));
+                insertEventsCommand.Parameters.AddWithValue(
+                    NpgsqlDbType.Uuid,
+                    new Guid(instance.Id.Split('/')[^1])
+                );
                 insertEventsCommand.Parameters.AddWithValue(NpgsqlDbType.Jsonb, events);
                 batch.BatchCommands.Add(insertEventsCommand);
 
                 await using var reader = await batch.ExecuteReaderAsync(cancellationToken);
                 if (await reader.ReadAsync(cancellationToken))
                 {
-                    instance = await reader.GetFieldValueAsync<Instance>("updatedInstance", cancellationToken);
+                    instance = await reader.GetFieldValueAsync<Instance>(
+                        "updatedInstance",
+                        cancellationToken
+                    );
                 }
             }
 
@@ -102,7 +119,8 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
                     instance.Id.Split('/')[^1],
                     (DateTime)instance.Created,
                     false,
-                    Enum.Parse<Interface.Enums.InstanceEventType>(eventForSync.EventType));
+                    Enum.Parse<Interface.Enums.InstanceEventType>(eventForSync.EventType)
+                );
 
                 await _outboxRepository.Insert(instanceUpdateCommand, connection);
             }
@@ -112,7 +130,11 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
         catch (Exception ex)
         {
             await tx.RollbackAsync(CancellationToken.None);
-            _logger.LogError(ex, "Failed to update instance {InstanceId} with events (rolled back).", instance.Id);
+            _logger.LogError(
+                ex,
+                "Failed to update instance {InstanceId} with events (rolled back).",
+                instance.Id
+            );
             throw;
         }
 

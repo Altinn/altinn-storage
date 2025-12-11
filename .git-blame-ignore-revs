@@ -1,0 +1,11 @@
+# Run this command to always ignore formatting commits in `git blame`
+# git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# More info:
+# https://www.stefanjudis.com/today-i-learned/how-to-exclude-commits-from-git-blame/
+# Also, a horrible bash script to list out the 20 commits with the most files changed:
+# git log --pretty='@%h' --shortstat | grep -v \| | tr "\n" " " | tr "@" "\n" | sed 's/,.*//' | sort -k2 -n | tail -n 20 | awk '{print "echo $(git log -1 --format=\"%H # %s\" " $1 ") - " $2 " files changed"}' | bash
+
+c6603ca48625abf5735bc4abfd5b5bc13bcf8718 # Run CSharpier on the solution (#868) - 235 files changed
+
+

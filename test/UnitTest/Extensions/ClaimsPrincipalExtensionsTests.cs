@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Security.Claims;
 using System.Text.Json;
-
 using Altinn.AccessManagement.Core.Models;
 using Altinn.Platform.Storage.Helpers;
 using AltinnCore.Authentication.Constants;
@@ -59,11 +58,17 @@ public class ClaimsPrincipalExtensionsTests
         {
             Systemuser_id = ["996a686f-d24d-4d92-a92e-5b3cec4a8cf7"],
             Systemuser_org = new OrgClaim() { ID = "34567:myOrg" },
-            System_id = "the_matrix"
+            System_id = "the_matrix",
         };
 
-        List<Claim> claims = [
-            new Claim("authorization_details", JsonSerializer.Serialize(systemUserClaim), "string", "org"),
+        List<Claim> claims =
+        [
+            new Claim(
+                "authorization_details",
+                JsonSerializer.Serialize(systemUserClaim),
+                "string",
+                "org"
+            ),
             new Claim(AltinnCoreClaimTypes.OrgNumber, "notThisOrg", "string", "org"),
         ];
         ClaimsPrincipal user = new(new ClaimsIdentity(claims));

@@ -14,4 +14,5 @@ public record SyncInstanceToDialogportenCommand(
     string InstanceId, // eks: 0dbc1da6-f744-4fff-83bc-131e7988a1bb
     DateTime InstanceCreatedAt, // eks: 2025-06-18T08:54:53.6233769Z
     bool IsMigration, // Always false when Storage is sender
-    InstanceEventType EventType = InstanceEventType.None); 
+    InstanceEventType EventType = InstanceEventType.None
+);

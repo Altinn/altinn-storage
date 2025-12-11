@@ -13,255 +13,439 @@ using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Xunit;
 
-namespace Altinn.Platform.Storage.UnitTest.TestingControllers
+namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
+
+public class DataLockControllerUnitTests
 {
-    public class DataLockControllerUnitTests
+    private static readonly List<string> _forbiddenUpdateProps = new List<string>()
     {
-        private static readonly List<string> _forbiddenUpdateProps = new List<string>()
-            { "/created", "/createdBy", "/id", "/instanceGuid", "/blobStoragePath", "/dataType", "/contentType", "/filename", "/lastChangedBy", "/lastChanged", "/refs", "/size", "/fileScanResult", "/tags", "/deleteStatus", };
+        "/created",
+        "/createdBy",
+        "/id",
+        "/instanceGuid",
+        "/blobStoragePath",
+        "/dataType",
+        "/contentType",
+        "/filename",
+        "/lastChangedBy",
+        "/lastChanged",
+        "/refs",
+        "/size",
+        "/fileScanResult",
+        "/tags",
+        "/deleteStatus",
+    };
 
-        private readonly string _org = "ttd";
-        private readonly string _appId = "ttd/apps-test";
+    private readonly string _org = "ttd";
+    private readonly string _appId = "ttd/apps-test";
 
-        [Fact]
-        public async Task Lock_does_not_perform_lock_when_data_on_instance_marked_as_locked()
+    [Fact]
+    public async Task Lock_does_not_perform_lock_when_data_on_instance_marked_as_locked()
+    {
+        // Arrange
+        List<string> expectedPropertiesForPatch = new() { "/locked" };
+        var instanceGuid = Guid.NewGuid();
+        var dataElementId = Guid.NewGuid();
+        (
+            DataLockController testController,
+            Mock<IDataRepository> dataRepositoryMock,
+            Mock<IInstanceRepository> instanceRepoMock
+        ) = GetTestController(
+            expectedPropertiesForPatch,
+            dataElementId,
+            authorized: true,
+            dataLocked: true
+        );
+
+        // Act
+        var result = await testController.Lock(
+            12345,
+            instanceGuid,
+            dataElementId,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.IsType<OkObjectResult>(result.Result);
+        instanceRepoMock.Verify(
+            i => i.GetOne(instanceGuid, true, CancellationToken.None),
+            Times.Once
+        );
+        instanceRepoMock.VerifyNoOtherCalls();
+        dataRepositoryMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Lock_returns_StatusCode_from_CosmosExpcetion()
+    {
+        // Arrange
+        var instanceGuid = Guid.NewGuid();
+        var dataElementId = Guid.NewGuid();
+        List<string> expectedPropertiesForPatch = new() { "/locked" };
+        (
+            DataLockController testController,
+            Mock<IDataRepository> dataRepositoryMock,
+            Mock<IInstanceRepository> instanceRepoMock
+        ) = GetTestController(
+            expectedPropertiesForPatch,
+            dataElementId,
+            true,
+            new RepositoryException("NotFound", System.Net.HttpStatusCode.NotFound)
+        );
+
+        // Act
+        var result = await testController.Lock(
+            12345,
+            instanceGuid,
+            dataElementId,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.IsType<StatusCodeResult>(result.Result);
+        Assert.Equal(404, ((StatusCodeResult)result.Result).StatusCode);
+        instanceRepoMock.Verify(
+            i => i.GetOne(instanceGuid, true, CancellationToken.None),
+            Times.Once
+        );
+        instanceRepoMock.VerifyNoOtherCalls();
+        dataRepositoryMock.Verify(
+            d =>
+                d.Update(
+                    instanceGuid,
+                    dataElementId,
+                    It.Is<Dictionary<string, object>>(p =>
+                        VerifyPropertyListInput(
+                            expectedPropertiesForPatch.Count,
+                            expectedPropertiesForPatch,
+                            p
+                        )
+                    ),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+        dataRepositoryMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Lock_returns_NotFound_if_Instance_not_found()
+    {
+        // Arrange
+        var instanceGuid = Guid.NewGuid();
+        var dataElementId = Guid.NewGuid();
+        List<string> expectedPropertiesForPatch = new() { "/locked" };
+        (
+            DataLockController testController,
+            Mock<IDataRepository> dataRepositoryMock,
+            Mock<IInstanceRepository> instanceRepoMock
+        ) = GetTestController(
+            expectedPropertiesForPatch,
+            dataElementId,
+            true,
+            new RepositoryException("NotFound", System.Net.HttpStatusCode.NotFound),
+            false
+        );
+
+        // Act
+        var result = await testController.Lock(
+            12345,
+            instanceGuid,
+            dataElementId,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.IsType<NotFoundObjectResult>(result.Result);
+        instanceRepoMock.Verify(
+            i => i.GetOne(instanceGuid, true, CancellationToken.None),
+            Times.Once
+        );
+        instanceRepoMock.VerifyNoOtherCalls();
+        dataRepositoryMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task UnLock_patches_locked_property()
+    {
+        // Arrange
+        var instanceGuid = Guid.NewGuid();
+        var dataElementId = Guid.NewGuid();
+        List<string> expectedPropertiesForPatch = new() { "/locked" };
+        (
+            DataLockController testController,
+            Mock<IDataRepository> dataRepositoryMock,
+            Mock<IInstanceRepository> instanceRepoMock
+        ) = GetTestController(expectedPropertiesForPatch, dataElementId, true);
+
+        // Act
+        var result = await testController.Unlock(
+            12345,
+            instanceGuid,
+            dataElementId,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.IsType<OkObjectResult>(result.Result);
+        dataRepositoryMock.Verify(
+            d =>
+                d.Update(
+                    instanceGuid,
+                    dataElementId,
+                    It.Is<Dictionary<string, object>>(p =>
+                        VerifyPropertyListInput(
+                            expectedPropertiesForPatch.Count,
+                            expectedPropertiesForPatch,
+                            p
+                        )
+                    ),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+        dataRepositoryMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task UnLock_returns_StatusCode_from_CosmosExpcetion()
+    {
+        // Arrange
+        var instanceGuid = Guid.NewGuid();
+        var dataElementId = Guid.NewGuid();
+        List<string> expectedPropertiesForPatch = new() { "/locked" };
+        (
+            DataLockController testController,
+            Mock<IDataRepository> dataRepositoryMock,
+            Mock<IInstanceRepository> instanceRepoMock
+        ) = GetTestController(
+            expectedPropertiesForPatch,
+            dataElementId,
+            true,
+            new RepositoryException("NotFound", System.Net.HttpStatusCode.NotFound)
+        );
+
+        // Act
+        var result = await testController.Unlock(
+            12345,
+            instanceGuid,
+            dataElementId,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.IsType<StatusCodeResult>(result.Result);
+        Assert.Equal(404, ((StatusCodeResult)result.Result).StatusCode);
+    }
+
+    [Fact]
+    public async Task UnLock_returns_Forbidden_if_unauthorized()
+    {
+        // Arrange
+        var instanceGuid = Guid.NewGuid();
+        var dataElementId = Guid.NewGuid();
+        List<string> expectedPropertiesForPatch = new() { "/locked" };
+        (
+            DataLockController testController,
+            Mock<IDataRepository> dataRepositoryMock,
+            Mock<IInstanceRepository> instanceRepoMock
+        ) = GetTestController(expectedPropertiesForPatch, dataElementId, false);
+
+        // Act
+        var result = await testController.Unlock(
+            12345,
+            instanceGuid,
+            dataElementId,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.IsType<ForbidResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task UnLock_returns_Forbidden_if_Instance_not_found()
+    {
+        // Arrange
+        var instanceGuid = Guid.NewGuid();
+        var dataElementId = Guid.NewGuid();
+        List<string> expectedPropertiesForPatch = new() { "/locked" };
+        (
+            DataLockController testController,
+            Mock<IDataRepository> dataRepositoryMock,
+            Mock<IInstanceRepository> instanceRepoMock
+        ) = GetTestController(
+            expectedPropertiesForPatch,
+            dataElementId,
+            true,
+            new RepositoryException("NotFound", System.Net.HttpStatusCode.NotFound),
+            false
+        );
+
+        // Act
+        var result = await testController.Unlock(
+            12345,
+            instanceGuid,
+            dataElementId,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.IsType<ForbidResult>(result.Result);
+    }
+
+    private static bool VerifyPropertyListInput(
+        int expectedPropCount,
+        List<string> expectedProperties,
+        Dictionary<string, object> propertyList
+    )
+    {
+        if (propertyList.Count != expectedPropCount)
         {
-            // Arrange
-            List<string> expectedPropertiesForPatch = new() { "/locked" };
-            var instanceGuid = Guid.NewGuid();
-            var dataElementId = Guid.NewGuid();
-            (DataLockController testController, Mock<IDataRepository> dataRepositoryMock, Mock<IInstanceRepository> instanceRepoMock) = GetTestController(expectedPropertiesForPatch, dataElementId, authorized: true, dataLocked: true);
-
-            // Act
-            var result = await testController.Lock(12345, instanceGuid, dataElementId, CancellationToken.None);
-
-            // Assert
-            Assert.IsType<OkObjectResult>(result.Result);
-            instanceRepoMock.Verify(i => i.GetOne(instanceGuid, true, CancellationToken.None), Times.Once);
-            instanceRepoMock.VerifyNoOtherCalls();
-            dataRepositoryMock.VerifyNoOtherCalls();
+            throw new ArgumentOutOfRangeException(
+                nameof(propertyList),
+                "Property list does not contain expected number of properties"
+            );
         }
-        
-        [Fact]
-        public async Task Lock_returns_StatusCode_from_CosmosExpcetion()
+
+        foreach (string expectedProp in expectedProperties)
         {
-            // Arrange
-            var instanceGuid = Guid.NewGuid();
-            var dataElementId = Guid.NewGuid();
-            List<string> expectedPropertiesForPatch = new() { "/locked" };
-            (DataLockController testController, Mock<IDataRepository> dataRepositoryMock, Mock<IInstanceRepository> instanceRepoMock) = GetTestController(expectedPropertiesForPatch, dataElementId, true, new RepositoryException("NotFound", System.Net.HttpStatusCode.NotFound));
-
-            // Act
-            var result = await testController.Lock(12345, instanceGuid, dataElementId, CancellationToken.None);
-            
-            // Assert
-            Assert.IsType<StatusCodeResult>(result.Result);
-            Assert.Equal(404, ((StatusCodeResult)result.Result).StatusCode);
-            instanceRepoMock.Verify(i => i.GetOne(instanceGuid, true, CancellationToken.None), Times.Once);
-            instanceRepoMock.VerifyNoOtherCalls();
-            dataRepositoryMock.Verify(d => d.Update(instanceGuid, dataElementId, It.Is<Dictionary<string, object>>(p => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p)), It.IsAny<CancellationToken>()), Times.Once);
-            dataRepositoryMock.VerifyNoOtherCalls();
-        }
-        
-        [Fact]
-        public async Task Lock_returns_NotFound_if_Instance_not_found()
-        {
-            // Arrange
-            var instanceGuid = Guid.NewGuid();
-            var dataElementId = Guid.NewGuid();
-            List<string> expectedPropertiesForPatch = new() { "/locked" };
-            (DataLockController testController, Mock<IDataRepository> dataRepositoryMock, Mock<IInstanceRepository> instanceRepoMock) = GetTestController(expectedPropertiesForPatch, dataElementId, true, new RepositoryException("NotFound", System.Net.HttpStatusCode.NotFound), false);
-
-            // Act
-            var result = await testController.Lock(12345, instanceGuid, dataElementId, CancellationToken.None);
-            
-            // Assert
-            Assert.IsType<NotFoundObjectResult>(result.Result);
-            instanceRepoMock.Verify(i => i.GetOne(instanceGuid, true, CancellationToken.None), Times.Once);
-            instanceRepoMock.VerifyNoOtherCalls();
-            dataRepositoryMock.VerifyNoOtherCalls();
-        }
-
-        [Fact]
-        public async Task UnLock_patches_locked_property()
-        {
-            // Arrange
-            var instanceGuid = Guid.NewGuid();
-            var dataElementId = Guid.NewGuid();
-            List<string> expectedPropertiesForPatch = new() { "/locked" };
-            (DataLockController testController, Mock<IDataRepository> dataRepositoryMock, Mock<IInstanceRepository> instanceRepoMock) = GetTestController(expectedPropertiesForPatch, dataElementId, true);
-
-            // Act
-            var result = await testController.Unlock(12345, instanceGuid, dataElementId, CancellationToken.None);
-            
-            // Assert
-            Assert.IsType<OkObjectResult>(result.Result);
-            dataRepositoryMock.Verify(d => d.Update(instanceGuid, dataElementId, It.Is<Dictionary<string, object>>(p => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, p)), It.IsAny<CancellationToken>()), Times.Once);
-            dataRepositoryMock.VerifyNoOtherCalls();
-        }
-        
-        [Fact]
-        public async Task UnLock_returns_StatusCode_from_CosmosExpcetion()
-        {
-            // Arrange
-            var instanceGuid = Guid.NewGuid();
-            var dataElementId = Guid.NewGuid();
-            List<string> expectedPropertiesForPatch = new() { "/locked" };
-            (DataLockController testController, Mock<IDataRepository> dataRepositoryMock, Mock<IInstanceRepository> instanceRepoMock) = GetTestController(expectedPropertiesForPatch, dataElementId, true, new RepositoryException("NotFound", System.Net.HttpStatusCode.NotFound));
-
-            // Act
-            var result = await testController.Unlock(12345, instanceGuid, dataElementId, CancellationToken.None);
-            
-            // Assert
-            Assert.IsType<StatusCodeResult>(result.Result);
-            Assert.Equal(404, ((StatusCodeResult)result.Result).StatusCode);
-        }
-        
-        [Fact]
-        public async Task UnLock_returns_Forbidden_if_unauthorized()
-        {
-            // Arrange
-            var instanceGuid = Guid.NewGuid();
-            var dataElementId = Guid.NewGuid();
-            List<string> expectedPropertiesForPatch = new() { "/locked" };
-            (DataLockController testController, Mock<IDataRepository> dataRepositoryMock, Mock<IInstanceRepository> instanceRepoMock) = GetTestController(expectedPropertiesForPatch, dataElementId, false);
-
-            // Act
-            var result = await testController.Unlock(12345, instanceGuid, dataElementId, CancellationToken.None);
-            
-            // Assert
-            Assert.IsType<ForbidResult>(result.Result);
-        }
-        
-        [Fact]
-        public async Task UnLock_returns_Forbidden_if_Instance_not_found()
-        {
-            // Arrange
-            var instanceGuid = Guid.NewGuid();
-            var dataElementId = Guid.NewGuid();
-            List<string> expectedPropertiesForPatch = new() { "/locked" };
-            (DataLockController testController, Mock<IDataRepository> dataRepositoryMock, Mock<IInstanceRepository> instanceRepoMock) = GetTestController(expectedPropertiesForPatch, dataElementId, true, new RepositoryException("NotFound", System.Net.HttpStatusCode.NotFound), false);
-
-            // Act
-            var result = await testController.Unlock(12345, instanceGuid, dataElementId, CancellationToken.None);
-            
-            // Assert
-            Assert.IsType<ForbidResult>(result.Result);
-        }
-
-        private static bool VerifyPropertyListInput(int expectedPropCount, List<string> expectedProperties, Dictionary<string, object> propertyList)
-        {
-            if (propertyList.Count != expectedPropCount)
+            if (!propertyList.ContainsKey(expectedProp))
             {
-                throw new ArgumentOutOfRangeException(nameof(propertyList), "Property list does not contain expected number of properties");
+                return false;
             }
-
-            foreach (string expectedProp in expectedProperties)
-            {
-                if (!propertyList.ContainsKey(expectedProp))
-                {
-                    return false;
-                }
-            }
-
-            if (propertyList.Keys.Intersect(_forbiddenUpdateProps).Any())
-            {
-                throw new ArgumentException("Forbidden property attempted updated in dataElement. Check `_forbiddenUpdateProps` for reference", nameof(propertyList));
-            }
-
-            return true;
         }
 
-        private (DataLockController TestController, Mock<IDataRepository> DataRepositoryMock, Mock<IInstanceRepository> InstanceRepositoryMock) GetTestController(List<string> expectedPropertiesForPatch, Guid dataGuid, bool authorized, RepositoryException exception = null, bool instanceFound = true, bool dataLocked = false)
+        if (propertyList.Keys.Intersect(_forbiddenUpdateProps).Any())
         {
-            Mock<IDataRepository> dataRepositoryMock = new();
-            Mock<IInstanceRepository> instanceRepositoryMock = new();
-            Mock<IAuthorization> authorizationMock = new();
-            
-            if (exception == null)
-            {
-                dataRepositoryMock
-                    .Setup(
-                        d => d.Update(
-                            It.IsAny<Guid>(),
-                            It.Is<Guid>(g => g == dataGuid),
-                            It.Is<Dictionary<string, object>>(propertyList => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, propertyList)),
-                            It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new DataElement());
-            }
-            else
-            {
-                dataRepositoryMock
-                    .Setup(
-                        d => d.Update(
-                            It.IsAny<Guid>(),
-                            It.Is<Guid>(g => g == dataGuid),
-                            It.Is<Dictionary<string, object>>(propertyList => VerifyPropertyListInput(expectedPropertiesForPatch.Count, expectedPropertiesForPatch, propertyList)),
-                            It.IsAny<CancellationToken>()))
-                    .ThrowsAsync(exception);
-            }
+            throw new ArgumentException(
+                "Forbidden property attempted updated in dataElement. Check `_forbiddenUpdateProps` for reference",
+                nameof(propertyList)
+            );
+        }
 
-            authorizationMock
-                .Setup(a => a.AuthorizeAnyOfInstanceActions(It.IsAny<Instance>(), It.IsAny<List<string>>()))
-                .ReturnsAsync(authorized);
-            if (instanceFound)
-            {
-                instanceRepositoryMock
-                    .Setup(ir => ir.GetOne(It.IsAny<Guid>(), It.IsAny<bool>(), CancellationToken.None))
-                    .ReturnsAsync((Guid instanceGuid, bool includeDataElements, CancellationToken cancellationToken) =>
+        return true;
+    }
+
+    private (
+        DataLockController TestController,
+        Mock<IDataRepository> DataRepositoryMock,
+        Mock<IInstanceRepository> InstanceRepositoryMock
+    ) GetTestController(
+        List<string> expectedPropertiesForPatch,
+        Guid dataGuid,
+        bool authorized,
+        RepositoryException exception = null,
+        bool instanceFound = true,
+        bool dataLocked = false
+    )
+    {
+        Mock<IDataRepository> dataRepositoryMock = new();
+        Mock<IInstanceRepository> instanceRepositoryMock = new();
+        Mock<IAuthorization> authorizationMock = new();
+
+        if (exception == null)
+        {
+            dataRepositoryMock
+                .Setup(d =>
+                    d.Update(
+                        It.IsAny<Guid>(),
+                        It.Is<Guid>(g => g == dataGuid),
+                        It.Is<Dictionary<string, object>>(propertyList =>
+                            VerifyPropertyListInput(
+                                expectedPropertiesForPatch.Count,
+                                expectedPropertiesForPatch,
+                                propertyList
+                            )
+                        ),
+                        It.IsAny<CancellationToken>()
+                    )
+                )
+                .ReturnsAsync(new DataElement());
+        }
+        else
+        {
+            dataRepositoryMock
+                .Setup(d =>
+                    d.Update(
+                        It.IsAny<Guid>(),
+                        It.Is<Guid>(g => g == dataGuid),
+                        It.Is<Dictionary<string, object>>(propertyList =>
+                            VerifyPropertyListInput(
+                                expectedPropertiesForPatch.Count,
+                                expectedPropertiesForPatch,
+                                propertyList
+                            )
+                        ),
+                        It.IsAny<CancellationToken>()
+                    )
+                )
+                .ThrowsAsync(exception);
+        }
+
+        authorizationMock
+            .Setup(a =>
+                a.AuthorizeAnyOfInstanceActions(It.IsAny<Instance>(), It.IsAny<List<string>>())
+            )
+            .ReturnsAsync(authorized);
+        if (instanceFound)
+        {
+            instanceRepositoryMock
+                .Setup(ir => ir.GetOne(It.IsAny<Guid>(), It.IsAny<bool>(), CancellationToken.None))
+                .ReturnsAsync(
+                    (
+                        Guid instanceGuid,
+                        bool includeDataElements,
+                        CancellationToken cancellationToken
+                    ) =>
                     {
-                        return (new Instance
-                        {
-                            Id = $"555/{instanceGuid}",
-                            InstanceOwner = new()
+                        return (
+                            new Instance
                             {
-                                PartyId = "555"
+                                Id = $"555/{instanceGuid}",
+                                InstanceOwner = new() { PartyId = "555" },
+                                Process = new() { CurrentTask = new() { ElementId = "Task_1" } },
+                                Data = !includeDataElements
+                                    ? null
+                                    : new()
+                                    {
+                                        new() { Id = dataGuid.ToString(), Locked = dataLocked },
+                                    },
+                                Org = _org,
+                                AppId = _appId,
                             },
-                            Process = new()
-                            {
-                                CurrentTask = new()
-                                {
-                                    ElementId = "Task_1"
-                                }
-                            },
-                            Data = !includeDataElements ? null : new()
-                            {
-                                new()
-                                {
-                                    Id = dataGuid.ToString(),
-                                    Locked = dataLocked
-                                }
-                            },
-                            Org = _org,
-                            AppId = _appId
-                        }, 0);
-                    });
-            }
-            else
-            {
-                instanceRepositoryMock
-                    .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
-                    .ReturnsAsync((Guid instanceGuid, bool dummy, CancellationToken cancellationToken) => (null, 0));
-            }
-
-            Mock<HttpContext> httpContextMock = new();
-            httpContextMock
-                .Setup(c => c.User).Returns(PrincipalUtil.GetPrincipal(200001, 1337));
-
-            ControllerContext controllerContext = new ControllerContext()
-            {
-                HttpContext = httpContextMock.Object
-            };
-
-            var sut = new DataLockController(
-                instanceRepositoryMock.Object,
-                dataRepositoryMock.Object,
-                authorizationMock.Object)
-            {
-                ControllerContext = controllerContext
-            };
-
-            return (sut, dataRepositoryMock, instanceRepositoryMock);
+                            0
+                        );
+                    }
+                );
         }
+        else
+        {
+            instanceRepositoryMock
+                .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(
+                    (Guid instanceGuid, bool dummy, CancellationToken cancellationToken) =>
+                        (null, 0)
+                );
+        }
+
+        Mock<HttpContext> httpContextMock = new();
+        httpContextMock.Setup(c => c.User).Returns(PrincipalUtil.GetPrincipal(200001, 1337));
+
+        ControllerContext controllerContext = new ControllerContext()
+        {
+            HttpContext = httpContextMock.Object,
+        };
+
+        var sut = new DataLockController(
+            instanceRepositoryMock.Object,
+            dataRepositoryMock.Object,
+            authorizationMock.Object
+        )
+        {
+            ControllerContext = controllerContext,
+        };
+
+        return (sut, dataRepositoryMock, instanceRepositoryMock);
     }
 }

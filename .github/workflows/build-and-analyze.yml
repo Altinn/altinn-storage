@@ -49,7 +49,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: 17
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
       - name: Setup PostgreSQL
@@ -69,9 +69,9 @@ jobs:
         run: |
           dotnet-sonarscanner begin /k:"Altinn_altinn-storage" /o:"altinn" /d:sonar.login="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.cs.vstest.reportsPaths="**/*.trx" /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml" /d:sonar.exclusions="src/Storage/Migration/**/*"
 
-          dotnet build Altinn.Platform.Storage.sln -v q
+          dotnet build Altinn.Platform.Storage.slnx -v q
 
-          dotnet test Altinn.Platform.Storage.sln \
+          dotnet test Altinn.Platform.Storage.slnx \
           -v q \
           --collect:"XPlat Code Coverage" /p:Exclude="**/Program.cs" \
           --results-directory TestResults/ \

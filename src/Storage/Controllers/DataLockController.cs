@@ -16,7 +16,9 @@ namespace Altinn.Platform.Storage.Controllers;
 /// <summary>
 /// API for handling locking and unlocking of data elements
 /// </summary>
-[Route("storage/api/v1/instances/{instanceOwnerPartyId:int}/{instanceGuid:guid}/data/{dataGuid:guid}/lock")]
+[Route(
+    "storage/api/v1/instances/{instanceOwnerPartyId:int}/{instanceGuid:guid}/data/{dataGuid:guid}/lock"
+)]
 [ApiController]
 public class DataLockController : ControllerBase
 {
@@ -33,7 +35,8 @@ public class DataLockController : ControllerBase
     public DataLockController(
         IInstanceRepository instanceRepository,
         IDataRepository dataRepository,
-        IAuthorization authorizationService)
+        IAuthorization authorizationService
+    )
     {
         _instanceRepository = instanceRepository;
         _dataRepository = dataRepository;
@@ -55,34 +58,48 @@ public class DataLockController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
-    public async Task<ActionResult<DataElement>> Lock(int instanceOwnerPartyId, Guid instanceGuid, Guid dataGuid, CancellationToken cancellationToken)
+    public async Task<ActionResult<DataElement>> Lock(
+        int instanceOwnerPartyId,
+        Guid instanceGuid,
+        Guid dataGuid,
+        CancellationToken cancellationToken
+    )
     {
-        (Instance? instance, ActionResult? instanceError) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, true, cancellationToken);
+        (Instance? instance, ActionResult? instanceError) = await GetInstanceAsync(
+            instanceGuid,
+            instanceOwnerPartyId,
+            true,
+            cancellationToken
+        );
         if (instance == null)
         {
             return instanceError!;
         }
-        
+
         DataElement? dataElement = instance.Data.Find(d => d.Id == dataGuid.ToString());
-        
+
         if (dataElement?.Locked is true)
         {
             return Ok(dataElement);
         }
 
-        Dictionary<string, object> propertyList = new()
-        {
-            { "/locked", true }
-        };
-        
+        Dictionary<string, object> propertyList = new() { { "/locked", true } };
+
         try
         {
-            DataElement updatedDataElement = await _dataRepository.Update(instanceGuid, dataGuid, propertyList);
+            DataElement updatedDataElement = await _dataRepository.Update(
+                instanceGuid,
+                dataGuid,
+                propertyList,
+                cancellationToken
+            );
             return Created(updatedDataElement.Id, updatedDataElement);
         }
         catch (RepositoryException e)
         {
-            return e.StatusCodeSuggestion != null ? StatusCode((int)e.StatusCodeSuggestion) : StatusCode(500);
+            return e.StatusCodeSuggestion != null
+                ? StatusCode((int)e.StatusCodeSuggestion)
+                : StatusCode(500);
         }
     }
 
@@ -101,43 +118,73 @@ public class DataLockController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [Produces("application/json")]
-    public async Task<ActionResult<DataElement>> Unlock(int instanceOwnerPartyId, Guid instanceGuid, Guid dataGuid, CancellationToken cancellationToken)
+    public async Task<ActionResult<DataElement>> Unlock(
+        int instanceOwnerPartyId,
+        Guid instanceGuid,
+        Guid dataGuid,
+        CancellationToken cancellationToken
+    )
     {
-        (Instance? instance, _) = await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false, cancellationToken);
+        (Instance? instance, _) = await GetInstanceAsync(
+            instanceGuid,
+            instanceOwnerPartyId,
+            false,
+            cancellationToken
+        );
         if (instance == null)
         {
             return Forbid();
         }
 
-        bool authorized = await _authorizationService.AuthorizeAnyOfInstanceActions(instance, ["write", "unlock", "reject"]);
+        bool authorized = await _authorizationService.AuthorizeAnyOfInstanceActions(
+            instance,
+            ["write", "unlock", "reject"]
+        );
         if (!authorized)
         {
             return Forbid();
         }
 
-        Dictionary<string, object> propertyList = new()
-        {
-            { "/locked", false }
-        };
+        Dictionary<string, object> propertyList = new() { { "/locked", false } };
         try
         {
-            DataElement updatedDataElement = await _dataRepository.Update(instanceGuid, dataGuid, propertyList);
+            DataElement updatedDataElement = await _dataRepository.Update(
+                instanceGuid,
+                dataGuid,
+                propertyList,
+                cancellationToken
+            );
             return Ok(updatedDataElement);
         }
         catch (RepositoryException e)
         {
-            return e.StatusCodeSuggestion != null ? StatusCode((int)e.StatusCodeSuggestion) : StatusCode(500);
+            return e.StatusCodeSuggestion != null
+                ? StatusCode((int)e.StatusCodeSuggestion)
+                : StatusCode(500);
         }
     }
 
     private async Task<(Instance? Instance, ActionResult? ErrorMessage)> GetInstanceAsync(
-        Guid instanceGuid, int instanceOwnerPartyId, bool includeDataElements, CancellationToken cancellationToken)
+        Guid instanceGuid,
+        int instanceOwnerPartyId,
+        bool includeDataElements,
+        CancellationToken cancellationToken
+    )
     {
-        (Instance instance, _) = await _instanceRepository.GetOne(instanceGuid, includeDataElements, cancellationToken);
+        (Instance instance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            includeDataElements,
+            cancellationToken
+        );
 
         if (instance == null)
         {
-            return (null, NotFound($"Unable to find any instance with id: {instanceOwnerPartyId}/{instanceGuid}."));
+            return (
+                null,
+                NotFound(
+                    $"Unable to find any instance with id: {instanceOwnerPartyId}/{instanceGuid}."
+                )
+            );
         }
 
         return (instance, null);

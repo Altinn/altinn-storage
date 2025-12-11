@@ -87,9 +87,7 @@ void ConfigureWebHostCreationLogging()
 {
     var logFactory = LoggerFactory.Create(builder =>
     {
-        builder
-            .AddFilter("Altinn.Platform.Storage.Program", LogLevel.Debug)
-            .AddConsole();
+        builder.AddFilter("Altinn.Platform.Storage.Program", LogLevel.Debug).AddConsole();
     });
 
     logger = logFactory.CreateLogger<Program>();
@@ -143,8 +141,13 @@ async Task ConnectToKeyVaultAndSetApplicationInsights(ConfigurationManager confi
 
         try
         {
-            KeyVaultSecret keyVaultSecret = await client.GetSecretAsync(vaultApplicationInsightsKey);
-            applicationInsightsConnectionString = string.Format("InstrumentationKey={0}", keyVaultSecret.Value);
+            KeyVaultSecret keyVaultSecret = await client.GetSecretAsync(
+                vaultApplicationInsightsKey
+            );
+            applicationInsightsConnectionString = string.Format(
+                "InstrumentationKey={0}",
+                keyVaultSecret.Value
+            );
         }
         catch (Exception vaultException)
         {
@@ -153,21 +156,29 @@ async Task ConnectToKeyVaultAndSetApplicationInsights(ConfigurationManager confi
     }
 }
 
-void AddAzureMonitorTelemetryExporters(IServiceCollection services, string applicationInsightsConnectionString)
+void AddAzureMonitorTelemetryExporters(
+    IServiceCollection services,
+    string applicationInsightsConnectionString
+)
 {
-    services.Configure<OpenTelemetryLoggerOptions>(logging => logging.AddAzureMonitorLogExporter(o =>
-    {
-        o.ConnectionString = applicationInsightsConnectionString;
-    }));
-    services.ConfigureOpenTelemetryMeterProvider(metrics => metrics.AddAzureMonitorMetricExporter(o =>
-    {
-        o.ConnectionString = applicationInsightsConnectionString;
-    }));
-    services.ConfigureOpenTelemetryTracerProvider(tracing => tracing
-    .AddAzureMonitorTraceExporter(o =>
-    {
-        o.ConnectionString = applicationInsightsConnectionString;
-    }));
+    services.Configure<OpenTelemetryLoggerOptions>(logging =>
+        logging.AddAzureMonitorLogExporter(o =>
+        {
+            o.ConnectionString = applicationInsightsConnectionString;
+        })
+    );
+    services.ConfigureOpenTelemetryMeterProvider(metrics =>
+        metrics.AddAzureMonitorMetricExporter(o =>
+        {
+            o.ConnectionString = applicationInsightsConnectionString;
+        })
+    );
+    services.ConfigureOpenTelemetryTracerProvider(tracing =>
+        tracing.AddAzureMonitorTraceExporter(o =>
+        {
+            o.ConnectionString = applicationInsightsConnectionString;
+        })
+    );
 }
 
 void ConfigureServices(IServiceCollection services, IConfiguration config)
@@ -180,7 +191,8 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
         KeyValuePair.Create("service.name", (object)"platform-storage"),
     };
 
-    services.AddOpenTelemetry()
+    services
+        .AddOpenTelemetry()
         .ConfigureResource(resourceBuilder => resourceBuilder.AddAttributes(attributes))
         .WithMetrics(metrics =>
         {
@@ -189,7 +201,8 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
                 "Microsoft.AspNetCore.Hosting",
                 "Microsoft.AspNetCore.Server.Kestrel",
                 "System.Net.Http",
-                Metrics.Meter.Name);
+                Metrics.Meter.Name
+            );
         })
         .WithTracing(tracing =>
         {
@@ -204,7 +217,9 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
 
             tracing.AddNpgsql();
 
-            tracing.AddProcessor(new RequestFilterProcessor(generalSettings, new HttpContextAccessor()));
+            tracing.AddProcessor(
+                new RequestFilterProcessor(generalSettings, new HttpContextAccessor())
+            );
         });
 
     if (!string.IsNullOrEmpty(applicationInsightsConnectionString))
@@ -235,48 +250,94 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddSingleton<IAuthorizationHandler, AccessTokenHandler>();
     services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProvider>();
 
-    services.AddAuthentication(JwtCookieDefaults.AuthenticationScheme)
-        .AddJwtCookie(JwtCookieDefaults.AuthenticationScheme, options =>
-        {
-            options.JwtCookieName = generalSettings.RuntimeCookieName;
-            options.MetadataAddress = generalSettings.OpenIdWellKnownEndpoint;
-            options.TokenValidationParameters = new TokenValidationParameters
+    services
+        .AddAuthentication(JwtCookieDefaults.AuthenticationScheme)
+        .AddJwtCookie(
+            JwtCookieDefaults.AuthenticationScheme,
+            options =>
             {
-                ValidateIssuerSigningKey = true,
-                ValidateIssuer = false,
-                ValidateAudience = false,
-                RequireExpirationTime = true,
-                ValidateLifetime = true,
-                ClockSkew = TimeSpan.Zero
-            };
+                options.JwtCookieName = generalSettings.RuntimeCookieName;
+                options.MetadataAddress = generalSettings.OpenIdWellKnownEndpoint;
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    ValidateIssuer = false,
+                    ValidateAudience = false,
+                    RequireExpirationTime = true,
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.Zero,
+                };
 
-            if (builder.Environment.IsDevelopment())
-            {
-                options.RequireHttpsMetadata = false;
+                if (builder.Environment.IsDevelopment())
+                {
+                    options.RequireHttpsMetadata = false;
+                }
             }
-        });
+        );
 
-    services.AddAuthorizationBuilder()
-        .AddPolicy(AuthzConstants.POLICY_INSTANCE_READ, policy => policy.Requirements.Add(new AppAccessRequirement("read")))
-        .AddPolicy(AuthzConstants.POLICY_INSTANCE_WRITE, policy => policy.Requirements.Add(new AppAccessRequirement("write")))
-        .AddPolicy(AuthzConstants.POLICY_INSTANCE_DELETE, policy => policy.Requirements.Add(new AppAccessRequirement("delete")))
-        .AddPolicy(AuthzConstants.POLICY_INSTANCE_COMPLETE, policy => policy.Requirements.Add(new AppAccessRequirement("complete")))
-        .AddPolicy(AuthzConstants.POLICY_INSTANCE_SIGN, policy => policy.Requirements.Add(new AppAccessRequirement("sign")))
-        .AddPolicy(AuthzConstants.POLICY_SCOPE_APPDEPLOY, policy => policy.Requirements.Add(new ScopeAccessRequirement("altinn:appdeploy")))
-        .AddPolicy(AuthzConstants.POLICY_STUDIO_DESIGNER, policy => policy.Requirements.Add(new ClaimAccessRequirement("urn:altinn:app", "studio.designer")))
-        .AddPolicy(AuthzConstants.POLICY_CORRESPONDENCE_SBLBRIDGE, policy => policy.Requirements.Add(new ScopeAccessRequirement("altinn:correspondence.sblbridge")))
-        .AddPolicy("PlatformAccess", policy => policy.Requirements.Add(new AccessTokenRequirement()));
+    services
+        .AddAuthorizationBuilder()
+        .AddPolicy(
+            AuthzConstants.POLICY_INSTANCE_READ,
+            policy => policy.Requirements.Add(new AppAccessRequirement("read"))
+        )
+        .AddPolicy(
+            AuthzConstants.POLICY_INSTANCE_WRITE,
+            policy => policy.Requirements.Add(new AppAccessRequirement("write"))
+        )
+        .AddPolicy(
+            AuthzConstants.POLICY_INSTANCE_DELETE,
+            policy => policy.Requirements.Add(new AppAccessRequirement("delete"))
+        )
+        .AddPolicy(
+            AuthzConstants.POLICY_INSTANCE_COMPLETE,
+            policy => policy.Requirements.Add(new AppAccessRequirement("complete"))
+        )
+        .AddPolicy(
+            AuthzConstants.POLICY_INSTANCE_SIGN,
+            policy => policy.Requirements.Add(new AppAccessRequirement("sign"))
+        )
+        .AddPolicy(
+            AuthzConstants.POLICY_SCOPE_APPDEPLOY,
+            policy => policy.Requirements.Add(new ScopeAccessRequirement("altinn:appdeploy"))
+        )
+        .AddPolicy(
+            AuthzConstants.POLICY_STUDIO_DESIGNER,
+            policy =>
+                policy.Requirements.Add(
+                    new ClaimAccessRequirement("urn:altinn:app", "studio.designer")
+                )
+        )
+        .AddPolicy(
+            AuthzConstants.POLICY_CORRESPONDENCE_SBLBRIDGE,
+            policy =>
+                policy.Requirements.Add(
+                    new ScopeAccessRequirement("altinn:correspondence.sblbridge")
+                )
+        )
+        .AddPolicy(
+            "PlatformAccess",
+            policy => policy.Requirements.Add(new AccessTokenRequirement())
+        );
 
     services.AddSingleton<ClientIpCheckActionFilterAttribute>(container =>
     {
-        return new ClientIpCheckActionFilterAttribute() { Safelist = generalSettings.MigrationIpWhiteList };
+        return new ClientIpCheckActionFilterAttribute()
+        {
+            Safelist = generalSettings.MigrationIpWhiteList,
+        };
     });
 
     services.AddHttpContextAccessor();
     services.AddSingleton<IClaimsPrincipalProvider, ClaimsPrincipalProvider>();
 
-    PostgreSqlSettings postgresSettings = config.GetSection("PostgreSqlSettings").Get<PostgreSqlSettings>();
-    services.AddRepositoriesPostgreSQL(string.Format(postgresSettings.ConnectionString, postgresSettings.StorageDbPwd), postgresSettings.LogParameters);
+    PostgreSqlSettings postgresSettings = config
+        .GetSection("PostgreSqlSettings")
+        .Get<PostgreSqlSettings>();
+    services.AddRepositoriesPostgreSQL(
+        string.Format(postgresSettings.ConnectionString, postgresSettings.StorageDbPwd),
+        postgresSettings.LogParameters
+    );
 
     services.AddSingleton<IKeyVaultClientWrapper, KeyVaultClientWrapper>();
     services.AddSingleton<IPDP, PDPAppSI>();
@@ -303,27 +364,33 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddSwaggerGen(c =>
     {
         c.SwaggerDoc("v1", new OpenApiInfo { Title = "Altinn Platform Storage", Version = "v1" });
-        c.AddSecurityDefinition(JwtCookieDefaults.AuthenticationScheme, new OpenApiSecurityScheme
-        {
-            Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\". Remember to add \"Bearer\" to the input below before your token.",
-            Name = "Authorization",
-            In = ParameterLocation.Header,
-            Type = SecuritySchemeType.ApiKey,
-        });
-        c.AddSecurityRequirement(new OpenApiSecurityRequirement
+        c.AddSecurityDefinition(
+            JwtCookieDefaults.AuthenticationScheme,
+            new OpenApiSecurityScheme
+            {
+                Description =
+                    "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\". Remember to add \"Bearer\" to the input below before your token.",
+                Name = "Authorization",
+                In = ParameterLocation.Header,
+                Type = SecuritySchemeType.ApiKey,
+            }
+        );
+        c.AddSecurityRequirement(
+            new OpenApiSecurityRequirement
+            {
                 {
+                    new OpenApiSecurityScheme
                     {
-                        new OpenApiSecurityScheme
+                        Reference = new OpenApiReference
                         {
-                            Reference = new OpenApiReference
-                            {
-                                Id = JwtCookieDefaults.AuthenticationScheme,
-                                Type = ReferenceType.SecurityScheme
-                            }
+                            Id = JwtCookieDefaults.AuthenticationScheme,
+                            Type = ReferenceType.SecurityScheme,
                         },
-                        Array.Empty<string>()
-                    }
-                });
+                    },
+                    Array.Empty<string>()
+                },
+            }
+        );
         try
         {
             c.IncludeXmlComments(GetXmlCommentsPathForControllers());
@@ -343,7 +410,9 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
 
 void ConfigureWolverine(IServiceCollection services, IConfiguration config)
 {
-    WolverineSettings wolverineSettings = config.GetSection("WolverineSettings").Get<WolverineSettings>();
+    WolverineSettings wolverineSettings = config
+        .GetSection("WolverineSettings")
+        .Get<WolverineSettings>();
 
     services.AddWolverine(opts =>
     {
@@ -354,16 +423,16 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
 
             // Azure Service Bus transport
             opts.UseAzureServiceBus(wolverineSettings.ServiceBusConnectionString)
-
                 // Use custom mapper to set deduplication id on outgoing messages
                 .ConfigureSenders(s =>
                 {
-                    s.CustomizeOutgoingMessagesOfType<SyncInstanceToDialogportenCommand>((envelope, cmd) =>
-                    {
-                        envelope.Id = Guid.NewGuid();
-                    });
+                    s.CustomizeOutgoingMessagesOfType<SyncInstanceToDialogportenCommand>(
+                        (envelope, cmd) =>
+                        {
+                            envelope.Id = Guid.NewGuid();
+                        }
+                    );
                 })
-
                 // Let Wolverine try to initialize any missing queues on the first usage at runtime
                 .AutoProvision();
 
@@ -376,13 +445,16 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
             // Out of the box, this uses a separate local queue
             // for each message based on the message type name
             opts.Policies.ConfigureConventionalLocalRouting()
-
                 // Or you can customize the usage of queues
                 // per message type
                 .Named(type => type.Namespace)
-
                 // Optionally configure the local queues
-                .CustomizeQueues((type, listener) => { listener.Sequential(); });
+                .CustomizeQueues(
+                    (type, listener) =>
+                    {
+                        listener.Sequential();
+                    }
+                );
         }
     });
 }
@@ -410,18 +482,23 @@ void Configure(IConfiguration config)
     ConsoleTraceService traceService = new() { IsDebugEnabled = true };
     string connectionString = string.Format(
         config.GetValue<string>("PostgreSqlSettings:AdminConnectionString"),
-        config.GetValue<string>("PostgreSqlSettings:StorageDbAdminPwd"));
+        config.GetValue<string>("PostgreSqlSettings:StorageDbAdminPwd")
+    );
     app.UseYuniql(
         new PostgreSqlDataService(traceService),
         new PostgreSqlBulkImportService(traceService),
         traceService,
         new Yuniql.AspNetCore.Configuration
         {
-            Workspace = Path.Combine(Environment.CurrentDirectory, config.GetValue<string>("PostgreSqlSettings:WorkspacePath")),
+            Workspace = Path.Combine(
+                Environment.CurrentDirectory,
+                config.GetValue<string>("PostgreSqlSettings:WorkspacePath")
+            ),
             ConnectionString = connectionString,
             IsAutoCreateDatabase = false,
-            IsDebug = true
-        });
+            IsDebug = true,
+        }
+    );
 
     if (app.Environment.IsDevelopment())
     {
