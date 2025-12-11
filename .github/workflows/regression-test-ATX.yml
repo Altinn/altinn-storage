@@ -34,7 +34,7 @@ jobs:
       contents: read
     environment: ${{ inputs.environment }}
     env: # Shared environment variables in k6 scripts
-      altinn_env: ${{ vars.ENV }}
+      altinn_env: ${{ inputs.environment }}
       apimSubsKey: ${{ secrets.APIM_SUBSKEY }}
       app: ${{ vars.APP }}
       org: ${{ vars.ORG }}
@@ -84,26 +84,12 @@ jobs:
         uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
         with:
           path: test/k6/src/tests/texts.js
-      - name: Build failure report
-        env:
-          ENVIRONMENT: ${{ inputs.environment }}
-        if: failure()
-        run: |
-          UUID=$(uuidgen)
-          {
-            echo "stepreport<<EOF$UUID"
-            echo ":warning: Storage regression test failure in $ENVIRONMENT :warning: \n \n"
-            echo "Workflow available here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-            echo "EOF$UUID"
-          } >> "$GITHUB_ENV"
-      - name: Report failure to Slack
-        if: failure()
-        id: slack
-        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
-        with:
-          webhook-type: incoming-webhook
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL_TEST }}
-          payload: |
-            {
-              "text": "${{ env.stepreport }}"
-            }
+  slack-notify:
+    if: failure()
+    needs: regression-tests
+    uses: ./.github/workflows/send-slack-warning.yml
+    permissions: {}
+    with:
+      warning-message: 'Storage regression test failure in ${{ inputs.environment }}'
+    secrets:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_TEST }}

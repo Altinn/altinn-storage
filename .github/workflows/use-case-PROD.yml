@@ -60,22 +60,12 @@ jobs:
         with:
           path: test/k6/src/tests/texts.js
           flags: -e encodedJwk=${{ secrets.MP_ENCODEDJWK }} -e mpClientId=${{ secrets.MP_CLIENT_ID }} -e mpKid=${{ secrets.MP_KID }}
-
-      - name: Build failure report
-        if: failure()
-        run: |
-
-          report=":warning: Storage use case test failure in production :warning: \n"
-          report+="\n Workflow available here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          echo "stepreport="$report >> $GITHUB_ENV
-      - name: Report failure to Slack
-        if: failure()
-        id: slack
-        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
-        with:
-          webhook-type: incoming-webhook
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL_PROD }}
-          payload: |
-            {
-              "text": "${{ env.stepreport }}"
-            }
+  slack-notify:
+    if: failure()
+    needs: usecase-test
+    uses: ./.github/workflows/send-slack-warning.yml
+    permissions: {}
+    with:
+      warning-message: 'Storage use case test failure in production'
+    secrets:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_PROD }}

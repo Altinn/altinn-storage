@@ -5,11 +5,15 @@ on:
   schedule:
     - cron: '*/15 * * * *'
 jobs:
-  test:
+  usecase-test:
     strategy:
       fail-fast: false
       matrix:
         environment: [AT22, AT23, AT24]
+    outputs:
+      failed-AT22: ${{ steps.set-failure.outputs.AT22 }}
+      failed-AT23: ${{ steps.set-failure.outputs.AT23 }}
+      failed-AT24: ${{ steps.set-failure.outputs.AT24 }}
     environment: ${{ matrix.environment }}
     runs-on: ubuntu-latest
     permissions:
@@ -64,21 +68,34 @@ jobs:
         with:
           path: test/k6/src/tests/texts.js
 
-      - name: Build failure report
+      - name: Set failure output
+        id: set-failure
         if: failure()
         run: |
-
-          report=":warning: Storage use case test failure in ${{ matrix.environment }} :warning: \n"
-          report+="\n Workflow available here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          echo "stepreport="$report >> $GITHUB_ENV
-      - name: Report failure to Slack
-        if: failure()
-        id: slack
+          echo "${{ matrix.environment }}=true" >> "$GITHUB_OUTPUT"
+  slack-notify:
+    if: failure()
+    needs: usecase-test
+    permissions: {}
+    strategy:
+      matrix:
+        environment: [AT22, AT23, AT24]
+        include:
+          - environment: AT22
+            output: failed-AT22
+          - environment: AT23
+            output: failed-AT23
+          - environment: AT24
+            output: failed-AT24
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send notification
+        if: needs.test.outputs[matrix.output] == 'true'
         uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
         with:
           webhook-type: incoming-webhook
           webhook: ${{ secrets.SLACK_WEBHOOK_URL_TEST }}
           payload: |
             {
-              "text": "${{ env.stepreport }}"
+              "text": ":warning: Storage use case test failure in ${{ matrix.environment }} :warning: \n\n Workflow available here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             }
