@@ -131,7 +131,7 @@ public class StudioInstancesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
-    public async Task<ActionResult<SimpleInstanceDetails>> Get(
+    public async Task<ActionResult<SimpleInstanceDetails>> GetSingleInstance(
         [FromRoute] string org,
         [FromRoute] string app,
         [FromRoute] Guid instanceGuid,
