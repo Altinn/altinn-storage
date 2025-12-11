@@ -15,7 +15,11 @@ public static class ServiceCollectionExtensions
     /// <param name="connectionString">PostgreSQL connection string.</param>
     /// <param name="logParameters">Whether to log parameters.</param>
     /// <returns></returns>
-    public static IServiceCollection AddRepositoriesPostgreSQL(this IServiceCollection services, string connectionString, bool logParameters)
+    public static IServiceCollection AddRepositoriesPostgreSQL(
+        this IServiceCollection services,
+        string connectionString,
+        bool logParameters
+    )
     {
         return services
             .AddSingleton<IApplicationRepository, PgApplicationRepository>()
@@ -27,12 +31,17 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IBlobRepository, BlobRepository>()
             .AddSingleton<IA2Repository, PgA2Repository>()
             .AddSingleton<IOutboxRepository, PgOutboxRepository>()
-            .AddNpgsqlDataSource(connectionString, builder => builder
-                .EnableParameterLogging(logParameters)
-                .EnableDynamicJson()
-                .ConfigureTracing(o => o
-                    .ConfigureCommandSpanNameProvider(cmd => cmd.CommandText)
-                    .ConfigureCommandFilter(cmd => true)
-                    .EnableFirstResponseEvent(false)));
+            .AddNpgsqlDataSource(
+                connectionString,
+                builder =>
+                    builder
+                        .EnableParameterLogging(logParameters)
+                        .EnableDynamicJson()
+                        .ConfigureTracing(o =>
+                            o.ConfigureCommandSpanNameProvider(cmd => cmd.CommandText)
+                                .ConfigureCommandFilter(cmd => true)
+                                .EnableFirstResponseEvent(false)
+                        )
+            );
     }
 }

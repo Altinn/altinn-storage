@@ -17,11 +17,17 @@ public static class ServiceCollectionExtensions
     /// </summary>
     /// <param name="services">service collection.</param>
     /// <param name="config">the configuration collection</param>
-    public static IServiceCollection AddPostgresRepositories(this IServiceCollection services, IConfiguration config)
+    public static IServiceCollection AddPostgresRepositories(
+        this IServiceCollection services,
+        IConfiguration config
+    )
     {
-        PostgreSqlSettings settings = config.GetSection("PostgreSQLSettings")
-            .Get<PostgreSqlSettings>()
-            ?? throw new ArgumentNullException(nameof(config), "Required PostgreSQLSettings is missing from application configuration");
+        PostgreSqlSettings settings =
+            config.GetSection("PostgreSQLSettings").Get<PostgreSqlSettings>()
+            ?? throw new ArgumentNullException(
+                nameof(config),
+                "Required PostgreSQLSettings is missing from application configuration"
+            );
 
         string connectionString = string.Format(settings.ConnectionString, settings.StorageDbPwd);
 

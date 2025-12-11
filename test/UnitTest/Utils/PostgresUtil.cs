@@ -10,7 +10,8 @@ public static class PostgresUtil
 {
     public static async Task<int> RunCountQuery(string query)
     {
-        NpgsqlDataSource dataSource = (NpgsqlDataSource)ServiceUtil.GetServices(new List<Type>() { typeof(NpgsqlDataSource) })[0]!;
+        NpgsqlDataSource dataSource = (NpgsqlDataSource)
+            ServiceUtil.GetServices(new List<Type>() { typeof(NpgsqlDataSource) })[0]!;
 
         await using NpgsqlCommand pgcom = dataSource.CreateCommand(query);
         await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
@@ -26,7 +27,8 @@ public static class PostgresUtil
 
     public static async Task<T> RunQuery<T>(string query)
     {
-        NpgsqlDataSource dataSource = (NpgsqlDataSource)ServiceUtil.GetServices(new List<Type>() { typeof(NpgsqlDataSource) })[0]!;
+        NpgsqlDataSource dataSource = (NpgsqlDataSource)
+            ServiceUtil.GetServices(new List<Type>() { typeof(NpgsqlDataSource) })[0]!;
 
         await using NpgsqlCommand pgcom = dataSource.CreateCommand(query);
         await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync())
@@ -42,7 +44,8 @@ public static class PostgresUtil
 
     public static async Task<int> RunSql(string query)
     {
-        NpgsqlDataSource dataSource = (NpgsqlDataSource)ServiceUtil.GetServices(new List<Type>() { typeof(NpgsqlDataSource) })[0]!;
+        NpgsqlDataSource dataSource = (NpgsqlDataSource)
+            ServiceUtil.GetServices(new List<Type>() { typeof(NpgsqlDataSource) })[0]!;
 
         await using NpgsqlCommand pgcom = dataSource.CreateCommand(query);
         return await pgcom.ExecuteNonQueryAsync();

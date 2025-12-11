@@ -1,29 +1,38 @@
 using System.Linq;
-
 using Altinn.Platform.Storage.Interface.Models;
-
-using FluentAssertions;
-
 using Xunit;
 
-namespace Altinn.Platform.Storage.Interface.Tests
+namespace Altinn.Platform.Storage.Interface.Tests;
+
+public class ApplicationTests
 {
-    public class ApplicationTests
+    [Fact]
+    public void MetadataWithoutAllowAnonymous_ShouldBeFalse()
     {
-        [Fact]
-        public void MetadataWithoutAllowAnonymous_ShouldBeFalse()
-        {
-            Application applicationBefore = TestdataHelper.LoadDataFromEmbeddedResourceAsType<Application>("AllowAnonymousOnStateless.applicationMetadata_beforeChange.json");
+        Application applicationBefore =
+            TestdataHelper.LoadDataFromEmbeddedResourceAsType<Application>(
+                "AllowAnonymousOnStateless.applicationMetadata_beforeChange.json"
+            );
 
-            applicationBefore.DataTypes.First(d => d.Id == "Veileder").AppLogic.AllowAnonymousOnStateless.Should().BeFalse();
-        }
+        Assert.False(
+            applicationBefore
+                .DataTypes.First(d => d.Id == "Veileder")
+                .AppLogic.AllowAnonymousOnStateless
+        );
+    }
 
-        [Fact]
-        public void MetadataWithAllowAnonymous_ShouldBeTrue()
-        {
-            Application applicationBefore = TestdataHelper.LoadDataFromEmbeddedResourceAsType<Application>("AllowAnonymousOnStateless.applicationMetadata_afterChange.json");
+    [Fact]
+    public void MetadataWithAllowAnonymous_ShouldBeTrue()
+    {
+        Application applicationBefore =
+            TestdataHelper.LoadDataFromEmbeddedResourceAsType<Application>(
+                "AllowAnonymousOnStateless.applicationMetadata_afterChange.json"
+            );
 
-            applicationBefore.DataTypes.First(d => d.Id == "Veileder").AppLogic.AllowAnonymousOnStateless.Should().BeTrue();
-        }
+        Assert.True(
+            applicationBefore
+                .DataTypes.First(d => d.Id == "Veileder")
+                .AppLogic.AllowAnonymousOnStateless
+        );
     }
 }

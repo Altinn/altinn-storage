@@ -32,32 +32,46 @@ public class AspNetCoreMetricsEnricherTests(TestApplicationFactory<InstancesCont
     : IClassFixture<TestApplicationFactory<InstancesController>>
 {
     private readonly TestApplicationFactory<InstancesController> _factory = factory;
-    
+
     [Fact]
     public async Task ActionsSnapshot()
     {
         using var server = StartServer();
 
         var descriptors = server.ActionDescriptorProvider;
-        var snapshot = new 
+        var snapshot = new
         {
-            ActionsToValidate = descriptors.ActionsToValidate.Select(a => a.DisplayName).Order().ToArray(),
-            ScopesToValidate = descriptors.ActionsToValidate.Select(a => new 
-            {
-                Endpoint = a.DisplayName,
-                Scopes = ((FrozenSet<string>)a.Properties[AspNetCoreMetricsEnricher.AllowedScopesKey])
-                    .Order()
-                    .ToArray(),
-            }).ToImmutableSortedDictionary(a => a.Endpoint, a => a.Scopes),
-            IgnoredActions = descriptors.ActionsNotValidated.Select(a => a.DisplayName).Order().ToArray(),
+            ActionsToValidate = descriptors
+                .ActionsToValidate.Select(a => a.DisplayName)
+                .Order()
+                .ToArray(),
+            ScopesToValidate = descriptors
+                .ActionsToValidate.Select(a => new
+                {
+                    Endpoint = a.DisplayName,
+                    Scopes = (
+                        (FrozenSet<string>)a.Properties[AspNetCoreMetricsEnricher.AllowedScopesKey]
+                    )
+                        .Order()
+                        .ToArray(),
+                })
+                .ToImmutableSortedDictionary(a => a.Endpoint, a => a.Scopes),
+            IgnoredActions = descriptors
+                .ActionsNotValidated.Select(a => a.DisplayName)
+                .Order()
+                .ToArray(),
         };
 
         await VerifyXunit.Verifier.Verify(snapshot);
     }
 
-    private sealed record Fixture(WebApplicationFactory<InstancesController> Factory, HttpClient HttpClient) : IDisposable
+    private sealed record Fixture(
+        WebApplicationFactory<InstancesController> Factory,
+        HttpClient HttpClient
+    ) : IDisposable
     {
-        public CustomActionDescriptorProvider ActionDescriptorProvider => Factory.Services.GetRequiredService<CustomActionDescriptorProvider>();
+        public CustomActionDescriptorProvider ActionDescriptorProvider =>
+            Factory.Services.GetRequiredService<CustomActionDescriptorProvider>();
 
         public void Dispose()
         {
@@ -74,11 +88,15 @@ public class AspNetCoreMetricsEnricherTests(TestApplicationFactory<InstancesCont
 
         var factory = _factory.WithWebHostBuilder(builder =>
         {
-            IConfiguration configuration = new ConfigurationBuilder().AddJsonFile(ServiceUtil.GetAppsettingsPath()).Build();
-            builder.ConfigureAppConfiguration((hostingContext, config) =>
-            {
-                config.AddConfiguration(configuration);
-            });
+            IConfiguration configuration = new ConfigurationBuilder()
+                .AddJsonFile(ServiceUtil.GetAppsettingsPath())
+                .Build();
+            builder.ConfigureAppConfiguration(
+                (hostingContext, config) =>
+                {
+                    config.AddConfiguration(configuration);
+                }
+            );
 
             builder.ConfigureTestServices(services =>
             {
@@ -86,9 +104,15 @@ public class AspNetCoreMetricsEnricherTests(TestApplicationFactory<InstancesCont
 
                 services.AddSingleton(keyVaultWrapper.Object);
 
-                services.AddSingleton<IPartiesWithInstancesClient, PartiesWithInstancesClientMock>();
+                services.AddSingleton<
+                    IPartiesWithInstancesClient,
+                    PartiesWithInstancesClientMock
+                >();
                 services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
-                services.AddSingleton<IPostConfigureOptions<JwtCookieOptions>, JwtCookiePostConfigureOptionsStub>();
+                services.AddSingleton<
+                    IPostConfigureOptions<JwtCookieOptions>,
+                    JwtCookiePostConfigureOptionsStub
+                >();
                 services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
                 services.AddSingleton(busMock.Object);
             });

@@ -4,7 +4,6 @@ using System;
 using System.Linq;
 using System.Security.Claims;
 using System.Text.Json;
-
 using Altinn.AccessManagement.Core.Models;
 using AltinnCore.Authentication.Constants;
 
