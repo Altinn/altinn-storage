@@ -4,6 +4,9 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '*/15 * * * *'
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
 jobs:
   usecase-test:
     strategy:
@@ -19,7 +22,7 @@ jobs:
     permissions:
       contents: read
     env: # Shared environment variables in k6 scripts
-      altinn_env: ${{ vars.ENV }}
+      altinn_env: ${{ matrix.environment }}
       apimSubsKey: ${{ secrets.APIM_SUBSKEY }}
       app: ${{ vars.APP }}
       org: ${{ vars.ORG }}
@@ -36,37 +39,44 @@ jobs:
         uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
         with:
           path: test/k6/src/tests/applications.js
+          inspect-flags: -e altinn_env=${{matrix.environment}} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
       - name: Run use case tests for endpoint 'instances'
         if: always()
         uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
         with:
           path: test/k6/src/tests/instances.js
+          inspect-flags: -e altinn_env=${{matrix.environment}} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
       - name: Run use case tests for endpoint 'instances/sbl'
         if: always()
         uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
         with:
           path: test/k6/src/tests/messageboxinstances.js
           flags: -e apimSblSubsKey=${{ secrets.APIM_SBL_SUBSKEY }}
+          inspect-flags: -e altinn_env=${{matrix.environment}} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
       - name: Run use case tests for endpoint 'data'
         if: always()
         uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
         with:
           path: test/k6/src/tests/data.js
+          inspect-flags: -e altinn_env=${{matrix.environment}} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
       - name: Run use case tests for endpoint 'process'
         if: always()
         uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
         with:
           path: test/k6/src/tests/process.js
+          inspect-flags: -e altinn_env=${{matrix.environment}} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
       - name: Run use case tests for endpoint 'sign'
         if: always()
         uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
         with:
           path: test/k6/src/tests/sign.js
+          inspect-flags: -e altinn_env=${{matrix.environment}} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
       - name: Run use case tests for endpoint 'texts'
         if: always()
         uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
         with:
           path: test/k6/src/tests/texts.js
+          inspect-flags: -e altinn_env=${{matrix.environment}} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
 
       - name: Set failure output
         id: set-failure
