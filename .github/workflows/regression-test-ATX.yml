@@ -71,7 +71,7 @@ jobs:
         uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
         with:
           path: test/k6/src/tests/data.js
-          inspect-flags: -e altinn_env=${{ inputs.environment }} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
+          inspect-flags: -e altinn_env=${{ inputs.environment }} -e app=${{ vars.APP }} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
       - name: Run regression tests for endpoint 'process'
         if: always()
         uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
