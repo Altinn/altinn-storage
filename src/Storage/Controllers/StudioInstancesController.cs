@@ -117,4 +117,53 @@ public class StudioInstancesController : ControllerBase
             );
         }
     }
+
+    /// <summary>
+    /// Gets a specific instance with the given instance id.
+    /// </summary>
+    /// <param name="org">The org owning the the instance to retrieve.</param>
+    /// <param name="app">The app tied to the instance to retrieve.</param>
+    /// <param name="instanceGuid">The id of the instance to retrieve.</param>
+    /// <param name="ct">CancellationToken</param>
+    /// <returns>Details about the specific instance</returns>
+    [Authorize(Policy = AuthzConstants.POLICY_STUDIO_DESIGNER)]
+    [HttpGet("{org}/{app}/{instanceGuid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Produces("application/json")]
+    public async Task<ActionResult<SimpleInstanceDetails>> GetSingleInstance(
+        [FromRoute] string org,
+        [FromRoute] string app,
+        [FromRoute] Guid instanceGuid,
+        CancellationToken ct
+    )
+    {
+        // This API is experimental and should not be available in production or other service owners yet.
+        if (
+            !_generalSettings.Hostname.Contains("tt02", StringComparison.InvariantCultureIgnoreCase)
+            || !_generalSettings.StudioInstancesOrgWhiteList.Contains(org)
+        )
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            (var result, _) = await _instanceRepository.GetOne(instanceGuid, true, ct);
+            if (result == null || result.Org != org || result.AppId != $"{org}/{app}")
+            {
+                return NotFound();
+            }
+
+            return Ok(SimpleInstanceDetails.FromInstance(result));
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, $"Unable to find instance {instanceGuid}");
+            return StatusCode(
+                ct.IsCancellationRequested ? 499 : 500,
+                $"Unable to find instance {instanceGuid}: {e.Message}"
+            );
+        }
+    }
 }
