@@ -159,7 +159,11 @@ public class StudioInstancesController : ControllerBase
         }
         catch (Exception e)
         {
-            return NotFound($"Unable to find instance {instanceGuid}: {e}");
+            _logger.LogError(e, $"Unable to find instance {instanceGuid}");
+            return StatusCode(
+                ct.IsCancellationRequested ? 499 : 500,
+                $"Unable to find instance {instanceGuid}: {e.Message}"
+            );
         }
     }
 }

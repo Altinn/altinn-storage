@@ -454,7 +454,7 @@ public class StudioInstancesControllerTests
     }
 
     [Fact]
-    public async Task GetSingleInstance_RepositoryThrowsException_ReturnsNotFound()
+    public async Task GetSingleInstance_RepositoryThrowsException_Returns500()
     {
         // Arrange
         var instanceRepositoryMock = new Mock<IInstanceRepository>();
@@ -472,7 +472,7 @@ public class StudioInstancesControllerTests
         );
 
         // Assert
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
     }
 
     private HttpClient GetAuthenticatedClient(
