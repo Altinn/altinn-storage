@@ -30,5 +30,5 @@ public sealed class ProcessLock
     /// <summary>
     /// Gets or sets the identifier of the user or process that acquired the lock
     /// </summary>
-    public string LockedBy { get; set; }
+    public required string LockedBy { get; set; }
 }

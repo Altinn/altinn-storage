@@ -14,11 +14,10 @@ namespace Altinn.Platform.Storage.Repository;
 /// <summary>
 /// Represents an implementation of <see cref="IProcessLockRepository"/>.
 /// </summary>
-public class PgProcessLockRepository(NpgsqlDataSource dataSource, TimeProvider timeProvider)
-    : IProcessLockRepository
+public class PgProcessLockRepository(NpgsqlDataSource dataSource) : IProcessLockRepository
 {
     /// <inheritdoc/>
-    public async Task<Guid?> TryAcquireLock(
+    public async Task<(AcquireLockResult Result, Guid? LockId)> TryAcquireLock(
         long instanceInternalId,
         int ttlSeconds,
         string userId,
@@ -26,88 +25,82 @@ public class PgProcessLockRepository(NpgsqlDataSource dataSource, TimeProvider t
     )
     {
         var id = Guid.CreateVersion7();
-        var now = timeProvider.GetUtcNow();
-        var lockedUntil = now.AddSeconds(ttlSeconds);
 
         await using var npgsqlCommand = dataSource.CreateCommand(
-            """
-            WITH lock_attempt AS (
-                SELECT pg_try_advisory_xact_lock(@instance_internal_id) AS acquired
-            )
-            INSERT INTO storage.instancelocks (id, instanceinternalid, lockedat, lockeduntil, lockedby)
-            SELECT @id, @instance_internal_id, @now, @locked_until, @locked_by
-            FROM lock_attempt
-            WHERE acquired = TRUE
-            AND NOT EXISTS (
-                SELECT 1 FROM storage.instancelocks
-                WHERE instanceinternalid = @instance_internal_id
-                AND lockeduntil > @now
-            );
-            """
+            "CALL storage.acquireprocesslock(@id, @instanceinternalid, @ttl, @lockedby, @result);"
         );
+        npgsqlCommand.Parameters.AddWithValue("id", NpgsqlDbType.Uuid, id);
         npgsqlCommand.Parameters.AddWithValue(
-            "instance_internal_id",
+            "instanceinternalid",
             NpgsqlDbType.Bigint,
             instanceInternalId
         );
-        npgsqlCommand.Parameters.AddWithValue("id", NpgsqlDbType.Uuid, id);
-        npgsqlCommand.Parameters.AddWithValue("now", NpgsqlDbType.TimestampTz, now);
         npgsqlCommand.Parameters.AddWithValue(
-            "locked_until",
-            NpgsqlDbType.TimestampTz,
-            lockedUntil
+            "ttl",
+            NpgsqlDbType.Interval,
+            TimeSpan.FromSeconds(ttlSeconds)
         );
-        npgsqlCommand.Parameters.AddWithValue("locked_by", NpgsqlDbType.Text, userId);
+        npgsqlCommand.Parameters.AddWithValue("lockedby", NpgsqlDbType.Text, userId);
 
-        var rowsAffected = await npgsqlCommand.ExecuteNonQueryAsync(cancellationToken);
-
-        if (rowsAffected != 1 && rowsAffected != 0)
+        var resultParam = new NpgsqlParameter("result", NpgsqlDbType.Text)
         {
-            throw new UnreachableException();
-        }
+            Direction = ParameterDirection.InputOutput,
+            Value = DBNull.Value,
+        };
+        npgsqlCommand.Parameters.Add(resultParam);
 
-        if (rowsAffected == 0)
+        await npgsqlCommand.ExecuteNonQueryAsync(cancellationToken);
+
+        var result = resultParam.Value?.ToString();
+        return result switch
         {
-            return null;
-        }
-
-        return id;
+            "ok" => (AcquireLockResult.Success, id),
+            "lock_held" => (AcquireLockResult.LockAlreadyHeld, null),
+            _ => throw new UnreachableException(),
+        };
     }
 
     /// <inheritdoc/>
-    public async Task<bool> UpdateLockExpiration(
+    public async Task<UpdateLockResult> TryUpdateLockExpiration(
         Guid lockId,
+        long instanceInternalId,
         int ttlSeconds,
         CancellationToken cancellationToken = default
     )
     {
-        var now = timeProvider.GetUtcNow();
-        var lockedUntil = now.AddSeconds(ttlSeconds);
-
         await using var npgsqlCommand = dataSource.CreateCommand(
-            """
-            UPDATE storage.instancelocks
-            SET lockeduntil = @locked_until
-            WHERE id = @id
-            AND lockeduntil > @now;
-            """
+            "CALL storage.updateprocesslock(@id, @instanceinternalid, @ttl, @result);"
         );
+
         npgsqlCommand.Parameters.AddWithValue("id", NpgsqlDbType.Uuid, lockId);
-        npgsqlCommand.Parameters.AddWithValue("now", NpgsqlDbType.TimestampTz, now);
         npgsqlCommand.Parameters.AddWithValue(
-            "locked_until",
-            NpgsqlDbType.TimestampTz,
-            lockedUntil
+            "instanceinternalid",
+            NpgsqlDbType.Bigint,
+            instanceInternalId
+        );
+        npgsqlCommand.Parameters.AddWithValue(
+            "ttl",
+            NpgsqlDbType.Interval,
+            TimeSpan.FromSeconds(ttlSeconds)
         );
 
-        var rowsAffected = await npgsqlCommand.ExecuteNonQueryAsync(cancellationToken);
-
-        if (rowsAffected != 1 && rowsAffected != 0)
+        var resultParam = new NpgsqlParameter("result", NpgsqlDbType.Text)
         {
-            throw new UnreachableException();
-        }
+            Direction = ParameterDirection.InputOutput,
+            Value = DBNull.Value,
+        };
+        npgsqlCommand.Parameters.Add(resultParam);
 
-        return rowsAffected > 0;
+        await npgsqlCommand.ExecuteNonQueryAsync(cancellationToken);
+
+        var result = resultParam.Value?.ToString();
+        return result switch
+        {
+            "ok" => UpdateLockResult.Success,
+            "lock_not_found" => UpdateLockResult.LockNotFound,
+            "lock_expired" => UpdateLockResult.LockExpired,
+            _ => throw new UnreachableException(),
+        };
     }
 
     /// <inheritdoc/>

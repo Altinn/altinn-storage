@@ -1,0 +1,18 @@
+﻿{
+  Response: {
+    Status: 409 Conflict,
+    Content: {
+      Headers: {
+        Content-Length: 213,
+        Content-Type: application/json; charset=utf-8
+      },
+      Value: {
+        type: https://tools.ietf.org/html/rfc9110#section-15.5.10,
+        title: Conflict,
+        status: 409,
+        detail: Lock is already held for this instance.,
+        traceId: {Scrubbed}
+      }
+    }
+  }
+}

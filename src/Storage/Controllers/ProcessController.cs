@@ -399,6 +399,7 @@ public class ProcessController : ControllerBase
     [HttpPost("lock")]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
@@ -408,6 +409,14 @@ public class ProcessController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        if (request.TtlSeconds < 0)
+        {
+            return Problem(
+                detail: "TtlSeconds cannot be negative.",
+                statusCode: StatusCodes.Status400BadRequest
+            );
+        }
+
         (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(
             instanceGuid,
             false,
@@ -416,32 +425,39 @@ public class ProcessController : ControllerBase
 
         if (instance is null)
         {
-            return NotFound();
+            return Problem(
+                detail: "Instance not found.",
+                statusCode: StatusCodes.Status404NotFound
+            );
         }
 
         string userId =
             User.GetUserOrOrgNo()
             ?? throw new InvalidOperationException("User identity could not be determined.");
 
-        var lockId = await _processLockRepository.TryAcquireLock(
+        var (result, lockId) = await _processLockRepository.TryAcquireLock(
             instanceInternalId,
             request.TtlSeconds,
             userId,
             cancellationToken
         );
 
-        if (lockId is null)
+        return result switch
         {
-            return Conflict();
-        }
-
-        return Ok(new ProcessLockResponse { LockId = lockId.Value });
+            AcquireLockResult.Success => Ok(new ProcessLockResponse { LockId = lockId!.Value }),
+            AcquireLockResult.LockAlreadyHeld => Problem(
+                detail: "Lock is already held for this instance.",
+                statusCode: StatusCodes.Status409Conflict
+            ),
+            _ => throw new UnreachableException(),
+        };
     }
 
     /// <summary>
     /// Updates TTL on a process lock.
     /// </summary>
     /// <param name="lockId">The ID of the lock to release.</param>
+    /// <param name="instanceGuid">The id of the instance to lock.</param>
     /// <param name="request">The lock request (TTL should be 0 for release).</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>NoContent if successful.</returns>
@@ -449,25 +465,58 @@ public class ProcessController : ControllerBase
     [HttpPatch("lock/{lockId}")]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     [Produces("application/json")]
     public async Task<ActionResult> UpdateProcessLock(
         Guid lockId,
+        Guid instanceGuid,
         [FromBody] ProcessLockRequest request,
         CancellationToken cancellationToken
     )
     {
-        bool success = await _processLockRepository.UpdateLockExpiration(
+        if (request.TtlSeconds < 0)
+        {
+            return Problem(
+                detail: "TtlSeconds cannot be negative.",
+                statusCode: StatusCodes.Status400BadRequest
+            );
+        }
+
+        (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            cancellationToken
+        );
+
+        if (instance is null)
+        {
+            return Problem(
+                detail: "Instance not found.",
+                statusCode: StatusCodes.Status404NotFound
+            );
+        }
+
+        var result = await _processLockRepository.TryUpdateLockExpiration(
             lockId,
+            instanceInternalId,
             request.TtlSeconds,
             cancellationToken
         );
 
-        if (!success)
+        return result switch
         {
-            return NotFound();
-        }
-
-        return NoContent();
+            UpdateLockResult.Success => NoContent(),
+            UpdateLockResult.LockNotFound => Problem(
+                detail: "Lock not found.",
+                statusCode: StatusCodes.Status404NotFound
+            ),
+            UpdateLockResult.LockExpired => Problem(
+                detail: "Lock has expired.",
+                statusCode: StatusCodes.Status422UnprocessableEntity
+            ),
+            _ => throw new UnreachableException(),
+        };
     }
 }

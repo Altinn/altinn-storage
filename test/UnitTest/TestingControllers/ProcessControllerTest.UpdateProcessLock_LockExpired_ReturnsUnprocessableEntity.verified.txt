@@ -1,0 +1,18 @@
+﻿{
+  Response: {
+    Status: 422 Unprocessable Entity,
+    Content: {
+      Headers: {
+        Content-Length: 200,
+        Content-Type: application/json; charset=utf-8
+      },
+      Value: {
+        type: https://tools.ietf.org/html/rfc4918#section-11.2,
+        title: Unprocessable Entity,
+        status: 422,
+        detail: Lock has expired.,
+        traceId: {Scrubbed}
+      }
+    }
+  }
+}

@@ -1,6 +1,4 @@
-﻿#nullable enable
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.UnitTest.Extensions;
@@ -14,8 +12,7 @@ public static class ServiceUtil
 {
     public static List<object> GetServices(
         List<Type> interfaceTypes,
-        Dictionary<string, string>? envVariables = null,
-        Action<IServiceCollection>? configureCustomServices = null
+        Dictionary<string, string> envVariables = null
     )
     {
         if (envVariables != null)
@@ -42,10 +39,8 @@ public static class ServiceUtil
 
         services.Configure<GeneralSettings>(config.GetSection("GeneralSettings"));
 
-        configureCustomServices?.Invoke(services);
-
         var serviceProvider = services.BuildServiceProvider();
-        List<object> outputServices = [];
+        List<object> outputServices = new();
 
         foreach (Type interfaceType in interfaceTypes)
         {

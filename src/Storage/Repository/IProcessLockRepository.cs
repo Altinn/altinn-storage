@@ -13,14 +13,14 @@ namespace Altinn.Platform.Storage.Repository;
 public interface IProcessLockRepository
 {
     /// <summary>
-    /// Attempts to acquire a process lock for an instance
+    /// Attempts to acquire a process lock for an instance.
     /// </summary>
     /// <param name="instanceInternalId">The instance internal ID</param>
     /// <param name="ttlSeconds">Lock time to live in seconds</param>
     /// <param name="userId">The ID of the user acquiring the lock</param>
     /// <param name="cancellationToken">CancellationToken</param>
-    /// <returns>The lock ID if successful, null otherwise</returns>
-    Task<Guid?> TryAcquireLock(
+    /// <returns>A tuple containing the result of the operation and the lock ID if successful.</returns>
+    Task<(AcquireLockResult Result, Guid? LockId)> TryAcquireLock(
         long instanceInternalId,
         int ttlSeconds,
         string userId,
@@ -28,14 +28,16 @@ public interface IProcessLockRepository
     );
 
     /// <summary>
-    /// Updates the expiration of an existing process lock
+    /// Tries to update the expiration of an existing process lock. Fails if the lock doesn't exist or is no longer active.
     /// </summary>
     /// <param name="lockId">The lock ID</param>
+    /// <param name="instanceInternalId">The instance internal ID</param>
     /// <param name="ttlSeconds">New time to live in seconds</param>
     /// <param name="cancellationToken">CancellationToken</param>
-    /// <returns>True if the lock was updated, false otherwise</returns>
-    Task<bool> UpdateLockExpiration(
+    /// <returns>The result of the operation.</returns>
+    Task<UpdateLockResult> TryUpdateLockExpiration(
         Guid lockId,
+        long instanceInternalId,
         int ttlSeconds,
         CancellationToken cancellationToken = default
     );
