@@ -13,7 +13,7 @@ const userName = __ENV.username;
 const userPassword = __ENV.userpwd;
 const appOwner = __ENV.org;
 const level2App = __ENV.level2app;
-const environment = __ENV.env.toLowerCase();
+const environment = __ENV.altinn_env.toLowerCase();
 let appIds = __ENV.appIds;
 
 export const options = {
