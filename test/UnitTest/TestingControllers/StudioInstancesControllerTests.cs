@@ -62,12 +62,10 @@ public class StudioInstancesControllerTests
             }
         );
 
-        HttpClient client = GetTestClient(
+        HttpClient client = GetAuthenticatedClient(
             instanceRepository: instanceRepositoryMock.Object,
             generalSettings: generalSettings
         );
-        string token = PrincipalUtil.GetAccessToken("studio.designer");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app");
@@ -118,9 +116,9 @@ public class StudioInstancesControllerTests
                 }
             );
 
-        HttpClient client = GetTestClient(instanceRepository: instanceRepositoryMock.Object);
-        string token = PrincipalUtil.GetAccessToken("studio.designer");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object
+        );
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"{BasePath}/skd/app");
@@ -158,9 +156,9 @@ public class StudioInstancesControllerTests
                 }
             );
 
-        HttpClient client = GetTestClient(instanceRepository: instanceRepositoryMock.Object);
-        string token = PrincipalUtil.GetAccessToken("studio.designer");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object
+        );
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app");
@@ -187,9 +185,9 @@ public class StudioInstancesControllerTests
             )
             .ReturnsAsync(new InstanceQueryResponse { Exception = "Something went wrong" });
 
-        HttpClient client = GetTestClient(instanceRepository: instanceRepositoryMock.Object);
-        string token = PrincipalUtil.GetAccessToken("studio.designer");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object
+        );
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app");
@@ -213,9 +211,9 @@ public class StudioInstancesControllerTests
             )
             .ThrowsAsync(new Exception("Database connection error"));
 
-        HttpClient client = GetTestClient(instanceRepository: instanceRepositoryMock.Object);
-        string token = PrincipalUtil.GetAccessToken("studio.designer");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object
+        );
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app");
@@ -245,9 +243,9 @@ public class StudioInstancesControllerTests
                 }
             );
 
-        HttpClient client = GetTestClient(instanceRepository: instanceRepositoryMock.Object);
-        string token = PrincipalUtil.GetAccessToken("studio.designer");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object
+        );
 
         // Act
         HttpResponseMessage response = await client.GetAsync(
@@ -287,12 +285,10 @@ public class StudioInstancesControllerTests
             }
         );
 
-        HttpClient client = GetTestClient(
+        HttpClient client = GetAuthenticatedClient(
             instanceRepository: instanceRepositoryMock.Object,
             generalSettings: generalSettings
         );
-        string token = PrincipalUtil.GetAccessToken("studio.designer");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app/{instanceGuid}");
@@ -334,9 +330,9 @@ public class StudioInstancesControllerTests
             .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
             .ReturnsAsync((instance, 1));
 
-        HttpClient client = GetTestClient(instanceRepository: instanceRepositoryMock.Object);
-        string token = PrincipalUtil.GetAccessToken("studio.designer");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object
+        );
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"{BasePath}/skd/app/{instanceGuid}");
@@ -363,9 +359,9 @@ public class StudioInstancesControllerTests
             .Setup(ir => ir.GetOne(instanceGuid, true, It.IsAny<CancellationToken>()))
             .ReturnsAsync((instance, 1));
 
-        HttpClient client = GetTestClient(instanceRepository: instanceRepositoryMock.Object);
-        string token = PrincipalUtil.GetAccessToken("studio.designer");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object
+        );
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app/{instanceGuid}");
@@ -386,9 +382,9 @@ public class StudioInstancesControllerTests
             .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
             .ReturnsAsync((null, 0));
 
-        HttpClient client = GetTestClient(instanceRepository: instanceRepositoryMock.Object);
-        string token = PrincipalUtil.GetAccessToken("studio.designer");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object
+        );
 
         // Act
         HttpResponseMessage response = await client.GetAsync(
@@ -417,9 +413,9 @@ public class StudioInstancesControllerTests
             .Setup(ir => ir.GetOne(instanceGuid, true, It.IsAny<CancellationToken>()))
             .ReturnsAsync((instance, 1));
 
-        HttpClient client = GetTestClient(instanceRepository: instanceRepositoryMock.Object);
-        string token = PrincipalUtil.GetAccessToken("studio.designer");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object
+        );
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app/{instanceGuid}");
@@ -446,9 +442,9 @@ public class StudioInstancesControllerTests
             .Setup(ir => ir.GetOne(instanceGuid, true, It.IsAny<CancellationToken>()))
             .ReturnsAsync((instance, 1));
 
-        HttpClient client = GetTestClient(instanceRepository: instanceRepositoryMock.Object);
-        string token = PrincipalUtil.GetAccessToken("studio.designer");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object
+        );
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app/{instanceGuid}");
@@ -466,9 +462,9 @@ public class StudioInstancesControllerTests
             .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Database connection error"));
 
-        HttpClient client = GetTestClient(instanceRepository: instanceRepositoryMock.Object);
-        string token = PrincipalUtil.GetAccessToken("studio.designer");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object
+        );
 
         // Act
         HttpResponseMessage response = await client.GetAsync(
@@ -477,6 +473,22 @@ public class StudioInstancesControllerTests
 
         // Assert
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    private HttpClient GetAuthenticatedClient(
+        IInstanceRepository instanceRepository = null,
+        IAuthorization authorizationService = null,
+        IOptions<GeneralSettings> generalSettings = null
+    )
+    {
+        HttpClient client = GetTestClient(
+            instanceRepository,
+            authorizationService,
+            generalSettings
+        );
+        string token = PrincipalUtil.GetAccessToken("studio.designer");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client;
     }
 
     private HttpClient GetTestClient(
