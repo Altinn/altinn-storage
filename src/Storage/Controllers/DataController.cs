@@ -462,7 +462,7 @@ public class DataController : ControllerBase
             dataType,
             refs,
             generatedFromTask,
-            null,
+            metadata,
             instance
         );
         Stream theStream = streamAndDataElement.Stream;
