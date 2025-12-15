@@ -275,6 +275,28 @@ public class PgA2Repository(
     }
 
     /// <inheritdoc/>
+    public async Task SendDeleteToDialogporten(Instance instance)
+    {
+        if (!(wolverineSettings.Value.EnableSending && wolverineSettings.Value.EnableA2Migration))
+        {
+            return;
+        }
+
+        string instanceId = instance.Id.Split('/')[^1];
+        await using var connection = await _dataSource.OpenConnectionAsync();
+        SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
+            instance.AppId,
+            instance.InstanceOwner.PartyId,
+            instanceId,
+            (DateTime)instance.Created,
+            true,
+            InstanceEventType.Deleted
+        );
+
+        await outboxRepository.Insert(instanceUpdateCommand, connection);
+    }
+
+    /// <inheritdoc/>
     public async Task DeleteMigrationState(string instanceGuid)
     {
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteMigrationStateSql);

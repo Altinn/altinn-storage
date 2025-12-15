@@ -91,6 +91,7 @@ function TC02_SearchActiveInstances(data) {
     appId: data.org + "/" + data.app,
     instanceOwnerPartyIdList: [data.partyId],
     includeActive: "true",
+    filterMigrated: "true",
   };
   var res = msgboxApi.searchInstances(data.userToken, queryModel);
 

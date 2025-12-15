@@ -43,11 +43,29 @@ public class StudioInstancesControllerTests
     public async Task GetInstances_ProductionEnvironment_ReturnsNotFound()
     {
         // Arrange
-        var generalSettings = Options.Create(new GeneralSettings { Hostname = "altinn.no" });
+        var instanceRepositoryMock = new Mock<IInstanceRepository>();
+        instanceRepositoryMock
+            .Setup(ir =>
+                ir.GetInstancesFromQuery(
+                    It.IsAny<InstanceQueryParameters>(),
+                    false,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(new InstanceQueryResponse { Instances = new List<Instance>() });
 
-        HttpClient client = GetTestClient(generalSettings: generalSettings);
-        string token = PrincipalUtil.GetAccessToken("studio.designer");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var generalSettings = Options.Create(
+            new GeneralSettings
+            {
+                Hostname = "altinn.no",
+                StudioInstancesOrgWhiteList = new() { "ttd" },
+            }
+        );
+
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object,
+            generalSettings: generalSettings
+        );
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app");
@@ -73,9 +91,34 @@ public class StudioInstancesControllerTests
     public async Task GetInstances_NotTTD_ReturnsNotFound()
     {
         // Arrange
-        HttpClient client = GetTestClient();
-        string token = PrincipalUtil.GetAccessToken("studio.designer");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var instanceRepositoryMock = new Mock<IInstanceRepository>();
+        instanceRepositoryMock
+            .Setup(ir =>
+                ir.GetInstancesFromQuery(
+                    It.IsAny<InstanceQueryParameters>(),
+                    false,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                new InstanceQueryResponse
+                {
+                    Instances = new List<Instance>
+                    {
+                        new()
+                        {
+                            Id = "1337/guid",
+                            InstanceOwner = new() { PartyId = "1337" },
+                            AppId = "skd/app",
+                            Org = "skd",
+                        },
+                    },
+                }
+            );
+
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object
+        );
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"{BasePath}/skd/app");
@@ -113,9 +156,9 @@ public class StudioInstancesControllerTests
                 }
             );
 
-        HttpClient client = GetTestClient(instanceRepository: instanceRepositoryMock.Object);
-        string token = PrincipalUtil.GetAccessToken("studio.designer");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object
+        );
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app");
@@ -142,9 +185,9 @@ public class StudioInstancesControllerTests
             )
             .ReturnsAsync(new InstanceQueryResponse { Exception = "Something went wrong" });
 
-        HttpClient client = GetTestClient(instanceRepository: instanceRepositoryMock.Object);
-        string token = PrincipalUtil.GetAccessToken("studio.designer");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object
+        );
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app");
@@ -168,9 +211,9 @@ public class StudioInstancesControllerTests
             )
             .ThrowsAsync(new Exception("Database connection error"));
 
-        HttpClient client = GetTestClient(instanceRepository: instanceRepositoryMock.Object);
-        string token = PrincipalUtil.GetAccessToken("studio.designer");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object
+        );
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app");
@@ -200,9 +243,9 @@ public class StudioInstancesControllerTests
                 }
             );
 
-        HttpClient client = GetTestClient(instanceRepository: instanceRepositoryMock.Object);
-        string token = PrincipalUtil.GetAccessToken("studio.designer");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object
+        );
 
         // Act
         HttpResponseMessage response = await client.GetAsync(
@@ -214,6 +257,238 @@ public class StudioInstancesControllerTests
         string content = await response.Content.ReadAsStringAsync();
         var queryResponse = JsonConvert.DeserializeObject<QueryResponse<SimpleInstance>>(content);
         Assert.Equal(System.Web.HttpUtility.UrlEncode("nextToken"), queryResponse.Next);
+    }
+
+    [Fact]
+    public async Task GetSingleInstance_ProductionEnvironment_ReturnsNotFound()
+    {
+        // Arrange
+        var instanceGuid = Guid.NewGuid();
+        var instance = new Instance
+        {
+            Id = $"1337/{instanceGuid}",
+            InstanceOwner = new() { PartyId = "1337" },
+            AppId = "ttd/app",
+            Org = "ttd",
+        };
+
+        var instanceRepositoryMock = new Mock<IInstanceRepository>();
+        instanceRepositoryMock
+            .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((instance, 1));
+
+        var generalSettings = Options.Create(
+            new GeneralSettings
+            {
+                Hostname = "altinn.no",
+                StudioInstancesOrgWhiteList = new() { "ttd" },
+            }
+        );
+
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object,
+            generalSettings: generalSettings
+        );
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app/{instanceGuid}");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetSingleInstance_NoAccessToken_ReturnsUnauthorized()
+    {
+        // Arrange
+        HttpClient client = GetTestClient();
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(
+            $"{BasePath}/ttd/app/{Guid.NewGuid()}"
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetSingleInstance_NotTTD_ReturnsNotFound()
+    {
+        // Arrange
+        var instanceGuid = Guid.NewGuid();
+        var instance = new Instance
+        {
+            Id = $"1337/{instanceGuid}",
+            InstanceOwner = new() { PartyId = "1337" },
+            AppId = "skd/app",
+            Org = "skd",
+        };
+
+        var instanceRepositoryMock = new Mock<IInstanceRepository>();
+        instanceRepositoryMock
+            .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((instance, 1));
+
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object
+        );
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync($"{BasePath}/skd/app/{instanceGuid}");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetSingleInstance_AccessingTTD_TT02_ReturnsOk()
+    {
+        // Arrange
+        var instanceGuid = Guid.NewGuid();
+        var instance = new Instance
+        {
+            Id = $"1337/{instanceGuid}",
+            InstanceOwner = new() { PartyId = "1337" },
+            AppId = "ttd/app",
+            Org = "ttd",
+        };
+
+        var instanceRepositoryMock = new Mock<IInstanceRepository>();
+        instanceRepositoryMock
+            .Setup(ir => ir.GetOne(instanceGuid, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((instance, 1));
+
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object
+        );
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app/{instanceGuid}");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        string content = await response.Content.ReadAsStringAsync();
+        var simpleInstanceDetails = JsonConvert.DeserializeObject<SimpleInstanceDetails>(content);
+        Assert.Equal(instanceGuid.ToString(), simpleInstanceDetails.Id);
+    }
+
+    [Fact]
+    public async Task GetSingleInstance_InstanceNotFound_ReturnsNotFound()
+    {
+        // Arrange
+        var instanceRepositoryMock = new Mock<IInstanceRepository>();
+        instanceRepositoryMock
+            .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((null, 0));
+
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object
+        );
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(
+            $"{BasePath}/ttd/app/{Guid.NewGuid()}"
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetSingleInstance_OrgMismatch_ReturnsNotFound()
+    {
+        // Arrange
+        var instanceGuid = Guid.NewGuid();
+        var instance = new Instance
+        {
+            Id = $"1337/{instanceGuid}",
+            InstanceOwner = new() { PartyId = "1337" },
+            AppId = "ttd/app",
+            Org = "skd", // Mismatch
+        };
+
+        var instanceRepositoryMock = new Mock<IInstanceRepository>();
+        instanceRepositoryMock
+            .Setup(ir => ir.GetOne(instanceGuid, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((instance, 1));
+
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object
+        );
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app/{instanceGuid}");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetSingleInstance_AppMismatch_ReturnsNotFound()
+    {
+        // Arrange
+        var instanceGuid = Guid.NewGuid();
+        var instance = new Instance
+        {
+            Id = $"1337/{instanceGuid}",
+            InstanceOwner = new() { PartyId = "1337" },
+            AppId = "ttd/some-other-app", // Mismatch
+            Org = "ttd",
+        };
+
+        var instanceRepositoryMock = new Mock<IInstanceRepository>();
+        instanceRepositoryMock
+            .Setup(ir => ir.GetOne(instanceGuid, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((instance, 1));
+
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object
+        );
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app/{instanceGuid}");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetSingleInstance_RepositoryThrowsException_Returns500()
+    {
+        // Arrange
+        var instanceRepositoryMock = new Mock<IInstanceRepository>();
+        instanceRepositoryMock
+            .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database connection error"));
+
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object
+        );
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(
+            $"{BasePath}/ttd/app/{Guid.NewGuid()}"
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+    }
+
+    private HttpClient GetAuthenticatedClient(
+        IInstanceRepository instanceRepository = null,
+        IAuthorization authorizationService = null,
+        IOptions<GeneralSettings> generalSettings = null
+    )
+    {
+        HttpClient client = GetTestClient(
+            instanceRepository,
+            authorizationService,
+            generalSettings
+        );
+        string token = PrincipalUtil.GetAccessToken("studio.designer");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client;
     }
 
     private HttpClient GetTestClient(
