@@ -23,7 +23,8 @@ public class DataElementHelperTests
             "file-name.json",
             1234,
             "12345",
-            "Task_1"
+            "Task_1",
+            null
         );
 
         // Assert
@@ -45,6 +46,7 @@ public class DataElementHelperTests
             "file-name.json",
             1234,
             "12345",
+            null,
             null
         );
 

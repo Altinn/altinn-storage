@@ -31,7 +31,8 @@ public static class DataElementHelper
         string contentFileName,
         long fileSize,
         string user,
-        string generatedFromTask
+        string generatedFromTask,
+        List<KeyValueEntry> metadata
     )
     {
         string dataId = Guid.NewGuid().ToString();
@@ -57,6 +58,7 @@ public static class DataElementHelper
             LastChanged = creationTime,
             Size = fileSize,
             Refs = refs,
+            Metadata = metadata,
         };
 
         if (!string.IsNullOrEmpty(generatedFromTask))
