@@ -625,6 +625,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     [InlineData("pdf", new[] { "write" })]
     [InlineData("eFormidling", new[] { "write" })]
     [InlineData("fiksArkiv", new[] { "write" })]
+    [InlineData("subformPdf", new[] { "write" })]
     [InlineData("payment", new[] { "pay", "write" })]
     [InlineData("confirmation", new[] { "confirm" })]
     [InlineData("signing", new[] { "sign", "write" })]
