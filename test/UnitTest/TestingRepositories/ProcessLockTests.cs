@@ -346,6 +346,22 @@ public class ProcessLockTests(ProcessLockFixture fixture)
     }
 
     /// <summary>
+    /// Test that Get returns null when the lock doesn't exist
+    /// </summary>
+    [Fact]
+    public async Task Get_ReturnsNull_WhenLockDoesNotExist()
+    {
+        // Arrange
+        var nonExistentLockId = Guid.NewGuid();
+
+        // Act
+        var result = await _fixture.ProcessLockRepo.Get(nonExistentLockId);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    /// <summary>
     /// Test that updating lock expiration fails when the lock has expired
     /// </summary>
     [Fact]
