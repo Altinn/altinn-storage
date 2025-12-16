@@ -373,7 +373,10 @@ public class ProcessController : ControllerBase
         return taskType switch
         {
             null => [],
-            "data" or "feedback" or "pdf" or "eFormidling" or "fiksArkiv" => ["write"],
+            "data" or "feedback" or "pdf" or "eFormidling" or "fiksArkiv" or "subformPdf" =>
+            [
+                "write",
+            ],
             "payment" => ["pay", "write"],
             "confirmation" => ["confirm"],
             "signing" => ["sign", "write"],
