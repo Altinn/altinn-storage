@@ -16,15 +16,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions: {}
     steps:
-      - name: Write to log
-        run: |
-          echo "${{ inputs.warning-message }}"
-      # - name: Send notification to Slack
-      #   uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
-      #   with:
-      #     webhook-type: incoming-webhook
-      #     webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-      #     payload: |
-      #       {
-      #         "text": ":warning: ${{ inputs.warning-message }} :warning: \n\n Workflow available here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-      #       }
+      - name: Send notification to Slack
+        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
+        with:
+          webhook-type: incoming-webhook
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: |
+            {
+              "text": ":warning: ${{ inputs.warning-message }} :warning: \n\n Workflow available here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
