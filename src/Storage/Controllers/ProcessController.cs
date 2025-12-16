@@ -338,6 +338,33 @@ public class ProcessController : ControllerBase
         return false;
     }
 
+    private async Task<bool> AuthorizeProcessLock(Instance existingInstance)
+    {
+        string[] actionsThatAllowLock =
+        [
+            .. GetActionsThatAllowProcessNextForTaskType(
+                existingInstance.Process?.CurrentTask?.AltinnTaskType
+            ),
+            "reject",
+        ];
+        var taskId = existingInstance.Process?.CurrentTask?.ElementId;
+
+        foreach (string action in actionsThatAllowLock)
+        {
+            bool actionIsAuthorized = await _authorizationService.AuthorizeInstanceAction(
+                existingInstance,
+                action,
+                taskId
+            );
+            if (actionIsAuthorized)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static (string[] Actions, string? TaskId) GetActionsToAuthorize(
         ProcessState processState,
         Instance existingInstance
@@ -391,6 +418,7 @@ public class ProcessController : ControllerBase
     /// <summary>
     /// Attempts to acquire a process lock for an instance.
     /// </summary>
+    /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance to lock.</param>
     /// <param name="request">The lock request containing expiration time.</param>
     /// <param name="cancellationToken">CancellationToken</param>
@@ -400,10 +428,12 @@ public class ProcessController : ControllerBase
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
     public async Task<ActionResult<ProcessLockResponse>> AcquireProcessLock(
+        int instanceOwnerPartyId,
         Guid instanceGuid,
         [FromBody] ProcessLockRequest request,
         CancellationToken cancellationToken
@@ -423,7 +453,7 @@ public class ProcessController : ControllerBase
             cancellationToken
         );
 
-        if (instance is null)
+        if (instance is null || instance.InstanceOwner.PartyId != instanceOwnerPartyId.ToString())
         {
             return Problem(
                 detail: "Instance not found.",
@@ -431,7 +461,17 @@ public class ProcessController : ControllerBase
             );
         }
 
-        string userId =
+        var atLeastOneActionAuthorized = await AuthorizeProcessLock(instance);
+
+        if (!atLeastOneActionAuthorized)
+        {
+            return Problem(
+                detail: "Not authorized to acquire process lock.",
+                statusCode: StatusCodes.Status403Forbidden
+            );
+        }
+
+        var userId =
             User.GetUserOrOrgNo()
             ?? throw new InvalidOperationException("User identity could not be determined.");
 
@@ -457,6 +497,7 @@ public class ProcessController : ControllerBase
     /// Updates TTL on a process lock.
     /// </summary>
     /// <param name="lockId">The ID of the lock to release.</param>
+    /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance to lock.</param>
     /// <param name="request">The lock request (TTL should be 0 for release).</param>
     /// <param name="cancellationToken">CancellationToken</param>
@@ -466,11 +507,13 @@ public class ProcessController : ControllerBase
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     [Produces("application/json")]
     public async Task<ActionResult> UpdateProcessLock(
         Guid lockId,
+        int instanceOwnerPartyId,
         Guid instanceGuid,
         [FromBody] ProcessLockRequest request,
         CancellationToken cancellationToken
@@ -490,11 +533,30 @@ public class ProcessController : ControllerBase
             cancellationToken
         );
 
-        if (instance is null)
+        if (instance is null || instance.InstanceOwner.PartyId != instanceOwnerPartyId.ToString())
         {
             return Problem(
                 detail: "Instance not found.",
                 statusCode: StatusCodes.Status404NotFound
+            );
+        }
+
+        var userId =
+            User.GetUserOrOrgNo()
+            ?? throw new InvalidOperationException("User identity could not be determined.");
+
+        var processLock = await _processLockRepository.Get(lockId, cancellationToken);
+
+        if (processLock is null)
+        {
+            return Problem(detail: "Lock not found.", statusCode: StatusCodes.Status404NotFound);
+        }
+
+        if (userId != processLock.LockedBy)
+        {
+            return Problem(
+                detail: "Not authorized to release the process lock.",
+                statusCode: StatusCodes.Status403Forbidden
             );
         }
 
