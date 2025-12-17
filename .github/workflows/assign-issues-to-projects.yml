@@ -6,11 +6,11 @@ on:
       - opened
 jobs:
   add-to-project:
-    name: Add issue to Team Core project
+    name: Add issue to Team Altinn Studio project
     runs-on: ubuntu-latest
     permissions: {}
     steps:
       - uses: actions/add-to-project@main
         with:
-          project-url: https://github.com/orgs/Altinn/projects/20
+          project-url: https://github.com/orgs/Altinn/projects/164
           github-token: ${{ secrets.ASSIGN_PROJECT_TOKEN }}
