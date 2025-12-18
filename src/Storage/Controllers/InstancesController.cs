@@ -646,7 +646,7 @@ public class InstancesController : ControllerBase
                 updateProperties,
                 cancellationToken
             );
-            
+
             await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, deletedInstance);
 
             return Ok(deletedInstance);
