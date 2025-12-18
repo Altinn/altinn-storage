@@ -8,12 +8,12 @@ using Altinn.Platform.Storage.Models;
 namespace Altinn.Platform.Storage.Repository;
 
 /// <summary>
-/// The repository to handle process locks
+/// The repository to handle instance locks
 /// </summary>
-public interface IProcessLockRepository
+public interface IInstanceLockRepository
 {
     /// <summary>
-    /// Attempts to acquire a process lock for an instance.
+    /// Attempts to acquire a lock for an instance.
     /// </summary>
     /// <param name="instanceInternalId">The instance internal ID</param>
     /// <param name="ttlSeconds">Lock time to live in seconds</param>
@@ -28,7 +28,7 @@ public interface IProcessLockRepository
     );
 
     /// <summary>
-    /// Tries to update the expiration of an existing process lock. Fails if the lock doesn't exist or is no longer active.
+    /// Tries to update the expiration of an existing lock. Fails if the lock doesn't exist or is no longer active.
     /// </summary>
     /// <param name="lockId">The lock ID</param>
     /// <param name="instanceInternalId">The instance internal ID</param>
@@ -48,5 +48,5 @@ public interface IProcessLockRepository
     /// <param name="lockId">The lock ID</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>The lock details if they exist, null otherwise</returns>
-    Task<ProcessLock?> Get(Guid lockId, CancellationToken cancellationToken = default);
+    Task<InstanceLock?> Get(Guid lockId, CancellationToken cancellationToken = default);
 }

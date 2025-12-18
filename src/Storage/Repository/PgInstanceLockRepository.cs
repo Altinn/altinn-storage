@@ -12,9 +12,9 @@ using NpgsqlTypes;
 namespace Altinn.Platform.Storage.Repository;
 
 /// <summary>
-/// Represents an implementation of <see cref="IProcessLockRepository"/>.
+/// Represents an implementation of <see cref="IInstanceLockRepository"/>.
 /// </summary>
-public class PgProcessLockRepository(NpgsqlDataSource dataSource) : IProcessLockRepository
+public class PgInstanceLockRepository(NpgsqlDataSource dataSource) : IInstanceLockRepository
 {
     /// <inheritdoc/>
     public async Task<(AcquireLockResult Result, Guid? LockId)> TryAcquireLock(
@@ -27,7 +27,7 @@ public class PgProcessLockRepository(NpgsqlDataSource dataSource) : IProcessLock
         var id = Guid.CreateVersion7();
 
         await using var npgsqlCommand = dataSource.CreateCommand(
-            "CALL storage.acquireprocesslock(@id, @instanceinternalid, @ttl, @lockedby, @result);"
+            "CALL storage.acquireinstancelock(@id, @instanceinternalid, @ttl, @lockedby, @result);"
         );
         npgsqlCommand.Parameters.AddWithValue("id", NpgsqlDbType.Uuid, id);
         npgsqlCommand.Parameters.AddWithValue(
@@ -69,7 +69,7 @@ public class PgProcessLockRepository(NpgsqlDataSource dataSource) : IProcessLock
     )
     {
         await using var npgsqlCommand = dataSource.CreateCommand(
-            "CALL storage.updateprocesslock(@id, @instanceinternalid, @ttl, @result);"
+            "CALL storage.updateinstancelock(@id, @instanceinternalid, @ttl, @result);"
         );
 
         npgsqlCommand.Parameters.AddWithValue("id", NpgsqlDbType.Uuid, lockId);
@@ -104,7 +104,7 @@ public class PgProcessLockRepository(NpgsqlDataSource dataSource) : IProcessLock
     }
 
     /// <inheritdoc/>
-    public async Task<ProcessLock?> Get(Guid lockId, CancellationToken cancellationToken = default)
+    public async Task<InstanceLock?> Get(Guid lockId, CancellationToken cancellationToken = default)
     {
         await using var npgsqlCommand = dataSource.CreateCommand(
             """
@@ -129,7 +129,7 @@ public class PgProcessLockRepository(NpgsqlDataSource dataSource) : IProcessLock
             return null;
         }
 
-        var processLock = new ProcessLock
+        var instanceLock = new InstanceLock
         {
             Id = reader.GetFieldValue<Guid>("id"),
             InstanceInternalId = reader.GetFieldValue<long>("instanceinternalid"),
@@ -138,6 +138,6 @@ public class PgProcessLockRepository(NpgsqlDataSource dataSource) : IProcessLock
             LockedBy = reader.GetFieldValue<string>("lockedby"),
         };
 
-        return processLock;
+        return instanceLock;
     }
 }

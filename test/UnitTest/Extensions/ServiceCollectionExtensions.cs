@@ -40,7 +40,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IInstanceAndEventsRepository, PgInstanceAndEventsRepository>()
             .AddSingleton<IBlobRepository, BlobRepository>()
             .AddSingleton<IOutboxRepository, PgOutboxRepository>()
-            .AddSingleton<IProcessLockRepository, PgProcessLockRepository>()
+            .AddSingleton<IInstanceLockRepository, PgInstanceLockRepository>()
             .AddNpgsqlDataSource(connectionString, builder => builder.EnableDynamicJson());
     }
 }

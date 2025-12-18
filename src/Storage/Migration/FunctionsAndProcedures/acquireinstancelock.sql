@@ -1,4 +1,4 @@
-CREATE OR REPLACE PROCEDURE storage.acquireprocesslock(
+CREATE OR REPLACE PROCEDURE storage.acquireinstancelock(
     _id UUID,
     _instanceinternalid BIGINT,
     _ttl INTERVAL,

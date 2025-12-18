@@ -3,9 +3,9 @@ using System;
 namespace Altinn.Platform.Storage.Models;
 
 /// <summary>
-/// Represents a process lock on an instance
+/// Represents a lock on an instance
 /// </summary>
-public sealed class ProcessLock
+public sealed class InstanceLock
 {
     /// <summary>
     /// Gets or sets the unique identifier for the lock

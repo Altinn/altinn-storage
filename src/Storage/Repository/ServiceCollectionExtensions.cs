@@ -31,7 +31,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IBlobRepository, BlobRepository>()
             .AddSingleton<IA2Repository, PgA2Repository>()
             .AddSingleton<IOutboxRepository, PgOutboxRepository>()
-            .AddSingleton<IProcessLockRepository, PgProcessLockRepository>()
+            .AddSingleton<IInstanceLockRepository, PgInstanceLockRepository>()
             .AddNpgsqlDataSource(
                 connectionString,
                 builder =>

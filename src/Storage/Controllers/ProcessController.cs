@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
@@ -18,6 +19,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using Wolverine;
 
 namespace Altinn.Platform.Storage.Controllers;
@@ -32,7 +34,6 @@ public class ProcessController : ControllerBase
     private readonly IInstanceRepository _instanceRepository;
     private readonly IInstanceEventRepository _instanceEventRepository;
     private readonly IInstanceAndEventsRepository _instanceAndEventsRepository;
-    private readonly IProcessLockRepository _processLockRepository;
     private readonly string _storageBaseAndHost;
     private readonly IAuthorization _authorizationService;
     private readonly IInstanceEventService _instanceEventService;
@@ -43,7 +44,6 @@ public class ProcessController : ControllerBase
     /// <param name="instanceRepository">the instance repository handler</param>
     /// <param name="instanceEventRepository">the instance event repository service</param>
     /// <param name="instanceAndEventsRepository">the instance and events repository</param>
-    /// <param name="processLockRepository">the process lock repository</param>
     /// <param name="generalsettings">the general settings</param>
     /// <param name="authorizationService">the authorization service</param>
     /// <param name="instanceEventService">the instance event service</param>
@@ -51,7 +51,6 @@ public class ProcessController : ControllerBase
         IInstanceRepository instanceRepository,
         IInstanceEventRepository instanceEventRepository,
         IInstanceAndEventsRepository instanceAndEventsRepository,
-        IProcessLockRepository processLockRepository,
         IOptions<GeneralSettings> generalsettings,
         IAuthorization authorizationService,
         IInstanceEventService instanceEventService
@@ -60,7 +59,6 @@ public class ProcessController : ControllerBase
         _instanceRepository = instanceRepository;
         _instanceEventRepository = instanceEventRepository;
         _instanceAndEventsRepository = instanceAndEventsRepository;
-        _processLockRepository = processLockRepository;
         _storageBaseAndHost = $"{generalsettings.Value.Hostname}/storage/api/v1/";
         _authorizationService = authorizationService;
         _instanceEventService = instanceEventService;
@@ -412,173 +410,6 @@ public class ProcessController : ControllerBase
             "confirmation" => ["confirm"],
             "signing" => ["sign", "write"],
             _ => [taskType],
-        };
-    }
-
-    /// <summary>
-    /// Attempts to acquire a process lock for an instance.
-    /// </summary>
-    /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
-    /// <param name="instanceGuid">The id of the instance to lock.</param>
-    /// <param name="request">The lock request containing expiration time.</param>
-    /// <param name="cancellationToken">CancellationToken</param>
-    /// <returns>The lock response with lock key if successful, or Conflict if lock is already held.</returns>
-    [Authorize]
-    [HttpPost("lock")]
-    [Consumes("application/json")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
-    [Produces("application/json")]
-    public async Task<ActionResult<ProcessLockResponse>> AcquireProcessLock(
-        int instanceOwnerPartyId,
-        Guid instanceGuid,
-        [FromBody] ProcessLockRequest request,
-        CancellationToken cancellationToken
-    )
-    {
-        if (request.TtlSeconds < 0)
-        {
-            return Problem(
-                detail: "TtlSeconds cannot be negative.",
-                statusCode: StatusCodes.Status400BadRequest
-            );
-        }
-
-        (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(
-            instanceGuid,
-            false,
-            cancellationToken
-        );
-
-        if (instance is null || instance.InstanceOwner.PartyId != instanceOwnerPartyId.ToString())
-        {
-            return Problem(
-                detail: "Instance not found.",
-                statusCode: StatusCodes.Status404NotFound
-            );
-        }
-
-        var atLeastOneActionAuthorized = await AuthorizeProcessLock(instance);
-
-        if (!atLeastOneActionAuthorized)
-        {
-            return Problem(
-                detail: "Not authorized to acquire process lock.",
-                statusCode: StatusCodes.Status403Forbidden
-            );
-        }
-
-        var userId =
-            User.GetUserOrOrgNo()
-            ?? throw new InvalidOperationException("User identity could not be determined.");
-
-        var (result, lockId) = await _processLockRepository.TryAcquireLock(
-            instanceInternalId,
-            request.TtlSeconds,
-            userId,
-            cancellationToken
-        );
-
-        return result switch
-        {
-            AcquireLockResult.Success => Ok(new ProcessLockResponse { LockId = lockId!.Value }),
-            AcquireLockResult.LockAlreadyHeld => Problem(
-                detail: "Lock is already held for this instance.",
-                statusCode: StatusCodes.Status409Conflict
-            ),
-            _ => throw new UnreachableException(),
-        };
-    }
-
-    /// <summary>
-    /// Updates TTL on a process lock.
-    /// </summary>
-    /// <param name="lockId">The ID of the lock to release.</param>
-    /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
-    /// <param name="instanceGuid">The id of the instance to lock.</param>
-    /// <param name="request">The lock request (TTL should be 0 for release).</param>
-    /// <param name="cancellationToken">CancellationToken</param>
-    /// <returns>NoContent if successful.</returns>
-    [Authorize]
-    [HttpPatch("lock/{lockId}")]
-    [Consumes("application/json")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
-    [Produces("application/json")]
-    public async Task<ActionResult> UpdateProcessLock(
-        Guid lockId,
-        int instanceOwnerPartyId,
-        Guid instanceGuid,
-        [FromBody] ProcessLockRequest request,
-        CancellationToken cancellationToken
-    )
-    {
-        if (request.TtlSeconds < 0)
-        {
-            return Problem(
-                detail: "TtlSeconds cannot be negative.",
-                statusCode: StatusCodes.Status400BadRequest
-            );
-        }
-
-        (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(
-            instanceGuid,
-            false,
-            cancellationToken
-        );
-
-        if (instance is null || instance.InstanceOwner.PartyId != instanceOwnerPartyId.ToString())
-        {
-            return Problem(
-                detail: "Instance not found.",
-                statusCode: StatusCodes.Status404NotFound
-            );
-        }
-
-        var userId =
-            User.GetUserOrOrgNo()
-            ?? throw new InvalidOperationException("User identity could not be determined.");
-
-        var processLock = await _processLockRepository.Get(lockId, cancellationToken);
-
-        if (processLock is null)
-        {
-            return Problem(detail: "Lock not found.", statusCode: StatusCodes.Status404NotFound);
-        }
-
-        if (userId != processLock.LockedBy)
-        {
-            return Problem(
-                detail: "Not authorized to release the process lock.",
-                statusCode: StatusCodes.Status403Forbidden
-            );
-        }
-
-        var result = await _processLockRepository.TryUpdateLockExpiration(
-            lockId,
-            instanceInternalId,
-            request.TtlSeconds,
-            cancellationToken
-        );
-
-        return result switch
-        {
-            UpdateLockResult.Success => NoContent(),
-            UpdateLockResult.LockNotFound => Problem(
-                detail: "Lock not found.",
-                statusCode: StatusCodes.Status404NotFound
-            ),
-            UpdateLockResult.LockExpired => Problem(
-                detail: "Lock has expired.",
-                statusCode: StatusCodes.Status422UnprocessableEntity
-            ),
-            _ => throw new UnreachableException(),
         };
     }
 }

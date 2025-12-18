@@ -11,11 +11,11 @@ using Xunit;
 namespace Altinn.Platform.Storage.UnitTest.TestingRepositories;
 
 [Collection("StoragePostgreSQL")]
-public class ProcessLockTests(ProcessLockFixture fixture)
-    : IClassFixture<ProcessLockFixture>,
+public class InstanceLockTests(InstanceLockFixture fixture)
+    : IClassFixture<InstanceLockFixture>,
         IAsyncLifetime
 {
-    private readonly ProcessLockFixture _fixture = fixture;
+    private readonly InstanceLockFixture _fixture = fixture;
 
     public async Task InitializeAsync()
     {
@@ -56,13 +56,13 @@ public class ProcessLockTests(ProcessLockFixture fixture)
         await PostgresUtil.FreezeTime(startTime);
 
         // Act
-        var (firstResult, firstLockId) = await _fixture.ProcessLockRepo.TryAcquireLock(
+        var (firstResult, firstLockId) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
             userId
         );
 
-        var (secondResult, secondLockId) = await _fixture.ProcessLockRepo.TryAcquireLock(
+        var (secondResult, secondLockId) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
             userId
@@ -70,7 +70,7 @@ public class ProcessLockTests(ProcessLockFixture fixture)
 
         await PostgresUtil.FreezeTime(startTime.AddSeconds(30));
 
-        var (thirdResult, thirdLockId) = await _fixture.ProcessLockRepo.TryAcquireLock(
+        var (thirdResult, thirdLockId) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
             userId
@@ -78,14 +78,14 @@ public class ProcessLockTests(ProcessLockFixture fixture)
 
         await PostgresUtil.FreezeTime(startTime.AddSeconds(ttlSeconds));
 
-        var (fourthResult, fourthLockId) = await _fixture.ProcessLockRepo.TryAcquireLock(
+        var (fourthResult, fourthLockId) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
             userId
         );
 
-        var firstLock = await _fixture.ProcessLockRepo.Get(firstLockId!.Value);
-        var fourthLock = await _fixture.ProcessLockRepo.Get(fourthLockId!.Value);
+        var firstLock = await _fixture.InstanceLockRepo.Get(firstLockId!.Value);
+        var fourthLock = await _fixture.InstanceLockRepo.Get(fourthLockId!.Value);
 
         // Assert
         Assert.Equal(AcquireLockResult.Success, firstResult);
@@ -144,19 +144,19 @@ public class ProcessLockTests(ProcessLockFixture fixture)
         await PostgresUtil.FreezeTime(startTime);
 
         // Act
-        var (firstResult, firstLockId) = await _fixture.ProcessLockRepo.TryAcquireLock(
+        var (firstResult, firstLockId) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
             userId
         );
 
-        var firstLockReleased = await _fixture.ProcessLockRepo.TryUpdateLockExpiration(
+        var firstLockReleased = await _fixture.InstanceLockRepo.TryUpdateLockExpiration(
             firstLockId!.Value,
             instanceInternalId,
             0
         );
 
-        var (secondResult, secondLockId) = await _fixture.ProcessLockRepo.TryAcquireLock(
+        var (secondResult, secondLockId) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
             userId
@@ -164,21 +164,21 @@ public class ProcessLockTests(ProcessLockFixture fixture)
 
         await PostgresUtil.FreezeTime(startTime.AddSeconds(2));
 
-        var secondLockReleased = await _fixture.ProcessLockRepo.TryUpdateLockExpiration(
+        var secondLockReleased = await _fixture.InstanceLockRepo.TryUpdateLockExpiration(
             secondLockId!.Value,
             instanceInternalId,
             0
         );
 
-        var (thirdResult, thirdLockId) = await _fixture.ProcessLockRepo.TryAcquireLock(
+        var (thirdResult, thirdLockId) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
             userId
         );
 
-        var firstLock = await _fixture.ProcessLockRepo.Get(firstLockId.Value);
-        var secondLock = await _fixture.ProcessLockRepo.Get(secondLockId.Value);
-        var thirdLock = await _fixture.ProcessLockRepo.Get(thirdLockId!.Value);
+        var firstLock = await _fixture.InstanceLockRepo.Get(firstLockId.Value);
+        var secondLock = await _fixture.InstanceLockRepo.Get(secondLockId.Value);
+        var thirdLock = await _fixture.InstanceLockRepo.Get(thirdLockId!.Value);
 
         // Assert
         Assert.Equal(AcquireLockResult.Success, firstResult);
@@ -248,7 +248,7 @@ public class ProcessLockTests(ProcessLockFixture fixture)
         await PostgresUtil.FreezeTime(startTime);
 
         // Act
-        var (firstResult, firstLockId) = await _fixture.ProcessLockRepo.TryAcquireLock(
+        var (firstResult, firstLockId) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
             userId
@@ -256,7 +256,7 @@ public class ProcessLockTests(ProcessLockFixture fixture)
 
         await PostgresUtil.FreezeTime(startTime.AddSeconds(ttlSeconds - 1));
 
-        var firstLockUpdated = await _fixture.ProcessLockRepo.TryUpdateLockExpiration(
+        var firstLockUpdated = await _fixture.InstanceLockRepo.TryUpdateLockExpiration(
             firstLockId!.Value,
             instanceInternalId,
             ttlSeconds
@@ -264,7 +264,7 @@ public class ProcessLockTests(ProcessLockFixture fixture)
 
         await PostgresUtil.FreezeTime(startTime.AddSeconds(ttlSeconds + 1));
 
-        var (secondResult, secondLockId) = await _fixture.ProcessLockRepo.TryAcquireLock(
+        var (secondResult, secondLockId) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
             userId
@@ -272,14 +272,14 @@ public class ProcessLockTests(ProcessLockFixture fixture)
 
         await PostgresUtil.FreezeTime(startTime.AddSeconds(2 * ttlSeconds - 1));
 
-        var (thirdResult, thirdLockId) = await _fixture.ProcessLockRepo.TryAcquireLock(
+        var (thirdResult, thirdLockId) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
             userId
         );
 
-        var firstLock = await _fixture.ProcessLockRepo.Get(firstLockId.Value);
-        var thirdLock = await _fixture.ProcessLockRepo.Get(thirdLockId!.Value);
+        var firstLock = await _fixture.InstanceLockRepo.Get(firstLockId.Value);
+        var thirdLock = await _fixture.InstanceLockRepo.Get(thirdLockId!.Value);
 
         // Assert
         Assert.Equal(AcquireLockResult.Success, firstResult);
@@ -335,7 +335,7 @@ public class ProcessLockTests(ProcessLockFixture fixture)
         var ttlSeconds = 300;
 
         // Act
-        var result = await _fixture.ProcessLockRepo.TryUpdateLockExpiration(
+        var result = await _fixture.InstanceLockRepo.TryUpdateLockExpiration(
             nonExistentLockId,
             instanceInternalId,
             ttlSeconds
@@ -355,7 +355,7 @@ public class ProcessLockTests(ProcessLockFixture fixture)
         var nonExistentLockId = Guid.NewGuid();
 
         // Act
-        var result = await _fixture.ProcessLockRepo.Get(nonExistentLockId);
+        var result = await _fixture.InstanceLockRepo.Get(nonExistentLockId);
 
         // Assert
         Assert.Null(result);
@@ -384,7 +384,7 @@ public class ProcessLockTests(ProcessLockFixture fixture)
         await PostgresUtil.FreezeTime(startTime);
 
         // Act
-        var (acquireResult, lockId) = await _fixture.ProcessLockRepo.TryAcquireLock(
+        var (acquireResult, lockId) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
             userId
@@ -392,13 +392,13 @@ public class ProcessLockTests(ProcessLockFixture fixture)
 
         await PostgresUtil.FreezeTime(startTime.AddSeconds(ttlSeconds));
 
-        var lockUpdated = await _fixture.ProcessLockRepo.TryUpdateLockExpiration(
+        var lockUpdated = await _fixture.InstanceLockRepo.TryUpdateLockExpiration(
             lockId!.Value,
             instanceInternalId,
             ttlSeconds
         );
 
-        var lockData = await _fixture.ProcessLockRepo.Get(lockId.Value);
+        var lockData = await _fixture.InstanceLockRepo.Get(lockId.Value);
 
         // Assert
         Assert.Equal(AcquireLockResult.Success, acquireResult);
@@ -422,20 +422,20 @@ public class ProcessLockTests(ProcessLockFixture fixture)
     }
 }
 
-public class ProcessLockFixture
+public class InstanceLockFixture
 {
-    public IProcessLockRepository ProcessLockRepo { get; set; }
+    public IInstanceLockRepository InstanceLockRepo { get; set; }
 
     public IInstanceRepository InstanceRepo { get; set; }
 
-    public ProcessLockFixture()
+    public InstanceLockFixture()
     {
         var serviceList = ServiceUtil.GetServices([
-            typeof(IProcessLockRepository),
+            typeof(IInstanceLockRepository),
             typeof(IInstanceRepository),
         ]);
-        ProcessLockRepo = (IProcessLockRepository)
-            serviceList.First(i => i.GetType() == typeof(PgProcessLockRepository));
+        InstanceLockRepo = (IInstanceLockRepository)
+            serviceList.First(i => i.GetType() == typeof(PgInstanceLockRepository));
         InstanceRepo = (IInstanceRepository)
             serviceList.First(i => i.GetType() == typeof(PgInstanceRepository));
     }

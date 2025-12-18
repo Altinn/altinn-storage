@@ -3,7 +3,7 @@
 namespace Altinn.Platform.Storage.Repository;
 
 /// <summary>
-/// Result of attempting to acquire a process lock.
+/// Result of attempting to acquire an instance lock.
 /// </summary>
 public enum AcquireLockResult
 {
@@ -19,7 +19,7 @@ public enum AcquireLockResult
 }
 
 /// <summary>
-/// Result of attempting to update a process lock expiration.
+/// Result of attempting to update an instance lock expiration.
 /// </summary>
 public enum UpdateLockResult
 {
