@@ -646,15 +646,8 @@ public class InstancesController : ControllerBase
                 updateProperties,
                 cancellationToken
             );
-
-            if (deletedInstance.Status.IsSoftDeleted && !hard)
-            {
-                await _instanceEventService.DispatchEvent(InstanceEventType.None, deletedInstance);
-            }
-            else
-            {
-                await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, deletedInstance);
-            }
+            
+            await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, deletedInstance);
 
             return Ok(deletedInstance);
         }
