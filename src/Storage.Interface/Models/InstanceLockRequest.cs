@@ -4,9 +4,9 @@ using Newtonsoft.Json;
 namespace Altinn.Platform.Storage.Interface.Models;
 
 /// <summary>
-/// Represents a request to acquire or update a process lock.
+/// Represents a request to acquire or update an instance lock.
 /// </summary>
-public class ProcessLockRequest
+public class InstanceLockRequest
 {
     /// <summary>
     /// Gets or sets the time to live in seconds.
