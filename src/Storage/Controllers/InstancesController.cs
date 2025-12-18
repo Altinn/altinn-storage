@@ -647,6 +647,8 @@ public class InstancesController : ControllerBase
                 cancellationToken
             );
 
+            await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, deletedInstance);
+
             return Ok(deletedInstance);
         }
         catch (Exception e)
