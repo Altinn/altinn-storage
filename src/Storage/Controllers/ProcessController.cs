@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
@@ -18,6 +19,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using Wolverine;
 
 namespace Altinn.Platform.Storage.Controllers;
@@ -319,6 +321,33 @@ public class ProcessController : ControllerBase
         );
 
         foreach (string action in actionsThatAllowProcessNext)
+        {
+            bool actionIsAuthorized = await _authorizationService.AuthorizeInstanceAction(
+                existingInstance,
+                action,
+                taskId
+            );
+            if (actionIsAuthorized)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private async Task<bool> AuthorizeProcessLock(Instance existingInstance)
+    {
+        string[] actionsThatAllowLock =
+        [
+            .. GetActionsThatAllowProcessNextForTaskType(
+                existingInstance.Process?.CurrentTask?.AltinnTaskType
+            ),
+            "reject",
+        ];
+        var taskId = existingInstance.Process?.CurrentTask?.ElementId;
+
+        foreach (string action in actionsThatAllowLock)
         {
             bool actionIsAuthorized = await _authorizationService.AuthorizeInstanceAction(
                 existingInstance,
