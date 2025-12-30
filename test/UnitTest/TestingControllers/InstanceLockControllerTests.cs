@@ -76,8 +76,8 @@ public class InstanceLockControllerTest
         var expectedLockId = Guid.NewGuid();
         var expectedLockToken = Convert.ToBase64String(expectedLockId.ToByteArray());
 
-        Mock<IInstanceLockRepository> processLockRepoMock = new();
-        processLockRepoMock
+        Mock<IInstanceLockRepository> instanceLockRepoMock = new();
+        instanceLockRepoMock
             .Setup(r =>
                 r.TryAcquireLock(
                     It.IsAny<long>(),
@@ -88,18 +88,18 @@ public class InstanceLockControllerTest
             )
             .ReturnsAsync((AcquireLockResult.Success, expectedLockId));
 
-        var client = GetTestClient(processLockRepository: processLockRepoMock.Object);
+        var client = GetTestClient(instanceLockRepository: instanceLockRepoMock.Object);
         var token = PrincipalUtil.GetToken(3, 1337, 2);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
         using var response = await client.PostAsJsonAsync(requestUri, lockRequest);
-        var processLockResponse = await response.Content.ReadFromJsonAsync<InstanceLockResponse>();
+        var instanceLockResponse = await response.Content.ReadFromJsonAsync<InstanceLockResponse>();
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.NotNull(processLockResponse);
-        Assert.Equal(expectedLockToken, processLockResponse.LockToken);
+        Assert.NotNull(instanceLockResponse);
+        Assert.Equal(expectedLockToken, instanceLockResponse.LockToken);
     }
 
     /// <summary>
@@ -139,8 +139,8 @@ public class InstanceLockControllerTest
 
         var lockRequest = new InstanceLockRequest { TtlSeconds = 300 };
 
-        Mock<IInstanceLockRepository> processLockRepoMock = new();
-        processLockRepoMock
+        Mock<IInstanceLockRepository> instanceLockRepoMock = new();
+        instanceLockRepoMock
             .Setup(r =>
                 r.TryAcquireLock(
                     It.IsAny<long>(),
@@ -151,7 +151,7 @@ public class InstanceLockControllerTest
             )
             .ReturnsAsync((AcquireLockResult.LockAlreadyHeld, (Guid?)null));
 
-        var client = GetTestClient(processLockRepository: processLockRepoMock.Object);
+        var client = GetTestClient(instanceLockRepository: instanceLockRepoMock.Object);
         var token = PrincipalUtil.GetToken(3, 1337, 2);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -201,8 +201,8 @@ public class InstanceLockControllerTest
 
         var lockRequest = new InstanceLockRequest { TtlSeconds = 300 };
 
-        Mock<IInstanceLockRepository> processLockRepoMock = new();
-        processLockRepoMock
+        Mock<IInstanceLockRepository> instanceLockRepoMock = new();
+        instanceLockRepoMock
             .Setup(r =>
                 r.TryUpdateLockExpiration(
                     lockId,
@@ -213,7 +213,7 @@ public class InstanceLockControllerTest
             )
             .ReturnsAsync(UpdateLockResult.Success);
 
-        var client = GetTestClient(processLockRepository: processLockRepoMock.Object);
+        var client = GetTestClient(instanceLockRepository: instanceLockRepoMock.Object);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             lockToken
@@ -241,8 +241,8 @@ public class InstanceLockControllerTest
 
         var lockRequest = new InstanceLockRequest { TtlSeconds = 300 };
 
-        Mock<IInstanceLockRepository> processLockRepoMock = new();
-        processLockRepoMock
+        Mock<IInstanceLockRepository> instanceLockRepoMock = new();
+        instanceLockRepoMock
             .Setup(r =>
                 r.TryUpdateLockExpiration(
                     lockId,
@@ -253,7 +253,7 @@ public class InstanceLockControllerTest
             )
             .ReturnsAsync(UpdateLockResult.LockNotFound);
 
-        var client = GetTestClient(processLockRepository: processLockRepoMock.Object);
+        var client = GetTestClient(instanceLockRepository: instanceLockRepoMock.Object);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             lockToken
@@ -281,8 +281,8 @@ public class InstanceLockControllerTest
 
         var lockRequest = new InstanceLockRequest { TtlSeconds = 300 };
 
-        Mock<IInstanceLockRepository> processLockRepoMock = new();
-        processLockRepoMock
+        Mock<IInstanceLockRepository> instanceLockRepoMock = new();
+        instanceLockRepoMock
             .Setup(r =>
                 r.TryUpdateLockExpiration(
                     lockId,
@@ -293,7 +293,7 @@ public class InstanceLockControllerTest
             )
             .ReturnsAsync(UpdateLockResult.LockExpired);
 
-        var client = GetTestClient(processLockRepository: processLockRepoMock.Object);
+        var client = GetTestClient(instanceLockRepository: instanceLockRepoMock.Object);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             lockToken
@@ -363,7 +363,7 @@ public class InstanceLockControllerTest
     }
 
     /// <summary>
-    /// Test case: User is not authorized to acquire process lock
+    /// Test case: User is not authorized to acquire instance lock
     /// Expected: Returns 403 Forbidden with problem details
     /// </summary>
     [Fact]
@@ -489,7 +489,7 @@ public class InstanceLockControllerTest
     private HttpClient GetTestClient(
         IInstanceRepository instanceRepository = null,
         IInstanceAndEventsRepository instanceAndEventsRepository = null,
-        IInstanceLockRepository processLockRepository = null,
+        IInstanceLockRepository instanceLockRepository = null,
         bool enableWolverine = false
     )
     {
@@ -552,9 +552,9 @@ public class InstanceLockControllerTest
                         >();
                     }
 
-                    if (processLockRepository != null)
+                    if (instanceLockRepository != null)
                     {
-                        services.AddSingleton(processLockRepository);
+                        services.AddSingleton(instanceLockRepository);
                     }
                 });
             })

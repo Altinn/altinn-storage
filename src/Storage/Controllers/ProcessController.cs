@@ -336,33 +336,6 @@ public class ProcessController : ControllerBase
         return false;
     }
 
-    private async Task<bool> AuthorizeProcessLock(Instance existingInstance)
-    {
-        string[] actionsThatAllowLock =
-        [
-            .. GetActionsThatAllowProcessNextForTaskType(
-                existingInstance.Process?.CurrentTask?.AltinnTaskType
-            ),
-            "reject",
-        ];
-        var taskId = existingInstance.Process?.CurrentTask?.ElementId;
-
-        foreach (string action in actionsThatAllowLock)
-        {
-            bool actionIsAuthorized = await _authorizationService.AuthorizeInstanceAction(
-                existingInstance,
-                action,
-                taskId
-            );
-            if (actionIsAuthorized)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     private static (string[] Actions, string? TaskId) GetActionsToAuthorize(
         ProcessState processState,
         Instance existingInstance
