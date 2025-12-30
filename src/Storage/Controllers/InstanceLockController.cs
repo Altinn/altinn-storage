@@ -15,7 +15,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Altinn.Platform.Storage.Controllers;
 
 /// <summary>
-/// Handles operations for the application instance process resource
+/// Handles operations for the application instance locks
 /// </summary>
 [Route("storage/api/v1/instances/{instanceOwnerPartyId:int}/{instanceGuid:guid}/lock")]
 [ApiController]
