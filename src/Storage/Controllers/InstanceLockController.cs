@@ -55,6 +55,7 @@ public class InstanceLockController : ControllerBase
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -71,6 +72,16 @@ public class InstanceLockController : ControllerBase
             return Problem(
                 detail: "TtlSeconds cannot be negative.",
                 statusCode: StatusCodes.Status400BadRequest
+            );
+        }
+
+        var userOrOrgNo = User.GetUserOrOrgNo();
+
+        if (userOrOrgNo is null)
+        {
+            return Problem(
+                detail: "User identity could not be determined.",
+                statusCode: StatusCodes.Status401Unauthorized
             );
         }
 
@@ -97,10 +108,6 @@ public class InstanceLockController : ControllerBase
                 statusCode: StatusCodes.Status403Forbidden
             );
         }
-
-        var userOrOrgNo =
-            User.GetUserOrOrgNo()
-            ?? throw new InvalidOperationException("User identity could not be determined.");
 
         var (result, lockId) = await _instanceLockRepository.TryAcquireLock(
             instanceInternalId,
