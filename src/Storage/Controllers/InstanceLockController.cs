@@ -26,7 +26,7 @@ public class InstanceLockController : ControllerBase
     private readonly IAuthorization _authorizationService;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="ProcessController"/> class
+    /// Initializes a new instance of the <see cref="InstanceLockController"/> class
     /// </summary>
     /// <param name="instanceRepository">the instance repository handler</param>
     /// <param name="instanceLockRepository">the instance lock repository</param>
