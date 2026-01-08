@@ -3,77 +3,106 @@ name: Use Case - AT
 on:
   workflow_dispatch:
   schedule:
-  - cron: '*/15 * * * *'  
+    - cron: '*/15 * * * *'
 jobs:
-  test:
+  usecase-test:
     strategy:
       fail-fast: false
       matrix:
         environment: [AT22, AT23, AT24]
+    outputs:
+      failed-AT22: ${{ steps.set-failure.outputs.AT22 }}
+      failed-AT23: ${{ steps.set-failure.outputs.AT23 }}
+      failed-AT24: ${{ steps.set-failure.outputs.AT24 }}
     environment: ${{ matrix.environment }}
-    runs-on: ubuntu-latest    
+    runs-on: ubuntu-latest
     permissions:
       contents: read
+    env: # Shared environment variables in k6 scripts
+      altinn_env: ${{ matrix.environment }}
+      apimSubsKey: ${{ secrets.APIM_SUBSKEY }}
+      app: ${{ vars.APP }}
+      org: ${{ vars.ORG }}
+      partyId: ${{ secrets.PARTY_ID }}
+      pid: ${{ secrets.PERSON_NUMBER }}
+      tokenGeneratorUserName: ${{ secrets.TOKENGENERATOR_USERNAME }}
+      tokenGeneratorUserPwd: ${{ secrets.TOKENGENERATOR_USERPASSWORD }}
+      userId: ${{ secrets.USER_ID }}
+      useTestTokenGenerator: true
     steps:
-    - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-    - name: Run use case tests for endpoint 'applications'
-      uses: grafana/k6-action@e4714b734f2b0afaabeb7b4a69142745548ab9ec # v0.3.1
-      with:
-        filename: test/k6/src/tests/applications.js
-        flags: -e env=${{ vars.ENV }} -e org=${{ vars.ORG }} -e app=${{ vars.APP }}
-    - name: Run use case tests for endpoint 'instances'
-      if: always()
-      uses: grafana/k6-action@e4714b734f2b0afaabeb7b4a69142745548ab9ec # v0.3.1
-      with:
-        filename: test/k6/src/tests/instances.js
-        flags: -e tokenGeneratorUserName=${{ secrets.TOKENGENERATOR_USERNAME }} -e tokenGeneratorUserPwd=${{ secrets.TOKENGENERATOR_USERPASSWORD }} -e env=${{ vars.ENV }} -e pid=${{ secrets.PERSON_NUMBER }} -e partyId=${{ secrets.PARTY_ID }} -e userId=${{ secrets.USER_ID }} -e org=${{ vars.ORG }} -e app=${{ vars.APP }} -e apimSubsKey=${{ secrets.APIM_SUBSKEY }} -e useTestTokenGenerator=true
-    - name: Run use case tests for endpoint 'instances/sbl'
-      if: always()
-      uses: grafana/k6-action@e4714b734f2b0afaabeb7b4a69142745548ab9ec # v0.3.1
-      with:
-        filename: test/k6/src/tests/messageboxinstances.js
-        flags: -e tokenGeneratorUserName=${{ secrets.TOKENGENERATOR_USERNAME }} -e tokenGeneratorUserPwd=${{ secrets.TOKENGENERATOR_USERPASSWORD }} -e env=${{ vars.ENV }} -e pid=${{ secrets.PERSON_NUMBER }} -e partyId=${{ secrets.PARTY_ID }} -e userId=${{ secrets.USER_ID }} -e org=${{ vars.ORG }} -e app=${{ vars.APP }} -e apimSubsKey=${{ secrets.APIM_SUBSKEY }} -e apimSblSubsKey=${{ secrets.APIM_SBL_SUBSKEY }} -e useTestTokenGenerator=true
-    - name: Run use case tests for endpoint 'data'
-      if: always()
-      uses: grafana/k6-action@e4714b734f2b0afaabeb7b4a69142745548ab9ec # v0.3.1
-      with:
-        filename: test/k6/src/tests/data.js
-        flags: -e tokenGeneratorUserName=${{ secrets.TOKENGENERATOR_USERNAME }} -e tokenGeneratorUserPwd=${{ secrets.TOKENGENERATOR_USERPASSWORD }} -e env=${{ vars.ENV }} -e pid=${{ secrets.PERSON_NUMBER }} -e partyId=${{ secrets.PARTY_ID }} -e userId=${{ secrets.USER_ID }} -e org=${{ vars.ORG }} -e app=${{ vars.APP }} -e apimSubsKey=${{ secrets.APIM_SUBSKEY }} -e useTestTokenGenerator=true
-    - name: Run use case tests for endpoint 'process'
-      if: always()
-      uses: grafana/k6-action@e4714b734f2b0afaabeb7b4a69142745548ab9ec # v0.3.1
-      with:
-        filename: test/k6/src/tests/process.js
-        flags: -e tokenGeneratorUserName=${{ secrets.TOKENGENERATOR_USERNAME }} -e tokenGeneratorUserPwd=${{ secrets.TOKENGENERATOR_USERPASSWORD }} -e env=${{ vars.ENV }} -e pid=${{ secrets.PERSON_NUMBER }} -e partyId=${{ secrets.PARTY_ID }} -e userId=${{ secrets.USER_ID }} -e org=${{ vars.ORG }} -e app=${{ vars.APP }} -e apimSubsKey=${{ secrets.APIM_SUBSKEY }} -e useTestTokenGenerator=true
-    - name: Run use case tests for endpoint 'sign'
-      if: always()
-      uses: grafana/k6-action@e4714b734f2b0afaabeb7b4a69142745548ab9ec # v0.3.1
-      with:
-        filename: test/k6/src/tests/sign.js
-        flags: -e tokenGeneratorUserName=${{ secrets.TOKENGENERATOR_USERNAME }} -e tokenGeneratorUserPwd=${{ secrets.TOKENGENERATOR_USERPASSWORD }} -e env=${{ vars.ENV }} -e pid=${{ secrets.PERSON_NUMBER }} -e partyId=${{ secrets.PARTY_ID }} -e userId=${{ secrets.USER_ID }}  -e org=${{ vars.ORG }} -e app=${{ vars.APP }} -e apimSubsKey=${{ secrets.APIM_SUBSKEY }} -e useTestTokenGenerator=true
-    - name: Run use case tests for endpoint 'texts'
-      if: always()
-      uses: grafana/k6-action@e4714b734f2b0afaabeb7b4a69142745548ab9ec # v0.3.1
-      with:
-        filename: test/k6/src/tests/texts.js
-        flags: -e tokenGeneratorUserName=${{ secrets.TOKENGENERATOR_USERNAME }} -e tokenGeneratorUserPwd=${{ secrets.TOKENGENERATOR_USERPASSWORD }} -e env=${{ vars.ENV }} -e pid=${{ secrets.PERSON_NUMBER }} -e partyId=${{ secrets.PARTY_ID }} -e userId=${{ secrets.USER_ID }} -e org=${{ vars.ORG }} -e app=${{ vars.APP }} -e apimSubsKey=${{ secrets.APIM_SUBSKEY }} -e useTestTokenGenerator=true
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: grafana/setup-k6-action@ffe7d7290dfa715e48c2ccc924d068444c94bde2 # v1.1.0
+      - name: Run use case tests for endpoint 'applications'
+        uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
+        with:
+          path: test/k6/src/tests/applications.js
+          inspect-flags: -e altinn_env=${{matrix.environment}} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
+      - name: Run use case tests for endpoint 'instances'
+        if: always()
+        uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
+        with:
+          path: test/k6/src/tests/instances.js
+          inspect-flags: -e altinn_env=${{matrix.environment}} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
+      - name: Run use case tests for endpoint 'instances/sbl'
+        if: always()
+        uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
+        with:
+          path: test/k6/src/tests/messageboxinstances.js
+          flags: -e apimSblSubsKey=${{ secrets.APIM_SBL_SUBSKEY }}
+          inspect-flags: -e altinn_env=${{matrix.environment}} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
+      - name: Run use case tests for endpoint 'data'
+        if: always()
+        uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
+        with:
+          path: test/k6/src/tests/data.js
+          inspect-flags: -e altinn_env=${{matrix.environment}} -e app=${{ vars.APP }} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
+      - name: Run use case tests for endpoint 'process'
+        if: always()
+        uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
+        with:
+          path: test/k6/src/tests/process.js
+          inspect-flags: -e altinn_env=${{matrix.environment}} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
+      - name: Run use case tests for endpoint 'sign'
+        if: always()
+        uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
+        with:
+          path: test/k6/src/tests/sign.js
+          inspect-flags: -e altinn_env=${{matrix.environment}} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
+      - name: Run use case tests for endpoint 'texts'
+        if: always()
+        uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
+        with:
+          path: test/k6/src/tests/texts.js
+          inspect-flags: -e altinn_env=${{matrix.environment}} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
 
-    - name: Build failure report
-      if: failure()
-      run: |
-
-          report=":warning: Storage use case test failure in ${{ matrix.environment }} :warning: \n"
-          report+="\n Workflow available here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          echo "stepreport="$report >> $GITHUB_ENV
-    - name: Report failure to Slack
-      if: failure()
-      id: slack
-      uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
-      with:
-        webhook-type: incoming-webhook
-        webhook: ${{ secrets.SLACK_WEBHOOK_URL_TEST }}
-        payload: |
+      - name: Set failure output
+        id: set-failure
+        if: failure()
+        run: |
+          echo "${{ matrix.environment }}=true" >> "$GITHUB_OUTPUT"
+  slack-notify:
+    if: failure()
+    needs: usecase-test
+    permissions: {}
+    strategy:
+      matrix:
+        environment: [AT22, AT23, AT24]
+        include:
+          - environment: AT22
+            output: failed-AT22
+          - environment: AT23
+            output: failed-AT23
+          - environment: AT24
+            output: failed-AT24
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send notification
+        if: needs.usecase-test.outputs[matrix.output] == 'true'
+        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
+        with:
+          webhook-type: incoming-webhook
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL_TEST }}
+          payload: |
             {
-              "text": "${{ env.stepreport }}"
+              "text": ":warning: Storage use case test failure in ${{ matrix.environment }} :warning: \n\n Workflow available here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             }
-

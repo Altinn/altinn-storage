@@ -23,7 +23,7 @@ import * as setUpData from '../../../setup.js';
 import { addErrorCount } from '../../../errorcounter.js';
 import { k6scenarios } from '../../../scenarios.js';
 
-const environment = __ENV.env.toLowerCase();
+const environment = __ENV.altinn_env.toLowerCase();
 const fileName = 'users_' + environment + '.json';
 const users = JSON.parse(open('../../../data/' + fileName));
 const usersCount = users.length;
