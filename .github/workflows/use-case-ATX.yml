@@ -96,16 +96,13 @@ jobs:
             output: failed-AT24
     runs-on: ubuntu-latest
     steps:
-      - name: Dummy Slack notification
-        run: |
-          echo '${{ needs.usecase-test.outputs[matrix.output] }}'
-      # - name: Send notification
-      #   if: needs.usecase-test.outputs[matrix.output] == 'true'
-      #   uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
-      #   with:
-      #     webhook-type: incoming-webhook
-      #     webhook: ${{ secrets.SLACK_WEBHOOK_URL_TEST }}
-      #     payload: |
-      #       {
-      #         "text": ":warning: Storage use case test failure in ${{ matrix.environment }} :warning: \n\n Workflow available here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-      #       }
+      - name: Send notification
+        if: needs.usecase-test.outputs[matrix.output] == 'true'
+        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
+        with:
+          webhook-type: incoming-webhook
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL_TEST }}
+          payload: |
+            {
+              "text": ":warning: Storage use case test failure in ${{ matrix.environment }} :warning: \n\n Workflow available here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
