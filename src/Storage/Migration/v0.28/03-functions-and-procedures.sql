@@ -2,11 +2,12 @@
 
 -- acquireinstancelock.sql:
 CREATE OR REPLACE PROCEDURE storage.acquireinstancelock(
-    _id UUID,
     _instanceinternalid BIGINT,
     _ttl INTERVAL,
     _lockedby TEXT,
-    INOUT _result TEXT DEFAULT NULL
+    _secrethash BYTEA,
+    INOUT _result TEXT DEFAULT NULL,
+    INOUT _id BIGINT DEFAULT NULL
 )
 LANGUAGE plpgsql
 AS $BODY$
@@ -29,8 +30,9 @@ BEGIN
         RETURN;
     END IF;
 
-    INSERT INTO storage.instancelocks (id, instanceinternalid, lockedat, lockeduntil, lockedby)
-    SELECT _id, _instanceinternalid, _now, _now + _ttl, _lockedby;
+    INSERT INTO storage.instancelocks (instanceinternalid, lockedat, lockeduntil, lockedby, secrethash)
+    VALUES (_instanceinternalid, _now, _now + _ttl, _lockedby, _secrethash)
+    RETURNING id INTO _id;
 
     _result := 'ok';
 END;
@@ -804,26 +806,33 @@ $BODY$;
 
 -- updateinstancelock.sql:
 CREATE OR REPLACE PROCEDURE storage.updateinstancelock(
-    _id UUID,
+    _id BIGINT,
     _instanceinternalid BIGINT,
     _ttl INTERVAL,
+    _secrethash BYTEA,
     INOUT _result TEXT DEFAULT NULL
 )
 LANGUAGE plpgsql
 AS $BODY$
 DECLARE
     _locked_until TIMESTAMPTZ;
+    _stored_hash BYTEA;
     _now TIMESTAMPTZ;
 BEGIN
     PERFORM pg_advisory_xact_lock(_instanceinternalid);
 
-    SELECT lockeduntil FROM storage.instancelocks
+    SELECT lockeduntil, secrethash FROM storage.instancelocks
     WHERE id = _id
     AND instanceinternalid = _instanceinternalid
-    INTO _locked_until;
+    INTO _locked_until, _stored_hash;
 
     IF _locked_until IS null THEN
         _result := 'lock_not_found';
+        RETURN;
+    END IF;
+
+    IF _stored_hash != _secrethash THEN
+        _result := 'token_mismatch';
         RETURN;
     END IF;
 

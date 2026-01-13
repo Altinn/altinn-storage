@@ -1,9 +1,10 @@
 CREATE OR REPLACE PROCEDURE storage.acquireinstancelock(
-    _id UUID,
     _instanceinternalid BIGINT,
     _ttl INTERVAL,
     _lockedby TEXT,
-    INOUT _result TEXT DEFAULT NULL
+    _secrethash BYTEA,
+    INOUT _result TEXT DEFAULT NULL,
+    INOUT _id BIGINT DEFAULT NULL
 )
 LANGUAGE plpgsql
 AS $BODY$
@@ -26,8 +27,9 @@ BEGIN
         RETURN;
     END IF;
 
-    INSERT INTO storage.instancelocks (id, instanceinternalid, lockedat, lockeduntil, lockedby)
-    SELECT _id, _instanceinternalid, _now, _now + _ttl, _lockedby;
+    INSERT INTO storage.instancelocks (instanceinternalid, lockedat, lockeduntil, lockedby, secrethash)
+    VALUES (_instanceinternalid, _now, _now + _ttl, _lockedby, _secrethash)
+    RETURNING id INTO _id;
 
     _result := 'ok';
 END;

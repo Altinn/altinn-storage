@@ -1,9 +1,10 @@
 CREATE TABLE IF NOT EXISTS storage.instancelocks (
-    id UUID PRIMARY KEY,
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     instanceinternalid BIGINT NOT NULL,
     lockedat TIMESTAMPTZ NOT NULL,
     lockeduntil TIMESTAMPTZ NOT NULL,
-    lockedby TEXT NOT NULL
+    lockedby TEXT NOT NULL,
+    secrethash BYTEA NOT NULL
 )
 TABLESPACE pg_default;
 

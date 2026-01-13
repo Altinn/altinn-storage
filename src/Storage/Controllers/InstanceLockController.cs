@@ -1,47 +1,39 @@
 #nullable enable
 using System;
 using System.Diagnostics;
-using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace Altinn.Platform.Storage.Controllers;
 
 /// <summary>
 /// Handles operations for the application instance locks
 /// </summary>
+/// <remarks>
+/// Initializes a new instance of the <see cref="InstanceLockController"/> class
+/// </remarks>
+/// <param name="instanceRepository">the instance repository handler</param>
+/// <param name="instanceLockRepository">the instance lock repository</param>
+/// <param name="authorizationService">the authorization service</param>
+/// <param name="logger">the logger</param>
 [Route("storage/api/v1/instances/{instanceOwnerPartyId:int}/{instanceGuid:guid}/lock")]
 [ApiController]
-public class InstanceLockController : ControllerBase
+public class InstanceLockController(
+    IInstanceRepository instanceRepository,
+    IInstanceLockRepository instanceLockRepository,
+    IAuthorization authorizationService,
+    ILogger<InstanceLockController> logger
+) : ControllerBase
 {
-    private readonly IInstanceRepository _instanceRepository;
-    private readonly IInstanceLockRepository _instanceLockRepository;
-    private readonly IAuthorization _authorizationService;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="InstanceLockController"/> class
-    /// </summary>
-    /// <param name="instanceRepository">the instance repository handler</param>
-    /// <param name="instanceLockRepository">the instance lock repository</param>
-    /// <param name="authorizationService">the authorization service</param>
-    public InstanceLockController(
-        IInstanceRepository instanceRepository,
-        IInstanceLockRepository instanceLockRepository,
-        IAuthorization authorizationService
-    )
-    {
-        _instanceRepository = instanceRepository;
-        _instanceLockRepository = instanceLockRepository;
-        _authorizationService = authorizationService;
-    }
-
     /// <summary>
     /// Attempts to acquire a lock for an instance.
     /// </summary>
@@ -85,7 +77,7 @@ public class InstanceLockController : ControllerBase
             );
         }
 
-        (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(
+        (Instance instance, long instanceInternalId) = await instanceRepository.GetOne(
             instanceGuid,
             false,
             cancellationToken
@@ -109,7 +101,7 @@ public class InstanceLockController : ControllerBase
             );
         }
 
-        var (result, lockId) = await _instanceLockRepository.TryAcquireLock(
+        var (result, lockToken) = await instanceLockRepository.TryAcquireLock(
             instanceInternalId,
             request.TtlSeconds,
             userOrOrgNo,
@@ -119,10 +111,7 @@ public class InstanceLockController : ControllerBase
         return result switch
         {
             AcquireLockResult.Success => Ok(
-                new InstanceLockResponse
-                {
-                    LockToken = Convert.ToBase64String(lockId!.Value.ToByteArray()),
-                }
+                new InstanceLockResponse { LockToken = lockToken!.CreateToken() }
             ),
             AcquireLockResult.LockAlreadyHeld => Problem(
                 detail: "Lock is already held for this instance.",
@@ -132,6 +121,8 @@ public class InstanceLockController : ControllerBase
         };
     }
 
+    private const string _lockTokenHeader = "Altinn-Storage-Lock-Token";
+
     /// <summary>
     /// Updates TTL on an instance lock.
     /// </summary>
@@ -140,6 +131,7 @@ public class InstanceLockController : ControllerBase
     /// <param name="request">The lock request (TTL should be 0 for release).</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>NoContent if successful.</returns>
+    [Authorize]
     [HttpPatch]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -155,33 +147,28 @@ public class InstanceLockController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        if (
-            !AuthenticationHeaderValue.TryParse(
-                HttpContext.Request.Headers.Authorization,
-                out var parsedHeader
-            )
-            || parsedHeader.Scheme != "Bearer"
-            || string.IsNullOrEmpty(parsedHeader.Parameter)
-        )
+        var lockTokenHeader = HttpContext.Request.Headers[_lockTokenHeader].ToString();
+        if (string.IsNullOrEmpty(lockTokenHeader))
         {
             return Problem(
-                detail: "Authorization header value missing or in wrong format.",
-                statusCode: StatusCodes.Status401Unauthorized
-            );
-        }
-        var guidBytes = new byte[16];
-        if (
-            !Convert.TryFromBase64String(parsedHeader.Parameter, guidBytes, out var bytesWritten)
-            || bytesWritten != 16
-        )
-        {
-            return Problem(
-                detail: "Could not parse token.",
+                detail: $"{_lockTokenHeader} header is missing.",
                 statusCode: StatusCodes.Status401Unauthorized
             );
         }
 
-        var lockId = new Guid(guidBytes);
+        LockToken lockToken;
+        try
+        {
+            lockToken = LockToken.ParseToken(lockTokenHeader);
+        }
+        catch (FormatException e)
+        {
+            logger.LogWarning(message: "Could not parse lock token.", exception: e);
+            return Problem(
+                detail: "Could not parse lock token.",
+                statusCode: StatusCodes.Status401Unauthorized
+            );
+        }
 
         if (request.TtlSeconds < 0)
         {
@@ -191,7 +178,7 @@ public class InstanceLockController : ControllerBase
             );
         }
 
-        (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(
+        (Instance instance, long instanceInternalId) = await instanceRepository.GetOne(
             instanceGuid,
             false,
             cancellationToken
@@ -205,8 +192,8 @@ public class InstanceLockController : ControllerBase
             );
         }
 
-        var result = await _instanceLockRepository.TryUpdateLockExpiration(
-            lockId,
+        var result = await instanceLockRepository.TryUpdateLockExpiration(
+            lockToken,
             instanceInternalId,
             request.TtlSeconds,
             cancellationToken
@@ -222,6 +209,10 @@ public class InstanceLockController : ControllerBase
             UpdateLockResult.LockExpired => Problem(
                 detail: "Lock has expired.",
                 statusCode: StatusCodes.Status422UnprocessableEntity
+            ),
+            UpdateLockResult.TokenMismatch => Problem(
+                detail: "Lock token is invalid.",
+                statusCode: StatusCodes.Status401Unauthorized
             ),
             _ => throw new UnreachableException(),
         };
@@ -240,7 +231,7 @@ public class InstanceLockController : ControllerBase
 
         foreach (string action in actionsThatAllowLock)
         {
-            bool actionIsAuthorized = await _authorizationService.AuthorizeInstanceAction(
+            bool actionIsAuthorized = await authorizationService.AuthorizeInstanceAction(
                 existingInstance,
                 action,
                 taskId

@@ -1,0 +1,11 @@
+﻿{
+  Exception: {
+    $type: FormatException,
+    Type: FormatException,
+    Message: Invalid Base64Url character in string.,
+    StackTrace:
+at Altinn.Platform.Storage.Models.LockToken.ParseToken(String token)
+at Altinn.Platform.Storage.UnitTest.ModelTests.LockTokenTests.<>c__DisplayClass4_0.<ParseToken_InvalidBase64Url_ThrowsFormatException>b__0()
+at Xunit.Assert.RecordException(Func`1 testCode, String asyncMethodName)
+  }
+}

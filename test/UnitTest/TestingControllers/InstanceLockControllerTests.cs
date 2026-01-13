@@ -1,4 +1,6 @@
+#nullable enable
 using System;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -12,6 +14,7 @@ using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Mocks;
@@ -37,6 +40,10 @@ public class InstanceLockControllerTest
     : IClassFixture<TestApplicationFactory<InstanceLockController>>
 {
     private readonly TestApplicationFactory<InstanceLockController> _factory;
+    private readonly Guid _instanceGuid = new("20a1353e-91cf-44d6-8ff7-f68993638ffe");
+    private readonly long _instanceInternalId = 4567;
+    private readonly int _userId = 3;
+    private readonly int _partyId = 1337;
 
     public InstanceLockControllerTest(TestApplicationFactory<InstanceLockController> factory)
     {
@@ -44,52 +51,59 @@ public class InstanceLockControllerTest
     }
 
     /// <summary>
-    /// Test: Verifies that AcquireInstanceLock endpoint has authorization attribute.
-    /// Expected: AcquireInstanceLock should have the [Authorize] attribute with no policy.
-    /// UpdateInstanceLock uses a lock token instead of standard authorization.
+    /// Test: Verifies that AcquireInstanceLock and UpdateInstanceLock endpoints have authorization attributes.
+    /// Expected: Both should have the [Authorize] attribute with no policy.
     /// </summary>
     [Fact]
-    public void AcquireInstanceLockEndpoint_ShouldHaveAuthorizeAttribute()
+    public void InstanceLockEndpoints_ShouldHaveAuthorizeAttribute()
     {
         var controllerType = typeof(InstanceLockController);
         var acquireLockMethod = controllerType.GetMethod(
             nameof(InstanceLockController.AcquireInstanceLock)
         );
+        var updateLockMethod = controllerType.GetMethod(
+            nameof(InstanceLockController.UpdateInstanceLock)
+        );
 
         var acquireAuthorizeAttribute = acquireLockMethod?.GetCustomAttribute<AuthorizeAttribute>();
         Assert.NotNull(acquireAuthorizeAttribute);
         Assert.Null(acquireAuthorizeAttribute.Policy);
+
+        var updateAuthorizeAttribute = updateLockMethod?.GetCustomAttribute<AuthorizeAttribute>();
+        Assert.NotNull(updateAuthorizeAttribute);
+        Assert.Null(updateAuthorizeAttribute.Policy);
     }
 
     /// <summary>
     /// Test case: User acquires a lock on a valid instance
-    /// Expected: Returns 200 OK with a valid lock ID
+    /// Expected: Returns 200 OK with a valid lock token
     /// </summary>
     [Fact]
     public async Task AcquireInstanceLock_ValidInstance_LockAcquired_ReturnsOkWithLockToken()
     {
         // Arrange
-        var instanceGuid = new Guid("20a1353e-91cf-44d6-8ff7-f68993638ffe");
-        var requestUri = $"storage/api/v1/instances/1337/{instanceGuid}/lock";
+        var requestUri = $"storage/api/v1/instances/{_partyId}/{_instanceGuid}/lock";
 
         var lockRequest = new InstanceLockRequest { TtlSeconds = 300 };
-        var expectedLockId = Guid.NewGuid();
-        var expectedLockToken = Convert.ToBase64String(expectedLockId.ToByteArray());
+        var expectedLockId = 12345;
+        var expectedLockSecret = new byte[20];
+        new Random().NextBytes(expectedLockSecret);
+        var expectedLockToken = new LockToken(expectedLockId, expectedLockSecret);
 
         Mock<IInstanceLockRepository> instanceLockRepoMock = new();
         instanceLockRepoMock
             .Setup(r =>
                 r.TryAcquireLock(
-                    It.IsAny<long>(),
+                    _instanceInternalId,
                     300,
-                    It.IsAny<string>(),
+                    _userId.ToString(),
                     It.IsAny<CancellationToken>()
                 )
             )
-            .ReturnsAsync((AcquireLockResult.Success, expectedLockId));
+            .ReturnsAsync((AcquireLockResult.Success, expectedLockToken));
 
         var client = GetTestClient(instanceLockRepository: instanceLockRepoMock.Object);
-        var token = PrincipalUtil.GetToken(3, 1337, 2);
+        var token = PrincipalUtil.GetToken(_userId, _partyId, 2);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
@@ -99,7 +113,11 @@ public class InstanceLockControllerTest
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(instanceLockResponse);
-        Assert.Equal(expectedLockToken, instanceLockResponse.LockToken);
+        Assert.NotNull(instanceLockResponse.LockToken);
+
+        var parsedLockToken = LockToken.ParseToken(instanceLockResponse.LockToken);
+        Assert.Equal(expectedLockId, parsedLockToken.Id);
+        Assert.Equal(expectedLockSecret, parsedLockToken.Secret);
     }
 
     /// <summary>
@@ -111,12 +129,12 @@ public class InstanceLockControllerTest
     {
         // Arrange
         var instanceGuid = Guid.NewGuid();
-        var requestUri = $"storage/api/v1/instances/1337/{instanceGuid}/lock";
+        var requestUri = $"storage/api/v1/instances/{_partyId}/{instanceGuid}/lock";
 
         var lockRequest = new InstanceLockRequest { TtlSeconds = 300 };
 
         var client = GetTestClient();
-        var token = PrincipalUtil.GetToken(3, 1337, 2);
+        var token = PrincipalUtil.GetToken(_userId, _partyId, 2);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
@@ -134,8 +152,7 @@ public class InstanceLockControllerTest
     public async Task AcquireInstanceLock_LockAlreadyHeld_ReturnsConflict()
     {
         // Arrange
-        var instanceGuid = new Guid("20a1353e-91cf-44d6-8ff7-f68993638ffe");
-        var requestUri = $"storage/api/v1/instances/1337/{instanceGuid}/lock";
+        var requestUri = $"storage/api/v1/instances/{_partyId}/{_instanceGuid}/lock";
 
         var lockRequest = new InstanceLockRequest { TtlSeconds = 300 };
 
@@ -143,16 +160,16 @@ public class InstanceLockControllerTest
         instanceLockRepoMock
             .Setup(r =>
                 r.TryAcquireLock(
-                    It.IsAny<long>(),
-                    It.IsAny<int>(),
-                    It.IsAny<string>(),
+                    _instanceInternalId,
+                    300,
+                    _userId.ToString(),
                     It.IsAny<CancellationToken>()
                 )
             )
-            .ReturnsAsync((AcquireLockResult.LockAlreadyHeld, (Guid?)null));
+            .ReturnsAsync((AcquireLockResult.LockAlreadyHeld, null));
 
         var client = GetTestClient(instanceLockRepository: instanceLockRepoMock.Object);
-        var token = PrincipalUtil.GetToken(3, 1337, 2);
+        var token = PrincipalUtil.GetToken(_userId, _partyId, 2);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
@@ -170,13 +187,12 @@ public class InstanceLockControllerTest
     public async Task AcquireInstanceLock_NegativeTtl_ReturnsBadRequest()
     {
         // Arrange
-        var instanceGuid = new Guid("20a1353e-91cf-44d6-8ff7-f68993638ffe");
-        var requestUri = $"storage/api/v1/instances/1337/{instanceGuid}/lock";
+        var requestUri = $"storage/api/v1/instances/{_partyId}/{_instanceGuid}/lock";
 
         var lockRequest = new InstanceLockRequest { TtlSeconds = -1 };
 
         var client = GetTestClient();
-        var token = PrincipalUtil.GetToken(3, 1337, 2);
+        var token = PrincipalUtil.GetToken(_userId, _partyId, 2);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
@@ -194,10 +210,11 @@ public class InstanceLockControllerTest
     public async Task UpdateInstanceLock_ValidLockToken_ReturnsNoContent()
     {
         // Arrange
-        var lockId = Guid.NewGuid();
-        var lockToken = Convert.ToBase64String(lockId.ToByteArray());
-        var instanceGuid = new Guid("20a1353e-91cf-44d6-8ff7-f68993638ffe");
-        var requestUri = $"storage/api/v1/instances/1337/{instanceGuid}/lock";
+        var lockId = 12345;
+        var lockSecret = new byte[20];
+        new Random().NextBytes(lockSecret);
+        var lockToken = new LockToken(lockId, lockSecret).CreateToken();
+        var requestUri = $"storage/api/v1/instances/{_partyId}/{_instanceGuid}/lock";
 
         var lockRequest = new InstanceLockRequest { TtlSeconds = 300 };
 
@@ -205,8 +222,10 @@ public class InstanceLockControllerTest
         instanceLockRepoMock
             .Setup(r =>
                 r.TryUpdateLockExpiration(
-                    lockId,
-                    It.IsAny<long>(),
+                    It.Is<LockToken>(token =>
+                        token.Id == lockId && token.Secret.SequenceEqual(lockSecret)
+                    ),
+                    _instanceInternalId,
                     300,
                     It.IsAny<CancellationToken>()
                 )
@@ -214,10 +233,9 @@ public class InstanceLockControllerTest
             .ReturnsAsync(UpdateLockResult.Success);
 
         var client = GetTestClient(instanceLockRepository: instanceLockRepoMock.Object);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            lockToken
-        );
+        var token = PrincipalUtil.GetToken(_userId, _partyId, 2);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        client.DefaultRequestHeaders.Add("Altinn-Storage-Lock-Token", lockToken);
 
         // Act
         using var response = await client.PatchAsJsonAsync(requestUri, lockRequest);
@@ -234,10 +252,11 @@ public class InstanceLockControllerTest
     public async Task UpdateInstanceLock_LockNotFound_ReturnsNotFound()
     {
         // Arrange
-        var lockId = Guid.NewGuid();
-        var lockToken = Convert.ToBase64String(lockId.ToByteArray());
-        var instanceGuid = new Guid("20a1353e-91cf-44d6-8ff7-f68993638ffe");
-        var requestUri = $"storage/api/v1/instances/1337/{instanceGuid}/lock";
+        var lockId = 12345;
+        var lockSecret = new byte[20];
+        new Random().NextBytes(lockSecret);
+        var lockToken = new LockToken(lockId, lockSecret).CreateToken();
+        var requestUri = $"storage/api/v1/instances/{_partyId}/{_instanceGuid}/lock";
 
         var lockRequest = new InstanceLockRequest { TtlSeconds = 300 };
 
@@ -245,19 +264,20 @@ public class InstanceLockControllerTest
         instanceLockRepoMock
             .Setup(r =>
                 r.TryUpdateLockExpiration(
-                    lockId,
-                    It.IsAny<long>(),
-                    It.IsAny<int>(),
+                    It.Is<LockToken>(token =>
+                        token.Id == lockId && token.Secret.SequenceEqual(lockSecret)
+                    ),
+                    _instanceInternalId,
+                    300,
                     It.IsAny<CancellationToken>()
                 )
             )
             .ReturnsAsync(UpdateLockResult.LockNotFound);
 
         var client = GetTestClient(instanceLockRepository: instanceLockRepoMock.Object);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            lockToken
-        );
+        var token = PrincipalUtil.GetToken(_userId, _partyId, 2);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        client.DefaultRequestHeaders.Add("Altinn-Storage-Lock-Token", lockToken);
 
         // Act
         using var response = await client.PatchAsJsonAsync(requestUri, lockRequest);
@@ -274,10 +294,11 @@ public class InstanceLockControllerTest
     public async Task UpdateInstanceLock_LockExpired_ReturnsUnprocessableEntity()
     {
         // Arrange
-        var lockId = Guid.NewGuid();
-        var lockToken = Convert.ToBase64String(lockId.ToByteArray());
-        var instanceGuid = new Guid("20a1353e-91cf-44d6-8ff7-f68993638ffe");
-        var requestUri = $"storage/api/v1/instances/1337/{instanceGuid}/lock";
+        var lockId = 12345;
+        var lockSecret = new byte[20];
+        new Random().NextBytes(lockSecret);
+        var lockToken = new LockToken(lockId, lockSecret).CreateToken();
+        var requestUri = $"storage/api/v1/instances/{_partyId}/{_instanceGuid}/lock";
 
         var lockRequest = new InstanceLockRequest { TtlSeconds = 300 };
 
@@ -285,19 +306,20 @@ public class InstanceLockControllerTest
         instanceLockRepoMock
             .Setup(r =>
                 r.TryUpdateLockExpiration(
-                    lockId,
-                    It.IsAny<long>(),
-                    It.IsAny<int>(),
+                    It.Is<LockToken>(token =>
+                        token.Id == lockId && token.Secret.SequenceEqual(lockSecret)
+                    ),
+                    _instanceInternalId,
+                    300,
                     It.IsAny<CancellationToken>()
                 )
             )
             .ReturnsAsync(UpdateLockResult.LockExpired);
 
         var client = GetTestClient(instanceLockRepository: instanceLockRepoMock.Object);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            lockToken
-        );
+        var token = PrincipalUtil.GetToken(_userId, _partyId, 2);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        client.DefaultRequestHeaders.Add("Altinn-Storage-Lock-Token", lockToken);
 
         // Act
         using var response = await client.PatchAsJsonAsync(requestUri, lockRequest);
@@ -314,18 +336,18 @@ public class InstanceLockControllerTest
     public async Task UpdateInstanceLock_NegativeTtl_ReturnsBadRequest()
     {
         // Arrange
-        var lockId = Guid.NewGuid();
-        var lockToken = Convert.ToBase64String(lockId.ToByteArray());
-        var instanceGuid = new Guid("20a1353e-91cf-44d6-8ff7-f68993638ffe");
-        var requestUri = $"storage/api/v1/instances/1337/{instanceGuid}/lock";
+        var lockId = 12345;
+        var lockSecret = new byte[20];
+        new Random().NextBytes(lockSecret);
+        var lockToken = new LockToken(lockId, lockSecret).CreateToken();
+        var requestUri = $"storage/api/v1/instances/{_partyId}/{_instanceGuid}/lock";
 
         var lockRequest = new InstanceLockRequest { TtlSeconds = -1 };
 
         var client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            lockToken
-        );
+        var token = PrincipalUtil.GetToken(_userId, _partyId, 2);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        client.DefaultRequestHeaders.Add("Altinn-Storage-Lock-Token", lockToken);
 
         // Act
         using var response = await client.PatchAsJsonAsync(requestUri, lockRequest);
@@ -342,18 +364,19 @@ public class InstanceLockControllerTest
     public async Task UpdateInstanceLock_InstanceNotFound_ReturnsNotFound()
     {
         // Arrange
-        var lockId = Guid.NewGuid();
-        var lockToken = Convert.ToBase64String(lockId.ToByteArray());
+        var lockId = 12345;
+        var lockSecret = new byte[20];
+        new Random().NextBytes(lockSecret);
+        var lockToken = new LockToken(lockId, lockSecret).CreateToken();
         var instanceGuid = Guid.NewGuid();
-        var requestUri = $"storage/api/v1/instances/1337/{instanceGuid}/lock";
+        var requestUri = $"storage/api/v1/instances/{_partyId}/{instanceGuid}/lock";
 
         var lockRequest = new InstanceLockRequest { TtlSeconds = 300 };
 
         var client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            lockToken
-        );
+        var token = PrincipalUtil.GetToken(_userId, _partyId, 2);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        client.DefaultRequestHeaders.Add("Altinn-Storage-Lock-Token", lockToken);
 
         // Act
         using var response = await client.PatchAsJsonAsync(requestUri, lockRequest);
@@ -370,8 +393,7 @@ public class InstanceLockControllerTest
     public async Task AcquireInstanceLock_UserNotAuthorized_ReturnsForbidden()
     {
         // Arrange
-        var instanceGuid = new Guid("20a1353e-91cf-44d6-8ff7-f68993638ffe");
-        var requestUri = $"storage/api/v1/instances/1337/{instanceGuid}/lock";
+        var requestUri = $"storage/api/v1/instances/{_partyId}/{_instanceGuid}/lock";
 
         var lockRequest = new InstanceLockRequest { TtlSeconds = 300 };
 
@@ -394,13 +416,12 @@ public class InstanceLockControllerTest
     public async Task AcquireInstanceLock_InstanceOwnerPartyIdMismatch_ReturnsNotFound()
     {
         // Arrange
-        var instanceGuid = new Guid("20a1353e-91cf-44d6-8ff7-f68993638ffe");
-        var requestUri = $"storage/api/v1/instances/9999/{instanceGuid}/lock";
+        var requestUri = $"storage/api/v1/instances/9999/{_instanceGuid}/lock";
 
         var lockRequest = new InstanceLockRequest { TtlSeconds = 300 };
 
         var client = GetTestClient();
-        var token = PrincipalUtil.GetToken(3, 1337, 2);
+        var token = PrincipalUtil.GetToken(_userId, _partyId, 2);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
@@ -418,18 +439,18 @@ public class InstanceLockControllerTest
     public async Task UpdateInstanceLock_InstanceOwnerPartyIdMismatch_ReturnsNotFound()
     {
         // Arrange
-        var lockId = Guid.NewGuid();
-        var lockToken = Convert.ToBase64String(lockId.ToByteArray());
-        var instanceGuid = new Guid("20a1353e-91cf-44d6-8ff7-f68993638ffe");
-        var requestUri = $"storage/api/v1/instances/9999/{instanceGuid}/lock";
+        var lockId = 12345;
+        var lockSecret = new byte[20];
+        new Random().NextBytes(lockSecret);
+        var lockToken = new LockToken(lockId, lockSecret).CreateToken();
+        var requestUri = $"storage/api/v1/instances/9999/{_instanceGuid}/lock";
 
         var lockRequest = new InstanceLockRequest { TtlSeconds = 300 };
 
         var client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            lockToken
-        );
+        var token = PrincipalUtil.GetToken(_userId, _partyId, 2);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        client.DefaultRequestHeaders.Add("Altinn-Storage-Lock-Token", lockToken);
 
         // Act
         using var response = await client.PatchAsJsonAsync(requestUri, lockRequest);
@@ -439,19 +460,20 @@ public class InstanceLockControllerTest
     }
 
     /// <summary>
-    /// Test case: Missing Authorization header when updating lock
+    /// Test case: Missing Altinn-Storage-Lock-Token header when updating lock
     /// Expected: Returns 401 Unauthorized
     /// </summary>
     [Fact]
-    public async Task UpdateInstanceLock_MissingAuthorizationHeader_ReturnsUnauthorized()
+    public async Task UpdateInstanceLock_MissingLockTokenHeader_ReturnsUnauthorized()
     {
         // Arrange
-        var instanceGuid = new Guid("20a1353e-91cf-44d6-8ff7-f68993638ffe");
-        var requestUri = $"storage/api/v1/instances/1337/{instanceGuid}/lock";
+        var requestUri = $"storage/api/v1/instances/{_partyId}/{_instanceGuid}/lock";
 
         var lockRequest = new InstanceLockRequest { TtlSeconds = 300 };
 
         var client = GetTestClient();
+        var token = PrincipalUtil.GetToken(_userId, _partyId, 2);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
         using var response = await client.PatchAsJsonAsync(requestUri, lockRequest);
@@ -461,23 +483,63 @@ public class InstanceLockControllerTest
     }
 
     /// <summary>
-    /// Test case: Invalid lock token format in Authorization header
+    /// Test case: Invalid lock token format in Altinn-Storage-Lock-Token header
     /// Expected: Returns 401 Unauthorized
     /// </summary>
     [Fact]
     public async Task UpdateInstanceLock_InvalidLockTokenFormat_ReturnsUnauthorized()
     {
         // Arrange
-        var instanceGuid = new Guid("20a1353e-91cf-44d6-8ff7-f68993638ffe");
-        var requestUri = $"storage/api/v1/instances/1337/{instanceGuid}/lock";
+        var requestUri = $"storage/api/v1/instances/{_partyId}/{_instanceGuid}/lock";
 
         var lockRequest = new InstanceLockRequest { TtlSeconds = 300 };
 
         var client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            "invalid-token"
-        );
+        var token = PrincipalUtil.GetToken(_userId, _partyId, 2);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        client.DefaultRequestHeaders.Add("Altinn-Storage-Lock-Token", "invalid-token");
+
+        // Act
+        using var response = await client.PatchAsJsonAsync(requestUri, lockRequest);
+
+        // Assert
+        await VerifyXunit.Verifier.Verify(new { Response = response });
+    }
+
+    /// <summary>
+    /// Test case: Lock token doesn't match the stored token hash
+    /// Expected: Returns 401 Unauthorized
+    /// </summary>
+    [Fact]
+    public async Task UpdateInstanceLock_LockTokenMismatch_ReturnsUnauthorized()
+    {
+        // Arrange
+        var lockId = 12345;
+        var lockSecret = new byte[20];
+        new Random().NextBytes(lockSecret);
+        var lockToken = new LockToken(lockId, lockSecret).CreateToken();
+        var requestUri = $"storage/api/v1/instances/{_partyId}/{_instanceGuid}/lock";
+
+        var lockRequest = new InstanceLockRequest { TtlSeconds = 300 };
+
+        Mock<IInstanceLockRepository> instanceLockRepoMock = new();
+        instanceLockRepoMock
+            .Setup(r =>
+                r.TryUpdateLockExpiration(
+                    It.Is<LockToken>(token =>
+                        token.Id == lockId && token.Secret.SequenceEqual(lockSecret)
+                    ),
+                    _instanceInternalId,
+                    300,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(UpdateLockResult.TokenMismatch);
+
+        var client = GetTestClient(instanceLockRepository: instanceLockRepoMock.Object);
+        var token = PrincipalUtil.GetToken(_userId, _partyId, 2);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        client.DefaultRequestHeaders.Add("Altinn-Storage-Lock-Token", lockToken);
 
         // Act
         using var response = await client.PatchAsJsonAsync(requestUri, lockRequest);
@@ -487,9 +549,9 @@ public class InstanceLockControllerTest
     }
 
     private HttpClient GetTestClient(
-        IInstanceRepository instanceRepository = null,
-        IInstanceAndEventsRepository instanceAndEventsRepository = null,
-        IInstanceLockRepository instanceLockRepository = null,
+        IInstanceRepository? instanceRepository = null,
+        IInstanceAndEventsRepository? instanceAndEventsRepository = null,
+        IInstanceLockRepository? instanceLockRepository = null,
         bool enableWolverine = false
     )
     {
@@ -537,7 +599,53 @@ public class InstanceLockControllerTest
                     }
                     else
                     {
-                        services.AddSingleton<IInstanceRepository, InstanceRepositoryMock>();
+                        var internalInstanceRepositoryMock = new InstanceRepositoryMock();
+
+                        Mock<IInstanceRepository> instanceRepositoryMock = new();
+                        instanceRepositoryMock
+                            .Setup(r =>
+                                r.GetOne(_instanceGuid, false, It.IsAny<CancellationToken>())
+                            )
+                            .Returns(
+                                async (
+                                    Guid instanceGuid,
+                                    bool includeElements,
+                                    CancellationToken cancellationToken
+                                ) =>
+                                {
+                                    var (instance, _) = await internalInstanceRepositoryMock.GetOne(
+                                        _instanceGuid,
+                                        false,
+                                        cancellationToken
+                                    );
+                                    return (instance, _instanceInternalId);
+                                }
+                            );
+
+                        instanceRepositoryMock
+                            .Setup(r =>
+                                r.GetOne(
+                                    It.IsAny<Guid>(),
+                                    It.IsAny<bool>(),
+                                    It.IsAny<CancellationToken>()
+                                )
+                            )
+                            .Returns(
+                                async (
+                                    Guid instanceGuid,
+                                    bool includeElements,
+                                    CancellationToken cancellationToken
+                                ) =>
+                                {
+                                    var (instance, _) = await internalInstanceRepositoryMock.GetOne(
+                                        instanceGuid,
+                                        includeElements,
+                                        cancellationToken
+                                    );
+                                    return (instance, _instanceInternalId);
+                                }
+                            );
+                        services.AddSingleton(instanceRepositoryMock.Object);
                     }
 
                     if (instanceAndEventsRepository != null)

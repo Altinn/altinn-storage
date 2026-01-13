@@ -1,0 +1,11 @@
+﻿{
+  Exception: {
+    $type: FormatException,
+    Type: FormatException,
+    Message: JSON did not contain required data.,
+    StackTrace:
+at Altinn.Platform.Storage.Models.LockToken.ParseToken(String token)
+at Altinn.Platform.Storage.UnitTest.ModelTests.LockTokenTests.<>c__DisplayClass6_0.<ParseToken_JsonMissingId_ThrowsFormatException>b__0()
+at Xunit.Assert.RecordException(Func`1 testCode, String asyncMethodName)
+  }
+}

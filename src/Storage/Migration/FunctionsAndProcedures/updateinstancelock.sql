@@ -1,24 +1,31 @@
 CREATE OR REPLACE PROCEDURE storage.updateinstancelock(
-    _id UUID,
+    _id BIGINT,
     _instanceinternalid BIGINT,
     _ttl INTERVAL,
+    _secrethash BYTEA,
     INOUT _result TEXT DEFAULT NULL
 )
 LANGUAGE plpgsql
 AS $BODY$
 DECLARE
     _locked_until TIMESTAMPTZ;
+    _stored_hash BYTEA;
     _now TIMESTAMPTZ;
 BEGIN
     PERFORM pg_advisory_xact_lock(_instanceinternalid);
 
-    SELECT lockeduntil FROM storage.instancelocks
+    SELECT lockeduntil, secrethash FROM storage.instancelocks
     WHERE id = _id
     AND instanceinternalid = _instanceinternalid
-    INTO _locked_until;
+    INTO _locked_until, _stored_hash;
 
     IF _locked_until IS null THEN
         _result := 'lock_not_found';
+        RETURN;
+    END IF;
+
+    IF _stored_hash != _secrethash THEN
+        _result := 'token_mismatch';
         RETURN;
     END IF;
 

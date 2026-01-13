@@ -37,4 +37,9 @@ public enum UpdateLockResult
     /// Lock exists but has already expired.
     /// </summary>
     LockExpired,
+
+    /// <summary>
+    /// The provided lock token does not match the stored token hash.
+    /// </summary>
+    TokenMismatch,
 }

@@ -3,14 +3,14 @@
     Status: 401 Unauthorized,
     Content: {
       Headers: {
-        Content-Length: 231,
+        Content-Length: 221,
         Content-Type: application/json; charset=utf-8
       },
       Value: {
         type: https://tools.ietf.org/html/rfc9110#section-15.5.2,
         title: Unauthorized,
         status: 401,
-        detail: Authorization header value missing or in wrong format.,
+        detail: Altinn-Storage-Lock-Token header is missing.,
         traceId: {Scrubbed}
       }
     }

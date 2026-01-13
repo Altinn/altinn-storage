@@ -1,8 +1,10 @@
 #nullable enable
 using System;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Extensions;
 using Altinn.Platform.Storage.UnitTest.Utils;
@@ -56,13 +58,13 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         await PostgresUtil.FreezeTime(startTime);
 
         // Act
-        var (firstResult, firstLockId) = await _fixture.InstanceLockRepo.TryAcquireLock(
+        var (firstResult, firstLockToken) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
             userId
         );
 
-        var (secondResult, secondLockId) = await _fixture.InstanceLockRepo.TryAcquireLock(
+        var (secondResult, secondLockToken) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
             userId
@@ -70,7 +72,7 @@ public class InstanceLockTests(InstanceLockFixture fixture)
 
         await PostgresUtil.FreezeTime(startTime.AddSeconds(30));
 
-        var (thirdResult, thirdLockId) = await _fixture.InstanceLockRepo.TryAcquireLock(
+        var (thirdResult, thirdLockToken) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
             userId
@@ -78,38 +80,43 @@ public class InstanceLockTests(InstanceLockFixture fixture)
 
         await PostgresUtil.FreezeTime(startTime.AddSeconds(ttlSeconds));
 
-        var (fourthResult, fourthLockId) = await _fixture.InstanceLockRepo.TryAcquireLock(
+        var (fourthResult, fourthLockToken) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
             userId
         );
 
-        var firstLock = await _fixture.InstanceLockRepo.Get(firstLockId!.Value);
-        var fourthLock = await _fixture.InstanceLockRepo.Get(fourthLockId!.Value);
+        var firstLock = await _fixture.InstanceLockRepo.Get(firstLockToken!.Id);
+        var fourthLock = await _fixture.InstanceLockRepo.Get(fourthLockToken!.Id);
+
+        var firstSecretHash = SHA256.HashData(firstLockToken.Secret);
+        var fourthSecretHash = SHA256.HashData(fourthLockToken.Secret);
 
         // Assert
         Assert.Equal(AcquireLockResult.Success, firstResult);
-        Assert.NotEqual(Guid.Empty, firstLockId);
+        Assert.NotEqual(0, firstLockToken.Id);
         Assert.Equal(AcquireLockResult.LockAlreadyHeld, secondResult);
-        Assert.Null(secondLockId);
+        Assert.Null(secondLockToken);
         Assert.Equal(AcquireLockResult.LockAlreadyHeld, thirdResult);
-        Assert.Null(thirdLockId);
+        Assert.Null(thirdLockToken);
         Assert.Equal(AcquireLockResult.Success, fourthResult);
-        Assert.NotEqual(Guid.Empty, fourthLockId);
+        Assert.NotEqual(0, fourthLockToken.Id);
 
         Assert.NotNull(firstLock);
         Assert.NotNull(fourthLock);
 
-        Assert.Equal(firstLockId, firstLock.Id);
+        Assert.Equal(firstLockToken.Id, firstLock.Id);
         Assert.Equal(instanceInternalId, firstLock.InstanceInternalId);
         Assert.Equal(startTime, firstLock.LockedAt);
         Assert.Equal(startTime.AddSeconds(ttlSeconds), firstLock.LockedUntil);
+        Assert.Equal(firstSecretHash, firstLock.SecretHash);
         Assert.Equal(userId, firstLock.LockedBy);
 
-        Assert.Equal(fourthLockId, fourthLock.Id);
+        Assert.Equal(fourthLockToken.Id, fourthLock.Id);
         Assert.Equal(instanceInternalId, fourthLock.InstanceInternalId);
         Assert.Equal(startTime.AddSeconds(ttlSeconds), fourthLock.LockedAt);
         Assert.Equal(startTime.AddSeconds(2 * ttlSeconds), fourthLock.LockedUntil);
+        Assert.Equal(fourthSecretHash, fourthLock.SecretHash);
         Assert.Equal(userId, fourthLock.LockedBy);
 
         var rowCount = await PostgresUtil.RunCountQuery(
@@ -144,19 +151,19 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         await PostgresUtil.FreezeTime(startTime);
 
         // Act
-        var (firstResult, firstLockId) = await _fixture.InstanceLockRepo.TryAcquireLock(
+        var (firstResult, firstLockToken) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
             userId
         );
 
         var firstLockReleased = await _fixture.InstanceLockRepo.TryUpdateLockExpiration(
-            firstLockId!.Value,
+            firstLockToken!,
             instanceInternalId,
             0
         );
 
-        var (secondResult, secondLockId) = await _fixture.InstanceLockRepo.TryAcquireLock(
+        var (secondResult, secondLockToken) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
             userId
@@ -165,31 +172,35 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         await PostgresUtil.FreezeTime(startTime.AddSeconds(2));
 
         var secondLockReleased = await _fixture.InstanceLockRepo.TryUpdateLockExpiration(
-            secondLockId!.Value,
+            secondLockToken!,
             instanceInternalId,
             0
         );
 
-        var (thirdResult, thirdLockId) = await _fixture.InstanceLockRepo.TryAcquireLock(
+        var (thirdResult, thirdLockToken) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
             userId
         );
 
-        var firstLock = await _fixture.InstanceLockRepo.Get(firstLockId.Value);
-        var secondLock = await _fixture.InstanceLockRepo.Get(secondLockId.Value);
-        var thirdLock = await _fixture.InstanceLockRepo.Get(thirdLockId!.Value);
+        var firstLock = await _fixture.InstanceLockRepo.Get(firstLockToken!.Id);
+        var secondLock = await _fixture.InstanceLockRepo.Get(secondLockToken!.Id);
+        var thirdLock = await _fixture.InstanceLockRepo.Get(thirdLockToken!.Id);
+
+        var firstSecretHash = SHA256.HashData(firstLockToken.Secret);
+        var secondSecretHash = SHA256.HashData(secondLockToken.Secret);
+        var thirdSecretHash = SHA256.HashData(thirdLockToken.Secret);
 
         // Assert
         Assert.Equal(AcquireLockResult.Success, firstResult);
-        Assert.NotNull(firstLockId);
-        Assert.NotEqual(Guid.Empty, firstLockId);
+        Assert.NotEqual(0, firstLockToken.Id);
+        Assert.NotEmpty(firstLockToken.Secret);
         Assert.Equal(AcquireLockResult.Success, secondResult);
-        Assert.NotNull(secondLockId);
-        Assert.NotEqual(Guid.Empty, secondLockId.Value);
+        Assert.NotEqual(0, secondLockToken.Id);
+        Assert.NotEmpty(secondLockToken.Secret);
         Assert.Equal(AcquireLockResult.Success, thirdResult);
-        Assert.NotNull(thirdLockId);
-        Assert.NotEqual(Guid.Empty, thirdLockId.Value);
+        Assert.NotEqual(0, thirdLockToken.Id);
+        Assert.NotEmpty(thirdLockToken.Secret);
 
         Assert.Equal(UpdateLockResult.Success, firstLockReleased);
         Assert.Equal(UpdateLockResult.Success, secondLockReleased);
@@ -198,22 +209,25 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         Assert.NotNull(secondLock);
         Assert.NotNull(thirdLock);
 
-        Assert.Equal(firstLockId, firstLock.Id);
+        Assert.Equal(firstLockToken.Id, firstLock.Id);
         Assert.Equal(instanceInternalId, firstLock.InstanceInternalId);
         Assert.Equal(startTime, firstLock.LockedAt);
         Assert.Equal(startTime, firstLock.LockedUntil);
+        Assert.Equal(firstSecretHash, firstLock.SecretHash);
         Assert.Equal(userId, firstLock.LockedBy);
 
-        Assert.Equal(secondLockId, secondLock.Id);
+        Assert.Equal(secondLockToken.Id, secondLock.Id);
         Assert.Equal(instanceInternalId, secondLock.InstanceInternalId);
         Assert.Equal(startTime, secondLock.LockedAt);
         Assert.Equal(startTime.AddSeconds(2), secondLock.LockedUntil);
+        Assert.Equal(secondSecretHash, secondLock.SecretHash);
         Assert.Equal(userId, secondLock.LockedBy);
 
-        Assert.Equal(thirdLockId, thirdLock.Id);
+        Assert.Equal(thirdLockToken.Id, thirdLock.Id);
         Assert.Equal(instanceInternalId, thirdLock.InstanceInternalId);
         Assert.Equal(startTime.AddSeconds(2), thirdLock.LockedAt);
         Assert.Equal(startTime.AddSeconds(2 + ttlSeconds), thirdLock.LockedUntil);
+        Assert.Equal(thirdSecretHash, thirdLock.SecretHash);
         Assert.Equal(userId, thirdLock.LockedBy);
 
         var rowCount = await PostgresUtil.RunCountQuery(
@@ -248,7 +262,7 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         await PostgresUtil.FreezeTime(startTime);
 
         // Act
-        var (firstResult, firstLockId) = await _fixture.InstanceLockRepo.TryAcquireLock(
+        var (firstResult, firstLockToken) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
             userId
@@ -257,14 +271,14 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         await PostgresUtil.FreezeTime(startTime.AddSeconds(ttlSeconds - 1));
 
         var firstLockUpdated = await _fixture.InstanceLockRepo.TryUpdateLockExpiration(
-            firstLockId!.Value,
+            firstLockToken!,
             instanceInternalId,
             ttlSeconds
         );
 
         await PostgresUtil.FreezeTime(startTime.AddSeconds(ttlSeconds + 1));
 
-        var (secondResult, secondLockId) = await _fixture.InstanceLockRepo.TryAcquireLock(
+        var (secondResult, secondLockToken) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
             userId
@@ -272,40 +286,43 @@ public class InstanceLockTests(InstanceLockFixture fixture)
 
         await PostgresUtil.FreezeTime(startTime.AddSeconds(2 * ttlSeconds - 1));
 
-        var (thirdResult, thirdLockId) = await _fixture.InstanceLockRepo.TryAcquireLock(
+        var (thirdResult, thirdLockToken) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
             userId
         );
 
-        var firstLock = await _fixture.InstanceLockRepo.Get(firstLockId.Value);
-        var thirdLock = await _fixture.InstanceLockRepo.Get(thirdLockId!.Value);
+        var firstLock = await _fixture.InstanceLockRepo.Get(firstLockToken!.Id);
+        var thirdLock = await _fixture.InstanceLockRepo.Get(thirdLockToken!.Id);
+
+        var firstSecretHash = SHA256.HashData(firstLockToken.Secret);
+        var thirdSecretHash = SHA256.HashData(thirdLockToken.Secret);
 
         // Assert
         Assert.Equal(AcquireLockResult.Success, firstResult);
-        Assert.NotNull(firstLockId);
-        Assert.NotEqual(Guid.Empty, firstLockId.Value);
+        Assert.NotEqual(0, firstLockToken.Id);
         Assert.Equal(AcquireLockResult.LockAlreadyHeld, secondResult);
-        Assert.Null(secondLockId);
+        Assert.Null(secondLockToken);
         Assert.Equal(AcquireLockResult.Success, thirdResult);
-        Assert.NotNull(thirdLockId);
-        Assert.NotEqual(Guid.Empty, thirdLockId.Value);
+        Assert.NotEqual(0, thirdLockToken.Id);
 
         Assert.Equal(UpdateLockResult.Success, firstLockUpdated);
 
         Assert.NotNull(firstLock);
         Assert.NotNull(thirdLock);
 
-        Assert.Equal(firstLockId, firstLock.Id);
+        Assert.Equal(firstLockToken.Id, firstLock.Id);
         Assert.Equal(instanceInternalId, firstLock.InstanceInternalId);
         Assert.Equal(startTime, firstLock.LockedAt);
         Assert.Equal(startTime.AddSeconds(2 * ttlSeconds - 1), firstLock.LockedUntil);
+        Assert.Equal(firstSecretHash, firstLock.SecretHash);
         Assert.Equal(userId, firstLock.LockedBy);
 
-        Assert.Equal(thirdLockId, thirdLock.Id);
+        Assert.Equal(thirdLockToken.Id, thirdLock.Id);
         Assert.Equal(instanceInternalId, thirdLock.InstanceInternalId);
         Assert.Equal(startTime.AddSeconds(2 * ttlSeconds - 1), thirdLock.LockedAt);
         Assert.Equal(startTime.AddSeconds(3 * ttlSeconds - 1), thirdLock.LockedUntil);
+        Assert.Equal(thirdSecretHash, thirdLock.SecretHash);
         Assert.Equal(userId, thirdLock.LockedBy);
 
         var rowCount = await PostgresUtil.RunCountQuery(
@@ -331,12 +348,14 @@ public class InstanceLockTests(InstanceLockFixture fixture)
             false,
             CancellationToken.None
         );
-        var nonExistentLockId = Guid.NewGuid();
+        var nonExistentLockId = long.MaxValue;
         var ttlSeconds = 300;
+        var dummyToken = new byte[20];
+        var lockToken = new LockToken(nonExistentLockId, dummyToken);
 
         // Act
         var result = await _fixture.InstanceLockRepo.TryUpdateLockExpiration(
-            nonExistentLockId,
+            lockToken,
             instanceInternalId,
             ttlSeconds
         );
@@ -352,7 +371,7 @@ public class InstanceLockTests(InstanceLockFixture fixture)
     public async Task Get_ReturnsNull_WhenLockDoesNotExist()
     {
         // Arrange
-        var nonExistentLockId = Guid.NewGuid();
+        var nonExistentLockId = long.MaxValue;
 
         // Act
         var result = await _fixture.InstanceLockRepo.Get(nonExistentLockId);
@@ -384,7 +403,7 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         await PostgresUtil.FreezeTime(startTime);
 
         // Act
-        var (acquireResult, lockId) = await _fixture.InstanceLockRepo.TryAcquireLock(
+        var (acquireResult, lockToken) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
             userId
@@ -393,23 +412,25 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         await PostgresUtil.FreezeTime(startTime.AddSeconds(ttlSeconds));
 
         var lockUpdated = await _fixture.InstanceLockRepo.TryUpdateLockExpiration(
-            lockId!.Value,
+            lockToken!,
             instanceInternalId,
             ttlSeconds
         );
 
-        var lockData = await _fixture.InstanceLockRepo.Get(lockId.Value);
+        var lockData = await _fixture.InstanceLockRepo.Get(lockToken!.Id);
+        var lockSecretHash = SHA256.HashData(lockToken.Secret);
 
         // Assert
         Assert.Equal(AcquireLockResult.Success, acquireResult);
-        Assert.NotNull(lockId);
-        Assert.NotEqual(Guid.Empty, lockId.Value);
+        Assert.NotEqual(0, lockToken.Id);
         Assert.Equal(UpdateLockResult.LockExpired, lockUpdated);
 
-        Assert.Equal(lockId, lockData!.Id);
+        Assert.NotNull(lockData);
+        Assert.Equal(lockToken.Id, lockData.Id);
         Assert.Equal(instanceInternalId, lockData.InstanceInternalId);
         Assert.Equal(startTime, lockData.LockedAt);
         Assert.Equal(startTime.AddSeconds(ttlSeconds), lockData.LockedUntil);
+        Assert.Equal(lockSecretHash, lockData.SecretHash);
         Assert.Equal(userId, lockData.LockedBy);
 
         var rowCount = await PostgresUtil.RunCountQuery(

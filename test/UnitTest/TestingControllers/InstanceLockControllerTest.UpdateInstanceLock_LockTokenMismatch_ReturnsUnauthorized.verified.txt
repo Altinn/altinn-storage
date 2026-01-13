@@ -1,16 +1,16 @@
-{
+﻿{
   Response: {
     Status: 401 Unauthorized,
     Content: {
       Headers: {
-        Content-Length: 204,
+        Content-Length: 199,
         Content-Type: application/json; charset=utf-8
       },
       Value: {
         type: https://tools.ietf.org/html/rfc9110#section-15.5.2,
         title: Unauthorized,
         status: 401,
-        detail: Could not parse lock token.,
+        detail: Lock token is invalid.,
         traceId: {Scrubbed}
       }
     }
