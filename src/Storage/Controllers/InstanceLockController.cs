@@ -34,6 +34,8 @@ public class InstanceLockController(
     ILogger<InstanceLockController> logger
 ) : ControllerBase
 {
+    private const string _lockTokenHeader = "Altinn-Storage-Lock-Token";
+
     /// <summary>
     /// Attempts to acquire a lock for an instance.
     /// </summary>
@@ -47,7 +49,6 @@ public class InstanceLockController(
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -73,7 +74,7 @@ public class InstanceLockController(
         {
             return Problem(
                 detail: "User identity could not be determined.",
-                statusCode: StatusCodes.Status401Unauthorized
+                statusCode: StatusCodes.Status403Forbidden
             );
         }
 
@@ -121,14 +122,13 @@ public class InstanceLockController(
         };
     }
 
-    private const string _lockTokenHeader = "Altinn-Storage-Lock-Token";
-
     /// <summary>
     /// Updates TTL on an instance lock.
     /// </summary>
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance to lock.</param>
     /// <param name="request">The lock request (TTL should be 0 for release).</param>
+    /// <param name="lockTokenHeader">The lock token used for authorizing access to the lock.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>NoContent if successful.</returns>
     [Authorize]
@@ -136,7 +136,7 @@ public class InstanceLockController(
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     [Produces("application/json")]
@@ -144,18 +144,10 @@ public class InstanceLockController(
         int instanceOwnerPartyId,
         Guid instanceGuid,
         [FromBody] InstanceLockRequest request,
+        [FromHeader(Name = _lockTokenHeader)] string lockTokenHeader,
         CancellationToken cancellationToken
     )
     {
-        var lockTokenHeader = HttpContext.Request.Headers[_lockTokenHeader].ToString();
-        if (string.IsNullOrEmpty(lockTokenHeader))
-        {
-            return Problem(
-                detail: $"{_lockTokenHeader} header is missing.",
-                statusCode: StatusCodes.Status401Unauthorized
-            );
-        }
-
         LockToken lockToken;
         try
         {
@@ -166,7 +158,7 @@ public class InstanceLockController(
             logger.LogWarning(message: "Could not parse lock token.", exception: e);
             return Problem(
                 detail: "Could not parse lock token.",
-                statusCode: StatusCodes.Status401Unauthorized
+                statusCode: StatusCodes.Status400BadRequest
             );
         }
 
@@ -212,7 +204,7 @@ public class InstanceLockController(
             ),
             UpdateLockResult.TokenMismatch => Problem(
                 detail: "Lock token is invalid.",
-                statusCode: StatusCodes.Status401Unauthorized
+                statusCode: StatusCodes.Status403Forbidden
             ),
             _ => throw new UnreachableException(),
         };

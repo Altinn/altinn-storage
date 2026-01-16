@@ -1,16 +1,20 @@
 ﻿{
   Response: {
-    Status: 401 Unauthorized,
+    Status: 400 Bad Request,
     Content: {
       Headers: {
-        Content-Length: 221,
+        Content-Length: 274,
         Content-Type: application/json; charset=utf-8
       },
       Value: {
-        type: https://tools.ietf.org/html/rfc9110#section-15.5.2,
-        title: Unauthorized,
-        status: 401,
-        detail: Altinn-Storage-Lock-Token header is missing.,
+        errors: {
+          Altinn-Storage-Lock-Token: [
+            The lockTokenHeader field is required.
+          ]
+        },
+        type: https://tools.ietf.org/html/rfc9110#section-15.5.1,
+        title: One or more validation errors occurred.,
+        status: 400,
         traceId: {Scrubbed}
       }
     }
