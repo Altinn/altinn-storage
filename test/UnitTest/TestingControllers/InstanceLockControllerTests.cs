@@ -461,10 +461,10 @@ public class InstanceLockControllerTest
 
     /// <summary>
     /// Test case: Missing Altinn-Storage-Lock-Token header when updating lock
-    /// Expected: Returns 401 Unauthorized
+    /// Expected: Returns 400 Bad Request
     /// </summary>
     [Fact]
-    public async Task UpdateInstanceLock_MissingLockTokenHeader_ReturnsUnauthorized()
+    public async Task UpdateInstanceLock_MissingLockTokenHeader_ReturnsBadRequest()
     {
         // Arrange
         var requestUri = $"storage/api/v1/instances/{_partyId}/{_instanceGuid}/lock";
@@ -484,10 +484,10 @@ public class InstanceLockControllerTest
 
     /// <summary>
     /// Test case: Invalid lock token format in Altinn-Storage-Lock-Token header
-    /// Expected: Returns 401 Unauthorized
+    /// Expected: Returns 400 Bad Request
     /// </summary>
     [Fact]
-    public async Task UpdateInstanceLock_InvalidLockTokenFormat_ReturnsUnauthorized()
+    public async Task UpdateInstanceLock_InvalidLockTokenFormat_ReturnsBadRequest()
     {
         // Arrange
         var requestUri = $"storage/api/v1/instances/{_partyId}/{_instanceGuid}/lock";
@@ -508,10 +508,10 @@ public class InstanceLockControllerTest
 
     /// <summary>
     /// Test case: Lock token doesn't match the stored token hash
-    /// Expected: Returns 401 Unauthorized
+    /// Expected: Returns 403 Forbidden
     /// </summary>
     [Fact]
-    public async Task UpdateInstanceLock_LockTokenMismatch_ReturnsUnauthorized()
+    public async Task UpdateInstanceLock_LockTokenMismatch_ReturnsForbidden()
     {
         // Arrange
         var lockId = 12345;

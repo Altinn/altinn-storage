@@ -110,7 +110,7 @@ public class LockTokenTests
     }
 
     [Fact]
-    public async Task ParseToken_JsonMissingSecret_ThrowsNullReferenceException()
+    public async Task ParseToken_JsonMissingSecret_ThrowsFormatException()
     {
         // Arrange
         var missingSecretToken = Base64Url.EncodeToString(
