@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.IO;
+using System.Reflection;
 using Altinn.Platform.Storage.UnitTest.Configuration;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
@@ -60,6 +61,28 @@ public static class WebApplicationExtensions
                     IsDebug = settings.EnableDebug,
                 }
             );
+
+            SetUpTestTimeOverride(connectionString);
         }
+    }
+
+    private static void SetUpTestTimeOverride(string connectionString)
+    {
+        var assembly = Assembly.GetExecutingAssembly();
+        using var stream =
+            assembly.GetManifestResourceStream(
+                "Altinn.Platform.Storage.UnitTest.TestSetup.setup-test-time-override.sql"
+            )
+            ?? throw new InvalidOperationException(
+                "Embedded resource 'setup-test-time-override.sql' not found"
+            );
+        using var reader = new StreamReader(stream);
+        string setupScript = reader.ReadToEnd();
+
+        using var connection = new Npgsql.NpgsqlConnection(connectionString);
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = setupScript;
+        command.ExecuteNonQuery();
     }
 }

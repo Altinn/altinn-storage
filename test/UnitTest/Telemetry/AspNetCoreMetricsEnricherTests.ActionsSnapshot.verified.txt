@@ -165,6 +165,8 @@
     Altinn.Platform.Storage.Controllers.ContentOnDemandController.GetSignatureAsHtml (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.DataController.SetFileScanStatus (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.ErrorController.Error (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.InstanceLockController.AcquireInstanceLock (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.InstanceLockController.UpdateInstanceLock (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.Delete (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstance (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstanceEvents (Altinn.Platform.Storage),
