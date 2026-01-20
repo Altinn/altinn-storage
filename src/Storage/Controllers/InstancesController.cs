@@ -397,6 +397,50 @@ public class InstancesController : ControllerBase
     }
 
     /// <summary>
+    /// Gets a specific instance with the given instance guid.
+    /// </summary>
+    /// <param name="instanceGuid">The id of the instance to retrieve.</param>
+    /// <param name="cancellationToken">CancellationToken</param>
+    /// <returns>The information about the specific instance.</returns>
+    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
+    [HttpGet("{instanceGuid:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Produces("application/json")]
+    public async Task<ActionResult<Instance>> GetByGuid(
+        Guid instanceGuid,
+        CancellationToken cancellationToken
+    )
+    {
+        try
+        {
+            (Instance result, _) = await _instanceRepository.GetOne(
+                instanceGuid,
+                true,
+                cancellationToken
+            );
+
+            if (
+                User.GetOrg() != result.Org
+                && !_authorizationService.UserHasRequiredScope([
+                    _generalSettings.InstanceSyncAdapterScope,
+                ])
+            )
+            {
+                FilterOutDeletedDataElements(result);
+            }
+
+            result.SetPlatformSelfLinks(_storageBaseAndHost);
+
+            return Ok(result);
+        }
+        catch (Exception e)
+        {
+            return NotFound($"Unable to find instance {instanceGuid}: {e}");
+        }
+    }
+
+    /// <summary>
     /// Inserts new instance into the instance collection.
     /// </summary>
     /// <param name="appId">the application id</param>
