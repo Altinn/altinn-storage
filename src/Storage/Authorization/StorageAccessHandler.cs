@@ -91,10 +91,36 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
             return;
         }
 
+        RouteData routeData = _httpContextAccessor.HttpContext.GetRouteData();
+        Instance instance = null;
+
+        // If we only have instanceGuid (not instanceOwnerPartyId), fetch the instance first
+        if (
+            routeData.Values.ContainsKey("instanceGuid")
+            && !routeData.Values.ContainsKey("instanceOwnerPartyId")
+        )
+        {
+            Guid instanceGuid = Guid.Parse(routeData.Values["instanceGuid"].ToString());
+            (instance, _) = await _instanceRepository.GetOne(
+                instanceGuid,
+                false,
+                CancellationToken.None
+            );
+
+            if (instance == null)
+            {
+                context.Fail();
+                return;
+            }
+
+            // Add the partyId to route data so DecisionHelper can use it
+            routeData.Values["instanceOwnerPartyId"] = int.Parse(instance.InstanceOwner.PartyId);
+        }
+
         XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
             context,
             requirement,
-            _httpContextAccessor.HttpContext.GetRouteData()
+            routeData
         );
 
         _logger.LogInformation(
@@ -104,8 +130,9 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
 
         XacmlJsonResponse response;
 
-        // Get The instance to enrich the request
-        Instance instance = await GetInstance(request);
+        // If we already fetched the instance above, use it. Otherwise, fetch it now.
+        instance ??= await GetInstance(request);
+
         if (instance != null)
         {
             AuthorizationService.EnrichXacmlJsonRequest(request, instance);
@@ -175,8 +202,11 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
             return null;
         }
 
+        // Handle both formats: "partyId/guid" and just "guid"
+        string guidString = instanceId.Contains('/') ? instanceId.Split("/")[1] : instanceId;
+
         (Instance instance, _) = await _instanceRepository.GetOne(
-            Guid.Parse(instanceId.Split("/")[1]),
+            Guid.Parse(guidString),
             false,
             CancellationToken.None
         );
