@@ -352,6 +352,8 @@ public class InstancesController : ControllerBase
 
     /// <summary>
     /// Gets a specific instance with the given instance id.
+    /// This endpoint is maintained for backwards compatibility but requires an unnecessary instanceOwnerPartyId parameter.
+    /// Prefer using GetByGuid which only requires the instance GUID.
     /// </summary>
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance to retrieve.</param>
@@ -398,6 +400,7 @@ public class InstancesController : ControllerBase
 
     /// <summary>
     /// Gets a specific instance with the given instance guid.
+    /// Prefer this endpoint over Get which requires an unnecessary instanceOwnerPartyId parameter.
     /// </summary>
     /// <param name="instanceGuid">The id of the instance to retrieve.</param>
     /// <param name="cancellationToken">CancellationToken</param>
