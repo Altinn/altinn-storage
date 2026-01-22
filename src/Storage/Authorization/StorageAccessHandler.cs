@@ -107,7 +107,7 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
 
         if (!routeData.Values.ContainsKey("instanceOwnerPartyId"))
         {
-            // Used by the autorization service
+            // Used in the authorization request
             routeData.Values["instanceOwnerPartyId"] = int.Parse(instance.InstanceOwner.PartyId);
         }
 
