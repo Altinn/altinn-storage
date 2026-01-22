@@ -33,7 +33,7 @@ In pgAdmin
   - platform_storage (canlogin)
 - Create schema _storage_ in storagedb with owner _platform_storage_admin_
 
-A more detailed description of the database setup is available in [our developer handbook](https://docs.altinn.studio/community/contributing/handbook/postgres/)
+A more detailed description of the database setup is available in [our developer handbook](https://docs.altinn.studio/en/community/contributing/handbook/postgres/)
 
 ### Setting up PostgreSQL with docker compose
 
