@@ -161,4 +161,24 @@ public static class ClaimsPrincipalExtensions
 
         return 0;
     }
+
+    /// <summary>
+    /// Parses the value of the authentication level claim.
+    /// </summary>
+    /// <param name="user">The ClaimsPrincipal to check for the authentication level claim value.</param>
+    /// <param name="authenticationLevel">Out variable for the parsed value.</param>
+    public static bool TryParseAuthenticationLevel(
+        this ClaimsPrincipal user,
+        out int authenticationLevel
+    )
+    {
+        string? claimValue = user.FindFirstValue(AltinnCoreClaimTypes.AuthenticationLevel);
+        if (claimValue is not null && int.TryParse(claimValue, out int result))
+        {
+            authenticationLevel = result;
+            return true;
+        }
+        authenticationLevel = 0;
+        return false;
+    }
 }

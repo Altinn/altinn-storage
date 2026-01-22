@@ -1,17 +1,11 @@
 ﻿#nullable enable
 using System;
-using System.Diagnostics;
 using System.Threading.Tasks;
-using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
-using Altinn.Platform.Storage.Messages;
 using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using Wolverine;
 
 namespace Altinn.Platform.Storage.Services;
 
@@ -78,6 +72,32 @@ public class InstanceEventService : IInstanceEventService
     {
         var user = _contextAccessor.HttpContext!.User;
 
+        int? userId = user.GetUserId();
+        string? orgId = user.GetOrg();
+        Guid? systemUserId = user.GetSystemUserId();
+        string? systemUserOwnerOrgNo = user.GetSystemUserOwner();
+
+        if (userId is null && orgId is null && systemUserId is null)
+        {
+            throw new InvalidOperationException(
+                "Cannot dispatch event, missing a user to preform the event on behalf of"
+            );
+        }
+
+        if (systemUserId is not null && systemUserOwnerOrgNo is null)
+        {
+            throw new ArgumentException(
+                $"Missing argument '{nameof(systemUserOwnerOrgNo)}' when {nameof(systemUserId)} is specified"
+            );
+        }
+
+        if (user.TryParseAuthenticationLevel(out int authenticationLevel) is false)
+        {
+            throw new InvalidOperationException(
+                "Cannot dispatch event without AuthenticationLevel"
+            );
+        }
+
         InstanceEvent instanceEvent = new()
         {
             EventType = eventType.ToString(),
@@ -86,11 +106,11 @@ public class InstanceEventService : IInstanceEventService
             InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
             User = new PlatformUser
             {
-                UserId = user.GetUserId(),
-                AuthenticationLevel = user.GetAuthenticationLevel(),
-                OrgId = user.GetOrg(),
-                SystemUserId = user.GetSystemUserId(),
-                SystemUserOwnerOrgNo = user.GetSystemUserOwner(),
+                AuthenticationLevel = authenticationLevel,
+                UserId = userId,
+                OrgId = orgId,
+                SystemUserId = systemUserId,
+                SystemUserOwnerOrgNo = systemUserOwnerOrgNo,
             },
             ProcessInfo = instance.Process,
             Created = DateTime.UtcNow,
