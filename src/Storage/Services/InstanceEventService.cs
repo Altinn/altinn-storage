@@ -80,7 +80,7 @@ public class InstanceEventService : IInstanceEventService
         if (userId is null && orgId is null && systemUserId is null)
         {
             throw new InvalidOperationException(
-                "Cannot dispatch event, missing a user to preform the event on behalf of"
+                "Cannot dispatch event, missing a user to perform the event on behalf of"
             );
         }
 
