@@ -1,5 +1,6 @@
 ﻿#nullable enable
 using System;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
@@ -70,7 +71,7 @@ public class InstanceEventService : IInstanceEventService
         DataElement dataElement
     )
     {
-        var user = _contextAccessor.HttpContext!.User;
+        ClaimsPrincipal user = _contextAccessor.HttpContext!.User;
 
         int? userId = user.GetUserId();
         string? orgId = user.GetOrg();
