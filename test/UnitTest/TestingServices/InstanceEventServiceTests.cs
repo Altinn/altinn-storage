@@ -29,9 +29,10 @@ public class InstanceEventServiceTests
         identity.AddClaim(userIdClaim);
         identity.AddClaim(authenticationLevelClaim);
 
-        HttpContext context = new DefaultHttpContext();
-        context.User = new ClaimsPrincipal();
-        context.User.AddIdentity(identity);
+        HttpContext context = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(identity)
+        };
 
         contextAccessorMock.Setup(accessor => accessor.HttpContext).Returns(context);
 
@@ -70,9 +71,10 @@ public class InstanceEventServiceTests
         ClaimsIdentity identity = new();
         identity.AddClaim(authenticationLevelClaim);
 
-        HttpContext context = new DefaultHttpContext();
-        context.User = new ClaimsPrincipal();
-        context.User.AddIdentity(identity);
+        HttpContext context = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(identity)
+        };
 
         contextAccessorMock.Setup(accessor => accessor.HttpContext).Returns(context);
 
@@ -88,7 +90,7 @@ public class InstanceEventServiceTests
         };
         DataElement dataElement = new() { Id = "test" };
 
-        // Act amd Assert
+        // Act and Assert
         InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () =>
                 await target.DispatchEvent(eventType, instance, dataElement)
@@ -112,9 +114,10 @@ public class InstanceEventServiceTests
         ClaimsIdentity identity = new();
         identity.AddClaim(userIdClaim);
 
-        HttpContext context = new DefaultHttpContext();
-        context.User = new ClaimsPrincipal();
-        context.User.AddIdentity(identity);
+        HttpContext context = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(identity)
+        };
 
         contextAccessorMock.Setup(accessor => accessor.HttpContext).Returns(context);
 
@@ -130,7 +133,7 @@ public class InstanceEventServiceTests
         };
         DataElement dataElement = new() { Id = "test" };
 
-        // Act amd Assert
+        // Act and Assert
         InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () =>
                 await target.DispatchEvent(eventType, instance, dataElement)
