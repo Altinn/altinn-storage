@@ -27,7 +27,8 @@ public class InstanceOwner
     public string OrganisationNumber { get; set; }
 
     /// <summary>
-    /// Gets or sets the username of the party. Null if the party is not self identified.
+    /// Gets or sets the username of the party. Only set for legacy username-based authentication.
+    /// Null for email-based self-identified users.
     /// Altinn 3 will use ID-Porten self identified users, which are email based.
     /// This property will be removed when Altinn 3 no longer supports username based authentication.
     /// </summary>
