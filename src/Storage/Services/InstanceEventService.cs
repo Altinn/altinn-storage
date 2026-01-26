@@ -85,7 +85,7 @@ public class InstanceEventService : IInstanceEventService
             );
         }
 
-        if (user.TryParseAuthenticationLevel(out int authenticationLevel) is false)
+        if (!user.TryParseAuthenticationLevel(out int authenticationLevel))
         {
             throw new InvalidOperationException(
                 "Cannot dispatch event without AuthenticationLevel"
