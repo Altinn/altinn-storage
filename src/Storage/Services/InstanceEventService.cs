@@ -85,13 +85,6 @@ public class InstanceEventService : IInstanceEventService
             );
         }
 
-        if (systemUserId is not null && systemUserOwnerOrgNo is null)
-        {
-            throw new ArgumentException(
-                $"Missing argument '{nameof(systemUserOwnerOrgNo)}' when {nameof(systemUserId)} is specified"
-            );
-        }
-
         if (user.TryParseAuthenticationLevel(out int authenticationLevel) is false)
         {
             throw new InvalidOperationException(
