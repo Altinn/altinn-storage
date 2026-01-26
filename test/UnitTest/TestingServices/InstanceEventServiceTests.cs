@@ -29,10 +29,7 @@ public class InstanceEventServiceTests
         identity.AddClaim(userIdClaim);
         identity.AddClaim(authenticationLevelClaim);
 
-        HttpContext context = new DefaultHttpContext
-        {
-            User = new ClaimsPrincipal(identity)
-        };
+        HttpContext context = new DefaultHttpContext { User = new ClaimsPrincipal(identity) };
 
         contextAccessorMock.Setup(accessor => accessor.HttpContext).Returns(context);
 
@@ -71,10 +68,7 @@ public class InstanceEventServiceTests
         ClaimsIdentity identity = new();
         identity.AddClaim(authenticationLevelClaim);
 
-        HttpContext context = new DefaultHttpContext
-        {
-            User = new ClaimsPrincipal(identity)
-        };
+        HttpContext context = new DefaultHttpContext { User = new ClaimsPrincipal(identity) };
 
         contextAccessorMock.Setup(accessor => accessor.HttpContext).Returns(context);
 
@@ -114,10 +108,7 @@ public class InstanceEventServiceTests
         ClaimsIdentity identity = new();
         identity.AddClaim(userIdClaim);
 
-        HttpContext context = new DefaultHttpContext
-        {
-            User = new ClaimsPrincipal(identity)
-        };
+        HttpContext context = new DefaultHttpContext { User = new ClaimsPrincipal(identity) };
 
         contextAccessorMock.Setup(accessor => accessor.HttpContext).Returns(context);
 
