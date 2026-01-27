@@ -97,7 +97,9 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
         if (instanceGuidString is null)
         {
             context.Fail();
-            _logger.LogInformation("// Storage PEP // AppAccessHandler // No route data for instanceGuid found. Request not sent.");
+            _logger.LogInformation(
+                "// Storage PEP // AppAccessHandler // No route data for instanceGuid found. Request not sent."
+            );
             return;
         }
 
@@ -111,7 +113,10 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
         if (instance is null)
         {
             context.Fail();
-            _logger.LogInformation("// Storage PEP // AppAccessHandler // No instance found for instanceGuid: {instanceGuid}. Request not sent.", instanceGuid);
+            _logger.LogInformation(
+                "// Storage PEP // AppAccessHandler // No instance found for instanceGuid: {instanceGuid}. Request not sent.",
+                instanceGuid
+            );
             return;
         }
 
