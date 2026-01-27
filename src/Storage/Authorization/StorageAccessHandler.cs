@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Linq;
 using System.Text;
@@ -91,21 +92,30 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
             return;
         }
 
-        RouteData routeData = _httpContextAccessor.HttpContext.GetRouteData();
-        Guid instanceGuid = Guid.Parse(routeData.Values["instanceGuid"].ToString());
+        RouteData? routeData = _httpContextAccessor.HttpContext?.GetRouteData();
+        string? instanceGuidString = routeData?.Values["instanceGuid"]?.ToString();
+        if (instanceGuidString is null)
+        {
+            context.Fail();
+            _logger.LogInformation("// Storage PEP // AppAccessHandler // No route data for instanceGuid found. Request not sent.");
+            return;
+        }
+
+        Guid instanceGuid = Guid.Parse(instanceGuidString);
         (Instance instance, _) = await _instanceRepository.GetOne(
             instanceGuid,
             false,
             CancellationToken.None
         );
 
-        if (instance == null)
+        if (instance is null)
         {
             context.Fail();
+            _logger.LogInformation("// Storage PEP // AppAccessHandler // No instance found for instanceGuid: {instanceGuid}. Request not sent.", instanceGuid);
             return;
         }
 
-        if (!routeData.Values.ContainsKey("instanceOwnerPartyId"))
+        if (routeData?.Values.ContainsKey("instanceOwnerPartyId") is false)
         {
             // Used in the authorization request
             routeData.Values["instanceOwnerPartyId"] = int.Parse(instance.InstanceOwner.PartyId);
@@ -122,19 +132,10 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
             JsonConvert.SerializeObject(request)
         );
 
-        XacmlJsonResponse response;
+        AuthorizationService.EnrichXacmlJsonRequest(request, instance);
+        XacmlJsonResponse response = await GetDecisionForRequest(request);
 
-        if (instance != null)
-        {
-            AuthorizationService.EnrichXacmlJsonRequest(request, instance);
-            response = await GetDecisionForRequest(request);
-        }
-        else
-        {
-            response = await _pdp.GetDecisionForRequest(request);
-        }
-
-        if (response?.Response == null)
+        if (response?.Response is null)
         {
             throw new Exception("Response is null from PDP");
         }
@@ -152,7 +153,7 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
     {
         string cacheKey = GetCacheKeyForDecisionRequest(request);
 
-        if (!_memoryCache.TryGetValue(cacheKey, out XacmlJsonResponse response))
+        if (!_memoryCache.TryGetValue(cacheKey, out XacmlJsonResponse? response))
         {
             // Key not in cache, so get decisin from PDP.
             response = await _pdp.GetDecisionForRequest(request);
@@ -165,7 +166,7 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
             _memoryCache.Set(cacheKey, response, cacheEntryOptions);
         }
 
-        return response;
+        return response!; // Keep functionality after enabling nullable
     }
 
     /// <summary>
