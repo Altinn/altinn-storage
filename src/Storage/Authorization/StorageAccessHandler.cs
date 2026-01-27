@@ -115,12 +115,6 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
             return;
         }
 
-        if (routeData?.Values.ContainsKey("instanceOwnerPartyId") is false)
-        {
-            // Used in the authorization request
-            routeData.Values["instanceOwnerPartyId"] = int.Parse(instance.InstanceOwner.PartyId);
-        }
-
         XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
             context,
             requirement,
