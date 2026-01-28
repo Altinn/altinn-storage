@@ -14,6 +14,7 @@
     Altinn.Platform.Storage.Controllers.InstancesController.AddCompleteConfirmation (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstancesController.Delete (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstancesController.Get (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.InstancesController.GetByGuid (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstancesController.GetInstances (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstancesController.Post (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstancesController.UpdateDataValues (Altinn.Platform.Storage),
@@ -92,6 +93,11 @@
       altinn:serviceowner/instances.write
     ],
     Altinn.Platform.Storage.Controllers.InstancesController.Get (Altinn.Platform.Storage): [
+      altinn:instances.read,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.read
+    ],
+    Altinn.Platform.Storage.Controllers.InstancesController.GetByGuid (Altinn.Platform.Storage): [
       altinn:instances.read,
       altinn:portal/enduser,
       altinn:serviceowner/instances.read

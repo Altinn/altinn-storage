@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Linq;
 using System.Text;
@@ -91,10 +92,28 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
             return;
         }
 
+        RouteData? routeData = _httpContextAccessor.HttpContext?.GetRouteData();
+        string? instanceGuidString = routeData?.Values["instanceGuid"]?.ToString();
+        if (instanceGuidString is null)
+        {
+            context.Fail();
+            _logger.LogInformation(
+                "// Storage PEP // AppAccessHandler // No route data for instanceGuid found. Request not sent."
+            );
+            return;
+        }
+
+        Guid instanceGuid = Guid.Parse(instanceGuidString);
+        (Instance instance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            CancellationToken.None
+        );
+
         XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
             context,
             requirement,
-            _httpContextAccessor.HttpContext.GetRouteData()
+            routeData
         );
 
         _logger.LogInformation(
@@ -102,11 +121,9 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
             JsonConvert.SerializeObject(request)
         );
 
-        XacmlJsonResponse response;
+        XacmlJsonResponse? response;
 
-        // Get The instance to enrich the request
-        Instance instance = await GetInstance(request);
-        if (instance != null)
+        if (instance is not null)
         {
             AuthorizationService.EnrichXacmlJsonRequest(request, instance);
             response = await GetDecisionForRequest(request);
@@ -116,7 +133,7 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
             response = await _pdp.GetDecisionForRequest(request);
         }
 
-        if (response?.Response == null)
+        if (response?.Response is null)
         {
             throw new Exception("Response is null from PDP");
         }
@@ -130,11 +147,11 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
         await Task.CompletedTask;
     }
 
-    private async Task<XacmlJsonResponse> GetDecisionForRequest(XacmlJsonRequestRoot request)
+    private async Task<XacmlJsonResponse?> GetDecisionForRequest(XacmlJsonRequestRoot request)
     {
         string cacheKey = GetCacheKeyForDecisionRequest(request);
 
-        if (!_memoryCache.TryGetValue(cacheKey, out XacmlJsonResponse response))
+        if (!_memoryCache.TryGetValue(cacheKey, out XacmlJsonResponse? response))
         {
             // Key not in cache, so get decisin from PDP.
             response = await _pdp.GetDecisionForRequest(request);
@@ -148,39 +165,6 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
         }
 
         return response;
-    }
-
-    /// <summary>
-    /// Get the instance from database based on request
-    /// </summary>
-    /// <param name="request">The request</param>
-    /// <returns>The instance identified by information in the request.</returns>
-    private async Task<Instance> GetInstance(XacmlJsonRequestRoot request)
-    {
-        string instanceId = string.Empty;
-        foreach (XacmlJsonCategory category in request.Request.Resource)
-        {
-            foreach (var atr in category.Attribute)
-            {
-                if (atr.AttributeId.Equals(AltinnXacmlUrns.InstanceId))
-                {
-                    instanceId = atr.Value;
-                    break;
-                }
-            }
-        }
-
-        if (string.IsNullOrEmpty(instanceId))
-        {
-            return null;
-        }
-
-        (Instance instance, _) = await _instanceRepository.GetOne(
-            Guid.Parse(instanceId.Split("/")[1]),
-            false,
-            CancellationToken.None
-        );
-        return instance;
     }
 
     /// <summary>
