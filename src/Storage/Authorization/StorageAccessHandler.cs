@@ -132,7 +132,7 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
         );
 
         AuthorizationService.EnrichXacmlJsonRequest(request, instance);
-        XacmlJsonResponse response = await GetDecisionForRequest(request);
+        XacmlJsonResponse? response = await GetDecisionForRequest(request);
 
         if (response?.Response is null)
         {
@@ -148,7 +148,7 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
         await Task.CompletedTask;
     }
 
-    private async Task<XacmlJsonResponse> GetDecisionForRequest(XacmlJsonRequestRoot request)
+    private async Task<XacmlJsonResponse?> GetDecisionForRequest(XacmlJsonRequestRoot request)
     {
         string cacheKey = GetCacheKeyForDecisionRequest(request);
 
@@ -165,7 +165,7 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
             _memoryCache.Set(cacheKey, response, cacheEntryOptions);
         }
 
-        return response!; // Keep functionality after enabling nullable
+        return response;
     }
 
     /// <summary>
