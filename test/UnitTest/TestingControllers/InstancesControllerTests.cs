@@ -67,6 +67,28 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
+    /// <summary>
+    /// Test case: User has to low authentication level.
+    /// Expected: Returns status forbidden.
+    /// </summary>
+    [Fact]
+    public async Task GetByGuid_UserHasTooLowAuthLv_ReturnsStatusForbidden()
+    {
+        // Arrange
+        string instanceGuid = "20475edd-dc38-4ae0-bd64-1b20643f506c";
+        string requestUri = $"{BasePath}/{instanceGuid}";
+
+        HttpClient client = GetTestClient();
+        string token = PrincipalUtil.GetToken(3, 1337, 0);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
     [Theory]
     [InlineData("", 1L)]
     [InlineData(PrincipalUtil.AltinnPortalUserScope, null)]
@@ -92,6 +114,33 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string responseContent = await response.Content.ReadAsStringAsync();
         Instance instance = JsonConvert.DeserializeObject<Instance>(responseContent);
         Assert.Equal("1337", instance.InstanceOwner.PartyId);
+        await _testTelemetry.AssertRequestsWithInvalidScopesCountAsync(invalidScopeRequests);
+    }
+
+    [Theory]
+    [InlineData("", 1L)]
+    [InlineData(PrincipalUtil.AltinnPortalUserScope, null)]
+    [InlineData("altinn:instances.read", null)]
+    [InlineData("something", 1L)]
+    public async Task GetByGuid_One_Ok(string scope, long? invalidScopeRequests)
+    {
+        // Arrange
+        string instanceGuid = "46133fb5-a9f2-45d4-90b1-f6d93ad40713";
+        string requestUri = $"{BasePath}/{instanceGuid}";
+
+        HttpClient client = GetTestClient();
+        string token = PrincipalUtil.GetToken(3, 1337, 3, scopes: [scope]);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        string responseContent = await response.Content.ReadAsStringAsync();
+        Instance instance = JsonConvert.DeserializeObject<Instance>(responseContent);
+        Assert.Equal("1337/46133fb5-a9f2-45d4-90b1-f6d93ad40713", instance.Id);
         await _testTelemetry.AssertRequestsWithInvalidScopesCountAsync(invalidScopeRequests);
     }
 
@@ -127,6 +176,36 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     }
 
     [Fact]
+    public async Task GetByGuid_One_Twice_Ok()
+    {
+        // Arrange
+        string instanceGuid = "377efa97-80ee-4cc6-8d48-09de12cc273d";
+        string requestUri = $"{BasePath}/{instanceGuid}";
+
+        HttpClient client = GetTestClient();
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        RequestTracker.Clear();
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+        HttpResponseMessage response2 = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(
+            1,
+            RequestTracker.GetRequestCount(
+                "GetDecisionForRequest1337/377efa97-80ee-4cc6-8d48-09de12cc273d"
+            )
+        );
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        string responseContent = await response.Content.ReadAsStringAsync();
+        Instance instance = JsonConvert.DeserializeObject<Instance>(responseContent);
+        Assert.Equal("1337/377efa97-80ee-4cc6-8d48-09de12cc273d", instance.Id);
+        Assert.Equal(HttpStatusCode.OK, response2.StatusCode);
+    }
+
+    [Fact]
     public async Task Get_One_With_SyncAdapterScope_Ok()
     {
         // Arrange
@@ -158,6 +237,37 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Assert.Equal("1337", instance.InstanceOwner.PartyId);
     }
 
+    [Fact]
+    public async Task GetByGuid_One_With_SyncAdapterScope_Ok()
+    {
+        // Arrange
+        string instanceGuid = "377efa97-80ee-4cc6-8d48-09de12cc273d";
+        string requestUri = $"{BasePath}/{instanceGuid}";
+
+        HttpClient client = GetTestClient();
+        string token = PrincipalUtil.GetOrgToken(
+            "foo",
+            scope: "altinn:storage/instances.syncadapter"
+        );
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        RequestTracker.Clear();
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(
+            0,
+            RequestTracker.GetRequestCount(
+                "GetDecisionForRequest1337/377efa97-80ee-4cc6-8d48-09de12cc273d"
+            )
+        ); // We should not be hitting the PDP as sync adapter
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        string responseContent = await response.Content.ReadAsStringAsync();
+        Instance instance = JsonConvert.DeserializeObject<Instance>(responseContent);
+        Assert.Equal("1337/377efa97-80ee-4cc6-8d48-09de12cc273d", instance.Id);
+    }
+
     /// <summary>
     /// Test case: User tries to access element that he is not authorized for
     /// Expected: Returns status forbidden.
@@ -169,6 +279,28 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         int instanceOwnerPartyId = 1337;
         string instanceGuid = "23d6aa98-df3b-4982-8d8a-8fe67a53b828";
         string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}";
+
+        HttpClient client = GetTestClient();
+        string token = PrincipalUtil.GetToken(1, 50001, 3);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Test case: User tries to access element that he is not authorized for
+    /// Expected: Returns status forbidden.
+    /// </summary>
+    [Fact]
+    public async Task GetByGuid_ReponseIsDeny_ReturnsStatusForbidden()
+    {
+        // Arrange
+        string instanceGuid = "23d6aa98-df3b-4982-8d8a-8fe67a53b828";
+        string requestUri = $"{BasePath}/{instanceGuid}";
 
         HttpClient client = GetTestClient();
         string token = PrincipalUtil.GetToken(1, 50001, 3);
