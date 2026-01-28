@@ -121,8 +121,17 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
             JsonConvert.SerializeObject(request)
         );
 
-        AuthorizationService.EnrichXacmlJsonRequest(request, instance);
-        XacmlJsonResponse? response = await GetDecisionForRequest(request);
+        XacmlJsonResponse? response;
+
+        if (instance is not null)
+        {
+            AuthorizationService.EnrichXacmlJsonRequest(request, instance);
+            response = await GetDecisionForRequest(request);
+        }
+        else
+        {
+            response = await _pdp.GetDecisionForRequest(request);
+        }
 
         if (response?.Response is null)
         {
