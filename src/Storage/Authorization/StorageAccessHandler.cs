@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Linq;
 using System.Text;
@@ -91,30 +92,32 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
             return;
         }
 
-        RouteData routeData = _httpContextAccessor.HttpContext.GetRouteData();
-        Instance instance = null;
-
-        // If we only have instanceGuid (not instanceOwnerPartyId), fetch the instance first
-        if (
-            routeData.Values.ContainsKey("instanceGuid")
-            && !routeData.Values.ContainsKey("instanceOwnerPartyId")
-        )
+        RouteData? routeData = _httpContextAccessor.HttpContext?.GetRouteData();
+        string? instanceGuidString = routeData?.Values["instanceGuid"]?.ToString();
+        if (instanceGuidString is null)
         {
-            Guid instanceGuid = Guid.Parse(routeData.Values["instanceGuid"].ToString());
-            (instance, _) = await _instanceRepository.GetOne(
-                instanceGuid,
-                false,
-                CancellationToken.None
+            context.Fail();
+            _logger.LogInformation(
+                "// Storage PEP // AppAccessHandler // No route data for instanceGuid found. Request not sent."
             );
+            return;
+        }
 
-            if (instance == null)
-            {
-                context.Fail();
-                return;
-            }
+        Guid instanceGuid = Guid.Parse(instanceGuidString);
+        (Instance instance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            CancellationToken.None
+        );
 
-            // Add the partyId to route data so DecisionHelper can use it
-            routeData.Values["instanceOwnerPartyId"] = int.Parse(instance.InstanceOwner.PartyId);
+        if (instance is null)
+        {
+            context.Fail();
+            _logger.LogInformation(
+                "// Storage PEP // AppAccessHandler // No instance found for instanceGuid: {instanceGuid}. Request not sent.",
+                instanceGuid
+            );
+            return;
         }
 
         XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
@@ -128,22 +131,10 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
             JsonConvert.SerializeObject(request)
         );
 
-        XacmlJsonResponse response;
+        AuthorizationService.EnrichXacmlJsonRequest(request, instance);
+        XacmlJsonResponse? response = await GetDecisionForRequest(request);
 
-        // If we already fetched the instance above, use it. Otherwise, fetch it now.
-        instance ??= await GetInstance(request);
-
-        if (instance != null)
-        {
-            AuthorizationService.EnrichXacmlJsonRequest(request, instance);
-            response = await GetDecisionForRequest(request);
-        }
-        else
-        {
-            response = await _pdp.GetDecisionForRequest(request);
-        }
-
-        if (response?.Response == null)
+        if (response?.Response is null)
         {
             throw new Exception("Response is null from PDP");
         }
@@ -157,11 +148,11 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
         await Task.CompletedTask;
     }
 
-    private async Task<XacmlJsonResponse> GetDecisionForRequest(XacmlJsonRequestRoot request)
+    private async Task<XacmlJsonResponse?> GetDecisionForRequest(XacmlJsonRequestRoot request)
     {
         string cacheKey = GetCacheKeyForDecisionRequest(request);
 
-        if (!_memoryCache.TryGetValue(cacheKey, out XacmlJsonResponse response))
+        if (!_memoryCache.TryGetValue(cacheKey, out XacmlJsonResponse? response))
         {
             // Key not in cache, so get decisin from PDP.
             response = await _pdp.GetDecisionForRequest(request);
@@ -175,42 +166,6 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
         }
 
         return response;
-    }
-
-    /// <summary>
-    /// Get the instance from database based on request
-    /// </summary>
-    /// <param name="request">The request</param>
-    /// <returns>The instance identified by information in the request.</returns>
-    private async Task<Instance> GetInstance(XacmlJsonRequestRoot request)
-    {
-        string instanceId = string.Empty;
-        foreach (XacmlJsonCategory category in request.Request.Resource)
-        {
-            foreach (var atr in category.Attribute)
-            {
-                if (atr.AttributeId.Equals(AltinnXacmlUrns.InstanceId))
-                {
-                    instanceId = atr.Value;
-                    break;
-                }
-            }
-        }
-
-        if (string.IsNullOrEmpty(instanceId))
-        {
-            return null;
-        }
-
-        // Handle both formats: "partyId/guid" and just "guid"
-        string guidString = instanceId.Contains('/') ? instanceId.Split("/")[1] : instanceId;
-
-        (Instance instance, _) = await _instanceRepository.GetOne(
-            Guid.Parse(guidString),
-            false,
-            CancellationToken.None
-        );
-        return instance;
     }
 
     /// <summary>
