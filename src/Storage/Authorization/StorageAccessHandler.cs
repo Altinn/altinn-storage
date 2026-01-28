@@ -103,22 +103,14 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
             return;
         }
 
-        Guid instanceGuid = Guid.Parse(instanceGuidString);
+        Guid instanceGuid = instanceGuidString is null
+            ? Guid.Empty
+            : Guid.Parse(instanceGuidString);
         (Instance instance, _) = await _instanceRepository.GetOne(
             instanceGuid,
             false,
             CancellationToken.None
         );
-
-        if (instance is null)
-        {
-            context.Fail();
-            _logger.LogInformation(
-                "// Storage PEP // AppAccessHandler // No instance found for instanceGuid: {instanceGuid}. Request not sent.",
-                instanceGuid
-            );
-            return;
-        }
 
         XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
             context,
