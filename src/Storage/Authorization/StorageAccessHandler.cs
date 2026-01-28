@@ -103,9 +103,7 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
             return;
         }
 
-        Guid instanceGuid = instanceGuidString is null
-            ? Guid.Empty
-            : Guid.Parse(instanceGuidString);
+        Guid instanceGuid = Guid.Parse(instanceGuidString);
         (Instance instance, _) = await _instanceRepository.GetOne(
             instanceGuid,
             false,
