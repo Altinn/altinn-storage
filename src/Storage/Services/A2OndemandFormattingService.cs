@@ -49,8 +49,17 @@ public class A2OndemandFormattingService : IA2OndemandFormattingService
 
     private string GetFormdataHtmlInternal(Stream formData, PrintViewXslBEList printViewXslBEList)
     {
-        XmlDocument xmlDoc = new();
-        xmlDoc.Load(formData);
+        XmlDocument xmlDoc = new() { XmlResolver = null };
+        XmlReaderSettings settings = new()
+        {
+            DtdProcessing = DtdProcessing.Prohibit,
+            XmlResolver = null,
+        };
+
+        using (XmlReader reader = XmlReader.Create(formData, settings))
+        {
+            xmlDoc.Load(reader);
+        }
 
         StringBuilder htmlString = new();
 
