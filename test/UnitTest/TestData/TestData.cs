@@ -132,7 +132,7 @@ public static class TestData
             Process = CreateProcessState(),
         };
 
-    // 2nd instance of application 1
+    // 3rd instance of application 1
     public static Instance Instance_1_3 { get; set; } =
         new Instance()
         {
@@ -314,6 +314,46 @@ public static class TestData
             LastChangedBy = UserId_1,
             LastChanged = Convert.ToDateTime("2019-08-20T19:19:22.2135489Z").ToUniversalTime(),
             Org = Org_1,
+        };
+
+    // Instance with Email-based self identification (new type)
+    public static Instance Instance_1_Email { get; set; } =
+        new Instance()
+        {
+            Id = $"{InstanceOwnerPartyId_1}/a7b3c9d2-4e5f-6a7b-8c9d-0e1f2a3b4c5d",
+            AppId = AppId_1,
+            CreatedBy = UserId_1,
+            Created = Convert.ToDateTime("2019-08-20T19:19:21.7920255Z").ToUniversalTime(),
+            InstanceOwner = new InstanceOwner
+            {
+                PartyId = InstanceOwnerPartyId_1,
+                Email = "test.user@example.com",
+            },
+            Status = new InstanceStatus() { ReadStatus = ReadStatus.Read },
+            LastChangedBy = UserId_1,
+            LastChanged = Convert.ToDateTime("2019-08-20T19:19:22.2135489Z").ToUniversalTime(),
+            Org = Org_1,
+            Process = CreateProcessState(),
+        };
+
+    // Instance with Username-based self identification (legacy type)
+    public static Instance Instance_1_Username { get; set; } =
+        new Instance()
+        {
+            Id = $"{InstanceOwnerPartyId_1}/b8c4d0e3-5f6a-7b8c-9d0e-1f2a3b4c5d6e",
+            AppId = AppId_1,
+            CreatedBy = UserId_1,
+            Created = Convert.ToDateTime("2019-08-20T19:19:21.7920255Z").ToUniversalTime(),
+            InstanceOwner = new InstanceOwner
+            {
+                PartyId = InstanceOwnerPartyId_1,
+                Username = "legacy_username",
+            },
+            Status = new InstanceStatus() { ReadStatus = ReadStatus.Read },
+            LastChangedBy = UserId_1,
+            LastChanged = Convert.ToDateTime("2019-08-20T19:19:22.2135489Z").ToUniversalTime(),
+            Org = Org_1,
+            Process = CreateProcessState(),
         };
 
     public static List<Instance> InstanceList_App1 { get; set; } =
