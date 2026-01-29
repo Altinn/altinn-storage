@@ -1190,6 +1190,58 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Assert.NotNull(instances.Exception);
     }
 
+    /// <summary>
+    /// Test create instance with Email-based self identification
+    /// </summary>
+    [Fact]
+    public async Task Instance_Create_WithEmail_Ok()
+    {
+        // Arrange
+        Instance newInstance = TestData.Instance_1_Email.Clone();
+
+        // Act
+        Instance createdInstance = await _instanceFixture.InstanceRepo.Create(
+            newInstance,
+            CancellationToken.None
+        );
+
+        // Assert
+        string sql =
+            $"select count(*) from storage.instances where alternateid = '{newInstance.Id.Split('/').Last()}'";
+        int count = await PostgresUtil.RunCountQuery(sql);
+
+        Assert.Equal(1, count);
+        Assert.Equal(newInstance.InstanceOwner.PartyId, createdInstance.InstanceOwner.PartyId);
+        Assert.NotNull(createdInstance.InstanceOwner.Email);
+        Assert.Equal("test.user@example.com", createdInstance.InstanceOwner.Email);
+    }
+
+    /// <summary>
+    /// Test create instance with Username-based self identification (legacy)
+    /// </summary>
+    [Fact]
+    public async Task Instance_Create_WithUsername_Ok()
+    {
+        // Arrange
+        Instance newInstance = TestData.Instance_1_Username.Clone();
+
+        // Act
+        Instance createdInstance = await _instanceFixture.InstanceRepo.Create(
+            newInstance,
+            CancellationToken.None
+        );
+
+        // Assert
+        string sql =
+            $"select count(*) from storage.instances where alternateid = '{newInstance.Id.Split('/').Last()}'";
+        int count = await PostgresUtil.RunCountQuery(sql);
+
+        Assert.Equal(1, count);
+        Assert.Equal(newInstance.InstanceOwner.PartyId, createdInstance.InstanceOwner.PartyId);
+        Assert.NotNull(createdInstance.InstanceOwner.Username);
+        Assert.Equal("legacy_username", createdInstance.InstanceOwner.Username);
+    }
+
     private async Task<Instance> InsertInstanceAndDataHardDelete(
         Instance instance,
         DataElement dataelement
