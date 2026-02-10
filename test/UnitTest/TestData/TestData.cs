@@ -327,7 +327,8 @@ public static class TestData
             InstanceOwner = new InstanceOwner
             {
                 PartyId = InstanceOwnerPartyId_1,
-                Email = "test.user@example.com",
+                Username = "epost:test.user@example.com",
+                ExternalIdentifier = "urn:altinn:person:idporten-email:test.user@example.com",
             },
             Status = new InstanceStatus() { ReadStatus = ReadStatus.Read },
             LastChangedBy = UserId_1,

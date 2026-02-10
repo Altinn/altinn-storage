@@ -1212,8 +1212,13 @@ public class InstanceTests : IClassFixture<InstanceFixture>
 
         Assert.Equal(1, count);
         Assert.Equal(newInstance.InstanceOwner.PartyId, createdInstance.InstanceOwner.PartyId);
-        Assert.NotNull(createdInstance.InstanceOwner.Email);
-        Assert.Equal("test.user@example.com", createdInstance.InstanceOwner.Email);
+        Assert.NotNull(createdInstance.InstanceOwner.Username);
+        Assert.Equal("epost:test.user@example.com", createdInstance.InstanceOwner.Username);
+        Assert.NotNull(createdInstance.InstanceOwner.ExternalIdentifier);
+        Assert.Equal(
+            "urn:altinn:person:idporten-email:test.user@example.com",
+            createdInstance.InstanceOwner.ExternalIdentifier
+        );
     }
 
     /// <summary>
