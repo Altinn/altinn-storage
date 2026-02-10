@@ -27,17 +27,17 @@ public class InstanceOwner
     public string OrganisationNumber { get; set; }
 
     /// <summary>
-    /// Gets or sets the username of the party. Only set for legacy username-based authentication.
-    /// Null for email-based self-identified users.
-    /// Altinn 3 will use ID-Porten self identified users, which are email based.
-    /// This property will be removed when Altinn 3 no longer supports username based authentication.
+    /// Gets or sets the username of the party.
+    /// For self identifier users.
+    /// Legacy sets this as a username, new id porten email self identification sets this as email on the form "epost:[email]"
     /// </summary>
     [JsonProperty(PropertyName = "username")]
     public string Username { get; set; }
 
     /// <summary>
-    /// Gets or sets the email of the party. This property is only set for self identified users.
+    /// Gets or sets an external identifier for the party.
+    /// This is used for self identifier users. Null for legacy users.
     /// </summary>
-    [JsonProperty(PropertyName = "email")]
-    public string Email { get; set; }
+    [JsonProperty(PropertyName = "externalIdentifier")]
+    public string ExternalIdentifier { get; set; }
 }
