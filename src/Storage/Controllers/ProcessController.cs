@@ -159,18 +159,15 @@ public class ProcessController : ControllerBase
 
         foreach (InstanceEvent instanceEvent in processStateUpdate.Events ?? [])
         {
-            int? userId = instanceEvent.User?.UserId;
-            string? orgId = instanceEvent.User?.OrgId;
-            Guid? systemUserId = instanceEvent.User?.SystemUserId;
-            int? authenticationLevel = instanceEvent.User?.AuthenticationLevel;
-
-            bool result = ValidateInstanceEventUserObject(
-                userId,
-                orgId,
-                systemUserId,
-                authenticationLevel
+            PlatformUser? user = instanceEvent.User;
+            bool validUserObject = ValidateInstanceEventUserObject(
+                user?.UserId,
+                user?.OrgId,
+                user?.SystemUserId,
+                user?.SystemUserOwnerOrgNo,
+                user?.EndUserSystemId
             );
-            if (!result)
+            if (!validUserObject)
             {
                 return BadRequest($"Missing user object in {nameof(instanceEvent.User)}");
             }
@@ -384,15 +381,15 @@ public class ProcessController : ControllerBase
         int? userId,
         string? orgId,
         Guid? systemUserId,
-        int? authenticationLevel
+        string? SystemUserOwnerOrgNo,
+        int? endUserSystemId
     )
     {
-        if (userId is null && orgId is null && systemUserId is null)
+        if (userId is null && orgId is null && systemUserId is null && endUserSystemId is null)
         {
             return false;
         }
-
-        if (authenticationLevel == 0)
+        if (systemUserId is not null && SystemUserOwnerOrgNo is null)
         {
             return false;
         }
