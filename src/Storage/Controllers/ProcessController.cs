@@ -385,7 +385,12 @@ public class ProcessController : ControllerBase
         int? endUserSystemId
     )
     {
-        if (userId is null && string.IsNullOrWhiteSpace(orgId) && systemUserId is null && endUserSystemId is null)
+        if (
+            userId is null
+            && string.IsNullOrWhiteSpace(orgId)
+            && systemUserId is null
+            && endUserSystemId is null
+        )
         {
             return false;
         }
