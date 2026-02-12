@@ -381,7 +381,7 @@ public class ProcessController : ControllerBase
         int? userId,
         string? orgId,
         Guid? systemUserId,
-        string? SystemUserOwnerOrgNo,
+        string? systemUserOwnerOrgNo,
         int? endUserSystemId
     )
     {
@@ -389,7 +389,7 @@ public class ProcessController : ControllerBase
         {
             return false;
         }
-        if (systemUserId is not null && SystemUserOwnerOrgNo is null)
+        if (systemUserId is not null && systemUserOwnerOrgNo is null)
         {
             return false;
         }
