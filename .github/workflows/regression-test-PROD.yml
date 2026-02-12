@@ -23,7 +23,7 @@ jobs:
       userName: ${{ secrets.REGRESSION_USER_NAME }}
       userPassword: ${{ secrets.REGRESSION_USER_PASSWORD }}
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: grafana/setup-k6-action@ffe7d7290dfa715e48c2ccc924d068444c94bde2 # v1.1.0
       - name: Run regression tests for endpoint 'applications'
         uses: grafana/run-k6-action@a15e2072ede004e8d46141e33d7f7dad8ad08d9d # v1.3.1
