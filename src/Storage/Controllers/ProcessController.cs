@@ -169,7 +169,7 @@ public class ProcessController : ControllerBase
             );
             if (!validUserObject)
             {
-                return BadRequest($"Missing user object in {nameof(instanceEvent.User)}");
+                return BadRequest($"Invalid user object in {nameof(instanceEvent.User)}");
             }
 
             if (string.IsNullOrWhiteSpace(instanceEvent.InstanceId))
@@ -385,11 +385,11 @@ public class ProcessController : ControllerBase
         int? endUserSystemId
     )
     {
-        if (userId is null && orgId is null && systemUserId is null && endUserSystemId is null)
+        if (userId is null && string.IsNullOrWhiteSpace(orgId) && systemUserId is null && endUserSystemId is null)
         {
             return false;
         }
-        if (systemUserId is not null && systemUserOwnerOrgNo is null)
+        if (systemUserId is not null && string.IsNullOrWhiteSpace(systemUserOwnerOrgNo))
         {
             return false;
         }
