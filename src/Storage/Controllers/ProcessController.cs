@@ -377,7 +377,7 @@ public class ProcessController : ControllerBase
         return (actionsThatAllowProcessNextForTaskType, taskId);
     }
 
-    private static bool ValidateInstanceEventUserObject(
+    internal static bool ValidateInstanceEventUserObject(
         int? userId,
         string? orgId,
         Guid? systemUserId,

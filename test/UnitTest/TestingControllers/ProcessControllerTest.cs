@@ -642,6 +642,63 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         Assert.Equal(expectedActions, result);
     }
 
+    [Theory]
+    [InlineData(123, null, null, null, true)]
+    [InlineData(null, "someOrg", null, null, true)]
+    [InlineData(null, null, "someSystemUserOwnerOrgNo", null, true)]
+    [InlineData(null, null, null, 123, true)]
+    public void ValidateInstanceEventUserObject_ReturnsTrueForValidUserObject(
+        int? userId,
+        string? orgId,
+        string? systemUserOwnerOrgNo,
+        int? endUserSystemId,
+        bool expectedResult
+    )
+    {
+        // Arrange
+        Guid? systemUserId = null;
+        if (systemUserOwnerOrgNo is not null)
+        {
+            systemUserId = new Guid("00000000-0000-0000-0000-000000000000");
+        }
+        // Act
+        bool result = ProcessController.ValidateInstanceEventUserObject(
+            userId,
+            orgId,
+            systemUserId,
+            systemUserOwnerOrgNo,
+            endUserSystemId
+        );
+
+        // Assert
+        Assert.Equal(expectedResult, result);
+    }
+
+    [Theory]
+    [InlineData(null, null, null, null, null, false)]
+    [InlineData(null, null, null, "someSystemUserOwnerOrgNo", null, false)]
+    public void ValidateInstanceEventUserObject_ReturnsFalseForInvalidUserObject(
+        int? userId,
+        string? orgId,
+        Guid? systemUserId,
+        string? systemUserOwnerOrgNo,
+        int? endUserSystemId,
+        bool expectedResult
+    )
+    {
+        // Act
+        bool result = ProcessController.ValidateInstanceEventUserObject(
+            userId,
+            orgId,
+            systemUserId,
+            systemUserOwnerOrgNo,
+            endUserSystemId
+        );
+
+        // Assert
+        Assert.Equal(expectedResult, result);
+    }
+
     private HttpClient GetTestClient(
         IInstanceRepository instanceRepository = null,
         IInstanceAndEventsRepository instanceAndEventsRepository = null,
