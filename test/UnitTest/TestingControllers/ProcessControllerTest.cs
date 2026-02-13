@@ -643,16 +643,15 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     }
 
     [Theory]
-    [InlineData(123, null, null, null, true)]
-    [InlineData(null, "someOrg", null, null, true)]
-    [InlineData(null, null, "someSystemUserOwnerOrgNo", null, true)]
-    [InlineData(null, null, null, 123, true)]
+    [InlineData(123, null, null, null)]
+    [InlineData(null, "someOrg", null, null)]
+    [InlineData(null, null, "someSystemUserOwnerOrgNo", null)]
+    [InlineData(null, null, null, 123)]
     public void ValidateInstanceEventUserObject_ReturnsTrueForValidUserObject(
         int? userId,
         string? orgId,
         string? systemUserOwnerOrgNo,
-        int? endUserSystemId,
-        bool expectedResult
+        int? endUserSystemId
     )
     {
         // Arrange
@@ -671,19 +670,18 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         );
 
         // Assert
-        Assert.Equal(expectedResult, result);
+        Assert.True(result);
     }
 
     [Theory]
-    [InlineData(null, null, null, null, null, false)]
-    [InlineData(null, null, null, "someSystemUserOwnerOrgNo", null, false)]
+    [InlineData(null, null, null, null, null)]
+    [InlineData(null, null, null, "someSystemUserOwnerOrgNo", null)]
     public void ValidateInstanceEventUserObject_ReturnsFalseForInvalidUserObject(
         int? userId,
         string? orgId,
         Guid? systemUserId,
         string? systemUserOwnerOrgNo,
-        int? endUserSystemId,
-        bool expectedResult
+        int? endUserSystemId
     )
     {
         // Act
@@ -696,7 +694,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         );
 
         // Assert
-        Assert.Equal(expectedResult, result);
+        Assert.False(result);
     }
 
     private HttpClient GetTestClient(
