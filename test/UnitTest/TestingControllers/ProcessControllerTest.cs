@@ -642,6 +642,85 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         Assert.Equal(expectedActions, result);
     }
 
+    [Theory]
+    [InlineData(123, null, null, null)]
+    [InlineData(null, "someOrg", null, null)]
+    [InlineData(null, null, "someSystemUserOwnerOrgNo", null)]
+    [InlineData(null, null, null, 123)]
+    public void ValidateInstanceEventUserObject_ReturnsTrueForValidUserObject(
+        int? userId,
+        string orgId,
+        string systemUserOwnerOrgNo,
+        int? endUserSystemId
+    )
+    {
+        // Arrange
+        Guid? systemUserId = null;
+        if (systemUserOwnerOrgNo is not null)
+        {
+            systemUserId = new Guid("00000000-0000-0000-0000-000000000000");
+        }
+        // Act
+        bool result = ProcessController.ValidateInstanceEventUserObject(
+            userId,
+            orgId,
+            systemUserId,
+            systemUserOwnerOrgNo,
+            endUserSystemId
+        );
+
+        // Assert
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ValidateInstanceEventUserObject_ReturnsFalseWhenMissingSystemUerIdForSystemUser()
+    {
+        // Act
+        bool result = ProcessController.ValidateInstanceEventUserObject(
+            null,
+            null,
+            null,
+            "someSystemUserOwnerOrgNo",
+            null
+        );
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void ValidateInstanceEventUserObject_ReturnsFalseWhenMissingPartialSystemUser()
+    {
+        // Act
+        bool result = ProcessController.ValidateInstanceEventUserObject(
+            null,
+            null,
+            Guid.NewGuid(),
+            null,
+            null
+        );
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void ValidateInstanceEventUserObject_ReturnsFalseWhenAllParametersAreNull()
+    {
+        // Act
+        bool result = ProcessController.ValidateInstanceEventUserObject(
+            null,
+            null,
+            null,
+            null,
+            null
+        );
+
+        // Assert
+        Assert.False(result);
+    }
+
     private HttpClient GetTestClient(
         IInstanceRepository instanceRepository = null,
         IInstanceAndEventsRepository instanceAndEventsRepository = null,
