@@ -649,8 +649,8 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     [InlineData(null, null, null, 123)]
     public void ValidateInstanceEventUserObject_ReturnsTrueForValidUserObject(
         int? userId,
-        string? orgId,
-        string? systemUserOwnerOrgNo,
+        string orgId,
+        string systemUserOwnerOrgNo,
         int? endUserSystemId
     )
     {
@@ -673,24 +673,48 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         Assert.True(result);
     }
 
-    [Theory]
-    [InlineData(null, null, null, null, null)]
-    [InlineData(null, null, null, "someSystemUserOwnerOrgNo", null)]
-    public void ValidateInstanceEventUserObject_ReturnsFalseForInvalidUserObject(
-        int? userId,
-        string? orgId,
-        Guid? systemUserId,
-        string? systemUserOwnerOrgNo,
-        int? endUserSystemId
-    )
+    [Fact]
+    public void ValidateInstanceEventUserObject_ReturnsFalseWhenMissingSystemUerIdForSystemUser()
     {
         // Act
         bool result = ProcessController.ValidateInstanceEventUserObject(
-            userId,
-            orgId,
-            systemUserId,
-            systemUserOwnerOrgNo,
-            endUserSystemId
+            null,
+            null,
+            null,
+            "someSystemUserOwnerOrgNo",
+            null
+        );
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void ValidateInstanceEventUserObject_ReturnsFalseWhenMissingPartialSystemUser()
+    {
+        // Act
+        bool result = ProcessController.ValidateInstanceEventUserObject(
+            null,
+            null,
+            Guid.NewGuid(),
+            null,
+            null
+        );
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void ValidateInstanceEventUserObject_ReturnsFalseWhenAllParametersAreNull()
+    {
+        // Act
+        bool result = ProcessController.ValidateInstanceEventUserObject(
+            null,
+            null,
+            null,
+            null,
+            null
         );
 
         // Assert
