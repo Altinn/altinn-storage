@@ -51,6 +51,19 @@ public class StudioInstancesControllerTests
     }
 
     [Fact]
+    public async Task GetInstances_EmptyToken_ReturnsForbidden()
+    {
+        // Arrange
+        HttpClient client = GetAuthenticatedClient(tokenAppId: null);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
     public async Task GetInstances_InvalidToken_ReturnsForbidden()
     {
         // Arrange
@@ -208,6 +221,21 @@ public class StudioInstancesControllerTests
 
         // Assert
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetSingleInstance_EmptyToken_ReturnsForbidden()
+    {
+        // Arrange
+        HttpClient client = GetAuthenticatedClient(tokenAppId: null);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(
+            $"{BasePath}/ttd/app/{Guid.NewGuid()}"
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]
