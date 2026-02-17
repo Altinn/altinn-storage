@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -47,10 +48,10 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     private async Task<HttpResponseMessage> SendUpdateRequest(
         bool useInstanceAndEventsEndpoint,
         string token,
-        string instanceId = null,
-        IInstanceRepository instanceRepository = null,
-        IInstanceAndEventsRepository instanceAndEventsRepository = null,
-        Action<ProcessState> configure = null
+        string? instanceId = null,
+        IInstanceRepository? instanceRepository = null,
+        IInstanceAndEventsRepository? instanceAndEventsRepository = null,
+        Action<ProcessState>? configure = null
     )
     {
         instanceId ??= "1337/20b1353e-91cf-44d6-8ff7-f68993638ffe";
@@ -141,9 +142,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         // Act
         using HttpResponseMessage response = await client.GetAsync(requestUri);
         string responseString = await response.Content.ReadAsStringAsync();
-        ProcessHistoryList processHistory = JsonConvert.DeserializeObject<ProcessHistoryList>(
-            responseString
-        );
+        ProcessHistoryList processHistory =
+            JsonConvert.DeserializeObject<ProcessHistoryList>(responseString)
+            ?? throw new Exception("Failed to deserialize response content");
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -582,7 +583,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         // Assert
         string responseContent = await response.Content.ReadAsStringAsync();
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Instance actual = JsonConvert.DeserializeObject<Instance>(responseContent);
+        Instance actual =
+            JsonConvert.DeserializeObject<Instance>(responseContent)
+            ?? throw new Exception("Failed to deserialize response content");
         Assert.True(actual.Status.IsArchived);
     }
 
@@ -649,8 +652,8 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     [InlineData(null, null, null, 123)]
     public void ValidateInstanceEventUserObject_ReturnsTrueForValidUserObject(
         int? userId,
-        string orgId,
-        string systemUserOwnerOrgNo,
+        string? orgId,
+        string? systemUserOwnerOrgNo,
         int? endUserSystemId
     )
     {
@@ -722,8 +725,8 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     }
 
     private HttpClient GetTestClient(
-        IInstanceRepository instanceRepository = null,
-        IInstanceAndEventsRepository instanceAndEventsRepository = null,
+        IInstanceRepository? instanceRepository = null,
+        IInstanceAndEventsRepository? instanceAndEventsRepository = null,
         bool enableWolverine = false
     )
     {
