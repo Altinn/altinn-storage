@@ -51,7 +51,7 @@ public class StudioInstancesControllerTests
     }
 
     [Fact]
-    public async Task GetInstances_EmptyToken_ReturnsForbidden()
+    public async Task GetInstances_NoAppClaim_ReturnsForbidden()
     {
         // Arrange
         HttpClient client = GetAuthenticatedClient(tokenAppId: null);
@@ -64,7 +64,7 @@ public class StudioInstancesControllerTests
     }
 
     [Fact]
-    public async Task GetInstances_InvalidToken_ReturnsForbidden()
+    public async Task GetInstances_WrongAppClaim_ReturnsForbidden()
     {
         // Arrange
         HttpClient client = GetAuthenticatedClient(tokenAppId: "studioo.designer");
@@ -224,7 +224,7 @@ public class StudioInstancesControllerTests
     }
 
     [Fact]
-    public async Task GetSingleInstance_EmptyToken_ReturnsForbidden()
+    public async Task GetSingleInstance_NoAppClaim_ReturnsForbidden()
     {
         // Arrange
         HttpClient client = GetAuthenticatedClient(tokenAppId: null);
@@ -239,7 +239,7 @@ public class StudioInstancesControllerTests
     }
 
     [Fact]
-    public async Task GetSingleInstance_InvalidToken_ReturnsForbidden()
+    public async Task GetSingleInstance_WrongAppClaim_ReturnsForbidden()
     {
         // Arrange
         HttpClient client = GetAuthenticatedClient(tokenAppId: "studioo.designer");
