@@ -51,6 +51,19 @@ public class StudioInstancesControllerTests
     }
 
     [Fact]
+    public async Task GetInstances_InvalidToken_ReturnsForbidden()
+    {
+        // Arrange
+        HttpClient client = GetAuthenticatedClient(tokenAppId: "studioo.designer");
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
     public async Task GetInstances_ReturnsOk()
     {
         // Arrange
@@ -198,6 +211,21 @@ public class StudioInstancesControllerTests
     }
 
     [Fact]
+    public async Task GetSingleInstance_InvalidToken_ReturnsForbidden()
+    {
+        // Arrange
+        HttpClient client = GetAuthenticatedClient(tokenAppId: "studioo.designer");
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(
+            $"{BasePath}/ttd/app/{Guid.NewGuid()}"
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
     public async Task GetSingleInstance_ReturnsOk()
     {
         // Arrange
@@ -331,10 +359,13 @@ public class StudioInstancesControllerTests
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
     }
 
-    private HttpClient GetAuthenticatedClient(IInstanceRepository instanceRepository = null)
+    private HttpClient GetAuthenticatedClient(
+        IInstanceRepository instanceRepository = null,
+        string tokenAppId = "studio.designer"
+    )
     {
         HttpClient client = GetTestClient(instanceRepository);
-        string token = PrincipalUtil.GetAccessToken("studio.designer");
+        string token = PrincipalUtil.GetAccessToken(tokenAppId);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
     }
