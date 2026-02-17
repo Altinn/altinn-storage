@@ -6,8 +6,6 @@ using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Common.AccessToken.Services;
-using Altinn.Platform.Storage.Authorization;
-using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
@@ -40,41 +38,6 @@ public class StudioInstancesControllerTests
     }
 
     [Fact]
-    public async Task GetInstances_ProductionEnvironment_ReturnsNotFound()
-    {
-        // Arrange
-        var instanceRepositoryMock = new Mock<IInstanceRepository>();
-        instanceRepositoryMock
-            .Setup(ir =>
-                ir.GetInstancesFromQuery(
-                    It.IsAny<InstanceQueryParameters>(),
-                    false,
-                    It.IsAny<CancellationToken>()
-                )
-            )
-            .ReturnsAsync(new InstanceQueryResponse { Instances = new List<Instance>() });
-
-        var generalSettings = Options.Create(
-            new GeneralSettings
-            {
-                Hostname = "altinn.no",
-                StudioInstancesOrgWhiteList = new() { "ttd" },
-            }
-        );
-
-        HttpClient client = GetAuthenticatedClient(
-            instanceRepository: instanceRepositoryMock.Object,
-            generalSettings: generalSettings
-        );
-
-        // Act
-        HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app");
-
-        // Assert
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    [Fact]
     public async Task GetInstances_NoAccessToken_ReturnsUnauthorized()
     {
         // Arrange
@@ -88,47 +51,33 @@ public class StudioInstancesControllerTests
     }
 
     [Fact]
-    public async Task GetInstances_NotTTD_ReturnsNotFound()
+    public async Task GetInstances_NoAppClaim_ReturnsForbidden()
     {
         // Arrange
-        var instanceRepositoryMock = new Mock<IInstanceRepository>();
-        instanceRepositoryMock
-            .Setup(ir =>
-                ir.GetInstancesFromQuery(
-                    It.IsAny<InstanceQueryParameters>(),
-                    false,
-                    It.IsAny<CancellationToken>()
-                )
-            )
-            .ReturnsAsync(
-                new InstanceQueryResponse
-                {
-                    Instances = new List<Instance>
-                    {
-                        new()
-                        {
-                            Id = "1337/guid",
-                            InstanceOwner = new() { PartyId = "1337" },
-                            AppId = "skd/app",
-                            Org = "skd",
-                        },
-                    },
-                }
-            );
-
-        HttpClient client = GetAuthenticatedClient(
-            instanceRepository: instanceRepositoryMock.Object
-        );
+        HttpClient client = GetAuthenticatedClient(tokenAppId: null);
 
         // Act
-        HttpResponseMessage response = await client.GetAsync($"{BasePath}/skd/app");
+        HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app");
 
         // Assert
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]
-    public async Task GetInstances_AccessingTTD_TT02_ReturnsOk()
+    public async Task GetInstances_WrongAppClaim_ReturnsForbidden()
+    {
+        // Arrange
+        HttpClient client = GetAuthenticatedClient(tokenAppId: "studioo.designer");
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetInstances_ReturnsOk()
     {
         // Arrange
         var instanceRepositoryMock = new Mock<IInstanceRepository>();
@@ -260,44 +209,6 @@ public class StudioInstancesControllerTests
     }
 
     [Fact]
-    public async Task GetSingleInstance_ProductionEnvironment_ReturnsNotFound()
-    {
-        // Arrange
-        var instanceGuid = Guid.NewGuid();
-        var instance = new Instance
-        {
-            Id = $"1337/{instanceGuid}",
-            InstanceOwner = new() { PartyId = "1337" },
-            AppId = "ttd/app",
-            Org = "ttd",
-        };
-
-        var instanceRepositoryMock = new Mock<IInstanceRepository>();
-        instanceRepositoryMock
-            .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((instance, 1));
-
-        var generalSettings = Options.Create(
-            new GeneralSettings
-            {
-                Hostname = "altinn.no",
-                StudioInstancesOrgWhiteList = new() { "ttd" },
-            }
-        );
-
-        HttpClient client = GetAuthenticatedClient(
-            instanceRepository: instanceRepositoryMock.Object,
-            generalSettings: generalSettings
-        );
-
-        // Act
-        HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app/{instanceGuid}");
-
-        // Assert
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    [Fact]
     public async Task GetSingleInstance_NoAccessToken_ReturnsUnauthorized()
     {
         // Arrange
@@ -313,36 +224,37 @@ public class StudioInstancesControllerTests
     }
 
     [Fact]
-    public async Task GetSingleInstance_NotTTD_ReturnsNotFound()
+    public async Task GetSingleInstance_NoAppClaim_ReturnsForbidden()
     {
         // Arrange
-        var instanceGuid = Guid.NewGuid();
-        var instance = new Instance
-        {
-            Id = $"1337/{instanceGuid}",
-            InstanceOwner = new() { PartyId = "1337" },
-            AppId = "skd/app",
-            Org = "skd",
-        };
-
-        var instanceRepositoryMock = new Mock<IInstanceRepository>();
-        instanceRepositoryMock
-            .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((instance, 1));
-
-        HttpClient client = GetAuthenticatedClient(
-            instanceRepository: instanceRepositoryMock.Object
-        );
+        HttpClient client = GetAuthenticatedClient(tokenAppId: null);
 
         // Act
-        HttpResponseMessage response = await client.GetAsync($"{BasePath}/skd/app/{instanceGuid}");
+        HttpResponseMessage response = await client.GetAsync(
+            $"{BasePath}/ttd/app/{Guid.NewGuid()}"
+        );
 
         // Assert
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]
-    public async Task GetSingleInstance_AccessingTTD_TT02_ReturnsOk()
+    public async Task GetSingleInstance_WrongAppClaim_ReturnsForbidden()
+    {
+        // Arrange
+        HttpClient client = GetAuthenticatedClient(tokenAppId: "studioo.designer");
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(
+            $"{BasePath}/ttd/app/{Guid.NewGuid()}"
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetSingleInstance_ReturnsOk()
     {
         // Arrange
         var instanceGuid = Guid.NewGuid();
@@ -477,49 +389,20 @@ public class StudioInstancesControllerTests
 
     private HttpClient GetAuthenticatedClient(
         IInstanceRepository instanceRepository = null,
-        IAuthorization authorizationService = null,
-        IOptions<GeneralSettings> generalSettings = null
+        string tokenAppId = "studio.designer"
     )
     {
-        HttpClient client = GetTestClient(
-            instanceRepository,
-            authorizationService,
-            generalSettings
-        );
-        string token = PrincipalUtil.GetAccessToken("studio.designer");
+        HttpClient client = GetTestClient(instanceRepository);
+        string token = PrincipalUtil.GetAccessToken(tokenAppId);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
     }
 
-    private HttpClient GetTestClient(
-        IInstanceRepository instanceRepository = null,
-        IAuthorization authorizationService = null,
-        IOptions<GeneralSettings> generalSettings = null
-    )
+    private HttpClient GetTestClient(IInstanceRepository instanceRepository = null)
     {
         if (instanceRepository == null)
         {
             instanceRepository = new Mock<IInstanceRepository>().Object;
-        }
-
-        if (authorizationService == null)
-        {
-            var authorizationMock = new Mock<IAuthorization>();
-            authorizationMock
-                .Setup(a => a.UserHasRequiredScope(It.IsAny<List<string>>()))
-                .Returns(true);
-            authorizationService = authorizationMock.Object;
-        }
-
-        if (generalSettings == null)
-        {
-            generalSettings = Options.Create(
-                new GeneralSettings
-                {
-                    Hostname = "tt02.altinn.no",
-                    StudioInstancesOrgWhiteList = new() { "ttd" },
-                }
-            );
         }
 
         var client = _factory
@@ -538,8 +421,6 @@ public class StudioInstancesControllerTests
                 builder.ConfigureTestServices(services =>
                 {
                     services.AddSingleton(instanceRepository);
-                    services.AddSingleton(authorizationService);
-                    services.AddSingleton(generalSettings);
                     services.AddSingleton<
                         IPostConfigureOptions<JwtCookieOptions>,
                         JwtCookiePostConfigureOptionsStub
