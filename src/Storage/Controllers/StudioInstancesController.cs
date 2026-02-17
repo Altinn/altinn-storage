@@ -6,7 +6,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
-using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
@@ -14,7 +13,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace Altinn.Platform.Storage.Controllers;
 
@@ -26,7 +24,6 @@ namespace Altinn.Platform.Storage.Controllers;
 public class StudioInstancesController : ControllerBase
 {
     private readonly IInstanceRepository _instanceRepository;
-    private readonly GeneralSettings _generalSettings;
     private readonly ILogger _logger;
 
     /// <summary>
@@ -34,12 +31,10 @@ public class StudioInstancesController : ControllerBase
     /// </summary>
     public StudioInstancesController(
         IInstanceRepository instanceRepository,
-        IOptions<GeneralSettings> generalSettings,
         ILogger<StudioInstancesController> logger
     )
     {
         _instanceRepository = instanceRepository;
-        _generalSettings = generalSettings.Value;
         _logger = logger;
     }
 
@@ -59,15 +54,6 @@ public class StudioInstancesController : ControllerBase
         CancellationToken ct
     )
     {
-        // This API is experimental and should not be available in production or other service owners yet.
-        if (
-            !_generalSettings.Hostname.Contains("tt02", StringComparison.InvariantCultureIgnoreCase)
-            || !_generalSettings.StudioInstancesOrgWhiteList.Contains(parameters.Org)
-        )
-        {
-            return NotFound();
-        }
-
         if (string.IsNullOrEmpty(parameters.Org) || string.IsNullOrEmpty(parameters.App))
         {
             return BadRequest("Org and App must be defined.");
@@ -138,15 +124,6 @@ public class StudioInstancesController : ControllerBase
         CancellationToken ct
     )
     {
-        // This API is experimental and should not be available in production or other service owners yet.
-        if (
-            !_generalSettings.Hostname.Contains("tt02", StringComparison.InvariantCultureIgnoreCase)
-            || !_generalSettings.StudioInstancesOrgWhiteList.Contains(org)
-        )
-        {
-            return NotFound();
-        }
-
         try
         {
             (var result, _) = await _instanceRepository.GetOne(instanceGuid, true, ct);
