@@ -159,6 +159,19 @@ public class ProcessController : ControllerBase
 
         foreach (InstanceEvent instanceEvent in processStateUpdate.Events ?? [])
         {
+            PlatformUser? user = instanceEvent.User;
+            bool validUserObject = ValidateInstanceEventUserObject(
+                user?.UserId,
+                user?.OrgId,
+                user?.SystemUserId,
+                user?.SystemUserOwnerOrgNo,
+                user?.EndUserSystemId
+            );
+            if (!validUserObject)
+            {
+                return BadRequest($"Invalid user object in {nameof(instanceEvent.User)}");
+            }
+
             if (string.IsNullOrWhiteSpace(instanceEvent.InstanceId))
             {
                 return BadRequest("Missing instance ID in InstanceEvent");
@@ -362,6 +375,31 @@ public class ProcessController : ControllerBase
         );
 
         return (actionsThatAllowProcessNextForTaskType, taskId);
+    }
+
+    internal static bool ValidateInstanceEventUserObject(
+        int? userId,
+        string? orgId,
+        Guid? systemUserId,
+        string? systemUserOwnerOrgNo,
+        int? endUserSystemId
+    )
+    {
+        if (
+            userId is null
+            && string.IsNullOrWhiteSpace(orgId)
+            && systemUserId is null
+            && endUserSystemId is null
+        )
+        {
+            return false;
+        }
+        if (systemUserId is not null && string.IsNullOrWhiteSpace(systemUserOwnerOrgNo))
+        {
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>
