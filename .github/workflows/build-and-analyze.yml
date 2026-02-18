@@ -25,7 +25,7 @@ jobs:
       checks: write
     services:
      postgres:
-       image: postgres:16@sha256:d4c3314b2dd74ff23cd6cd07e4d7e737cb6ef791c22a7cbd744cfbfb4815df72
+       image: postgres:16@sha256:e4842c8a99ca99339e1693e6fe5fe62c7becb31991f066f989047dfb2fbf47af
        env:
          PGHOST: localhost
          POSTGRES_USER: platform_storage_admin
