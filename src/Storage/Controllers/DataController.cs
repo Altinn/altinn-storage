@@ -808,6 +808,29 @@ public class DataController : ControllerBase
     }
 
     /// <summary>
+    /// Checks if the data element exists in the database.
+    /// </summary>
+    /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
+    /// <param name="dataGuid">The id of the data element.</param>
+    /// <param name="cancellationToken">CancellationToken.</param>
+    /// <returns>True if the data element exists, false otherwise</returns>
+    [Authorize(Policy = "PlatformAccess")]
+    [HttpGet("dataelementexists/{dataGuid}")]
+    public async Task<ActionResult<bool>> DataElementExist(
+        Guid dataGuid,
+        CancellationToken cancellationToken
+    )
+    {
+        bool? result = await _dataRepository.Exists(dataGuid, cancellationToken);
+        if (result.HasValue)
+        {
+            return Ok(result.Value);
+        }
+
+        return NotFound();
+    }
+
+    /// <summary>
     /// Creates a data element by reading the first multipart element or body of the request.
     /// </summary>
     private async Task<(

@@ -30,6 +30,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     private readonly string _deleteForInstanceSql = "select * from storage.deletedataelements ($1)";
     private readonly string _updateSql =
         "select * from storage.updatedataelement_v2 ($1, $2, $3, $4, $5, $6)";
+    private readonly string _existsSql = "select * from storage.readdataelementexists($1)";
 
     private readonly ILogger<PgDataRepository> _logger = logger;
     private readonly NpgsqlDataSource _dataSource = dataSource;
@@ -249,5 +250,24 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         }
 
         return element;
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool?> Exists(
+        Guid dataElementId,
+        CancellationToken cancellationToken = default
+    )
+    {
+        bool? result = null;
+        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_existsSql);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
+
+        await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
+        if (await reader.ReadAsync(cancellationToken))
+        {
+            result = reader.GetBoolean(0);
+        }
+
+        return result;
     }
 }
