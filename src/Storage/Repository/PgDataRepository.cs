@@ -253,7 +253,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     }
 
     /// <inheritdoc/>
-    public async Task<bool?> Exists(
+    public async Task<bool> Exists(
         Guid dataElementId,
         CancellationToken cancellationToken = default
     )
@@ -268,6 +268,21 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
             result = reader.GetBoolean(0);
         }
 
-        return result;
+        if (result.HasValue)
+        {
+            return result.Value;
+        }
+        else
+        {
+            InvalidOperationException exception = new(
+                $"Unexpected return value from: {nameof(Exists)}"
+            );
+            _logger.LogError(
+                exception,
+                "Unexpected state while checking if data element exists. DataElementId: {dataElementId}",
+                dataElementId
+            );
+            throw exception;
+        }
     }
 }

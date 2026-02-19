@@ -820,13 +820,8 @@ public class DataController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        bool? result = await _dataRepository.Exists(dataGuid, cancellationToken);
-        if (result.HasValue)
-        {
-            return Ok(result.Value);
-        }
-
-        return NotFound();
+        bool result = await _dataRepository.Exists(dataGuid, cancellationToken);
+        return Ok(result);
     }
 
     /// <summary>

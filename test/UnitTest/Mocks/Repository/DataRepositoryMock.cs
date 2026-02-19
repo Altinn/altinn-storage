@@ -114,7 +114,7 @@ public class DataRepositoryMock : IDataRepository
         return dataElement;
     }
 
-    public Task<bool?> Exists(Guid dataElementId, CancellationToken cancellationToken = default)
+    public Task<bool> Exists(Guid dataElementId, CancellationToken cancellationToken = default)
     {
         throw new NotImplementedException();
     }

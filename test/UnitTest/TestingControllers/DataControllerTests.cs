@@ -1058,7 +1058,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     }
 
     [Fact]
-    public async Task GetDataElementExists_PlatformAccessIncluded_Ok()
+    public async Task Get_DataElementExists_PlatformAccessIncluded_Ok()
     {
         // Arrange
         const string dataElementId = "887c5e56-6f73-494a-9730-6ebd11bffe30";
@@ -1088,7 +1088,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     }
 
     [Fact]
-    public async Task GetDataElementExists_AsEndUser_MissingPlatformAccess_Forbidden()
+    public async Task Get_DataElementExists_AsEndUser_MissingPlatformAccess_Forbidden()
     {
         // Arrange
         const string dataElementId = "887c5e56-6f73-494a-9730-6ebd11bffe30";

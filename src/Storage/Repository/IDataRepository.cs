@@ -76,5 +76,5 @@ public interface IDataRepository
     /// <param name="dataElementId">The data element id</param>
     /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
     /// <returns>true if data element exists.</returns>
-    Task<bool?> Exists(Guid dataElementId, CancellationToken cancellationToken = default);
+    Task<bool> Exists(Guid dataElementId, CancellationToken cancellationToken = default);
 }
