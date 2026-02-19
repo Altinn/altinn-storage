@@ -114,6 +114,11 @@ public class DataRepositoryMock : IDataRepository
         return dataElement;
     }
 
+    public Task<bool?> Exists(Guid dataElementId, CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
+
     public Task<bool> DeleteForInstance(
         string instanceId,
         CancellationToken cancellationToken = default

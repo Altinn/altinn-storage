@@ -169,6 +169,7 @@
     Altinn.Platform.Storage.Controllers.ContentOnDemandController.GetFormSummaryAsHtml (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.ContentOnDemandController.GetPaymentAsHtml (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.ContentOnDemandController.GetSignatureAsHtml (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.DataController.DataElementExist (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.DataController.SetFileScanStatus (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.ErrorController.Error (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstanceLockController.AcquireInstanceLock (Altinn.Platform.Storage),
