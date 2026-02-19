@@ -1064,7 +1064,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         const string dataElementId = "887c5e56-6f73-494a-9730-6ebd11bffe30";
         const string partyId = "1337";
         const string instanceId = "bc19107c-508f-48d9-bcd7-54ffec905306";
-        const string dataPathWithData = $"{_versionPrefix}/instances/{partyId}/{instanceId}";
+        const string dataPath = $"{_versionPrefix}/instances/{partyId}/{instanceId}";
 
         Mock<IDataRepository> dataRepositoryMock = new();
         dataRepositoryMock
@@ -1075,7 +1075,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
 
         HttpRequestMessage getRequest = new(
             HttpMethod.Get,
-            $"{dataPathWithData}/dataelementexists/{dataElementId}"
+            $"{dataPath}/dataelementexists/{dataElementId}"
         );
 
         getRequest.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken());
@@ -1091,29 +1091,17 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     public async Task GetDataElementExists_AsEndUser_MissingPlatformAccess_Forbidden()
     {
         // Arrange
-        string dataPathWithData =
-            $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/data";
-        HttpContent content = new StringContent("This is a blob file");
+        const string dataElementId = "887c5e56-6f73-494a-9730-6ebd11bffe30";
+        const string partyId = "1337";
+        const string instanceId = "bc19107c-508f-48d9-bcd7-54ffec905306";
+        const string dataPathWithData = $"{_versionPrefix}/instances/{partyId}/{instanceId}";
 
         string token = PrincipalUtil.GetToken(1337, 1337, 3);
         HttpClient client = GetTestClient(bearerAuthToken: token);
-        HttpResponseMessage createDataElementResponse = await client.PostAsync(
-            $"{dataPathWithData}?dataType=default",
-            content
-        );
-
-        Assert.Equal(HttpStatusCode.Created, createDataElementResponse.StatusCode);
-
-        string dataElementContent = await createDataElementResponse.Content.ReadAsStringAsync();
-        DataElement actual = JsonSerializer.Deserialize<DataElement>(
-            dataElementContent,
-            _serializerOptions
-        );
-        string dataElementId = actual.Id;
 
         // Act
         HttpResponseMessage setFileScanStatusResponse = await client.GetAsync(
-            $"{dataPathWithData}elementexists/{dataElementId}"
+            $"{dataPathWithData}/dataelementexists/{dataElementId}"
         );
 
         // Assert
