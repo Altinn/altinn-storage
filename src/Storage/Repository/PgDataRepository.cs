@@ -279,7 +279,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
             );
             _logger.LogError(
                 exception,
-                "Unexpected state while checking if data element exists. DataElementId: {dataElementId}",
+                "Unexpected state while checking if data element exists. DataElementId: {DataElementId}",
                 dataElementId
             );
             throw exception;
