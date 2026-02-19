@@ -1081,10 +1081,12 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         getRequest.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken());
 
         // Act
-        HttpResponseMessage setFileScanStatusResponse = await client.SendAsync(getRequest);
+        HttpResponseMessage response = await client.SendAsync(getRequest);
 
         // Assert
-        Assert.Equal(HttpStatusCode.OK, setFileScanStatusResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        string content = await response.Content.ReadAsStringAsync();
+        Assert.True(bool.Parse(content));
     }
 
     [Fact]

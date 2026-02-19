@@ -815,7 +815,9 @@ public class DataController : ControllerBase
     /// <returns>True if the data element exists, false otherwise</returns>
     [Authorize(Policy = "PlatformAccess")]
     [HttpGet("dataelementexists/{dataGuid}")]
-    public async Task<ActionResult<bool>> DataElementExist(
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [Produces("application/json")]
+    public async Task<ActionResult<bool>> DataElementExists(
         Guid dataGuid,
         CancellationToken cancellationToken
     )
