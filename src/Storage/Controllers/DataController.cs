@@ -810,7 +810,6 @@ public class DataController : ControllerBase
     /// <summary>
     /// Checks if the data element exists in the database.
     /// </summary>
-    /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
     /// <param name="dataGuid">The id of the data element.</param>
     /// <param name="cancellationToken">CancellationToken.</param>
     /// <returns>True if the data element exists, false otherwise</returns>
