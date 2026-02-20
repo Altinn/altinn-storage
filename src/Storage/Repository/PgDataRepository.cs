@@ -265,7 +265,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
         if (await reader.ReadAsync(cancellationToken))
         {
-            result = reader.GetBoolean(0);
+            result = await reader.GetFieldValueAsync<bool>("element", cancellationToken);
         }
 
         if (result.HasValue)
