@@ -69,4 +69,12 @@ public interface IDataRepository
         Dictionary<string, object> propertylist,
         CancellationToken cancellationToken = default
     );
+
+    /// <summary>
+    /// Checks if a data element with given in id exists.
+    /// </summary>
+    /// <param name="dataElementId">The data element id</param>
+    /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
+    /// <returns>true if data element exists.</returns>
+    Task<bool> Exists(Guid dataElementId, CancellationToken cancellationToken = default);
 }
