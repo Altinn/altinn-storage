@@ -74,6 +74,20 @@ namespace Altinn.Platform.Storage.Interface.Models
         public bool DisableSyncContentSummary { get; set; }
 
         /// <summary>
+        /// Gets or sets the flag controlling whether the sync adapter should disable synchronizing (overwrite) the additional information.
+        /// </summary>
+        [JsonProperty(PropertyName = "disableSyncContentAdditionalInformation")]
+        [DefaultValue(false)]
+        public bool DisableSyncContentAdditionalInformation { get; set; }
+
+        /// <summary>
+        /// Gets or sets the flag controlling whether the sync adapter should disable synchronizing (overwrite) the extended status.
+        /// </summary>
+        [JsonProperty(PropertyName = "disableSyncContentExtendedStatus")]
+        [DefaultValue(false)]
+        public bool DisableSyncContentExtendedStatus { get; set; }
+
+        /// <summary>
         /// Gets or sets the flag controlling whether the sync adapter should disable synchronizing attachments at the dialog level.
         /// Will only add/remove attachments with recognized id's, which are derived from the URL.
         /// </summary>
