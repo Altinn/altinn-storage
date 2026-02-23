@@ -274,7 +274,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         }
         else
         {
-            // Unreachable code if we get expected result from database.
+            // This code path should never execute if the expected result is returned
             InvalidOperationException exception = new(
                 $"Unexpected return value from: {nameof(Exists)}"
             );
