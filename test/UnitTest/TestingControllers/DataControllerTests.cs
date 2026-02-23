@@ -1096,14 +1096,14 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         const string dataElementId = "887c5e56-6f73-494a-9730-6ebd11bffe30";
         const string partyId = "1337";
         const string instanceId = "bc19107c-508f-48d9-bcd7-54ffec905306";
-        const string dataPathWithData = $"{_versionPrefix}/instances/{partyId}/{instanceId}";
+        const string dataPath = $"{_versionPrefix}/instances/{partyId}/{instanceId}";
 
         string token = PrincipalUtil.GetToken(1337, 1337, 3);
         HttpClient client = GetTestClient(bearerAuthToken: token);
 
         // Act
         HttpResponseMessage setFileScanStatusResponse = await client.GetAsync(
-            $"{dataPathWithData}/dataelementexists/{dataElementId}"
+            $"{dataPath}/dataelementexists/{dataElementId}"
         );
 
         // Assert
