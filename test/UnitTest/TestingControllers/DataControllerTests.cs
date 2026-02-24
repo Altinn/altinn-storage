@@ -1057,6 +1057,59 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         Assert.Equal(HttpStatusCode.Forbidden, setFileScanStatusResponse.StatusCode);
     }
 
+    [Fact]
+    public async Task Get_DataElementExists_PlatformAccessIncluded_Ok()
+    {
+        // Arrange
+        const string dataElementId = "887c5e56-6f73-494a-9730-6ebd11bffe30";
+        const string partyId = "1337";
+        const string instanceId = "bc19107c-508f-48d9-bcd7-54ffec905306";
+        const string dataPath = $"{_versionPrefix}/instances/{partyId}/{instanceId}";
+
+        Mock<IDataRepository> dataRepositoryMock = new();
+        dataRepositoryMock
+            .Setup(dr => dr.Exists(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        HttpClient client = GetTestClient(dataRepositoryMock: dataRepositoryMock);
+
+        HttpRequestMessage getRequest = new(
+            HttpMethod.Get,
+            $"{dataPath}/dataelementexists/{dataElementId}"
+        );
+
+        getRequest.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken());
+
+        // Act
+        HttpResponseMessage response = await client.SendAsync(getRequest);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        string content = await response.Content.ReadAsStringAsync();
+        Assert.True(bool.Parse(content));
+    }
+
+    [Fact]
+    public async Task Get_DataElementExists_AsEndUser_MissingPlatformAccess_Forbidden()
+    {
+        // Arrange
+        const string dataElementId = "887c5e56-6f73-494a-9730-6ebd11bffe30";
+        const string partyId = "1337";
+        const string instanceId = "bc19107c-508f-48d9-bcd7-54ffec905306";
+        const string dataPath = $"{_versionPrefix}/instances/{partyId}/{instanceId}";
+
+        string token = PrincipalUtil.GetToken(1337, 1337, 3);
+        HttpClient client = GetTestClient(bearerAuthToken: token);
+
+        // Act
+        HttpResponseMessage setFileScanStatusResponse = await client.GetAsync(
+            $"{dataPath}/dataelementexists/{dataElementId}"
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, setFileScanStatusResponse.StatusCode);
+    }
+
     /// <summary>
     /// Scenario:
     ///   Post data but stream is empty and empty blob attempted persisted.

@@ -586,6 +586,38 @@ public class DataTests : IClassFixture<DataElementFixture>
             );
         });
     }
+
+    /// <summary>
+    /// Test exists
+    /// </summary>
+    [Fact]
+    public async Task DataElement_Exists_Ok()
+    {
+        // Arrange
+        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
+            TestDataUtil.GetDataElement(DataElement1),
+            _instanceInternalId
+        );
+
+        // Act
+        bool result = await _dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id));
+
+        // Assert
+        Assert.True(result);
+    }
+
+    /// <summary>
+    /// Test exists with no matching data element
+    /// </summary>
+    [Fact]
+    public async Task DataElement_Exists_NotExists_Ok()
+    {
+        // Act
+        bool result = await _dataElementFixture.DataRepo.Exists(Guid.Parse(DataElement1));
+
+        // Assert
+        Assert.False(result);
+    }
 }
 
 public class DataElementFixture
