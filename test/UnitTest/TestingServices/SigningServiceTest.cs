@@ -99,7 +99,7 @@ public class SigningServiceTest
             dsm.UploadDataAndCreateDataElement(
                 It.IsAny<string>(),
                 It.IsAny<Stream>(),
-                It.IsAny<DataElement>(),
+                It.Is<DataElement>(de => de.Locked),
                 0,
                 It.IsAny<int?>()
             )
@@ -244,7 +244,7 @@ public class SigningServiceTest
             dsm.UploadDataAndCreateDataElement(
                 It.IsAny<string>(),
                 It.IsAny<Stream>(),
-                It.IsAny<DataElement>(),
+                It.Is<DataElement>(de => de.Locked),
                 0,
                 It.IsAny<int?>()
             )
