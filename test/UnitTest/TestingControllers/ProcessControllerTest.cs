@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
+using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
@@ -639,7 +640,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     )
     {
         // Act
-        string[] result = ProcessController.GetActionsThatAllowProcessNextForTaskType(taskType);
+        var result = ProcessAuthorizer.GetActionsThatAllowProcessNextForTaskType(taskType);
 
         // Assert
         Assert.Equal(expectedActions, result);
