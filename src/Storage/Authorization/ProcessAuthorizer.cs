@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
@@ -21,10 +22,11 @@ public class ProcessAuthorizer : IProcessAuthorizer
     }
 
     /// <inheritdoc/>
-    public Task<bool> AuthorizeProcessNext(
-        Instance instance,
-        ProcessState? nextProcessState = null
-    ) => Authorize(instance, nextProcessState);
+    public Task<bool> AuthorizeProcessNext(Instance instance, ProcessState nextProcessState)
+    {
+        ArgumentNullException.ThrowIfNull(nextProcessState);
+        return Authorize(instance, nextProcessState);
+    }
 
     /// <inheritdoc/>
     public Task<bool> AuthorizeInstanceLock(Instance instance) => Authorize(instance);

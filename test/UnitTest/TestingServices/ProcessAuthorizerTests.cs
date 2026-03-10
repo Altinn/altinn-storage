@@ -45,7 +45,7 @@ public class ProcessAuthorizerTests
         var instance = new Instance { Process = new ProcessState { CurrentTask = null } };
         var sut = CreateSut();
 
-        var result = await sut.AuthorizeProcessNext(instance);
+        var result = await sut.AuthorizeProcessNext(instance, new ProcessState());
 
         Assert.False(result);
     }
@@ -56,7 +56,7 @@ public class ProcessAuthorizerTests
         var instance = new Instance { Process = null };
         var sut = CreateSut();
 
-        var result = await sut.AuthorizeProcessNext(instance);
+        var result = await sut.AuthorizeProcessNext(instance, new ProcessState());
 
         Assert.False(result);
     }
@@ -68,7 +68,7 @@ public class ProcessAuthorizerTests
         SetupAuthorizeAction("write", "Task_1", true);
         var sut = CreateSut();
 
-        var result = await sut.AuthorizeProcessNext(instance);
+        var result = await sut.AuthorizeProcessNext(instance, new ProcessState());
 
         Assert.True(result);
     }
@@ -80,7 +80,7 @@ public class ProcessAuthorizerTests
         SetupAuthorizeAction("write", "Task_1", false);
         var sut = CreateSut();
 
-        var result = await sut.AuthorizeProcessNext(instance);
+        var result = await sut.AuthorizeProcessNext(instance, new ProcessState());
 
         Assert.False(result);
     }
@@ -93,7 +93,7 @@ public class ProcessAuthorizerTests
         SetupAuthorizeAction("write", "Task_1", false);
         var sut = CreateSut();
 
-        var result = await sut.AuthorizeProcessNext(instance);
+        var result = await sut.AuthorizeProcessNext(instance, new ProcessState());
 
         Assert.True(result);
     }
@@ -106,7 +106,7 @@ public class ProcessAuthorizerTests
         SetupAuthorizeAction("write", "Task_1", true);
         var sut = CreateSut();
 
-        var result = await sut.AuthorizeProcessNext(instance);
+        var result = await sut.AuthorizeProcessNext(instance, new ProcessState());
 
         Assert.True(result);
     }

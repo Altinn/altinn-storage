@@ -14,8 +14,8 @@ public interface IProcessAuthorizer
     /// Checks authorization against the set of actions that allow process next for the current task type.
     /// </summary>
     /// <param name="instance">The instance to authorize against.</param>
-    /// <param name="nextProcessState">Optional incoming process state, used to handle flow type overrides (e.g. AbandonCurrentMoveToNext).</param>
-    Task<bool> AuthorizeProcessNext(Instance instance, ProcessState? nextProcessState = null);
+    /// <param name="nextProcessState">The incoming process state, used to handle flow type overrides (e.g. AbandonCurrentMoveToNext).</param>
+    Task<bool> AuthorizeProcessNext(Instance instance, ProcessState nextProcessState);
 
     /// <summary>
     /// Determines if the user is authorized to lock an instance.

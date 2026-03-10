@@ -92,9 +92,7 @@ public class InstanceLockController(
             );
         }
 
-        var atLeastOneActionAuthorized = await processAuthorizer.AuthorizeInstanceLock(instance);
-
-        if (!atLeastOneActionAuthorized)
+        if (!await processAuthorizer.AuthorizeInstanceLock(instance))
         {
             return Problem(
                 detail: "Not authorized to acquire instance lock.",
