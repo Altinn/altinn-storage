@@ -640,7 +640,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     )
     {
         // Act
-        var result = ProcessAuthorizer.GetActionsThatAllowProcessNextForTaskType(taskType);
+        List<string> result = ProcessAuthorizer.GetActionsThatAllowProcessNextForTaskType(taskType);
 
         // Assert
         Assert.Equal(expectedActions, result);
