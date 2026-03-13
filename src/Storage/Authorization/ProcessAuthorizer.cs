@@ -69,7 +69,6 @@ public class ProcessAuthorizer : IProcessAuthorizer
             return await _authorizationService.AuthorizeInstanceAction(instance, "reject", taskId);
         }
 
-        // Think this IF is related to gateways, but not sure.
         if (
             nextProcessState?.CurrentTask?.FlowType is not null
             && nextProcessState.CurrentTask.FlowType != "CompleteCurrentMoveToNext"
