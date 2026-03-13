@@ -6,7 +6,6 @@
     Altinn.Platform.Storage.Controllers.DataController.GetMany (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.DataController.OverwriteData (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.DataController.Update (Altinn.Platform.Storage),
-    Altinn.Platform.Storage.Controllers.DataLockController.Lock (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.DataLockController.Unlock (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstanceEventsController.Get (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstanceEventsController.GetOne (Altinn.Platform.Storage),
@@ -53,11 +52,6 @@
       altinn:serviceowner/instances.write
     ],
     Altinn.Platform.Storage.Controllers.DataController.Update (Altinn.Platform.Storage): [
-      altinn:instances.write,
-      altinn:portal/enduser,
-      altinn:serviceowner/instances.write
-    ],
-    Altinn.Platform.Storage.Controllers.DataLockController.Lock (Altinn.Platform.Storage): [
       altinn:instances.write,
       altinn:portal/enduser,
       altinn:serviceowner/instances.write
@@ -171,6 +165,7 @@
     Altinn.Platform.Storage.Controllers.ContentOnDemandController.GetSignatureAsHtml (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.DataController.DataElementExists (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.DataController.SetFileScanStatus (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.DataLockController.Lock (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.ErrorController.Error (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstanceLockController.AcquireInstanceLock (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstanceLockController.UpdateInstanceLock (Altinn.Platform.Storage),

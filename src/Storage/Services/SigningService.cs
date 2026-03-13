@@ -131,6 +131,7 @@ public class SigningService : ISigningService
             signRequest.GeneratedFromTask
         );
 
+        dataElement.Locked = true; // Lock the data element to prevent changes after signing
         signDocument.Id = dataElement.Id;
 
         await DeleteExistingSignDocumentForSignee(
