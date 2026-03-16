@@ -194,7 +194,7 @@ public class ApplicationList
 }
 
 /// <summary>
-/// Contact points for an applicaiton
+/// Contact points for an application
 /// </summary>
 [JsonObject(ItemNullValueHandling = NullValueHandling.Ignore)]
 public class AppMetadataContactPoint
