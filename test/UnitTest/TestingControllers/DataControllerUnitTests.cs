@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -469,7 +469,8 @@ public class DataControllerUnitTests
             instanceEventServiceMock.Object,
             generalSettings,
             null,
-            authorizationServiceMock.Object
+            authorizationServiceMock.Object,
+            new NoOpDataMutationTracker()
         )
         {
             ControllerContext = controllerContext,
@@ -511,5 +512,18 @@ public class DataControllerUnitTests
             "postgresdata",
             "dataelements"
         );
+    }
+
+    private sealed class NoOpDataMutationTracker : IDataMutationTracker
+    {
+        public Task<IAsyncDisposable> BeginMutation(
+            Guid instanceGuid,
+            CancellationToken cancellationToken = default
+        ) => Task.FromResult<IAsyncDisposable>(new NoOpDisposable());
+
+        private sealed class NoOpDisposable : IAsyncDisposable
+        {
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        }
     }
 }

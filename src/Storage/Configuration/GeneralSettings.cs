@@ -98,4 +98,11 @@ public class GeneralSettings
     /// Gets or sets whether to use sign as an action when authorizing A2 search requests.
     /// </summary>
     public bool AuthorizeA2ListInstancesSign { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the timeout in seconds for active data request tracking rows.
+    /// This is a safety net for application crashes -- if a request is not explicitly ended,
+    /// the tracking row is cleaned up once the timeout elapses.
+    /// </summary>
+    public int ActiveDataRequestTimeoutSeconds { get; set; } = 120;
 }

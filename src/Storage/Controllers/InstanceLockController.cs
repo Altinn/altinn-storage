@@ -105,6 +105,7 @@ public class InstanceLockController(
         var (result, lockToken) = await instanceLockRepository.TryAcquireLock(
             instanceInternalId,
             request.TtlSeconds,
+            request.PreventMutations,
             userOrOrgNo,
             cancellationToken
         );
@@ -116,6 +117,10 @@ public class InstanceLockController(
             ),
             AcquireLockResult.LockAlreadyHeld => Problem(
                 detail: "Lock is already held for this instance.",
+                statusCode: StatusCodes.Status409Conflict
+            ),
+            AcquireLockResult.ActiveRequestsInProgress => Problem(
+                detail: "Cannot acquire lock while data mutation requests are in progress.",
                 statusCode: StatusCodes.Status409Conflict
             ),
             _ => throw new UnreachableException(),

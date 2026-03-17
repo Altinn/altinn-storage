@@ -23,6 +23,7 @@ public class PgInstanceLockRepository(NpgsqlDataSource dataSource) : IInstanceLo
     public async Task<(AcquireLockResult Result, LockToken? lockToken)> TryAcquireLock(
         long instanceInternalId,
         int ttlSeconds,
+        bool preventMutations,
         string userId,
         CancellationToken cancellationToken = default
     )
@@ -31,7 +32,7 @@ public class PgInstanceLockRepository(NpgsqlDataSource dataSource) : IInstanceLo
         var lockSecretHash = SHA256.HashData(lockSecret);
 
         await using var npgsqlCommand = dataSource.CreateCommand(
-            "CALL storage.acquireinstancelock(@instanceinternalid, @ttl, @lockedby, @secrethash, @result, @id);"
+            "CALL storage.acquireinstancelock(@instanceinternalid, @ttl, @preventmutations, @lockedby, @secrethash, @result, @id);"
         );
         npgsqlCommand.Parameters.AddWithValue(
             "instanceinternalid",
@@ -42,6 +43,11 @@ public class PgInstanceLockRepository(NpgsqlDataSource dataSource) : IInstanceLo
             "ttl",
             NpgsqlDbType.Interval,
             TimeSpan.FromSeconds(ttlSeconds)
+        );
+        npgsqlCommand.Parameters.AddWithValue(
+            "preventmutations",
+            NpgsqlDbType.Boolean,
+            preventMutations
         );
         npgsqlCommand.Parameters.AddWithValue("lockedby", NpgsqlDbType.Text, userId);
         npgsqlCommand.Parameters.AddWithValue("secrethash", NpgsqlDbType.Bytea, lockSecretHash);
@@ -67,6 +73,7 @@ public class PgInstanceLockRepository(NpgsqlDataSource dataSource) : IInstanceLo
         {
             "ok" => (AcquireLockResult.Success, new LockToken((long)idParam.Value!, lockSecret)),
             "lock_held" => (AcquireLockResult.LockAlreadyHeld, null),
+            "active_requests" => (AcquireLockResult.ActiveRequestsInProgress, null),
             _ => throw new UnreachableException(),
         };
     }
@@ -129,6 +136,7 @@ public class PgInstanceLockRepository(NpgsqlDataSource dataSource) : IInstanceLo
                 lockedat,
                 lockeduntil,
                 secrethash,
+                preventmutations,
                 lockedby
             FROM storage.instancelocks
             WHERE id = @id;
@@ -152,6 +160,7 @@ public class PgInstanceLockRepository(NpgsqlDataSource dataSource) : IInstanceLo
             LockedAt = reader.GetFieldValue<DateTimeOffset>("lockedat"),
             LockedUntil = reader.GetFieldValue<DateTimeOffset>("lockeduntil"),
             SecretHash = reader.GetFieldValue<byte[]>("secrethash"),
+            PreventMutations = reader.GetFieldValue<bool>("preventmutations"),
             LockedBy = reader.GetFieldValue<string>("lockedby"),
         };
 

@@ -96,6 +96,7 @@ public class InstanceLockControllerTest
                 r.TryAcquireLock(
                     _instanceInternalId,
                     300,
+                    It.IsAny<bool>(),
                     _userId.ToString(),
                     It.IsAny<CancellationToken>()
                 )
@@ -162,6 +163,7 @@ public class InstanceLockControllerTest
                 r.TryAcquireLock(
                     _instanceInternalId,
                     300,
+                    It.IsAny<bool>(),
                     _userId.ToString(),
                     It.IsAny<CancellationToken>()
                 )
