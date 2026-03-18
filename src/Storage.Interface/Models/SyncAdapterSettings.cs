@@ -24,7 +24,7 @@ namespace Altinn.Platform.Storage.Interface.Models
         [JsonProperty(PropertyName = "enableUserSuppliedDialogId")]
         [DefaultValue(false)]
         public bool EnableUserSuppliedDialogId { get; set; }
-        
+
         /// <summary>
         /// Gets or sets the flag controlling whether the sync adapter should disable dialog creation.
         /// </summary>
