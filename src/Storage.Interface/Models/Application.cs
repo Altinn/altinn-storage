@@ -139,6 +139,36 @@ public class Application : ChangableElement
     [JsonProperty(PropertyName = "disallowUserInstantiation")]
     public bool DisallowUserInstantiation { get; set; }
 
+    /// <summary>
+    /// Homepage of the application.
+    /// </summary>
+    [JsonProperty(PropertyName = "homepage")]
+    public string Homepage { get; set; }
+
+    /// <summary>
+    /// Keywords/tags for the application.
+    /// </summary>
+    [JsonProperty(PropertyName = "keywords")]
+    public List<Keyword> Keywords { get; set; }
+
+    /// <summary>
+    /// Description of the application.
+    /// </summary>
+    [JsonProperty(PropertyName = "description")]
+    public Dictionary<string, string> Description { get; set; }
+
+    /// <summary>
+    /// Access related metadata for the application.
+    /// </summary>
+    [JsonProperty(PropertyName = "access")]
+    public AppMetadataAccess Access { get; set; }
+
+    /// <summary>
+    /// Contact points for the application.
+    /// </summary>
+    [JsonProperty(PropertyName = "contactPoints")]
+    public List<AppMetadataContactPoint> ContactPoints { get; set; }
+
     /// <inheritdoc/>
     public override string ToString()
     {
@@ -161,4 +191,79 @@ public class ApplicationList
     /// </summary>
     [JsonProperty(PropertyName = "applications")]
     public List<Application> Applications { get; set; }
+}
+
+/// <summary>
+/// Contact points for an application
+/// </summary>
+[JsonObject(ItemNullValueHandling = NullValueHandling.Ignore)]
+public class AppMetadataContactPoint
+{
+    /// <summary>
+    /// The category of the contact point.
+    /// </summary>
+    [JsonProperty(PropertyName = "category")]
+    public string Category { get; set; }
+
+    /// <summary>
+    /// The email address of the contact point.
+    /// </summary>
+    [JsonProperty(PropertyName = "email")]
+    public string Email { get; set; }
+
+    /// <summary>
+    /// The telephone number of the contact point.
+    /// </summary>
+    [JsonProperty(PropertyName = "telephone")]
+    public string Telephone { get; set; }
+
+    /// <summary>
+    /// The contact page of the contact point.
+    /// </summary>
+    [JsonProperty(PropertyName = "contactPage")]
+    public string ContactPage { get; set; }
+}
+
+/// <summary>
+/// Access related metadata
+/// </summary>
+[JsonObject(ItemNullValueHandling = NullValueHandling.Ignore)]
+public class AppMetadataAccess
+{
+    /// <summary>
+    /// Description used to describe delegation of rights
+    /// </summary>
+    [JsonProperty(PropertyName = "rightDescription")]
+    public Dictionary<string, string> RightDescription { get; set; }
+
+    /// <summary>
+    /// Whether the application supports delegation of rights to other users or not
+    /// </summary>
+    [JsonProperty(PropertyName = "delegable")]
+    public bool Delegable { get; set; }
+
+    /// <summary>
+    /// Whether the application is visible to users or not when delegating
+    /// </summary>
+    [JsonProperty(PropertyName = "visible")]
+    public bool Visible { get; set; }
+}
+
+/// <summary>
+/// Keywords/tags for the application
+/// </summary>
+[JsonObject(ItemNullValueHandling = NullValueHandling.Ignore)]
+public class Keyword
+{
+    /// <summary>
+    /// The key word
+    /// </summary>
+    [JsonProperty(PropertyName = "word")]
+    public string Word { get; set; }
+
+    /// <summary>
+    /// Language of the key word
+    /// </summary>
+    [JsonProperty(PropertyName = "language")]
+    public string Language { get; set; }
 }

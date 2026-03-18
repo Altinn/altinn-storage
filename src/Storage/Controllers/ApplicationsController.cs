@@ -197,25 +197,14 @@ public class ApplicationsController : ControllerBase
             return NotFound($"Cannot find application {appId}");
         }
 
-        existingApplication.LastChangedBy = GetUserId();
-        existingApplication.LastChanged = DateTime.UtcNow;
+        application.Id = appId;
+        application.Org = org;
+        application.LastChangedBy = GetUserId();
+        application.LastChanged = DateTime.UtcNow;
+        application.PartyTypesAllowed ??= new();
+        application.StorageAccountNumber = existingApplication.StorageAccountNumber; // ?
 
-        existingApplication.VersionId = application.VersionId;
-        existingApplication.ValidTo = application.ValidTo;
-        existingApplication.ValidFrom = application.ValidFrom;
-        existingApplication.Title = application.Title;
-        existingApplication.ProcessId = application.ProcessId;
-        existingApplication.DataTypes = application.DataTypes;
-        existingApplication.PartyTypesAllowed =
-            application.PartyTypesAllowed ?? new PartyTypesAllowed();
-        existingApplication.AutoDeleteOnProcessEnd = application.AutoDeleteOnProcessEnd;
-        existingApplication.PresentationFields = application.PresentationFields;
-        existingApplication.OnEntry = application.OnEntry;
-        existingApplication.DataFields = application.DataFields;
-        existingApplication.MessageBoxConfig = application.MessageBoxConfig;
-        existingApplication.CopyInstanceSettings = application.CopyInstanceSettings;
-
-        Application result = await repository.Update(existingApplication);
+        Application result = await repository.Update(application);
 
         return Ok(result);
     }
