@@ -343,6 +343,7 @@ public class DataLockControllerUnitTests
         Mock<IDataRepository> dataRepositoryMock = new();
         Mock<IInstanceRepository> instanceRepositoryMock = new();
         Mock<IAuthorization> authorizationMock = new();
+        Mock<IProcessAuthorizer> processAuthorizerMock = new();
 
         if (exception == null)
         {
@@ -387,6 +388,9 @@ public class DataLockControllerUnitTests
             .Setup(a =>
                 a.AuthorizeAnyOfInstanceActions(It.IsAny<Instance>(), It.IsAny<List<string>>())
             )
+            .ReturnsAsync(authorized);
+        processAuthorizerMock
+            .Setup(a => a.AuthorizeDataElementLock(It.IsAny<Instance>()))
             .ReturnsAsync(authorized);
         if (instanceFound)
         {
@@ -440,7 +444,8 @@ public class DataLockControllerUnitTests
         var sut = new DataLockController(
             instanceRepositoryMock.Object,
             dataRepositoryMock.Object,
-            authorizationMock.Object
+            authorizationMock.Object,
+            processAuthorizerMock.Object
         )
         {
             ControllerContext = controllerContext,
