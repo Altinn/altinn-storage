@@ -18,6 +18,14 @@ namespace Altinn.Platform.Storage.Interface.Models
         public bool DisableSync { get; set; }
 
         /// <summary>
+        /// Gets or sets the flag controlling whether the sync adapter should create a dialogId or use user-supplied dialogId.
+        /// If true, the sync adapter will use the dialogId found in DataValues with key: dialog.id.
+        /// </summary>
+        [JsonProperty(PropertyName = "enableUserSuppliedDialogId")]
+        [DefaultValue(false)]
+        public bool EnableUserSuppliedDialogId { get; set; }
+
+        /// <summary>
         /// Gets or sets the flag controlling whether the sync adapter should disable dialog creation.
         /// </summary>
         [JsonProperty(PropertyName = "disableCreate")]
