@@ -55,6 +55,14 @@ public class PepWithPDPAuthorizationMockSI : IPDP
         return await Authorize(xacmlJsonRequest.Request);
     }
 
+    public Task<XacmlJsonResponse> GetDecisionForRequest(
+        XacmlJsonRequestRoot xacmlJsonRequest,
+        CancellationToken cancellationToken
+    )
+    {
+        throw new NotImplementedException();
+    }
+
     private async Task<XacmlJsonResponse> Authorize(XacmlJsonRequest decisionRequest)
     {
         if (
@@ -179,6 +187,15 @@ public class PepWithPDPAuthorizationMockSI : IPDP
     {
         XacmlJsonResponse response = await GetDecisionForRequest(xacmlJsonRequest);
         return DecisionHelper.ValidatePdpDecision(response.Response, user);
+    }
+
+    public Task<bool> GetDecisionForUnvalidateRequest(
+        XacmlJsonRequestRoot xacmlJsonRequest,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken
+    )
+    {
+        throw new NotImplementedException();
     }
 
     public async Task<XacmlContextRequest> Enrich(XacmlContextRequest request)
