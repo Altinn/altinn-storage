@@ -111,7 +111,7 @@ public class PDPMock : IPDP
         CancellationToken cancellationToken
     )
     {
-        throw new System.NotImplementedException();
+        return GetDecisionForRequest(xacmlJsonRequest);
     }
 
     public Task<bool> GetDecisionForUnvalidateRequest(
@@ -128,6 +128,6 @@ public class PDPMock : IPDP
         CancellationToken cancellationToken
     )
     {
-        throw new System.NotImplementedException();
+        return Task.FromResult(true);
     }
 }

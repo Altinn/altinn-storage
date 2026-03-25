@@ -60,7 +60,7 @@ public class PepWithPDPAuthorizationMockSI : IPDP
         CancellationToken cancellationToken
     )
     {
-        throw new NotImplementedException();
+        return GetDecisionForRequest(xacmlJsonRequest);
     }
 
     private async Task<XacmlJsonResponse> Authorize(XacmlJsonRequest decisionRequest)
@@ -195,7 +195,7 @@ public class PepWithPDPAuthorizationMockSI : IPDP
         CancellationToken cancellationToken
     )
     {
-        throw new NotImplementedException();
+        return GetDecisionForUnvalidateRequest(xacmlJsonRequest, user);
     }
 
     public async Task<XacmlContextRequest> Enrich(XacmlContextRequest request)
