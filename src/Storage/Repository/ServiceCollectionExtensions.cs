@@ -32,6 +32,8 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IA2Repository, PgA2Repository>()
             .AddSingleton<IOutboxRepository, PgOutboxRepository>()
             .AddSingleton<IInstanceLockRepository, PgInstanceLockRepository>()
+            .AddSingleton<IActiveDataRequestRepository, PgActiveDataRequestRepository>()
+            .AddScoped<IDataMutationTracker, DataMutationTracker>()
             .AddNpgsqlDataSource(
                 connectionString,
                 builder =>

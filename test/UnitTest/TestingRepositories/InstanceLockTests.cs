@@ -61,12 +61,14 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         var (firstResult, firstLockToken) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
+            false,
             userId
         );
 
         var (secondResult, secondLockToken) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
+            false,
             userId
         );
 
@@ -75,6 +77,7 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         var (thirdResult, thirdLockToken) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
+            false,
             userId
         );
 
@@ -83,6 +86,7 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         var (fourthResult, fourthLockToken) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
+            false,
             userId
         );
 
@@ -154,6 +158,7 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         var (firstResult, firstLockToken) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
+            false,
             userId
         );
 
@@ -166,6 +171,7 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         var (secondResult, secondLockToken) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
+            false,
             userId
         );
 
@@ -180,6 +186,7 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         var (thirdResult, thirdLockToken) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
+            false,
             userId
         );
 
@@ -265,6 +272,7 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         var (firstResult, firstLockToken) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
+            false,
             userId
         );
 
@@ -281,6 +289,7 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         var (secondResult, secondLockToken) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
+            false,
             userId
         );
 
@@ -289,6 +298,7 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         var (thirdResult, thirdLockToken) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
+            false,
             userId
         );
 
@@ -406,6 +416,7 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         var (acquireResult, lockToken) = await _fixture.InstanceLockRepo.TryAcquireLock(
             instanceInternalId,
             ttlSeconds,
+            false,
             userId
         );
 

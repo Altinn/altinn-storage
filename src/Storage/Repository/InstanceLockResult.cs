@@ -16,6 +16,11 @@ public enum AcquireLockResult
     /// Lock could not be acquired because an active lock already exists for the instance.
     /// </summary>
     LockAlreadyHeld,
+
+    /// <summary>
+    /// Lock could not be acquired because data mutation requests are in progress.
+    /// </summary>
+    ActiveRequestsInProgress,
 }
 
 /// <summary>

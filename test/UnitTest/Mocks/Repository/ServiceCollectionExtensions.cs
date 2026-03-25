@@ -13,5 +13,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IApplicationRepository, ApplicationRepositoryMock>();
         services.AddSingleton<IInstanceEventRepository, InstanceEventRepositoryMock>();
         services.AddSingleton<ITextRepository, TextRepositoryMock>();
+        services.AddSingleton<IActiveDataRequestRepository, ActiveDataRequestRepositoryMock>();
     }
 }

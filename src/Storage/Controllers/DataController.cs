@@ -8,6 +8,7 @@ using System.Web;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Exceptions;
 using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
@@ -44,6 +45,7 @@ public class DataController : ControllerBase
     private readonly string _storageBaseAndHost;
     private readonly GeneralSettings _generalSettings;
     private readonly IAuthorization _authorizationService;
+    private readonly IDataMutationTracker _dataMutationTracker;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DataController"/> class
@@ -57,6 +59,7 @@ public class DataController : ControllerBase
     /// <param name="generalSettings">the general settings.</param>
     /// <param name="onDemandClient">the ondemand client</param>
     /// <param name="authorizationService">The authorization service</param>
+    /// <param name="dataMutationTracker">The data mutation tracker for coordinating with instance locking.</param>
     public DataController(
         IDataRepository dataRepository,
         IBlobRepository blobRepository,
@@ -66,7 +69,8 @@ public class DataController : ControllerBase
         IInstanceEventService instanceEventService,
         IOptions<GeneralSettings> generalSettings,
         IOnDemandClient onDemandClient,
-        IAuthorization authorizationService
+        IAuthorization authorizationService,
+        IDataMutationTracker dataMutationTracker
     )
     {
         _dataRepository = dataRepository;
@@ -79,6 +83,7 @@ public class DataController : ControllerBase
         _onDemandClient = onDemandClient;
         _generalSettings = generalSettings.Value;
         _authorizationService = authorizationService;
+        _dataMutationTracker = dataMutationTracker;
     }
 
     /// <summary>
@@ -104,6 +109,21 @@ public class DataController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        IAsyncDisposable mutationGuard;
+        try
+        {
+            mutationGuard = await _dataMutationTracker.BeginMutation(
+                instanceGuid,
+                cancellationToken
+            );
+        }
+        catch (MutationBlockedException)
+        {
+            return MutationBlocked();
+        }
+
+        await using var guard = mutationGuard;
+
         (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(
             instanceGuid,
             instanceOwnerPartyId,
@@ -422,6 +442,21 @@ public class DataController : ControllerBase
             );
         }
 
+        IAsyncDisposable mutationGuard;
+        try
+        {
+            mutationGuard = await _dataMutationTracker.BeginMutation(
+                instanceGuid,
+                cancellationToken
+            );
+        }
+        catch (MutationBlockedException)
+        {
+            return MutationBlocked();
+        }
+
+        await using var guard = mutationGuard;
+
         (Instance instance, long instanceInternalId, ActionResult instanceError) =
             await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false, cancellationToken);
         if (instance == null)
@@ -554,6 +589,21 @@ public class DataController : ControllerBase
                 "Missing parameter values: instanceId, datafile or attached file content cannot be empty"
             );
         }
+
+        IAsyncDisposable mutationGuard;
+        try
+        {
+            mutationGuard = await _dataMutationTracker.BeginMutation(
+                instanceGuid,
+                cancellationToken
+            );
+        }
+        catch (MutationBlockedException)
+        {
+            return MutationBlocked();
+        }
+
+        await using var guard = mutationGuard;
 
         (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(
             instanceGuid,
@@ -727,6 +777,21 @@ public class DataController : ControllerBase
             return BadRequest("Mismatch between path and dataElement content");
         }
 
+        IAsyncDisposable mutationGuard;
+        try
+        {
+            mutationGuard = await _dataMutationTracker.BeginMutation(
+                instanceGuid,
+                cancellationToken
+            );
+        }
+        catch (MutationBlockedException)
+        {
+            return MutationBlocked();
+        }
+
+        await using var guard = mutationGuard;
+
         (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(
             instanceGuid,
             instanceOwnerPartyId,
@@ -880,6 +945,23 @@ public class DataController : ControllerBase
         return application is null
             ? (null, NotFound($"Cannot find application {appId} in storage"))
             : (application, null);
+    }
+
+    private static ObjectResult MutationBlocked()
+    {
+        return new ObjectResult(
+            new ProblemDetails
+            {
+                Title = "Mutation blocked",
+                Detail =
+                    "Data mutations are blocked by an active instance lock with preventMutations enabled. Provide a valid lock token in the Altinn-Storage-Lock-Token header.",
+                Status = StatusCodes.Status503ServiceUnavailable,
+            }
+        )
+        {
+            StatusCode = StatusCodes.Status503ServiceUnavailable,
+            ContentTypes = { "application/problem+json" },
+        };
     }
 
     private async Task<(

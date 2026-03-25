@@ -33,6 +33,11 @@ public sealed class InstanceLock
     public required byte[] SecretHash { get; set; }
 
     /// <summary>
+    /// Gets or sets whether to prevent instance mutations
+    /// </summary>
+    public required bool PreventMutations { get; set; }
+
+    /// <summary>
     /// Gets or sets the identifier of the user or process that acquired the lock
     /// </summary>
     public required string LockedBy { get; set; }

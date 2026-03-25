@@ -17,11 +17,13 @@ public interface IInstanceLockRepository
     /// <param name="instanceInternalId">The instance internal ID</param>
     /// <param name="ttlSeconds">Lock time to live in seconds</param>
     /// <param name="userId">The ID of the user acquiring the lock</param>
+    /// <param name="preventMutations">Whether mutations while the lock is active should only be accepted if the lock token is provided.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>A tuple containing the result of the operation and the lock token if successful.</returns>
     Task<(AcquireLockResult Result, LockToken? lockToken)> TryAcquireLock(
         long instanceInternalId,
         int ttlSeconds,
+        bool preventMutations,
         string userId,
         CancellationToken cancellationToken = default
     );

@@ -14,4 +14,11 @@ public class InstanceLockRequest
     [JsonProperty(PropertyName = "ttlSeconds")]
     [JsonPropertyName("ttlSeconds")]
     public int TtlSeconds { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to prevent data mutations while the lock is active.
+    /// </summary>
+    [JsonProperty(PropertyName = "preventMutations")]
+    [JsonPropertyName("preventMutations")]
+    public bool PreventMutations { get; set; }
 }
