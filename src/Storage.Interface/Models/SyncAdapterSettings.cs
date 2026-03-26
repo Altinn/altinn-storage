@@ -73,7 +73,7 @@ namespace Altinn.Platform.Storage.Interface.Models
         [JsonProperty(PropertyName = "disableMarkCompletedWhenConfirmed")]
         [DefaultValue(false)]
         public bool DisableMarkCompletedWhenConfirmed { get; set; }
-        
+
         /// <summary>
         /// Gets or sets the flag controlling whether the sync adapter should disable synchronizing (overwrite) the title.
         /// </summary>
