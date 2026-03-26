@@ -15,7 +15,7 @@ public class SegoeWpFontResolver : IFontResolver
     /// Family names are given in lower case because the implementation of
     /// SegoeWpFontResolver ignores case.
     /// </summary>
-    static private class FamilyNames
+    private static class FamilyNames
     {
         // This implementation considers each font face as its own family.
         public const string SegoeWPLight = "segoe wp light";
@@ -30,7 +30,7 @@ public class SegoeWpFontResolver : IFontResolver
     /// The internal names that uniquely identify the font faces.
     /// Used in the first parameter of the FontResolverInfo constructor.
     /// </summary>
-    static private class FaceNames
+    private static class FaceNames
     {
         // Used in the first parameter of the FontResolverInfo constructor.
         public const string SegoeWPLight = "SegoeWPLight";

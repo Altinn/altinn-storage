@@ -228,7 +228,8 @@ public static class InstanceHelper
                             r.Id != null && r.Id.Equals(instance.Substatus.Label)
                         )
                         .Select(r => r.Value)
-                        .FirstOrDefault() ?? instance.Substatus.Label;
+                        .FirstOrDefault()
+                    ?? instance.Substatus.Label;
             }
 
             if (instance.Substatus?.Description != null)
@@ -240,7 +241,8 @@ public static class InstanceHelper
                             r.Id != null && r.Id.Equals(instance.Substatus.Description)
                         )
                         .Select(r => r.Value)
-                        .FirstOrDefault() ?? instance.Substatus.Description;
+                        .FirstOrDefault()
+                    ?? instance.Substatus.Description;
             }
         }
 
