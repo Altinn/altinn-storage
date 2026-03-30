@@ -2,7 +2,9 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Models;
+using Microsoft.Extensions.Options;
 
 namespace Altinn.Platform.Storage.Authorization;
 
@@ -12,13 +14,18 @@ namespace Altinn.Platform.Storage.Authorization;
 public class ProcessAuthorizer : IProcessAuthorizer
 {
     private readonly IAuthorization _authorizationService;
+    private readonly GeneralSettings _generalSettings;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ProcessAuthorizer"/> class.
     /// </summary>
-    public ProcessAuthorizer(IAuthorization authorizationService)
+    public ProcessAuthorizer(
+        IAuthorization authorizationService,
+        IOptions<GeneralSettings> settings
+    )
     {
         _authorizationService = authorizationService;
+        _generalSettings = settings.Value;
     }
 
     /// <inheritdoc/>
@@ -33,6 +40,14 @@ public class ProcessAuthorizer : IProcessAuthorizer
 
     /// <inheritdoc/>
     public Task<bool> AuthorizeDataElementLock(Instance instance) => Authorize(instance);
+
+    /// <inheritdoc/>
+    public Task<bool> AuthorizePresentationTextsUpdate(Instance instance) =>
+        AuthorizeWithSyncAdapterBypass(instance);
+
+    /// <inheritdoc/>
+    public Task<bool> AuthorizeDataValuesUpdate(Instance instance) =>
+        AuthorizeWithSyncAdapterBypass(instance);
 
     /// <summary>
     /// Get all actions that allow process next for the given task type.
@@ -52,6 +67,16 @@ public class ProcessAuthorizer : IProcessAuthorizer
             "signing" => ["sign", "write"],
             _ => [taskType],
         };
+    }
+
+    private Task<bool> AuthorizeWithSyncAdapterBypass(Instance instance)
+    {
+        if (_authorizationService.UserHasRequiredScope(_generalSettings.InstanceSyncAdapterScope))
+        {
+            return Task.FromResult(true);
+        }
+
+        return Authorize(instance);
     }
 
     private async Task<bool> Authorize(Instance instance, ProcessState? nextProcessState = null)
