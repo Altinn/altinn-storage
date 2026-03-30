@@ -1,7 +1,9 @@
 #nullable enable
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
+using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Models;
+using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
 
@@ -11,7 +13,11 @@ public class ProcessAuthorizerTests
 {
     private readonly Mock<IAuthorization> _authorizationMock = new();
 
-    private ProcessAuthorizer CreateSut() => new(_authorizationMock.Object);
+    private static readonly IOptions<GeneralSettings> _settings = Options.Create(
+        new GeneralSettings { InstanceSyncAdapterScope = "altinn:storage/instances.syncadapter" }
+    );
+
+    private ProcessAuthorizer CreateSut() => new(_authorizationMock.Object, _settings);
 
     private static Instance CreateInstance(
         string taskId = "Task_1",
@@ -182,6 +188,84 @@ public class ProcessAuthorizerTests
 
         Assert.False(await CreateSut().AuthorizeDataElementLock(instance));
         Assert.False(await CreateSut().AuthorizeInstanceLock(instance));
+    }
+
+    #endregion
+
+    #region AuthorizePresentationTextsUpdate and AuthorizeDataValuesUpdate
+
+    [Theory]
+    [InlineData("data", "write")]
+    [InlineData("data", "reject")]
+    [InlineData("signing", "sign")]
+    [InlineData("signing", "reject")]
+    [InlineData("confirmation", "confirm")]
+    [InlineData("confirmation", "reject")]
+    public async Task AuthorizeUpdate_UserHasAllowedAction_ReturnsTrue(
+        string taskType,
+        string authorizedAction
+    )
+    {
+        var instance = CreateInstance(altinnTaskType: taskType);
+        SetupAuthorizeAction(authorizedAction, "Task_1", true);
+
+        Assert.True(await CreateSut().AuthorizePresentationTextsUpdate(instance));
+        Assert.True(await CreateSut().AuthorizeDataValuesUpdate(instance));
+    }
+
+    [Theory]
+    [InlineData("data")]
+    [InlineData("signing")]
+    [InlineData("confirmation")]
+    public async Task AuthorizeUpdate_UserLacksAllActions_ReturnsFalse(string taskType)
+    {
+        var instance = CreateInstance(altinnTaskType: taskType);
+
+        Assert.False(await CreateSut().AuthorizePresentationTextsUpdate(instance));
+        Assert.False(await CreateSut().AuthorizeDataValuesUpdate(instance));
+    }
+
+    [Fact]
+    public async Task AuthorizeUpdate_NoCurrentTask_ReturnsFalse()
+    {
+        var instance = new Instance { Process = new ProcessState { CurrentTask = null } };
+
+        Assert.False(await CreateSut().AuthorizePresentationTextsUpdate(instance));
+        Assert.False(await CreateSut().AuthorizeDataValuesUpdate(instance));
+    }
+
+    [Fact]
+    public async Task AuthorizeDataValuesUpdate_SyncAdapterScope_ReturnsTrue()
+    {
+        var instance = new Instance { Process = new ProcessState { CurrentTask = null } };
+        _authorizationMock
+            .Setup(a => a.UserHasRequiredScope("altinn:storage/instances.syncadapter"))
+            .Returns(true);
+
+        Assert.True(await CreateSut().AuthorizeDataValuesUpdate(instance));
+    }
+
+    [Fact]
+    public async Task AuthorizePresentationTextsUpdate_SyncAdapterScope_ReturnsFalse()
+    {
+        var instance = new Instance { Process = new ProcessState { CurrentTask = null } };
+        _authorizationMock
+            .Setup(a => a.UserHasRequiredScope("altinn:storage/instances.syncadapter"))
+            .Returns(true);
+
+        Assert.False(await CreateSut().AuthorizePresentationTextsUpdate(instance));
+    }
+
+    [Fact]
+    public async Task AuthorizeUpdate_NoSyncAdapterScope_NoActions_ReturnsFalse()
+    {
+        var instance = CreateInstance(altinnTaskType: "data");
+        _authorizationMock
+            .Setup(a => a.UserHasRequiredScope("altinn:storage/instances.syncadapter"))
+            .Returns(false);
+
+        Assert.False(await CreateSut().AuthorizePresentationTextsUpdate(instance));
+        Assert.False(await CreateSut().AuthorizeDataValuesUpdate(instance));
     }
 
     #endregion
