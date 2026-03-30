@@ -42,8 +42,7 @@ public class ProcessAuthorizer : IProcessAuthorizer
     public Task<bool> AuthorizeDataElementLock(Instance instance) => Authorize(instance);
 
     /// <inheritdoc/>
-    public Task<bool> AuthorizePresentationTextsUpdate(Instance instance) =>
-        AuthorizeWithSyncAdapterBypass(instance);
+    public Task<bool> AuthorizePresentationTextsUpdate(Instance instance) => Authorize(instance);
 
     /// <inheritdoc/>
     public Task<bool> AuthorizeDataValuesUpdate(Instance instance) =>
