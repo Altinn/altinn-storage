@@ -965,6 +965,7 @@ public class InstancesController : ControllerBase
     [Authorize]
     [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/presentationtexts")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [Consumes("application/json")]
     [Produces("application/json")]

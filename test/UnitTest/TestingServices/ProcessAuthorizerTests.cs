@@ -234,5 +234,29 @@ public class ProcessAuthorizerTests
         Assert.False(await CreateSut().AuthorizeDataValuesUpdate(instance));
     }
 
+    [Fact]
+    public async Task AuthorizeUpdate_SyncAdapterScope_ReturnsTrue()
+    {
+        var instance = new Instance { Process = new ProcessState { CurrentTask = null } };
+        _authorizationMock
+            .Setup(a => a.UserHasRequiredScope("altinn:storage/instances.syncadapter"))
+            .Returns(true);
+
+        Assert.True(await CreateSut().AuthorizePresentationTextsUpdate(instance));
+        Assert.True(await CreateSut().AuthorizeDataValuesUpdate(instance));
+    }
+
+    [Fact]
+    public async Task AuthorizeUpdate_NoSyncAdapterScope_NoActions_ReturnsFalse()
+    {
+        var instance = CreateInstance(altinnTaskType: "data");
+        _authorizationMock
+            .Setup(a => a.UserHasRequiredScope("altinn:storage/instances.syncadapter"))
+            .Returns(false);
+
+        Assert.False(await CreateSut().AuthorizePresentationTextsUpdate(instance));
+        Assert.False(await CreateSut().AuthorizeDataValuesUpdate(instance));
+    }
+
     #endregion
 }
