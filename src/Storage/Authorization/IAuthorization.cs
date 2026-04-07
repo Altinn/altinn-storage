@@ -27,6 +27,14 @@ public interface IAuthorization
     public Task<bool> AuthorizeInstanceAction(Instance instance, string action, string task = null);
 
     /// <summary>
+    /// Authorizes a read action on an instance, enriching the XACML request with full instance context
+    /// including current task and end event. Prefer this over AuthorizeInstanceAction when the full
+    /// instance is available and process state context is needed.
+    /// </summary>
+    /// <returns>true if the user is authorized.</returns>
+    public Task<bool> AuthorizeEnrichedInstanceAction(Instance instance, string action);
+
+    /// <summary>
     /// Authorizes that the user has one or more of the actions on an instance.
     /// </summary>
     /// <returns>true if the user is authorized.</returns>
