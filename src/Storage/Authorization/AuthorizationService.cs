@@ -248,16 +248,6 @@ public class AuthorizationService(
         if (!_memoryCache.TryGetValue(cacheKey, out XacmlJsonResponse response))
         {
             response = await _pdp.GetDecisionForRequest(request);
-
-            _memoryCache.Set(
-                cacheKey,
-                response,
-                new MemoryCacheEntryOptions()
-                    .SetPriority(CacheItemPriority.High)
-                    .SetAbsoluteExpiration(
-                        new TimeSpan(0, _pepSettings.PdpDecisionCachingTimeout, 0)
-                    )
-            );
         }
 
         if (response?.Response == null)
@@ -268,6 +258,14 @@ public class AuthorizationService(
             );
             return false;
         }
+
+        _memoryCache.Set(
+            cacheKey,
+            response,
+            new MemoryCacheEntryOptions()
+                .SetPriority(CacheItemPriority.High)
+                .SetAbsoluteExpiration(new TimeSpan(0, _pepSettings.PdpDecisionCachingTimeout, 0))
+        );
 
         return DecisionHelper.ValidatePdpDecision(response.Response, user);
     }
