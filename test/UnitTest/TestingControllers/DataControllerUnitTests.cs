@@ -424,6 +424,10 @@ public class DataControllerUnitTests
             )
         );
 
+        authorizationServiceMock
+            .Setup(a => a.AuthorizeEnrichedInstanceAction(It.IsAny<Instance>(), It.IsAny<string>()))
+            .ReturnsAsync(true);
+
         Mock<HttpContext> httpContextMock = new();
         httpContextMock.Setup(c => c.User).Returns(PrincipalUtil.GetPrincipal(200001, 1337));
 

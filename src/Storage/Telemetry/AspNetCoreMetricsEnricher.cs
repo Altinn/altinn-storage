@@ -177,6 +177,8 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
         "Altinn.Platform.Storage.Controllers.InstancesController.GetByGuid (Altinn.Platform.Storage)",
         "Altinn.Platform.Storage.Controllers.InstancesController.Post (Altinn.Platform.Storage)",
         "Altinn.Platform.Storage.Controllers.InstancesController.UpdateSubstatus (Altinn.Platform.Storage)",
+        "Altinn.Platform.Storage.Controllers.DataController.Get (Altinn.Platform.Storage)",
+        "Altinn.Platform.Storage.Controllers.DataController.GetMany (Altinn.Platform.Storage)",
         "Altinn.Platform.Storage.Controllers.ProcessController.PutInstanceAndEvents (Altinn.Platform.Storage)",
         "Altinn.Platform.Storage.Controllers.ProcessController.PutProcess (Altinn.Platform.Storage)"
     );
