@@ -4,6 +4,7 @@ using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
+using Altinn.Common.PEP.Configuration;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Configuration;
@@ -12,6 +13,7 @@ using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Mocks;
 using AltinnCore.Authentication.Constants;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -43,7 +45,9 @@ public class AuthorizationServiceTest
             _pdpMockSI,
             _claimsPrincipalProviderMock.Object,
             Mock.Of<ILogger<AuthorizationService>>(),
-            options
+            options,
+            Mock.Of<IMemoryCache>(),
+            Options.Create(new PepSettings())
         );
     }
 
@@ -66,7 +70,9 @@ public class AuthorizationServiceTest
             _pdpSimpleMock.Object,
             _claimsPrincipalProviderMock.Object,
             Mock.Of<ILogger<AuthorizationService>>(),
-            options
+            options,
+            Mock.Of<IMemoryCache>(),
+            Options.Create(new PepSettings())
         );
         await sut.GetDecisionForRequest(new XacmlJsonRequestRoot());
 

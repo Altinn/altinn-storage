@@ -2,15 +2,18 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
+using Altinn.Common.PEP.Configuration;
 using Altinn.Common.PEP.Constants;
 using Altinn.Common.PEP.Helpers;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -26,17 +29,23 @@ namespace Altinn.Platform.Storage.Authorization;
 /// <param name="claimsPrincipalProvider">A service providing access to the current <see cref="ClaimsPrincipal"/>.</param>
 /// <param name="logger">The logger</param>
 /// <param name="settings">General configuration settings</param>
+/// <param name="memoryCache">The memory cache</param>
+/// <param name="pepSettings">The settings for pep</param>
 public class AuthorizationService(
     IPDP pdp,
     IClaimsPrincipalProvider claimsPrincipalProvider,
     ILogger<AuthorizationService> logger,
-    IOptions<GeneralSettings> settings
+    IOptions<GeneralSettings> settings,
+    IMemoryCache memoryCache,
+    IOptions<PepSettings> pepSettings
 ) : IAuthorization
 {
     private readonly IPDP _pdp = pdp;
     private readonly IClaimsPrincipalProvider _claimsPrincipalProvider = claimsPrincipalProvider;
     private readonly ILogger<AuthorizationService> _logger = logger;
     private readonly GeneralSettings _settings = settings.Value;
+    private readonly IMemoryCache _memoryCache = memoryCache;
+    private readonly PepSettings _pepSettings = pepSettings.Value;
 
     private const string XacmlResourceTaskId = "urn:altinn:task";
     private const string XacmlResourceEndId = "urn:altinn:end-event";
@@ -213,6 +222,57 @@ public class AuthorizationService(
 
         bool authorized = DecisionHelper.ValidatePdpDecision(response.Response, user);
         return authorized;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> AuthorizeEnrichedInstanceAction(Instance instance, string action)
+    {
+        string org = instance.Org;
+        string app = instance.AppId.Split('/')[1];
+        int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
+
+        ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
+        Guid instanceGuid = Guid.Parse(instance.Id.Split('/')[1]);
+        XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
+            org,
+            app,
+            user,
+            action,
+            instanceOwnerPartyId,
+            instanceGuid
+        );
+
+        EnrichXacmlJsonRequest(request, instance);
+
+        string cacheKey = GetCacheKeyForDecisionRequest(request);
+        if (!_memoryCache.TryGetValue(cacheKey, out XacmlJsonResponse response))
+        {
+            response = await _pdp.GetDecisionForRequest(request);
+
+            if (response?.Response is not null)
+            {
+                _memoryCache.Set(
+                    cacheKey,
+                    response,
+                    new MemoryCacheEntryOptions()
+                        .SetPriority(CacheItemPriority.High)
+                        .SetAbsoluteExpiration(
+                            new TimeSpan(0, _pepSettings.PdpDecisionCachingTimeout, 0)
+                        )
+                );
+            }
+        }
+
+        if (response?.Response == null)
+        {
+            _logger.LogInformation(
+                "// Authorization Helper // AuthorizeEnrichedInstanceAction failed for request: {request}.",
+                JsonSerializer.Serialize(request)
+            );
+            return false;
+        }
+
+        return DecisionHelper.ValidatePdpDecision(response.Response, user);
     }
 
     /// <inheritdoc />
@@ -660,5 +720,42 @@ public class AuthorizationService(
         }
 
         return references;
+    }
+
+    /// <summary>
+    /// This method creates a uniqe cache key based on all relevant attributes in a decision request
+    /// </summary>
+    /// <param name="request">The decision request</param>
+    /// <returns>The cache key</returns>
+    private static string GetCacheKeyForDecisionRequest(XacmlJsonRequestRoot request)
+    {
+        StringBuilder resourceKey = new();
+        foreach (XacmlJsonCategory category in request.Request.Resource)
+        {
+            foreach (XacmlJsonAttribute atr in category.Attribute)
+            {
+                resourceKey.Append(atr.AttributeId + ":" + atr.Value + ";");
+            }
+        }
+
+        StringBuilder subjectKey = new();
+        foreach (XacmlJsonCategory category in request.Request.AccessSubject)
+        {
+            foreach (XacmlJsonAttribute atr in category.Attribute)
+            {
+                subjectKey.Append(atr.AttributeId + ":" + atr.Value + ";");
+            }
+        }
+
+        StringBuilder actionKey = new();
+        foreach (XacmlJsonCategory category in request.Request.Action)
+        {
+            foreach (XacmlJsonAttribute atr in category.Attribute)
+            {
+                actionKey.Append(atr.AttributeId + ":" + atr.Value + ";");
+            }
+        }
+
+        return subjectKey.ToString() + actionKey.ToString() + resourceKey.ToString();
     }
 }

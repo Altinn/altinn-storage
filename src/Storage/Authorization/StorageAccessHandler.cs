@@ -168,7 +168,7 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
     }
 
     /// <summary>
-    /// This method creates a uniqe cache key based on all relevant attributes in a decision request
+    /// This method creates a unique cache key based on all relevant attributes in a decision request
     /// </summary>
     /// <param name="request">The decision requonst</param>
     /// <returns>The cache key</returns>

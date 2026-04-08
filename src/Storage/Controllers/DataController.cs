@@ -197,7 +197,7 @@ public class DataController : ControllerBase
     /// <param name="dataGuid">The id of the data element to retrieve.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>The data file as a stream.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
+    [Authorize]
     [HttpGet("data/{dataGuid:guid}")]
     [RequestSizeLimit(RequestSizeLimit)]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -225,6 +225,11 @@ public class DataController : ControllerBase
         if (instance == null)
         {
             return instanceError;
+        }
+
+        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read") is false)
+        {
+            return Forbid();
         }
 
         (DataElement dataElement, ActionResult dataElementError) = await GetDataElementAsync(
@@ -354,7 +359,7 @@ public class DataController : ControllerBase
     /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>The list of data elements</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
+    [Authorize]
     [HttpGet("dataelements")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -379,6 +384,11 @@ public class DataController : ControllerBase
         if (instance == null)
         {
             return instanceError;
+        }
+
+        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read") is false)
+        {
+            return Forbid();
         }
 
         bool appOwnerRequestingElement = User.GetOrg() == instance.Org;

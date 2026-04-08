@@ -363,7 +363,7 @@ public class InstancesController : ControllerBase
     /// <param name="instanceGuid">The id of the instance to retrieve.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>The information about the specific instance.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
+    [Authorize]
     [HttpGet("{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -376,25 +376,37 @@ public class InstancesController : ControllerBase
     {
         try
         {
-            (Instance result, _) = await _instanceRepository.GetOne(
+            (Instance instance, _) = await _instanceRepository.GetOne(
                 instanceGuid,
                 true,
                 cancellationToken
             );
 
             if (
-                User.GetOrg() != result.Org
-                && !_authorizationService.UserHasRequiredScope([
+                _authorizationService.UserHasRequiredScope([
                     _generalSettings.InstanceSyncAdapterScope,
                 ])
             )
             {
-                FilterOutDeletedDataElements(result);
+                instance.SetPlatformSelfLinks(_storageBaseAndHost);
+                return Ok(instance);
             }
 
-            result.SetPlatformSelfLinks(_storageBaseAndHost);
+            if (
+                await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read")
+                is false
+            )
+            {
+                return Forbid();
+            }
 
-            return Ok(result);
+            if (User.GetOrg() != instance.Org)
+            {
+                FilterOutDeletedDataElements(instance);
+            }
+
+            instance.SetPlatformSelfLinks(_storageBaseAndHost);
+            return Ok(instance);
         }
         catch (Exception e)
         {
@@ -409,7 +421,7 @@ public class InstancesController : ControllerBase
     /// <param name="instanceGuid">The id of the instance to retrieve.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>The information about the specific instance.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
+    [Authorize]
     [HttpGet("{instanceGuid:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -421,25 +433,37 @@ public class InstancesController : ControllerBase
     {
         try
         {
-            (Instance result, _) = await _instanceRepository.GetOne(
+            (Instance instance, _) = await _instanceRepository.GetOne(
                 instanceGuid,
                 true,
                 cancellationToken
             );
 
             if (
-                User.GetOrg() != result.Org
-                && !_authorizationService.UserHasRequiredScope([
+                _authorizationService.UserHasRequiredScope([
                     _generalSettings.InstanceSyncAdapterScope,
                 ])
             )
             {
-                FilterOutDeletedDataElements(result);
+                instance.SetPlatformSelfLinks(_storageBaseAndHost);
+                return Ok(instance);
             }
 
-            result.SetPlatformSelfLinks(_storageBaseAndHost);
+            if (
+                await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read")
+                is false
+            )
+            {
+                return Forbid();
+            }
 
-            return Ok(result);
+            if (User.GetOrg() != instance.Org)
+            {
+                FilterOutDeletedDataElements(instance);
+            }
+
+            instance.SetPlatformSelfLinks(_storageBaseAndHost);
+            return Ok(instance);
         }
         catch (Exception e)
         {
