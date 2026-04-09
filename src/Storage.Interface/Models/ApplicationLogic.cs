@@ -1,4 +1,3 @@
-using System;
 using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.Interface.Models;

@@ -1,4 +1,3 @@
-using Altinn.Platform.Storage.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Altinn.Platform.Storage.Repository;

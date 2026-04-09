@@ -1,7 +1,4 @@
 using System.IO;
-using System.Text;
-using System.Threading.Tasks;
-using Altinn.Platform.Storage.Models;
 
 namespace Altinn.Platform.Storage.Services;
 
