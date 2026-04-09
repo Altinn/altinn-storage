@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
 using Altinn.Platform.Storage.Helpers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;

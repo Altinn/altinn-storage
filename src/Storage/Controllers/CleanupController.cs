@@ -10,7 +10,6 @@ using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Primitives;
 
 namespace Altinn.Platform.Storage.Controllers;
 

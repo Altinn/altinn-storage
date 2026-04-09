@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using System.Web;
 using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Interface.Models;
-using Azure.Core;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Primitives;
