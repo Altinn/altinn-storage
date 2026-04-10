@@ -46,6 +46,7 @@ public class InstanceQueryParameters
     private const string _sortAscendingParameterName = "_sort_ascending";
     private const string _continueIndexParameterName = "_continue_idx";
     private const string _lastChangedIndexParameterName = "_lastChanged_idx";
+    private const string _includeDataElements = "includeDataElements";
 
     /// <summary>
     /// The organization identifier.
@@ -186,6 +187,13 @@ public class InstanceQueryParameters
     /// </summary>
     [FromQuery(Name = _sortAscendingDatabindName)]
     public string SortBy { get; set; }
+
+    /// <summary>
+    /// Should query include data elements
+    /// </summary>
+    [DefaultValue(true)]
+    [FromQuery(Name = _includeDataElements)]
+    public bool IncludeDataElements { get; set; }
 
     /// <summary>
     /// Gets or sets an array of application identifiers.

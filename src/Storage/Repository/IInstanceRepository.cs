@@ -26,6 +26,17 @@ public interface IInstanceRepository
     );
 
     /// <summary>
+    /// Gets all instances that satisfy given query parameters
+    /// </summary>
+    /// <param name="queryParams">the query params</param>
+    /// <param name="cancellationToken">CancellationToken</param>
+    /// <returns>The query response including the list of instances</returns>
+    Task<InstanceQueryResponse> GetInstancesFromQuery(
+        InstanceQueryParameters queryParams,
+        CancellationToken cancellationToken
+    );
+
+    /// <summary>
     /// Get an instance for a given instance id
     /// </summary>
     /// <param name="instanceGuid">the instance guid</param>

@@ -159,6 +159,28 @@ public class PgInstanceRepository : IInstanceRepository
     }
 
     /// <inheritdoc/>
+    public async Task<InstanceQueryResponse> GetInstancesFromQuery(
+        InstanceQueryParameters queryParams,
+        CancellationToken cancellationToken
+    )
+    {
+        try
+        {
+            return await GetInstancesInternal(queryParams, queryParams.IncludeDataElements, cancellationToken);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Error running GetInstancesFromQuery");
+            return new()
+            {
+                Count = 0,
+                Instances = [],
+                Exception = e.Message,
+            };
+        }
+    }
+
+    /// <inheritdoc/>
     public async Task<List<Instance>> GetHardDeletedInstances(CancellationToken cancellationToken)
     {
         List<Instance> instances = [];
