@@ -1,9 +1,9 @@
 CREATE OR REPLACE FUNCTION storage.insertdataelement_v2(
-	IN _instanceinternalid bigint,
-	IN _instanceguid uuid,
-	IN _alternateid uuid,
-	IN _element jsonb)
-    RETURNS TABLE (updatedElement JSONB)
+	IN _instanceinternalid BIGINT,
+	IN _instanceguid UUID,
+	IN _alternateid UUID,
+	IN _element JSONB)
+	RETURNS TABLE (updatedElement JSONB)
     LANGUAGE plpgsql
 AS $BODY$
 BEGIN

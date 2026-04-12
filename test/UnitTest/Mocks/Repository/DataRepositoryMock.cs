@@ -29,7 +29,7 @@ public class DataRepositoryMock : IDataRepository
 
     public async Task<DataElement> Create(
         DataElement dataElement,
-        long instanceInternalId = 0,
+        long instanceInternalId,
         CancellationToken cancellationToken = default
     )
     {
@@ -112,6 +112,49 @@ public class DataRepositoryMock : IDataRepository
         }
 
         _tempRepository["dataElementId"] = JsonSerializer.Serialize(dataElement, _options);
+
+        return dataElement;
+    }
+
+    public async Task<DataElement> UpdateFileScanStatus(
+        Guid instanceGuid,
+        Guid dataElementId,
+        FileScanStatus fileScanStatus,
+        CancellationToken cancellationToken = default
+    )
+    {
+        DataElement dataElement = null;
+        if (_tempRepository.TryGetValue(dataElementId.ToString(), out string serializedDataElement))
+        {
+            dataElement = JsonSerializer.Deserialize<DataElement>(serializedDataElement, _options);
+        }
+        else
+        {
+            dataElement = await Read(instanceGuid, dataElementId, cancellationToken);
+        }
+
+        if (dataElement == null)
+        {
+            throw new RepositoryException(
+                "Data element not found",
+                System.Net.HttpStatusCode.NotFound
+            );
+        }
+
+        if (
+            !string.IsNullOrEmpty(fileScanStatus.BlobVersionId)
+            && !string.Equals(
+                fileScanStatus.BlobVersionId,
+                dataElement.BlobVersionId,
+                StringComparison.Ordinal
+            )
+        )
+        {
+            return null;
+        }
+
+        dataElement.FileScanResult = fileScanStatus.FileScanResult;
+        _tempRepository[dataElement.Id] = JsonSerializer.Serialize(dataElement, _options);
 
         return dataElement;
     }

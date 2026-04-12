@@ -53,6 +53,12 @@ public class DataElement : ChangableElement
     public string BlobStoragePath { get; set; }
 
     /// <summary>
+    /// Gets or sets the Azure Blob Storage version ID for this data element's blob.
+    /// </summary>
+    [JsonProperty(PropertyName = "blobVersionId")]
+    public string BlobVersionId { get; set; }
+
+    /// <summary>
     /// Gets or sets links to access the data element.
     /// </summary>
     [JsonProperty(PropertyName = "selfLinks")]

@@ -3,6 +3,34 @@
     $type: FormatException,
     Type: FormatException,
     Message: Could not deserialize JSON.,
+    InnerException: {
+      $type: JsonException,
+      Type: JsonException,
+      LineNumber: 0,
+      BytePositionInLine: 0,
+      Path: $,
+      Message: 'i' is an invalid start of a value. Path: $ | LineNumber: 0 | BytePositionInLine: 0.,
+      InnerException: {
+        $type: JsonReaderException,
+        Type: JsonReaderException,
+        LineNumber: 0,
+        BytePositionInLine: 0,
+        Message: 'i' is an invalid start of a value. LineNumber: 0 | BytePositionInLine: 0.,
+        StackTrace:
+at System.Text.Json.ThrowHelper.ThrowJsonReaderException(Utf8JsonReader& json, ExceptionResource resource, Byte nextByte, ReadOnlySpan`1 bytes)
+at System.Text.Json.Utf8JsonReader.ConsumeValue(Byte marker)
+at System.Text.Json.Utf8JsonReader.ReadFirstToken(Byte first)
+at System.Text.Json.Utf8JsonReader.ReadSingleSegment()
+at System.Text.Json.Serialization.JsonConverter`1.ReadCore(Utf8JsonReader& reader, T& value, JsonSerializerOptions options, ReadStack& state)
+      },
+      StackTrace:
+at System.Text.Json.ThrowHelper.ReThrowWithPath(ReadStack& state, JsonReaderException ex)
+at System.Text.Json.Serialization.JsonConverter`1.ReadCore(Utf8JsonReader& reader, T& value, JsonSerializerOptions options, ReadStack& state)
+at System.Text.Json.Serialization.Metadata.JsonTypeInfo`1.Deserialize(Utf8JsonReader& reader, ReadStack& state)
+at System.Text.Json.JsonSerializer.ReadFromSpan[TValue](ReadOnlySpan`1 utf8Json, JsonTypeInfo`1 jsonTypeInfo, Nullable`1 actualByteCount)
+at System.Text.Json.JsonSerializer.Deserialize[TValue](ReadOnlySpan`1 utf8Json, JsonSerializerOptions options)
+at Altinn.Platform.Storage.Models.LockToken.ParseToken(String token)
+    },
     StackTrace:
 at Altinn.Platform.Storage.Models.LockToken.ParseToken(String token)
 at Altinn.Platform.Storage.UnitTest.ModelTests.LockTokenTests.<>c__DisplayClass5_0.<ParseToken_ValidBase64ButInvalidJson_ThrowsFormatException>b__0()

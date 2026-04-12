@@ -52,6 +52,7 @@ public class BlobRepository(
         string org,
         string blobStoragePath,
         int? storageAccountNumber,
+        string versionId = null,
         CancellationToken cancellationToken = default
     )
     {
@@ -61,6 +62,7 @@ public class BlobRepository(
                 org,
                 blobStoragePath,
                 storageAccountNumber,
+                versionId,
                 cancellationToken
             );
         }
@@ -76,7 +78,12 @@ public class BlobRepository(
                     _memoryCache.Remove(_credsCacheKey);
                     _memoryCache.Remove(GetClientCacheKey(org, storageAccountNumber));
 
-                    return await DownloadBlobAsync(org, blobStoragePath, storageAccountNumber);
+                    return await DownloadBlobAsync(
+                        org,
+                        blobStoragePath,
+                        storageAccountNumber,
+                        versionId
+                    );
                 case "BlobNotFound":
                     _logger.LogWarning(
                         "Unable to find a blob based on the given information - {Org}: {BlobStoragePath}",
@@ -102,22 +109,24 @@ public class BlobRepository(
     }
 
     /// <inheritdoc/>
-    public async Task<(long ContentLength, DateTimeOffset LastModified)> WriteBlob(
-        string org,
-        Stream stream,
-        string blobStoragePath,
-        int? storageAccountNumber
-    )
+    public async Task<(
+        long ContentLength,
+        DateTimeOffset LastModified,
+        string VersionId
+    )> WriteBlob(string org, Stream stream, string blobStoragePath, int? storageAccountNumber)
     {
         try
         {
-            var blobProps = await UploadFromStreamAsync(
+            var (properties, versionId) = await UploadFromStreamAsync(
                 org,
                 stream,
                 blobStoragePath,
                 storageAccountNumber
             );
-            return (blobProps.ContentLength, blobProps.LastModified);
+
+            ValidateBlobVersionId(versionId, blobStoragePath);
+
+            return (properties.ContentLength, properties.LastModified, versionId);
         }
         catch (RequestFailedException requestFailedException)
         {
@@ -141,12 +150,13 @@ public class BlobRepository(
     public async Task<bool> DeleteBlob(
         string org,
         string blobStoragePath,
-        int? storageAccountNumber
+        int? storageAccountNumber,
+        string versionId = null
     )
     {
         try
         {
-            return await DeleteIfExistsAsync(org, blobStoragePath, storageAccountNumber);
+            return await DeleteIfExistsAsync(org, blobStoragePath, storageAccountNumber, versionId);
         }
         catch (RequestFailedException requestFailedException)
         {
@@ -160,7 +170,12 @@ public class BlobRepository(
                     _memoryCache.Remove(_credsCacheKey);
                     _memoryCache.Remove(GetClientCacheKey(org, storageAccountNumber));
 
-                    return await DeleteIfExistsAsync(org, blobStoragePath, storageAccountNumber);
+                    return await DeleteIfExistsAsync(
+                        org,
+                        blobStoragePath,
+                        storageAccountNumber,
+                        versionId
+                    );
                 default:
                     throw;
             }
@@ -206,7 +221,28 @@ public class BlobRepository(
         return true;
     }
 
-    private async Task<BlobProperties> UploadFromStreamAsync(
+    /// <summary>
+    /// Throws on missing version IDs when required by configuration.
+    /// </summary>
+    /// <param name="versionId">The version ID returned by Azure Blob Storage (may be null).</param>
+    /// <param name="blobStoragePath">The blob storage path, used for diagnostic messages.</param>
+    internal void ValidateBlobVersionId(string versionId, string blobStoragePath)
+    {
+        if (!string.IsNullOrEmpty(versionId))
+        {
+            return;
+        }
+
+        if (_storageConfiguration.RequireBlobVersionIdOnWrite)
+        {
+            throw new InvalidOperationException(
+                $"Azure Blob Storage did not return a version ID for blob '{blobStoragePath}'. "
+                    + "This environment requires blob versioning to be enabled on the storage account."
+            );
+        }
+    }
+
+    private async Task<(BlobProperties Properties, string VersionId)> UploadFromStreamAsync(
         string org,
         Stream stream,
         string fileName,
@@ -221,20 +257,29 @@ public class BlobRepository(
                 ChecksumAlgorithm = StorageChecksumAlgorithm.MD5,
             },
         };
-        await blockBlob.UploadAsync(stream, options);
-        BlobProperties properties = await blockBlob.GetPropertiesAsync();
+        Response<BlobContentInfo> response = await blockBlob.UploadAsync(stream, options);
+        string versionId = response.Value.VersionId;
+        BlobClient propertiesClient = string.IsNullOrEmpty(versionId)
+            ? blockBlob
+            : blockBlob.WithVersion(versionId);
+        BlobProperties properties = await propertiesClient.GetPropertiesAsync();
 
-        return properties;
+        return (properties, versionId);
     }
 
     private async Task<Stream> DownloadBlobAsync(
         string org,
         string fileName,
         int? storageAccountNumber,
+        string versionId = null,
         CancellationToken cancellationToken = default
     )
     {
         BlobClient blockBlob = CreateBlobClient(org, fileName, storageAccountNumber);
+        if (versionId is not null)
+        {
+            blockBlob = blockBlob.WithVersion(versionId);
+        }
 
         Azure.Response<BlobDownloadInfo> response = await blockBlob.DownloadAsync(
             cancellationToken
@@ -243,13 +288,21 @@ public class BlobRepository(
         return response.Value.Content;
     }
 
+    /// <summary>
+    /// Deletes the current blob or, when supplied, a specific blob version.
+    /// </summary>
     private async Task<bool> DeleteIfExistsAsync(
         string org,
         string fileName,
-        int? storageAccountNumber
+        int? storageAccountNumber,
+        string versionId = null
     )
     {
         BlobClient blockBlob = CreateBlobClient(org, fileName, storageAccountNumber);
+        if (versionId is not null)
+        {
+            blockBlob = blockBlob.WithVersion(versionId);
+        }
 
         bool result = await blockBlob.DeleteIfExistsAsync();
 

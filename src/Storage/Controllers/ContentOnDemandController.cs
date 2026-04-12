@@ -125,6 +125,7 @@ public class ContentOnDemandController : Controller
                 $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
                 $"{instance.Org}/{app}/{instanceGuid}/data/{signatureElement.Id}",
                 application.StorageAccountNumber,
+                signatureElement.BlobVersionId,
                 cancellationToken
             ),
             (JsonSerializerOptions)null,
@@ -171,6 +172,7 @@ public class ContentOnDemandController : Controller
                 $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
                 $"{instance.Org}/{app}/{instanceGuid}/data/{paymentElement.Id}",
                 application.StorageAccountNumber,
+                paymentElement.BlobVersionId,
                 cancellationToken
             ),
             (JsonSerializerOptions)null,
@@ -462,7 +464,9 @@ public class ContentOnDemandController : Controller
         Stream blob = await _blobRepository.ReadBlob(
             $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
             $"{instance.Org}/{app}/{instanceGuid}/data/{xmlElement.Id}",
-            application.StorageAccountNumber
+            application.StorageAccountNumber,
+            xmlElement.BlobVersionId,
+            cancellationToken
         );
 
         return (_a2OndemandFormattingService.GetFormdataHtml(views, blob), views);

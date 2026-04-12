@@ -66,12 +66,15 @@ public interface IDataService
     );
 
     /// <summary>
-    /// Delete a data element and it's blob data immediately.
+    /// Delete a data element and its blob data immediately.
     /// </summary>
+    /// <remarks>
+    /// Deletes metadata first, then best-effort deletes the current blob.
+    /// </remarks>
     /// <param name="instance">The instance</param>
     /// <param name="dataElement">The data element</param>
     /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
-    /// <returns></returns>
+    /// <returns>The deleted data element.</returns>
     Task<DataElement> DeleteImmediately(
         Instance instance,
         DataElement dataElement,

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Extensions;
@@ -135,7 +136,7 @@ public class DataTests : IClassFixture<DataElementFixture>
 
         // Act
         DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
-            Guid.Empty,
+            Guid.Parse(dataElement.InstanceGuid),
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object>() { { "/metadata", metadata } }
         );
@@ -181,7 +182,7 @@ public class DataTests : IClassFixture<DataElementFixture>
 
         // Act
         DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
-            Guid.Empty,
+            Guid.Parse(dataElement.InstanceGuid),
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object>() { { "/metadata", replacedMetadata } }
         );
@@ -216,7 +217,7 @@ public class DataTests : IClassFixture<DataElementFixture>
 
         // Act
         DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
-            Guid.Empty,
+            Guid.Parse(dataElement.InstanceGuid),
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object>() { { "/userDefinedMetadata", userDefinedMetadata } }
         );
@@ -262,7 +263,7 @@ public class DataTests : IClassFixture<DataElementFixture>
 
         // Act
         DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
-            Guid.Empty,
+            Guid.Parse(dataElement.InstanceGuid),
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object>()
             {
@@ -292,7 +293,7 @@ public class DataTests : IClassFixture<DataElementFixture>
 
         // Act
         DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
-            Guid.Empty,
+            Guid.Parse(dataElement.InstanceGuid),
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object>() { { "/tags", tags } }
         );
@@ -319,7 +320,7 @@ public class DataTests : IClassFixture<DataElementFixture>
 
         // Act
         DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
-            Guid.Empty,
+            Guid.Parse(dataElement.InstanceGuid),
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object>() { { "/tags", replacedTags } }
         );
@@ -353,7 +354,7 @@ public class DataTests : IClassFixture<DataElementFixture>
 
         // Act
         DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
-            Guid.Empty,
+            Guid.Parse(dataElement.InstanceGuid),
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object>() { { "/contentType", contentType } }
         );
@@ -426,6 +427,124 @@ public class DataTests : IClassFixture<DataElementFixture>
             Math.Abs(((DateTime)updatedElement.LastChanged).Ticks - lastChanged.Ticks)
                 < TimeSpan.TicksPerMicrosecond
         );
+    }
+
+    [Fact]
+    public async Task DataElement_UpdateFileScanStatus_MatchingBlobVersion_UpdatesStatus()
+    {
+        // Arrange
+        DataElement element = TestDataUtil.GetDataElement(DataElement1);
+        element.BlobVersionId = "current-version-id";
+        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
+            element,
+            _instanceInternalId
+        );
+
+        // Act
+        DataElement updatedElement = await _dataElementFixture.DataRepo.UpdateFileScanStatus(
+            Guid.Parse(dataElement.InstanceGuid),
+            Guid.Parse(dataElement.Id),
+            new FileScanStatus
+            {
+                FileScanResult = FileScanResult.Clean,
+                BlobVersionId = "current-version-id",
+            }
+        );
+
+        // Assert
+        Assert.NotNull(updatedElement);
+        Assert.Equal(FileScanResult.Clean, updatedElement.FileScanResult);
+    }
+
+    [Fact]
+    public async Task DataElement_UpdateFileScanStatus_StaleBlobVersion_DoesNotUpdateStatus()
+    {
+        // Arrange
+        DataElement element = TestDataUtil.GetDataElement(DataElement1);
+        element.BlobVersionId = "current-version-id";
+        element.FileScanResult = FileScanResult.Pending;
+        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
+            element,
+            _instanceInternalId
+        );
+
+        // Act
+        DataElement updatedElement = await _dataElementFixture.DataRepo.UpdateFileScanStatus(
+            Guid.Parse(dataElement.InstanceGuid),
+            Guid.Parse(dataElement.Id),
+            new FileScanStatus
+            {
+                FileScanResult = FileScanResult.Clean,
+                BlobVersionId = "stale-version-id",
+            }
+        );
+
+        // Assert
+        DataElement readElement = await _dataElementFixture.DataRepo.Read(
+            Guid.Parse(dataElement.InstanceGuid),
+            Guid.Parse(dataElement.Id)
+        );
+        Assert.Null(updatedElement);
+        Assert.Equal(FileScanResult.Pending, readElement.FileScanResult);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public async Task DataElement_UpdateFileScanStatus_MissingBlobVersion_UpdatesStatus(
+        string blobVersionId
+    )
+    {
+        // Arrange
+        DataElement element = TestDataUtil.GetDataElement(DataElement1);
+        element.BlobVersionId = "current-version-id";
+        element.FileScanResult = FileScanResult.Pending;
+        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
+            element,
+            _instanceInternalId
+        );
+
+        // Act
+        DataElement updatedElement = await _dataElementFixture.DataRepo.UpdateFileScanStatus(
+            Guid.Parse(dataElement.InstanceGuid),
+            Guid.Parse(dataElement.Id),
+            new FileScanStatus
+            {
+                FileScanResult = FileScanResult.Clean,
+                BlobVersionId = blobVersionId,
+            }
+        );
+
+        // Assert
+        Assert.NotNull(updatedElement);
+        Assert.Equal(FileScanResult.Clean, updatedElement.FileScanResult);
+    }
+
+    [Fact]
+    public async Task DataElement_Update_BlobVersionId_UpdatesAndPersistsVersionId()
+    {
+        // Arrange
+        DataElement element = TestDataUtil.GetDataElement(DataElement1);
+        element.BlobVersionId = "old-version-id";
+        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
+            element,
+            _instanceInternalId
+        );
+
+        // Act
+        DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
+            Guid.Parse(dataElement.InstanceGuid),
+            Guid.Parse(dataElement.Id),
+            new Dictionary<string, object> { { "/blobVersionId", "new-version-id" } }
+        );
+        DataElement readElement = await _dataElementFixture.DataRepo.Read(
+            Guid.Parse(dataElement.InstanceGuid),
+            Guid.Parse(dataElement.Id)
+        );
+
+        // Assert
+        Assert.Equal("new-version-id", updatedElement.BlobVersionId);
+        Assert.Equal("new-version-id", readElement.BlobVersionId);
     }
 
     [Fact]
@@ -572,7 +691,7 @@ public class DataTests : IClassFixture<DataElementFixture>
             TestDataUtil.GetDataElement(DataElement1),
             _instanceInternalId
         );
-        const int numberOfAllowedProperties = 14;
+        const int numberOfAllowedProperties = 15;
 
         Dictionary<string, object> tooManyPropertiesDictionary = Enumerable
             .Range(1, numberOfAllowedProperties + 1) // Add one extra property to make it fail.

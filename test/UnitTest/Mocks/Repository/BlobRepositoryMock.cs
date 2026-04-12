@@ -14,7 +14,8 @@ public class BlobRepositoryMock : IBlobRepository
     public async Task<bool> DeleteBlob(
         string org,
         string blobStoragePath,
-        int? storageAccountNumber
+        int? storageAccountNumber,
+        string versionId = null
     )
     {
         return await Task.FromResult(true);
@@ -24,6 +25,7 @@ public class BlobRepositoryMock : IBlobRepository
         string org,
         string blobStoragePath,
         int? storageAccountNumber,
+        string versionId = null,
         CancellationToken cancellationToken = default
     )
     {
@@ -33,16 +35,15 @@ public class BlobRepositoryMock : IBlobRepository
         return await Task.FromResult(fs);
     }
 
-    public async Task<(long ContentLength, DateTimeOffset LastModified)> WriteBlob(
-        string org,
-        Stream stream,
-        string blobStoragePath,
-        int? storageAccountNumber
-    )
+    public async Task<(
+        long ContentLength,
+        DateTimeOffset LastModified,
+        string VersionId
+    )> WriteBlob(string org, Stream stream, string blobStoragePath, int? storageAccountNumber)
     {
         MemoryStream memoryStream = new MemoryStream();
         await stream.CopyToAsync(memoryStream);
-        return (memoryStream.Length, DateTimeOffset.UtcNow);
+        return (memoryStream.Length, DateTimeOffset.UtcNow, "mock-version-id");
     }
 
     private static string GetDataBlobPath()

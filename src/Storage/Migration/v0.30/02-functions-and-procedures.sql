@@ -67,6 +67,7 @@ BEGIN
 END;
 $BODY$;
 
+
 -- deletedataelements.sql:
 CREATE OR REPLACE FUNCTION storage.deletedataelements(_instanceguid UUID)
     RETURNS INT
@@ -225,11 +226,11 @@ $BODY$;
 
 -- insertdataelement.sql:
 CREATE OR REPLACE FUNCTION storage.insertdataelement_v2(
-	IN _instanceinternalid bigint,
-	IN _instanceguid uuid,
-	IN _alternateid uuid,
-	IN _element jsonb)
-    RETURNS TABLE (updatedElement JSONB)
+	IN _instanceinternalid BIGINT,
+	IN _instanceguid UUID,
+	IN _alternateid UUID,
+	IN _element JSONB)
+	RETURNS TABLE (updatedElement JSONB)
     LANGUAGE plpgsql
 AS $BODY$
 BEGIN
@@ -254,6 +255,7 @@ BEGIN
             RETURNING element;
 END;
 $BODY$;
+
 
 -- insertinstance.sql:
 CREATE OR REPLACE PROCEDURE storage.insertinstance_v3(_partyid BIGINT, _alternateid UUID, _instance JSONB, _created TIMESTAMPTZ, _lastchanged TIMESTAMPTZ, _org TEXT, _appid TEXT, _taskid TEXT, _altinnmainversion INT, _confirmed BOOLEAN)
@@ -637,7 +639,13 @@ END;
 $BODY$;
 
 -- updatedataelement.sql:
-CREATE OR REPLACE FUNCTION storage.updatedataelement_v2(_dataelementGuid UUID, _instanceGuid UUID, _elementChanges JSONB, _instanceChanges JSONB, _isReadChangedToFalse BOOL, _lastChanged TIMESTAMPTZ)
+CREATE OR REPLACE FUNCTION storage.updatedataelement_v2(
+    _dataelementGuid UUID,
+    _instanceGuid UUID,
+    _elementChanges JSONB,
+    _instanceChanges JSONB,
+    _isReadChangedToFalse BOOL,
+    _lastChanged TIMESTAMPTZ)
     RETURNS TABLE (updatedElement JSONB)
     LANGUAGE 'plpgsql'	
 AS $BODY$
@@ -669,10 +677,32 @@ BEGIN
     END IF;
 
     RETURN QUERY
-        UPDATE storage.dataelements SET element = element || _elementChanges WHERE alternateid = _dataelementGuid
+        UPDATE storage.dataelements SET element = element || _elementChanges WHERE alternateid = _dataelementGuid AND instanceguid = _instanceGuid
             RETURNING element;
 END;
 $BODY$;
+
+
+-- updatedataelementfilescanstatus.sql:
+CREATE OR REPLACE FUNCTION storage.updatedataelementfilescanstatus(
+    _dataelementGuid UUID,
+    _instanceGuid UUID,
+    _fileScanResult TEXT,
+    _blobVersionId TEXT)
+    RETURNS TABLE (updatedElement JSONB)
+    LANGUAGE 'plpgsql'
+AS $BODY$
+BEGIN
+    RETURN QUERY
+        UPDATE storage.dataelements
+            SET element = jsonb_set(element, '{FileScanResult}', to_jsonb(_fileScanResult), true)
+            WHERE alternateid = _dataelementGuid
+                AND instanceguid = _instanceGuid
+                AND (_blobVersionId IS NULL OR _blobVersionId = '' OR element ->> 'BlobVersionId' = _blobVersionId)
+            RETURNING element;
+END;
+$BODY$;
+
 
 -- updateinstance.sql:
 CREATE OR REPLACE FUNCTION storage.updateinstance_v3(
@@ -860,9 +890,7 @@ BEGIN
         RETURN;
     END IF;
 
-    UPDATE storage.instancelocks
-    SET lockeduntil = _now + _ttl
-    WHERE id = _id;
+    UPDATE storage.instancelocks SET lockeduntil = _now + _ttl WHERE id = _id;
 
     _result := 'ok';
 END;
