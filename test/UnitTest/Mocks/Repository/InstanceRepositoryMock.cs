@@ -136,6 +136,18 @@ public class InstanceRepositoryMock : IInstanceRepository
         return Task.FromResult(response);
     }
 
+    public Task<InstanceQueryResponse> GetInstancesFromQuery(
+        InstanceQueryParameters queryParams,
+        CancellationToken cancellationToken
+    )
+    {
+        return GetInstancesFromQuery(
+            queryParams,
+            queryParams.IncludeDataElements,
+            cancellationToken
+        );
+    }
+
     public Task<(Instance Instance, long InternalId)> GetOne(
         Guid instanceGuid,
         bool includeElements,
