@@ -1191,6 +1191,86 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     }
 
     /// <summary>
+    /// Test GetInstancesFromQuery, IncludeDataElements query parameter
+    /// </summary>
+    [Fact]
+    public async Task Instance_GetInstancesFromQuery_Without_IncludeDataElements_Ok()
+    {
+        // Arrange
+        await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone(),
+            CancellationToken.None
+        );
+        await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_2.Clone(),
+            CancellationToken.None
+        );
+        await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_3.Clone(),
+            CancellationToken.None
+        );
+
+        // InstanceQueryParameters queryParams = new() { Size = 100 };
+        InstanceQueryParameters queryParams = new() { Size = 100, IncludeDataElements = true };
+
+        // Act
+        var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            queryParams,
+            CancellationToken.None
+        );
+
+        queryParams.InstanceOwnerPartyId = Convert.ToInt32(
+            TestData.Instance_1_3.InstanceOwner.PartyId
+        );
+        var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            queryParams,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Equal(3, instances3.Count);
+        Assert.Equal(1, instances1.Count);
+    }
+
+    /// <summary>
+    /// Test GetInstancesFromQuery with bad date
+    /// </summary>
+    [Fact]
+    public async Task Instance_GetInstancesFromQuery_Without_IncludeDataElements_InvalidDate()
+    {
+        // Arrange
+        await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone(),
+            CancellationToken.None
+        );
+        await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_2.Clone(),
+            CancellationToken.None
+        );
+        await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_3.Clone(),
+            CancellationToken.None
+        );
+
+        InstanceQueryParameters queryParams = new()
+        {
+            Size = 100,
+            ProcessEnded = ["true"],
+            InstanceOwnerPartyId = Convert.ToInt32(TestData.Instance_1_3.InstanceOwner.PartyId),
+        };
+
+        // Act
+        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            queryParams,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Equal(0, instances.Count);
+        Assert.NotNull(instances.Exception);
+    }
+
+    /// <summary>
     /// Test create instance with Email-based self identification
     /// </summary>
     [Fact]
