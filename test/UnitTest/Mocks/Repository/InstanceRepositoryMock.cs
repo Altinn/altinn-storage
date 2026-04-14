@@ -143,7 +143,7 @@ public class InstanceRepositoryMock : IInstanceRepository
     {
         return GetInstancesFromQuery(
             queryParams,
-            queryParams.IncludeDataElements,
+            queryParams.IncludeDataElements ?? true,
             cancellationToken
         );
     }
