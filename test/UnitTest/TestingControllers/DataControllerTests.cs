@@ -1155,6 +1155,61 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         repoMock.VerifyAll();
     }
 
+    [Fact]
+    public async Task Update_VerifyListOfAllowedPropertiesToUpdate()
+    {
+        // Arrange
+        Mock<IDataRepository> dataRepositoryMock = new();
+        dataRepositoryMock
+            .Setup(dr =>
+                dr.Update(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.Is<Dictionary<string, object>>(propertyList =>
+                        propertyList.ContainsKey("/locked")
+                        && propertyList.ContainsKey("/refs")
+                        && propertyList.ContainsKey("/references")
+                        && propertyList.ContainsKey("/tags")
+                        && propertyList.ContainsKey("/userDefinedMetadata")
+                        && propertyList.ContainsKey("/metadata")
+                        && propertyList.ContainsKey("/deleteStatus")
+                        && propertyList.ContainsKey("/lastChanged")
+                        && propertyList.ContainsKey("/lastChangedBy")
+                        && propertyList.ContainsKey("/filename")
+                    ),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(new DataElement());
+
+        string instanceGuid = "649388f0-a2c0-4774-bd11-c870223ed819";
+        string dataGuid = "11f7c994-6681-47a1-9626-fcf6c27308a5";
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/{instanceGuid}/dataelements/{dataGuid}";
+        string token = PrincipalUtil.GetToken(1337, 1337, 3);
+        HttpClient client = GetTestClient(dataRepositoryMock, bearerAuthToken: token);
+
+        DataElement dataElementBody = new()
+        {
+            Id = dataGuid,
+            InstanceGuid = instanceGuid,
+            DataType = "default",
+            Filename = "filename.txt",
+        };
+        HttpContent content = new StringContent(
+            JsonSerializer.Serialize(dataElementBody),
+            System.Text.Encoding.UTF8,
+            "application/json"
+        );
+
+        // Act
+        HttpResponseMessage response = await client.PutAsync(dataPathWithData, content);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        dataRepositoryMock.VerifyAll();
+    }
+
     private HttpClient GetTestClient(
         Mock<IDataRepository> dataRepositoryMock = null,
         Mock<IBlobRepository> blobRepositoryMock = null,
