@@ -193,7 +193,7 @@ public class InstanceQueryParameters
     /// </summary>
     [DefaultValue(true)]
     [FromQuery(Name = _includeDataElements)]
-    public bool? IncludeDataElements { get; set; }
+    public bool IncludeDataElements { get; set; } = true;
 
     /// <summary>
     /// Gets or sets an array of application identifiers.

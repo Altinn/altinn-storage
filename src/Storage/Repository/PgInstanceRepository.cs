@@ -168,7 +168,7 @@ public class PgInstanceRepository : IInstanceRepository
         {
             return await GetInstancesInternal(
                 queryParams,
-                queryParams.IncludeDataElements ?? true,
+                queryParams.IncludeDataElements,
                 cancellationToken
             );
         }
