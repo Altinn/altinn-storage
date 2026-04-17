@@ -1194,7 +1194,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     /// Test GetInstancesFromQuery, IncludeDataElements query parameter
     /// </summary>
     [Fact]
-    public async Task Instance_GetInstancesFromQuery_Without_IncludeDataElements_Ok()
+    public async Task Instance_GetInstancesFromQuery_WithIncludeDataElementsAsQueryParam_Ok()
     {
         // Arrange
         await _instanceFixture.InstanceRepo.Create(
@@ -1235,7 +1235,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     /// Test GetInstancesFromQuery with bad date
     /// </summary>
     [Fact]
-    public async Task Instance_GetInstancesFromQuery_Without_IncludeDataElements_InvalidDate()
+    public async Task Instance_GetInstancesFromQuery_WithIncludeDataElementsAsQueryParam_InvalidDate()
     {
         // Arrange
         await _instanceFixture.InstanceRepo.Create(
