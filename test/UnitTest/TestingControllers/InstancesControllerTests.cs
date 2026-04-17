@@ -1254,7 +1254,6 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         irm.Setup(irm =>
                 irm.GetInstancesFromQuery(
                     It.Is<InstanceQueryParameters>(e => e.IsHardDeleted == false),
-                    It.IsAny<bool>(),
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -1284,7 +1283,6 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         irm.Setup(irm =>
                 irm.GetInstancesFromQuery(
                     It.Is<InstanceQueryParameters>(e => e.IsHardDeleted == false),
-                    It.IsAny<bool>(),
                     It.IsAny<CancellationToken>()
                 )
             )

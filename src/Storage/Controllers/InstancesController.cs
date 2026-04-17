@@ -293,7 +293,6 @@ public class InstancesController : ControllerBase
         {
             InstanceQueryResponse result = await _instanceRepository.GetInstancesFromQuery(
                 queryParameters,
-                true,
                 cancellationToken
             );
 
