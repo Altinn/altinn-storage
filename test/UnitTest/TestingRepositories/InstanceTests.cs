@@ -1210,7 +1210,6 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             CancellationToken.None
         );
 
-        // InstanceQueryParameters queryParams = new() { Size = 100 };
         InstanceQueryParameters queryParams = new() { Size = 100, IncludeDataElements = true };
 
         // Act
