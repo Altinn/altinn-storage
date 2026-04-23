@@ -1,3 +1,5 @@
+#nullable disable
+
 using Altinn.Platform.Storage.Helpers;
 using Xunit;
 

@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <Nullable>enable</Nullable>
     <OutputType>Library</OutputType>
     <PackageId>Altinn.Platform.Storage.Interface</PackageId>
     <PackageTags>Altinn;Studio;Platform;Storage;Models</PackageTags>

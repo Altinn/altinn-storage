@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using Newtonsoft.Json;
 
-#nullable enable
 namespace Altinn.Platform.Storage.Interface.Models;
 
 /// <summary>

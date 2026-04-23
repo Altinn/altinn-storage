@@ -1,3 +1,5 @@
+#nullable disable
+
 using AltinnCore.Authentication.JwtCookie;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.Options;

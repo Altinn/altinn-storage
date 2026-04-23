@@ -2,8 +2,6 @@ using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.Interface.Models;
 
-#nullable enable
-
 /// <summary>
 /// Custom API scopes configuration for an app
 /// </summary>

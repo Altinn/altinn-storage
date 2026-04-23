@@ -1,4 +1,6 @@
-﻿using System;
+﻿#nullable disable
+
+using System;
 using PdfSharp.Fonts;
 
 namespace Altinn.Platform.Storage.Helpers;

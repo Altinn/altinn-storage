@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <UserSecretsId>719eaaa3-a93f-43e9-bc80-86e01719b323</UserSecretsId>
 
