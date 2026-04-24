@@ -1,3 +1,5 @@
+#nullable disable
+
 using System;
 using Altinn.Platform.Storage.Interface.Enums;
 using Wolverine.Attributes;

@@ -1,3 +1,5 @@
+#nullable disable
+
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using TextJson = System.Text.Json.Serialization;

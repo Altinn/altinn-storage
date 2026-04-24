@@ -1,4 +1,6 @@
-﻿using System.Text.Json;
+﻿#nullable disable
+
+using System.Text.Json;
 using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.Platform.Storage.UnitTest.Extensions;

@@ -1,3 +1,5 @@
+#nullable disable
+
 using Altinn.Platform.Storage.Interface.Enums;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;

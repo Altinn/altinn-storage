@@ -1,3 +1,5 @@
+#nullable disable
+
 using System.Security.Claims;
 using Altinn.Platform.Storage.Helpers;
 using AltinnCore.Authentication.Constants;

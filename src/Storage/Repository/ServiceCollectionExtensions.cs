@@ -1,3 +1,5 @@
+#nullable disable
+
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Altinn.Platform.Storage.Repository;

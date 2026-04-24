@@ -1,3 +1,5 @@
+#nullable disable
+
 namespace Altinn.Platform.Storage.UnitTest.Constants;
 
 public static class XacmlRequestAttribute

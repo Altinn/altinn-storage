@@ -1,4 +1,6 @@
-﻿using System;
+﻿#nullable disable
+
+using System;
 using System.Collections.Generic;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.UnitTest.Extensions;

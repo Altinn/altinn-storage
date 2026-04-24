@@ -1,3 +1,5 @@
+#nullable disable
+
 using System.Diagnostics.Metrics;
 
 namespace Altinn.Platform.Storage.Telemetry;

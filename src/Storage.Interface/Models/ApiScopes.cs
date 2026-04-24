@@ -1,7 +1,5 @@
 using Newtonsoft.Json;
 
-#nullable enable
-
 namespace Altinn.Platform.Storage.Interface.Models;
 
 /// <summary>

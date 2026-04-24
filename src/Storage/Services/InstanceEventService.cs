@@ -1,5 +1,4 @@
-﻿#nullable enable
-using System;
+﻿using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Helpers;

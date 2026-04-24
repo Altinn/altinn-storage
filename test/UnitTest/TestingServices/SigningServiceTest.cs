@@ -1,4 +1,4 @@
-﻿#nullable enable
+﻿#nullable disable
 
 using System;
 using System.Collections.Generic;
@@ -304,7 +304,7 @@ public class SigningServiceTest
             Signee = signee,
         };
 
-        string? performedBy = !string.IsNullOrWhiteSpace(signee.UserId)
+        string performedBy = !string.IsNullOrWhiteSpace(signee.UserId)
             ? signee.UserId
             : signee.OrganisationNumber;
         (bool created, ServiceError serviceError) = await service.CreateSignDocument(
@@ -339,7 +339,7 @@ public class SigningServiceTest
         var instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
             .Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(((Instance?)null, 0));
+            .ReturnsAsync(((Instance)null, 0));
 
         var applicationServiceMock = new Mock<IApplicationService>();
         var dataServiceMock = new Mock<IDataService>();
