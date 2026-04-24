@@ -1,3 +1,5 @@
+#nullable disable
+
 using System;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Configuration;

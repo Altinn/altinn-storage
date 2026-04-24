@@ -1,4 +1,6 @@
-﻿namespace Altinn.Platform.Storage.UnitTest.Configuration;
+﻿#nullable disable
+
+namespace Altinn.Platform.Storage.UnitTest.Configuration;
 
 /// <summary>
 /// Settings for Postgre database

@@ -1,3 +1,5 @@
+#nullable disable
+
 using System.ComponentModel;
 using Newtonsoft.Json;
 

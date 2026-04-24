@@ -1,4 +1,6 @@
-﻿using Altinn.Platform.Storage.Telemetry;
+﻿#nullable disable
+
+using Altinn.Platform.Storage.Telemetry;
 using Microsoft.AspNetCore.Http;
 using Moq;
 using Xunit;
