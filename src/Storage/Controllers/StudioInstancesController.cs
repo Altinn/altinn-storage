@@ -5,8 +5,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 using Altinn.Platform.Storage.Helpers;
+using Altinn.Platform.Storage.Interface.Enums;
+using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -23,17 +26,23 @@ public class StudioInstancesController : ControllerBase
 {
     private readonly IInstanceRepository _instanceRepository;
     private readonly ILogger _logger;
+    private readonly IApplicationService _applicationService;
+    private readonly IInstanceEventService _instanceEventService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="StudioInstancesController"/> class
     /// </summary>
     public StudioInstancesController(
         IInstanceRepository instanceRepository,
-        ILogger<StudioInstancesController> logger
+        ILogger<StudioInstancesController> logger,
+        IApplicationService applicationService,
+        IInstanceEventService instanceEventService
     )
     {
         _instanceRepository = instanceRepository;
         _logger = logger;
+        _applicationService = applicationService;
+        _instanceEventService = instanceEventService;
     }
 
     /// <summary>
@@ -138,6 +147,98 @@ public class StudioInstancesController : ControllerBase
             return StatusCode(
                 ct.IsCancellationRequested ? 499 : 500,
                 $"Unable to find instance {instanceGuid}: {e.Message}"
+            );
+        }
+    }
+
+    /// <summary>
+    /// Deletes an instance with the given instance id. Soft deletion.
+    /// </summary>
+    /// <param name="org">The org owning the the instance to retrieve.</param>
+    /// <param name="app">The app tied to the instance to retrieve.</param>
+    /// <param name="instanceGuid">The id of the instance to retrieve.</param>
+    /// <param name="ct">CancellationToken</param>
+    /// <returns></returns>
+    [Authorize(Policy = AuthzConstants.POLICY_STUDIO_DESIGNER)]
+    [HttpDelete("{org}/{app}/{instanceGuid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> DeleteInstance(
+        [FromRoute] string org,
+        [FromRoute] string app,
+        [FromRoute] Guid instanceGuid,
+        CancellationToken ct
+    )
+    {
+        Instance instance;
+
+        (instance, _) = await _instanceRepository.GetOne(instanceGuid, false, ct);
+
+        if (instance == null)
+        {
+            return NotFound(
+                $"Didn't find the object that should be deleted with instanceId={org}/{app}/{instanceGuid}"
+            );
+        }
+
+        instance.Status ??= new InstanceStatus();
+
+        (Application appInfo, ServiceError appInfoError) =
+            await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
+
+        if (appInfoError != null)
+        {
+            return appInfoError.ErrorCode switch
+            {
+                404 => NotFound(appInfoError.ErrorMessage),
+                _ => StatusCode(appInfoError.ErrorCode, appInfoError.ErrorMessage),
+            };
+        }
+
+        if (InstanceHelper.IsPreventedFromDeletion(instance.Status, appInfo))
+        {
+            return StatusCode(
+                403,
+                "Instance cannot be deleted yet due to application restrictions."
+            );
+        }
+
+        DateTime now = DateTime.UtcNow;
+
+        List<string> updateProperties = [];
+        updateProperties.Add(nameof(instance.Status));
+        updateProperties.Add(nameof(instance.Status.IsSoftDeleted));
+        updateProperties.Add(nameof(instance.Status.SoftDeleted));
+        instance.Status.IsSoftDeleted = true;
+        instance.Status.SoftDeleted = now;
+
+        instance.LastChangedBy = User.GetUserOrOrgNo();
+        instance.LastChanged = now;
+        updateProperties.Add(nameof(instance.LastChanged));
+        updateProperties.Add(nameof(instance.LastChangedBy));
+
+        try
+        {
+            Instance deletedInstance = await _instanceRepository.Update(
+                instance,
+                updateProperties,
+                ct
+            );
+
+            await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, deletedInstance);
+
+            return NoContent();
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(
+                e,
+                "Unexpected exception when deleting instance {instance.Id}",
+                instance.Id
+            );
+            return StatusCode(
+                500,
+                $"Unexpected exception when deleting instance {instance.Id}: {e.Message}"
             );
         }
     }
