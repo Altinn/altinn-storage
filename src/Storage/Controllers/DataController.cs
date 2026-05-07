@@ -14,12 +14,14 @@ using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
 
@@ -46,6 +48,7 @@ public class DataController : ControllerBase
     private readonly string _storageBaseAndHost;
     private readonly GeneralSettings _generalSettings;
     private readonly IAuthorization _authorizationService;
+    private readonly ILogger<DataController> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DataController"/> class
@@ -59,6 +62,7 @@ public class DataController : ControllerBase
     /// <param name="generalSettings">the general settings.</param>
     /// <param name="onDemandClient">the ondemand client</param>
     /// <param name="authorizationService">The authorization service</param>
+    /// <param name="logger">The logger</param>
     public DataController(
         IDataRepository dataRepository,
         IBlobRepository blobRepository,
@@ -68,7 +72,8 @@ public class DataController : ControllerBase
         IInstanceEventService instanceEventService,
         IOptions<GeneralSettings> generalSettings,
         IOnDemandClient onDemandClient,
-        IAuthorization authorizationService
+        IAuthorization authorizationService,
+        ILogger<DataController> logger
     )
     {
         _dataRepository = dataRepository;
@@ -81,6 +86,7 @@ public class DataController : ControllerBase
         _onDemandClient = onDemandClient;
         _generalSettings = generalSettings.Value;
         _authorizationService = authorizationService;
+        _logger = logger;
     }
 
     /// <summary>
@@ -307,6 +313,7 @@ public class DataController : ControllerBase
                 instance.Org,
                 storageFileName,
                 application.StorageAccountNumber,
+                dataElement.BlobVersionId,
                 cancellationToken
             );
 
@@ -402,7 +409,7 @@ public class DataController : ControllerBase
     }
 
     /// <summary>
-    /// Create and save the data element. The StreamContent.Headers.ContentDisposition.FileName property shall be used to set the filename on client side
+    /// Create and save the data element. The StreamContent.Headers.ContentDisposition.FileName property shall be used to set the filename on client side.
     /// </summary>
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
@@ -487,35 +494,57 @@ public class DataController : ControllerBase
         }
 
         newData.Filename = HttpUtility.UrlDecode(newData.Filename);
-        (long length, DateTimeOffset blobTimestamp) = await _blobRepository.WriteBlob(
-            instance.Org,
-            theStream,
-            newData.BlobStoragePath,
-            application.StorageAccountNumber
-        );
+
+        (long length, DateTimeOffset blobTimestamp, string blobVersionId) =
+            await _blobRepository.WriteBlob(
+                instance.Org,
+                theStream,
+                newData.BlobStoragePath,
+                application.StorageAccountNumber
+            );
 
         if (length == 0L)
         {
-            await _blobRepository.DeleteBlob(
+            await DeleteBlobBestEffort(
                 instance.Org,
                 newData.BlobStoragePath,
-                application.StorageAccountNumber
+                application.StorageAccountNumber,
+                blobVersionId,
+                instanceGuid,
+                newData.Id
             );
             return BadRequest("Empty stream provided. Cannot persist data.");
         }
 
         newData.Size = length;
+        newData.BlobVersionId = blobVersionId;
 
         if (User.GetOrg() == instance.Org)
         {
             newData.IsRead = false;
         }
+        DataElement dataElement;
+        try
+        {
+            dataElement = await _dataRepository.Create(
+                newData,
+                instanceInternalId,
+                cancellationToken: cancellationToken
+            );
+        }
+        catch
+        {
+            await DeleteBlobBestEffort(
+                instance.Org,
+                newData.BlobStoragePath,
+                application.StorageAccountNumber,
+                blobVersionId,
+                instanceGuid,
+                newData.Id
+            );
+            throw;
+        }
 
-        DataElement dataElement = await _dataRepository.Create(
-            newData,
-            instanceInternalId,
-            cancellationToken
-        );
         dataElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
 
         await _dataService.StartFileScan(
@@ -533,7 +562,7 @@ public class DataController : ControllerBase
     }
 
     /// <summary>
-    /// Replaces an existing data element with the attached file. The StreamContent.Headers.ContentDisposition.FileName property shall be used to set the filename on client side
+    /// Replaces an existing data element with the attached file. The StreamContent.Headers.ContentDisposition.FileName property shall be used to set the filename on client side.
     /// </summary>
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
@@ -647,12 +676,13 @@ public class DataController : ControllerBase
 
         DateTime changedTime = DateTime.UtcNow;
 
-        (long blobSize, DateTimeOffset blobTimestamp) = await _blobRepository.WriteBlob(
-            instance.Org,
-            theStream,
-            blobStoragePathName,
-            application.StorageAccountNumber
-        );
+        (long blobSize, DateTimeOffset blobTimestamp, string blobVersionId) =
+            await _blobRepository.WriteBlob(
+                instance.Org,
+                theStream,
+                blobStoragePathName,
+                application.StorageAccountNumber
+            );
 
         var updatedProperties = new Dictionary<string, object>()
         {
@@ -663,6 +693,7 @@ public class DataController : ControllerBase
             { "/refs", updatedData.Refs },
             { "/references", updatedData.References },
             { "/size", blobSize },
+            { "/blobVersionId", blobVersionId },
         };
 
         if (User.GetOrg() == instance.Org)
@@ -678,19 +709,35 @@ public class DataController : ControllerBase
 
             updatedProperties.Add("/fileScanResult", scanResult);
 
-            DataElement updatedElement = await _dataRepository.Update(
-                instanceGuid,
-                dataGuid,
-                updatedProperties,
-                cancellationToken
-            );
+            DataElement updatedElement;
+            try
+            {
+                updatedElement = await _dataRepository.Update(
+                    instanceGuid,
+                    dataGuid,
+                    updatedProperties,
+                    cancellationToken: cancellationToken
+                );
+            }
+            catch
+            {
+                await DeleteBlobBestEffort(
+                    instance.Org,
+                    blobStoragePathName,
+                    application.StorageAccountNumber,
+                    blobVersionId,
+                    instanceGuid,
+                    dataGuid.ToString()
+                );
+                throw;
+            }
 
             updatedElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
 
             await _dataService.StartFileScan(
                 instance,
                 dataTypeDefinition,
-                dataElement,
+                updatedElement,
                 blobTimestamp,
                 application.StorageAccountNumber,
                 CancellationToken.None
@@ -778,11 +825,11 @@ public class DataController : ControllerBase
             { "/lastChangedBy", dataElement.LastChangedBy },
         };
 
-        DataElement updatedDataElement = await _dataRepository.Update(
+        var updatedDataElement = await _dataRepository.Update(
             instanceGuid,
             dataGuid,
             propertyList,
-            cancellationToken
+            cancellationToken: cancellationToken
         );
 
         return Ok(updatedDataElement);
@@ -807,14 +854,7 @@ public class DataController : ControllerBase
         [FromBody] FileScanStatus fileScanStatus
     )
     {
-        await _dataRepository.Update(
-            instanceGuid,
-            dataGuid,
-            new Dictionary<string, object>()
-            {
-                { "/fileScanResult", fileScanStatus.FileScanResult },
-            }
-        );
+        await _dataRepository.UpdateFileScanStatus(instanceGuid, dataGuid, fileScanStatus);
 
         return Ok();
     }
@@ -939,6 +979,9 @@ public class DataController : ControllerBase
             : (dataElement, null);
     }
 
+    /// <summary>
+    /// Marks a data element as hard-deleted without touching the blob.
+    /// </summary>
     private async Task<ActionResult<DataElement>> InitiateDelayedDelete(
         Instance instance,
         DataElement dataElement
@@ -948,7 +991,7 @@ public class DataController : ControllerBase
 
         DeleteStatus deleteStatus = new() { IsHardDeleted = true, HardDeleted = deletedTime };
 
-        var updatedDateElement = await _dataRepository.Update(
+        var updatedDataElement = await _dataRepository.Update(
             Guid.Parse(dataElement.InstanceGuid),
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object>()
@@ -960,7 +1003,7 @@ public class DataController : ControllerBase
         );
 
         await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, instance, dataElement);
-        return Ok(updatedDateElement);
+        return Ok(updatedDataElement);
     }
 
     private async Task<(DataType DataType, ActionResult ErrorMessage)> GetDataTypeAsync(
@@ -988,5 +1031,49 @@ public class DataController : ControllerBase
         return dataTypeDefinition is null
             ? (null, BadRequest("Requested element type is not declared in application metadata"))
             : (dataTypeDefinition, null);
+    }
+
+    private async Task DeleteBlobBestEffort(
+        string org,
+        string blobStoragePath,
+        int? storageAccountNumber,
+        string blobVersionId,
+        Guid instanceGuid,
+        string dataElementId = null
+    )
+    {
+        try
+        {
+            bool deleted = await _blobRepository.DeleteBlob(
+                org,
+                blobStoragePath,
+                storageAccountNumber,
+                blobVersionId
+            );
+
+            if (!deleted)
+            {
+                _logger.LogWarning(
+                    "DataController // DeleteBlob returned false for org {Org}, blob path {BlobPath}, blob version {BlobVersionId}, instance {InstanceGuid}, data element {DataElementId}.",
+                    org,
+                    blobStoragePath,
+                    blobVersionId,
+                    instanceGuid,
+                    dataElementId
+                );
+            }
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "DataController // DeleteBlob failed for org {Org}, blob path {BlobPath}, blob version {BlobVersionId}, instance {InstanceGuid}, data element {DataElementId}.",
+                org,
+                blobStoragePath,
+                blobVersionId,
+                instanceGuid,
+                dataElementId
+            );
+        }
     }
 }

@@ -1,4 +1,10 @@
-CREATE OR REPLACE FUNCTION storage.updatedataelement_v2(_dataelementGuid UUID, _instanceGuid UUID, _elementChanges JSONB, _instanceChanges JSONB, _isReadChangedToFalse BOOL, _lastChanged TIMESTAMPTZ)
+CREATE OR REPLACE FUNCTION storage.updatedataelement_v2(
+    _dataelementGuid UUID,
+    _instanceGuid UUID,
+    _elementChanges JSONB,
+    _instanceChanges JSONB,
+    _isReadChangedToFalse BOOL,
+    _lastChanged TIMESTAMPTZ)
     RETURNS TABLE (updatedElement JSONB)
     LANGUAGE 'plpgsql'	
 AS $BODY$
@@ -30,7 +36,7 @@ BEGIN
     END IF;
 
     RETURN QUERY
-        UPDATE storage.dataelements SET element = element || _elementChanges WHERE alternateid = _dataelementGuid
+        UPDATE storage.dataelements SET element = element || _elementChanges WHERE alternateid = _dataelementGuid AND instanceguid = _instanceGuid
             RETURNING element;
 END;
 $BODY$;

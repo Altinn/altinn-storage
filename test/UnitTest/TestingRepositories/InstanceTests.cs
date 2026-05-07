@@ -673,7 +673,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             CancellationToken.None
         );
         await _instanceFixture.DataRepo.Update(
-            Guid.Empty,
+            Guid.Parse(data1.InstanceGuid),
             Guid.Parse(data1.Id),
             new Dictionary<string, object>() { { "/deleteStatus", new DeleteStatus() } }
         );

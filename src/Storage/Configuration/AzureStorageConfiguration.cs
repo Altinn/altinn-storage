@@ -31,4 +31,10 @@ public class AzureStorageConfiguration
     /// name of storage container in app owner storage account
     /// </summary>
     public string OrgStorageContainer { get; set; }
+
+    /// <summary>
+    /// Throw when blob uploads do not return a version ID.
+    /// Keep false for Azurite, which does not support blob versioning.
+    /// </summary>
+    public bool RequireBlobVersionIdOnWrite { get; set; }
 }

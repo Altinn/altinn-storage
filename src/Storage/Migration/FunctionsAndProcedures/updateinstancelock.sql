@@ -37,9 +37,7 @@ BEGIN
         RETURN;
     END IF;
 
-    UPDATE storage.instancelocks
-    SET lockeduntil = _now + _ttl
-    WHERE id = _id;
+    UPDATE storage.instancelocks SET lockeduntil = _now + _ttl WHERE id = _id;
 
     _result := 'ok';
 END;

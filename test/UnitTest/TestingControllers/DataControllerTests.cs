@@ -17,6 +17,7 @@ using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Mocks;
@@ -892,7 +893,14 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
             .ReturnsAsync(de);
 
         blobRepositoryMock
-            .Setup(dr => dr.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()))
+            .Setup(dr =>
+                dr.DeleteBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<string>()
+                )
+            )
             .ReturnsAsync(true);
 
         dataRepositoryMock
@@ -1137,10 +1145,17 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
                     It.IsAny<int?>()
                 )
             )
-            .ReturnsAsync((0, DateTime.UtcNow));
+            .ReturnsAsync((0, DateTime.UtcNow, "mock-version-id"));
 
         repoMock
-            .Setup(r => r.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()))
+            .Setup(r =>
+                r.DeleteBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<string>()
+                )
+            )
             .ReturnsAsync(true);
 
         string token = PrincipalUtil.GetToken(1337, 1337, 3);

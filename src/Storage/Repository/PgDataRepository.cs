@@ -32,6 +32,8 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     private readonly string _deleteForInstanceSql = "select * from storage.deletedataelements ($1)";
     private readonly string _updateSql =
         "select * from storage.updatedataelement_v2 ($1, $2, $3, $4, $5, $6)";
+    private readonly string _updateFileScanStatusSql =
+        "select * from storage.updatedataelementfilescanstatus ($1, $2, $3, $4)";
     private readonly string _existsSql = "select * from storage.readdataelementexists($1)";
 
     private readonly ILogger<PgDataRepository> _logger = logger;
@@ -134,7 +136,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         CancellationToken cancellationToken = default
     )
     {
-        const int allowedNumberOfProperties = 14;
+        const int allowedNumberOfProperties = 15;
         if (propertylist.Count > allowedNumberOfProperties)
         {
             throw new ArgumentOutOfRangeException(
@@ -214,6 +216,10 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
                     elementProperties.Add(nameof(DataElement.IsRead));
                     isReadChangedToFalse = !element.IsRead;
                     break;
+                case "/blobVersionId":
+                    element.BlobVersionId = (string)kvp.Value;
+                    elementProperties.Add(nameof(DataElement.BlobVersionId));
+                    break;
                 default:
                     throw new ArgumentException("Unexpected key " + kvp.Key);
             }
@@ -252,6 +258,35 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         }
 
         return element;
+    }
+
+    /// <inheritdoc/>
+    public async Task<DataElement> UpdateFileScanStatus(
+        Guid instanceGuid,
+        Guid dataElementId,
+        FileScanStatus fileScanStatus,
+        CancellationToken cancellationToken = default
+    )
+    {
+        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateFileScanStatusSql);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, fileScanStatus.FileScanResult.ToString());
+        pgcom.Parameters.AddWithValue(
+            NpgsqlDbType.Text,
+            (object)fileScanStatus.BlobVersionId ?? DBNull.Value
+        );
+
+        await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
+        if (await reader.ReadAsync(cancellationToken))
+        {
+            return await reader.GetFieldValueAsync<DataElement>(
+                "updatedElement",
+                cancellationToken: cancellationToken
+            );
+        }
+
+        return null;
     }
 
     /// <inheritdoc/>

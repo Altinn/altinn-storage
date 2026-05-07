@@ -13,11 +13,14 @@ using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Moq;
@@ -52,7 +55,7 @@ public class DataControllerUnitTests
     {
         // Arrange
         List<string> expectedPropertiesForPatch = ["/isRead"];
-        (DataController testController, Mock<IDataRepository> dataRepositoryMock) =
+        (DataController testController, Mock<IDataRepository> dataRepositoryMock, _) =
             GetTestController(expectedPropertiesForPatch);
 
         // Act
@@ -84,6 +87,38 @@ public class DataControllerUnitTests
     }
 
     [Fact]
+    public async Task Get_WithBlobVersionId_PassesVersionIdToReadBlob()
+    {
+        // Arrange
+        List<string> expectedPropertiesForPatch = ["/isRead"];
+        const string expectedBlobVersionId = "existing-version-id";
+        (DataController testController, _, Mock<IBlobRepository> blobRepositoryMock) =
+            GetTestController(expectedPropertiesForPatch, blobVersionId: expectedBlobVersionId);
+
+        // Act
+        var result = await testController.Get(
+            12345,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.True(result is FileStreamResult);
+        blobRepositoryMock.Verify(
+            b =>
+                b.ReadBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>(),
+                    expectedBlobVersionId,
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
     public async Task OverwriteData_VerifyDataRepositoryUpdateInput()
     {
         // Arrange
@@ -97,10 +132,15 @@ public class DataControllerUnitTests
             "/size",
             "/fileScanResult",
             "/references",
+            "/blobVersionId",
         ];
 
-        (DataController testController, Mock<IDataRepository> dataRepositoryMock) =
-            GetTestController(expectedPropertiesForPatch, true);
+        (DataController testController, Mock<IDataRepository> dataRepositoryMock, _) =
+            GetTestController(
+                expectedPropertiesForPatch,
+                true,
+                blobVersionId: "existing-version-id"
+            );
 
         // Act
         var result = await testController.OverwriteData(
@@ -131,6 +171,80 @@ public class DataControllerUnitTests
     }
 
     [Fact]
+    public async Task OverwriteData_UsesUpdatedBlobVersionForFileScan()
+    {
+        // Arrange
+        List<string> expectedPropertiesForPatch =
+        [
+            "/contentType",
+            "/filename",
+            "/lastChangedBy",
+            "/lastChanged",
+            "/refs",
+            "/size",
+            "/fileScanResult",
+            "/references",
+            "/blobVersionId",
+        ];
+
+        Mock<IDataService> dataServiceMock = null;
+        (DataController testController, Mock<IDataRepository> dataRepositoryMock, _) =
+            GetTestController(
+                expectedPropertiesForPatch,
+                includeRequestBody: true,
+                blobVersionId: "existing-version-id",
+                configureDataService: mock => dataServiceMock = mock
+            );
+
+        dataRepositoryMock
+            .Setup(d =>
+                d.Update(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<Dictionary<string, object>>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                (
+                    Guid instanceGuid,
+                    Guid dataElementId,
+                    Dictionary<string, object> propertyList,
+                    CancellationToken _
+                ) =>
+                    new DataElement
+                    {
+                        Id = dataElementId.ToString(),
+                        InstanceGuid = instanceGuid.ToString(),
+                        BlobVersionId = (string)propertyList["/blobVersionId"],
+                    }
+            );
+
+        // Act
+        var result = await testController.OverwriteData(
+            _instanceOwnerPartyId,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.True(result.Result is OkObjectResult { StatusCode: StatusCodes.Status200OK });
+        dataServiceMock.Verify(
+            d =>
+                d.StartFileScan(
+                    It.IsAny<Instance>(),
+                    It.IsAny<DataType>(),
+                    It.Is<DataElement>(de => de.BlobVersionId == "mock-version-id"),
+                    It.IsAny<DateTimeOffset>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
     public async Task Update_VerifyDataRepositoryUpdateInput()
     {
         // Arrange
@@ -147,7 +261,7 @@ public class DataControllerUnitTests
             "/lastChangedBy",
         ];
 
-        (DataController testController, Mock<IDataRepository> dataRepositoryMock) =
+        (DataController testController, Mock<IDataRepository> dataRepositoryMock, _) =
             GetTestController(expectedPropertiesForPatch, true);
 
         var instanceGuid = Guid.NewGuid();
@@ -198,7 +312,7 @@ public class DataControllerUnitTests
             "/lastChanged",
             "/lastChangedBy",
         ];
-        (DataController testController, Mock<IDataRepository> dataRepositoryMock) =
+        (DataController testController, Mock<IDataRepository> dataRepositoryMock, _) =
             GetTestController(expectedPropertiesForPatch);
 
         // Act
@@ -231,11 +345,11 @@ public class DataControllerUnitTests
     }
 
     [Fact]
-    public async Task SetFileScanStatus_VerifyDataRepositoryUpdateInput()
+    public async Task SetFileScanStatus_WithoutBlobVersion_DelegatesToRepository()
     {
         // Arrange
         List<string> expectedPropertiesForPatch = ["/fileScanResult"];
-        (DataController testController, Mock<IDataRepository> dataRepositoryMock) =
+        (DataController testController, Mock<IDataRepository> dataRepositoryMock, _) =
             GetTestController(expectedPropertiesForPatch);
 
         // Act
@@ -249,15 +363,349 @@ public class DataControllerUnitTests
         Assert.True(result is OkResult { StatusCode: StatusCodes.Status200OK });
         dataRepositoryMock.Verify(
             d =>
+                d.UpdateFileScanStatus(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.Is<FileScanStatus>(s =>
+                        s.FileScanResult == FileScanResult.Infected
+                        && string.IsNullOrEmpty(s.BlobVersionId)
+                    ),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task SetFileScanStatus_WithBlobVersion_DelegatesToRepository()
+    {
+        // Arrange
+        List<string> expectedPropertiesForPatch = ["/fileScanResult"];
+        (DataController testController, Mock<IDataRepository> dataRepositoryMock, _) =
+            GetTestController(expectedPropertiesForPatch, blobVersionId: "current-version-id");
+
+        // Act
+        var result = await testController.SetFileScanStatus(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            new FileScanStatus
+            {
+                FileScanResult = FileScanResult.Infected,
+                BlobVersionId = "current-version-id",
+            }
+        );
+
+        // Assert
+        Assert.True(result is OkResult { StatusCode: StatusCodes.Status200OK });
+        dataRepositoryMock.Verify(
+            d =>
+                d.UpdateFileScanStatus(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.Is<FileScanStatus>(s =>
+                        s.FileScanResult == FileScanResult.Infected
+                        && s.BlobVersionId == "current-version-id"
+                    ),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task Get_UnreadDataElement_ReturnsFile_UpdatesIsRead()
+    {
+        // Arrange
+        List<string> expectedPropertiesForPatch = ["/isRead"];
+        (DataController testController, Mock<IDataRepository> dataRepositoryMock, _) =
+            GetTestController(expectedPropertiesForPatch);
+
+        // Act
+        var result = await testController.Get(
+            12345,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.True(result is FileStreamResult);
+        dataRepositoryMock.Verify(
+            d =>
                 d.Update(
                     It.IsAny<Guid>(),
                     It.IsAny<Guid>(),
                     It.Is<Dictionary<string, object>>(p =>
-                        VerifyPropertyListInput(
-                            expectedPropertiesForPatch.Count,
-                            expectedPropertiesForPatch,
-                            p
-                        )
+                        p.Count == 1 && p.ContainsKey("/isRead")
+                    ),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task Get_AlreadyReadDataElement_ReturnsFile_WithoutUpdate()
+    {
+        // Arrange
+        List<string> expectedPropertiesForPatch = ["/isRead"];
+        (DataController testController, Mock<IDataRepository> dataRepositoryMock, _) =
+            GetTestController(expectedPropertiesForPatch, isRead: true);
+
+        // Act
+        var result = await testController.Get(
+            12345,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.True(result is FileStreamResult);
+        dataRepositoryMock.Verify(
+            d =>
+                d.Update(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<Dictionary<string, object>>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task CreateAndUploadData_CreateMetadataThrows_CleansUpBlob()
+    {
+        // Arrange
+        List<string> expectedPropertiesForPatch = ["/isRead"];
+        (DataController testController, _, Mock<IBlobRepository> blobRepositoryMock) =
+            GetTestController(
+                expectedPropertiesForPatch,
+                includeRequestBody: true,
+                throwOnCreate: true
+            );
+
+        // Act/assert
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            testController.CreateAndUploadData(
+                _instanceOwnerPartyId,
+                Guid.NewGuid(),
+                _dataType,
+                CancellationToken.None
+            )
+        );
+
+        blobRepositoryMock.Verify(
+            b =>
+                b.WriteBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<Stream>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>()
+                ),
+            Times.Once
+        );
+        blobRepositoryMock.Verify(
+            b =>
+                b.DeleteBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>(),
+                    "mock-version-id"
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task CreateAndUploadData_Success_PersistsAndQueuesBlobVersionId()
+    {
+        // Arrange
+        List<string> expectedPropertiesForPatch = ["/isRead"];
+        Mock<IDataService> dataServiceMock = null;
+        (DataController testController, Mock<IDataRepository> dataRepositoryMock, _) =
+            GetTestController(
+                expectedPropertiesForPatch,
+                includeRequestBody: true,
+                configureDataService: mock => dataServiceMock = mock
+            );
+
+        // Act
+        ActionResult<DataElement> result = await testController.CreateAndUploadData(
+            _instanceOwnerPartyId,
+            Guid.NewGuid(),
+            _dataType,
+            CancellationToken.None
+        );
+
+        // Assert
+        var createdResult = Assert.IsType<CreatedResult>(result.Result);
+        var createdElement = Assert.IsType<DataElement>(createdResult.Value);
+        Assert.Equal("mock-version-id", createdElement.BlobVersionId);
+
+        dataRepositoryMock.Verify(
+            d =>
+                d.Create(
+                    It.Is<DataElement>(de => de.BlobVersionId == "mock-version-id"),
+                    It.IsAny<long>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+        dataServiceMock.Verify(
+            d =>
+                d.StartFileScan(
+                    It.IsAny<Instance>(),
+                    It.IsAny<DataType>(),
+                    It.Is<DataElement>(de => de.BlobVersionId == "mock-version-id"),
+                    It.IsAny<DateTimeOffset>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task OverwriteData_UpdateMetadataThrows_CleansUpBlob()
+    {
+        // Arrange
+        List<string> expectedPropertiesForPatch =
+        [
+            "/contentType",
+            "/filename",
+            "/lastChangedBy",
+            "/lastChanged",
+            "/refs",
+            "/size",
+            "/fileScanResult",
+            "/references",
+            "/blobVersionId",
+        ];
+
+        (DataController testController, _, Mock<IBlobRepository> blobRepositoryMock) =
+            GetTestController(
+                expectedPropertiesForPatch,
+                includeRequestBody: true,
+                throwOnUpdate: true,
+                blobVersionId: "existing-version-id"
+            );
+
+        // Act/assert
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            testController.OverwriteData(
+                _instanceOwnerPartyId,
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                CancellationToken.None
+            )
+        );
+
+        blobRepositoryMock.Verify(
+            b =>
+                b.WriteBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<Stream>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>()
+                ),
+            Times.Once
+        );
+        blobRepositoryMock.Verify(
+            b =>
+                b.DeleteBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>(),
+                    "mock-version-id"
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task CreateAndUploadData_ZeroLengthDeleteBlobThrows_StillReturnsBadRequest()
+    {
+        List<string> expectedPropertiesForPatch = ["/isRead"];
+        (DataController testController, _, Mock<IBlobRepository> blobRepositoryMock) =
+            GetTestController(expectedPropertiesForPatch, includeRequestBody: true);
+
+        blobRepositoryMock
+            .Setup(b =>
+                b.WriteBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<Stream>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>()
+                )
+            )
+            .ReturnsAsync((0, DateTimeOffset.Now, "mock-version-id"));
+
+        blobRepositoryMock
+            .Setup(b =>
+                b.DeleteBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<string>()
+                )
+            )
+            .ThrowsAsync(new InvalidOperationException("cleanup failed"));
+
+        var result = await testController.CreateAndUploadData(
+            _instanceOwnerPartyId,
+            Guid.NewGuid(),
+            _dataType,
+            CancellationToken.None
+        );
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+        Assert.Equal("Empty stream provided. Cannot persist data.", badRequest.Value);
+    }
+
+    [Fact]
+    public async Task OverwriteData_NullExistingBlobVersionId_StoresNewBlobVersionId()
+    {
+        List<string> expectedPropertiesForPatch =
+        [
+            "/contentType",
+            "/filename",
+            "/lastChangedBy",
+            "/lastChanged",
+            "/refs",
+            "/size",
+            "/fileScanResult",
+            "/references",
+            "/blobVersionId",
+        ];
+
+        (DataController testController, Mock<IDataRepository> dataRepositoryMock, _) =
+            GetTestController(
+                expectedPropertiesForPatch,
+                includeRequestBody: true,
+                blobVersionId: null
+            );
+
+        // Act
+        var result = await testController.OverwriteData(
+            _instanceOwnerPartyId,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            CancellationToken.None
+        );
+
+        Assert.True(result.Result is OkObjectResult { StatusCode: StatusCodes.Status200OK });
+
+        dataRepositoryMock.Verify(
+            d =>
+                d.Update(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.Is<Dictionary<string, object>>(p =>
+                        p.ContainsKey("/blobVersionId")
+                        && (string)p["/blobVersionId"] == "mock-version-id"
                     ),
                     It.IsAny<CancellationToken>()
                 ),
@@ -300,8 +748,17 @@ public class DataControllerUnitTests
 
     private (
         DataController TestController,
-        Mock<IDataRepository> DataRepositoryMock
-    ) GetTestController(List<string> expectedPropertiesForPatch, bool includeRequestBody = false)
+        Mock<IDataRepository> DataRepositoryMock,
+        Mock<IBlobRepository> BlobRepositoryMock
+    ) GetTestController(
+        List<string> expectedPropertiesForPatch,
+        bool includeRequestBody = false,
+        bool isRead = false,
+        string blobVersionId = null,
+        bool throwOnUpdate = false,
+        bool throwOnCreate = false,
+        Action<Mock<IDataService>> configureDataService = null
+    )
     {
         Mock<IDataRepository> dataRepositoryMock = new();
         Mock<IBlobRepository> blobRepositoryMock = new();
@@ -311,22 +768,42 @@ public class DataControllerUnitTests
         Mock<IDataService> dataServiceMock = new();
         Mock<IAuthorization> authorizationServiceMock = new();
 
-        dataRepositoryMock
-            .Setup(d =>
-                d.Update(
-                    It.IsAny<Guid>(),
-                    It.IsAny<Guid>(),
-                    It.Is<Dictionary<string, object>>(propertyList =>
-                        VerifyPropertyListInput(
-                            expectedPropertiesForPatch.Count,
-                            expectedPropertiesForPatch,
-                            propertyList
-                        )
-                    ),
-                    It.IsAny<CancellationToken>()
-                )
+        var updateSetup = dataRepositoryMock.Setup(d =>
+            d.Update(
+                It.IsAny<Guid>(),
+                It.IsAny<Guid>(),
+                It.Is<Dictionary<string, object>>(propertyList =>
+                    VerifyPropertyListInput(
+                        expectedPropertiesForPatch.Count,
+                        expectedPropertiesForPatch,
+                        propertyList
+                    )
+                ),
+                It.IsAny<CancellationToken>()
             )
-            .ReturnsAsync(new DataElement());
+        );
+
+        if (throwOnUpdate)
+        {
+            updateSetup.ThrowsAsync(new InvalidOperationException("metadata update failed"));
+        }
+        else
+        {
+            updateSetup.ReturnsAsync(new DataElement());
+        }
+
+        var createSetup = dataRepositoryMock.Setup(d =>
+            d.Create(It.IsAny<DataElement>(), It.IsAny<long>(), It.IsAny<CancellationToken>())
+        );
+
+        if (throwOnCreate)
+        {
+            createSetup.ThrowsAsync(new InvalidOperationException("metadata create failed"));
+        }
+        else
+        {
+            createSetup.ReturnsAsync((DataElement de, long _, CancellationToken _) => de);
+        }
 
         dataRepositoryMock
             .Setup(d => d.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
@@ -337,9 +814,34 @@ public class DataControllerUnitTests
                         Id = dataElementId.ToString(),
                         InstanceGuid = instanceGuid.ToString(),
                         DataType = _dataType,
-                        IsRead = false,
+                        IsRead = isRead,
                         ContentType = "application/octet-stream",
                         BlobStoragePath = $"ttd/apps-test/{instanceGuid}/data/{dataElementId}",
+                        BlobVersionId = blobVersionId,
+                    }
+            );
+
+        dataRepositoryMock
+            .Setup(d =>
+                d.UpdateFileScanStatus(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<FileScanStatus>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                (
+                    Guid instanceGuid,
+                    Guid dataElementId,
+                    FileScanStatus fileScanStatus,
+                    CancellationToken _
+                ) =>
+                    new DataElement
+                    {
+                        Id = dataElementId.ToString(),
+                        InstanceGuid = instanceGuid.ToString(),
+                        FileScanResult = fileScanStatus.FileScanResult,
                     }
             );
 
@@ -349,6 +851,7 @@ public class DataControllerUnitTests
                     It.IsAny<string>(),
                     It.IsAny<string>(),
                     It.IsAny<int?>(),
+                    It.IsAny<string>(),
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -363,7 +866,18 @@ public class DataControllerUnitTests
                     It.IsAny<int?>()
                 )
             )
-            .ReturnsAsync((123145864564, DateTimeOffset.Now));
+            .ReturnsAsync((123145864564, DateTimeOffset.Now, "mock-version-id"));
+
+        blobRepositoryMock
+            .Setup(d =>
+                d.DeleteBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<string>()
+                )
+            )
+            .ReturnsAsync(true);
 
         instanceRepositoryMock
             .Setup(ir =>
@@ -424,6 +938,7 @@ public class DataControllerUnitTests
                 It.IsAny<CancellationToken>()
             )
         );
+        configureDataService?.Invoke(dataServiceMock);
 
         authorizationServiceMock
             .Setup(a => a.AuthorizeEnrichedInstanceAction(It.IsAny<Instance>(), It.IsAny<string>()))
@@ -432,11 +947,11 @@ public class DataControllerUnitTests
         Mock<HttpContext> httpContextMock = new();
         httpContextMock.Setup(c => c.User).Returns(PrincipalUtil.GetPrincipal(200001, 1337));
 
+        Mock<HttpRequest> requestMock = new();
+        requestMock.Setup(r => r.Headers).Returns(new HeaderDictionary());
+
         if (includeRequestBody)
         {
-            Mock<HttpRequest> requestMock = new();
-
-            requestMock.Setup(r => r.Headers).Returns(new HeaderDictionary());
             requestMock.Setup(r => r.ContentType).Returns("application/pdf");
             requestMock
                 .Setup(r => r.Headers)
@@ -452,9 +967,9 @@ public class DataControllerUnitTests
             requestMock
                 .Setup(r => r.Body)
                 .Returns(new MemoryStream(Encoding.UTF8.GetBytes("whatever")));
-
-            httpContextMock.Setup(c => c.Request).Returns(requestMock.Object);
         }
+
+        httpContextMock.Setup(c => c.Request).Returns(requestMock.Object);
 
         ControllerContext controllerContext = new ControllerContext
         {
@@ -474,13 +989,14 @@ public class DataControllerUnitTests
             instanceEventServiceMock.Object,
             generalSettings,
             null,
-            authorizationServiceMock.Object
+            authorizationServiceMock.Object,
+            NullLogger<DataController>.Instance
         )
         {
             ControllerContext = controllerContext,
         };
 
-        return (sut, dataRepositoryMock);
+        return (sut, dataRepositoryMock, blobRepositoryMock);
     }
 
     private static List<DataElement> GetDataElements(Guid instanceGuid)

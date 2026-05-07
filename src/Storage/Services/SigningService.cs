@@ -191,6 +191,7 @@ public class SigningService : ISigningService
                             instance.Org,
                             dataElement.BlobStoragePath,
                             application.StorageAccountNumber,
+                            dataElement.BlobVersionId,
                             cancellationToken
                         );
                         var signDocument = await JsonSerializer.DeserializeAsync<SignDocument>(

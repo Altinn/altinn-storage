@@ -20,6 +20,12 @@ public class FileScanStatus
     public string ContentHash { get; set; }
 
     /// <summary>
+    /// Gets or sets the Azure Blob Storage version ID that was scanned.
+    /// </summary>
+    [JsonProperty(PropertyName = "blobVersionId")]
+    public string BlobVersionId { get; set; }
+
+    /// <summary>
     /// Gets or sets the scan result
     /// </summary>
     [JsonProperty(PropertyName = "fileScanResult")]

@@ -60,13 +60,28 @@ public interface IDataRepository
     /// </summary>
     /// <param name="instanceGuid">The instance guid</param>
     /// <param name="dataElementId">The data element id</param>
-    /// <param name="propertylist">A dictionary contaning property id (key) and object (value) to be stored</param>
+    /// <param name="propertylist">A dictionary containing property id (key) and object (value) to be stored</param>
     /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
-    /// <remarks>Dictionary can containt at most 10 entries</remarks>
+    /// <remarks>Dictionary can contain at most 15 entries</remarks>
     Task<DataElement> Update(
         Guid instanceGuid,
         Guid dataElementId,
         Dictionary<string, object> propertylist,
+        CancellationToken cancellationToken = default
+    );
+
+    /// <summary>
+    /// Updates the file scan status if the scanned blob version still matches current metadata.
+    /// </summary>
+    /// <param name="instanceGuid">The instance guid</param>
+    /// <param name="dataElementId">The data element id</param>
+    /// <param name="fileScanStatus">The file scan status, optionally including the scanned blob version id.</param>
+    /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
+    /// <returns>The updated data element, or null if no row matched the supplied blob version.</returns>
+    Task<DataElement> UpdateFileScanStatus(
+        Guid instanceGuid,
+        Guid dataElementId,
+        FileScanStatus fileScanStatus,
         CancellationToken cancellationToken = default
     );
 

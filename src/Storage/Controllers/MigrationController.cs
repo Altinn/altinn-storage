@@ -312,7 +312,7 @@ public class MigrationController : ControllerBase
 
             if (Request.ContentLength > 0 || dataElement.DataType == "binary-data")
             {
-                (dataElement.Size, _) = await _blobRepository.WriteBlob(
+                (dataElement.Size, _, dataElement.BlobVersionId) = await _blobRepository.WriteBlob(
                     $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
                     theStream,
                     dataElement.BlobStoragePath,
