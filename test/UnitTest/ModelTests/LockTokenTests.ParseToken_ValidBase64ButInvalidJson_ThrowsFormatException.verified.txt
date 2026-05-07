@@ -21,6 +21,7 @@ at System.Text.Json.ThrowHelper.ThrowJsonReaderException(Utf8JsonReader& json, E
 at System.Text.Json.Utf8JsonReader.ConsumeValue(Byte marker)
 at System.Text.Json.Utf8JsonReader.ReadFirstToken(Byte first)
 at System.Text.Json.Utf8JsonReader.ReadSingleSegment()
+at System.Text.Json.Utf8JsonReader.Read()
 at System.Text.Json.Serialization.JsonConverter`1.ReadCore(Utf8JsonReader& reader, T& value, JsonSerializerOptions options, ReadStack& state)
       },
       StackTrace:
