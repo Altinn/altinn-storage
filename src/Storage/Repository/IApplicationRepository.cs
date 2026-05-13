@@ -28,7 +28,7 @@ public interface IApplicationRepository
     /// <summary>
     /// Get the instance based on the input parameters
     /// </summary>
-    /// <param name="appId">application id</param>
+    /// <param name="appId">application id (full {org}/{app} identifier)</param>
     /// <param name="org">application owner id</param>
     /// <param name="cancellationToken">cancellation token</param>
     /// <returns>the instance for the given parameters</returns>

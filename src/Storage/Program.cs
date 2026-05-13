@@ -355,6 +355,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddTransient<IDataService, DataService>();
     services.AddTransient<ISigningService, SigningService>();
     services.AddTransient<IInstanceEventService, InstanceEventService>();
+    services.AddTransient<IProcessDataCleanupService, ProcessDataCleanupService>();
     services.AddSingleton<IApplicationService, ApplicationService>();
     services.AddSingleton<IA2OndemandFormattingService, A2OndemandFormattingService>();
 
