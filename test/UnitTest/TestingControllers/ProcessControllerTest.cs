@@ -14,6 +14,7 @@ using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Mocks;
 using Altinn.Platform.Storage.UnitTest.Mocks.Authentication;
@@ -49,6 +50,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         string? instanceId = null,
         IInstanceRepository? instanceRepository = null,
         IInstanceAndEventsRepository? instanceAndEventsRepository = null,
+        IProcessDataCleanupService? processDataCleanupService = null,
         Action<ProcessState>? configure = null
     )
     {
@@ -70,7 +72,11 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
             jsonString = JsonContent.Create(state, new MediaTypeHeaderValue("application/json"));
         }
 
-        HttpClient client = GetTestClient(instanceRepository, instanceAndEventsRepository);
+        HttpClient client = GetTestClient(
+            instanceRepository,
+            instanceAndEventsRepository,
+            processDataCleanupService: processDataCleanupService
+        );
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
@@ -620,6 +626,216 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    /// <summary>
+    /// Test case: User advances into a task. PutInstanceAndEvents should invoke
+    /// the cleanup service with the incoming CurrentTask.ElementId.
+    /// </summary>
+    [Fact]
+    public async Task PutInstanceAndEvents_AdvancingIntoTask_InvokesCleanupWithDestinationTaskId()
+    {
+        // Arrange
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        Mock<IProcessDataCleanupService> cleanupMock = new();
+        cleanupMock
+            .Setup(c =>
+                c.CleanupGeneratedFromTask(
+                    It.IsAny<Instance>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(0);
+
+        // Act
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint: true,
+            token: token,
+            instanceId: "1337/20a1353e-91cf-44d6-8ff7-f68993638ffe",
+            processDataCleanupService: cleanupMock.Object,
+            configure: state =>
+            {
+                state.CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_2",
+                    AltinnTaskType = "data",
+                    FlowType = "CompleteCurrentMoveToNext",
+                };
+            }
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        cleanupMock.Verify(
+            c =>
+                c.CleanupGeneratedFromTask(
+                    It.IsAny<Instance>(),
+                    "Task_2",
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+    }
+
+    /// <summary>
+    /// Test case: Terminal transition (no CurrentTask). Cleanup must be skipped to
+    /// avoid wiping data elements that should be preserved post-process.
+    /// </summary>
+    [Fact]
+    public async Task PutInstanceAndEvents_TerminalTransition_DoesNotInvokeCleanup()
+    {
+        // Arrange
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        Instance testInstance = TestDataUtil.GetInstance(
+            new Guid("377efa97-80ee-4cc6-8d48-09de12cc273d")
+        );
+        testInstance.Id = $"{testInstance.InstanceOwner.PartyId}/{testInstance.Id}";
+
+        Mock<IInstanceRepository> repositoryMock = new();
+        Mock<IInstanceAndEventsRepository> batchRepositoryMock = new();
+        repositoryMock
+            .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((testInstance, 0));
+        repositoryMock
+            .Setup(ir =>
+                ir.Update(
+                    It.IsAny<Instance>(),
+                    It.IsAny<List<string>>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync((Instance i, List<string> _, CancellationToken _) => i);
+        batchRepositoryMock
+            .Setup(ir =>
+                ir.Update(
+                    It.IsAny<Instance>(),
+                    It.IsAny<List<string>>(),
+                    It.IsAny<List<InstanceEvent>>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                (Instance i, List<string> _, List<InstanceEvent> _, CancellationToken _) => i
+            );
+
+        Mock<IProcessDataCleanupService> cleanupMock = new();
+
+        // Act
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint: true,
+            token: token,
+            instanceId: "1337/377efa97-80ee-4cc6-8d48-09de12cc273d",
+            instanceRepository: repositoryMock.Object,
+            instanceAndEventsRepository: batchRepositoryMock.Object,
+            processDataCleanupService: cleanupMock.Object,
+            configure: state =>
+            {
+                state.Started = DateTime.Parse("2020-04-29T13:53:01.7020218Z");
+                state.StartEvent = "StartEvent_1";
+                state.Ended = DateTime.UtcNow;
+                state.EndEvent = "EndEvent_1";
+                // No CurrentTask — terminal transition.
+            }
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        cleanupMock.Verify(
+            c =>
+                c.CleanupGeneratedFromTask(
+                    It.IsAny<Instance>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
+    /// <summary>
+    /// Test case: Process authorizer denies the request. Cleanup must not run before
+    /// the Forbid() short-circuit, otherwise we would delete data on an unauthorized
+    /// request.
+    /// </summary>
+    [Fact]
+    public async Task PutInstanceAndEvents_Unauthorized_DoesNotInvokeCleanup()
+    {
+        // Arrange — auth level 1 is below the level required for the test instance.
+        string token = PrincipalUtil.GetToken(3, 1337, 1);
+        Mock<IProcessDataCleanupService> cleanupMock = new();
+
+        // Act
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint: true,
+            token: token,
+            instanceId: "1337/ae3fe2fa-1fcb-42b4-8e63-69a42d4e3502",
+            processDataCleanupService: cleanupMock.Object,
+            configure: state =>
+            {
+                state.CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_2",
+                    AltinnTaskType = "data",
+                    FlowType = "CompleteCurrentMoveToNext",
+                };
+            }
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        cleanupMock.Verify(
+            c =>
+                c.CleanupGeneratedFromTask(
+                    It.IsAny<Instance>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
+    /// <summary>
+    /// Test case: Cleanup service throws unexpectedly (defensive — the service
+    /// itself swallows per-element failures, but if the service contract is
+    /// violated and an exception escapes, that should NOT be silently absorbed
+    /// here either: the process advance fails so the caller can retry. This
+    /// codifies the contract: cleanup-service exceptions surface as 500s.
+    /// </summary>
+    [Fact]
+    public async Task PutInstanceAndEvents_CleanupServiceThrows_BubblesUp()
+    {
+        // Arrange
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        Mock<IProcessDataCleanupService> cleanupMock = new();
+        cleanupMock
+            .Setup(c =>
+                c.CleanupGeneratedFromTask(
+                    It.IsAny<Instance>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(new InvalidOperationException("contract violation"));
+
+        // Act
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint: true,
+            token: token,
+            instanceId: "1337/20a1353e-91cf-44d6-8ff7-f68993638ffe",
+            processDataCleanupService: cleanupMock.Object,
+            configure: state =>
+            {
+                state.CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_2",
+                    AltinnTaskType = "data",
+                    FlowType = "CompleteCurrentMoveToNext",
+                };
+            }
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+    }
+
     [Theory]
     [InlineData("data", new[] { "write" })]
     [InlineData("feedback", new[] { "write" })]
@@ -725,7 +941,8 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     private HttpClient GetTestClient(
         IInstanceRepository? instanceRepository = null,
         IInstanceAndEventsRepository? instanceAndEventsRepository = null,
-        bool enableWolverine = false
+        bool enableWolverine = false,
+        IProcessDataCleanupService? processDataCleanupService = null
     )
     {
         // No setup required for these services. They are not in use by the ApplicationController
@@ -785,6 +1002,11 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                             IInstanceAndEventsRepository,
                             InstanceAndEventsRepositoryMock
                         >();
+                    }
+
+                    if (processDataCleanupService != null)
+                    {
+                        services.AddSingleton(processDataCleanupService);
                     }
                 });
             })
