@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Microsoft.Extensions.Logging;
 
 namespace Altinn.Platform.Storage.Services;
@@ -65,7 +66,7 @@ public class ProcessDataCleanupService : IProcessDataCleanupService
             instance.Id
         );
 
-        int? storageAccountNumber = await GetStorageAccountNumber(instance);
+        int storageAccountNumber = await GetStorageAccountNumber(instance);
         int deleted = 0;
         foreach (DataElement dataElement in stale)
         {
@@ -100,32 +101,18 @@ public class ProcessDataCleanupService : IProcessDataCleanupService
         return deleted;
     }
 
-    private async Task<int?> GetStorageAccountNumber(Instance instance)
+    private async Task<int> GetStorageAccountNumber(Instance instance)
     {
-        try
-        {
-            (Application application, _) = await _applicationService.GetApplicationOrErrorAsync(
-                instance.AppId
-            );
-            if (application != null)
-            {
-                return application.StorageAccountNumber;
-            }
+        (Application application, ServiceError? error) =
+            await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
 
-            _logger.LogWarning(
-                "Could not resolve Application for {AppId}; proceeding with default storage account when deleting stale data elements",
-                instance.AppId
-            );
-        }
-        catch (Exception ex)
+        if (application.StorageAccountNumber is null)
         {
-            _logger.LogWarning(
-                ex,
-                "Application lookup failed for {AppId}; proceeding with default storage account when deleting stale data elements",
-                instance.AppId
+            throw new InvalidOperationException(
+                $"Failed to retrieve application for {instance.AppId}: [{error?.ErrorCode}] {error?.ErrorMessage}"
             );
         }
 
-        return null;
+        return application.StorageAccountNumber.Value;
     }
 }
