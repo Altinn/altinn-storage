@@ -38,6 +38,7 @@
     <PackageReference Include="Npgsql.OpenTelemetry" Version="9.0.5" />
     <PackageReference Include="WolverineFx" Version="5.39.3" />
     <PackageReference Include="WolverineFx.AzureServiceBus" Version="5.39.3" />
+    <PackageReference Include="Parquet.Net" Version="5.6.1" />
   </ItemGroup>
 
   <PropertyGroup>
