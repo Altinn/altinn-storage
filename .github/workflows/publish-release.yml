@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -28,8 +29,15 @@ jobs:
         run: |
           cd src/Storage.Interface
           dotnet build --configuration Release --no-restore -p:Deterministic=true -p:BuildNumber=${{ github.run_number }}
+
+      - name: NuGet login
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
       - name: Pack and publish Storage.Interface
         run: |
           cd src/Storage.Interface
           dotnet pack --configuration Release --no-restore --no-build -p:BuildNumber=${{ github.run_number }} -p:Deterministic=true
-          dotnet nuget push bin/Release/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }}
+          dotnet nuget push bin/Release/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
