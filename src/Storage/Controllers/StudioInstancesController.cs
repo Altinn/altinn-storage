@@ -212,7 +212,7 @@ public class StudioInstancesController : ControllerBase
         instance.Status.IsSoftDeleted = true;
         instance.Status.SoftDeleted = now;
 
-        instance.LastChangedBy = User.GetUserOrOrgNo();
+        instance.LastChangedBy = "studio_designer";
         instance.LastChanged = now;
         updateProperties.Add(nameof(instance.LastChanged));
         updateProperties.Add(nameof(instance.LastChangedBy));
