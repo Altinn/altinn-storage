@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -39,7 +37,7 @@ public class ProcessDataCleanupService : IProcessDataCleanupService
         CancellationToken cancellationToken
     )
     {
-        if (instance?.Data is null or { Count: 0 })
+        if (instance.Data is null or { Count: 0 })
         {
             return 0;
         }
@@ -67,24 +65,7 @@ public class ProcessDataCleanupService : IProcessDataCleanupService
             instance.Id
         );
 
-        // StorageAccountNumber is only used for blob sharding; missing application
-        // metadata is unexpected but should not block the process advance.
-        int? storageAccountNumber = null;
-        (Application application, _) = await _applicationService.GetApplicationOrErrorAsync(
-            instance.AppId
-        );
-        if (application != null)
-        {
-            storageAccountNumber = application.StorageAccountNumber;
-        }
-        else
-        {
-            _logger.LogWarning(
-                "Could not resolve Application for {AppId}; proceeding with default storage account when deleting stale data elements",
-                instance.AppId
-            );
-        }
-
+        int? storageAccountNumber = await GetStorageAccountNumber(instance);
         int deleted = 0;
         foreach (DataElement dataElement in stale)
         {
@@ -117,5 +98,34 @@ public class ProcessDataCleanupService : IProcessDataCleanupService
         );
 
         return deleted;
+    }
+
+    private async Task<int?> GetStorageAccountNumber(Instance instance)
+    {
+        try
+        {
+            (Application application, _) = await _applicationService.GetApplicationOrErrorAsync(
+                instance.AppId
+            );
+            if (application != null)
+            {
+                return application.StorageAccountNumber;
+            }
+
+            _logger.LogWarning(
+                "Could not resolve Application for {AppId}; proceeding with default storage account when deleting stale data elements",
+                instance.AppId
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Application lookup failed for {AppId}; proceeding with default storage account when deleting stale data elements",
+                instance.AppId
+            );
+        }
+
+        return null;
     }
 }
