@@ -39,7 +39,7 @@ public class ProcessDataCleanupService : IProcessDataCleanupService
         CancellationToken cancellationToken
     )
     {
-        if (instance?.Data == null || instance.Data.Count == 0)
+        if (instance?.Data is null or { Count: 0 })
         {
             return 0;
         }
@@ -50,7 +50,8 @@ public class ProcessDataCleanupService : IProcessDataCleanupService
                     r.Relation == RelationType.GeneratedFrom
                     && r.ValueType == ReferenceType.Task
                     && r.Value == taskId
-                ) == true
+                )
+                    is true
             )
             .ToList();
 
