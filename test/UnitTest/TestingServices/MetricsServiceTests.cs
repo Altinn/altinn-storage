@@ -101,7 +101,7 @@ public class MetricsServiceTests
         );
     }
 
-    private MetricsService SetupService(
+    private static MetricsService SetupService(
         Mock<IMetricsRepository>? repositoryMock = null,
         Mock<ILogger<MetricsService>>? loggerMock = null
     )
