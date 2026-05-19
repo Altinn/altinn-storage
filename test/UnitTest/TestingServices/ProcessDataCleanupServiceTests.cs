@@ -16,9 +16,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices;
 
 public class ProcessDataCleanupServiceTests
 {
-    private const string AppId = "ttd/test-app";
-    private const string TargetTaskId = "Task_2";
-    private const int StorageAccount = 7;
+    private const string _appId = "ttd/test-app";
+    private const string _targetTaskId = "Task_2";
+    private const int _storageAccount = 7;
 
     private readonly Mock<IDataService> _dataServiceMock = new();
     private readonly Mock<IApplicationService> _applicationServiceMock = new();
@@ -26,9 +26,9 @@ public class ProcessDataCleanupServiceTests
     private ProcessDataCleanupService CreateService()
     {
         _applicationServiceMock
-            .Setup(s => s.GetApplicationOrErrorAsync(AppId))
+            .Setup(s => s.GetApplicationOrErrorAsync(_appId))
             .ReturnsAsync(
-                (new Application { Id = AppId, StorageAccountNumber = StorageAccount }, null)
+                (new Application { Id = _appId, StorageAccountNumber = _storageAccount }, null)
             );
 
         return new ProcessDataCleanupService(
@@ -45,13 +45,13 @@ public class ProcessDataCleanupServiceTests
         Instance instance = new()
         {
             Id = "1/abc",
-            AppId = AppId,
+            AppId = _appId,
             Data = null,
         };
 
         int deleted = await target.CleanupGeneratedFromTask(
             instance,
-            TargetTaskId,
+            _targetTaskId,
             CancellationToken.None
         );
 
@@ -78,13 +78,13 @@ public class ProcessDataCleanupServiceTests
         Instance instance = new()
         {
             Id = "1/abc",
-            AppId = AppId,
-            Data = new List<DataElement>(),
+            AppId = _appId,
+            Data = [],
         };
 
         int deleted = await target.CleanupGeneratedFromTask(
             instance,
-            TargetTaskId,
+            _targetTaskId,
             CancellationToken.None
         );
 
@@ -107,58 +107,58 @@ public class ProcessDataCleanupServiceTests
         Instance instance = new()
         {
             Id = "1/abc",
-            AppId = AppId,
-            Data = new List<DataElement>
-            {
-                new() { Id = Guid.NewGuid().ToString(), References = null },
-                new()
+            AppId = _appId,
+            Data =
+            [
+                new DataElement { Id = Guid.NewGuid().ToString(), References = null },
+                new DataElement
                 {
                     Id = Guid.NewGuid().ToString(),
-                    References = new List<Reference>
-                    {
+                    References =
+                    [
                         // Wrong Relation
-                        new()
+                        new Reference()
                         {
                             Relation = null,
                             ValueType = ReferenceType.Task,
-                            Value = TargetTaskId,
+                            Value = _targetTaskId,
                         },
-                    },
+                    ],
                 },
-                new()
+                new DataElement
                 {
                     Id = Guid.NewGuid().ToString(),
-                    References = new List<Reference>
-                    {
+                    References =
+                    [
                         // Wrong ValueType
-                        new()
+                        new Reference()
                         {
                             Relation = RelationType.GeneratedFrom,
                             ValueType = ReferenceType.DataElement,
-                            Value = TargetTaskId,
+                            Value = _targetTaskId,
                         },
-                    },
+                    ],
                 },
-                new()
+                new DataElement
                 {
                     Id = Guid.NewGuid().ToString(),
-                    References = new List<Reference>
-                    {
+                    References =
+                    [
                         // Wrong Value (different task)
-                        new()
+                        new Reference()
                         {
                             Relation = RelationType.GeneratedFrom,
                             ValueType = ReferenceType.Task,
                             Value = "Task_1",
                         },
-                    },
+                    ],
                 },
-            },
+            ],
         };
 
         int deleted = await target.CleanupGeneratedFromTask(
             instance,
-            TargetTaskId,
+            _targetTaskId,
             CancellationToken.None
         );
 
@@ -184,32 +184,32 @@ public class ProcessDataCleanupServiceTests
         DataElement keep = new()
         {
             Id = Guid.NewGuid().ToString(),
-            References = new List<Reference>
-            {
-                new()
+            References =
+            [
+                new Reference
                 {
                     Relation = RelationType.GeneratedFrom,
                     ValueType = ReferenceType.Task,
                     Value = "Task_other",
                 },
-            },
+            ],
         };
         DataElement match2 = MakeMatch();
 
         Instance instance = new()
         {
             Id = "1/abc",
-            AppId = AppId,
-            Data = new List<DataElement> { match1, keep, match2 },
+            AppId = _appId,
+            Data = [match1, keep, match2],
         };
 
         _dataServiceMock
-            .Setup(d => d.DeleteImmediately(instance, It.IsAny<DataElement>(), StorageAccount))
+            .Setup(d => d.DeleteImmediately(instance, It.IsAny<DataElement>(), _storageAccount))
             .ReturnsAsync((Instance _, DataElement de, int? _) => de);
 
         int deleted = await target.CleanupGeneratedFromTask(
             instance,
-            TargetTaskId,
+            _targetTaskId,
             CancellationToken.None
         );
 
@@ -218,11 +218,11 @@ public class ProcessDataCleanupServiceTests
         Assert.Same(keep, instance.Data[0]);
 
         _dataServiceMock.Verify(
-            d => d.DeleteImmediately(instance, match1, StorageAccount),
+            d => d.DeleteImmediately(instance, match1, _storageAccount),
             Times.Once
         );
         _dataServiceMock.Verify(
-            d => d.DeleteImmediately(instance, match2, StorageAccount),
+            d => d.DeleteImmediately(instance, match2, _storageAccount),
             Times.Once
         );
     }
@@ -239,23 +239,23 @@ public class ProcessDataCleanupServiceTests
         Instance instance = new()
         {
             Id = "1/abc",
-            AppId = AppId,
-            Data = new List<DataElement> { first, failing, last },
+            AppId = _appId,
+            Data = [first, failing, last],
         };
 
         _dataServiceMock
-            .Setup(d => d.DeleteImmediately(instance, first, StorageAccount))
+            .Setup(d => d.DeleteImmediately(instance, first, _storageAccount))
             .ReturnsAsync(first);
         _dataServiceMock
-            .Setup(d => d.DeleteImmediately(instance, failing, StorageAccount))
+            .Setup(d => d.DeleteImmediately(instance, failing, _storageAccount))
             .ThrowsAsync(new InvalidOperationException("boom"));
         _dataServiceMock
-            .Setup(d => d.DeleteImmediately(instance, last, StorageAccount))
+            .Setup(d => d.DeleteImmediately(instance, last, _storageAccount))
             .ReturnsAsync(last);
 
         int deleted = await target.CleanupGeneratedFromTask(
             instance,
-            TargetTaskId,
+            _targetTaskId,
             CancellationToken.None
         );
 
@@ -265,12 +265,10 @@ public class ProcessDataCleanupServiceTests
     }
 
     [Fact]
-    public async Task CleanupGeneratedFromTask_ApplicationLookupFails_StillProceedsWithDefaultStorageAccount()
+    public async Task CleanupGeneratedFromTask_ApplicationLookupFails_Throws()
     {
-        // Application lookup returns null; cleanup should still attempt deletes,
-        // passing null for storageAccountNumber.
         _applicationServiceMock
-            .Setup(s => s.GetApplicationOrErrorAsync(AppId))
+            .Setup(s => s.GetApplicationOrErrorAsync(_appId))
             .ReturnsAsync(((Application)null, new ServiceError(404, "not found")));
 
         ProcessDataCleanupService target = new(
@@ -279,24 +277,17 @@ public class ProcessDataCleanupServiceTests
             NullLogger<ProcessDataCleanupService>.Instance
         );
 
-        DataElement match = MakeMatch();
         Instance instance = new()
         {
             Id = "1/abc",
-            AppId = AppId,
-            Data = new List<DataElement> { match },
+            AppId = _appId,
+            Data = [MakeMatch()],
         };
 
-        _dataServiceMock.Setup(d => d.DeleteImmediately(instance, match, null)).ReturnsAsync(match);
+        var act = () =>
+            target.CleanupGeneratedFromTask(instance, _targetTaskId, CancellationToken.None);
 
-        int deleted = await target.CleanupGeneratedFromTask(
-            instance,
-            TargetTaskId,
-            CancellationToken.None
-        );
-
-        Assert.Equal(1, deleted);
-        _dataServiceMock.Verify(d => d.DeleteImmediately(instance, match, null), Times.Once);
+        await Assert.ThrowsAsync<InvalidOperationException>(act);
     }
 
     [Fact]
@@ -310,19 +301,19 @@ public class ProcessDataCleanupServiceTests
         Instance instance = new()
         {
             Id = "1/abc",
-            AppId = AppId,
-            Data = new List<DataElement> { first, second },
+            AppId = _appId,
+            Data = [first, second],
         };
 
         using CancellationTokenSource cts = new();
 
         _dataServiceMock
-            .Setup(d => d.DeleteImmediately(instance, first, StorageAccount))
-            .Callback(() => cts.Cancel())
+            .Setup(d => d.DeleteImmediately(instance, first, _storageAccount))
+            .Callback(cts.Cancel)
             .ReturnsAsync(first);
 
         await Assert.ThrowsAsync<OperationCanceledException>(() =>
-            target.CleanupGeneratedFromTask(instance, TargetTaskId, cts.Token)
+            target.CleanupGeneratedFromTask(instance, _targetTaskId, cts.Token)
         );
 
         _dataServiceMock.Verify(
@@ -335,15 +326,15 @@ public class ProcessDataCleanupServiceTests
         new()
         {
             Id = Guid.NewGuid().ToString(),
-            BlobStoragePath = "ttd/test-app/instance/data/" + Guid.NewGuid(),
-            References = new List<Reference>
-            {
-                new()
+            BlobStoragePath = $"ttd/test-app/instance/data/{Guid.NewGuid()}",
+            References =
+            [
+                new Reference
                 {
                     Relation = RelationType.GeneratedFrom,
                     ValueType = ReferenceType.Task,
-                    Value = TargetTaskId,
+                    Value = _targetTaskId,
                 },
-            },
+            ],
         };
 }

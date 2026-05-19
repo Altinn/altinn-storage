@@ -103,10 +103,10 @@ public class ProcessDataCleanupService : IProcessDataCleanupService
 
     private async Task<int> GetStorageAccountNumber(Instance instance)
     {
-        (Application application, ServiceError? error) =
+        (Application? application, ServiceError? error) =
             await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
 
-        if (application.StorageAccountNumber is null)
+        if (application?.StorageAccountNumber is null)
         {
             throw new InvalidOperationException(
                 $"Failed to retrieve application for {instance.AppId}: [{error?.ErrorCode}] {error?.ErrorMessage}"
