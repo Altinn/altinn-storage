@@ -21,7 +21,6 @@ public class MetricsController(IMetricsService metricsService) : ControllerBase
     [HttpGet("instances")]
     [ApiExplorerSettings(IgnoreApi = true)]
     [Produces("application/octet-stream")]
-    // Service filter?
     public async Task<ActionResult> GetDailyInstanceStatistics(CancellationToken cancellationToken)
     {
         var data = await metricsService.GetDailyInstanceMetrics(cancellationToken);
