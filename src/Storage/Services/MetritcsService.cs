@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -64,8 +65,15 @@ public class MetricsService : IMetricsService
             date.Year,
             cancellationToken
         );
-        var metricsWithOrgNumbers = await AddOrgNumberToMetrics(metrics, cancellationToken);
-        return metricsWithOrgNumbers;
+        try
+        {
+            return await AddOrgNumberToMetrics(metrics, cancellationToken);
+        }
+        catch (InvalidOperationException e)
+        {
+            _logger.LogError(e, "Failed to add org number to metrics");
+            throw;
+        }
     }
 
     /// <inheritdoc/>
@@ -142,12 +150,22 @@ public class MetricsService : IMetricsService
             cancellationToken
         );
         response.EnsureSuccessStatusCode();
+
         string orgListString = await response.Content.ReadAsStringAsync(cancellationToken);
-        OrgList? orgList = JsonSerializer.Deserialize<OrgList>(orgListString, _serializerOptions);
+        OrgList? orgList = JsonSerializer.Deserialize<OrgList?>(orgListString, _serializerOptions);
+        if (orgList is null)
+            throw new InvalidOperationException($"Failed to deserialize {nameof(OrgList)}");
+
+        var organisations = orgList.orgs;
+        if (organisations is null)
+            throw new InvalidOperationException($"Failed to deserialize {nameof(orgList.orgs)}");
 
         foreach (DailyInstanceMetricsRecord record in metrics.Metrics)
         {
-            string? orgNumber = orgList?.orgs?[record.ServiceOwnerCode].Orgnr;
+            if (!organisations.TryGetValue(record.ServiceOwnerCode, out Org? org))
+                continue;
+
+            string? orgNumber = org?.Orgnr;
             record.ServiceOwnerOrgNumber = orgNumber is not null ? int.Parse(orgNumber) : null;
         }
         return metrics;
