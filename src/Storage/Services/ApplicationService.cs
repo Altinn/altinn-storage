@@ -59,8 +59,7 @@ public class ApplicationService : IApplicationService
     /// <summary>
     /// Wrapper method for getting an application or an error message using the application id.
     /// </summary>
-    /// <param name="appId">The application id</param>
-    /// <returns></returns>
+    /// <param name="appId">The application id (full {org}/{app} identifier)/</param>
     public async Task<(
         Application Application,
         ServiceError ServiceError
