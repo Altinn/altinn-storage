@@ -37,6 +37,7 @@ public class MetricsControllerTests(TestApplicationFactory<MetricsController> fa
     [Fact]
     public async Task Get_DailyMetrics_ReturnsOk()
     {
+        // Arrange
         Mock<IMetricsService> serviceMock = new();
         serviceMock
             .Setup(e => e.GetDailyInstanceMetrics(It.IsAny<CancellationToken>()))

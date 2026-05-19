@@ -19,7 +19,7 @@ public record DailyInstanceMetricsRecord
     /// <summary>
     /// Gets or sets the service owner org number.
     /// </summary>
-    public int ServiceOwnerOrgNumber { get; set; }
+    public int? ServiceOwnerOrgNumber { get; set; }
 
     /// <summary>
     /// Gets or sets the resource identifier.
