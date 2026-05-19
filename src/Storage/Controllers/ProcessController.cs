@@ -179,7 +179,10 @@ public class ProcessController : ControllerBase
         }
 
         ProcessState processState = processStateUpdate.State;
-        ArgumentNullException.ThrowIfNull(processState);
+        if (processState is null)
+        {
+            return BadRequest("Invalid instance state");
+        }
 
         if (!await _processAuthorizer.AuthorizeProcessNext(existingInstance, processState))
         {
