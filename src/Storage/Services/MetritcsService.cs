@@ -16,7 +16,7 @@ namespace Altinn.Platform.Storage.Services;
 public class MetricsService(IMetricsRepository metricsRepository, ILogger<MetricsService> logger)
     : IMetricsService
 {
-    private const int _daysOffsetForDailyMetrics = 1; // Fetch yesterdays metrics
+    private const int _daysOffsetForDailyMetrics = 1; // Fetch yesterday's metrics
 
     /// <inheritdoc/>
     public async Task<DailyMetrics<DailyInstanceMetricsRecord>> GetDailyInstanceMetrics(
