@@ -95,7 +95,7 @@ public class MetricsService(IMetricsRepository metricsRepository, ILogger<Metric
         return (memoryStream, hash, memoryStream.Length);
     }
 
-    private async Task<DailyMetrics<DailyInstanceMetricsRecord>> AddOrgNumberToMetrics(
+    private static async Task<DailyMetrics<DailyInstanceMetricsRecord>> AddOrgNumberToMetrics(
         DailyMetrics<DailyInstanceMetricsRecord> metrics
     )
     {
