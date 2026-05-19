@@ -147,7 +147,7 @@ public class MetricsService : IMetricsService
 
         foreach (DailyInstanceMetricsRecord record in metrics.Metrics)
         {
-            string? orgNumber = orgList?.orgs[record.ServiceOwnerCode].Orgnr;
+            string? orgNumber = orgList?.orgs?[record.ServiceOwnerCode].Orgnr;
             record.ServiceOwnerOrgNumber = orgNumber is not null ? int.Parse(orgNumber) : null;
         }
         return metrics;
