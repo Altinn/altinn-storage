@@ -42,9 +42,18 @@ public class PgMetricsRepository(NpgsqlDataSource dataSource) : IMetricsReposito
             {
                 DailyInstanceMetricsRecord instanceRow = new()
                 {
-                    ServiceOwnerCode = await reader.GetFieldValueAsync<string>("org", cancellationToken),
-                    ResourceTitle = await reader.GetFieldValueAsync<string>("appid", cancellationToken),
-                    InstanceCount = await reader.GetFieldValueAsync<int>("completed_instances", cancellationToken)
+                    ServiceOwnerCode = await reader.GetFieldValueAsync<string>(
+                        "org",
+                        cancellationToken
+                    ),
+                    ResourceTitle = await reader.GetFieldValueAsync<string>(
+                        "appid",
+                        cancellationToken
+                    ),
+                    InstanceCount = await reader.GetFieldValueAsync<int>(
+                        "completed_instances",
+                        cancellationToken
+                    ),
                 };
 
                 metrics.Metrics.Add(instanceRow);
