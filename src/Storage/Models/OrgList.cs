@@ -10,5 +10,5 @@ public class OrgList
     /// <summary>
     /// Dictionary of orgs
     /// </summary>
-    public Dictionary<string, Org>? orgs { get; set; }
+    public Dictionary<string, Org?>? orgs { get; set; }
 };
