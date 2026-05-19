@@ -11,7 +11,7 @@ namespace Altinn.Platform.Storage.Controllers;
 /// </summary>
 [Route("storage/api/v1/metrics")]
 [ApiController]
-public class MetricsController(IMetricsService metricsService) : Controller
+public class MetricsController(IMetricsService metricsService) : ControllerBase
 {
     /// <summary>
     /// Endpoint for triggering generation of daily instance metrics
