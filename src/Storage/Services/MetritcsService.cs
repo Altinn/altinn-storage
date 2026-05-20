@@ -165,7 +165,7 @@ public class MetricsService : IMetricsService
             if (!organisations.TryGetValue(record.ServiceOwnerCode, out Org? org))
                 continue;
 
-            string? orgNumber = org?.Orgnr;
+            string? orgNumber = org.Orgnr;
             record.ServiceOwnerOrgNumber = orgNumber is not null ? int.Parse(orgNumber) : null;
         }
         return metrics;
