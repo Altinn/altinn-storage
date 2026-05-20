@@ -1,0 +1,139 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Altinn.Common.AccessToken.Services;
+using Altinn.Platform.Storage.Controllers;
+using Altinn.Platform.Storage.Models.Metrics;
+using Altinn.Platform.Storage.Services;
+using Altinn.Platform.Storage.UnitTest.Fixture;
+using Altinn.Platform.Storage.UnitTest.Mocks;
+using Altinn.Platform.Storage.UnitTest.Mocks.Authentication;
+using Altinn.Platform.Storage.UnitTest.Utils;
+using AltinnCore.Authentication.JwtCookie;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Moq;
+using Xunit;
+
+namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
+
+public class MetricsControllerTests(TestApplicationFactory<MetricsController> factory)
+    : IClassFixture<TestApplicationFactory<MetricsController>>
+{
+    private readonly TestApplicationFactory<MetricsController> _factory = factory;
+
+    private const string _basePath = "storage/api/v1/metrics";
+    private const int _userId = 3;
+    private const int _partyId = 1337;
+
+    [Fact]
+    public async Task Get_DailyMetrics_ReturnsOk()
+    {
+        // Arrange
+        Mock<IMetricsService> serviceMock = new();
+        serviceMock
+            .Setup(e => e.GetDailyInstanceMetrics(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DailyMetrics<DailyInstanceMetricsRecord>());
+
+        MemoryStream stream = new(Encoding.UTF8.GetBytes("test"));
+        serviceMock
+            .Setup(e =>
+                e.GetParquetFile(
+                    It.IsAny<DailyMetrics<DailyInstanceMetricsRecord>>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                new MetricsSummary
+                {
+                    GeneratedAt = DateTimeOffset.UtcNow,
+                    FileName = "instancemetrics",
+                    FileStream = stream,
+                    FileSizeBytes = stream.Length,
+                    TotalFileTransferCount = 1,
+                    FileHash = "dummyhash",
+                }
+            );
+
+        HttpClient client = GetTestClient(serviceMock);
+        string? token = PrincipalUtil.GetToken(_userId, _partyId, 2);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        const string uri = $"{_basePath}/instances";
+        using HttpRequestMessage message = new(HttpMethod.Get, uri);
+
+        // Act
+        using HttpResponseMessage response = await client.SendAsync(
+            message,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/octet-stream", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("dummyhash", response.Headers.GetValues("X-File-Hash").FirstOrDefault());
+        Assert.Equal("4", response.Headers.GetValues("X-File-Size").FirstOrDefault());
+        Assert.Equal(
+            "1",
+            response.Headers.GetValues("X-Total-FileTransfer-Count").FirstOrDefault()
+        );
+        Assert.NotNull(response.Headers.GetValues("X-Generated-At").FirstOrDefault());
+
+        serviceMock.Verify(
+            e => e.GetDailyInstanceMetrics(It.IsAny<CancellationToken>()),
+            Times.Once
+        );
+        serviceMock.Verify(
+            e =>
+                e.GetParquetFile(
+                    It.IsAny<DailyMetrics<DailyInstanceMetricsRecord>>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+    }
+
+    private HttpClient GetTestClient(Mock<IMetricsService>? metricsService = null)
+    {
+        HttpClient client = _factory
+            .WithWebHostBuilder(builder =>
+            {
+                IConfiguration configuration = new ConfigurationBuilder()
+                    .AddJsonFile(ServiceUtil.GetAppsettingsPath())
+                    .Build();
+                builder.ConfigureAppConfiguration(
+                    (_, config) =>
+                    {
+                        config.AddConfiguration(configuration);
+                    }
+                );
+
+                builder.ConfigureTestServices(services =>
+                {
+                    if (metricsService is not null)
+                    {
+                        services.AddSingleton(metricsService.Object);
+                    }
+
+                    services.AddSingleton<
+                        IPostConfigureOptions<JwtCookieOptions>,
+                        JwtCookiePostConfigureOptionsStub
+                    >();
+                    services.AddSingleton<
+                        IPublicSigningKeyProvider,
+                        PublicSigningKeyProviderMock
+                    >();
+                });
+            })
+            .CreateClient();
+
+        return client;
+    }
+}

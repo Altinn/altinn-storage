@@ -358,6 +358,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddTransient<IProcessDataCleanupService, ProcessDataCleanupService>();
     services.AddSingleton<IApplicationService, ApplicationService>();
     services.AddSingleton<IA2OndemandFormattingService, A2OndemandFormattingService>();
+    services.AddScoped<IMetricsService, MetricsService>();
 
     services.AddHttpClient<IPartiesWithInstancesClient, PartiesWithInstancesClient>();
     services.AddHttpClient<ICorrespondenceClient, CorrespondenceClient>();
