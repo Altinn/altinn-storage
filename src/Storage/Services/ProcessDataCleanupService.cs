@@ -66,7 +66,7 @@ public class ProcessDataCleanupService : IProcessDataCleanupService
             instance.Id
         );
 
-        int storageAccountNumber = await GetStorageAccountNumber(instance);
+        int? storageAccountNumber = await GetStorageAccountNumber(instance);
         int deleted = 0;
         foreach (DataElement dataElement in stale)
         {
@@ -101,18 +101,18 @@ public class ProcessDataCleanupService : IProcessDataCleanupService
         return deleted;
     }
 
-    private async Task<int> GetStorageAccountNumber(Instance instance)
+    private async Task<int?> GetStorageAccountNumber(Instance instance)
     {
         (Application? application, ServiceError? error) =
             await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
 
-        if (application?.StorageAccountNumber is null)
+        if (application is null)
         {
             throw new InvalidOperationException(
                 $"Failed to retrieve application for {instance.AppId}: [{error?.ErrorCode}] {error?.ErrorMessage}"
             );
         }
 
-        return application.StorageAccountNumber.Value;
+        return application.StorageAccountNumber;
     }
 }
