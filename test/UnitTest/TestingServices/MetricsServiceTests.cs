@@ -22,7 +22,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices;
 
 public class MetricsServiceTests
 {
-    private static readonly JsonSerializerOptions _JsonOptions = new()
+    private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         WriteIndented = true,
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
@@ -41,7 +41,7 @@ public class MetricsServiceTests
             ResourceId = "123456",
             ResourceTitle = "Test",
             ServiceOwnerCode = "digdir",
-            ServiceOwnerOrgNumber = 991825827,
+            ServiceOwnerOrgNumber = 0,
         };
         DailyMetrics<DailyInstanceMetricsRecord> metrics = new()
         {
@@ -51,14 +51,15 @@ public class MetricsServiceTests
             Metrics = [record],
         };
 
+        const int orgNr = 991825827;
         Org org = new()
         {
-            Orgnr = "991825827",
+            Orgnr = orgNr.ToString(),
             Name = new Dictionary<string, string> { { "nb", "Digitaliseringsdirektoratet" } },
         };
         OrgList orgList = new() { orgs = new Dictionary<string, Org> { { "digdir", org } } };
 
-        string content = JsonSerializer.Serialize(orgList, _JsonOptions);
+        string content = JsonSerializer.Serialize(orgList, _jsonOptions);
         Mock<HttpMessageHandler> mockHandler = new(behavior: MockBehavior.Strict);
         mockHandler
             .Protected()
@@ -103,7 +104,7 @@ public class MetricsServiceTests
         Assert.Equal(record.ResourceId, response.Metrics[0].ResourceId);
         Assert.Equal(record.ResourceTitle, response.Metrics[0].ResourceTitle);
         Assert.Equal(record.ServiceOwnerCode, response.Metrics[0].ServiceOwnerCode);
-        Assert.Equal(record.ServiceOwnerOrgNumber, response.Metrics[0].ServiceOwnerOrgNumber);
+        Assert.Equal(orgNr, response.Metrics[0].ServiceOwnerOrgNumber);
 
         metricsRepositoryMock.Verify(
             e =>

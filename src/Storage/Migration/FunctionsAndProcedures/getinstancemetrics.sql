@@ -17,6 +17,8 @@ BEGIN
             count(i.id) AS CompletedInstances
         FROM storage.instances i
         WHERE (i.instance -> 'Status' ->> 'IsArchived')::BOOL = TRUE
+            AND i.instance -> 'Status' ? 'Archived'
+            AND NULLIF(i.instance -> 'Status' ->> 'Archived', '') IS NOT NULL
 		    AND (i.instance -> 'Status' ->> 'Archived')::TIMESTAMPTZ >= start_date
 		    AND (i.instance -> 'Status' ->> 'Archived')::TIMESTAMPTZ < start_date + INTERVAL '1 day'
 		    AND i.altinnmainversion = 3

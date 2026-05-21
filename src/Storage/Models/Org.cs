@@ -35,6 +35,6 @@ public class Org
     /// <summary>
     /// The environments available for the organzation
     /// </summary>
-    [JsonPropertyName("enviorments")]
+    [JsonPropertyName("environments")]
     public List<string> Environments { get; set; } = [];
 }
