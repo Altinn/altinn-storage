@@ -9,7 +9,7 @@ public record DailyInstanceMetricsRecord
     /// Gets or sets the number of instances stored.
     /// Aggregated by Day, ResourceId, and ServiceOwnerCode
     /// </summary>
-    public int InstanceCount { get; set; }
+    public long InstanceCount { get; set; }
 
     /// <summary>
     /// Gets or sets the service owner code.

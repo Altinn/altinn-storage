@@ -42,7 +42,7 @@ $BODY$;
 -- deletedataelement.sql:
 CREATE OR REPLACE FUNCTION storage.deletedataelement_v2(_alternateid UUID, _instanceGuid UUID, _lastChangedBy TEXT)
     RETURNS INT
-    LANGUAGE 'plpgsql'
+    LANGUAGE 'plpgsql'	
 AS $BODY$
 DECLARE
     _deleteCount INTEGER;
@@ -57,7 +57,7 @@ BEGIN
         SET lastchanged = NOW(),
             instance = instance
                 || jsonb_set('{"LastChanged":""}', '{LastChanged}', to_jsonb(REPLACE((NOW() AT TIME ZONE 'UTC')::TEXT, ' ', 'T') || 'Z'))
-                || jsonb_set('{"LastChangedBy":""}', '{LastChangedBy}', to_jsonb(_lastChangedBy))
+                || jsonb_set('{"LastChangedBy":""}', '{LastChangedBy}', to_jsonb(_lastChangedBy))            
         WHERE alternateid = (SELECT instanceguid FROM storage.dataelements WHERE alternateid = _alternateid);
 
     DELETE FROM storage.dataelements WHERE alternateid = _alternateid;
@@ -70,7 +70,7 @@ $BODY$;
 -- deletedataelements.sql:
 CREATE OR REPLACE FUNCTION storage.deletedataelements(_instanceguid UUID)
     RETURNS INT
-    LANGUAGE 'plpgsql'
+    LANGUAGE 'plpgsql'	
 AS $BODY$
 DECLARE
     _deleteCount INTEGER;
@@ -79,7 +79,7 @@ BEGIN
         SET lastchanged = NOW(),
             instance = instance
                 || jsonb_set('{"LastChanged":""}', '{LastChanged}', to_jsonb(REPLACE((NOW() AT TIME ZONE 'UTC')::TEXT, ' ', 'T') || 'Z'))
-                || jsonb_set('{"LastChangedBy":""}', '{LastChangedBy}', to_jsonb('altinn'::TEXT))
+                || jsonb_set('{"LastChangedBy":""}', '{LastChangedBy}', to_jsonb('altinn'::TEXT))   
         WHERE alternateid = _instanceguid;
 
     DELETE FROM storage.dataelements d
@@ -93,7 +93,7 @@ $BODY$;
 -- deleteinstance.sql:
 CREATE OR REPLACE FUNCTION storage.deleteinstance(_alternateid UUID)
     RETURNS INT
-    LANGUAGE 'plpgsql'
+    LANGUAGE 'plpgsql'	
 AS $BODY$
 DECLARE
     _deleteCount INTEGER;
@@ -107,7 +107,7 @@ $BODY$;
 -- deleteinstanceevent.sql:
 CREATE OR REPLACE FUNCTION storage.deleteinstanceevent(_instance UUID)
     RETURNS INT
-    LANGUAGE 'plpgsql'
+    LANGUAGE 'plpgsql'	
 AS $BODY$
 DECLARE
     _deleteCount INTEGER;
@@ -132,10 +132,10 @@ $BODY$;
 CREATE OR REPLACE FUNCTION storage.filterinstanceevent(_instance UUID, _from TIMESTAMPTZ, _to TIMESTAMPTZ, _eventtype TEXT[])
     RETURNS TABLE (event JSONB)
     LANGUAGE 'plpgsql'
-
+    
 AS $BODY$
 BEGIN
-RETURN QUERY
+RETURN QUERY 
     SELECT ie.event
     FROM storage.instanceevents ie
     WHERE instance = _instance
@@ -151,7 +151,7 @@ CREATE OR REPLACE FUNCTION storage.get_instance_metrics(
     day_input integer,
     month_input integer,
     year_input integer)
-    RETURNS TABLE (org TEXT, appid TEXT, completed_instances bigint)
+    RETURNS TABLE (appid TEXT, completed_instances bigint)
     LANGUAGE 'plpgsql'
 
 AS $BODY$
@@ -161,17 +161,16 @@ BEGIN
     start_date = MAKE_TIMESTAMPTZ(year_input, month_input, day_input, 0, 0, 0, 'UTC');
     RETURN QUERY
         SELECT
-            i.org,
             i.appid,
             count(i.id) AS CompletedInstances
         FROM storage.instances i
         WHERE (i.instance -> 'Status' ->> 'IsArchived')::BOOL = TRUE
             AND i.instance -> 'Status' ? 'Archived'
             AND NULLIF(i.instance -> 'Status' ->> 'Archived', '') IS NOT NULL
-		    AND (i.instance -> 'Status' ->> 'Archived')::TIMESTAMPTZ >= start_date
-		    AND (i.instance -> 'Status' ->> 'Archived')::TIMESTAMPTZ < start_date + INTERVAL '1 day'
-		    AND i.altinnmainversion = 3
-        GROUP BY i.org, i.appid;
+            AND (i.instance -> 'Status' ->> 'Archived')::TIMESTAMPTZ >= start_date
+            AND (i.instance -> 'Status' ->> 'Archived')::TIMESTAMPTZ < start_date + INTERVAL '1 day'
+            AND i.altinnmainversion = 3
+        GROUP BY i.appid;
 END;
 $BODY$;
 
@@ -194,7 +193,7 @@ AS $BODY$
 BEGIN
     INSERT INTO storage.a2codelists (name, language, version, codelist) VALUES
         (_name, _language, _version, _codelist)
-		ON CONFLICT (name, language, version) DO UPDATE SET codelist = _codelist;
+		ON CONFLICT (name, language, version) DO UPDATE SET codelist = _codelist;	
 END;
 $BODY$;
 
@@ -248,7 +247,7 @@ BEGIN
     ELSE
         INSERT INTO storage.a2xsls (org, app, applicationinternalid, parentid, lformid, language, pagenumber, xsl, xsltype, isportrait) VALUES
             (_org, _app, _applicationinternalid, NULL, _lformid, _language, _pagenumber, _xsl, _xsltype, _isportrait)
-            ON CONFLICT (app, org, lformid, pagenumber, language, xsltype) DO UPDATE SET xsl = _xsl;
+            ON CONFLICT (app, org, lformid, pagenumber, language, xsltype) DO UPDATE SET xsl = _xsl;			
     END IF;
 END;
 $BODY$;
@@ -287,7 +286,7 @@ $BODY$;
 
 -- insertinstance.sql:
 CREATE OR REPLACE PROCEDURE storage.insertinstance_v3(_partyid BIGINT, _alternateid UUID, _instance JSONB, _created TIMESTAMPTZ, _lastchanged TIMESTAMPTZ, _org TEXT, _appid TEXT, _taskid TEXT, _altinnmainversion INT, _confirmed BOOLEAN)
-    LANGUAGE 'plpgsql'
+    LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
     INSERT INTO storage.instances(partyid, alternateid, instance, created, lastchanged, org, appid, taskid, altinnmainversion, confirmed)
@@ -297,7 +296,7 @@ $BODY$;
 
 -- insertinstanceevent.sql:
 CREATE OR REPLACE PROCEDURE storage.insertinstanceevent(_instance UUID, _alternateid UUID, _event JSONB)
-    LANGUAGE 'plpgsql'
+    LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
 	-- Dummy comment to verify that new migration solution works end to end
@@ -308,11 +307,11 @@ $BODY$;
 -- insertinstanceevents.sql:
 
 CREATE OR REPLACE PROCEDURE storage.insertinstanceevents(_instance UUID, _events JSONB)
-    LANGUAGE 'plpgsql'
+    LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
 	INSERT INTO storage.instanceevents (instance, alternateid, event)
-	SELECT _instance, (evs->>'Id')::UUID, jsonb_strip_nulls(evs)
+	SELECT _instance, (evs->>'Id')::UUID, jsonb_strip_nulls(evs) 
 	FROM jsonb_array_elements(_events) evs;
 END;
 $BODY$;
@@ -321,10 +320,10 @@ $BODY$;
 CREATE OR REPLACE FUNCTION storage.reada1migrationstate(_a1archivereference BIGINT)
     RETURNS TABLE (instanceguid UUID)
     LANGUAGE 'plpgsql'
-
+    
 AS $BODY$
 BEGIN
-RETURN QUERY
+RETURN QUERY 
     SELECT ms.instanceguid FROM storage.a1migrationstate ms WHERE ms.a1archivereference = _a1archivereference;
 END;
 $BODY$;
@@ -333,7 +332,7 @@ $BODY$;
 CREATE OR REPLACE FUNCTION storage.reada2codelist(_name TEXT, _language TEXT)
     RETURNS TABLE (codelist TEXT)
     LANGUAGE 'plpgsql'
-
+    
 AS $BODY$
 BEGIN
 RETURN QUERY
@@ -347,7 +346,7 @@ $BODY$;
 CREATE OR REPLACE FUNCTION storage.reada2image(_name TEXT)
     RETURNS TABLE (image BYTEA)
     LANGUAGE 'plpgsql'
-
+    
 AS $BODY$
 BEGIN
 RETURN QUERY
@@ -356,7 +355,7 @@ RETURN QUERY
             WHEN c.image IS NOT NULL THEN c.image
             ELSE (SELECT p.image FROM storage.a2images p WHERE p.id = c.parentid)
         END
-    FROM storage.a2images c WHERE c.name = _name;
+    FROM storage.a2images c WHERE c.name = _name; 
 END;
 $BODY$;
 
@@ -364,10 +363,10 @@ $BODY$;
 CREATE OR REPLACE FUNCTION storage.reada2migrationstate(_a2archivereference BIGINT)
     RETURNS TABLE (instanceguid UUID)
     LANGUAGE 'plpgsql'
-
+    
 AS $BODY$
 BEGIN
-RETURN QUERY
+RETURN QUERY 
     SELECT ms.instanceguid FROM storage.a2migrationstate ms WHERE ms.a2archivereference = _a2archivereference;
 END;
 $BODY$;
@@ -376,10 +375,10 @@ $BODY$;
 CREATE OR REPLACE FUNCTION storage.reada2xsls(_org TEXT, _app TEXT, _lformid INT, _language TEXT, _xsltype INT)
     RETURNS TABLE (xsl TEXT, isportrait BOOL)
     LANGUAGE 'plpgsql'
-
+    
 AS $BODY$
 BEGIN
-RETURN QUERY
+RETURN QUERY 
     SELECT
         CASE
             WHEN x.xsl IS NOT NULL THEN x.xsl
@@ -397,10 +396,10 @@ $BODY$;
 CREATE OR REPLACE FUNCTION storage.readdataelement(_alternateid UUID)
     RETURNS TABLE (element JSONB)
     LANGUAGE 'plpgsql'
-
+    
 AS $BODY$
 BEGIN
-RETURN QUERY
+RETURN QUERY 
     SELECT d.element FROM storage.dataelements d WHERE alternateid = _alternateid;
 
 END;
@@ -425,7 +424,7 @@ $BODY$;
 -- readdeletedelements.sql:
 CREATE OR REPLACE FUNCTION storage.readdeletedelements()
     RETURNS TABLE (id BIGINT, instance JSONB, element JSONB)
-    LANGUAGE 'plpgsql'
+    LANGUAGE 'plpgsql'  
 AS $BODY$
 BEGIN
     -- Force nested loop join to avoid hash join on large instances table
@@ -434,7 +433,7 @@ BEGIN
     SET LOCAL enable_mergejoin = off;
 
     RETURN QUERY
-    SELECT i.id, i.instance, d.element
+    SELECT i.id, i.instance, d.element 
     FROM (
         -- Target index dataelements_isharddeleted
         SELECT instanceinternalid, de.element
@@ -452,7 +451,7 @@ $BODY$;
 CREATE OR REPLACE FUNCTION storage.readdeletedinstances()
     RETURNS TABLE (instance JSONB)
     LANGUAGE 'plpgsql'
-
+    
 AS $BODY$
 BEGIN
 RETURN QUERY
@@ -472,10 +471,10 @@ $BODY$;
 CREATE OR REPLACE FUNCTION storage.readinstance(_alternateid UUID)
     RETURNS TABLE (id BIGINT, instance JSONB, element JSONB)
     LANGUAGE 'plpgsql'
-
+    
 AS $BODY$
 BEGIN
-RETURN QUERY
+RETURN QUERY 
     SELECT i.id, i.instance, d.element FROM storage.instances i
         LEFT JOIN storage.dataelements d ON i.id = d.instanceinternalid
         WHERE i.alternateid = _alternateid
@@ -489,10 +488,10 @@ $BODY$;
 CREATE OR REPLACE FUNCTION storage.readinstanceevent(_alternateid UUID)
     RETURNS TABLE (event JSONB)
     LANGUAGE 'plpgsql'
-
+    
 AS $BODY$
 BEGIN
-RETURN QUERY
+RETURN QUERY 
     SELECT ie.event FROM storage.instanceevents ie WHERE alternateid = _alternateid;
 
 END;
@@ -556,7 +555,7 @@ CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v6(
     )
     RETURNS TABLE (id BIGINT, instance JSONB, element JSONB)
     LANGUAGE 'plpgsql'
-
+    
 AS $BODY$
 BEGIN
     IF _sort_ascending IS NULL THEN
@@ -568,12 +567,12 @@ BEGIN
     (
         SELECT i.id, i.instance, i.lastchanged FROM storage.instances i
         WHERE 1 = 1
-            AND (_confirmed IS NULL OR _confirmed = confirmed)
+            AND (_confirmed IS NULL OR _confirmed = confirmed)            
             AND (_continue_idx <= 0 OR
                 (_continue_idx > 0 AND _sort_ascending = true  AND (i.lastchanged > _lastChanged_idx OR (i.lastchanged = _lastChanged_idx AND i.id > _continue_idx))) OR
                 (_continue_idx > 0 AND _sort_ascending = false AND (i.lastchanged < _lastChanged_idx OR (i.lastchanged = _lastChanged_idx AND i.id < _continue_idx))))
             AND (_appId IS NULL OR i.appid = _appId)
-            AND (_archiveReference IS NULL OR i.instance ->> 'Id' like '%' || _archiveReference)
+            AND (_archiveReference IS NULL OR i.instance ->> 'Id' like '%' || _archiveReference)		
             AND (_created_gte IS NULL OR i.created >= _created_gte)
             AND (_created_gt  IS NULL OR i.created >  _created_gt)
             AND (_created_lte IS NULL OR i.created <= _created_lte)
@@ -608,11 +607,11 @@ BEGIN
             AND (_process_ended_eq  IS NULL OR i.instance -> 'Process' ->> 'Ended' =  _process_ended_eq)
             AND (_process_isComplete IS NULL OR (_process_isComplete = TRUE AND i.instance -> 'Process' -> 'Ended' IS NOT NULL) OR (_process_isComplete = FALSE AND i.instance -> 'Process' -> 'CurrentTask' IS NOT NULL))
             AND (_search_string IS NULL OR (i.appid = ANY(_appIds) OR (EXISTS (SELECT value FROM jsonb_each_text(i.instance -> 'PresentationTexts') WHERE value ilike _search_string))))
-            AND ((_status_isActiveOrSoftDeleted IS NULL OR _status_isActiveOrSoftDeleted = false) OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = false OR (i.instance -> 'Status' -> 'IsSoftDeleted')::boolean = true))
+            AND ((_status_isActiveOrSoftDeleted IS NULL OR _status_isActiveOrSoftDeleted = false) OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = false OR (i.instance -> 'Status' -> 'IsSoftDeleted')::boolean = true))           
             AND (_status_isArchived IS NULL OR  (i.instance -> 'Status' -> 'IsArchived')::boolean = _status_isArchived)
-            AND ((_status_isArchivedOrSoftDeleted IS NULL OR _status_isArchivedOrSoftDeleted = false) OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = true OR (i.instance -> 'Status' -> 'IsSoftDeleted')::boolean = true))
+            AND ((_status_isArchivedOrSoftDeleted IS NULL OR _status_isArchivedOrSoftDeleted = false) OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = true OR (i.instance -> 'Status' -> 'IsSoftDeleted')::boolean = true))                
             AND (_status_isHardDeleted IS NULL OR  (i.instance -> 'Status' -> 'IsHardDeleted')::boolean = _status_isHardDeleted)
-            AND (_status_isSoftDeleted IS NULL OR  (i.instance -> 'Status' -> 'IsSoftDeleted')::boolean = _status_isSoftDeleted)
+            AND (_status_isSoftDeleted IS NULL OR  (i.instance -> 'Status' -> 'IsSoftDeleted')::boolean = _status_isSoftDeleted)                     
             AND (_visibleAfter_gte IS NULL OR i.instance ->> 'VisibleAfter' >= _visibleAfter_gte)
             AND (_visibleAfter_gt  IS NULL OR i.instance ->> 'VisibleAfter' >  _visibleAfter_gt)
             AND (_visibleAfter_lte IS NULL OR i.instance ->> 'VisibleAfter' <= _visibleAfter_lte)
@@ -637,10 +636,10 @@ $BODY$;
 CREATE OR REPLACE FUNCTION storage.readinstancenoelements(_alternateid UUID)
     RETURNS TABLE (id BIGINT, instance JSONB)
     LANGUAGE 'plpgsql'
-
+    
 AS $BODY$
 BEGIN
-RETURN QUERY
+RETURN QUERY 
     SELECT i.id, i.instance FROM storage.instances i
         WHERE i.alternateid = _alternateid;
 END;
@@ -669,7 +668,7 @@ $BODY$;
 -- updatedataelement.sql:
 CREATE OR REPLACE FUNCTION storage.updatedataelement_v2(_dataelementGuid UUID, _instanceGuid UUID, _elementChanges JSONB, _instanceChanges JSONB, _isReadChangedToFalse BOOL, _lastChanged TIMESTAMPTZ)
     RETURNS TABLE (updatedElement JSONB)
-    LANGUAGE 'plpgsql'
+    LANGUAGE 'plpgsql'	
 AS $BODY$
 DECLARE
     _lastChanged6digits TEXT;
@@ -694,7 +693,7 @@ BEGIN
     THEN
         UPDATE storage.instances
             SET lastchanged = _lastChanged,
-                instance = instance || _instanceChanges || jsonb_set('{"LastChanged":""}', '{LastChanged}', to_jsonb(_lastChanged6digits))
+                instance = instance || _instanceChanges || jsonb_set('{"LastChanged":""}', '{LastChanged}', to_jsonb(_lastChanged6digits))   
             WHERE alternateid = _instanceGuid;
     END IF;
 
@@ -718,7 +717,7 @@ CREATE OR REPLACE FUNCTION storage.updateinstance_v3(
         _taskid TEXT,
         _confirmed BOOLEAN DEFAULT NULL)
     RETURNS TABLE (updatedInstance JSONB)
-    LANGUAGE 'plpgsql'
+    LANGUAGE 'plpgsql'	
 AS $BODY$
 BEGIN
     IF _datavalues IS NOT NULL THEN
@@ -823,7 +822,7 @@ BEGIN
                         ELSE
                             _status
                         END
-                    ),
+                    ),                
                 lastchanged = _lastchanged,
                 confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END,
                 taskid = _taskid
@@ -837,12 +836,12 @@ BEGIN
                         instance || _toplevelsimpleprops,
                         '{Process}',
                         jsonb_strip_nulls(_process)
-                    ),
+                    ),               
                 lastchanged = _lastchanged,
                 confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END,
                 taskid = _taskid
             WHERE _alternateid = alternateid
-            RETURNING instance;
+            RETURNING instance;                
     ELSE
         RAISE EXCEPTION 'Unexpected parameters to update instance';
     END IF;
