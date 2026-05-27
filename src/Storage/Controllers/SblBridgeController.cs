@@ -57,6 +57,7 @@ public class SblBridgeController : ControllerBase
     [Authorize(Policy = AuthzConstants.POLICY_CORRESPONDENCE_SBLBRIDGE)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status410Gone)]
     [Produces("application/json")]
     [Obsolete("This endpoint is deprecated and will be removed in a future version.")]
     public async Task<ActionResult> RegisterAltinn3CorrespondenceRecipient(
@@ -87,6 +88,7 @@ public class SblBridgeController : ControllerBase
     [Authorize(Policy = AuthzConstants.POLICY_CORRESPONDENCE_SBLBRIDGE)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status410Gone)]
     [ProducesResponseType(StatusCodes.Status502BadGateway)]
     [ProducesResponseType(StatusCodes.Status504GatewayTimeout)]
     [Produces("application/json")]

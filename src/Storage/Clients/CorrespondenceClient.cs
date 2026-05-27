@@ -35,22 +35,25 @@ public class CorrespondenceClient : ICorrespondenceClient
     {
         _generalSettings = generalSettings.Value;
         _client = client;
-        var endpoint = _generalSettings.BridgeApiCorrespondenceEndpoint;
-        if (endpoint is null)
+        if (!_generalSettings.DisableA2Endpoints)
         {
-            throw new InvalidOperationException(
-                "GeneralSettings.BridgeApiCorrespondenceEndpoint must be configured."
-            );
-        }
+            var endpoint = _generalSettings.BridgeApiCorrespondenceEndpoint;
+            if (endpoint is null)
+            {
+                throw new InvalidOperationException(
+                    "GeneralSettings.BridgeApiCorrespondenceEndpoint must be configured."
+                );
+            }
 
-        // Ensure trailing slash so relative routes append rather than replace the last segment
-        var endpointStr = endpoint.ToString().Trim();
-        if (!endpointStr.EndsWith('/'))
-        {
-            endpoint = new Uri(endpointStr + "/", UriKind.Absolute);
-        }
+            // Ensure trailing slash so relative routes append rather than replace the last segment
+            var endpointStr = endpoint.ToString().Trim();
+            if (!endpointStr.EndsWith('/'))
+            {
+                endpoint = new Uri(endpointStr + "/", UriKind.Absolute);
+            }
 
-        _client.BaseAddress = endpoint;
+            _client.BaseAddress = endpoint;
+        }
 
         _client.Timeout = new TimeSpan(0, 0, 30);
         _client.DefaultRequestHeaders.Clear();
