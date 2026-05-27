@@ -674,7 +674,9 @@ public class StudioInstancesControllerTests
             ir =>
                 ir.Update(
                     It.Is<Instance>(i =>
-                        i.Status.IsSoftDeleted == true && i.Status.SoftDeleted != null
+                        i.Status.IsSoftDeleted == true
+                        && i.Status.SoftDeleted != null
+                        && i.LastChangedBy == "ttd"
                     ),
                     It.IsAny<List<string>>(),
                     It.IsAny<CancellationToken>()
@@ -682,7 +684,13 @@ public class StudioInstancesControllerTests
             Times.Once
         );
         instanceEventServiceMock.Verify(
-            s => s.DispatchEvent(InstanceEventType.Deleted, It.IsAny<Instance>()),
+            s =>
+                s.DispatchEvent(
+                    InstanceEventType.Deleted,
+                    It.IsAny<Instance>(),
+                    It.Is<PlatformUser>(u => u.OrgId == "ttd"),
+                    It.IsAny<string>()
+                ),
             Times.Once
         );
     }

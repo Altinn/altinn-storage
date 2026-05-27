@@ -212,7 +212,7 @@ public class StudioInstancesController : ControllerBase
         instance.Status.IsSoftDeleted = true;
         instance.Status.SoftDeleted = now;
 
-        instance.LastChangedBy = "studio_designer";
+        instance.LastChangedBy = instance.Org;
         instance.LastChanged = now;
         updateProperties.Add(nameof(instance.LastChanged));
         updateProperties.Add(nameof(instance.LastChangedBy));
@@ -225,7 +225,13 @@ public class StudioInstancesController : ControllerBase
                 ct
             );
 
-            await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, deletedInstance);
+            PlatformUser studioUser = new() { OrgId = deletedInstance.Org };
+            await _instanceEventService.DispatchEvent(
+                InstanceEventType.Deleted,
+                deletedInstance,
+                studioUser,
+                "Instance soft deleted by app owner via Altinn Studio"
+            );
 
             return NoContent();
         }

@@ -67,6 +67,28 @@ public class InstanceEventService : IInstanceEventService
     public async Task DispatchEvent(
         InstanceEventType eventType,
         Instance instance,
+        PlatformUser user,
+        string additionalInfo = null
+    )
+    {
+        InstanceEvent instanceEvent = new()
+        {
+            EventType = eventType.ToString(),
+            InstanceId = instance.Id,
+            InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
+            User = user,
+            AdditionalInfo = additionalInfo,
+            ProcessInfo = instance.Process,
+            Created = DateTime.UtcNow,
+        };
+
+        await _repository.InsertInstanceEvent(instanceEvent, instance);
+    }
+
+    /// <inheritdoc/>
+    public async Task DispatchEvent(
+        InstanceEventType eventType,
+        Instance instance,
         DataElement dataElement
     )
     {
