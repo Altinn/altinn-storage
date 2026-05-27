@@ -53,13 +53,12 @@ public class CorrespondenceClient : ICorrespondenceClient
             }
 
             _client.BaseAddress = endpoint;
+            _client.Timeout = new TimeSpan(0, 0, 30);
+            _client.DefaultRequestHeaders.Clear();
+            _client.DefaultRequestHeaders.Accept.Add(
+                new MediaTypeWithQualityHeaderValue("application/json")
+            );
         }
-
-        _client.Timeout = new TimeSpan(0, 0, 30);
-        _client.DefaultRequestHeaders.Clear();
-        _client.DefaultRequestHeaders.Accept.Add(
-            new MediaTypeWithQualityHeaderValue("application/json")
-        );
     }
 
     /// <inheritdoc />
