@@ -174,7 +174,7 @@ public class StudioInstancesController : ControllerBase
 
         (instance, _) = await _instanceRepository.GetOne(instanceGuid, false, ct);
 
-        if (instance == null)
+        if (instance == null || instance.Org != org || instance.AppId != $"{org}/{app}")
         {
             return NotFound(
                 $"Didn't find the object that should be deleted with instanceId={org}/{app}/{instanceGuid}"
