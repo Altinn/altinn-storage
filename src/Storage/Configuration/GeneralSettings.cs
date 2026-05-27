@@ -102,7 +102,7 @@ public class GeneralSettings
     public bool AuthorizeA2ListInstancesSign { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets whether to disable A2 endpoints.
+    /// Gets or sets whether to disable Altinn 2 endpoints.
     /// </summary>
     public bool DisableA2Endpoints { get; set; } = false;
 }
