@@ -15,6 +15,7 @@ namespace Altinn.Platform.Storage.Clients;
 /// </summary>
 public class CorrespondenceClient : ICorrespondenceClient
 {
+    private readonly GeneralSettings _generalSettings;
     private readonly HttpClient _client;
     private readonly Dictionary<string, string> _routes = new Dictionary<string, string>(
         StringComparer.OrdinalIgnoreCase
@@ -32,8 +33,9 @@ public class CorrespondenceClient : ICorrespondenceClient
     /// <param name="generalSettings">The general settings configured for Storage.</param>
     public CorrespondenceClient(HttpClient client, IOptions<GeneralSettings> generalSettings)
     {
+        _generalSettings = generalSettings.Value;
         _client = client;
-        var endpoint = generalSettings.Value.BridgeApiCorrespondenceEndpoint;
+        var endpoint = _generalSettings.BridgeApiCorrespondenceEndpoint;
         if (endpoint is null)
         {
             throw new InvalidOperationException(
@@ -65,6 +67,8 @@ public class CorrespondenceClient : ICorrespondenceClient
         string eventType
     )
     {
+        if (_generalSettings.DisableA2Endpoints) return;
+
         if (!_routes.TryGetValue(eventType, out string route))
         {
             throw new ArgumentException($"Invalid event type: {eventType}", nameof(eventType));

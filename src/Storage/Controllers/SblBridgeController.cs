@@ -5,11 +5,13 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Clients;
+using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace Altinn.Platform.Storage.Controllers;
 
@@ -34,15 +36,18 @@ public class SblBridgeController : ControllerBase
     /// </summary>
     public SblBridgeController(
         IPartiesWithInstancesClient partiesWithInstancesClient,
-        ICorrespondenceClient correspondenceClient
+        ICorrespondenceClient correspondenceClient,
+        IOptions<GeneralSettings> generalSettings
     )
     {
         _partiesWithInstancesClient = partiesWithInstancesClient;
         _correspondenceClient = correspondenceClient;
+        _generalSettings = generalSettings.Value;
     }
 
     private readonly IPartiesWithInstancesClient _partiesWithInstancesClient;
     private readonly ICorrespondenceClient _correspondenceClient;
+    private readonly GeneralSettings _generalSettings;
 
     /// <summary>
     /// Endpoint to register Altinn 3 Correspondence recipient in SBL Bridge
@@ -53,10 +58,18 @@ public class SblBridgeController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces("application/json")]
+    [Obsolete("This endpoint is deprecated and will be removed in a future version.")]
     public async Task<ActionResult> RegisterAltinn3CorrespondenceRecipient(
         [FromBody] SblBridgeParty sblBridgeParty
     )
     {
+        if (_generalSettings.DisableA2Endpoints)
+        {
+            return StatusCode(
+                StatusCodes.Status410Gone,
+                "This endpoint is disabled because Altinn 2 is no longer supported."
+            );
+        }
         if (sblBridgeParty.PartyId <= 0)
         {
             return BadRequest("PartyId must be larger than zero");
@@ -77,10 +90,19 @@ public class SblBridgeController : ControllerBase
     [ProducesResponseType(StatusCodes.Status502BadGateway)]
     [ProducesResponseType(StatusCodes.Status504GatewayTimeout)]
     [Produces("application/json")]
+    [Obsolete("This endpoint is deprecated and will be removed in a future version.")]
     public async Task<ActionResult> SyncAltinn3CorrespondenceEvent(
         [FromBody] CorrespondenceEventSync correspondenceEventSync
     )
     {
+        if (_generalSettings.DisableA2Endpoints)
+        {
+            return StatusCode(
+                StatusCodes.Status410Gone,
+                "This endpoint is disabled because Altinn 2 is no longer supported."
+            );
+        }
+
         if (correspondenceEventSync.CorrespondenceId <= 0)
         {
             return BadRequest("CorrespondenceId must be larger than zero");

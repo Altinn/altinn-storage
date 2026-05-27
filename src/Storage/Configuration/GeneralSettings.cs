@@ -100,4 +100,9 @@ public class GeneralSettings
     /// Gets or sets whether to use sign as an action when authorizing A2 search requests.
     /// </summary>
     public bool AuthorizeA2ListInstancesSign { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether to disable A2 endpoints.
+    /// </summary>
+    public bool DisableA2Endpoints { get; set; } = false;
 }
