@@ -71,6 +71,8 @@ public class InstanceEventService : IInstanceEventService
         string additionalInfo = null
     )
     {
+        ArgumentNullException.ThrowIfNull(user);
+
         InstanceEvent instanceEvent = new()
         {
             EventType = eventType.ToString(),
