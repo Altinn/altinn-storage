@@ -67,7 +67,8 @@ public class CorrespondenceClient : ICorrespondenceClient
         string eventType
     )
     {
-        if (_generalSettings.DisableA2Endpoints) return;
+        if (_generalSettings.DisableA2Endpoints)
+            return;
 
         if (!_routes.TryGetValue(eventType, out string route))
         {

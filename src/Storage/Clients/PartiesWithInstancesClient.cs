@@ -38,7 +38,8 @@ public class PartiesWithInstancesClient : IPartiesWithInstancesClient
     /// <inheritdoc />
     public async Task SetHasAltinn3Correspondence(int partyId)
     {
-        if (_generalSettings.DisableA2Endpoints) return;
+        if (_generalSettings.DisableA2Endpoints)
+            return;
 
         StringContent content = new StringContent(
             partyId.ToString(),
@@ -51,7 +52,8 @@ public class PartiesWithInstancesClient : IPartiesWithInstancesClient
     /// <inheritdoc />
     public async Task SetHasAltinn3Instances(int instanceOwnerPartyId)
     {
-        if (_generalSettings.DisableA2Endpoints) return;
+        if (_generalSettings.DisableA2Endpoints)
+            return;
 
         StringContent content = new StringContent(
             instanceOwnerPartyId.ToString(),
