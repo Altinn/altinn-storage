@@ -1,7 +1,7 @@
 CREATE INDEX IF NOT EXISTS instances_archived_appid_id_filtered
 ON storage.instances USING btree
 (
-    storage.jsonb_text_to_timestamptz(instance, 'Status', 'Archived') DESC NULLS LAST,
+    jsonb_text_to_timestamptz(instance, 'Status'::text, 'Archived'::text) DESC NULLS LAST,
     appid ASC NULLS LAST,
     id ASC NULLS LAST
 )
