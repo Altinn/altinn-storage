@@ -167,8 +167,8 @@ BEGIN
         WHERE (i.instance -> 'Status' ->> 'IsArchived')::BOOL = TRUE
             AND i.instance -> 'Status' ? 'Archived'
             AND NULLIF(i.instance -> 'Status' ->> 'Archived', '') IS NOT NULL
-            AND (i.instance -> 'Status' ->> 'Archived')::TIMESTAMPTZ >= start_date
-            AND (i.instance -> 'Status' ->> 'Archived')::TIMESTAMPTZ < start_date + INTERVAL '1 day'
+            AND jsonb_text_to_timestamptz(i.instance, 'Status', 'Archived') >= start_date
+            AND jsonb_text_to_timestamptz(i.instance, 'Status', 'Archived') < start_date + INTERVAL '1 day'
             AND i.altinnmainversion = 3
         GROUP BY i.appid;
 END;
@@ -315,6 +315,13 @@ BEGIN
 	FROM jsonb_array_elements(_events) evs;
 END;
 $BODY$;
+
+-- jsonbtexttotimestamptz.sql:
+CREATE OR REPLACE FUNCTION jsonb_text_to_timestamptz(data jsonb, key1 text, key2 text)
+RETURNS TIMESTAMPTZ AS $$
+  SELECT (data -> key1 ->> key2)::TIMESTAMP AT TIME ZONE 'UTC';
+$$ LANGUAGE SQL IMMUTABLE STRICT;
+
 
 -- reada1migrationstate.sql:
 CREATE OR REPLACE FUNCTION storage.reada1migrationstate(_a1archivereference BIGINT)
