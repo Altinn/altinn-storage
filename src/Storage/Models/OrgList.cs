@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace Altinn.Platform.Storage.Models;
 
@@ -10,5 +11,6 @@ public class OrgList
     /// <summary>
     /// Dictionary of orgs
     /// </summary>
-    public Dictionary<string, Org>? orgs { get; set; }
+    [JsonPropertyName("orgs")]
+    public Dictionary<string, Org>? Orgs { get; set; }
 };

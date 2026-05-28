@@ -41,7 +41,7 @@ public class MetricsServiceTests
             ResourceId = "123456",
             ResourceTitle = "Test",
             ServiceOwnerCode = "digdir",
-            ServiceOwnerOrgNumber = 0,
+            ServiceOwnerOrgNumber = "0",
         };
         DailyMetrics<DailyInstanceMetricsRecord> metrics = new()
         {
@@ -51,13 +51,13 @@ public class MetricsServiceTests
             Metrics = [record],
         };
 
-        const int orgNr = 991825827;
+        const string orgNr = "991825827";
         Org org = new()
         {
-            Orgnr = orgNr.ToString(),
+            Orgnr = orgNr,
             Name = new Dictionary<string, string> { { "nb", "Digitaliseringsdirektoratet" } },
         };
-        OrgList orgList = new() { orgs = new Dictionary<string, Org> { { "digdir", org } } };
+        OrgList orgList = new() { Orgs = new Dictionary<string, Org> { { "digdir", org } } };
 
         string content = JsonSerializer.Serialize(orgList, _jsonOptions);
         Mock<HttpMessageHandler> mockHandler = new(behavior: MockBehavior.Strict);
@@ -128,7 +128,7 @@ public class MetricsServiceTests
             ResourceId = "123456",
             ResourceTitle = "Test",
             ServiceOwnerCode = "ttd",
-            ServiceOwnerOrgNumber = 0,
+            ServiceOwnerOrgNumber = "0",
         };
         DailyMetrics<DailyInstanceMetricsRecord> metrics = new()
         {

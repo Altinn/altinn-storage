@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -69,10 +68,13 @@ public class MetricsService : IMetricsService
         {
             return await AddOrgNumberToMetrics(metrics, cancellationToken);
         }
-        catch (InvalidOperationException e)
+        catch (Exception e)
+            when (e is InvalidOperationException or HttpRequestException or JsonException)
         {
-            _logger.LogError(e, "Failed to add org number to metrics");
-            throw;
+            throw new InvalidOperationException(
+                $"Failed to enrich daily instance metrics for {date:yyyy-MM-dd} with organisation numbers.",
+                e
+            );
         }
     }
 
@@ -145,28 +147,37 @@ public class MetricsService : IMetricsService
             HttpMethod.Get,
             _generalGeneralSettings.OrganisationsUrl
         );
-        HttpResponseMessage response = await _httpClient.SendAsync(
+        using HttpResponseMessage response = await _httpClient.SendAsync(
             requestMessage,
+            HttpCompletionOption.ResponseHeadersRead,
             cancellationToken
         );
         response.EnsureSuccessStatusCode();
 
-        string orgListString = await response.Content.ReadAsStringAsync(cancellationToken);
-        OrgList? orgList = JsonSerializer.Deserialize<OrgList?>(orgListString, _serializerOptions);
+        await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        OrgList? orgList = await JsonSerializer.DeserializeAsync<OrgList?>(
+            stream,
+            _serializerOptions,
+            cancellationToken
+        );
         if (orgList is null)
+        {
             throw new InvalidOperationException($"Failed to deserialize {nameof(OrgList)}");
+        }
 
-        var organisations = orgList.orgs;
+        var organisations = orgList.Orgs;
         if (organisations is null)
-            throw new InvalidOperationException($"Failed to deserialize {nameof(orgList.orgs)}");
+            throw new InvalidOperationException($"Failed to deserialize {nameof(orgList.Orgs)}");
 
         foreach (DailyInstanceMetricsRecord record in metrics.Metrics)
         {
             if (!organisations.TryGetValue(record.ServiceOwnerCode, out Org? org))
                 continue;
 
-            string? orgNumber = org.Orgnr;
-            record.ServiceOwnerOrgNumber = orgNumber is not null ? int.Parse(orgNumber) : null;
+            if (org.Orgnr is not null)
+            {
+                record.ServiceOwnerOrgNumber = org.Orgnr;
+            }
         }
         return metrics;
     }
