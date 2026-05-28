@@ -41,10 +41,13 @@ public class PgMetricsRepository(NpgsqlDataSource dataSource) : IMetricsReposito
             while (await reader.ReadAsync(cancellationToken))
             {
                 string appid = await reader.GetFieldValueAsync<string>("appid", cancellationToken);
+                string org = appid.Split('/')[0];
+                string app = appid.Split('/')[1];
                 DailyInstanceMetricsRecord instanceRow = new()
                 {
-                    ServiceOwnerCode = appid.Split('/')[0],
-                    ResourceTitle = appid.Split('/')[1],
+                    ServiceOwnerCode = org,
+                    ResourceTitle = app,
+                    ResourceId = GetAppResourceId(org, app),
                     InstanceCount = await reader.GetFieldValueAsync<long>(
                         "completed_instances",
                         cancellationToken
@@ -57,4 +60,6 @@ public class PgMetricsRepository(NpgsqlDataSource dataSource) : IMetricsReposito
 
         return metrics;
     }
+
+    private static string GetAppResourceId(string org, string app) => $"app_{org}_{app}";
 }
