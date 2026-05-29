@@ -225,7 +225,9 @@ export default function (data) {
   try {
     if (data.runFullTestSet) {
       TC01_GetInstanceById(data);
-      TC02_SearchActiveInstances(data);
+      if(!data.withoutSBL){
+        TC02_SearchActiveInstances(data);
+      }
       TC03_SearchInstances(data);
       TC04_GetInstanceEvents(data);
       TC05_SoftDeleteInstance(data);
@@ -234,7 +236,9 @@ export default function (data) {
     } else {
       // Limited test set for use case tests
       TC01_GetInstanceById(data);
-      TC02_SearchActiveInstances(data);
+      if(!data.withoutSBL){
+        TC02_SearchActiveInstances(data);
+      }
       TC04_GetInstanceEvents(data);
       TC07_HardDeleteInstance(data);
     }
