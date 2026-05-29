@@ -36,6 +36,10 @@ export function setup() {
     ? __ENV.runFullTestSet.toLowerCase().includes("true")
     : false;
 
+  const withoutSBL = __ENV.withoutSBL ? 
+    __ENV.withoutSBL.toLowerCase().includes("true")
+    : false;
+
   const org = __ENV.org;
   const app = __ENV.app;
 
@@ -66,6 +70,7 @@ export function setup() {
     instanceId: instanceId,
     org: org,
     app: app,
+    withoutSBL: withoutSBL,
   };
 
   return data;
