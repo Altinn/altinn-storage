@@ -36,8 +36,8 @@ export function setup() {
     ? __ENV.runFullTestSet.toLowerCase().includes("true")
     : false;
 
-  const disableTC02 = __ENV.disableTC02 ? 
-    __ENV.disableTC02.toLowerCase().includes("true")
+  const disableTC02 = __ENV.disableInstancesSblTC02 ? 
+    __ENV.disableInstancesSblTC02.toLowerCase().includes("true")
     : false;
 
   const org = __ENV.org;

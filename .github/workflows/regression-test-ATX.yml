@@ -24,7 +24,7 @@ jobs:
       partyId: ${{ secrets.PARTY_ID }}
       pid: ${{ secrets.PERSON_NUMBER }}
       runFullTestSet: true
-      disableTC02: ${{ inputs.disableTC02 }}
+      disableInstancesSblTC02: ${{ inputs.disableInstancesSblTC02 }}
       tokenGeneratorUserName: ${{ secrets.TOKENGENERATOR_USERNAME }}
       tokenGeneratorUserPwd: ${{ secrets.TOKENGENERATOR_USERPASSWORD }}
       userId: ${{ secrets.USER_ID }}
