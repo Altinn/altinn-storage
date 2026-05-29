@@ -6,7 +6,7 @@ on:
       environment:
         required: true
         type: string
-      disableTC02:
+      disableInstancesSblTC02:
         default: false
         required: false
         type: boolean
