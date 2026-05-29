@@ -12,5 +12,5 @@ jobs:
     uses: ./.github/workflows/regression-test-ATX.yml
     with:
       environment: AT23
-      withoutSBL: true
+      disableTC02: true
     secrets: inherit

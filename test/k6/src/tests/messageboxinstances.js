@@ -36,8 +36,8 @@ export function setup() {
     ? __ENV.runFullTestSet.toLowerCase().includes("true")
     : false;
 
-  const withoutSBL = __ENV.withoutSBL ? 
-    __ENV.withoutSBL.toLowerCase().includes("true")
+  const disableTC02 = __ENV.disableTC02 ? 
+    __ENV.disableTC02.toLowerCase().includes("true")
     : false;
 
   const org = __ENV.org;
@@ -70,7 +70,7 @@ export function setup() {
     instanceId: instanceId,
     org: org,
     app: app,
-    withoutSBL: withoutSBL,
+    disableTC02: disableTC02,
   };
 
   return data;
@@ -230,7 +230,7 @@ export default function (data) {
   try {
     if (data.runFullTestSet) {
       TC01_GetInstanceById(data);
-      if(!data.withoutSBL){
+      if(!data.disableTC02){
         TC02_SearchActiveInstances(data);
       }
       TC03_SearchInstances(data);
@@ -241,7 +241,7 @@ export default function (data) {
     } else {
       // Limited test set for use case tests
       TC01_GetInstanceById(data);
-      if(!data.withoutSBL){
+      if(!data.disableTC02){
         TC02_SearchActiveInstances(data);
       }
       TC04_GetInstanceEvents(data);

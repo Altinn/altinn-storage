@@ -6,7 +6,7 @@ on:
       environment:
         required: true
         type: string
-      withoutSBL:
+      disableTC02:
         default: false
         required: false
         type: boolean
@@ -24,7 +24,7 @@ jobs:
       partyId: ${{ secrets.PARTY_ID }}
       pid: ${{ secrets.PERSON_NUMBER }}
       runFullTestSet: true
-      withoutSBL: ${{ inputs.withoutSBL }}
+      disableTC02: ${{ inputs.disableTC02 }}
       tokenGeneratorUserName: ${{ secrets.TOKENGENERATOR_USERNAME }}
       tokenGeneratorUserPwd: ${{ secrets.TOKENGENERATOR_USERPASSWORD }}
       userId: ${{ secrets.USER_ID }}
