@@ -68,7 +68,7 @@ public class InstanceEventService : IInstanceEventService
         InstanceEventType eventType,
         Instance instance,
         PlatformUser user,
-        string additionalInfo = null
+        string? additionalInfo = null
     )
     {
         ArgumentNullException.ThrowIfNull(user);
