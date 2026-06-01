@@ -128,9 +128,11 @@ public class MetricsService : IMetricsService
         );
         memoryStream.Position = 0;
 
+#pragma warning disable S4790 // MD5 is intentionally used here as a non-cryptographic content checksum (deduplication/transport integrity only) — not in any security-sensitive context.
         string hash = Convert.ToBase64String(
             await MD5.HashDataAsync(memoryStream, cancellationToken)
         );
+#pragma warning restore S4790
         memoryStream.Position = 0;
 
         _logger.LogInformation("Successfully generated daily summary parquet file stream");
