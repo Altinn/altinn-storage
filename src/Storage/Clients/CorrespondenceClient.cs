@@ -15,6 +15,7 @@ namespace Altinn.Platform.Storage.Clients;
 /// </summary>
 public class CorrespondenceClient : ICorrespondenceClient
 {
+    private readonly GeneralSettings _generalSettings;
     private readonly HttpClient _client;
     private readonly Dictionary<string, string> _routes = new Dictionary<string, string>(
         StringComparer.OrdinalIgnoreCase
@@ -32,29 +33,32 @@ public class CorrespondenceClient : ICorrespondenceClient
     /// <param name="generalSettings">The general settings configured for Storage.</param>
     public CorrespondenceClient(HttpClient client, IOptions<GeneralSettings> generalSettings)
     {
+        _generalSettings = generalSettings.Value;
         _client = client;
-        var endpoint = generalSettings.Value.BridgeApiCorrespondenceEndpoint;
-        if (endpoint is null)
+        if (!_generalSettings.DisableA2Endpoints)
         {
-            throw new InvalidOperationException(
-                "GeneralSettings.BridgeApiCorrespondenceEndpoint must be configured."
+            var endpoint = _generalSettings.BridgeApiCorrespondenceEndpoint;
+            if (endpoint is null)
+            {
+                throw new InvalidOperationException(
+                    "GeneralSettings.BridgeApiCorrespondenceEndpoint must be configured."
+                );
+            }
+
+            // Ensure trailing slash so relative routes append rather than replace the last segment
+            var endpointStr = endpoint.ToString().Trim();
+            if (!endpointStr.EndsWith('/'))
+            {
+                endpoint = new Uri(endpointStr + "/", UriKind.Absolute);
+            }
+
+            _client.BaseAddress = endpoint;
+            _client.Timeout = new TimeSpan(0, 0, 30);
+            _client.DefaultRequestHeaders.Clear();
+            _client.DefaultRequestHeaders.Accept.Add(
+                new MediaTypeWithQualityHeaderValue("application/json")
             );
         }
-
-        // Ensure trailing slash so relative routes append rather than replace the last segment
-        var endpointStr = endpoint.ToString().Trim();
-        if (!endpointStr.EndsWith('/'))
-        {
-            endpoint = new Uri(endpointStr + "/", UriKind.Absolute);
-        }
-
-        _client.BaseAddress = endpoint;
-
-        _client.Timeout = new TimeSpan(0, 0, 30);
-        _client.DefaultRequestHeaders.Clear();
-        _client.DefaultRequestHeaders.Accept.Add(
-            new MediaTypeWithQualityHeaderValue("application/json")
-        );
     }
 
     /// <inheritdoc />
@@ -65,6 +69,9 @@ public class CorrespondenceClient : ICorrespondenceClient
         string eventType
     )
     {
+        if (_generalSettings.DisableA2Endpoints)
+            return;
+
         if (!_routes.TryGetValue(eventType, out string route))
         {
             throw new ArgumentException($"Invalid event type: {eventType}", nameof(eventType));

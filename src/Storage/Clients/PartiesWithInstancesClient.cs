@@ -16,6 +16,7 @@ namespace Altinn.Platform.Storage.Clients;
 public class PartiesWithInstancesClient : IPartiesWithInstancesClient
 {
     private readonly HttpClient _client;
+    private readonly GeneralSettings _generalSettings;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PartiesWithInstancesClient"/> class with the given HttpClient and GeneralSettings.
@@ -24,8 +25,9 @@ public class PartiesWithInstancesClient : IPartiesWithInstancesClient
     /// <param name="generalSettings">The general settings configured for Storage.</param>
     public PartiesWithInstancesClient(HttpClient client, IOptions<GeneralSettings> generalSettings)
     {
+        _generalSettings = generalSettings.Value;
         _client = client;
-        _client.BaseAddress = generalSettings.Value.BridgeApiAuthorizationEndpoint;
+        _client.BaseAddress = _generalSettings.BridgeApiAuthorizationEndpoint;
         _client.Timeout = new TimeSpan(0, 0, 30);
         _client.DefaultRequestHeaders.Clear();
         _client.DefaultRequestHeaders.Accept.Add(
@@ -36,6 +38,9 @@ public class PartiesWithInstancesClient : IPartiesWithInstancesClient
     /// <inheritdoc />
     public async Task SetHasAltinn3Correspondence(int partyId)
     {
+        if (_generalSettings.DisableA2Endpoints)
+            return;
+
         StringContent content = new StringContent(
             partyId.ToString(),
             Encoding.UTF8,
@@ -47,6 +52,9 @@ public class PartiesWithInstancesClient : IPartiesWithInstancesClient
     /// <inheritdoc />
     public async Task SetHasAltinn3Instances(int instanceOwnerPartyId)
     {
+        if (_generalSettings.DisableA2Endpoints)
+            return;
+
         StringContent content = new StringContent(
             instanceOwnerPartyId.ToString(),
             Encoding.UTF8,

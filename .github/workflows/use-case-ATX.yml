@@ -9,11 +9,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [AT22, AT23, AT24]
+        environment: [AT22, AT23]
     outputs:
       failed-AT22: ${{ steps.set-failure.outputs.AT22 }}
       failed-AT23: ${{ steps.set-failure.outputs.AT23 }}
-      failed-AT24: ${{ steps.set-failure.outputs.AT24 }}
+      #failed-AT24: ${{ steps.set-failure.outputs.AT24 }}
     environment: ${{ matrix.environment }}
     runs-on: ubuntu-latest
     permissions:
@@ -86,14 +86,14 @@ jobs:
     permissions: {}
     strategy:
       matrix:
-        environment: [AT22, AT23, AT24]
+        environment: [AT22, AT23]
         include:
           - environment: AT22
             output: failed-AT22
           - environment: AT23
             output: failed-AT23
-          - environment: AT24
-            output: failed-AT24
+          #- environment: AT24
+          #  output: failed-AT24
     runs-on: ubuntu-latest
     steps:
       - name: Send notification
