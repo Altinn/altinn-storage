@@ -35,10 +35,12 @@ public class ProcessAuthorizer : IProcessAuthorizer
     }
 
     /// <inheritdoc/>
-    public Task<bool> AuthorizeInstanceLock(Instance instance) => Authorize(instance);
+    public Task<bool> AuthorizeInstanceLock(Instance instance) =>
+        AuthorizeOrFallbackToWrite(instance);
 
     /// <inheritdoc/>
-    public Task<bool> AuthorizeDataElementLock(Instance instance) => Authorize(instance);
+    public Task<bool> AuthorizeDataElementLock(Instance instance) =>
+        AuthorizeOrFallbackToWrite(instance);
 
     /// <inheritdoc/>
     public Task<bool> AuthorizePresentationTextsUpdate(Instance instance) => Authorize(instance);
@@ -65,6 +67,16 @@ public class ProcessAuthorizer : IProcessAuthorizer
             "signing" => ["sign", "write"],
             _ => [taskType],
         };
+    }
+
+    private async Task<bool> AuthorizeOrFallbackToWrite(Instance instance)
+    {
+        if (instance.Process?.CurrentTask is null)
+        {
+            return await _authorizationService.AuthorizeInstanceAction(instance, "write");
+        }
+
+        return await Authorize(instance);
     }
 
     private Task<bool> AuthorizeWithSyncAdapterBypass(Instance instance)
