@@ -79,10 +79,13 @@ public class ProcessAuthorizer : IProcessAuthorizer
 
     private async Task<bool> Authorize(Instance instance)
     {
-        string? taskId = instance.Process.CurrentTask?.ElementId;
-        string? altinnTaskType = instance.Process.CurrentTask?.AltinnTaskType;
+        string? taskId = instance.Process?.CurrentTask?.ElementId;
+        string? altinnTaskType = instance.Process?.CurrentTask?.AltinnTaskType;
 
-        List<string> actions = GetActionsThatAllowProcessNextForTaskType(altinnTaskType);
+        List<string> actions = instance.Process?.CurrentTask is null
+            ? ["write"]
+            : GetActionsThatAllowProcessNextForTaskType(altinnTaskType);
+
         // we don't know if this is an abandon flow, so we include "reject" as a fallback.
         actions.Add("reject");
 
