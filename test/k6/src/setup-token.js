@@ -29,7 +29,7 @@ export function getAltinnTokenForOrg(scopes, org = "ttd", orgNo = "991825827") {
 }
 
 export function getAltinnTokenForUser() {
-  if (environment == "prod" || environment == "tt02") {
+  if (environment == "prod") {
     return authentication.authenticateUser();
   }
 
