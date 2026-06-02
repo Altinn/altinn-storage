@@ -77,7 +77,30 @@ public class ProcessAuthorizer : IProcessAuthorizer
         return Authorize(instance);
     }
 
-    private async Task<bool> Authorize(Instance instance, ProcessState? nextProcessState = null)
+    private async Task<bool> Authorize(Instance instance)
+    {
+        string? taskId = instance.Process?.CurrentTask?.ElementId;
+        string? altinnTaskType = instance.Process?.CurrentTask?.AltinnTaskType;
+
+        List<string> actions = instance.Process?.CurrentTask is null
+            ? ["write"]
+            : GetActionsThatAllowProcessNextForTaskType(altinnTaskType);
+
+        // we don't know if this is an abandon flow, so we include "reject" as a fallback.
+        actions.Add("reject");
+
+        foreach (string action in actions)
+        {
+            if (await _authorizationService.AuthorizeInstanceAction(instance, action, taskId))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private async Task<bool> Authorize(Instance instance, ProcessState nextProcessState)
     {
         if (instance.Process?.CurrentTask is null)
         {
@@ -87,13 +110,13 @@ public class ProcessAuthorizer : IProcessAuthorizer
         string? taskId = instance.Process.CurrentTask.ElementId;
         string? altinnTaskType = instance.Process.CurrentTask.AltinnTaskType;
 
-        if (nextProcessState?.CurrentTask?.FlowType == "AbandonCurrentMoveToNext")
+        if (nextProcessState.CurrentTask?.FlowType == "AbandonCurrentMoveToNext")
         {
             return await _authorizationService.AuthorizeInstanceAction(instance, "reject", taskId);
         }
 
         if (
-            nextProcessState?.CurrentTask?.FlowType is not null
+            nextProcessState.CurrentTask?.FlowType is not null
             && nextProcessState.CurrentTask.FlowType != "CompleteCurrentMoveToNext"
         )
         {
@@ -101,13 +124,7 @@ public class ProcessAuthorizer : IProcessAuthorizer
             taskId = nextProcessState.CurrentTask.ElementId;
         }
 
-        // When no nextProcessState is provided (e.g. locking), we don't know if this is an
-        // abandon flow, so we include "reject" as a fallback.
         List<string> actions = GetActionsThatAllowProcessNextForTaskType(altinnTaskType);
-        if (nextProcessState is null)
-        {
-            actions.Add("reject");
-        }
 
         foreach (string action in actions)
         {
