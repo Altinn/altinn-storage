@@ -35,12 +35,10 @@ public class ProcessAuthorizer : IProcessAuthorizer
     }
 
     /// <inheritdoc/>
-    public Task<bool> AuthorizeInstanceLock(Instance instance) =>
-        AuthorizeOrFallbackToWrite(instance);
+    public Task<bool> AuthorizeInstanceLock(Instance instance) => Authorize(instance);
 
     /// <inheritdoc/>
-    public Task<bool> AuthorizeDataElementLock(Instance instance) =>
-        AuthorizeOrFallbackToWrite(instance);
+    public Task<bool> AuthorizeDataElementLock(Instance instance) => Authorize(instance);
 
     /// <inheritdoc/>
     public Task<bool> AuthorizePresentationTextsUpdate(Instance instance) => Authorize(instance);
@@ -69,16 +67,6 @@ public class ProcessAuthorizer : IProcessAuthorizer
         };
     }
 
-    private async Task<bool> AuthorizeOrFallbackToWrite(Instance instance)
-    {
-        if (instance.Process?.CurrentTask is null)
-        {
-            return await _authorizationService.AuthorizeInstanceAction(instance, "write");
-        }
-
-        return await Authorize(instance);
-    }
-
     private Task<bool> AuthorizeWithSyncAdapterBypass(Instance instance)
     {
         if (_authorizationService.UserHasRequiredScope(_generalSettings.InstanceSyncAdapterScope))
@@ -89,13 +77,26 @@ public class ProcessAuthorizer : IProcessAuthorizer
         return Authorize(instance);
     }
 
-    private async Task<bool> Authorize(Instance instance, ProcessState? nextProcessState = null)
+    private async Task<bool> Authorize(Instance instance)
     {
-        if (instance.Process?.CurrentTask is null)
+        string? taskId = instance.Process.CurrentTask.ElementId;
+        string? altinnTaskType = instance.Process.CurrentTask.AltinnTaskType;
+
+        List<string> actions = GetActionsThatAllowProcessNextForTaskType(altinnTaskType);
+
+        foreach (string action in actions)
         {
-            return false;
+            if (await _authorizationService.AuthorizeInstanceAction(instance, action, taskId))
+            {
+                return true;
+            }
         }
 
+        return false;
+    }
+
+    private async Task<bool> Authorize(Instance instance, ProcessState nextProcessState)
+    {
         string? taskId = instance.Process.CurrentTask.ElementId;
         string? altinnTaskType = instance.Process.CurrentTask.AltinnTaskType;
 
