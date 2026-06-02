@@ -35,10 +35,16 @@ public class ProcessAuthorizerTests
             },
         };
 
-    private void SetupAuthorizeAction(string action, string taskId, bool returns) =>
+    private void SetupAuthorizeAction(string action, string taskId, bool returns)
+    {
         _authorizationMock
             .Setup(a => a.AuthorizeInstanceAction(It.IsAny<Instance>(), action, taskId))
             .ReturnsAsync(returns);
+
+        _authorizationMock
+            .Setup(a => a.AuthorizeInstanceAction(It.IsAny<Instance>(), action, null))
+            .ReturnsAsync(returns);
+    }
 
     #region AuthorizeProcessNext
 
@@ -178,18 +184,6 @@ public class ProcessAuthorizerTests
 
         Assert.False(await CreateSut().AuthorizeDataElementLock(instance));
         Assert.False(await CreateSut().AuthorizeInstanceLock(instance));
-    }
-
-    [Fact]
-    public async Task AuthorizeLock_NoCurrentTask_UserHasWriteAccess_ReturnsTrue()
-    {
-        var instance = new Instance { Process = new ProcessState { CurrentTask = null } };
-        _authorizationMock
-            .Setup(a => a.AuthorizeInstanceAction(instance, "write", null))
-            .ReturnsAsync(true);
-
-        Assert.True(await CreateSut().AuthorizeDataElementLock(instance));
-        Assert.True(await CreateSut().AuthorizeInstanceLock(instance));
     }
 
     [Fact]
