@@ -35,16 +35,10 @@ public class ProcessAuthorizerTests
             },
         };
 
-    private void SetupAuthorizeAction(string action, string taskId, bool returns)
-    {
+    private void SetupAuthorizeAction(string action, string taskId, bool returns) =>
         _authorizationMock
             .Setup(a => a.AuthorizeInstanceAction(It.IsAny<Instance>(), action, taskId))
             .ReturnsAsync(returns);
-
-        _authorizationMock
-            .Setup(a => a.AuthorizeInstanceAction(It.IsAny<Instance>(), action, null))
-            .ReturnsAsync(returns);
-    }
 
     #region AuthorizeProcessNext
 
