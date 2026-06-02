@@ -18,8 +18,8 @@ BEGIN
         WHERE (i.instance -> 'Status' ->> 'IsArchived')::BOOL = TRUE
             AND i.instance -> 'Status' ? 'Archived'
             AND NULLIF(i.instance -> 'Status' ->> 'Archived', '') IS NOT NULL
-            AND jsonb_text_to_timestamptz(i.instance, 'Status', 'Archived') >= start_date
-            AND jsonb_text_to_timestamptz(i.instance, 'Status', 'Archived') < start_date + INTERVAL '1 day'
+            AND storage.jsonb_text_to_timestamptz(i.instance, 'Status', 'Archived') >= start_date
+            AND storage.jsonb_text_to_timestamptz(i.instance, 'Status', 'Archived') < start_date + INTERVAL '1 day'
             AND i.altinnmainversion = 3
         GROUP BY i.appid;
 END;

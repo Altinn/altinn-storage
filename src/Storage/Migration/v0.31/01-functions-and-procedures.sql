@@ -167,8 +167,8 @@ BEGIN
         WHERE (i.instance -> 'Status' ->> 'IsArchived')::BOOL = TRUE
             AND i.instance -> 'Status' ? 'Archived'
             AND NULLIF(i.instance -> 'Status' ->> 'Archived', '') IS NOT NULL
-            AND jsonb_text_to_timestamptz(i.instance, 'Status', 'Archived') >= start_date
-            AND jsonb_text_to_timestamptz(i.instance, 'Status', 'Archived') < start_date + INTERVAL '1 day'
+            AND storage.jsonb_text_to_timestamptz(i.instance, 'Status', 'Archived') >= start_date
+            AND storage.jsonb_text_to_timestamptz(i.instance, 'Status', 'Archived') < start_date + INTERVAL '1 day'
             AND i.altinnmainversion = 3
         GROUP BY i.appid;
 END;
@@ -317,7 +317,7 @@ END;
 $BODY$;
 
 -- jsonbtexttotimestamptz.sql:
-CREATE OR REPLACE FUNCTION jsonb_text_to_timestamptz(data jsonb, key1 text, key2 text)
+CREATE OR REPLACE FUNCTION storage.jsonb_text_to_timestamptz(data jsonb, key1 text, key2 text)
     RETURNS TIMESTAMPTZ
     LANGUAGE 'plpgsql' IMMUTABLE STRICT
 AS $BODY$
