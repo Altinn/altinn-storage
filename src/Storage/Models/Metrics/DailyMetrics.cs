@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace Altinn.Platform.Storage.Models.Metrics;
 
@@ -8,22 +10,14 @@ namespace Altinn.Platform.Storage.Models.Metrics;
 public record DailyMetrics<T>
 {
     /// <summary>
-    /// The day of the month the metrics apply for
+    /// Datetime for when the metrics were based on
     /// </summary>
-    public int Day { get; init; }
-
-    /// <summary>
-    /// The month the metrics apply for
-    /// </summary>
-    public int Month { get; init; }
-
-    /// <summary>
-    /// The year the metrics apply for
-    /// </summary>
-    public int Year { get; init; }
+    [JsonPropertyName("dateTime")]
+    public DateTime DateTime { get; init; }
 
     /// <summary>
     /// A list of metrics
     /// </summary>
+    [JsonPropertyName("metrics")]
     public List<T> Metrics { get; init; } = [];
 }

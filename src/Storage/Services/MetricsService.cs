@@ -58,12 +58,7 @@ public class MetricsService : IMetricsService
     {
         DateTime date = DateTime.UtcNow.AddDays(-_daysOffsetForDailyMetrics);
 
-        var metrics = await _metricsRepository.GetDailyInstanceMetrics(
-            date.Day,
-            date.Month,
-            date.Year,
-            cancellationToken
-        );
+        var metrics = await _metricsRepository.GetDailyInstanceMetrics(date, cancellationToken);
         try
         {
             return await AddOrgNumberToMetrics(metrics, cancellationToken);
@@ -95,8 +90,7 @@ public class MetricsService : IMetricsService
             _ => throw new InvalidOperationException($"Unsupported metrics type: {typeof(T).Name}"),
         };
 
-        string fileName =
-            $"{metrics.Year}{metrics.Month:00}{metrics.Day:00}_{type}_storage.parquet";
+        string fileName = $"{metrics.DateTime:yyMMdd}_{type}_storage.parquet";
 
         MetricsSummary response = new()
         {

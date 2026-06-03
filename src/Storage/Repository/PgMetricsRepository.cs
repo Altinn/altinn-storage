@@ -1,3 +1,4 @@
+using System;
 using System.Data;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,45 +18,36 @@ public class PgMetricsRepository(NpgsqlDataSource dataSource) : IMetricsReposito
 
     /// <inheritdoc/>
     public async Task<DailyMetrics<DailyInstanceMetricsRecord>> GetDailyInstanceMetrics(
-        int day,
-        int month,
-        int year,
+        DateTime dateTime,
         CancellationToken cancellationToken
     )
     {
-        DailyMetrics<DailyInstanceMetricsRecord> metrics = new()
-        {
-            Day = day,
-            Month = month,
-            Year = year,
-        };
+        DailyMetrics<DailyInstanceMetricsRecord> metrics = new() { DateTime = dateTime };
 
         await using NpgsqlCommand pgcom = dataSource.CreateCommand(_getDailyInstanceMetric);
         pgcom.CommandTimeout = 900; // 15 minutes
 
-        pgcom.Parameters.AddWithValue(NpgsqlDbType.Integer, day);
-        pgcom.Parameters.AddWithValue(NpgsqlDbType.Integer, month);
-        pgcom.Parameters.AddWithValue(NpgsqlDbType.Integer, year);
-        await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken))
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Integer, dateTime.Day);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Integer, dateTime.Month);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Integer, dateTime.Year);
+        await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
         {
-            while (await reader.ReadAsync(cancellationToken))
+            string appid = await reader.GetFieldValueAsync<string>("appid", cancellationToken);
+            string org = appid.Split('/')[0];
+            string app = appid.Split('/')[1];
+            DailyInstanceMetricsRecord instanceRow = new()
             {
-                string appid = await reader.GetFieldValueAsync<string>("appid", cancellationToken);
-                string org = appid.Split('/')[0];
-                string app = appid.Split('/')[1];
-                DailyInstanceMetricsRecord instanceRow = new()
-                {
-                    ServiceOwnerCode = org,
-                    ResourceTitle = app,
-                    ResourceId = GetAppResourceId(org, app),
-                    InstanceCount = await reader.GetFieldValueAsync<long>(
-                        "completed_instances",
-                        cancellationToken
-                    ),
-                };
+                ServiceOwnerCode = org,
+                ResourceTitle = app,
+                ResourceId = GetAppResourceId(org, app),
+                InstanceCount = await reader.GetFieldValueAsync<long>(
+                    "completed_instances",
+                    cancellationToken
+                ),
+            };
 
-                metrics.Metrics.Add(instanceRow);
-            }
+            metrics.Metrics.Add(instanceRow);
         }
 
         return metrics;
