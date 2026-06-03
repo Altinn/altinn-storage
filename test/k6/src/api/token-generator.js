@@ -10,8 +10,6 @@ const tokenGeneratorUserName = __ENV.tokenGeneratorUserName;
 const tokenGeneratorUserPwd = __ENV.tokenGeneratorUserPwd;
 const environment = __ENV.altinn_env.toLowerCase();
 
-const tokenGeneratorPersonalScope = "altinn:testtools/tokengenerator/personal";
-
 export function generateEnterpriseToken(queryParams) {
   var endpoint =
     config.tokenGenerator.getEnterpriseToken +
@@ -51,7 +49,7 @@ export function generatePersonalToken() {
   // tt02 authenticates to the generator via Maskinporten; the AT envs have no
   // Maskinporten configured and keep using Basic auth against the generator.
   if (environment == "tt02") {
-    var mpToken = maskinporten.generateAccessToken(tokenGeneratorPersonalScope);
+    var mpToken = maskinporten.generateAccessToken(config.maskinporten.personalScope);
     var header = apiHelpers.buildHeaderWithBearer(mpToken);
     return getToken(endpoint, header);
   }
