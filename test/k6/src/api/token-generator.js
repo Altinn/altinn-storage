@@ -52,7 +52,8 @@ export function generatePersonalToken() {
   // Maskinporten configured and keep using Basic auth against the generator.
   if (environment == "tt02") {
     var mpToken = maskinporten.generateAccessToken(tokenGeneratorPersonalScope);
-    return getToken(endpoint, apiHelpers.buildHeaderWithBearer(mpToken));
+    var header = apiHelpers.buildHeaderWithBearer(mpToken);
+    return getToken(endpoint, header);
   }
   return getToken(endpoint, basicAuthParams());
 }

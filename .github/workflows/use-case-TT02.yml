@@ -15,9 +15,6 @@ jobs:
       apimSubsKey: ${{ secrets.APIM_SUBSKEY }}
       app: ${{ vars.APP }}
       org: ${{ vars.ORG }}
-      partyId: ${{ secrets.PARTY_ID_TT02 }}
-      pid: ${{ secrets.PERSON_NUMBER_TT02 }}
-      userId: ${{ secrets.USER_ID_TT02 }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: grafana/setup-k6-action@db07bd9765aac508ef18982e52ab937fe633a065 # v1.2.1
@@ -33,7 +30,7 @@ jobs:
         uses: grafana/run-k6-action@de51a7390bdf0ac85a3bef493691bd71d4c7c158 # v1.4.0
         with:
           path: test/k6/src/tests/instances.js
-          flags: -e encodedJwk=${{ secrets.MP_ENCODEDJWK }} -e mpClientId=${{ secrets.MP_CLIENT_ID }} -e mpKid=${{ secrets.MP_KID }} -e pid=${{ secrets.PERSON_NUMBER }}
+          flags: -e encodedJwk=${{ secrets.MP_ENCODEDJWK }} -e mpClientId=${{ secrets.MP_CLIENT_ID }} -e mpKid=${{ secrets.MP_KID }} -e pid=${{ secrets.PERSON_NUMBER_TT02 }} -e partyId=${{ secrets.PARTY_ID_TT02 }} -e userId=${{ secrets.USER_ID_TT02 }}
           inspect-flags: -e altinn_env=TT02 # Supplies the value for pre-run validation, when env vars / flags are not yet defined
 
       - name: Run use case tests for endpoint 'instances/sbl'
@@ -42,7 +39,7 @@ jobs:
         with:
           path: test/k6/src/tests/messageboxinstances.js
           flags: -e apimSblSubsKey=${{ secrets.APIM_SBL_SUBSKEY }}
-          inspect-flags: -e altinn_env=TT02 # Supplies the value for pre-run validation, when env vars / flags are not yet defined
+          inspect-flags: -e encodedJwk=${{ secrets.MP_ENCODEDJWK }} -e altinn_env=TT02 # Supplies the value for pre-run validation, when env vars / flags are not yet defined
 
       - name: Run use case tests for endpoint 'data'
         if: always()
@@ -72,3 +69,13 @@ jobs:
           path: test/k6/src/tests/texts.js
           flags: -e encodedJwk=${{ secrets.MP_ENCODEDJWK }} -e mpClientId=${{ secrets.MP_CLIENT_ID }} -e mpKid=${{ secrets.MP_KID }}
           inspect-flags: -e altinn_env=TT02 # Supplies the value for pre-run validation, when env vars / flags are not yet defined
+
+  # slack-notify:
+  #   if: failure()
+  #   needs: usecase-test
+  #   uses: ./.github/workflows/send-slack-warning.yml
+  #   permissions: {}
+  #   with:
+  #     warning-message: 'Storage use case test failure in TT02'
+  #   secrets:
+  #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_PROD }}
