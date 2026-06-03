@@ -44,14 +44,14 @@ jobs:
         with:
           path: test/k6/src/tests/messageboxinstances.js
           flags: -e apimSblSubsKey=${{ secrets.APIM_SBL_SUBSKEY }}
-          inspect-flags: -e encodedJwk=${{ secrets.MP_ENCODEDJWK }} -e altinn_env=TT02 # Supplies the value for pre-run validation, when env vars / flags are not yet defined
+          inspect-flags: -e altinn_env=TT02 # Supplies the value for pre-run validation, when env vars / flags are not yet defined
 
       - name: Run use case tests for endpoint 'data'
         if: always()
         uses: grafana/run-k6-action@de51a7390bdf0ac85a3bef493691bd71d4c7c158 # v1.4.0
         with:
           path: test/k6/src/tests/data.js
-          inspect-flags: -e altinn_env=TT02 -e app=${{ vars.APP }} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
+          inspect-flags: -e altinn_env=TT02 # Supplies the value for pre-run validation, when env vars / flags are not yet defined
 
       - name: Run use case tests for endpoint 'process'
         if: always()
