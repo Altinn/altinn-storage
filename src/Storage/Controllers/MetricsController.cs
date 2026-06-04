@@ -32,7 +32,10 @@ public class MetricsController(IMetricsService metricsService) : ControllerBase
         }
         catch (Exception e) when (e is DataException)
         {
-            return StatusCode(500, "Unable to get daily instance statistics, appId format is invalid");
+            return StatusCode(
+                500,
+                "Unable to get daily instance statistics, appId format is invalid"
+            );
         }
     }
 
