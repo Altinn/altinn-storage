@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
@@ -45,9 +46,7 @@ public class MetricsServiceTests
         };
         DailyMetrics<DailyInstanceMetricsRecord> metrics = new()
         {
-            Day = 1,
-            Month = 1,
-            Year = 2022,
+            DateTime = new DateTime(2022, 1, 1, 0, 0, 0, DateTimeKind.Utc),
             Metrics = [record],
         };
 
@@ -84,12 +83,7 @@ public class MetricsServiceTests
         Mock<IMetricsRepository> metricsRepositoryMock = new();
         metricsRepositoryMock
             .Setup(e =>
-                e.GetDailyInstanceMetrics(
-                    It.IsAny<int>(),
-                    It.IsAny<int>(),
-                    It.IsAny<int>(),
-                    It.IsAny<CancellationToken>()
-                )
+                e.GetDailyInstanceMetrics(It.IsAny<DateTime>(), It.IsAny<CancellationToken>())
             )
             .ReturnsAsync(metrics);
 
@@ -107,13 +101,7 @@ public class MetricsServiceTests
         Assert.Equal(orgNr, response.Metrics[0].ServiceOwnerOrgNumber);
 
         metricsRepositoryMock.Verify(
-            e =>
-                e.GetDailyInstanceMetrics(
-                    It.IsAny<int>(),
-                    It.IsAny<int>(),
-                    It.IsAny<int>(),
-                    It.IsAny<CancellationToken>()
-                ),
+            e => e.GetDailyInstanceMetrics(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
             Times.Once
         );
     }
@@ -132,9 +120,7 @@ public class MetricsServiceTests
         };
         DailyMetrics<DailyInstanceMetricsRecord> metrics = new()
         {
-            Day = 1,
-            Month = 1,
-            Year = 2022,
+            DateTime = new DateTime(2022, 1, 1, 0, 0, 0, DateTimeKind.Utc),
             Metrics = [record],
         };
 
@@ -144,10 +130,7 @@ public class MetricsServiceTests
         MetricsSummary response = await service.GetParquetFile(metrics, CancellationToken.None);
 
         // Assert
-        Assert.Equal(
-            $"{metrics.Year}{metrics.Month:00}{metrics.Day:00}_instance_storage.parquet",
-            response.FileName
-        );
+        Assert.Equal($"{metrics.DateTime:yyyyMMdd}_instance_storage.parquet", response.FileName);
     }
 
     private static MetricsService SetupService(

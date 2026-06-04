@@ -90,7 +90,7 @@ public class MetricsService : IMetricsService
             _ => throw new InvalidOperationException($"Unsupported metrics type: {typeof(T).Name}"),
         };
 
-        string fileName = $"{metrics.DateTime:yyMMdd}_{type}_storage.parquet";
+        string fileName = $"{metrics.DateTime:yyyyMMdd}_{type}_storage.parquet";
 
         MetricsSummary response = new()
         {
