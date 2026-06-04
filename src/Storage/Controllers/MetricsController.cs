@@ -1,3 +1,5 @@
+using System;
+using System.Data;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Models.Metrics;
@@ -23,8 +25,15 @@ public class MetricsController(IMetricsService metricsService) : ControllerBase
     [Produces("application/octet-stream")]
     public async Task<ActionResult> GetDailyInstanceStatistics(CancellationToken cancellationToken)
     {
-        var data = await metricsService.GetDailyInstanceMetrics(cancellationToken);
-        return await BuildParquetResponseAsync(data, cancellationToken);
+        try
+        {
+            var data = await metricsService.GetDailyInstanceMetrics(cancellationToken);
+            return await BuildParquetResponseAsync(data, cancellationToken);
+        }
+        catch (Exception e) when (e is DataException)
+        {
+            return StatusCode(500, "Unable to get daily instance statistics, appId format is invalid");
+        }
     }
 
     private async Task<ActionResult> BuildParquetResponseAsync<T>(

@@ -33,9 +33,10 @@ public class PgMetricsRepository(NpgsqlDataSource dataSource) : IMetricsReposito
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
-            string appid = await reader.GetFieldValueAsync<string>("appid", cancellationToken);
-            string org = appid.Split('/')[0];
-            string app = appid.Split('/')[1];
+            string appId = await reader.GetFieldValueAsync<string>("appid", cancellationToken);
+            ValidateAppId(appId, out string[] appIdParts);
+            string org = appIdParts[0];
+            string app = appIdParts[1];
             DailyInstanceMetricsRecord instanceRow = new()
             {
                 ServiceOwnerCode = org,
@@ -54,4 +55,21 @@ public class PgMetricsRepository(NpgsqlDataSource dataSource) : IMetricsReposito
     }
 
     private static string GetAppResourceId(string org, string app) => $"app_{org}_{app}";
+
+    private static bool ValidateAppId(string appId, out string[] appIdParts)
+    {
+        appIdParts = appId.Split('/');
+        if (
+            appIdParts.Length != 2
+            || string.IsNullOrWhiteSpace(appIdParts[0])
+            || string.IsNullOrWhiteSpace(appIdParts[1])
+        )
+        {
+            throw new DataException(
+                $"Unexpected appid format returned from storage.get_instance_metrics: '{appId}'."
+            );
+        }
+
+        return true;
+    }
 }
