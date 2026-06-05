@@ -52,6 +52,9 @@ export function getAltinnTokenForOrg(scopes, org = "ttd", orgNo = "991825827") {
 }
 
 export function getAltinnTokenForUser() {
+  if (environment == "prod") {
+    return authentication.authenticateUser();
+  }
   return loginWithMockporten(__ENV.pid, __ENV.testidppwd);
 }
 
