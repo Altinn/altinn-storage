@@ -33,7 +33,7 @@ Run test suite by specifying filename.
 
 For example:
 
-  >$> podman compose run k6 run /src/tests/data.js  -e env=***  -e userId=*** -e partyId=*** -e pid=*** -e org=ttd -e app=*** -e apimSubsKey=*** -e tokenGeneratorUserName=*** -e tokenGeneratorUserPwd=*** -e runFullTestSet=true -e useTestTokenGenerator=true
+  >$> podman compose run k6 run /src/tests/data.js  -e env=***  -e pid=*** -e testidppwd=*** -e org=ttd -e app=*** -e apimSubsKey=***
 
 
 The command consists of three sections
@@ -42,7 +42,7 @@ The command consists of three sections
 
 `k6 run {path to test file}` pointing to the test file you want to run e.g. /src/tests/data.js
 
-`-e env=*** -e org=ttd -e app=*** -e apimSubsKey=*** -e userId=*** -e partyId=*** -e pid=*** -e useTestTokenGenerator=true -e tokenGeneratorUserName=*** -e tokenGeneratorUserPwd=*** -e runFullTestSet=true`  all environment variables that should be included in the request.
+`-e env=*** -e org=ttd -e app=*** -e apimSubsKey=*** -e pid=*** -e testidppwd=***`  all environment variables that should be included in the request.
 
 
 
@@ -51,15 +51,7 @@ The command consists of three sections
 - `org` the app owner of the application used for testing
 - `app` the name of the application used for testing
 - `apimSubsKey` subscription key for a subscription of the product `AppsAccess` (for signing and data)
-- `userId`\* the user id for the test user
-- `pid`\* the person number (SSN) for the test user
-- `partyId`\* the party id for the test user
-- `tokenGeneratorUserName`\* username for Altinn Test Tools token generator (Check AltinnPedia for details)
-- `tokenGeneratorUserPwd`\* password for Altinn Test Tools token generator (Check AltinnPedia for details)
-- `useTestTokenGenerator` \* variable to enable use of test tools, set to true if required
-- `username` username of test user
-- `userpwd` password for test user
+- `pid`\* the person number (SSN) for the test user — must be a synthetic Tenor fødselsnummer (month 81–92)
+- `testidppwd`\* the shared Mockporten password for the synthetic test user
 
-\* required when using Altinn Test Tools login, available for all environments except prod
-\** required for username/password authentication via Altinn 2, available for all environments, but AI-DEV network is required for AT and YT
-
+\* required for user authentication via Mockporten (all environments)

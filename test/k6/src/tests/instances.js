@@ -3,20 +3,14 @@
     Command:
     docker-compose run k6 run /src/tests/instances.js `
     -e env=*** `
-    -e userId=*** `
-    -e partyId=*** `
     -e pid=*** `
-    -e username=*** `
-    -e userpwd=*** `
+    -e testidppwd=*** `
     -e orgNumber=*** `
     -e orgPartyId=*** `
     -e org=ttd `
     -e app=*** `
     -e apimSubsKey=*** `
-    -e tokenGeneratorUserName=*** `
-    -e tokenGeneratorUserPwd=*** `
-    -e runFullTestSet=true `
-    -e useTestTokenGenerator=true
+    -e runFullTestSet=true
 */
 import { check } from "k6";
 import * as setupToken from "../setup-token.js";
@@ -39,10 +33,7 @@ export function setup() {
   const org = __ENV.org;
   const app = __ENV.app;
 
-  const userId = __ENV.userId;
   const pid = __ENV.pid;
-  const username = __ENV.username;
-  const userpassword = __ENV.userpwd;
   let partyId = __ENV.partyId;
   let orgPartyId = __ENV.orgPartyId;
   const orgNumber = __ENV.orgNumber;
@@ -51,13 +42,7 @@ export function setup() {
     "altinn:serviceowner/instances.read altinn:serviceowner/instances.write";
   var orgToken = setupToken.getAltinnTokenForOrg(scopes);
 
-  var userToken = setupToken.getAltinnTokenForUser(
-    userId,
-    partyId,
-    pid,
-    username,
-    userpassword
-  );
+  var userToken = setupToken.getAltinnTokenForUser();
 
   if (!partyId) {
     partyId = setupToken.getAltinnClaimFromToken(userToken, "partyid");

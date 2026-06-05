@@ -20,9 +20,8 @@ jobs:
       app: ${{ vars.APP }}
       org: ${{ vars.ORG }}
       runFullTestSet: true
-      pid: ${{ secrets.MP_PERSON_NUMBER }}
-      partyId: ${{ secrets.MP_PARTY_ID }}
-      userId: ${{ secrets.MP_USER_ID }}
+      pid: ${{ secrets.TESTIDP_TENOR_PID }}
+      testidppwd: ${{ secrets.TESTIDP_PASSWORD }}
       encodedJwk: ${{ secrets.MP_ENCODEDJWK }}
       mpClientId: ${{ secrets.MP_CLIENT_ID }}
       mpKid: ${{ secrets.MP_KID }}
