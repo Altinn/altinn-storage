@@ -22,7 +22,6 @@ public class MetricsController(IMetricsService metricsService) : ControllerBase
     /// <returns>A <see cref="Task{TResult}"/> representing the asynchronous operation that returns an <see cref="ActionResult"/>.</returns>
     [HttpGet("instances")]
     [ApiExplorerSettings(IgnoreApi = true)]
-    [Produces("application/octet-stream")]
     public async Task<ActionResult> GetDailyInstanceStatistics(CancellationToken cancellationToken)
     {
         try

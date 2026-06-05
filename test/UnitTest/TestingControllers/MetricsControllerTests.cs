@@ -1,4 +1,5 @@
 using System;
+using System.Data;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -98,6 +99,39 @@ public class MetricsControllerTests(TestApplicationFactory<MetricsController> fa
                 ),
             Times.Once
         );
+    }
+
+    [Fact]
+    public async Task Get_DailyMetrics_Returns500InternalServerError()
+    {
+        // Arrange
+        Mock<IMetricsService> serviceMock = new();
+        serviceMock
+            .Setup(e => e.GetDailyInstanceMetrics(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DataException("some exception"));
+        HttpClient client = GetTestClient(serviceMock);
+        string? token = PrincipalUtil.GetToken(_userId, _partyId, 2);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        const string uri = $"{_basePath}/instances";
+        using HttpRequestMessage message = new(HttpMethod.Get, uri);
+
+        // Act
+        using HttpResponseMessage response = await client.SendAsync(
+            message,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal(
+            "Unable to get daily instance statistics, appId format is invalid",
+            await response.Content.ReadAsStringAsync()
+        );
+        serviceMock.Verify(
+            e => e.GetDailyInstanceMetrics(It.IsAny<CancellationToken>()),
+            Times.Once
+        );
+        serviceMock.VerifyNoOtherCalls();
     }
 
     private HttpClient GetTestClient(Mock<IMetricsService>? metricsService = null)
