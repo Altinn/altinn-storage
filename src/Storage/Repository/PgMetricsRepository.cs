@@ -34,7 +34,12 @@ public class PgMetricsRepository(NpgsqlDataSource dataSource) : IMetricsReposito
         while (await reader.ReadAsync(cancellationToken))
         {
             string appId = await reader.GetFieldValueAsync<string>("appid", cancellationToken);
-            ValidateAppId(appId, out string[] appIdParts);
+            if (ValidateAppId(appId, out string[] appIdParts))
+            {
+                throw new DataException(
+                    $"Unexpected appid format returned from sql function storage.get_instance_metrics: '{appId}'."
+                );
+            }
             string org = appIdParts[0];
             string app = appIdParts[1];
             DailyInstanceMetricsRecord instanceRow = new()
@@ -59,17 +64,8 @@ public class PgMetricsRepository(NpgsqlDataSource dataSource) : IMetricsReposito
     private static bool ValidateAppId(string appId, out string[] appIdParts)
     {
         appIdParts = appId.Split('/');
-        if (
-            appIdParts.Length != 2
-            || string.IsNullOrWhiteSpace(appIdParts[0])
-            || string.IsNullOrWhiteSpace(appIdParts[1])
-        )
-        {
-            throw new DataException(
-                $"Unexpected appid format returned from storage.get_instance_metrics: '{appId}'."
-            );
-        }
-
-        return true;
+        return appIdParts.Length == 2
+            && !string.IsNullOrWhiteSpace(appIdParts[0])
+            && !string.IsNullOrWhiteSpace(appIdParts[1]);
     }
 }
