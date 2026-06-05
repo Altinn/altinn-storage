@@ -15,7 +15,7 @@ jobs:
       apimSubsKey: ${{ secrets.APIM_SUBSKEY }}
       app: ${{ vars.APP }}
       org: ${{ vars.ORG }}
-      pid: ${{ secrets.PID }}
+      pid: ${{ secrets.TESTIDP_PID }}
       testidppwd: ${{ secrets.TESTIDP_PASSWORD }}
       encodedJwk: ${{ secrets.MP_ENCODEDJWK }}
       mpClientId: ${{ secrets.MP_CLIENT_ID }}
