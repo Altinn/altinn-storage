@@ -34,7 +34,7 @@ public class PgMetricsRepository(NpgsqlDataSource dataSource) : IMetricsReposito
         while (await reader.ReadAsync(cancellationToken))
         {
             string appId = await reader.GetFieldValueAsync<string>("appid", cancellationToken);
-            if (ValidateAppId(appId, out string[] appIdParts))
+            if (!ValidateAppId(appId, out string[] appIdParts))
             {
                 throw new DataException(
                     $"Unexpected appid format returned from sql function storage.get_instance_metrics: '{appId}'."
