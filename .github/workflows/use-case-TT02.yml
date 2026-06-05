@@ -15,9 +15,8 @@ jobs:
       apimSubsKey: ${{ secrets.APIM_SUBSKEY }}
       app: ${{ vars.APP }}
       org: ${{ vars.ORG }}
-      pid: ${{ secrets.MP_PERSON_NUMBER }}
-      partyId: ${{ secrets.MP_PARTY_ID }}
-      userId: ${{ secrets.MP_USER_ID }}
+      pid: ${{ secrets.PID }}
+      testidppwd: ${{ secrets.TESTIDP_PASSWORD }}
       encodedJwk: ${{ secrets.MP_ENCODEDJWK }}
       mpClientId: ${{ secrets.MP_CLIENT_ID }}
       mpKid: ${{ secrets.MP_KID }}
@@ -74,12 +73,12 @@ jobs:
           path: test/k6/src/tests/texts.js
           inspect-flags: -e altinn_env=TT02 # Supplies the value for pre-run validation, when env vars / flags are not yet defined
   
-  slack-notify:
-    if: failure()
-    needs: usecase-test
-    uses: ./.github/workflows/send-slack-warning.yml
-    permissions: {}
-    with:
-      warning-message: 'Storage use case test failure in TT02'
-    secrets:
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_PROD }}
+  # slack-notify:
+  #   if: failure()
+  #   needs: usecase-test
+  #   uses: ./.github/workflows/send-slack-warning.yml
+  #   permissions: {}
+  #   with:
+  #     warning-message: 'Storage use case test failure in TT02'
+  #   secrets:
+  #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_PROD }}
