@@ -33,14 +33,20 @@ public class PgMetricsRepository(NpgsqlDataSource dataSource) : IMetricsReposito
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
-            DailyInstanceMetricsRecord instanceRow = await GenerateInstanceMetricsRecord(reader, cancellationToken);
+            DailyInstanceMetricsRecord instanceRow = await GenerateInstanceMetricsRecord(
+                reader,
+                cancellationToken
+            );
             metrics.Metrics.Add(instanceRow);
         }
 
         return metrics;
     }
 
-    private static async Task<DailyInstanceMetricsRecord> GenerateInstanceMetricsRecord(NpgsqlDataReader reader, CancellationToken cancellationToken)
+    private static async Task<DailyInstanceMetricsRecord> GenerateInstanceMetricsRecord(
+        NpgsqlDataReader reader,
+        CancellationToken cancellationToken
+    )
     {
         string appId = await reader.GetFieldValueAsync<string>("appid", cancellationToken);
         if (!ValidateAppId(appId, out string[] appIdParts))
