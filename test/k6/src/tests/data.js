@@ -18,7 +18,7 @@ import * as setupData from "../setup-data.js";
 
 import { generateReport } from "../report.js";
 import * as dataApi from "../api/data.js";
-import { addErrorCount } from "../errorhandler.js";
+import { addErrorCount, stopIterationOnFail } from "../errorhandler.js";
 let pdfAttachment = open("../data/apps-test.pdf", "b");
 let formDataXml = open("../data/" + __ENV.app + ".xml");
 
@@ -40,7 +40,7 @@ export function setup() {
 
   var userToken = setupToken.getAltinnTokenForUser();
   stopIterationOnFail(
-    "DIAG token claims: " + JSON.stringify(setupData.getAllClaimsFromToken(userToken)),
+    "DIAG token claims: " + JSON.stringify(setupToken.getAllClaimsFromToken(userToken)),
     false,
     null
   );
