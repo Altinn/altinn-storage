@@ -33,30 +33,35 @@ public class PgMetricsRepository(NpgsqlDataSource dataSource) : IMetricsReposito
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
-            string appId = await reader.GetFieldValueAsync<string>("appid", cancellationToken);
-            if (!ValidateAppId(appId, out string[] appIdParts))
-            {
-                throw new DataException(
-                    $"Unexpected appid format returned from sql function storage.get_instance_metrics: '{appId}'."
-                );
-            }
-            string org = appIdParts[0];
-            string app = appIdParts[1];
-            DailyInstanceMetricsRecord instanceRow = new()
-            {
-                ServiceOwnerCode = org,
-                ResourceTitle = app,
-                ResourceId = GetAppResourceId(org, app),
-                InstanceCount = await reader.GetFieldValueAsync<long>(
-                    "completed_instances",
-                    cancellationToken
-                ),
-            };
-
+            DailyInstanceMetricsRecord instanceRow = await GenerateInstanceMetricsRecord(reader, cancellationToken);
             metrics.Metrics.Add(instanceRow);
         }
 
         return metrics;
+    }
+
+    private static async Task<DailyInstanceMetricsRecord> GenerateInstanceMetricsRecord(NpgsqlDataReader reader, CancellationToken cancellationToken)
+    {
+        string appId = await reader.GetFieldValueAsync<string>("appid", cancellationToken);
+        if (!ValidateAppId(appId, out string[] appIdParts))
+        {
+            throw new DataException(
+                $"Unexpected appid format returned from sql function storage.get_instance_metrics: '{appId}'."
+            );
+        }
+        string org = appIdParts[0];
+        string app = appIdParts[1];
+
+        return new DailyInstanceMetricsRecord
+        {
+            ServiceOwnerCode = org,
+            ResourceTitle = app,
+            ResourceId = GetAppResourceId(org, app),
+            InstanceCount = await reader.GetFieldValueAsync<long>(
+                "completed_instances",
+                cancellationToken
+            ),
+        };
     }
 
     private static string GetAppResourceId(string org, string app) => $"app_{org}_{app}";
