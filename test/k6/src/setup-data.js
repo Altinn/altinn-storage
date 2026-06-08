@@ -9,7 +9,7 @@ const processJson = JSON.parse(open("./data/process-task2.json"));
 let pdfAttachment = open("./data/apps-test.pdf", "b");
 
 export function getInstanceForTest(token, partyId, org, app) {
-  const instanceOptions = {
+  const options = {
     "token": token,
     "partyId": partyId,
     "org": org,
@@ -17,17 +17,16 @@ export function getInstanceForTest(token, partyId, org, app) {
     "serializedInstance": serializedInstance,
   };
 
-  var res = instancesApi.postInstance(instanceOptions);
+  var res = instancesApi.postInstance(options);
 
   var success = check(res, {
-    "// Setup // Generating instance for test": (r) => r.status === 201,
+    "TC01_PostInstance: Create new instance. Status is 201": (r) => r.status === 201,
+    "TC01_PostInstance: Create new instance. Instance Id is not null": (r) =>
+      r.status === 201 && JSON.parse(r.body).id != null,
   });
   addErrorCount(success);
-  stopIterationOnFail(
-    "// Setup // Generating instance for test Failed",
-    success,
-    res
-  );
+  stopIterationOnFail("TC01_PostInstance: Create new instance failed", success, res);
+
   return JSON.parse(res.body)["id"];
 }
 
