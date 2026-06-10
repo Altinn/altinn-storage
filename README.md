@@ -79,7 +79,7 @@ Using podman:
 
 Using docker:
   ```cmd
-  docker stop altinn-storage
+  docker compose stop
   ```
 
 ### Running the application with .NET
