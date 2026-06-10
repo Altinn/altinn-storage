@@ -64,7 +64,3 @@ export function getAltinnClaimFromToken(jwtToken, claimName) {
 
   return claims["urn:altinn:" + claimName];
 }
-
-export function getAllClaimsFromToken(jwtToken) {
-  return JSON.parse(b64decode(jwtToken.split(".")[1].toString(), "rawstd", "s"));
-}

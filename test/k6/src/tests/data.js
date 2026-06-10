@@ -39,11 +39,6 @@ export function setup() {
   const app = __ENV.app;
 
   var userToken = setupToken.getAltinnTokenForUser();
-  stopIterationOnFail(
-    "DIAG token claims: " + JSON.stringify(setupData.getAllClaimsFromToken(userToken)),
-    false,
-    null
-  );
 
   if (!partyId) {
     partyId = setupToken.getAltinnClaimFromToken(userToken, "partyid");
