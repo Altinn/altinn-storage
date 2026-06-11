@@ -35,12 +35,6 @@ public record MetricsSummary
     public long FileSizeBytes { get; init; }
 
     /// <summary>
-    /// Gets or sets the total number of file transfers represented in the file.
-    /// </summary>
-    [JsonPropertyName("totalFileTransferCount")]
-    public int TotalFileTransferCount { get; init; }
-
-    /// <summary>
     /// Gets or sets the time when the metrics file was generated.
     /// </summary>
     [JsonPropertyName("generatedAt")]

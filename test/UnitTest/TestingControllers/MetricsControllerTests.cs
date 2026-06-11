@@ -56,7 +56,6 @@ public class MetricsControllerTests(TestApplicationFactory<MetricsController> fa
                     FileName = "instancemetrics",
                     FileStream = stream,
                     FileSizeBytes = stream.Length,
-                    TotalFileTransferCount = 1,
                     FileHash = "dummyhash",
                 }
             );
