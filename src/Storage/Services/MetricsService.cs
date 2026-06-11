@@ -66,7 +66,11 @@ public class MetricsService : IMetricsService
         catch (Exception e)
             when (e is InvalidOperationException or HttpRequestException or JsonException)
         {
-            _logger.LogError(e, "Failed to enrich daily instance metrics for {date:yyyy-MM-dd}", date);
+            _logger.LogError(
+                e,
+                "Failed to enrich daily instance metrics for {date:yyyy-MM-dd}",
+                date
+            );
             throw new InvalidOperationException(
                 $"Failed to enrich daily instance metrics for {date:yyyy-MM-dd} with organisation numbers.",
                 e
