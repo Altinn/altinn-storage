@@ -50,7 +50,7 @@ cd altinn-storage
 
 ### Run tests
 
-You can run the tests by executing
+The tests depend on the storage_postgres container in docker to run locally. See the 'Running the application in a docker container' section below to start it. You can run the tests by executing the following commands.
 
 ```bash
 dotnet test Altinn.Platform.Storage.slnx
@@ -60,14 +60,26 @@ dotnet test Altinn.Platform.Storage.slnx
 
 - Start Altinn Storage docker container run the command
 
+Using podman:
   ```cmd
   podman compose up -d --build
   ```
 
+Using docker:
+  ```cmd
+  docker compose up -d --build
+  ```
+
 - To stop the container running Altinn Storage run the command
 
+Using podman:
   ```cmd
-  podman stop altinn-storage
+  podman compose stop
+  ```
+
+Using docker:
+  ```cmd
+  docker compose stop
   ```
 
 ### Running the application with .NET
