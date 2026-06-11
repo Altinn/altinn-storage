@@ -66,6 +66,7 @@ public class MetricsService : IMetricsService
         catch (Exception e)
             when (e is InvalidOperationException or HttpRequestException or JsonException)
         {
+            _logger.LogError(e, "Failed to enrich daily instance metrics for {date:yyyy-MM-dd}", date);
             throw new InvalidOperationException(
                 $"Failed to enrich daily instance metrics for {date:yyyy-MM-dd} with organisation numbers.",
                 e
@@ -103,14 +104,12 @@ public class MetricsService : IMetricsService
         return response;
     }
 
-    private async Task<(
+    private static async Task<(
         Stream ParquetStream,
         string FileHash,
         long FileSize
     )> GenerateParquetFileStream<T>(DailyMetrics<T> metrics, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Generating daily summary parquet file.");
-
         var parquetData = metrics.Metrics;
 
         MemoryStream memoryStream = new();
@@ -128,8 +127,6 @@ public class MetricsService : IMetricsService
         );
 #pragma warning restore S4790
         memoryStream.Position = 0;
-
-        _logger.LogInformation("Successfully generated daily summary parquet file stream");
 
         return (memoryStream, hash, memoryStream.Length);
     }
