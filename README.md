@@ -50,7 +50,7 @@ cd altinn-storage
 
 ### Run tests
 
-The tests depends on the storage_postgres container in docker to run locally, follow the step below first. You can run the tests by executing.
+The tests depends on the storage_postgres container in docker to run locally, follow the step below first. You can run the tests by executing the following commands.
 
 ```bash
 dotnet test Altinn.Platform.Storage.slnx
