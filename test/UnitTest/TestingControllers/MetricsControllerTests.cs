@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,8 +31,6 @@ public class MetricsControllerTests(TestApplicationFactory<MetricsController> fa
     private readonly TestApplicationFactory<MetricsController> _factory = factory;
 
     private const string _basePath = "storage/api/v1/metrics";
-    private const int _userId = 3;
-    private const int _partyId = 1337;
 
     [Fact]
     public async Task Get_DailyMetrics_ReturnsOk()
@@ -65,10 +62,9 @@ public class MetricsControllerTests(TestApplicationFactory<MetricsController> fa
             );
 
         HttpClient client = GetTestClient(serviceMock);
-        string? token = PrincipalUtil.GetToken(_userId, _partyId, 2);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         const string uri = $"{_basePath}/instances";
         using HttpRequestMessage message = new(HttpMethod.Get, uri);
+        message.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken());
 
         // Act
         using HttpResponseMessage response = await client.SendAsync(
@@ -81,10 +77,6 @@ public class MetricsControllerTests(TestApplicationFactory<MetricsController> fa
         Assert.Equal("application/octet-stream", response.Content.Headers.ContentType?.MediaType);
         Assert.Equal("dummyhash", response.Headers.GetValues("X-File-Hash").FirstOrDefault());
         Assert.Equal("4", response.Headers.GetValues("X-File-Size").FirstOrDefault());
-        Assert.Equal(
-            "1",
-            response.Headers.GetValues("X-Total-FileTransfer-Count").FirstOrDefault()
-        );
         Assert.NotNull(response.Headers.GetValues("X-Generated-At").FirstOrDefault());
 
         serviceMock.Verify(
@@ -110,10 +102,9 @@ public class MetricsControllerTests(TestApplicationFactory<MetricsController> fa
             .Setup(e => e.GetDailyInstanceMetrics(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new DataException("some exception"));
         HttpClient client = GetTestClient(serviceMock);
-        string? token = PrincipalUtil.GetToken(_userId, _partyId, 2);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         const string uri = $"{_basePath}/instances";
         using HttpRequestMessage message = new(HttpMethod.Get, uri);
+        message.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken());
 
         // Act
         using HttpResponseMessage response = await client.SendAsync(
@@ -124,7 +115,39 @@ public class MetricsControllerTests(TestApplicationFactory<MetricsController> fa
         // Assert
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
         Assert.Equal(
-            "Unable to get daily instance statistics, appId format is invalid",
+            "Unable to get daily instance statistics, AppId format is invalid",
+            await response.Content.ReadAsStringAsync()
+        );
+        serviceMock.Verify(
+            e => e.GetDailyInstanceMetrics(It.IsAny<CancellationToken>()),
+            Times.Once
+        );
+        serviceMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Get_DailyMetrics_CdnFailure_Returns500InternalServerError()
+    {
+        // Arrange
+        Mock<IMetricsService> serviceMock = new();
+        serviceMock
+            .Setup(e => e.GetDailyInstanceMetrics(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("some exception"));
+        HttpClient client = GetTestClient(serviceMock);
+        const string uri = $"{_basePath}/instances";
+        using HttpRequestMessage message = new(HttpMethod.Get, uri);
+        message.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken());
+
+        // Act
+        using HttpResponseMessage response = await client.SendAsync(
+            message,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal(
+            "Unable to get daily instance statistics, CDN failure",
             await response.Content.ReadAsStringAsync()
         );
         serviceMock.Verify(

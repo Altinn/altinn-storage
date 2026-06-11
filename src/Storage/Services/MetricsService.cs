@@ -22,7 +22,7 @@ public class MetricsService : IMetricsService
 {
     private readonly IMetricsRepository _metricsRepository;
     private readonly ILogger<MetricsService> _logger;
-    private readonly GeneralSettings _generalGeneralSettings;
+    private readonly GeneralSettings _generalSettings;
     private readonly HttpClient _httpClient;
 
     private const int _daysOffsetForDailyMetrics = 1; // Fetch yesterday's metrics
@@ -47,7 +47,7 @@ public class MetricsService : IMetricsService
     {
         _metricsRepository = metricsRepository;
         _logger = logger;
-        _generalGeneralSettings = generalSettings.Value;
+        _generalSettings = generalSettings.Value;
         _httpClient = httpClient;
     }
 
@@ -141,7 +141,7 @@ public class MetricsService : IMetricsService
     {
         using HttpRequestMessage requestMessage = new(
             HttpMethod.Get,
-            _generalGeneralSettings.OrganisationsUrl
+            _generalSettings.OrganisationsUrl
         );
         using HttpResponseMessage response = await _httpClient.SendAsync(
             requestMessage,

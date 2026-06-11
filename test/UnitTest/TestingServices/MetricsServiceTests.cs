@@ -36,19 +36,8 @@ public class MetricsServiceTests
     public async Task GetDailyInstanceMetrics()
     {
         // Arrange
-        DailyInstanceMetricsRecord record = new()
-        {
-            InstanceCount = 1,
-            ResourceId = "123456",
-            ResourceTitle = "Test",
-            ServiceOwnerCode = "digdir",
-            ServiceOwnerOrgNumber = "0",
-        };
-        DailyMetrics<DailyInstanceMetricsRecord> metrics = new()
-        {
-            DateTime = new DateTime(2022, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-            Metrics = [record],
-        };
+        DailyMetrics<DailyInstanceMetricsRecord> metrics = CreateMetrics();
+        DailyInstanceMetricsRecord record = metrics.Metrics[0];
 
         const string orgNr = "991825827";
         Org org = new()
@@ -59,26 +48,17 @@ public class MetricsServiceTests
         OrgList orgList = new() { Orgs = new Dictionary<string, Org> { { "digdir", org } } };
 
         string content = JsonSerializer.Serialize(orgList, _jsonOptions);
-        Mock<HttpMessageHandler> mockHandler = new(behavior: MockBehavior.Strict);
-        mockHandler
-            .Protected()
-            .Setup<Task<HttpResponseMessage>>(
-                "SendAsync",
-                ItExpr.IsAny<HttpRequestMessage>(),
-                ItExpr.IsAny<CancellationToken>()
-            )
-            .ReturnsAsync(
-                new HttpResponseMessage
-                {
-                    StatusCode = HttpStatusCode.OK,
-                    Content = new StringContent(
-                        content,
-                        Encoding.UTF8,
-                        MediaTypeNames.Application.Json
-                    ),
-                }
-            );
-        HttpClient httpClient = new(mockHandler.Object);
+        HttpClient httpClient = CreateHttpClient(
+            new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(
+                    content,
+                    Encoding.UTF8,
+                    MediaTypeNames.Application.Json
+                ),
+            }
+        );
 
         Mock<IMetricsRepository> metricsRepositoryMock = new();
         metricsRepositoryMock
@@ -107,22 +87,99 @@ public class MetricsServiceTests
     }
 
     [Fact]
+    public async Task GetDailyInstanceMetrics_OrgRequestFails_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        HttpClient httpClient = CreateHttpClient(
+            new HttpResponseMessage { StatusCode = HttpStatusCode.InternalServerError }
+        );
+
+        Mock<IMetricsRepository> metricsRepositoryMock = new();
+        metricsRepositoryMock
+            .Setup(e =>
+                e.GetDailyInstanceMetrics(It.IsAny<DateTime>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(CreateMetrics());
+
+        MetricsService service = SetupService(metricsRepositoryMock, null, null, httpClient);
+
+        // Act
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () =>
+                service.GetDailyInstanceMetrics(CancellationToken.None)
+        );
+
+        // Assert
+        Assert.IsType<HttpRequestException>(exception.InnerException);
+    }
+
+    [Fact]
+    public async Task GetDailyInstanceMetrics_OrgResponseInvalidJson_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        HttpClient httpClient = CreateHttpClient(
+            new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(
+                    "not valid json",
+                    Encoding.UTF8,
+                    MediaTypeNames.Application.Json
+                ),
+            }
+        );
+
+        Mock<IMetricsRepository> metricsRepositoryMock = new();
+        metricsRepositoryMock
+            .Setup(e =>
+                e.GetDailyInstanceMetrics(It.IsAny<DateTime>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(CreateMetrics());
+
+        MetricsService service = SetupService(metricsRepositoryMock, null, null, httpClient);
+
+        // Act
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () =>
+                service.GetDailyInstanceMetrics(CancellationToken.None)
+        );
+
+        // Assert
+        Assert.IsType<JsonException>(exception.InnerException);
+    }
+
+    [Fact]
+    public async Task GetDailyInstanceMetrics_OrgResponseDeserializesToNull_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        HttpClient httpClient = CreateHttpClient(
+            new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent("null", Encoding.UTF8, MediaTypeNames.Application.Json),
+            }
+        );
+
+        Mock<IMetricsRepository> metricsRepositoryMock = new();
+        metricsRepositoryMock
+            .Setup(e =>
+                e.GetDailyInstanceMetrics(It.IsAny<DateTime>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(CreateMetrics());
+
+        MetricsService service = SetupService(metricsRepositoryMock, null, null, httpClient);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.GetDailyInstanceMetrics(CancellationToken.None)
+        );
+    }
+
+    [Fact]
     public async Task GetParquetFile()
     {
         // Arrange
-        DailyInstanceMetricsRecord record = new()
-        {
-            InstanceCount = 1,
-            ResourceId = "123456",
-            ResourceTitle = "Test",
-            ServiceOwnerCode = "ttd",
-            ServiceOwnerOrgNumber = "0",
-        };
-        DailyMetrics<DailyInstanceMetricsRecord> metrics = new()
-        {
-            DateTime = new DateTime(2022, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-            Metrics = [record],
-        };
+        DailyMetrics<DailyInstanceMetricsRecord> metrics = CreateMetrics();
 
         MetricsService service = SetupService();
 
@@ -131,6 +188,38 @@ public class MetricsServiceTests
 
         // Assert
         Assert.Equal($"{metrics.DateTime:yyyyMMdd}_instance_storage.parquet", response.FileName);
+    }
+
+    private static HttpClient CreateHttpClient(HttpResponseMessage response)
+    {
+        Mock<HttpMessageHandler> mockHandler = new(behavior: MockBehavior.Strict);
+        mockHandler
+            .Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
+            .ReturnsAsync(response);
+
+        return new HttpClient(mockHandler.Object);
+    }
+
+    private static DailyMetrics<DailyInstanceMetricsRecord> CreateMetrics()
+    {
+        DailyInstanceMetricsRecord record = new()
+        {
+            InstanceCount = 1,
+            ResourceId = "123456",
+            ResourceTitle = "Test",
+            ServiceOwnerCode = "digdir",
+            ServiceOwnerOrgNumber = "0",
+        };
+        return new DailyMetrics<DailyInstanceMetricsRecord>
+        {
+            DateTime = new DateTime(2022, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            Metrics = [record],
+        };
     }
 
     private static MetricsService SetupService(
