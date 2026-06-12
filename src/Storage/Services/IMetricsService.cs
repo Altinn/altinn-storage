@@ -12,8 +12,7 @@ public interface IMetricsService
     /// <summary>
     /// Get daily metrics for instances
     /// </summary>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns></returns>
+    /// <param name="cancellationToken">CancellationToken</param>
     Task<DailyMetrics<DailyInstanceMetricsRecord>> GetDailyInstanceMetrics(
         CancellationToken cancellationToken
     );
@@ -21,6 +20,8 @@ public interface IMetricsService
     /// <summary>
     /// Creates a Parquet file stream from the provided daily metrics.
     /// </summary>
+    /// <param name="metrics">The daily metrics to create the Parquet file from.</param>
+    /// <param name="cancellationToken">CancellationToken</param>
     Task<MetricsSummary> GetParquetFile<T>(
         DailyMetrics<T> metrics,
         CancellationToken cancellationToken

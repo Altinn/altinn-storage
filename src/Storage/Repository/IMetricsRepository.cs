@@ -14,7 +14,7 @@ public interface IMetricsRepository
     /// Get daily instance metrics
     /// </summary>
     /// <param name="dateTime">DateTime</param>
-    /// <param name="cancellationToken">Cancellation Token</param>
+    /// <param name="cancellationToken">CancellationToken</param>
     Task<DailyMetrics<DailyInstanceMetricsRecord>> GetDailyInstanceMetrics(
         DateTime dateTime,
         CancellationToken cancellationToken
