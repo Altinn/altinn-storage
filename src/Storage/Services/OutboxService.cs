@@ -164,6 +164,9 @@ public class OutboxService(
     /// </remarks>
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
+        // Let BackgroundService cancel ExecuteAsync and wait for the polling loop to stop before releasing the lease.
+        await base.StopAsync(cancellationToken);
+
         using var scope = serviceProvider.CreateScope();
         var outbox = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
         await outbox.ReleaseLeaseAsync(_outboxResource, _podId);
