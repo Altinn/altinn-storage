@@ -1,11 +1,10 @@
 using System;
 using System.Data;
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Models.Metrics;
 using Altinn.Platform.Storage.Services;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -26,7 +25,7 @@ public class MetricsController(IMetricsService metricsService, ILogger<MetricsCo
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>A <see cref="Task{TResult}"/> representing the asynchronous operation that returns an <see cref="ActionResult"/>.</returns>
     [HttpGet("instances")]
-    [Authorize(Policy = "PlatformAccess")]
+    [ServiceFilter(typeof(MetricsApiKeyFilter))]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [ApiExplorerSettings(IgnoreApi = true)]

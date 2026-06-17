@@ -344,6 +344,8 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
         postgresSettings.LogParameters
     );
 
+    services.AddScoped<MetricsApiKeyFilter>();
+
     services.AddSingleton<IKeyVaultClientWrapper, KeyVaultClientWrapper>();
     services.AddSingleton<IPDP, PDPAppSI>();
     services.AddSingleton<IFileScanQueueClient, FileScanQueueClient>();
