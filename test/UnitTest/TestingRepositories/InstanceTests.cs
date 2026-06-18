@@ -911,6 +911,64 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     }
 
     /// <summary>
+    /// Test GetInstancesFromQuery filtering on the A2ArchRef data value, match
+    /// </summary>
+    [Fact]
+    public async Task Instance_GetInstancesFromQuery_DataValuesA2ArchRef_Match_Ok()
+    {
+        // Arrange
+        Instance newInstance = TestData.Instance_1_1.Clone();
+        newInstance.DataValues = new() { { "A2ArchRef", "123456" } };
+        await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None, 2);
+
+        InstanceQueryParameters queryParams = new()
+        {
+            Size = 100,
+            DataValuesA2ArchRef = "123456",
+            MainVersionInclude = 2,
+        };
+
+        // Act
+        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            queryParams,
+            true,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Equal(1, instances.Count);
+    }
+
+    /// <summary>
+    /// Test GetInstancesFromQuery filtering on the A2ArchRef data value, no match
+    /// </summary>
+    [Fact]
+    public async Task Instance_GetInstancesFromQuery_DataValuesA2ArchRef_NoMatch_Ok()
+    {
+        // Arrange
+        Instance newInstance = TestData.Instance_1_1.Clone();
+        newInstance.DataValues = new() { { "A2ArchRef", "123456" } };
+        await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None, 2);
+
+        InstanceQueryParameters queryParams = new()
+        {
+            Size = 100,
+            DataValuesA2ArchRef = "654321",
+            MainVersionInclude = 2,
+        };
+
+        // Act
+        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            queryParams,
+            true,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Equal(0, instances.Count);
+    }
+
+    /// <summary>
     /// Test GetInstancesFromQuery with CompleteConfirmations, primary org, match
     /// </summary>
     [Fact]

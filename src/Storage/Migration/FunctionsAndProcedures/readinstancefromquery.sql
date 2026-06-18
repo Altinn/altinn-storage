@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v6(
+CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v7(
     _appId TEXT DEFAULT NULL,
     _appIds TEXT[] DEFAULT NULL,
     _archiveReference TEXT DEFAULT NULL,
@@ -9,6 +9,7 @@ CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v6(
     _created_gte TIMESTAMPTZ DEFAULT NULL,
     _created_lt TIMESTAMPTZ DEFAULT NULL,
     _created_lte TIMESTAMPTZ DEFAULT NULL,
+    _dataValues_A2ArchRef TEXT DEFAULT NULL,
     _dueBefore_eq TEXT DEFAULT NULL,
     _dueBefore_gt TEXT DEFAULT NULL,
     _dueBefore_gte TEXT DEFAULT NULL,
@@ -78,6 +79,7 @@ BEGIN
             AND (_created_lte IS NULL OR i.created <= _created_lte)
             AND (_created_lt  IS NULL OR i.created <  _created_lt)
             AND (_created_eq  IS NULL OR i.created =  _created_eq)
+            AND (_dataValues_A2ArchRef IS NULL OR i.instance -> 'DataValues' ->> 'A2ArchRef' = _dataValues_A2ArchRef)
             AND (_dueBefore_gte IS NULL OR i.instance ->> 'DueBefore' >= _dueBefore_gte)
             AND (_dueBefore_gt  IS NULL OR i.instance ->> 'DueBefore' >  _dueBefore_gt)
             AND (_dueBefore_lte IS NULL OR i.instance ->> 'DueBefore' <= _dueBefore_lte)

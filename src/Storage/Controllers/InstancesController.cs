@@ -280,8 +280,14 @@ public class InstancesController : ControllerBase
             queryParameters.SortBy = "desc:lastChanged";
         }
 
+        // The A2 archive reference only exists on migrated Altinn 2 instances, so a query for it
+        // must target altinn main version 2 (this also enables the partial index on the reference).
+        if (!string.IsNullOrEmpty(queryParameters.DataValuesA2ArchRef))
+        {
+            queryParameters.MainVersionInclude = 2;
+        }
         // Default is to exclude migrated altinn 1 and 2 instances
-        if (
+        else if (
             queryParameters.MainVersionExclude == null
             && queryParameters.MainVersionInclude == null
         )

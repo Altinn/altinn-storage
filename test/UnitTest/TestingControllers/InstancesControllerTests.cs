@@ -1277,6 +1277,39 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         irm.VerifyAll();
     }
 
+    /// <summary>
+    /// Test case: Get instances filtering on the A2 archive reference data value.
+    /// Expected: dataValues.A2ArchRef is forwarded and the query targets altinn main version 2.
+    /// </summary>
+    [Fact]
+    public async Task GetMany_A2ArchRefProvided_TargetsMainVersion2()
+    {
+        // Arrange
+        Mock<IInstanceRepository> irm = new();
+        irm.Setup(irm =>
+                irm.GetInstancesFromQuery(
+                    It.Is<InstanceQueryParameters>(e =>
+                        e.DataValuesA2ArchRef == "123456" && e.MainVersionInclude == 2
+                    ),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(new InstanceQueryResponse { Instances = new() });
+
+        string requestUri = $"{BasePath}?instanceOwner.partyId=1337&dataValues.A2ArchRef=123456";
+
+        HttpClient client = GetTestClient(irm);
+        string token = PrincipalUtil.GetToken(3, 1337);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        irm.VerifyAll();
+    }
+
     [Fact]
     public async Task GetMany_ContainsContinuationToken_CorrectContTokenInSelfLink()
     {
