@@ -45,16 +45,27 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+          persist-credentials: false
       - name: Setup PostgreSQL
         run: |
           chmod +x dbsetup.sh
           ./dbsetup.sh
       - name: Restart database to enable config changes
         run: |
-          docker ps --quiet | xargs --no-run-if-empty docker restart
+          docker restart "${{ job.services.postgres.id }}"
+          for _ in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U platform_storage_admin -d storagedb; then
+              exit 0
+            fi
+
+            sleep 1
+          done
+
+          docker logs "${{ job.services.postgres.id }}"
+          exit 1
       - name: Build & Test
         run: |
-          dotnet build Altinn.Platform.Storage.slnx -v q
+          dotnet build Altinn.Platform.Storage.slnx -v q --configuration release
 
           dotnet test Altinn.Platform.Storage.slnx \
           -v q \
@@ -62,6 +73,7 @@ jobs:
           --results-directory TestResults/ \
           --logger "trx;" \
           --configuration release \
+          --no-build \
           -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
       - name: Upload test results
         if: always()
