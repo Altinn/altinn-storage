@@ -285,6 +285,10 @@ public class InstancesController : ControllerBase
         if (!string.IsNullOrEmpty(queryParameters.DataValuesA2ArchRef))
         {
             queryParameters.MainVersionInclude = 2;
+            if (queryParameters.MainVersionExclude is not null)
+            {
+                queryParameters.MainVersionExclude = null;
+            }
         }
         // Default is to exclude migrated altinn 1 and 2 instances
         else if (
