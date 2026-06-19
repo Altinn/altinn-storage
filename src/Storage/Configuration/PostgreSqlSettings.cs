@@ -20,5 +20,5 @@ public class PostgreSqlSettings
     /// <summary>
     /// Gets or sets a value indicating whether to include parameter values in logging/tracing.
     /// </summary>
-    public bool LogParameters { get; set; } = true;
+    public bool LogParameters { get; set; } = false;
 }
