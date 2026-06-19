@@ -17,6 +17,7 @@ using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Filters;
 using Altinn.Platform.Storage.Health;
 using Altinn.Platform.Storage.Helpers;
@@ -60,6 +61,8 @@ var builder = WebApplication.CreateBuilder(args);
 ConfigureWebHostCreationLogging();
 
 await SetConfigurationProviders(builder.Configuration, builder.Environment.IsDevelopment());
+
+builder.UseGracefulShutdown();
 
 ConfigureApplicationLogging(builder.Logging);
 
