@@ -429,27 +429,24 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
             // Force wolverine to use bus for sending messages (not handle messages internal)
             opts.Policies.DisableConventionalLocalRouting();
 
-            if (wolverineSettings.EnableSending)
-            {
-                // Azure Service Bus transport
-                opts.UseAzureServiceBus(wolverineSettings.ServiceBusConnectionString)
-                    // Use custom mapper to set deduplication id on outgoing messages
-                    .ConfigureSenders(s =>
-                    {
-                        s.CustomizeOutgoingMessagesOfType<SyncInstanceToDialogportenCommand>(
-                            (envelope, cmd) =>
-                            {
-                                envelope.Id = Guid.NewGuid();
-                            }
-                        );
-                    })
-                    // Let Wolverine try to initialize any missing queues on the first usage at runtime
-                    .AutoProvision();
+            // Azure Service Bus transport
+            opts.UseAzureServiceBus(wolverineSettings.ServiceBusConnectionString)
+                // Use custom mapper to set deduplication id on outgoing messages
+                .ConfigureSenders(s =>
+                {
+                    s.CustomizeOutgoingMessagesOfType<SyncInstanceToDialogportenCommand>(
+                        (envelope, cmd) =>
+                        {
+                            envelope.Id = Guid.NewGuid();
+                        }
+                    );
+                })
+                // Let Wolverine try to initialize any missing queues on the first usage at runtime
+                .AutoProvision();
 
-                // Publish CreateOrderCommand to ASB queue
-                opts.PublishMessage<SyncInstanceToDialogportenCommand>()
-                    .ToAzureServiceBusQueue("altinn.dialogportenadapter.webapi");
-            }
+            // Publish CreateOrderCommand to ASB queue
+            opts.PublishMessage<SyncInstanceToDialogportenCommand>()
+                .ToAzureServiceBusQueue("altinn.dialogportenadapter.webapi");
         }
         else
         {
