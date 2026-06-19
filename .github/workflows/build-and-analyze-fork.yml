@@ -52,20 +52,10 @@ jobs:
           ./dbsetup.sh
       - name: Restart database to enable config changes
         run: |
-          docker restart "${{ job.services.postgres.id }}"
-          for _ in {1..30}; do
-            if pg_isready -h localhost -p 5432 -U platform_storage_admin -d storagedb; then
-              exit 0
-            fi
-
-            sleep 1
-          done
-
-          docker logs "${{ job.services.postgres.id }}"
-          exit 1
+          docker restart $(docker ps -q)
       - name: Build & Test
         run: |
-          dotnet build Altinn.Platform.Storage.slnx -v q --configuration release
+          dotnet build Altinn.Platform.Storage.slnx -v q
 
           dotnet test Altinn.Platform.Storage.slnx \
           -v q \
@@ -73,7 +63,6 @@ jobs:
           --results-directory TestResults/ \
           --logger "trx;" \
           --configuration release \
-          --no-build \
           -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
       - name: Upload test results
         if: always()
