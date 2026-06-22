@@ -72,10 +72,10 @@ public class MetricsApiKeyFilter(IConfiguration configuration, ILogger<MetricsAp
         }
 
         // Get configured API key.
-        string? configuredApiKey = configuration["MetricsApiKey"];
+        string? configuredApiKey = configuration["StorageMetricsApiKey"];
         if (string.IsNullOrWhiteSpace(configuredApiKey))
         {
-            logger.LogError("MetricsApiKey is not configured in application settings");
+            logger.LogError("StorageMetricsApiKey is not configured in application settings");
             context.Result = new UnauthorizedObjectResult(
                 new { error = "API key validation not configured" }
             );

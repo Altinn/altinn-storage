@@ -241,7 +241,7 @@ public class MetricsControllerTests(TestApplicationFactory<MetricsController> fa
                             config.AddInMemoryCollection(
                                 new Dictionary<string, string?>
                                 {
-                                    ["MetricsApiKey"] = configuredApiKey,
+                                    ["StorageMetricsApiKey"] = configuredApiKey,
                                 }
                             );
                         }
