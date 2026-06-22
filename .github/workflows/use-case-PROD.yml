@@ -2,8 +2,8 @@ name: Use Case - PROD
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '*/15 * * * *'
+#  schedule:
+#    - cron: '*/15 * * * *'
 jobs:
   usecase-test:
     environment: PROD
