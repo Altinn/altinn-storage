@@ -13,7 +13,7 @@ const environment = __ENV.altinn_env.toLowerCase();
  * Logs in an end user via Mockporten (test IDP); returns the runtime token.
  * pid must be a synthetic Tenor fødselsnummer (month 81-92). Never log res.url.
  */
-export function AuthenticateWithMockporten() {
+export function authenticateWithMockporten() {
   http.cookieJar().clear(platformAuthentication.refresh);
   var endpoint = platformAuthentication.refresh + "&iss=mockporten";
   var res = http.get(endpoint);

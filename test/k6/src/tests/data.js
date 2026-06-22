@@ -38,7 +38,7 @@ export function setup() {
   const org = __ENV.org;
   const app = __ENV.app;
 
-  var userToken = setupToken.AuthenticateWithMockporten();
+  var userToken = setupToken.authenticateWithMockporten();
 
   if (!partyId) {
     partyId = setupToken.getAltinnClaimFromToken(userToken, "partyid");

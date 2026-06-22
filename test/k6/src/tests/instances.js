@@ -42,7 +42,7 @@ export function setup() {
     "altinn:serviceowner/instances.read altinn:serviceowner/instances.write";
   var orgToken = setupToken.getAltinnTokenForOrg(scopes);
 
-  var userToken = setupToken.AuthenticateWithMockporten();
+  var userToken = setupToken.authenticateWithMockporten();
 
   if (!partyId) {
     partyId = setupToken.getAltinnClaimFromToken(userToken, "partyid");
