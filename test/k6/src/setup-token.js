@@ -13,7 +13,7 @@ const environment = __ENV.altinn_env.toLowerCase();
  * Logs in an end user via Mockporten (test IDP); returns the runtime token.
  * pid must be a synthetic Tenor fødselsnummer (month 81-92). Never log res.url.
  */
-export function loginWithMockporten(pid, password) {
+export function authenticateWithMockporten() {
   http.cookieJar().clear(platformAuthentication.refresh);
   var endpoint = platformAuthentication.refresh + "&iss=mockporten";
   var res = http.get(endpoint);
@@ -21,7 +21,7 @@ export function loginWithMockporten(pid, password) {
   addErrorCount(success);
   stopIterationOnFail("Mockporten login form not loaded", success, res);
 
-  res = res.submitForm({ fields: { Pid: pid, Password: password } });
+  res = res.submitForm({ fields: { Pid: __ENV.pid, Password: __ENV.testidppwd } });
   success = check(res, { "Mockporten authentication success": (r) => r.status === 200 });
   addErrorCount(success);
   stopIterationOnFail("Mockporten authentication failed", success, res);
@@ -49,13 +49,6 @@ export function getAltinnTokenForOrg(scopes, org = "ttd", orgNo = "991825827") {
   };
 
   return tokenGenerator.generateEnterpriseToken(queryParams);
-}
-
-export function getAltinnTokenForUser() {
-  if (environment == "prod") {
-    return authentication.authenticateUser();
-  }
-  return loginWithMockporten(__ENV.pid, __ENV.testidppwd);
 }
 
 export function getAltinnClaimFromToken(jwtToken, claimName) {
