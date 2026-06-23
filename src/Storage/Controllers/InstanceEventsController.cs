@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -72,11 +73,12 @@ public class InstanceEventsController : ControllerBase
         Instance? instance = null;
         if (_wolverineSettings.EnableSending)
         {
-            (instance, _) = await _instanceRepository.GetOne(
+            (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
                 instanceGuid,
                 false,
                 CancellationToken.None
             );
+            instance = instanceInternal?.Instance;
         }
 
         InstanceEvent result = await _repository.InsertInstanceEvent(instanceEvent, instance);

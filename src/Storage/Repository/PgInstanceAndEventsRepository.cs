@@ -72,7 +72,7 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
 
         List<DataElement> dataElements = instance.Data;
 
-        PgInstanceRepository.ToInternal(instance);
+        PgInstanceRepository.SetStorageFormatInstanceId(instance);
         instance.Data = null;
 
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
@@ -140,6 +140,6 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
             throw;
         }
 
-        return PgInstanceRepository.ToExternal(instance);
+        return PgInstanceRepository.SetApiFormatInstanceId(instance);
     }
 }

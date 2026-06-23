@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Microsoft.AspNetCore.Http;
@@ -123,6 +124,7 @@ public class DataLockControllerUnitTests
                             p
                         )
                     ),
+                    It.IsAny<DataElementUpdateContext>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -202,6 +204,7 @@ public class DataLockControllerUnitTests
                             p
                         )
                     ),
+                    It.IsAny<DataElementUpdateContext>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -361,6 +364,7 @@ public class DataLockControllerUnitTests
                                 propertyList
                             )
                         ),
+                        It.IsAny<DataElementUpdateContext>(),
                         It.IsAny<CancellationToken>()
                     )
                 )
@@ -380,6 +384,7 @@ public class DataLockControllerUnitTests
                                 propertyList
                             )
                         ),
+                        It.IsAny<DataElementUpdateContext>(),
                         It.IsAny<CancellationToken>()
                     )
                 )
@@ -405,23 +410,30 @@ public class DataLockControllerUnitTests
                         CancellationToken cancellationToken
                     ) =>
                     {
-                        return (
-                            new Instance
-                            {
-                                Id = $"555/{instanceGuid}",
-                                InstanceOwner = new() { PartyId = "555" },
-                                Process = new() { CurrentTask = new() { ElementId = "Task_1" } },
-                                Data = !includeDataElements
-                                    ? null
-                                    : new()
-                                    {
-                                        new() { Id = dataGuid.ToString(), Locked = dataLocked },
-                                    },
-                                Org = _org,
-                                AppId = _appId,
-                            },
-                            0
-                        );
+                        Instance instance = new()
+                        {
+                            Id = $"555/{instanceGuid}",
+                            InstanceOwner = new() { PartyId = "555" },
+                            Process = new() { CurrentTask = new() { ElementId = "Task_1" } },
+                            Data = !includeDataElements
+                                ? null
+                                : new()
+                                {
+                                    new() { Id = dataGuid.ToString(), Locked = dataLocked },
+                                },
+                            Org = _org,
+                            AppId = _appId,
+                        };
+                        List<DataElementInternal> dataElements =
+                            instance
+                                .Data?.Select(dataElement => new DataElementInternal(
+                                    dataElement,
+                                    null
+                                ))
+                                .ToList()
+                            ?? [];
+
+                        return (new InstanceInternal(instance, dataElements), 0);
                     }
                 );
         }
@@ -431,7 +443,7 @@ public class DataLockControllerUnitTests
                 .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(
                     (Guid instanceGuid, bool dummy, CancellationToken cancellationToken) =>
-                        (null, 0)
+                        ((InstanceInternal)null, 0)
                 );
         }
 

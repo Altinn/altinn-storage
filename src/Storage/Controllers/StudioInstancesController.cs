@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 using Altinn.Platform.Storage.Helpers;
+using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Authorization;
@@ -124,7 +125,12 @@ public class StudioInstancesController : ControllerBase
     {
         try
         {
-            (var result, _) = await _instanceRepository.GetOne(instanceGuid, true, ct);
+            (InstanceInternal resultInternal, _) = await _instanceRepository.GetOne(
+                instanceGuid,
+                true,
+                ct
+            );
+            Instance result = resultInternal?.Instance;
             if (result == null || result.Org != org || result.AppId != $"{org}/{app}")
             {
                 return NotFound();

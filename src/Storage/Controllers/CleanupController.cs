@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
@@ -55,13 +56,15 @@ public class CleanupController(
             List<Instance> instances = await instanceRepository.GetHardDeletedInstances(
                 cancellationToken
             );
-            List<string> autoDeleteAppIds = (await applicationRepository.FindAll())
-                .Where(a =>
-                    instances.Select(i => i.AppId).ToList().Contains(a.Id)
-                    && a.AutoDeleteOnProcessEnd
-                )
-                .Select(a => a.Id)
-                .ToList();
+            List<string> autoDeleteAppIds =
+            [
+                .. (await applicationRepository.FindAll())
+                    .Where(a =>
+                        instances.Select(i => i.AppId).ToList().Contains(a.Id)
+                        && a.AutoDeleteOnProcessEnd
+                    )
+                    .Select(a => a.Id),
+            ];
 
             Stopwatch stopwatch = Stopwatch.StartNew();
             int successfullyDeleted = await CleanupInstancesInternal(
@@ -151,9 +154,8 @@ public class CleanupController(
     [ApiExplorerSettings(IgnoreApi = true)]
     public async Task<ActionResult> CleanupDataelements(CancellationToken cancellationToken)
     {
-        List<DataElement> dataElements = await instanceRepository.GetHardDeletedDataElements(
-            cancellationToken
-        );
+        List<DeletedDataElementInternal> dataElements =
+            await instanceRepository.GetHardDeletedDataElements(cancellationToken);
 
         int successfullyDeleted = 0;
 
@@ -161,17 +163,32 @@ public class CleanupController(
 
         Application app = null;
         Instance instance = null;
-        foreach (DataElement dataElement in dataElements.OrderBy(d => d.InstanceGuid))
+        foreach (
+            DeletedDataElementInternal deletedDataElement in dataElements.OrderBy(d =>
+                d.DataElement.DataElement.InstanceGuid
+            )
+        )
         {
+            DataElement dataElement = deletedDataElement.DataElement.DataElement;
             try
             {
                 if (instance == null || instance.Id.Split('/')[1] != dataElement.InstanceGuid)
                 {
-                    (instance, _) = await instanceRepository.GetOne(
+                    (InstanceInternal instanceInternal, _) = await instanceRepository.GetOne(
                         new Guid(dataElement.InstanceGuid),
                         false,
                         cancellationToken
                     );
+                    instance = instanceInternal?.Instance;
+                    if (instance is null)
+                    {
+                        _logger.LogError(
+                            "CleanupController // CleanupDataelements // Instance not found for dataElement Id: {DataElementId}",
+                            dataElement.Id
+                        );
+                        continue;
+                    }
+
                     app = await applicationRepository.FindOne(
                         instance.AppId,
                         instance.Org,
@@ -179,10 +196,13 @@ public class CleanupController(
                     );
                 }
 
+                string currentBlobStoragePath = dataElement.BlobStoragePath;
+                bool hasBlobVersions = deletedDataElement.BlobVersions.Count > 0;
                 if (
-                    !await blobRepository.DeleteBlob(
-                        dataElement.BlobStoragePath.Split('/')[0],
-                        dataElement.BlobStoragePath,
+                    !hasBlobVersions
+                    && !await blobRepository.DeleteBlob(
+                        currentBlobStoragePath.Split('/')[0],
+                        currentBlobStoragePath,
                         app.StorageAccountNumber
                     )
                 )
@@ -194,7 +214,37 @@ public class CleanupController(
                     );
                 }
 
-                if (!await dataRepository.Delete(dataElement, cancellationToken))
+                if (hasBlobVersions)
+                {
+                    foreach (
+                        BlobVersionReferencesInternal blobVersion in deletedDataElement.BlobVersions
+                    )
+                    {
+                        if (!await DeleteVersionedBlobsInternal(blobVersion, cancellationToken))
+                        {
+                            _logger.LogError(
+                                "CleanupController // CleanupDataelements // One or more blobs not found for dataElement Id: {dataElement.Id} Blobstoragepath: {blobStoragePath}",
+                                dataElement.Id,
+                                dataElement.BlobStoragePath
+                            );
+                        }
+
+                        string legacyBlobStoragePath = DataElementHelper.DataFileName(
+                            blobVersion.AppId,
+                            blobVersion.InstanceGuid.ToString(),
+                            dataElement.Id
+                        );
+
+                        // Best-effort cleanup for blobs created before explicit version paths were introduced.
+                        await blobRepository.DeleteBlob(
+                            blobVersion.BlobStorageOrg,
+                            legacyBlobStoragePath,
+                            blobVersion.StorageAccountNumber
+                        );
+                    }
+                }
+
+                if (!await dataRepository.DeleteForCleanup(dataElement, cancellationToken))
                 {
                     _logger.LogError(
                         "CleanupController // CleanupDataelements // Data element not found for dataElement Id: {dataElement.Id}",
@@ -226,15 +276,150 @@ public class CleanupController(
             }
         }
 
+        List<BlobVersionReferencesInternal> orphanBlobVersions =
+            await instanceRepository.GetOrphanBlobVersionsForCleanup(cancellationToken);
+
+        int orphanBlobVersionsDeleted;
+        try
+        {
+            orphanBlobVersionsDeleted = await CleanupOrphanBlobVersionsInternal(
+                orphanBlobVersions,
+                cancellationToken
+            );
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(
+                e,
+                "CleanupController // CleanupDataelements // Error occured when deleting orphan blob versions"
+            );
+            stopwatch.Stop();
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                "CleanupController // CleanupDataelements // Error occured when deleting orphan blob versions"
+            );
+        }
+
         stopwatch.Stop();
         _logger.LogInformation(
-            "CleanupController // CleanupDataelements // {successfullyDeleted} of {count} data elements deleted in {totalSeconds} s",
+            "CleanupController // CleanupDataelements // {successfullyDeleted} of {count} data elements and {orphanBlobVersionsDeleted} orphan blob versions deleted in {totalSeconds} s",
             successfullyDeleted,
             dataElements.Count,
+            orphanBlobVersionsDeleted,
             stopwatch.Elapsed.TotalSeconds
         );
 
         return Ok();
+    }
+
+    private async Task<bool> DeleteVersionedBlobsInternal(
+        BlobVersionReferencesInternal blobVersion,
+        CancellationToken cancellationToken
+    )
+    {
+        if (blobVersion.BlobVersionIds.Count == 0)
+        {
+            return true;
+        }
+
+        List<string> versionedBlobStoragePaths =
+        [
+            .. blobVersion.BlobVersionIds.Select(versionId =>
+                BlobRepository.GetVersionedBlobPath(
+                    blobVersion.AppId,
+                    blobVersion.InstanceGuid.ToString(),
+                    versionId
+                )
+            ),
+        ];
+
+        return await blobRepository.DeleteBlobs(
+            blobVersion.BlobStorageOrg,
+            versionedBlobStoragePaths,
+            blobVersion.StorageAccountNumber,
+            cancellationToken
+        );
+    }
+
+    private async Task<bool> DeleteVersionedInstanceBlobPrefixesInternal(
+        Guid instanceGuid,
+        (string BlobStorageOrg, string AppId, int? StorageAccountNumber) currentContext,
+        CancellationToken cancellationToken
+    )
+    {
+        Dictionary<Guid, List<BlobVersionReferencesInternal>> blobVersionsByDataElement =
+            await instanceRepository.GetBlobVersionsForInstance(instanceGuid, cancellationToken);
+
+        foreach (
+            var context in blobVersionsByDataElement
+                .Values.SelectMany(blobVersions => blobVersions)
+                .Where(blobVersion => blobVersion.BlobVersionIds.Count > 0)
+                .Select(blobVersion =>
+                    (
+                        blobVersion.BlobStorageOrg,
+                        blobVersion.AppId,
+                        blobVersion.StorageAccountNumber
+                    )
+                )
+                .Distinct()
+                .Where(context => context != currentContext)
+        )
+        {
+            if (
+                !await blobRepository.DeleteDataBlobs(
+                    context.BlobStorageOrg,
+                    context.AppId,
+                    instanceGuid.ToString(),
+                    context.StorageAccountNumber,
+                    cancellationToken
+                )
+            )
+            {
+                _logger.LogError(
+                    "CleanupController // CleanupInstancesInternal // Error deleting blobs for instance {InstanceGuid} in blob storage org {BlobStorageOrg} with app id {AppId}",
+                    instanceGuid,
+                    context.BlobStorageOrg,
+                    context.AppId
+                );
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private async Task<int> CleanupOrphanBlobVersionsInternal(
+        List<BlobVersionReferencesInternal> orphanBlobVersions,
+        CancellationToken cancellationToken
+    )
+    {
+        int successfullyDeleted = 0;
+        foreach (
+            BlobVersionReferencesInternal orphanBlobVersion in orphanBlobVersions
+                .OrderBy(o => o.AppId)
+                .ThenBy(o => o.InstanceGuid)
+        )
+        {
+            if (orphanBlobVersion.BlobVersionIds.Count == 0)
+            {
+                continue;
+            }
+
+            if (!await DeleteVersionedBlobsInternal(orphanBlobVersion, cancellationToken))
+            {
+                _logger.LogWarning(
+                    "CleanupController // CleanupDataelements // One or more orphan blobs not found for instance {InstanceGuid}",
+                    orphanBlobVersion.InstanceGuid
+                );
+            }
+
+            successfullyDeleted += await dataRepository.DeleteOrphanBlobVersions(
+                orphanBlobVersion.BlobVersionIds,
+                cancellationToken
+            );
+        }
+
+        return successfullyDeleted;
     }
 
     private async Task<int> CleanupInstancesInternal(
@@ -252,6 +437,7 @@ public class CleanupController(
 
             try
             {
+                Guid instanceGuid = new(instance.Id.Split('/')[^1]);
                 Application app = await applicationRepository.FindOne(instance.AppId, instance.Org);
                 blobsNoException = await blobRepository.DeleteDataBlobs(
                     instance,
@@ -260,8 +446,18 @@ public class CleanupController(
 
                 if (blobsNoException)
                 {
+                    blobsNoException = await DeleteVersionedInstanceBlobPrefixesInternal(
+                        instanceGuid,
+                        (instance.Org, instance.AppId, app.StorageAccountNumber),
+                        cancellationToken
+                    );
+                }
+
+                if (blobsNoException)
+                {
                     dataElementsNoException = await dataRepository.DeleteForInstance(
-                        instance.Id.Split('/')[^1]
+                        instanceGuid.ToString(),
+                        cancellationToken
                     );
                 }
 

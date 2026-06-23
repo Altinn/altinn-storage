@@ -17,6 +17,7 @@ using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Mocks;
@@ -819,7 +820,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         Mock<IDataRepository> dataRepositoryMock = new();
         dataRepositoryMock
             .Setup(dr => dr.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(de);
+            .ReturnsAsync(new DataElementInternal(de, null));
 
         dataRepositoryMock
             .Setup(dr =>
@@ -829,6 +830,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
                     It.Is<Dictionary<string, object>>(propertyList =>
                         VerifyDeleteStatusPresentInDictionary(propertyList)
                     ),
+                    It.IsAny<DataElementUpdateContext>(),
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -889,7 +891,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         Mock<IBlobRepository> blobRepositoryMock = new();
         dataRepositoryMock
             .Setup(dr => dr.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(de);
+            .ReturnsAsync(new DataElementInternal(de, null));
 
         blobRepositoryMock
             .Setup(dr => dr.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()))
@@ -936,7 +938,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         Mock<IDataRepository> dataRepositoryMock = new();
         dataRepositoryMock
             .Setup(dr => dr.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(de);
+            .ReturnsAsync(new DataElementInternal(de, null));
 
         string dataPathWithData =
             $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe88?delay=true";
@@ -954,6 +956,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
                     It.IsAny<Guid>(),
                     It.IsAny<Guid>(),
                     It.IsAny<Dictionary<string, object>>(),
+                    It.IsAny<DataElementUpdateContext>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -1139,10 +1142,6 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
             )
             .ReturnsAsync((0, DateTime.UtcNow));
 
-        repoMock
-            .Setup(r => r.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()))
-            .ReturnsAsync(true);
-
         string token = PrincipalUtil.GetToken(1337, 1337, 3);
         HttpClient client = GetTestClient(null, repoMock, null, token);
 
@@ -1154,7 +1153,20 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
 
         // Assert
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        repoMock.VerifyAll();
+        repoMock.Verify(
+            r =>
+                r.WriteBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<Stream>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>()
+                ),
+            Times.Once
+        );
+        repoMock.Verify(
+            r => r.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            Times.Once
+        );
     }
 
     private HttpClient GetTestClient(

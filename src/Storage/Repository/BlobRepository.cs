@@ -1,7 +1,9 @@
 ﻿#nullable disable
 
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
@@ -12,6 +14,7 @@ using Azure.Identity;
 using Azure.Storage;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
+using Azure.Storage.Blobs.Specialized;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -76,7 +79,12 @@ public class BlobRepository(
                     _memoryCache.Remove(_credsCacheKey);
                     _memoryCache.Remove(GetClientCacheKey(org, storageAccountNumber));
 
-                    return await DownloadBlobAsync(org, blobStoragePath, storageAccountNumber);
+                    return await DownloadBlobAsync(
+                        org,
+                        blobStoragePath,
+                        storageAccountNumber,
+                        cancellationToken
+                    );
                 case "BlobNotFound":
                     _logger.LogWarning(
                         "Unable to find a blob based on the given information - {Org}: {BlobStoragePath}",
@@ -111,13 +119,14 @@ public class BlobRepository(
     {
         try
         {
-            var blobProps = await UploadFromStreamAsync(
+            BlobProperties properties = await UploadFromStreamAsync(
                 org,
                 stream,
                 blobStoragePath,
                 storageAccountNumber
             );
-            return (blobProps.ContentLength, blobProps.LastModified);
+
+            return (properties.ContentLength, properties.LastModified);
         }
         catch (RequestFailedException requestFailedException)
         {
@@ -168,9 +177,95 @@ public class BlobRepository(
     }
 
     /// <inheritdoc/>
+    public async Task<bool> DeleteBlobs(
+        string org,
+        IEnumerable<string> blobStoragePaths,
+        int? storageAccountNumber,
+        CancellationToken cancellationToken = default
+    )
+    {
+        string[] blobStoragePathList =
+            blobStoragePaths
+                ?.Where(blobStoragePath => !string.IsNullOrEmpty(blobStoragePath))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray()
+            ?? [];
+        if (blobStoragePathList.Length == 0)
+        {
+            return true;
+        }
+
+        try
+        {
+            await DeleteBlobsAsync(
+                org,
+                blobStoragePathList,
+                storageAccountNumber,
+                cancellationToken
+            );
+            return true;
+        }
+        catch (RequestFailedException requestFailedException)
+            when (requestFailedException.ErrorCode == "AuthenticationFailed")
+        {
+            _logger.LogWarning(
+                "Authentication failed. Invalidating credentials and retrying batch delete operation."
+            );
+
+            _memoryCache.Remove(_credsCacheKey);
+            _memoryCache.Remove(GetClientCacheKey(org, storageAccountNumber));
+
+            await DeleteBlobsAsync(
+                org,
+                blobStoragePathList,
+                storageAccountNumber,
+                cancellationToken
+            );
+            return true;
+        }
+        catch (RequestFailedException requestFailedException)
+            when (requestFailedException.ErrorCode == "BlobNotFound")
+        {
+            _logger.LogWarning(
+                "One or more blobs were not found during batch delete operation for {Org}.",
+                org
+            );
+            return false;
+        }
+        catch (AggregateException aggregateException)
+            when (aggregateException.InnerExceptions.All(IsBlobNotFoundException))
+        {
+            _logger.LogWarning(
+                aggregateException,
+                "One or more blobs were not found during batch delete operation for {Org}.",
+                org
+            );
+            return false;
+        }
+    }
+
+    /// <inheritdoc/>
     public async Task<bool> DeleteDataBlobs(Instance instance, int? storageAccountNumber)
     {
-        BlobContainerClient container = CreateContainerClient(instance.Org, storageAccountNumber);
+        return await DeleteDataBlobs(
+            instance.Org,
+            instance.AppId,
+            instance.Id.Split('/')[^1],
+            storageAccountNumber,
+            CancellationToken.None
+        );
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> DeleteDataBlobs(
+        string org,
+        string appId,
+        string instanceGuid,
+        int? storageAccountNumber,
+        CancellationToken cancellationToken = default
+    )
+    {
+        BlobContainerClient container = CreateContainerClient(org, storageAccountNumber);
 
         if (container == null)
         {
@@ -182,28 +277,35 @@ public class BlobRepository(
 
         try
         {
+            string blobPrefix = $"{appId}/{instanceGuid}";
             await foreach (
                 BlobItem item in container.GetBlobsAsync(
                     BlobTraits.None,
                     BlobStates.None,
-                    $"{instance.AppId}/{instance.Id}",
-                    CancellationToken.None
+                    blobPrefix,
+                    cancellationToken
                 )
             )
             {
                 await container.DeleteBlobIfExistsAsync(
                     item.Name,
-                    DeleteSnapshotsOption.IncludeSnapshots
+                    DeleteSnapshotsOption.IncludeSnapshots,
+                    cancellationToken: cancellationToken
                 );
             }
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "BlobService // DeleteDataBlobs // Org: {Instance}", instance.Org);
+            _logger.LogError(e, "BlobService // DeleteDataBlobs // Org: {Org}", org);
             return false;
         }
 
         return true;
+    }
+
+    internal static string GetVersionedBlobPath(string appId, string instanceGuid, string versionId)
+    {
+        return $"{appId}/{instanceGuid}/data-elements/{versionId}";
     }
 
     private async Task<BlobProperties> UploadFromStreamAsync(
@@ -243,6 +345,9 @@ public class BlobRepository(
         return response.Value.Content;
     }
 
+    /// <summary>
+    /// Deletes the blob at the supplied concrete path.
+    /// </summary>
     private async Task<bool> DeleteIfExistsAsync(
         string org,
         string fileName,
@@ -254,6 +359,35 @@ public class BlobRepository(
         bool result = await blockBlob.DeleteIfExistsAsync();
 
         return result;
+    }
+
+    private async Task DeleteBlobsAsync(
+        string org,
+        IReadOnlyCollection<string> blobStoragePaths,
+        int? storageAccountNumber,
+        CancellationToken cancellationToken
+    )
+    {
+        BlobContainerClient container = CreateContainerClient(org, storageAccountNumber);
+        BlobBatchClient batchClient = CreateBlobBatchClient(org, storageAccountNumber);
+
+        foreach (string[] blobStoragePathBatch in blobStoragePaths.Chunk(256))
+        {
+            Uri[] blobUris = blobStoragePathBatch
+                .Select(blobStoragePath => container.GetBlobClient(blobStoragePath).Uri)
+                .ToArray();
+
+            await batchClient.DeleteBlobsAsync(
+                blobUris,
+                DeleteSnapshotsOption.IncludeSnapshots,
+                cancellationToken: cancellationToken
+            );
+        }
+    }
+
+    private static bool IsBlobNotFoundException(Exception exception)
+    {
+        return exception is RequestFailedException { ErrorCode: "BlobNotFound" };
     }
 
     private BlobClient CreateBlobClient(string org, string blobName, int? storageAccountNumber)
@@ -272,12 +406,7 @@ public class BlobRepository(
                     _storageConfiguration.OrgStorageContainer,
                     org
                 );
-                string accountName = string.Format(_storageConfiguration.OrgStorageAccount, org);
-                if (storageAccountNumber != null)
-                {
-                    accountName =
-                        $"{accountName.AsSpan(0, accountName.Length - 2)}{(int)storageAccountNumber:D2}";
-                }
+                string accountName = GetStorageAccountName(org, storageAccountNumber);
 
                 UriBuilder fullUri = new()
                 {
@@ -303,6 +432,40 @@ public class BlobRepository(
             string.Format(_storageConfiguration.OrgStorageContainer, org)
         );
         return blobContainerClient;
+    }
+
+    private BlobBatchClient CreateBlobBatchClient(string org, int? storageAccountNumber)
+    {
+        if (!_storageConfiguration.AccountName.Equals("devstoreaccount1"))
+        {
+            string accountName = GetStorageAccountName(org, storageAccountNumber);
+            UriBuilder fullUri = new()
+            {
+                Scheme = "https",
+                Host = $"{accountName}.blob.core.windows.net",
+            };
+
+            return new BlobServiceClient(fullUri.Uri, GetCachedCredentials()).GetBlobBatchClient();
+        }
+
+        StorageSharedKeyCredential storageCredentials = new(
+            _storageConfiguration.OrgStorageAccount,
+            _storageConfiguration.AccountKey
+        );
+        Uri storageUrl = new(_storageConfiguration.BlobEndPoint);
+        return new BlobServiceClient(storageUrl, storageCredentials).GetBlobBatchClient();
+    }
+
+    private string GetStorageAccountName(string org, int? storageAccountNumber)
+    {
+        string accountName = string.Format(_storageConfiguration.OrgStorageAccount, org);
+        if (storageAccountNumber != null)
+        {
+            accountName =
+                $"{accountName.AsSpan(0, accountName.Length - 2)}{(int)storageAccountNumber:D2}";
+        }
+
+        return accountName;
     }
 
     private DefaultAzureCredential GetCachedCredentials()

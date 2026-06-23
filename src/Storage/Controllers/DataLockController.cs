@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -99,7 +100,7 @@ public class DataLockController : ControllerBase
                 instanceGuid,
                 dataGuid,
                 propertyList,
-                cancellationToken
+                cancellationToken: cancellationToken
             );
             return Created(updatedDataElement.Id, updatedDataElement);
         }
@@ -160,7 +161,7 @@ public class DataLockController : ControllerBase
                 instanceGuid,
                 dataGuid,
                 propertyList,
-                cancellationToken
+                cancellationToken: cancellationToken
             );
             return Ok(updatedDataElement);
         }
@@ -179,11 +180,12 @@ public class DataLockController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
             instanceGuid,
             includeDataElements,
             cancellationToken
         );
+        Instance instance = instanceInternal?.Instance;
 
         if (instance == null)
         {

@@ -77,11 +77,9 @@ public class InstanceLockController(
             );
         }
 
-        (Instance instance, long instanceInternalId) = await instanceRepository.GetOne(
-            instanceGuid,
-            false,
-            cancellationToken
-        );
+        (InstanceInternal instanceInternal, long instanceInternalId) =
+            await instanceRepository.GetOne(instanceGuid, false, cancellationToken);
+        Instance instance = instanceInternal?.Instance;
 
         if (instance is null || instance.InstanceOwner.PartyId != instanceOwnerPartyId.ToString())
         {
@@ -167,11 +165,9 @@ public class InstanceLockController(
             );
         }
 
-        (Instance instance, long instanceInternalId) = await instanceRepository.GetOne(
-            instanceGuid,
-            false,
-            cancellationToken
-        );
+        (InstanceInternal instanceInternal, long instanceInternalId) =
+            await instanceRepository.GetOne(instanceGuid, false, cancellationToken);
+        Instance instance = instanceInternal?.Instance;
 
         if (instance is null || instance.InstanceOwner.PartyId != instanceOwnerPartyId.ToString())
         {

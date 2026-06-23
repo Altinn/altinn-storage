@@ -8,6 +8,7 @@ using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -82,16 +83,18 @@ public class ProcessController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        (Instance existingInstance, _) = await _instanceRepository.GetOne(
+        (InstanceInternal existingInstanceInternal, _) = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
 
-        if (existingInstance is null)
+        if (existingInstanceInternal is null)
         {
             return NotFound();
         }
+
+        Instance existingInstance = existingInstanceInternal.Instance;
 
         if (!await _processAuthorizer.AuthorizeProcessNext(existingInstance, processState))
         {
@@ -140,16 +143,18 @@ public class ProcessController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        (Instance existingInstance, _) = await _instanceRepository.GetOne(
+        (InstanceInternal existingInstanceInternal, _) = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
 
-        if (existingInstance is null)
+        if (existingInstanceInternal is null)
         {
             return NotFound();
         }
+
+        Instance existingInstance = existingInstanceInternal.Instance;
 
         foreach (InstanceEvent instanceEvent in processStateUpdate.Events ?? [])
         {
@@ -194,11 +199,12 @@ public class ProcessController : ControllerBase
         string? targetTaskId = processState.CurrentTask?.ElementId;
         if (!string.IsNullOrWhiteSpace(targetTaskId))
         {
-            await _processDataCleanupService.CleanupGeneratedFromTask(
-                existingInstance,
+            existingInstanceInternal = await _processDataCleanupService.CleanupGeneratedFromTask(
+                existingInstanceInternal,
                 targetTaskId,
                 cancellationToken
             );
+            existingInstance = existingInstanceInternal.Instance;
         }
 
         processStateUpdate.Events ??= [];
@@ -278,11 +284,12 @@ public class ProcessController : ControllerBase
         string? message = null;
         try
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(
+            (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
                 instanceGuid,
                 false,
                 cancellationToken
             );
+            Instance instance = instanceInternal?.Instance;
             if (instance.InstanceOwner.PartyId == instanceOwnerPartyId.ToString())
             {
                 return Ok(new AuthInfo() { Process = instance.Process, AppId = instance.AppId });

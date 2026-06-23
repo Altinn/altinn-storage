@@ -7,7 +7,6 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -65,11 +64,9 @@ public class SigningService : ISigningService
         CancellationToken cancellationToken
     )
     {
-        (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(
-            instanceGuid,
-            true,
-            cancellationToken
-        );
+        (InstanceInternal instanceInternal, long instanceInternalId) =
+            await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
+        Instance instance = instanceInternal?.Instance;
 
         if (instance == null)
         {
@@ -121,23 +118,11 @@ public class SigningService : ISigningService
             );
         }
 
-        DataElement dataElement = DataElementHelper.CreateDataElement(
-            signRequest.SignatureDocumentDataType,
-            null,
-            instance,
-            signDocument.SignedTime,
-            "application/json",
-            $"{signRequest.SignatureDocumentDataType}.json",
-            0,
-            performedBy,
-            signRequest.GeneratedFromTask
-        );
-
-        dataElement.Locked = true; // Lock the data element to prevent changes after signing
-        signDocument.Id = dataElement.Id;
+        Guid signDocumentDataElementId = Guid.NewGuid();
+        signDocument.Id = signDocumentDataElementId.ToString();
 
         await DeleteExistingSignDocumentForSignee(
-            instance,
+            instanceInternal,
             signRequest.SignatureDocumentDataType,
             signDocument.SigneeInfo,
             cancellationToken
@@ -154,11 +139,22 @@ public class SigningService : ISigningService
 
             fileStream.Position = 0;
             await _dataService.UploadDataAndCreateDataElement(
-                instance.Org,
+                instanceInternal,
                 fileStream,
-                dataElement,
+                new DataElementCreateOptions
+                {
+                    DataElementId = signDocumentDataElementId,
+                    DataType = signRequest.SignatureDocumentDataType,
+                    ContentType = "application/json",
+                    Filename = $"{signRequest.SignatureDocumentDataType}.json",
+                    Created = signDocument.SignedTime,
+                    CreatedBy = performedBy,
+                    GeneratedFromTask = signRequest.GeneratedFromTask,
+                    Locked = true,
+                },
                 instanceInternalId,
-                app.StorageAccountNumber
+                app.StorageAccountNumber,
+                cancellationToken
             );
         }
 
@@ -167,24 +163,27 @@ public class SigningService : ISigningService
     }
 
     private async Task DeleteExistingSignDocumentForSignee(
-        Instance instance,
+        InstanceInternal instanceInternal,
         string signDocDataType,
         Signee signee,
         CancellationToken cancellationToken
     )
     {
+        Instance instance = instanceInternal.Instance;
         Application application = await _applicationRepository.FindOne(
             instance.AppId,
             instance.Org,
             cancellationToken
         );
-        List<DataElement> signingDocDataElements =
-            instance.Data?.Where(x => x.DataType == signDocDataType).ToList() ?? [];
+        List<DataElementInternal> signingDocDataElements = instanceInternal
+            .DataElements.Where(x => x.DataElement.DataType == signDocDataType)
+            .ToList();
 
         List<Task<SignDocDownloadResult>> downloadAndDeserializeSignDocumentTasks =
             signingDocDataElements
-                .Select(async dataElement =>
+                .Select(async dataElementInternal =>
                 {
+                    DataElement dataElement = dataElementInternal.DataElement;
                     try
                     {
                         await using Stream stream = await _blobRepository.ReadBlob(
@@ -199,7 +198,7 @@ public class SigningService : ISigningService
                         );
                         return new SignDocDownloadResult
                         {
-                            DataElement = dataElement,
+                            DataElement = dataElementInternal,
                             SignDocument = signDocument,
                         };
                     }
@@ -228,11 +227,11 @@ public class SigningService : ISigningService
 
             _logger.LogInformation(
                 "Sign document already exists for this signee. Deleting existing sign document. Data element id: {DataElementId}",
-                result.DataElement.Id
+                result.DataElement.DataElement.Id
             );
 
             await _dataService.DeleteImmediately(
-                instance,
+                instanceInternal,
                 result.DataElement,
                 application.StorageAccountNumber
             );
@@ -269,7 +268,7 @@ public class SigningService : ISigningService
 #pragma warning disable SA1600 // Elements should be documented
 file sealed record SignDocDownloadResult
 {
-    public DataElement DataElement { get; init; }
+    public DataElementInternal DataElement { get; init; }
 
     public SignDocument SignDocument { get; init; }
 }

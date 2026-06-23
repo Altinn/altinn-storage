@@ -377,11 +377,12 @@ public class InstancesController : ControllerBase
     {
         try
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(
+            (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
                 instanceGuid,
                 true,
                 cancellationToken
             );
+            Instance instance = instanceInternal?.Instance;
 
             if (
                 _authorizationService.UserHasRequiredScope([
@@ -434,11 +435,12 @@ public class InstancesController : ControllerBase
     {
         try
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(
+            (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
                 instanceGuid,
                 true,
                 cancellationToken
             );
+            Instance instance = instanceInternal?.Instance;
 
             if (
                 _authorizationService.UserHasRequiredScope([
@@ -656,9 +658,12 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        Instance instance;
-
-        (instance, _) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
+        (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            cancellationToken
+        );
+        Instance instance = instanceInternal?.Instance;
 
         if (instance == null)
         {
@@ -764,11 +769,12 @@ public class InstancesController : ControllerBase
     )
     {
         List<string> updateProperties = [];
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
+        Instance instance = instanceInternal?.Instance;
 
         string org = User.GetOrg();
 
@@ -845,11 +851,12 @@ public class InstancesController : ControllerBase
             );
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
+        Instance instance = instanceInternal?.Instance;
 
         List<string> updateProperties =
         [
@@ -924,11 +931,12 @@ public class InstancesController : ControllerBase
             );
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
+        Instance instance = instanceInternal?.Instance;
 
         string org = User.GetOrg();
         if (!instance.Org.Equals(org))
@@ -1006,11 +1014,12 @@ public class InstancesController : ControllerBase
             return BadRequest($"Missing parameter value: presentationTexts is misformed or empty");
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
+        Instance instance = instanceInternal?.Instance;
 
         if (!await _processAuthorizer.AuthorizePresentationTextsUpdate(instance))
         {
@@ -1071,11 +1080,12 @@ public class InstancesController : ControllerBase
             return BadRequest($"Missing parameter value: dataValues is misformed or empty");
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
+        Instance instance = instanceInternal?.Instance;
 
         if (!await _processAuthorizer.AuthorizeDataValuesUpdate(instance))
         {

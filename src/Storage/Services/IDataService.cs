@@ -17,7 +17,7 @@ public interface IDataService
     /// <summary>
     /// Trigger malware scan of the blob associated with the given data element.
     /// </summary>
-    /// <param name="instance">The metadata document for the parent instance for the data element.</param>
+    /// <param name="instance">The internal metadata document for the parent instance for the data element.</param>
     /// <param name="dataType">
     /// The data type properties document for the data type of the blob to be scanned for malware.
     /// </param>
@@ -27,9 +27,9 @@ public interface IDataService
     /// <param name="ct">A cancellation token should the request be cancelled.</param>
     /// <returns>A task representing the asynconous call to file scan service.</returns>
     Task StartFileScan(
-        Instance instance,
+        InstanceInternal instance,
         DataType dataType,
-        DataElement dataElement,
+        DataElementInternal dataElement,
         DateTimeOffset blobTimestamp,
         int? storageAccountNumber,
         CancellationToken ct
@@ -50,31 +50,40 @@ public interface IDataService
     );
 
     /// <summary>
-    /// Upload file and save dataElement
+    /// Uploads a blob and creates data element metadata for its first explicit blob version.
     /// </summary>
-    /// <param name="org">The application owner id.</param>
+    /// <param name="instance">The internal instance the data element belongs to.</param>
     /// <param name="stream">Data to be written to blob storage.</param>
-    /// <param name="dataElement">The data element to insert.</param>
-    /// <param name="instanceInternalId">The internal id of the data element to insert.</param>
+    /// <param name="options">Metadata to use when creating the data element.</param>
+    /// <param name="instanceInternalId">The internal id of the parent instance.</param>
     /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
-    Task UploadDataAndCreateDataElement(
-        string org,
+    /// <param name="cancellationToken">A cancellation token to pass to async operations.</param>
+    /// <returns>The created data element with internal blob fields, and the blob timestamp.</returns>
+    Task<(
+        DataElementInternal DataElement,
+        DateTimeOffset BlobTimestamp
+    )> UploadDataAndCreateDataElement(
+        InstanceInternal instance,
         Stream stream,
-        DataElement dataElement,
+        DataElementCreateOptions options,
         long instanceInternalId,
-        int? storageAccountNumber
+        int? storageAccountNumber,
+        CancellationToken cancellationToken = default
     );
 
     /// <summary>
-    /// Delete a data element and it's blob data immediately.
+    /// Delete a data element immediately.
     /// </summary>
+    /// <remarks>
+    /// Deletes blobs first. Legacy blobs without explicit versions are deleted directly;
+    /// explicit version blobs are deleted by concrete version path.
+    /// </remarks>
     /// <param name="instance">The instance</param>
     /// <param name="dataElement">The data element</param>
     /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
-    /// <returns></returns>
-    Task<DataElement> DeleteImmediately(
-        Instance instance,
-        DataElement dataElement,
+    Task DeleteImmediately(
+        InstanceInternal instance,
+        DataElementInternal dataElement,
         int? storageAccountNumber
     );
 }

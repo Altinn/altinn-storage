@@ -150,7 +150,7 @@ public class InstanceRepositoryMock : IInstanceRepository
         );
     }
 
-    public Task<(Instance Instance, long InternalId)> GetOne(
+    public Task<(InstanceInternal Instance, long InternalId)> GetOne(
         Guid instanceGuid,
         bool includeElements,
         CancellationToken cancellationToken
@@ -163,10 +163,10 @@ public class InstanceRepositoryMock : IInstanceRepository
             Instance instance = JsonConvert.DeserializeObject<Instance>(content);
             instance.Data = includeElements ? GetDataElements(instanceGuid) : null;
             PostProcess(instance);
-            return Task.FromResult<(Instance, long)>((instance, 0));
+            return Task.FromResult<(InstanceInternal, long)>((CreateInstanceInternal(instance), 0));
         }
 
-        return Task.FromResult<(Instance, long)>((null, 0));
+        return Task.FromResult<(InstanceInternal, long)>((null, 0));
     }
 
     public Task<Instance> Update(
@@ -190,7 +190,24 @@ public class InstanceRepositoryMock : IInstanceRepository
         throw new NotImplementedException();
     }
 
-    public Task<List<DataElement>> GetHardDeletedDataElements(CancellationToken cancellationToken)
+    public Task<List<DeletedDataElementInternal>> GetHardDeletedDataElements(
+        CancellationToken cancellationToken
+    )
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<Dictionary<Guid, List<BlobVersionReferencesInternal>>> GetBlobVersionsForInstance(
+        Guid instanceGuid,
+        CancellationToken cancellationToken
+    )
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<List<BlobVersionReferencesInternal>> GetOrphanBlobVersionsForCleanup(
+        CancellationToken cancellationToken
+    )
     {
         throw new NotImplementedException();
     }
@@ -220,6 +237,17 @@ public class InstanceRepositoryMock : IInstanceRepository
         }
 
         return dataElements;
+    }
+
+    private static InstanceInternal CreateInstanceInternal(Instance instance)
+    {
+        List<DataElementInternal> dataElements =
+            instance
+                .Data?.Select(dataElement => new DataElementInternal(dataElement, null))
+                .ToList()
+            ?? [];
+
+        return new InstanceInternal(instance, dataElements);
     }
 
     private static string GetDataElementsPath()
