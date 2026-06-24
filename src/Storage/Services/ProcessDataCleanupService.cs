@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,41 +10,32 @@ using Microsoft.Extensions.Logging;
 namespace Altinn.Platform.Storage.Services;
 
 /// <inheritdoc cref="IProcessDataCleanupService"/>
-public class ProcessDataCleanupService : IProcessDataCleanupService
+/// <summary>
+/// Initializes a new instance of the <see cref="ProcessDataCleanupService"/> class.
+/// </summary>
+public class ProcessDataCleanupService(
+    IDataService _dataService,
+    IApplicationService _applicationService,
+    ILogger<ProcessDataCleanupService> _logger
+) : IProcessDataCleanupService
 {
-    private readonly IDataService _dataService;
-    private readonly IApplicationService _applicationService;
-    private readonly ILogger<ProcessDataCleanupService> _logger;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ProcessDataCleanupService"/> class.
-    /// </summary>
-    public ProcessDataCleanupService(
-        IDataService dataService,
-        IApplicationService applicationService,
-        ILogger<ProcessDataCleanupService> logger
-    )
-    {
-        _dataService = dataService;
-        _applicationService = applicationService;
-        _logger = logger;
-    }
-
     /// <inheritdoc/>
-    public async Task<int> CleanupGeneratedFromTask(
-        Instance instance,
+    public async Task<InstanceInternal> CleanupGeneratedFromTask(
+        InstanceInternal instanceInternal,
         string taskId,
         CancellationToken cancellationToken
     )
     {
-        if (instance.Data is null or { Count: 0 })
+        if (instanceInternal.DataElements is null or { Count: 0 })
         {
-            return 0;
+            return instanceInternal;
         }
 
-        List<DataElement> stale = instance
-            .Data.Where(de =>
-                de.References?.Any(r =>
+        var dataElementsInternal = instanceInternal.DataElements.ToList();
+
+        var stale = dataElementsInternal
+            .Where(de =>
+                de.DataElement.References?.Any(r =>
                     r.Relation == RelationType.GeneratedFrom
                     && r.ValueType == ReferenceType.Task
                     && r.Value == taskId
@@ -56,25 +46,31 @@ public class ProcessDataCleanupService : IProcessDataCleanupService
 
         if (stale.Count == 0)
         {
-            return 0;
+            return instanceInternal;
         }
 
         _logger.LogInformation(
             "Found {Count} stale data element(s) to delete for task {TaskId} on instance {InstanceId}",
             stale.Count,
             taskId,
-            instance.Id
+            instanceInternal.Instance.Id
         );
 
-        int? storageAccountNumber = await GetStorageAccountNumber(instance);
+        int? storageAccountNumber = await GetStorageAccountNumber(instanceInternal);
         int deleted = 0;
-        foreach (DataElement dataElement in stale)
+        foreach (var dataElementInternal in stale)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
             try
             {
-                await _dataService.DeleteImmediately(instance, dataElement, storageAccountNumber);
-                instance.Data.Remove(dataElement);
+                await _dataService.DeleteImmediately(
+                    instanceInternal,
+                    dataElementInternal,
+                    storageAccountNumber
+                );
+                dataElementsInternal.Remove(dataElementInternal);
+                instanceInternal.Instance.Data.Remove(dataElementInternal.DataElement);
                 deleted++;
             }
             catch (Exception ex)
@@ -82,10 +78,10 @@ public class ProcessDataCleanupService : IProcessDataCleanupService
                 _logger.LogWarning(
                     ex,
                     "Failed to delete stale data element {DataElementId} ({BlobStoragePath}) for task {TaskId} on instance {InstanceId}; continuing",
-                    dataElement.Id,
-                    dataElement.BlobStoragePath,
+                    dataElementInternal.DataElement.Id,
+                    dataElementInternal.DataElement.BlobStoragePath,
                     taskId,
-                    instance.Id
+                    instanceInternal.Instance.Id
                 );
             }
         }
@@ -95,21 +91,21 @@ public class ProcessDataCleanupService : IProcessDataCleanupService
             deleted,
             stale.Count,
             taskId,
-            instance.Id
+            instanceInternal.Instance.Id
         );
 
-        return deleted;
+        return new(instanceInternal.Instance, dataElementsInternal);
     }
 
-    private async Task<int?> GetStorageAccountNumber(Instance instance)
+    private async Task<int?> GetStorageAccountNumber(InstanceInternal instanceInternal)
     {
         (Application? application, ServiceError? error) =
-            await _applicationService.GetApplicationOrErrorAsync(instance.AppId);
+            await _applicationService.GetApplicationOrErrorAsync(instanceInternal.Instance.AppId);
 
         if (application is null)
         {
             throw new InvalidOperationException(
-                $"Failed to retrieve application for {instance.AppId}: [{error?.ErrorCode}] {error?.ErrorMessage}"
+                $"Failed to retrieve application for {instanceInternal.Instance.AppId}: [{error?.ErrorCode}] {error?.ErrorMessage}"
             );
         }
 

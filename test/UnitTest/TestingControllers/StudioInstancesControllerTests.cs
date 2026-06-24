@@ -271,7 +271,7 @@ public class StudioInstancesControllerTests
         var instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
             .Setup(ir => ir.GetOne(instanceGuid, true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((instance, 1));
+            .ReturnsAsync((new InstanceInternal(instance, []), 1));
 
         HttpClient client = GetAuthenticatedClient(
             instanceRepository: instanceRepositoryMock.Object
@@ -294,7 +294,7 @@ public class StudioInstancesControllerTests
         var instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
             .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((null, 0));
+            .ReturnsAsync(((InstanceInternal)null, 0));
 
         HttpClient client = GetAuthenticatedClient(
             instanceRepository: instanceRepositoryMock.Object
@@ -325,7 +325,7 @@ public class StudioInstancesControllerTests
         var instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
             .Setup(ir => ir.GetOne(instanceGuid, true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((instance, 1));
+            .ReturnsAsync((new InstanceInternal(instance, []), 1));
 
         HttpClient client = GetAuthenticatedClient(
             instanceRepository: instanceRepositoryMock.Object
@@ -354,7 +354,7 @@ public class StudioInstancesControllerTests
         var instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
             .Setup(ir => ir.GetOne(instanceGuid, true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((instance, 1));
+            .ReturnsAsync((new InstanceInternal(instance, []), 1));
 
         HttpClient client = GetAuthenticatedClient(
             instanceRepository: instanceRepositoryMock.Object

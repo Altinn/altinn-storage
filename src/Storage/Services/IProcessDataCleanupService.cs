@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 
 namespace Altinn.Platform.Storage.Services;
 
@@ -12,7 +13,7 @@ namespace Altinn.Platform.Storage.Services;
 public interface IProcessDataCleanupService
 {
     /// <summary>
-    /// Deletes all data elements on <paramref name="instance"/> whose
+    /// Deletes all data elements on <paramref name="instanceInternal"/> whose
     /// <see cref="DataElement.References"/> contain a reference matching
     /// <c>{Relation = GeneratedFrom, ValueType = Task, Value = taskId}</c>.
     /// Each delete is best-effort: individual failures are logged and skipped,
@@ -23,16 +24,16 @@ public interface IProcessDataCleanupService
     /// via <see cref="IApplicationService.GetApplicationOrErrorAsync"/>. A failure with this lookup will result in an
     /// <see cref="InvalidOperationException"/>.
     /// </remarks>
-    /// <param name="instance">
-    /// The instance whose data elements should be evaluated. The <see cref="Instance.Data"/> list is mutated to remove
-    /// successfully deleted elements so subsequent persistence reflects the cleanup.
+    /// <param name="instanceInternal">
+    /// The instance whose data elements should be evaluated. The wrapped <see cref="Instance.Data"/> list is mutated to
+    /// remove successfully deleted elements so subsequent persistence reflects the cleanup.
     /// </param>
     /// <param name="taskId">The id of the task that the instance is entering.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>The number of data elements that were successfully deleted.</returns>
+    /// <returns>The updated instance metadata with stale data elements removed.</returns>
     /// <exception cref="InvalidOperationException">Error looking up the application's storage account.</exception>
-    Task<int> CleanupGeneratedFromTask(
-        Instance instance,
+    Task<InstanceInternal> CleanupGeneratedFromTask(
+        InstanceInternal instanceInternal,
         string taskId,
         CancellationToken cancellationToken
     );

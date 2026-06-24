@@ -44,8 +44,8 @@ public interface IInstanceRepository
     /// <param name="instanceGuid">the instance guid</param>
     /// <param name="includeElements">whether to include data elements</param>
     /// <param name="cancellationToken">CancellationToken</param>
-    /// <returns>The instance for the given parameters</returns>
-    Task<(Instance Instance, long InternalId)> GetOne(
+    /// <returns>The instance for the given parameters with internal storage-only fields.</returns>
+    Task<(InstanceInternal Instance, long InternalId)> GetOne(
         Guid instanceGuid,
         bool includeElements,
         CancellationToken cancellationToken
@@ -96,6 +96,28 @@ public interface IInstanceRepository
     /// Gets hard deleted data elements for cleanup
     /// </summary>
     /// <param name="cancellationToken">CancellationToken</param>
-    /// <returns>Hard deleted data elements</returns>
-    Task<List<DataElement>> GetHardDeletedDataElements(CancellationToken cancellationToken);
+    /// <returns>Hard deleted data elements with cleanup metadata</returns>
+    Task<List<DeletedDataElementInternal>> GetHardDeletedDataElements(
+        CancellationToken cancellationToken
+    );
+
+    /// <summary>
+    /// Gets attached blob versions for all data elements in an instance.
+    /// </summary>
+    /// <param name="instanceGuid">The instance guid.</param>
+    /// <param name="cancellationToken">CancellationToken</param>
+    /// <returns>Attached blob versions grouped by data element and storage context</returns>
+    Task<Dictionary<Guid, List<BlobVersionReferencesInternal>>> GetBlobVersionsForInstance(
+        Guid instanceGuid,
+        CancellationToken cancellationToken
+    );
+
+    /// <summary>
+    /// Gets aged blob version rows without a data element metadata row for cleanup.
+    /// </summary>
+    /// <param name="cancellationToken">CancellationToken</param>
+    /// <returns>Orphan blob versions grouped by storage context</returns>
+    Task<List<BlobVersionReferencesInternal>> GetOrphanBlobVersionsForCleanup(
+        CancellationToken cancellationToken
+    );
 }

@@ -1,6 +1,7 @@
 #nullable disable
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,6 +16,16 @@ public class BlobRepositoryMock : IBlobRepository
         string org,
         string blobStoragePath,
         int? storageAccountNumber
+    )
+    {
+        return await Task.FromResult(true);
+    }
+
+    public async Task<bool> DeleteBlobs(
+        string org,
+        IEnumerable<string> blobStoragePaths,
+        int? storageAccountNumber,
+        CancellationToken cancellationToken = default
     )
     {
         return await Task.FromResult(true);
@@ -55,6 +66,17 @@ public class BlobRepositoryMock : IBlobRepository
 
     public Task<bool> DeleteDataBlobs(Instance instance, int? storageAccountNumber)
     {
-        throw new NotImplementedException();
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> DeleteDataBlobs(
+        string org,
+        string appId,
+        string instanceGuid,
+        int? storageAccountNumber,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return Task.FromResult(true);
     }
 }

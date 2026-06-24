@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -15,6 +16,7 @@ using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Filters;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Azure.Storage;
 using Azure.Storage.Blobs;
@@ -144,11 +146,12 @@ public class MigrationController : ControllerBase
                 : await _a2Repository.GetA2MigrationInstanceId(a2ArchiveReference);
             if (instanceId != null)
             {
-                (storedInstance, _) = await _instanceRepository.GetOne(
+                (InstanceInternal storedInstanceInternal, _) = await _instanceRepository.GetOne(
                     Guid.Parse(instanceId),
                     false,
                     cancellationToken
                 );
+                storedInstance = storedInstanceInternal?.Instance;
                 bool hasDialog = storedInstance?.DataValues?.ContainsKey("dialog.id") ?? false;
 
                 await CleanupOldMigrationInternal(instanceId, cancellationToken);
@@ -236,12 +239,12 @@ public class MigrationController : ControllerBase
     {
         DateTime created = new DateTime(createdTicks, DateTimeKind.Utc).ToLocalTime();
         DateTime lastChanged = new DateTime(changedTicks, DateTimeKind.Utc).ToLocalTime();
-        (Instance instance, long instanceId) = await _instanceRepository.GetOne(
+        (InstanceInternal instanceInternal, long instanceId) = await _instanceRepository.GetOne(
             instanceGuid,
             false,
             cancellationToken
         );
-        if (instanceId == 0)
+        if (instanceId == 0 || instanceInternal?.Instance is not { } instance)
         {
             return BadRequest("Instance not found");
         }
@@ -261,6 +264,40 @@ public class MigrationController : ControllerBase
         try
         {
             string dataElementId = Guid.NewGuid().ToString();
+            bool hasBlob = Request.ContentLength > 0 || dataType == "binary-data";
+            string blobOrg = $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}";
+            string blobVersionId;
+            string blobStoragePath;
+            if (hasBlob)
+            {
+                blobVersionId = await _dataRepository.CreateBlobVersionId(
+                    instanceGuid,
+                    Guid.Parse(dataElementId),
+                    instance.AppId,
+                    blobOrg,
+                    app.StorageAccountNumber,
+                    cancellationToken
+                );
+                blobStoragePath = BlobRepository.GetVersionedBlobPath(
+                    instance.AppId,
+                    instanceGuid.ToString(),
+                    blobVersionId
+                );
+            }
+            else
+            {
+                blobStoragePath = dataType switch
+                {
+                    "signature-presentation" => "ondemand/signature",
+                    "ref-data-as-pdf" => "ondemand/formdatapdf",
+                    "ref-data-as-html" => "ondemand/formdatahtml",
+                    "ref-summary-data-as-html" => "ondemand/formsummaryhtml",
+                    "payment-presentation" => "ondemand/payment",
+                    _ => throw new ArgumentException(dataType),
+                };
+                blobVersionId = null;
+            }
+
             DataElement dataElement = new()
             {
                 Id = dataElementId,
@@ -271,11 +308,7 @@ public class MigrationController : ControllerBase
                 IsRead = true,
                 LastChanged = lastChanged,
                 LastChangedBy = instance.LastChangedBy,
-                BlobStoragePath = DataElementHelper.DataFileName(
-                    instance.AppId,
-                    instanceGuid.ToString(),
-                    dataElementId
-                ),
+                BlobStoragePath = blobStoragePath,
                 Metadata =
                     formid == null
                         ? null
@@ -310,29 +343,40 @@ public class MigrationController : ControllerBase
                     FormOptions.DefaultMultipartBoundaryLengthLimit
                 );
 
-            if (Request.ContentLength > 0 || dataElement.DataType == "binary-data")
+            if (hasBlob)
             {
-                (dataElement.Size, _) = await _blobRepository.WriteBlob(
-                    $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
-                    theStream,
-                    dataElement.BlobStoragePath,
-                    app.StorageAccountNumber
-                );
-            }
-            else
-            {
-                dataElement.BlobStoragePath = dataElement.DataType switch
+                if (blobVersionId is null || !blobStoragePath.Contains(blobVersionId))
                 {
-                    "signature-presentation" => "ondemand/signature",
-                    "ref-data-as-pdf" => "ondemand/formdatapdf",
-                    "ref-data-as-html" => "ondemand/formdatahtml",
-                    "ref-summary-data-as-html" => "ondemand/formsummaryhtml",
-                    "payment-presentation" => "ondemand/payment",
-                    _ => throw new ArgumentException(dataElement.DataType),
-                };
+                    throw new UnreachableException();
+                }
+                try
+                {
+                    (dataElement.Size, _) = await _blobRepository.WriteBlob(
+                        blobOrg,
+                        theStream,
+                        blobStoragePath,
+                        app.StorageAccountNumber
+                    );
+                }
+                catch
+                {
+                    await DeleteAllocatedBlobVersion(
+                        blobOrg,
+                        dataElementId,
+                        blobStoragePath,
+                        blobVersionId,
+                        app.StorageAccountNumber
+                    );
+                    throw;
+                }
             }
 
-            storedDataElement = await _dataRepository.Create(dataElement, instanceId);
+            DataElementInternal storedDataElementInternal = await _dataRepository.Create(
+                new DataElementInternal(dataElement, blobVersionId),
+                instanceId,
+                cancellationToken
+            );
+            storedDataElement = storedDataElementInternal.DataElement;
 
             return Created((string)null, storedDataElement);
         }
@@ -370,11 +414,12 @@ public class MigrationController : ControllerBase
                 await _instanceEventRepository.InsertInstanceEvent(instanceEvent, null);
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(
+            (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
                 new Guid(instanceEvents[0].InstanceId),
                 false,
                 CancellationToken.None
             );
+            Instance instance = instanceInternal?.Instance;
 
             await _a2Repository.UpdateCompleteMigrationState(instance);
             return Created();
@@ -678,16 +723,57 @@ public class MigrationController : ControllerBase
         return await httpResponseMessage.Content.ReadAsStreamAsync();
     }
 
+    private async Task DeleteAllocatedBlobVersion(
+        string org,
+        string dataElementId,
+        string blobStoragePath,
+        string blobVersionId,
+        int? storageAccountNumber
+    )
+    {
+        if (string.IsNullOrEmpty(blobVersionId) || string.IsNullOrEmpty(dataElementId))
+        {
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(blobStoragePath))
+        {
+            try
+            {
+                await _blobRepository.DeleteBlob(org, blobStoragePath, storageAccountNumber);
+            }
+            catch
+            {
+                // Keep the allocation row so orphan cleanup can retry the blob delete later.
+                return;
+            }
+        }
+
+        try
+        {
+            await _dataRepository.DeleteBlobVersion(
+                Guid.Parse(dataElementId),
+                blobVersionId,
+                CancellationToken.None
+            );
+        }
+        catch
+        {
+            // Best-effort compensation must not hide the original migration failure.
+        }
+    }
+
     private async Task<bool> CleanupOldMigrationInternal(
         string instanceId,
         CancellationToken cancellationToken
     )
     {
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
             new Guid(instanceId),
             false,
             cancellationToken
         );
+        Instance instance = instanceInternal?.Instance;
         if (
             instance == null
             || (

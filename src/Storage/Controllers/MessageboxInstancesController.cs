@@ -180,11 +180,12 @@ public class MessageBoxInstancesController : ControllerBase
             languageId = language;
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
             instanceGuid,
             false,
             cancellationToken
         );
+        Instance? instance = instanceInternal?.Instance;
 
         if (instance == null)
         {
@@ -296,11 +297,12 @@ public class MessageBoxInstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
             instanceGuid,
             false,
             cancellationToken
         );
+        Instance? instance = instanceInternal?.Instance;
 
         if (instance == null)
         {
@@ -371,11 +373,12 @@ public class MessageBoxInstancesController : ControllerBase
     {
         string instanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
 
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
             instanceGuid,
             false,
             cancellationToken
         );
+        Instance? instance = instanceInternal?.Instance;
         if (instance == null)
         {
             return NotFound(

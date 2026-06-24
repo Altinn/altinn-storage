@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Enums;
@@ -39,28 +40,31 @@ public class ProcessDataCleanupServiceTests
     }
 
     [Fact]
-    public async Task CleanupGeneratedFromTask_NullData_ReturnsZeroAndCallsNothing()
+    public async Task CleanupGeneratedFromTask_NullDataElements_ReturnsSameInstanceAndCallsNothing()
     {
         ProcessDataCleanupService target = CreateService();
-        Instance instance = new()
-        {
-            Id = "1/abc",
-            AppId = _appId,
-            Data = null,
-        };
+        InstanceInternal instanceInternal = new(
+            new Instance
+            {
+                Id = "1/abc",
+                AppId = _appId,
+                Data = null,
+            },
+            null
+        );
 
-        int deleted = await target.CleanupGeneratedFromTask(
-            instance,
+        InstanceInternal cleanedInstance = await target.CleanupGeneratedFromTask(
+            instanceInternal,
             _targetTaskId,
             CancellationToken.None
         );
 
-        Assert.Equal(0, deleted);
+        Assert.Same(instanceInternal, cleanedInstance);
         _dataServiceMock.Verify(
             d =>
                 d.DeleteImmediately(
-                    It.IsAny<Instance>(),
-                    It.IsAny<DataElement>(),
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<DataElementInternal>(),
                     It.IsAny<int?>()
                 ),
             Times.Never
@@ -72,28 +76,23 @@ public class ProcessDataCleanupServiceTests
     }
 
     [Fact]
-    public async Task CleanupGeneratedFromTask_EmptyData_ReturnsZero()
+    public async Task CleanupGeneratedFromTask_EmptyDataElements_ReturnsSameInstanceAndCallsNothing()
     {
         ProcessDataCleanupService target = CreateService();
-        Instance instance = new()
-        {
-            Id = "1/abc",
-            AppId = _appId,
-            Data = [],
-        };
+        InstanceInternal instanceInternal = MakeInstanceInternal();
 
-        int deleted = await target.CleanupGeneratedFromTask(
-            instance,
+        InstanceInternal cleanedInstance = await target.CleanupGeneratedFromTask(
+            instanceInternal,
             _targetTaskId,
             CancellationToken.None
         );
 
-        Assert.Equal(0, deleted);
+        Assert.Same(instanceInternal, cleanedInstance);
         _dataServiceMock.Verify(
             d =>
                 d.DeleteImmediately(
-                    It.IsAny<Instance>(),
-                    It.IsAny<DataElement>(),
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<DataElementInternal>(),
                     It.IsAny<int?>()
                 ),
             Times.Never
@@ -101,74 +100,55 @@ public class ProcessDataCleanupServiceTests
     }
 
     [Fact]
-    public async Task CleanupGeneratedFromTask_NoMatches_ReturnsZero()
+    public async Task CleanupGeneratedFromTask_NoMatches_ReturnsSameInstanceAndCallsNothing()
     {
         ProcessDataCleanupService target = CreateService();
-        Instance instance = new()
-        {
-            Id = "1/abc",
-            AppId = _appId,
-            Data =
-            [
-                new DataElement { Id = Guid.NewGuid().ToString(), References = null },
-                new DataElement
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    References =
-                    [
-                        // Wrong Relation
-                        new Reference()
-                        {
-                            Relation = null,
-                            ValueType = ReferenceType.Task,
-                            Value = _targetTaskId,
-                        },
-                    ],
-                },
-                new DataElement
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    References =
-                    [
-                        // Wrong ValueType
-                        new Reference()
-                        {
-                            Relation = RelationType.GeneratedFrom,
-                            ValueType = ReferenceType.DataElement,
-                            Value = _targetTaskId,
-                        },
-                    ],
-                },
-                new DataElement
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    References =
-                    [
-                        // Wrong Value (different task)
-                        new Reference()
-                        {
-                            Relation = RelationType.GeneratedFrom,
-                            ValueType = ReferenceType.Task,
-                            Value = "Task_1",
-                        },
-                    ],
-                },
-            ],
-        };
+        DataElementInternal noReferences = MakeDataElementInternal();
+        DataElementInternal wrongRelation = MakeDataElementInternal(
+            new Reference
+            {
+                Relation = null,
+                ValueType = ReferenceType.Task,
+                Value = _targetTaskId,
+            }
+        );
+        DataElementInternal wrongValueType = MakeDataElementInternal(
+            new Reference
+            {
+                Relation = RelationType.GeneratedFrom,
+                ValueType = ReferenceType.DataElement,
+                Value = _targetTaskId,
+            }
+        );
+        DataElementInternal wrongTask = MakeDataElementInternal(
+            new Reference
+            {
+                Relation = RelationType.GeneratedFrom,
+                ValueType = ReferenceType.Task,
+                Value = "Task_1",
+            }
+        );
+        InstanceInternal instanceInternal = MakeInstanceInternal(
+            noReferences,
+            wrongRelation,
+            wrongValueType,
+            wrongTask
+        );
 
-        int deleted = await target.CleanupGeneratedFromTask(
-            instance,
+        InstanceInternal cleanedInstance = await target.CleanupGeneratedFromTask(
+            instanceInternal,
             _targetTaskId,
             CancellationToken.None
         );
 
-        Assert.Equal(0, deleted);
-        Assert.Equal(4, instance.Data.Count);
+        Assert.Same(instanceInternal, cleanedInstance);
+        Assert.Equal(4, cleanedInstance.DataElements.Count);
+        Assert.Equal(4, cleanedInstance.Instance.Data.Count);
         _dataServiceMock.Verify(
             d =>
                 d.DeleteImmediately(
-                    It.IsAny<Instance>(),
-                    It.IsAny<DataElement>(),
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<DataElementInternal>(),
                     It.IsAny<int?>()
                 ),
             Times.Never
@@ -180,49 +160,59 @@ public class ProcessDataCleanupServiceTests
     {
         ProcessDataCleanupService target = CreateService();
 
-        DataElement match1 = MakeMatch();
-        DataElement keep = new()
-        {
-            Id = Guid.NewGuid().ToString(),
-            References =
-            [
-                new Reference
-                {
-                    Relation = RelationType.GeneratedFrom,
-                    ValueType = ReferenceType.Task,
-                    Value = "Task_other",
-                },
-            ],
-        };
-        DataElement match2 = MakeMatch();
-
-        Instance instance = new()
-        {
-            Id = "1/abc",
-            AppId = _appId,
-            Data = [match1, keep, match2],
-        };
+        DataElementInternal match1 = MakeMatch();
+        DataElementInternal keep = MakeDataElementInternal(
+            new Reference
+            {
+                Relation = RelationType.GeneratedFrom,
+                ValueType = ReferenceType.Task,
+                Value = "Task_other",
+            }
+        );
+        DataElementInternal match2 = MakeMatch();
+        InstanceInternal instanceInternal = MakeInstanceInternal(match1, keep, match2);
+        int originalDataElementCount = instanceInternal.Instance.Data.Count;
+        int originalInternalDataElementCount = instanceInternal.DataElements.Count;
 
         _dataServiceMock
-            .Setup(d => d.DeleteImmediately(instance, It.IsAny<DataElement>(), _storageAccount))
-            .ReturnsAsync((Instance _, DataElement de, int? _) => de);
+            .Setup(d =>
+                d.DeleteImmediately(
+                    instanceInternal,
+                    It.IsAny<DataElementInternal>(),
+                    _storageAccount
+                )
+            )
+            .Returns(Task.CompletedTask);
 
-        int deleted = await target.CleanupGeneratedFromTask(
-            instance,
+        InstanceInternal cleanedInstance = await target.CleanupGeneratedFromTask(
+            instanceInternal,
             _targetTaskId,
             CancellationToken.None
         );
 
-        Assert.Equal(2, deleted);
-        Assert.Single(instance.Data);
-        Assert.Same(keep, instance.Data[0]);
-
+        Assert.Equal(2, originalInternalDataElementCount - cleanedInstance.DataElements.Count);
+        Assert.Equal(2, originalDataElementCount - cleanedInstance.Instance.Data.Count);
+        Assert.Same(instanceInternal.Instance, cleanedInstance.Instance);
+        DataElementInternal remainingElement = Assert.Single(cleanedInstance.DataElements);
+        Assert.Same(keep, remainingElement);
+        DataElement responseDataElement = Assert.Single(cleanedInstance.Instance.Data);
+        Assert.Same(keep.DataElement, responseDataElement);
         _dataServiceMock.Verify(
-            d => d.DeleteImmediately(instance, match1, _storageAccount),
+            d =>
+                d.DeleteImmediately(
+                    instanceInternal,
+                    It.Is<DataElementInternal>(d => d == match1),
+                    _storageAccount
+                ),
             Times.Once
         );
         _dataServiceMock.Verify(
-            d => d.DeleteImmediately(instance, match2, _storageAccount),
+            d =>
+                d.DeleteImmediately(
+                    instanceInternal,
+                    It.Is<DataElementInternal>(d => d == match2),
+                    _storageAccount
+                ),
             Times.Once
         );
     }
@@ -232,36 +222,36 @@ public class ProcessDataCleanupServiceTests
     {
         ProcessDataCleanupService target = CreateService();
 
-        DataElement first = MakeMatch();
-        DataElement failing = MakeMatch();
-        DataElement last = MakeMatch();
-
-        Instance instance = new()
-        {
-            Id = "1/abc",
-            AppId = _appId,
-            Data = [first, failing, last],
-        };
+        DataElementInternal first = MakeMatch();
+        DataElementInternal failing = MakeMatch();
+        DataElementInternal last = MakeMatch();
+        InstanceInternal instanceInternal = MakeInstanceInternal(first, failing, last);
+        int originalDataElementCount = instanceInternal.Instance.Data.Count;
+        int originalInternalDataElementCount = instanceInternal.DataElements.Count;
 
         _dataServiceMock
-            .Setup(d => d.DeleteImmediately(instance, first, _storageAccount))
-            .ReturnsAsync(first);
+            .Setup(d => d.DeleteImmediately(instanceInternal, first, _storageAccount))
+            .Returns(Task.CompletedTask);
         _dataServiceMock
-            .Setup(d => d.DeleteImmediately(instance, failing, _storageAccount))
+            .Setup(d => d.DeleteImmediately(instanceInternal, failing, _storageAccount))
             .ThrowsAsync(new InvalidOperationException("boom"));
         _dataServiceMock
-            .Setup(d => d.DeleteImmediately(instance, last, _storageAccount))
-            .ReturnsAsync(last);
+            .Setup(d => d.DeleteImmediately(instanceInternal, last, _storageAccount))
+            .Returns(Task.CompletedTask);
 
-        int deleted = await target.CleanupGeneratedFromTask(
-            instance,
+        InstanceInternal cleanedInstance = await target.CleanupGeneratedFromTask(
+            instanceInternal,
             _targetTaskId,
             CancellationToken.None
         );
 
-        Assert.Equal(2, deleted);
-        Assert.Single(instance.Data);
-        Assert.Same(failing, instance.Data[0]);
+        Assert.Equal(2, originalInternalDataElementCount - cleanedInstance.DataElements.Count);
+        Assert.Equal(2, originalDataElementCount - cleanedInstance.Instance.Data.Count);
+        Assert.Same(instanceInternal.Instance, cleanedInstance.Instance);
+        DataElementInternal remainingElement = Assert.Single(cleanedInstance.DataElements);
+        Assert.Same(failing, remainingElement);
+        DataElement responseDataElement = Assert.Single(cleanedInstance.Instance.Data);
+        Assert.Same(failing.DataElement, responseDataElement);
     }
 
     [Fact]
@@ -277,15 +267,14 @@ public class ProcessDataCleanupServiceTests
             NullLogger<ProcessDataCleanupService>.Instance
         );
 
-        Instance instance = new()
-        {
-            Id = "1/abc",
-            AppId = _appId,
-            Data = [MakeMatch()],
-        };
+        InstanceInternal instanceInternal = MakeInstanceInternal(MakeMatch());
 
         var act = () =>
-            target.CleanupGeneratedFromTask(instance, _targetTaskId, CancellationToken.None);
+            target.CleanupGeneratedFromTask(
+                instanceInternal,
+                _targetTaskId,
+                CancellationToken.None
+            );
 
         await Assert.ThrowsAsync<InvalidOperationException>(act);
     }
@@ -295,46 +284,57 @@ public class ProcessDataCleanupServiceTests
     {
         ProcessDataCleanupService target = CreateService();
 
-        DataElement first = MakeMatch();
-        DataElement second = MakeMatch();
-
-        Instance instance = new()
-        {
-            Id = "1/abc",
-            AppId = _appId,
-            Data = [first, second],
-        };
+        DataElementInternal first = MakeMatch();
+        DataElementInternal second = MakeMatch();
+        InstanceInternal instanceInternal = MakeInstanceInternal(first, second);
 
         using CancellationTokenSource cts = new();
-
         _dataServiceMock
-            .Setup(d => d.DeleteImmediately(instance, first, _storageAccount))
+            .Setup(d => d.DeleteImmediately(instanceInternal, first, _storageAccount))
             .Callback(cts.Cancel)
-            .ReturnsAsync(first);
+            .Returns(Task.CompletedTask);
 
         await Assert.ThrowsAsync<OperationCanceledException>(() =>
-            target.CleanupGeneratedFromTask(instance, _targetTaskId, cts.Token)
+            target.CleanupGeneratedFromTask(instanceInternal, _targetTaskId, cts.Token)
         );
 
         _dataServiceMock.Verify(
-            d => d.DeleteImmediately(instance, second, It.IsAny<int?>()),
+            d => d.DeleteImmediately(instanceInternal, second, It.IsAny<int?>()),
             Times.Never
         );
     }
 
-    private static DataElement MakeMatch() =>
-        new()
-        {
-            Id = Guid.NewGuid().ToString(),
-            BlobStoragePath = $"ttd/test-app/instance/data/{Guid.NewGuid()}",
-            References =
-            [
-                new Reference
-                {
-                    Relation = RelationType.GeneratedFrom,
-                    ValueType = ReferenceType.Task,
-                    Value = _targetTaskId,
-                },
-            ],
-        };
+    private static DataElementInternal MakeMatch() =>
+        MakeDataElementInternal(
+            new Reference
+            {
+                Relation = RelationType.GeneratedFrom,
+                ValueType = ReferenceType.Task,
+                Value = _targetTaskId,
+            }
+        );
+
+    private static DataElementInternal MakeDataElementInternal(params Reference[] references) =>
+        new(
+            new DataElement
+            {
+                Id = Guid.NewGuid().ToString(),
+                BlobStoragePath = $"ttd/test-app/instance/data/{Guid.NewGuid()}",
+                References = references.Length == 0 ? null : new List<Reference>(references),
+            },
+            null
+        );
+
+    private static InstanceInternal MakeInstanceInternal(
+        params DataElementInternal[] dataElements
+    ) =>
+        new(
+            new Instance
+            {
+                Id = "1/abc",
+                AppId = _appId,
+                Data = dataElements.Select(dataElement => dataElement.DataElement).ToList(),
+            },
+            dataElements
+        );
 }

@@ -377,11 +377,15 @@ public class InstancesController : ControllerBase
     {
         try
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(
+            (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
                 instanceGuid,
                 true,
                 cancellationToken
             );
+            if (instanceInternal?.Instance is not { } instance)
+            {
+                return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
+            }
 
             if (
                 _authorizationService.UserHasRequiredScope([
@@ -434,11 +438,15 @@ public class InstancesController : ControllerBase
     {
         try
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(
+            (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
                 instanceGuid,
                 true,
                 cancellationToken
             );
+            if (instanceInternal?.Instance is not { } instance)
+            {
+                return NotFound($"Unable to find instance {instanceGuid}.");
+            }
 
             if (
                 _authorizationService.UserHasRequiredScope([
@@ -656,11 +664,13 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        Instance instance;
+        (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            cancellationToken
+        );
 
-        (instance, _) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
-
-        if (instance == null)
+        if (instanceInternal?.Instance is not { } instance)
         {
             return NotFound(
                 $"Didn't find the object that should be deleted with instanceId={instanceOwnerPartyId}/{instanceGuid}"
@@ -764,11 +774,15 @@ public class InstancesController : ControllerBase
     )
     {
         List<string> updateProperties = [];
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
+        if (instanceInternal?.Instance is not { } instance)
+        {
+            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
+        }
 
         string org = User.GetOrg();
 
@@ -845,11 +859,15 @@ public class InstancesController : ControllerBase
             );
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
+        if (instanceInternal?.Instance is not { } instance)
+        {
+            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
+        }
 
         List<string> updateProperties =
         [
@@ -924,11 +942,15 @@ public class InstancesController : ControllerBase
             );
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
+        if (instanceInternal?.Instance is not { } instance)
+        {
+            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
+        }
 
         string org = User.GetOrg();
         if (!instance.Org.Equals(org))
@@ -1006,11 +1028,15 @@ public class InstancesController : ControllerBase
             return BadRequest($"Missing parameter value: presentationTexts is misformed or empty");
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
+        if (instanceInternal?.Instance is not { } instance)
+        {
+            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
+        }
 
         if (!await _processAuthorizer.AuthorizePresentationTextsUpdate(instance))
         {
@@ -1071,11 +1097,15 @@ public class InstancesController : ControllerBase
             return BadRequest($"Missing parameter value: dataValues is misformed or empty");
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
+        if (instanceInternal?.Instance is not { } instance)
+        {
+            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
+        }
 
         if (!await _processAuthorizer.AuthorizeDataValuesUpdate(instance))
         {

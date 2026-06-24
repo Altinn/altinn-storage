@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -108,22 +109,30 @@ public class ContentOnDemandController : Controller
         CancellationToken cancellationToken
     )
     {
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
+        Instance instance = instanceInternal?.Instance;
+        if (instance is null)
+        {
+            return NotFound();
+        }
+
         Application application = await _applicationRepository.FindOne(
             instance.AppId,
             instance.Org,
             cancellationToken
         );
-        DataElement signatureElement = instance.Data.First(d => d.DataType == "signature-data");
+        DataElementInternal signatureElement = instanceInternal.DataElements.First(d =>
+            d.DataElement.DataType == "signature-data"
+        );
 
         List<SignatureView> view = await JsonSerializer.DeserializeAsync<List<SignatureView>>(
             await _blobRepository.ReadBlob(
                 $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
-                $"{instance.Org}/{app}/{instanceGuid}/data/{signatureElement.Id}",
+                signatureElement.DataElement.BlobStoragePath,
                 application.StorageAccountNumber,
                 cancellationToken
             ),
@@ -154,22 +163,30 @@ public class ContentOnDemandController : Controller
         CancellationToken cancellationToken
     )
     {
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
+        Instance instance = instanceInternal?.Instance;
+        if (instance is null)
+        {
+            return NotFound();
+        }
+
         Application application = await _applicationRepository.FindOne(
             instance.AppId,
             instance.Org,
             cancellationToken
         );
-        DataElement paymentElement = instance.Data.First(d => d.DataType == "payment-data");
+        DataElementInternal paymentElement = instanceInternal.DataElements.First(d =>
+            d.DataElement.DataType == "payment-data"
+        );
 
         PaymentView view = await JsonSerializer.DeserializeAsync<PaymentView>(
             await _blobRepository.ReadBlob(
                 $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
-                $"{instance.Org}/{app}/{instanceGuid}/data/{paymentElement.Id}",
+                paymentElement.DataElement.BlobStoragePath,
                 application.StorageAccountNumber,
                 cancellationToken
             ),
@@ -191,7 +208,7 @@ public class ContentOnDemandController : Controller
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>The formatted content</returns>
     [HttpGet("formdatapdf")]
-    public async Task<Stream> GetFormdataAsPdf(
+    public async Task<ActionResult<Stream>> GetFormdataAsPdf(
         [FromRoute] string org,
         [FromRoute] string app,
         [FromRoute] Guid instanceGuid,
@@ -200,11 +217,17 @@ public class ContentOnDemandController : Controller
         CancellationToken cancellationToken
     )
     {
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
+        Instance instance = instanceInternal?.Instance;
+        if (instance is null)
+        {
+            return NotFound();
+        }
+
         DataElement htmlElement = instance.Data.First(d => d.Id == dataGuid.ToString());
         string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;
         DataElement xmlElement = instance.Data.First(d =>
@@ -251,15 +274,21 @@ public class ContentOnDemandController : Controller
         using var mergedDoc = new PdfDocument();
         foreach (var view in printViews)
         {
-            (string html, PrintViewXslBEList updatedViews) = await GetFormdataAsHtmlString(
-                app,
-                instanceGuid,
-                dataGuid,
-                language,
-                3,
-                cancellationToken,
-                view.PageNumber
-            );
+            (bool found, string html, PrintViewXslBEList updatedViews) =
+                await GetFormdataAsHtmlString(
+                    app,
+                    instanceGuid,
+                    dataGuid,
+                    language,
+                    3,
+                    cancellationToken,
+                    view.PageNumber
+                );
+            if (!found)
+            {
+                return NotFound();
+            }
+
             var pdfPages = await _pdfGeneratorClient.GeneratePdf(
                 html,
                 view.IsPortrait,
@@ -317,7 +346,7 @@ public class ContentOnDemandController : Controller
     /// <param name="singlePageNr">optional filter for a single page number</param>
     /// <returns>The formatted content</returns>
     [HttpGet("formdatahtml/{singlepagenr?}")]
-    public async Task<(Stream Html, PrintViewXslBEList Views)> GetFormdataAsHtml(
+    public async Task<ActionResult<(Stream Html, PrintViewXslBEList Views)>> GetFormdataAsHtml(
         [FromRoute] string org,
         [FromRoute] string app,
         [FromRoute] Guid instanceGuid,
@@ -327,7 +356,7 @@ public class ContentOnDemandController : Controller
         [FromRoute(Name = "singlepagenr")] int singlePageNr = -1
     )
     {
-        return await GetFormdataAsHtmlStream(
+        (bool found, Stream html, PrintViewXslBEList views) = await GetFormdataAsHtmlStream(
             app,
             instanceGuid,
             dataGuid,
@@ -336,6 +365,12 @@ public class ContentOnDemandController : Controller
             cancellationToken,
             singlePageNr
         );
+        if (!found)
+        {
+            return NotFound();
+        }
+
+        return (html, views);
     }
 
     /// <summary>
@@ -349,7 +384,7 @@ public class ContentOnDemandController : Controller
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>The formatted content</returns>
     [HttpGet("formsummaryhtml")]
-    public async Task<Stream> GetFormSummaryAsHtml(
+    public async Task<ActionResult<Stream>> GetFormSummaryAsHtml(
         [FromRoute] string org,
         [FromRoute] string app,
         [FromRoute] Guid instanceGuid,
@@ -358,7 +393,7 @@ public class ContentOnDemandController : Controller
         CancellationToken cancellationToken
     )
     {
-        (Stream html, _) = await GetFormdataAsHtmlStream(
+        (bool found, Stream html, _) = await GetFormdataAsHtmlStream(
             app,
             instanceGuid,
             dataGuid,
@@ -366,10 +401,15 @@ public class ContentOnDemandController : Controller
             2,
             cancellationToken
         );
+        if (!found)
+        {
+            return NotFound();
+        }
+
         return html;
     }
 
-    private async Task<(Stream Html, PrintViewXslBEList Views)> GetFormdataAsHtmlStream(
+    private async Task<(bool Found, Stream Html, PrintViewXslBEList Views)> GetFormdataAsHtmlStream(
         string app,
         Guid instanceGuid,
         Guid dataGuid,
@@ -379,7 +419,7 @@ public class ContentOnDemandController : Controller
         int singlePageNr = -1
     )
     {
-        (string html, PrintViewXslBEList views) = await GetFormdataAsHtmlString(
+        (bool found, string html, PrintViewXslBEList views) = await GetFormdataAsHtmlString(
             app,
             instanceGuid,
             dataGuid,
@@ -388,10 +428,15 @@ public class ContentOnDemandController : Controller
             cancellationToken,
             singlePageNr
         );
-        return (new MemoryStream(Encoding.UTF8.GetBytes(html)), views);
+        if (!found)
+        {
+            return (false, null, null);
+        }
+
+        return (true, new MemoryStream(Encoding.UTF8.GetBytes(html)), views);
     }
 
-    private async Task<(string Html, PrintViewXslBEList Views)> GetFormdataAsHtmlString(
+    private async Task<(bool Found, string Html, PrintViewXslBEList Views)> GetFormdataAsHtmlString(
         string app,
         Guid instanceGuid,
         Guid dataGuid,
@@ -401,20 +446,31 @@ public class ContentOnDemandController : Controller
         int singlePageNr = -1
     )
     {
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        (InstanceInternal instanceInternal, _) = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
+        Instance instance = instanceInternal?.Instance;
+        if (instance is null)
+        {
+            return (false, null, null);
+        }
+
         Application application = await _applicationRepository.FindOne(
             instance.AppId,
             instance.Org
         );
-        DataElement htmlElement = instance.Data.First(d => d.Id == dataGuid.ToString());
-        string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;
-        DataElement xmlElement = instance.Data.First(d =>
-            d.Metadata?.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id
+        DataElementInternal htmlElementInternal = instanceInternal.DataElements.First(d =>
+            d.DataElement.Id == dataGuid.ToString()
         );
+        DataElement htmlElement = htmlElementInternal.DataElement;
+        string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;
+        DataElementInternal xmlElementInternal = instanceInternal.DataElements.First(d =>
+            d.DataElement.Metadata?.First(m => m.Key == "formid").Value == htmlFormId
+            && d.DataElement.Id != htmlElement.Id
+        );
+        DataElement xmlElement = xmlElementInternal.DataElement;
         string visiblePagesString = xmlElement
             .Metadata.FirstOrDefault(m => m.Key == "A2VisiblePages")
             ?.Value;
@@ -461,11 +517,12 @@ public class ContentOnDemandController : Controller
 
         Stream blob = await _blobRepository.ReadBlob(
             $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
-            $"{instance.Org}/{app}/{instanceGuid}/data/{xmlElement.Id}",
-            application.StorageAccountNumber
+            xmlElement.BlobStoragePath,
+            application.StorageAccountNumber,
+            cancellationToken
         );
 
-        return (_a2OndemandFormattingService.GetFormdataHtml(views, blob), views);
+        return (true, _a2OndemandFormattingService.GetFormdataHtml(views, blob), views);
     }
 
     private static float GetScale(PrintViewXslBE infoPathViewXslBE)
