@@ -23,7 +23,7 @@ internal static class HostingExtensions
         }
 
         var shutdownDelay = TimeSpan.FromSeconds(5);
-        var shutdownTimeout = TimeSpan.FromSeconds(20);
+        var shutdownTimeout = TimeSpan.FromSeconds(50);
 
         builder.Services.AddSingleton<IHostLifetime>(sp =>
             ActivatorUtilities.CreateInstance<AppHostLifetime>(sp, shutdownDelay)
