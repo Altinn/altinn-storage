@@ -382,7 +382,10 @@ public class InstancesController : ControllerBase
                 true,
                 cancellationToken
             );
-            Instance instance = instanceInternal?.Instance;
+            if (instanceInternal?.Instance is not { } instance)
+            {
+                return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
+            }
 
             if (
                 _authorizationService.UserHasRequiredScope([
@@ -440,7 +443,10 @@ public class InstancesController : ControllerBase
                 true,
                 cancellationToken
             );
-            Instance instance = instanceInternal?.Instance;
+            if (instanceInternal?.Instance is not { } instance)
+            {
+                return NotFound($"Unable to find instance {instanceGuid}.");
+            }
 
             if (
                 _authorizationService.UserHasRequiredScope([
@@ -663,9 +669,8 @@ public class InstancesController : ControllerBase
             false,
             cancellationToken
         );
-        Instance instance = instanceInternal?.Instance;
 
-        if (instance == null)
+        if (instanceInternal?.Instance is not { } instance)
         {
             return NotFound(
                 $"Didn't find the object that should be deleted with instanceId={instanceOwnerPartyId}/{instanceGuid}"
@@ -774,7 +779,10 @@ public class InstancesController : ControllerBase
             true,
             cancellationToken
         );
-        Instance instance = instanceInternal?.Instance;
+        if (instanceInternal?.Instance is not { } instance)
+        {
+            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
+        }
 
         string org = User.GetOrg();
 
@@ -856,7 +864,10 @@ public class InstancesController : ControllerBase
             true,
             cancellationToken
         );
-        Instance instance = instanceInternal?.Instance;
+        if (instanceInternal?.Instance is not { } instance)
+        {
+            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
+        }
 
         List<string> updateProperties =
         [
@@ -936,7 +947,10 @@ public class InstancesController : ControllerBase
             true,
             cancellationToken
         );
-        Instance instance = instanceInternal?.Instance;
+        if (instanceInternal?.Instance is not { } instance)
+        {
+            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
+        }
 
         string org = User.GetOrg();
         if (!instance.Org.Equals(org))
@@ -1019,7 +1033,10 @@ public class InstancesController : ControllerBase
             true,
             cancellationToken
         );
-        Instance instance = instanceInternal?.Instance;
+        if (instanceInternal?.Instance is not { } instance)
+        {
+            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
+        }
 
         if (!await _processAuthorizer.AuthorizePresentationTextsUpdate(instance))
         {
@@ -1085,7 +1102,10 @@ public class InstancesController : ControllerBase
             true,
             cancellationToken
         );
-        Instance instance = instanceInternal?.Instance;
+        if (instanceInternal?.Instance is not { } instance)
+        {
+            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
+        }
 
         if (!await _processAuthorizer.AuthorizeDataValuesUpdate(instance))
         {

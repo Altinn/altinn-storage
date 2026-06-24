@@ -208,7 +208,7 @@ public class CleanupController(
                 )
                 {
                     _logger.LogError(
-                        "CleanupController // CleanupDataelements // Blob not found for dataElement Id: {dataElement.Id} Blobstoragepath: {blobStoragePath}",
+                        "CleanupController // CleanupDataelements // Blob not found for dataElement Id: {dataElementId} Blobstoragepath: {blobStoragePath}",
                         dataElement.Id,
                         dataElement.BlobStoragePath
                     );
@@ -223,7 +223,7 @@ public class CleanupController(
                         if (!await DeleteVersionedBlobsInternal(blobVersion, cancellationToken))
                         {
                             _logger.LogError(
-                                "CleanupController // CleanupDataelements // One or more blobs not found for dataElement Id: {dataElement.Id} Blobstoragepath: {blobStoragePath}",
+                                "CleanupController // CleanupDataelements // One or more blobs not found for dataElement Id: {dataElementId} Blobstoragepath: {blobStoragePath}",
                                 dataElement.Id,
                                 dataElement.BlobStoragePath
                             );
@@ -247,7 +247,7 @@ public class CleanupController(
                 if (!await dataRepository.DeleteForCleanup(dataElement, cancellationToken))
                 {
                     _logger.LogError(
-                        "CleanupController // CleanupDataelements // Data element not found for dataElement Id: {dataElement.Id}",
+                        "CleanupController // CleanupDataelements // Data element not found for dataElement Id: {dataElementId}",
                         dataElement.Id
                     );
                 }

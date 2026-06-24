@@ -244,8 +244,7 @@ public class MigrationController : ControllerBase
             false,
             cancellationToken
         );
-        Instance instance = instanceInternal?.Instance;
-        if (instanceId == 0)
+        if (instanceId == 0 || instanceInternal?.Instance is not { } instance)
         {
             return BadRequest("Instance not found");
         }
