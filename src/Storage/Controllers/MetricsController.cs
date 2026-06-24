@@ -28,7 +28,6 @@ public class MetricsController(IMetricsService metricsService, ILogger<MetricsCo
     [ServiceFilter(typeof(MetricsApiKeyFilter))]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    [ApiExplorerSettings(IgnoreApi = true)]
     public async Task<ActionResult> GetDailyInstanceStatistics(CancellationToken cancellationToken)
     {
         try
