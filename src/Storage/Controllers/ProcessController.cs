@@ -289,8 +289,8 @@ public class ProcessController : ControllerBase
                 false,
                 cancellationToken
             );
-            Instance instance = instanceInternal?.Instance;
-            if (instance.InstanceOwner.PartyId == instanceOwnerPartyId.ToString())
+            Instance? instance = instanceInternal?.Instance;
+            if (instance?.InstanceOwner.PartyId == instanceOwnerPartyId.ToString())
             {
                 return Ok(new AuthInfo() { Process = instance.Process, AppId = instance.AppId });
             }

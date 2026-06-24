@@ -79,7 +79,7 @@ public class InstanceLockController(
 
         (InstanceInternal instanceInternal, long instanceInternalId) =
             await instanceRepository.GetOne(instanceGuid, false, cancellationToken);
-        Instance instance = instanceInternal?.Instance;
+        Instance? instance = instanceInternal?.Instance;
 
         if (instance is null || instance.InstanceOwner.PartyId != instanceOwnerPartyId.ToString())
         {
@@ -167,7 +167,7 @@ public class InstanceLockController(
 
         (InstanceInternal instanceInternal, long instanceInternalId) =
             await instanceRepository.GetOne(instanceGuid, false, cancellationToken);
-        Instance instance = instanceInternal?.Instance;
+        Instance? instance = instanceInternal?.Instance;
 
         if (instance is null || instance.InstanceOwner.PartyId != instanceOwnerPartyId.ToString())
         {

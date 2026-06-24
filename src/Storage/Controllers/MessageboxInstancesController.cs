@@ -185,7 +185,7 @@ public class MessageBoxInstancesController : ControllerBase
             false,
             cancellationToken
         );
-        Instance instance = instanceInternal?.Instance;
+        Instance? instance = instanceInternal?.Instance;
 
         if (instance == null)
         {
@@ -302,7 +302,7 @@ public class MessageBoxInstancesController : ControllerBase
             false,
             cancellationToken
         );
-        Instance instance = instanceInternal?.Instance;
+        Instance? instance = instanceInternal?.Instance;
 
         if (instance == null)
         {
@@ -378,7 +378,7 @@ public class MessageBoxInstancesController : ControllerBase
             false,
             cancellationToken
         );
-        Instance instance = instanceInternal?.Instance;
+        Instance? instance = instanceInternal?.Instance;
         if (instance == null)
         {
             return NotFound(

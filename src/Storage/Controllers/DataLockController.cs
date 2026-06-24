@@ -185,7 +185,7 @@ public class DataLockController : ControllerBase
             includeDataElements,
             cancellationToken
         );
-        Instance instance = instanceInternal?.Instance;
+        Instance? instance = instanceInternal?.Instance;
 
         if (instance == null)
         {

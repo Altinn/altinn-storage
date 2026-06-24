@@ -105,7 +105,7 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
             false,
             CancellationToken.None
         );
-        Instance instance = instanceInternal?.Instance;
+        Instance? instance = instanceInternal?.Instance;
 
         XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
             context,

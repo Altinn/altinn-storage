@@ -130,7 +130,7 @@ public class StudioInstancesController : ControllerBase
                 true,
                 ct
             );
-            Instance result = resultInternal?.Instance;
+            Instance? result = resultInternal?.Instance;
             if (result == null || result.Org != org || result.AppId != $"{org}/{app}")
             {
                 return NotFound();
