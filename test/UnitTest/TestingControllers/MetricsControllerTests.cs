@@ -201,6 +201,27 @@ public class MetricsControllerTests(TestApplicationFactory<MetricsController> fa
     }
 
     [Fact]
+    public async Task Get_DailyMetrics_EmptyApiKey_ReturnsUnauthorized()
+    {
+        // Arrange
+        Mock<IMetricsService> serviceMock = new();
+        HttpClient client = GetTestClient(serviceMock);
+        const string uri = $"{_basePath}/instances";
+        using HttpRequestMessage message = new(HttpMethod.Get, uri);
+        message.Headers.Add("X-API-Key", string.Empty);
+
+        // Act
+        using HttpResponseMessage response = await client.SendAsync(
+            message,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        serviceMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
     public async Task Get_DailyMetrics_ApiKeyNotConfigured_ReturnsUnauthorized()
     {
         // Arrange

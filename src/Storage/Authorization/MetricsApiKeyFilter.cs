@@ -22,24 +22,14 @@ namespace Altinn.Platform.Storage.Authorization;
 /// <param name="configuration">The application configuration.</param>
 /// <param name="logger">The logger.</param>
 public class MetricsApiKeyFilter(IConfiguration configuration, ILogger<MetricsApiKeyFilter> logger)
-    : IAsyncAuthorizationFilter
+    : IAuthorizationFilter
 {
     /// <summary>
     /// Validates the API key for metrics endpoints.
     /// </summary>
     /// <param name="context">The authorization filter context.</param>
-    public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
+    public void OnAuthorization(AuthorizationFilterContext context)
     {
-        // Only apply to metrics endpoints.
-        if (
-            !context.HttpContext.Request.Path.StartsWithSegments(
-                "/storage/api/v1/metrics/instances"
-            )
-        )
-        {
-            return; // Not a Metrics endpoint, let it pass.
-        }
-
         // Check if API key is provided.
         if (
             !context.HttpContext.Request.Headers.TryGetValue(
@@ -76,9 +66,7 @@ public class MetricsApiKeyFilter(IConfiguration configuration, ILogger<MetricsAp
         if (string.IsNullOrWhiteSpace(configuredApiKey))
         {
             logger.LogError("StorageMetricsApiKey is not configured in application settings");
-            context.Result = new UnauthorizedObjectResult(
-                new { error = "API key validation not configured" }
-            );
+            context.Result = new UnauthorizedResult();
             return;
         }
 

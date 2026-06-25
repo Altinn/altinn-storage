@@ -27,6 +27,7 @@ public class MetricsController(IMetricsService metricsService, ILogger<MetricsCo
     [HttpGet("instances")]
     [ServiceFilter(typeof(MetricsApiKeyFilter))]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult> GetDailyInstanceStatistics(CancellationToken cancellationToken)
     {
