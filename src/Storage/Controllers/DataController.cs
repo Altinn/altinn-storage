@@ -495,6 +495,9 @@ public class DataController : ControllerBase
             );
             if (existing != null)
             {
+                // Guard against a persisted element with an unset InstanceGuid so the self link / Location is built
+                // from a valid guid rather than producing a malformed URL.
+                existing.InstanceGuid ??= instanceGuid.ToString();
                 existing.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
                 return Created(existing.SelfLinks.Platform, existing);
             }
@@ -808,6 +811,28 @@ public class DataController : ControllerBase
         if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
         {
             return Forbid();
+        }
+
+        // A metadata update replaces /metadata wholesale. The reserved idempotency marker must survive that so a
+        // retried create stays deduped, so carry over any existing marker the incoming payload does not already set.
+        // (Notably, the app's own create flow applies binary-element metadata in a follow-up update to this endpoint.)
+        DataElement existingDataElement = await _dataRepository.Read(
+            instanceGuid,
+            dataGuid,
+            cancellationToken
+        );
+        KeyValueEntry existingIdempotencyMarker = existingDataElement?.Metadata?.Find(m =>
+            m.Key == DataElementHelper.IdempotencyKeyMetadataName
+        );
+        if (
+            existingIdempotencyMarker is not null
+            && dataElement.Metadata?.Exists(m =>
+                m.Key == DataElementHelper.IdempotencyKeyMetadataName
+            ) != true
+        )
+        {
+            dataElement.Metadata ??= new List<KeyValueEntry>();
+            dataElement.Metadata.Add(existingIdempotencyMarker);
         }
 
         Dictionary<string, object> propertyList = new()

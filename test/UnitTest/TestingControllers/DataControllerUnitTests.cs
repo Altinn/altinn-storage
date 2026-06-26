@@ -557,10 +557,15 @@ public class DataControllerUnitTests
             Mock<IBlobRepository> blobRepositoryMock
         ) = GetCreateDataController(existingData: [existing]);
 
+        // The persisted element intentionally has no InstanceGuid, so the replay must backfill it from the route to
+        // build a valid location / self link.
+        Assert.Null(existing.InstanceGuid);
+        var instanceGuid = Guid.NewGuid();
+
         // Act
         ActionResult<DataElement> result = await sut.CreateAndUploadData(
             _instanceOwnerPartyId,
-            Guid.NewGuid(),
+            instanceGuid,
             _dataType,
             CancellationToken.None,
             idempotencyKey: idempotencyKey
@@ -570,6 +575,13 @@ public class DataControllerUnitTests
         var createdResult = Assert.IsType<CreatedResult>(result.Result);
         var returned = Assert.IsType<DataElement>(createdResult.Value);
         Assert.Equal(existing.Id, returned.Id);
+        Assert.Equal(instanceGuid.ToString(), returned.InstanceGuid);
+        Assert.Contains(instanceGuid.ToString(), createdResult.Location, StringComparison.Ordinal);
+        Assert.Contains(
+            instanceGuid.ToString(),
+            returned.SelfLinks.Platform,
+            StringComparison.Ordinal
+        );
         dataRepositoryMock.Verify(
             d => d.Create(It.IsAny<DataElement>(), It.IsAny<long>(), It.IsAny<CancellationToken>()),
             Times.Never
@@ -583,6 +595,88 @@ public class DataControllerUnitTests
                     It.IsAny<int?>()
                 ),
             Times.Never
+        );
+    }
+
+    /// <summary>
+    /// Scenario: a metadata update (PUT dataelements/{id}) is performed on an element that carries the reserved
+    /// idempotency marker, with a payload whose metadata omits that marker (as the app's own binary-element create
+    /// flow does).
+    /// Expected: the reserved marker is carried over so it is not wiped, keeping retried creates deduped.
+    /// </summary>
+    [Fact]
+    public async Task Update_PreservesReservedIdempotencyMarker_WhenMetadataPatchOmitsIt()
+    {
+        // Arrange
+        const string idempotencyKey = "step-99#0";
+        var instanceGuid = Guid.NewGuid();
+        var dataGuid = Guid.NewGuid();
+
+        (DataController sut, Mock<IDataRepository> dataRepositoryMock) = GetTestController(
+            expectedPropertiesForPatch: []
+        );
+
+        dataRepositoryMock
+            .Setup(d => d.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                new DataElement
+                {
+                    Id = dataGuid.ToString(),
+                    InstanceGuid = instanceGuid.ToString(),
+                    DataType = _dataType,
+                    Metadata =
+                    [
+                        new KeyValueEntry
+                        {
+                            Key = DataElementHelper.IdempotencyKeyMetadataName,
+                            Value = idempotencyKey,
+                        },
+                    ],
+                }
+            );
+
+        Dictionary<string, object> capturedPropertyList = null;
+        dataRepositoryMock
+            .Setup(d =>
+                d.Update(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<Dictionary<string, object>>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(new DataElement())
+            .Callback(
+                (Guid _, Guid _, Dictionary<string, object> propertyList, CancellationToken _) =>
+                    capturedPropertyList = propertyList
+            );
+
+        var input = new DataElement
+        {
+            Id = dataGuid.ToString(),
+            InstanceGuid = instanceGuid.ToString(),
+            DataType = _dataType,
+            Metadata = [new KeyValueEntry { Key = "some-app-key", Value = "value" }],
+        };
+
+        // Act
+        var result = await sut.Update(
+            _instanceOwnerPartyId,
+            instanceGuid,
+            dataGuid,
+            input,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.NotNull(capturedPropertyList);
+        var metadata = Assert.IsAssignableFrom<List<KeyValueEntry>>(
+            capturedPropertyList["/metadata"]
+        );
+        Assert.Contains(
+            metadata,
+            m => m.Key == DataElementHelper.IdempotencyKeyMetadataName && m.Value == idempotencyKey
         );
     }
 
