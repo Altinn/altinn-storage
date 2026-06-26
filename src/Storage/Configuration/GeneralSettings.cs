@@ -114,5 +114,5 @@ public class GeneralSettings
     /// <summary>
     /// Gets or sets the cache lifetime for the Altinn CDN organisation list.
     /// </summary>
-    public int OrganisationsCacheLifeTimeInSeconds { get; set; }
+    public int OrganisationsCacheLifeTimeInSeconds { get; set; } = 3600;
 }
