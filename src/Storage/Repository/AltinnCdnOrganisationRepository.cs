@@ -19,11 +19,6 @@ public class AltinnCdnOrganisationRepository : IOrganisationRepository
 {
     private const string _cacheKey = "altinnCdnOrgs";
 
-    private static readonly JsonSerializerOptions _serializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
-
     private readonly HttpClient _httpClient;
     private readonly IMemoryCache _memoryCache;
     private readonly GeneralSettings _generalSettings;
@@ -78,8 +73,7 @@ public class AltinnCdnOrganisationRepository : IOrganisationRepository
         await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         OrgList? orgList = await JsonSerializer.DeserializeAsync<OrgList?>(
             stream,
-            _serializerOptions,
-            cancellationToken
+            cancellationToken: cancellationToken
         );
 
         if (orgList?.Orgs is null)
