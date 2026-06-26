@@ -25,7 +25,7 @@ public class HostingExtensionsTests
         var hostOptions = services.GetRequiredService<IOptions<HostOptions>>().Value;
 
         Assert.Equal("AppHostLifetime", hostLifetime.GetType().Name);
-        Assert.Equal(TimeSpan.FromSeconds(20), hostOptions.ShutdownTimeout);
+        Assert.Equal(TimeSpan.FromSeconds(50), hostOptions.ShutdownTimeout);
     }
 
     [Fact]
