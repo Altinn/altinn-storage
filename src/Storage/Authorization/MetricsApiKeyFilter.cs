@@ -65,7 +65,7 @@ public class MetricsApiKeyFilter(IConfiguration configuration, ILogger<MetricsAp
         if (string.IsNullOrWhiteSpace(configuredApiKey))
         {
             logger.LogError("StorageMetricsApiKey is not configured in application settings");
-            context.Result = new UnauthorizedResult();
+            context.Result = new UnauthorizedObjectResult(new { error = "Invalid API key" });
             return;
         }
 
