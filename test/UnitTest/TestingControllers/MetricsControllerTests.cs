@@ -222,7 +222,7 @@ public class MetricsControllerTests(TestApplicationFactory<MetricsController> fa
     }
 
     [Fact]
-    public async Task Get_DailyMetrics_ApiKeyNotConfigured_ReturnsUnauthorized()
+    public async Task Get_DailyMetrics_ApiKeyNotConfigured_Returns503ServiceUnavailable()
     {
         // Arrange
         Mock<IMetricsService> serviceMock = new();
@@ -238,7 +238,7 @@ public class MetricsControllerTests(TestApplicationFactory<MetricsController> fa
         );
 
         // Assert
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
         serviceMock.VerifyNoOtherCalls();
     }
 
