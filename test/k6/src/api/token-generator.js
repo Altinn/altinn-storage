@@ -1,8 +1,8 @@
 import http from "k6/http";
-import { check } from "k6";
 import encoding from "k6/encoding";
 
 import * as config from "../config.js";
+import * as maskinporten from "./maskinporten.js";
 import { stopIterationOnFail } from "../errorhandler.js";
 import * as apiHelpers from "../apiHelpers.js";
 
@@ -10,22 +10,18 @@ const tokenGeneratorUserName = __ENV.tokenGeneratorUserName;
 const tokenGeneratorUserPwd = __ENV.tokenGeneratorUserPwd;
 const environment = __ENV.altinn_env.toLowerCase();
 
-/*
-Generate enterprise token for test environment
-*/
 export function generateEnterpriseToken(queryParams) {
   var endpoint =
     config.tokenGenerator.getEnterpriseToken +
     apiHelpers.buildQueryParametersForEndpoint(queryParams);
-
-  return generateToken(endpoint);
+  return getToken(endpoint, basicAuthParams());
 }
 
 export function generatePersonalToken() {
 
-  var userId =  __ENV.userId;
+  var userId = __ENV.userId;
   var partyId = __ENV.partyId;
-  var pid = __ENV.pid
+  var pid = __ENV.pid;
 
   if(!userId){
     stopIterationOnFail("Required environment variable user id (userId) was not provided", false);
@@ -50,21 +46,25 @@ export function generatePersonalToken() {
     config.tokenGenerator.getPersonalToken +
     apiHelpers.buildQueryParametersForEndpoint(queryParams);
 
-  return generateToken(endpoint);
+  // tt02 authenticates to the generator via Maskinporten; the AT envs have no
+  // Maskinporten configured and keep using Basic auth against the generator.
+  if (environment == "tt02") {
+    var mpToken = maskinporten.generateAccessToken(config.maskinporten.personalScope);
+    var header = apiHelpers.buildHeaderWithBearer(mpToken);
+    return getToken(endpoint, header);
+  }
+  return getToken(endpoint, basicAuthParams());
 }
 
-function generateToken(endpoint) {
+function basicAuthParams() {
   const credentials = `${tokenGeneratorUserName}:${tokenGeneratorUserPwd}`;
-  const encodedCredentials = encoding.b64encode(credentials);
+  return apiHelpers.buildHeaderWithBasic(encoding.b64encode(credentials));
+}
 
-  var params = apiHelpers.buildHeaderWithBasic(encodedCredentials);
-
+function getToken(endpoint, params) {
   var response = http.get(endpoint, params);
-
   if (response.status != 200) {
     stopIterationOnFail("// Setup // Token generation failed", false, response);
   }
-
-  var token = response.body;
-  return token;
+  return response.body;
 }

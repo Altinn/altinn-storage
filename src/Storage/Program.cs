@@ -17,6 +17,7 @@ using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Filters;
 using Altinn.Platform.Storage.Health;
 using Altinn.Platform.Storage.Helpers;
@@ -60,6 +61,8 @@ var builder = WebApplication.CreateBuilder(args);
 ConfigureWebHostCreationLogging();
 
 await SetConfigurationProviders(builder.Configuration, builder.Environment.IsDevelopment());
+
+builder.UseGracefulShutdown();
 
 ConfigureApplicationLogging(builder.Logging);
 
@@ -356,6 +359,8 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddTransient<ISigningService, SigningService>();
     services.AddTransient<IInstanceEventService, InstanceEventService>();
     services.AddTransient<IProcessDataCleanupService, ProcessDataCleanupService>();
+    services.AddTransient<IOrganisationService, OrganisationService>();
+    services.AddTransient<IMetricsService, MetricsService>();
     services.AddSingleton<IApplicationService, ApplicationService>();
     services.AddSingleton<IA2OndemandFormattingService, A2OndemandFormattingService>();
 
@@ -363,6 +368,9 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddHttpClient<ICorrespondenceClient, CorrespondenceClient>();
     services.AddHttpClient<IOnDemandClient, OnDemandClient>();
     services.AddHttpClient<IPdfGeneratorClient, PdfGeneratorClient>();
+    services.AddHttpClient<IOrganisationRepository, AltinnCdnOrganisationRepository>(client =>
+        client.Timeout = TimeSpan.FromSeconds(30)
+    );
 
     // Add Swagger support (Swashbuckle)
     services.AddSwaggerGen(c =>

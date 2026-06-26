@@ -115,6 +115,15 @@ public class InstanceRepositoryMock : IInstanceRepository
             instances.RemoveAll(i => !i.Id.EndsWith(queryParams.ArchiveReference.ToLower()));
         }
 
+        if (!string.IsNullOrEmpty(queryParams.DataValuesA2ArchRef))
+        {
+            instances.RemoveAll(i =>
+                i.DataValues == null
+                || !i.DataValues.TryGetValue("A2ArchRef", out string a2ArchRef)
+                || !a2ArchRef.Equals(queryParams.DataValuesA2ArchRef, StringComparison.Ordinal)
+            );
+        }
+
         if (queryParams.IsArchived.HasValue)
         {
             instances.RemoveAll(i => i.Status.IsArchived != queryParams.IsArchived);

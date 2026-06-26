@@ -164,6 +164,7 @@
     Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstanceEvents (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.SearchMessageBoxInstances (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.Undelete (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.MetricsController.GetDailyInstanceStatistics (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.MigrationController.CleanupOldMigration (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.MigrationController.CreateApplication (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.MigrationController.CreateCodelist (Altinn.Platform.Storage),

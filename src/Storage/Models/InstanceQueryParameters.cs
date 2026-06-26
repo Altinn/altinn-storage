@@ -21,6 +21,7 @@ public class InstanceQueryParameters
     private const string _continuationTokenParameterName = "continuationToken";
     private const string _creationDateParameterName = "created";
     private const string _currentTaskParameterName = "process.currentTask";
+    private const string _dataValuesA2ArchRefParameterName = "dataValues.A2ArchRef";
     private const string _dueBeforeParameterName = "dueBefore";
     private const string _excludeConfirmedByParameterName = "excludeConfirmedBy";
     private const string _instanceOwnerIdentifierHeaderName = "X-Ai-InstanceOwnerIdentifier";
@@ -67,6 +68,12 @@ public class InstanceQueryParameters
     /// </summary>
     [FromQuery(Name = _currentTaskParameterName)]
     public string ProcessCurrentTask { get; set; }
+
+    /// <summary>
+    /// The historical Altinn 2 archive reference stored under the "A2ArchRef" key in the instance's data values.
+    /// </summary>
+    [FromQuery(Name = _dataValuesA2ArchRefParameterName)]
+    public string DataValuesA2ArchRef { get; set; }
 
     /// <summary>
     /// A value indicating whether the process is completed.
@@ -259,6 +266,7 @@ public class InstanceQueryParameters
         AddParamIfNotEmpty(postgresParams, _orgParameterName, Org);
         AddParamIfNotEmpty(postgresParams, _appIdsParameterName, AppIds);
         AddParamIfNotEmpty(postgresParams, _currentTaskParameterName, ProcessCurrentTask);
+        AddParamIfNotEmpty(postgresParams, _dataValuesA2ArchRefParameterName, DataValuesA2ArchRef);
         AddParamIfNotEmpty(
             postgresParams,
             _instanceOwnerPartyIdsParameterName,

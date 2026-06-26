@@ -189,6 +189,29 @@ public class ProcessAuthorizerTests
         Assert.False(await CreateSut().AuthorizeInstanceLock(instance));
     }
 
+    [Fact]
+    public async Task AuthorizeLock_NoCurrentTask_UserHasWriteAccess_ReturnsTrue()
+    {
+        var instance = new Instance { Process = new ProcessState { CurrentTask = null } };
+        _authorizationMock
+            .Setup(a => a.AuthorizeInstanceAction(instance, "write", null))
+            .ReturnsAsync(true);
+
+        var sut = CreateSut();
+
+        Assert.True(await sut.AuthorizeInstanceLock(instance));
+        Assert.True(await sut.AuthorizeDataElementLock(instance));
+    }
+
+    [Fact]
+    public async Task AuthorizeLock_NoProcess_ReturnsFalse()
+    {
+        var instance = new Instance { Process = null };
+
+        Assert.False(await CreateSut().AuthorizeDataElementLock(instance));
+        Assert.False(await CreateSut().AuthorizeInstanceLock(instance));
+    }
+
     #endregion
 
     #region AuthorizePresentationTextsUpdate and AuthorizeDataValuesUpdate

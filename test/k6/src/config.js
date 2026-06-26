@@ -138,4 +138,5 @@ export var portalAuthentication = {
 export var maskinporten = {
   audience: maskinportenBaseUrl,
   token: maskinportenBaseUrl + "token",
+  personalScope: "altinn:testtools/tokengenerator/personal",
 };

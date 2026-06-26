@@ -93,7 +93,6 @@ public class StudioInstanceParameters
     {
         return new InstanceQueryParameters()
         {
-            Org = Org,
             AppId = $"{Org}/{App}",
             ArchiveReference = ArchiveReference,
             ProcessCurrentTask = ProcessCurrentTask,

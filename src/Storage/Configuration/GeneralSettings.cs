@@ -105,4 +105,14 @@ public class GeneralSettings
     /// Gets or sets whether to disable Altinn 2 endpoints.
     /// </summary>
     public bool DisableA2Endpoints { get; set; } = false;
+
+    /// <summary>
+    /// Gets or sets the url to organisations on CDN
+    /// </summary>
+    public string OrganisationsUrl { get; set; }
+
+    /// <summary>
+    /// Gets or sets the cache lifetime for the Altinn CDN organisation list.
+    /// </summary>
+    public int OrganisationsCacheLifeTimeInSeconds { get; set; } = 3600;
 }
