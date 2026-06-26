@@ -572,11 +572,11 @@ public class DataControllerUnitTests
         );
 
         // Assert
-        var createdResult = Assert.IsType<CreatedResult>(result.Result);
-        var returned = Assert.IsType<DataElement>(createdResult.Value);
+        // A replay returns 200 (not 201) so callers can distinguish it from a fresh create.
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        var returned = Assert.IsType<DataElement>(okResult.Value);
         Assert.Equal(existing.Id, returned.Id);
         Assert.Equal(instanceGuid.ToString(), returned.InstanceGuid);
-        Assert.Contains(instanceGuid.ToString(), createdResult.Location, StringComparison.Ordinal);
         Assert.Contains(
             instanceGuid.ToString(),
             returned.SelfLinks.Platform,

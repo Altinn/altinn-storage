@@ -421,6 +421,7 @@ public class DataController : ControllerBase
     [DisableFormValueModelBinding]
     [RequestSizeLimit(RequestSizeLimit)]
     [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces("application/json")]
     public async Task<ActionResult<DataElement>> CreateAndUploadData(
@@ -495,11 +496,14 @@ public class DataController : ControllerBase
             );
             if (existing != null)
             {
-                // Guard against a persisted element with an unset InstanceGuid so the self link / Location is built
-                // from a valid guid rather than producing a malformed URL.
+                // Guard against a persisted element with an unset InstanceGuid so the self link is built from a valid
+                // guid rather than producing a malformed URL.
                 existing.InstanceGuid ??= instanceGuid.ToString();
                 existing.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
-                return Created(existing.SelfLinks.Platform, existing);
+
+                // Return 200 (not 201) so callers can distinguish an idempotent replay of an existing element from a
+                // fresh create.
+                return Ok(existing);
             }
         }
 
