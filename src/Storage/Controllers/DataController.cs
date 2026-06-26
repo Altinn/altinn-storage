@@ -485,7 +485,13 @@ public class DataController : ControllerBase
 
         // Idempotency: if this instance already has a data element created with the same key, return it instead of
         // creating a duplicate. The check runs before reading the body/writing the blob so a replay is cheap and does
-        // not leave orphaned blobs. Callbacks for an instance are processed serially, so no concurrent insert race.
+        // not leave orphaned blobs.
+        //
+        // KNOWN CONSTRAINT: this is a read-then-insert with no atomic guard (there is no unique index on the metadata
+        // key). It relies on the caller serializing same-key creates for an instance — the workflow engine does this
+        // (per-instance collection + lock token + dependency-on-heads), so retries are sequential. Two genuinely
+        // concurrent same-key creates for one instance would both miss the check and both insert; if a future caller
+        // cannot guarantee serialization, this needs a DB-level uniqueness guard instead.
         if (useIdempotency)
         {
             DataElement existing = instance.Data?.Find(de =>
