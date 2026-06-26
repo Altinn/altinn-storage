@@ -359,6 +359,8 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddTransient<ISigningService, SigningService>();
     services.AddTransient<IInstanceEventService, InstanceEventService>();
     services.AddTransient<IProcessDataCleanupService, ProcessDataCleanupService>();
+    services.AddTransient<IOrganisationService, OrganisationService>();
+    services.AddTransient<IMetricsService, MetricsService>();
     services.AddSingleton<IApplicationService, ApplicationService>();
     services.AddSingleton<IA2OndemandFormattingService, A2OndemandFormattingService>();
 
@@ -366,7 +368,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddHttpClient<ICorrespondenceClient, CorrespondenceClient>();
     services.AddHttpClient<IOnDemandClient, OnDemandClient>();
     services.AddHttpClient<IPdfGeneratorClient, PdfGeneratorClient>();
-    services.AddHttpClient<IMetricsService, MetricsService>();
+    services.AddHttpClient<IOrganisationRepository, AltinnCdnOrganisationRepository>();
 
     // Add Swagger support (Swashbuckle)
     services.AddSwaggerGen(c =>
