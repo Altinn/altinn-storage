@@ -410,6 +410,11 @@ public class DataController : ControllerBase
     /// <param name="cancellationToken">CancellationToken</param>
     /// <param name="refs">An optional array of data element references.</param>
     /// <param name="generatedFromTask">An optional id of the task the data element was generated from</param>
+    /// <param name="idempotencyKey">
+    /// An optional idempotency key. When supplied, the data element is created at most once for the key: a repeated
+    /// request with the same key for the same instance returns the already-created element instead of inserting a
+    /// duplicate. Omitting it preserves the previous (non-idempotent) behaviour.
+    /// </param>
     /// <returns>The metadata of the new data element.</returns>
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
     [HttpPost("data")]
@@ -424,7 +429,8 @@ public class DataController : ControllerBase
         [FromQuery] string dataType,
         CancellationToken cancellationToken,
         [FromQuery(Name = "refs")] List<Guid> refs = null,
-        [FromQuery(Name = "generatedFromTask")] string generatedFromTask = null
+        [FromQuery(Name = "generatedFromTask")] string generatedFromTask = null,
+        [FromQuery(Name = "idempotencyKey")] string idempotencyKey = null
     )
     {
         if (instanceOwnerPartyId == 0 || string.IsNullOrEmpty(dataType) || Request.Body == null)
@@ -434,8 +440,17 @@ public class DataController : ControllerBase
             );
         }
 
+        bool useIdempotency = !string.IsNullOrEmpty(idempotencyKey);
+
+        // When an idempotency key is supplied we need the instance's existing data elements so a replayed request can
+        // be matched to the element it already created.
         (Instance instance, long instanceInternalId, ActionResult instanceError) =
-            await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false, cancellationToken);
+            await GetInstanceAsync(
+                instanceGuid,
+                instanceOwnerPartyId,
+                useIdempotency,
+                cancellationToken
+            );
         if (instance == null)
         {
             return instanceError;
@@ -467,6 +482,24 @@ public class DataController : ControllerBase
             return Forbid();
         }
 
+        // Idempotency: if this instance already has a data element created with the same key, return it instead of
+        // creating a duplicate. The check runs before reading the body/writing the blob so a replay is cheap and does
+        // not leave orphaned blobs. Callbacks for an instance are processed serially, so no concurrent insert race.
+        if (useIdempotency)
+        {
+            DataElement existing = instance.Data?.Find(de =>
+                de.Metadata?.Exists(m =>
+                    m.Key == DataElementHelper.IdempotencyKeyMetadataName
+                    && m.Value == idempotencyKey
+                ) == true
+            );
+            if (existing != null)
+            {
+                existing.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
+                return Created(existing.SelfLinks.Platform, existing);
+            }
+        }
+
         var streamAndDataElement = await ReadRequestAndCreateDataElementAsync(
             Request,
             dataType,
@@ -476,6 +509,18 @@ public class DataController : ControllerBase
         );
         Stream theStream = streamAndDataElement.Stream;
         DataElement newData = streamAndDataElement.DataElement;
+
+        if (useIdempotency)
+        {
+            newData.Metadata ??= new List<KeyValueEntry>();
+            newData.Metadata.Add(
+                new KeyValueEntry
+                {
+                    Key = DataElementHelper.IdempotencyKeyMetadataName,
+                    Value = idempotencyKey,
+                }
+            );
+        }
 
         newData.FileScanResult = dataTypeDefinition.EnableFileScan
             ? FileScanResult.Pending
