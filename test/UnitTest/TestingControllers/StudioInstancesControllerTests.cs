@@ -662,9 +662,15 @@ public class StudioInstancesControllerTests
             .Setup(s => s.GetApplicationOrErrorAsync(It.IsAny<string>()))
             .ReturnsAsync((new Application(), null));
 
+        var organisationServiceMock = new Mock<IOrganisationService>();
+        organisationServiceMock
+            .Setup(s => s.GetOrgNumber("ttd", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("991825827");
+
         HttpClient client = GetAuthenticatedClient(
             instanceRepository: instanceRepositoryMock.Object,
-            applicationService: applicationServiceMock.Object
+            applicationService: applicationServiceMock.Object,
+            organisationService: organisationServiceMock.Object
         );
 
         // Act
@@ -710,10 +716,16 @@ public class StudioInstancesControllerTests
 
         var instanceEventServiceMock = new Mock<IInstanceEventService>();
 
+        var organisationServiceMock = new Mock<IOrganisationService>();
+        organisationServiceMock
+            .Setup(s => s.GetOrgNumber("ttd", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("991825827");
+
         HttpClient client = GetAuthenticatedClient(
             instanceRepository: instanceRepositoryMock.Object,
             applicationService: applicationServiceMock.Object,
-            instanceEventService: instanceEventServiceMock.Object
+            instanceEventService: instanceEventServiceMock.Object,
+            organisationService: organisationServiceMock.Object
         );
 
         // Act
@@ -729,7 +741,7 @@ public class StudioInstancesControllerTests
                     It.Is<Instance>(i =>
                         i.Status.IsSoftDeleted == true
                         && i.Status.SoftDeleted != null
-                        && i.LastChangedBy == "ttd"
+                        && i.LastChangedBy == "991825827"
                     ),
                     It.IsAny<List<string>>(),
                     It.IsAny<CancellationToken>()
@@ -748,17 +760,149 @@ public class StudioInstancesControllerTests
         );
     }
 
+    [Fact]
+    public async Task DeleteInstance_OrgNumberLookupThrows_Returns500()
+    {
+        // Arrange
+        var instanceGuid = Guid.NewGuid();
+        var instance = new Instance
+        {
+            Id = $"1337/{instanceGuid}",
+            InstanceOwner = new() { PartyId = "1337" },
+            AppId = "ttd/app",
+            Org = "ttd",
+        };
+
+        var instanceRepositoryMock = new Mock<IInstanceRepository>();
+        instanceRepositoryMock
+            .Setup(ir => ir.GetOne(instanceGuid, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((instance, 1));
+
+        var applicationServiceMock = new Mock<IApplicationService>();
+        applicationServiceMock
+            .Setup(s => s.GetApplicationOrErrorAsync(It.IsAny<string>()))
+            .ReturnsAsync((new Application(), null));
+
+        var instanceEventServiceMock = new Mock<IInstanceEventService>();
+
+        var organisationServiceMock = new Mock<IOrganisationService>();
+        organisationServiceMock
+            .Setup(s => s.GetOrgNumber("ttd", It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new HttpRequestException("CDN unavailable"));
+
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object,
+            applicationService: applicationServiceMock.Object,
+            instanceEventService: instanceEventServiceMock.Object,
+            organisationService: organisationServiceMock.Object
+        );
+
+        // Act
+        HttpResponseMessage response = await client.DeleteAsync(
+            $"{BasePath}/ttd/app/{instanceGuid}"
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        instanceRepositoryMock.Verify(
+            ir =>
+                ir.Update(
+                    It.IsAny<Instance>(),
+                    It.IsAny<List<string>>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+        instanceEventServiceMock.Verify(
+            s =>
+                s.DispatchEvent(
+                    It.IsAny<InstanceEventType>(),
+                    It.IsAny<Instance>(),
+                    It.IsAny<PlatformUser>(),
+                    It.IsAny<string>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task DeleteInstance_OrgNumberNotResolved_Returns500()
+    {
+        // Arrange
+        var instanceGuid = Guid.NewGuid();
+        var instance = new Instance
+        {
+            Id = $"1337/{instanceGuid}",
+            InstanceOwner = new() { PartyId = "1337" },
+            AppId = "ttd/app",
+            Org = "ttd",
+        };
+
+        var instanceRepositoryMock = new Mock<IInstanceRepository>();
+        instanceRepositoryMock
+            .Setup(ir => ir.GetOne(instanceGuid, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((instance, 1));
+
+        var applicationServiceMock = new Mock<IApplicationService>();
+        applicationServiceMock
+            .Setup(s => s.GetApplicationOrErrorAsync(It.IsAny<string>()))
+            .ReturnsAsync((new Application(), null));
+
+        var instanceEventServiceMock = new Mock<IInstanceEventService>();
+
+        var organisationServiceMock = new Mock<IOrganisationService>();
+        organisationServiceMock
+            .Setup(s => s.GetOrgNumber("ttd", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string)null);
+
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepositoryMock.Object,
+            applicationService: applicationServiceMock.Object,
+            instanceEventService: instanceEventServiceMock.Object,
+            organisationService: organisationServiceMock.Object
+        );
+
+        // Act
+        HttpResponseMessage response = await client.DeleteAsync(
+            $"{BasePath}/ttd/app/{instanceGuid}"
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        instanceRepositoryMock.Verify(
+            ir =>
+                ir.Update(
+                    It.IsAny<Instance>(),
+                    It.IsAny<List<string>>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+        instanceEventServiceMock.Verify(
+            s =>
+                s.DispatchEvent(
+                    It.IsAny<InstanceEventType>(),
+                    It.IsAny<Instance>(),
+                    It.IsAny<PlatformUser>(),
+                    It.IsAny<string>()
+                ),
+            Times.Never
+        );
+    }
+
     private HttpClient GetAuthenticatedClient(
         IInstanceRepository instanceRepository = null,
         IApplicationService applicationService = null,
         IInstanceEventService instanceEventService = null,
+        IOrganisationService organisationService = null,
         string tokenAppId = "studio.designer"
     )
     {
         HttpClient client = GetTestClient(
             instanceRepository,
             applicationService,
-            instanceEventService
+            instanceEventService,
+            organisationService
         );
         string token = PrincipalUtil.GetAccessToken(tokenAppId);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -768,13 +912,16 @@ public class StudioInstancesControllerTests
     private HttpClient GetTestClient(
         IInstanceRepository instanceRepository = null,
         IApplicationService applicationService = null,
-        IInstanceEventService instanceEventService = null
+        IInstanceEventService instanceEventService = null,
+        IOrganisationService organisationService = null
     )
     {
         if (instanceRepository == null)
         {
             instanceRepository = new Mock<IInstanceRepository>().Object;
         }
+
+        organisationService ??= new Mock<IOrganisationService>().Object;
 
         var client = _factory
             .WithWebHostBuilder(builder =>
@@ -792,6 +939,7 @@ public class StudioInstancesControllerTests
                 builder.ConfigureTestServices(services =>
                 {
                     services.AddSingleton(instanceRepository);
+                    services.AddSingleton(organisationService);
                     if (applicationService != null)
                     {
                         services.AddSingleton(applicationService);

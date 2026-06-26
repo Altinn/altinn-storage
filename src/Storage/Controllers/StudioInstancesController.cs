@@ -28,6 +28,7 @@ public class StudioInstancesController : ControllerBase
     private readonly ILogger _logger;
     private readonly IApplicationService _applicationService;
     private readonly IInstanceEventService _instanceEventService;
+    private readonly IOrganisationService _organisationService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="StudioInstancesController"/> class
@@ -36,13 +37,15 @@ public class StudioInstancesController : ControllerBase
         IInstanceRepository instanceRepository,
         ILogger<StudioInstancesController> logger,
         IApplicationService applicationService,
-        IInstanceEventService instanceEventService
+        IInstanceEventService instanceEventService,
+        IOrganisationService organisationService
     )
     {
         _instanceRepository = instanceRepository;
         _logger = logger;
         _applicationService = applicationService;
         _instanceEventService = instanceEventService;
+        _organisationService = organisationService;
     }
 
     /// <summary>
@@ -212,13 +215,18 @@ public class StudioInstancesController : ControllerBase
         instance.Status.IsSoftDeleted = true;
         instance.Status.SoftDeleted = now;
 
-        instance.LastChangedBy = instance.Org;
         instance.LastChanged = now;
         updateProperties.Add(nameof(instance.LastChanged));
         updateProperties.Add(nameof(instance.LastChangedBy));
 
         try
         {
+            instance.LastChangedBy =
+                await _organisationService.GetOrgNumber(instance.Org, ct)
+                ?? throw new InvalidOperationException(
+                    $"Could not resolve organisation number for service owner '{instance.Org}'."
+                );
+
             Instance deletedInstance = await _instanceRepository.Update(
                 instance,
                 updateProperties,
