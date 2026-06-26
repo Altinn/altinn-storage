@@ -909,6 +909,7 @@ public class DataController : ControllerBase
     [HttpGet("dataelementexists/{dataGuid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [Produces("application/json")]
+    [ApiExplorerSettings(IgnoreApi = true)]
     public async Task<ActionResult<bool>> DataElementExists(
         Guid dataGuid,
         CancellationToken cancellationToken
