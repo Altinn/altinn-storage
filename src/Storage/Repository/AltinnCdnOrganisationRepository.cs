@@ -19,6 +19,8 @@ public class AltinnCdnOrganisationRepository : IOrganisationRepository
 {
     private const string _cacheKey = "altinnCdnOrgs";
 
+    private static readonly SemaphoreSlim _cacheFillLock = new(1, 1);
+
     private readonly HttpClient _httpClient;
     private readonly IMemoryCache _memoryCache;
     private readonly GeneralSettings _generalSettings;
@@ -59,31 +61,44 @@ public class AltinnCdnOrganisationRepository : IOrganisationRepository
             return organisations;
         }
 
-        using HttpRequestMessage requestMessage = new(
-            HttpMethod.Get,
-            _generalSettings.OrganisationsUrl
-        );
-        using HttpResponseMessage response = await _httpClient.SendAsync(
-            requestMessage,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken
-        );
-        response.EnsureSuccessStatusCode();
-
-        await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        OrgList? orgList = await JsonSerializer.DeserializeAsync<OrgList?>(
-            stream,
-            cancellationToken: cancellationToken
-        );
-
-        if (orgList?.Orgs is null)
+        await _cacheFillLock.WaitAsync(cancellationToken);
+        try
         {
-            throw new InvalidOperationException(
-                $"Failed to deserialize {nameof(OrgList)} from {_generalSettings.OrganisationsUrl}"
-            );
-        }
+            if (_memoryCache.TryGetValue(_cacheKey, out organisations) && organisations is not null)
+            {
+                return organisations;
+            }
 
-        _memoryCache.Set(_cacheKey, orgList.Orgs, _cacheEntryOptions);
-        return orgList.Orgs;
+            using HttpRequestMessage requestMessage = new(
+                HttpMethod.Get,
+                _generalSettings.OrganisationsUrl
+            );
+            using HttpResponseMessage response = await _httpClient.SendAsync(
+                requestMessage,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken
+            );
+            response.EnsureSuccessStatusCode();
+
+            await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            OrgList? orgList = await JsonSerializer.DeserializeAsync<OrgList?>(
+                stream,
+                cancellationToken: cancellationToken
+            );
+
+            if (orgList?.Orgs is null)
+            {
+                throw new InvalidOperationException(
+                    $"Failed to deserialize {nameof(OrgList)} from {_generalSettings.OrganisationsUrl}"
+                );
+            }
+
+            _memoryCache.Set(_cacheKey, orgList.Orgs, _cacheEntryOptions);
+            return orgList.Orgs;
+        }
+        finally
+        {
+            _cacheFillLock.Release();
+        }
     }
 }
