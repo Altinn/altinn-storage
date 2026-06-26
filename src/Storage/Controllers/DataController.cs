@@ -410,12 +410,18 @@ public class DataController : ControllerBase
     /// <param name="cancellationToken">CancellationToken</param>
     /// <param name="refs">An optional array of data element references.</param>
     /// <param name="generatedFromTask">An optional id of the task the data element was generated from</param>
+    /// <param name="idempotencyKey">
+    /// An optional idempotency key. When supplied, the data element is created at most once for the key: a repeated
+    /// request with the same key for the same instance returns the already-created element instead of inserting a
+    /// duplicate. Omitting it preserves the previous (non-idempotent) behaviour.
+    /// </param>
     /// <returns>The metadata of the new data element.</returns>
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
     [HttpPost("data")]
     [DisableFormValueModelBinding]
     [RequestSizeLimit(RequestSizeLimit)]
     [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces("application/json")]
     public async Task<ActionResult<DataElement>> CreateAndUploadData(
@@ -424,7 +430,8 @@ public class DataController : ControllerBase
         [FromQuery] string dataType,
         CancellationToken cancellationToken,
         [FromQuery(Name = "refs")] List<Guid> refs = null,
-        [FromQuery(Name = "generatedFromTask")] string generatedFromTask = null
+        [FromQuery(Name = "generatedFromTask")] string generatedFromTask = null,
+        [FromQuery(Name = "idempotencyKey")] string idempotencyKey = null
     )
     {
         if (instanceOwnerPartyId == 0 || string.IsNullOrEmpty(dataType) || Request.Body == null)
@@ -434,8 +441,17 @@ public class DataController : ControllerBase
             );
         }
 
+        bool useIdempotency = !string.IsNullOrEmpty(idempotencyKey);
+
+        // When an idempotency key is supplied we need the instance's existing data elements so a replayed request can
+        // be matched to the element it already created.
         (Instance instance, long instanceInternalId, ActionResult instanceError) =
-            await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false, cancellationToken);
+            await GetInstanceAsync(
+                instanceGuid,
+                instanceOwnerPartyId,
+                useIdempotency,
+                cancellationToken
+            );
         if (instance == null)
         {
             return instanceError;
@@ -467,6 +483,36 @@ public class DataController : ControllerBase
             return Forbid();
         }
 
+        // Idempotency: if this instance already has a data element created with the same key, return it instead of
+        // creating a duplicate. The check runs before reading the body/writing the blob so a replay is cheap and does
+        // not leave orphaned blobs.
+        //
+        // KNOWN CONSTRAINT: this is a read-then-insert with no atomic guard (there is no unique index on the metadata
+        // key). It relies on the caller serializing same-key creates for an instance — the workflow engine does this
+        // (per-instance collection + lock token + dependency-on-heads), so retries are sequential. Two genuinely
+        // concurrent same-key creates for one instance would both miss the check and both insert; if a future caller
+        // cannot guarantee serialization, this needs a DB-level uniqueness guard instead.
+        if (useIdempotency)
+        {
+            DataElement existing = instance.Data?.Find(de =>
+                de.Metadata?.Exists(m =>
+                    m.Key == DataElementHelper.IdempotencyKeyMetadataName
+                    && m.Value == idempotencyKey
+                ) == true
+            );
+            if (existing != null)
+            {
+                // Guard against a persisted element with an unset InstanceGuid so the self link is built from a valid
+                // guid rather than producing a malformed URL.
+                existing.InstanceGuid ??= instanceGuid.ToString();
+                existing.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
+
+                // Return 200 (not 201) so callers can distinguish an idempotent replay of an existing element from a
+                // fresh create.
+                return Ok(existing);
+            }
+        }
+
         var streamAndDataElement = await ReadRequestAndCreateDataElementAsync(
             Request,
             dataType,
@@ -476,6 +522,18 @@ public class DataController : ControllerBase
         );
         Stream theStream = streamAndDataElement.Stream;
         DataElement newData = streamAndDataElement.DataElement;
+
+        if (useIdempotency)
+        {
+            newData.Metadata ??= new List<KeyValueEntry>();
+            newData.Metadata.Add(
+                new KeyValueEntry
+                {
+                    Key = DataElementHelper.IdempotencyKeyMetadataName,
+                    Value = idempotencyKey,
+                }
+            );
+        }
 
         newData.FileScanResult = dataTypeDefinition.EnableFileScan
             ? FileScanResult.Pending
@@ -763,6 +821,28 @@ public class DataController : ControllerBase
         if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
         {
             return Forbid();
+        }
+
+        // A metadata update replaces /metadata wholesale. The reserved idempotency marker must survive that so a
+        // retried create stays deduped, so carry over any existing marker the incoming payload does not already set.
+        // (Notably, the app's own create flow applies binary-element metadata in a follow-up update to this endpoint.)
+        DataElement existingDataElement = await _dataRepository.Read(
+            instanceGuid,
+            dataGuid,
+            cancellationToken
+        );
+        KeyValueEntry existingIdempotencyMarker = existingDataElement?.Metadata?.Find(m =>
+            m.Key == DataElementHelper.IdempotencyKeyMetadataName
+        );
+        if (
+            existingIdempotencyMarker is not null
+            && dataElement.Metadata?.Exists(m =>
+                m.Key == DataElementHelper.IdempotencyKeyMetadataName
+            ) != true
+        )
+        {
+            dataElement.Metadata ??= new List<KeyValueEntry>();
+            dataElement.Metadata.Add(existingIdempotencyMarker);
         }
 
         Dictionary<string, object> propertyList = new()

@@ -20,6 +20,14 @@ namespace Altinn.Platform.Storage.Helpers;
 public static class DataElementHelper
 {
     /// <summary>
+    /// Reserved <see cref="DataElement.Metadata"/> key used to store the idempotency key supplied on data element
+    /// creation. When a create request carries an idempotency key, Storage records it here so a replayed create
+    /// (e.g. a retried workflow-engine callback) can be matched to the already-persisted element instead of
+    /// inserting a duplicate. Reserved for platform use; apps must not use this key for their own metadata.
+    /// </summary>
+    public const string IdempotencyKeyMetadataName = "altinn-idempotency-key";
+
+    /// <summary>
     /// Creates a data element based on element type, instance id, content type, content file name and file size.
     /// </summary>
     /// <returns>DataElement</returns>

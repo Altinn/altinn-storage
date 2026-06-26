@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
@@ -481,6 +482,304 @@ public class DataControllerUnitTests
         };
 
         return (sut, dataRepositoryMock);
+    }
+
+    /// <summary>
+    /// Scenario: a data element create request carries an idempotencyKey and the instance does not yet have an
+    /// element created with that key.
+    /// Expected: the element is created and stamped with the reserved idempotency metadata marker.
+    /// </summary>
+    [Fact]
+    public async Task CreateAndUploadData_WithIdempotencyKey_StampsMarkerOnNewElement()
+    {
+        // Arrange
+        const string idempotencyKey = "step-42#0";
+        (DataController sut, Mock<IDataRepository> dataRepositoryMock, _) = GetCreateDataController(
+            existingData: []
+        );
+
+        DataElement created = null;
+        dataRepositoryMock
+            .Setup(d =>
+                d.Create(It.IsAny<DataElement>(), It.IsAny<long>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync((DataElement de, long _, CancellationToken _) => de)
+            .Callback((DataElement de, long _, CancellationToken _) => created = de);
+
+        // Act
+        ActionResult<DataElement> result = await sut.CreateAndUploadData(
+            _instanceOwnerPartyId,
+            Guid.NewGuid(),
+            _dataType,
+            CancellationToken.None,
+            idempotencyKey: idempotencyKey
+        );
+
+        // Assert
+        Assert.IsType<CreatedResult>(result.Result);
+        dataRepositoryMock.Verify(
+            d => d.Create(It.IsAny<DataElement>(), It.IsAny<long>(), It.IsAny<CancellationToken>()),
+            Times.Once
+        );
+        Assert.NotNull(created);
+        Assert.Contains(
+            created.Metadata,
+            m => m.Key == DataElementHelper.IdempotencyKeyMetadataName && m.Value == idempotencyKey
+        );
+    }
+
+    /// <summary>
+    /// Scenario: a data element create request is replayed with an idempotencyKey that already produced an element on
+    /// the instance (e.g. a retried workflow-engine callback).
+    /// Expected: the already-persisted element is returned and no new element/blob is created.
+    /// </summary>
+    [Fact]
+    public async Task CreateAndUploadData_WithIdempotencyKey_ReturnsExistingElementOnReplay()
+    {
+        // Arrange
+        const string idempotencyKey = "step-42#0";
+        var existing = new DataElement
+        {
+            Id = Guid.NewGuid().ToString(),
+            DataType = _dataType,
+            Metadata =
+            [
+                new KeyValueEntry
+                {
+                    Key = DataElementHelper.IdempotencyKeyMetadataName,
+                    Value = idempotencyKey,
+                },
+            ],
+        };
+        (
+            DataController sut,
+            Mock<IDataRepository> dataRepositoryMock,
+            Mock<IBlobRepository> blobRepositoryMock
+        ) = GetCreateDataController(existingData: [existing]);
+
+        // The persisted element intentionally has no InstanceGuid, so the replay must backfill it from the route to
+        // build a valid location / self link.
+        Assert.Null(existing.InstanceGuid);
+        var instanceGuid = Guid.NewGuid();
+
+        // Act
+        ActionResult<DataElement> result = await sut.CreateAndUploadData(
+            _instanceOwnerPartyId,
+            instanceGuid,
+            _dataType,
+            CancellationToken.None,
+            idempotencyKey: idempotencyKey
+        );
+
+        // Assert
+        // A replay returns 200 (not 201) so callers can distinguish it from a fresh create.
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        var returned = Assert.IsType<DataElement>(okResult.Value);
+        Assert.Equal(existing.Id, returned.Id);
+        Assert.Equal(instanceGuid.ToString(), returned.InstanceGuid);
+        Assert.Contains(
+            instanceGuid.ToString(),
+            returned.SelfLinks.Platform,
+            StringComparison.Ordinal
+        );
+        dataRepositoryMock.Verify(
+            d => d.Create(It.IsAny<DataElement>(), It.IsAny<long>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+        blobRepositoryMock.Verify(
+            d =>
+                d.WriteBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<Stream>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>()
+                ),
+            Times.Never
+        );
+    }
+
+    /// <summary>
+    /// Scenario: a metadata update (PUT dataelements/{id}) is performed on an element that carries the reserved
+    /// idempotency marker, with a payload whose metadata omits that marker (as the app's own binary-element create
+    /// flow does).
+    /// Expected: the reserved marker is carried over so it is not wiped, keeping retried creates deduped.
+    /// </summary>
+    [Fact]
+    public async Task Update_PreservesReservedIdempotencyMarker_WhenMetadataPatchOmitsIt()
+    {
+        // Arrange
+        const string idempotencyKey = "step-99#0";
+        var instanceGuid = Guid.NewGuid();
+        var dataGuid = Guid.NewGuid();
+
+        (DataController sut, Mock<IDataRepository> dataRepositoryMock) = GetTestController(
+            expectedPropertiesForPatch: []
+        );
+
+        dataRepositoryMock
+            .Setup(d => d.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                new DataElement
+                {
+                    Id = dataGuid.ToString(),
+                    InstanceGuid = instanceGuid.ToString(),
+                    DataType = _dataType,
+                    Metadata =
+                    [
+                        new KeyValueEntry
+                        {
+                            Key = DataElementHelper.IdempotencyKeyMetadataName,
+                            Value = idempotencyKey,
+                        },
+                    ],
+                }
+            );
+
+        Dictionary<string, object> capturedPropertyList = null;
+        dataRepositoryMock
+            .Setup(d =>
+                d.Update(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<Dictionary<string, object>>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(new DataElement())
+            .Callback(
+                (Guid _, Guid _, Dictionary<string, object> propertyList, CancellationToken _) =>
+                    capturedPropertyList = propertyList
+            );
+
+        var input = new DataElement
+        {
+            Id = dataGuid.ToString(),
+            InstanceGuid = instanceGuid.ToString(),
+            DataType = _dataType,
+            Metadata = [new KeyValueEntry { Key = "some-app-key", Value = "value" }],
+        };
+
+        // Act
+        var result = await sut.Update(
+            _instanceOwnerPartyId,
+            instanceGuid,
+            dataGuid,
+            input,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.NotNull(capturedPropertyList);
+        var metadata = Assert.IsAssignableFrom<List<KeyValueEntry>>(
+            capturedPropertyList["/metadata"]
+        );
+        Assert.Contains(
+            metadata,
+            m => m.Key == DataElementHelper.IdempotencyKeyMetadataName && m.Value == idempotencyKey
+        );
+    }
+
+    /// <summary>
+    /// Builds a <see cref="DataController"/> wired for the create path with a request body, where the target instance
+    /// returns the supplied data elements when its elements are requested.
+    /// </summary>
+    private (
+        DataController TestController,
+        Mock<IDataRepository> DataRepositoryMock,
+        Mock<IBlobRepository> BlobRepositoryMock
+    ) GetCreateDataController(List<DataElement> existingData)
+    {
+        Mock<IDataRepository> dataRepositoryMock = new();
+        Mock<IBlobRepository> blobRepositoryMock = new();
+        Mock<IInstanceRepository> instanceRepositoryMock = new();
+        Mock<IApplicationRepository> applicationRepositoryMock = new();
+        Mock<IInstanceEventService> instanceEventServiceMock = new();
+        Mock<IDataService> dataServiceMock = new();
+        Mock<IAuthorization> authorizationServiceMock = new();
+
+        blobRepositoryMock
+            .Setup(d =>
+                d.WriteBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<Stream>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>()
+                )
+            )
+            .ReturnsAsync((123145864564, DateTimeOffset.Now));
+
+        instanceRepositoryMock
+            .Setup(ir =>
+                ir.GetOne(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(
+                (Guid instanceGuid, bool includeDataElements, CancellationToken _) =>
+                    (
+                        new Instance
+                        {
+                            Id = $"{_instanceOwnerPartyId}/{instanceGuid}",
+                            InstanceOwner = new InstanceOwner
+                            {
+                                PartyId = _instanceOwnerPartyId.ToString(),
+                            },
+                            Org = _org,
+                            AppId = _appId,
+                            Data = includeDataElements ? existingData : null,
+                        },
+                        0L
+                    )
+            );
+
+        applicationRepositoryMock
+            .Setup(ar =>
+                ar.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(new Application { DataTypes = [new DataType { Id = _dataType }] });
+
+        Mock<HttpContext> httpContextMock = new();
+        httpContextMock
+            .Setup(c => c.User)
+            .Returns(PrincipalUtil.GetPrincipal(200001, _instanceOwnerPartyId));
+
+        Mock<HttpRequest> requestMock = new();
+        requestMock.Setup(r => r.ContentType).Returns("application/pdf");
+        requestMock
+            .Setup(r => r.Headers)
+            .Returns(
+                new HeaderDictionary
+                {
+                    {
+                        "Content-Disposition",
+                        new StringValues("attachment; filename=\"filename.pdf\"; size=8")
+                    },
+                }
+            );
+        requestMock
+            .Setup(r => r.Body)
+            .Returns(new MemoryStream(Encoding.UTF8.GetBytes("contents")));
+        httpContextMock.Setup(c => c.Request).Returns(requestMock.Object);
+
+        IOptions<GeneralSettings> generalSettings = Options.Create(
+            new GeneralSettings { Hostname = "https://altinn.no/" }
+        );
+
+        var sut = new DataController(
+            dataRepositoryMock.Object,
+            blobRepositoryMock.Object,
+            instanceRepositoryMock.Object,
+            applicationRepositoryMock.Object,
+            dataServiceMock.Object,
+            instanceEventServiceMock.Object,
+            generalSettings,
+            null,
+            authorizationServiceMock.Object
+        )
+        {
+            ControllerContext = new ControllerContext { HttpContext = httpContextMock.Object },
+        };
+
+        return (sut, dataRepositoryMock, blobRepositoryMock);
     }
 
     private static List<DataElement> GetDataElements(Guid instanceGuid)
