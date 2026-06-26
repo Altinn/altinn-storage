@@ -368,7 +368,9 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddHttpClient<ICorrespondenceClient, CorrespondenceClient>();
     services.AddHttpClient<IOnDemandClient, OnDemandClient>();
     services.AddHttpClient<IPdfGeneratorClient, PdfGeneratorClient>();
-    services.AddHttpClient<IOrganisationRepository, AltinnCdnOrganisationRepository>();
+    services.AddHttpClient<IOrganisationRepository, AltinnCdnOrganisationRepository>(client =>
+        client.Timeout = TimeSpan.FromSeconds(30)
+    );
 
     // Add Swagger support (Swashbuckle)
     services.AddSwaggerGen(c =>

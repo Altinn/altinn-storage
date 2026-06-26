@@ -42,7 +42,6 @@ public class AltinnCdnOrganisationRepository : IOrganisationRepository
     )
     {
         _httpClient = httpClient;
-        _httpClient.Timeout = new TimeSpan(0, 0, 30);
         _memoryCache = memoryCache;
         _generalSettings = generalSettings.Value;
         _cacheEntryOptions = new MemoryCacheEntryOptions()
