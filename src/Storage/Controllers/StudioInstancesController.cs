@@ -239,7 +239,7 @@ public class StudioInstancesController : ControllerBase
         {
             _logger.LogError(
                 e,
-                "Unexpected exception when deleting instance {instance.Id}",
+                "Unexpected exception when deleting instance {instanceId}",
                 instance.Id
             );
             return StatusCode(
