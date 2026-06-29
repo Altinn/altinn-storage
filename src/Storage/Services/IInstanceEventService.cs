@@ -27,6 +27,21 @@ public interface IInstanceEventService
     public Task DispatchEvent(InstanceEventType eventType, Instance instance);
 
     /// <summary>
+    /// Dispatch an instance event with an explicitly provided actor and additional info,
+    /// for callers whose token does not carry user or org claims.
+    /// </summary>
+    /// <param name="eventType">The event type</param>
+    /// <param name="instance">The instance the event is related to</param>
+    /// <param name="user">The actor to record on the event</param>
+    /// <param name="additionalInfo">Free text describing the event</param>
+    public Task DispatchEvent(
+        InstanceEventType eventType,
+        Instance instance,
+        PlatformUser user,
+        string additionalInfo = null
+    );
+
+    /// <summary>
     /// Dispatch an instance event related to a data elementto the repository
     /// </summary>
     /// <param name="eventType">The event type</param>
