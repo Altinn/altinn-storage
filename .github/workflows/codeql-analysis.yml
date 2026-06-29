@@ -32,15 +32,15 @@ jobs:
             build-mode: autobuild
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Setup .NET 9.0.* SDK
         if: matrix.language == 'csharp'
-        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5.2.0
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
         with:
           dotnet-version: |
             9.0.x
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@458d36d7d4f47d0dd16ca424c1d3cda0060f1360 # v3.35.5
+        uses: github/codeql-action/init@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3.36.2
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
@@ -50,6 +50,6 @@ jobs:
           # queries: ./path/to/local/query, your-org/your-repo/queries@main
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@458d36d7d4f47d0dd16ca424c1d3cda0060f1360 # v3.35.5
+        uses: github/codeql-action/analyze@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3.36.2
         with:
           category: '/language:${{matrix.language}}'
