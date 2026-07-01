@@ -136,6 +136,7 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
         if (!DecisionHelper.ValidatePdpDecision(response.Response, context.User))
         {
             context.Fail();
+            return;
         }
 
         context.Succeed(requirement);
