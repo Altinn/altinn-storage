@@ -166,6 +166,8 @@ public class StudioInstancesController : ControllerBase
     [HttpDelete("{org}/{app}/{instanceGuid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult> DeleteInstance(
         [FromRoute] string org,
         [FromRoute] string app,
