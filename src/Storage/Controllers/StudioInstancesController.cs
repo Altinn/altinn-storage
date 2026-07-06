@@ -208,6 +208,11 @@ public class StudioInstancesController : ControllerBase
             );
         }
 
+        if (instance.Status.IsSoftDeleted)
+        {
+            return NoContent();
+        }
+
         DateTime now = DateTime.UtcNow;
 
         List<string> updateProperties = [];
