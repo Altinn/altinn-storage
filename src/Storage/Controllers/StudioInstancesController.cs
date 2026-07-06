@@ -157,9 +157,9 @@ public class StudioInstancesController : ControllerBase
     /// <summary>
     /// Deletes an instance with the given instance id. Soft deletion.
     /// </summary>
-    /// <param name="org">The org owning the the instance to retrieve.</param>
-    /// <param name="app">The app tied to the instance to retrieve.</param>
-    /// <param name="instanceGuid">The id of the instance to retrieve.</param>
+    /// <param name="org">The org owning the instance.</param>
+    /// <param name="app">The app tied to the instance.</param>
+    /// <param name="instanceGuid">The id of the instance.</param>
     /// <param name="ct">CancellationToken</param>
     /// <returns></returns>
     [Authorize(Policy = AuthzConstants.POLICY_STUDIO_DESIGNER)]
