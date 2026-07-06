@@ -43,7 +43,24 @@ public class ProcessDataCleanupService : IProcessDataCleanupService
             return 0;
         }
 
-        List<DataElement> stale = instance
+        // Timestamp guard: only delete elements that already existed before the in-flight transition
+        // began. The baseline is the stored (pre-update) instance's current-task start - genuinely
+        // stale elements were created during a previous visit to the entering task, which necessarily
+        // ended at or before the moment the task now being left started. Elements younger than the
+        // baseline were created by the transition itself (newer app engines run task-start commands
+        // before this save) and must survive the save that completes their own transition. Note that
+        // the baseline originates from the app's clock (it arrives in the process PUT body) while
+        // DataElement.Created is stamped by Storage, so the comparison spans two clocks; the margin
+        // is normally the full duration of the task being left, so ordinary NTP-level skew is
+        // harmless. A missing baseline means the process never entered a task, so no previous visit
+        // can exist and there is nothing stale to clean.
+        DateTime? baseline = instance.Process?.CurrentTask?.Started ?? instance.Process?.Started;
+        if (baseline is null)
+        {
+            return 0;
+        }
+
+        List<DataElement> tagged = instance
             .Data.Where(de =>
                 de.References?.Any(r =>
                     r.Relation == RelationType.GeneratedFrom
@@ -53,6 +70,21 @@ public class ProcessDataCleanupService : IProcessDataCleanupService
                     is true
             )
             .ToList();
+
+        List<DataElement> stale = tagged
+            .Where(de => de.Created is null || de.Created < baseline)
+            .ToList();
+
+        if (stale.Count < tagged.Count)
+        {
+            _logger.LogInformation(
+                "Timestamp guard spared {Spared} data element(s) tagged with task {TaskId} on instance {InstanceId}: created after the transition baseline {Baseline:O}",
+                tagged.Count - stale.Count,
+                taskId,
+                instance.Id,
+                baseline
+            );
+        }
 
         if (stale.Count == 0)
         {
