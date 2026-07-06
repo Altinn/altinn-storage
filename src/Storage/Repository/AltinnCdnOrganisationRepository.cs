@@ -44,7 +44,7 @@ public class AltinnCdnOrganisationRepository : IOrganisationRepository
         _cacheEntryOptions = new MemoryCacheEntryOptions()
             .SetPriority(CacheItemPriority.High)
             .SetAbsoluteExpiration(
-                new TimeSpan(0, 0, _generalSettings.OrganisationsCacheLifeTimeInSeconds)
+                TimeSpan.FromSeconds(_generalSettings.OrganisationsCacheLifeTimeInSeconds)
             );
     }
 
