@@ -14,9 +14,7 @@ public interface IProcessDataCleanupService
     /// <summary>
     /// Deletes all data elements on <paramref name="instance"/> whose
     /// <see cref="DataElement.References"/> contain a reference matching
-    /// <c>{Relation = GeneratedFrom, ValueType = Task, Value = taskId}</c>
-    /// and whose <see cref="ChangableElement.Created"/> predates the stored instance's
-    /// current-task start (elements created by the in-flight transition itself are spared).
+    /// <c>{Relation = GeneratedFrom, ValueType = Task, Value = taskId}</c>.
     /// Each delete is best-effort: individual failures are logged and skipped,
     /// not propagated.
     /// </summary>
@@ -26,9 +24,8 @@ public interface IProcessDataCleanupService
     /// <see cref="InvalidOperationException"/>.
     /// </remarks>
     /// <param name="instance">
-    /// The instance whose data elements should be evaluated, in its stored (pre-update) state so that
-    /// <c>Process.CurrentTask.Started</c> reflects the task being left. The <see cref="Instance.Data"/> list is
-    /// mutated to remove successfully deleted elements so subsequent persistence reflects the cleanup.
+    /// The instance whose data elements should be evaluated. The <see cref="Instance.Data"/> list is mutated to remove
+    /// successfully deleted elements so subsequent persistence reflects the cleanup.
     /// </param>
     /// <param name="taskId">The id of the task that the instance is entering.</param>
     /// <param name="cancellationToken">A cancellation token.</param>

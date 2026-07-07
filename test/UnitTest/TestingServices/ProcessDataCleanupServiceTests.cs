@@ -20,13 +20,6 @@ public class ProcessDataCleanupServiceTests
     private const string _targetTaskId = "Task_2";
     private const int _storageAccount = 7;
 
-    /// <summary>
-    /// The moment the task currently being left was entered, as recorded on the stored
-    /// (pre-update) instance. Elements created before this are stale; elements created
-    /// after belong to the in-flight transition and must be spared.
-    /// </summary>
-    private static readonly DateTime _baseline = new(2026, 6, 1, 12, 0, 0, DateTimeKind.Utc);
-
     private readonly Mock<IDataService> _dataServiceMock = new();
     private readonly Mock<IApplicationService> _applicationServiceMock = new();
 
@@ -115,7 +108,6 @@ public class ProcessDataCleanupServiceTests
         {
             Id = "1/abc",
             AppId = _appId,
-            Process = ProcessInTaskSince(_baseline),
             Data =
             [
                 new DataElement { Id = Guid.NewGuid().ToString(), References = null },
@@ -188,7 +180,7 @@ public class ProcessDataCleanupServiceTests
     {
         ProcessDataCleanupService target = CreateService();
 
-        DataElement match1 = MakeStaleMatch();
+        DataElement match1 = MakeMatch();
         DataElement keep = new()
         {
             Id = Guid.NewGuid().ToString(),
@@ -202,13 +194,12 @@ public class ProcessDataCleanupServiceTests
                 },
             ],
         };
-        DataElement match2 = MakeStaleMatch();
+        DataElement match2 = MakeMatch();
 
         Instance instance = new()
         {
             Id = "1/abc",
             AppId = _appId,
-            Process = ProcessInTaskSince(_baseline),
             Data = [match1, keep, match2],
         };
 
@@ -241,15 +232,14 @@ public class ProcessDataCleanupServiceTests
     {
         ProcessDataCleanupService target = CreateService();
 
-        DataElement first = MakeStaleMatch();
-        DataElement failing = MakeStaleMatch();
-        DataElement last = MakeStaleMatch();
+        DataElement first = MakeMatch();
+        DataElement failing = MakeMatch();
+        DataElement last = MakeMatch();
 
         Instance instance = new()
         {
             Id = "1/abc",
             AppId = _appId,
-            Process = ProcessInTaskSince(_baseline),
             Data = [first, failing, last],
         };
 
@@ -291,8 +281,7 @@ public class ProcessDataCleanupServiceTests
         {
             Id = "1/abc",
             AppId = _appId,
-            Process = ProcessInTaskSince(_baseline),
-            Data = [MakeStaleMatch()],
+            Data = [MakeMatch()],
         };
 
         var act = () =>
@@ -306,14 +295,13 @@ public class ProcessDataCleanupServiceTests
     {
         ProcessDataCleanupService target = CreateService();
 
-        DataElement first = MakeStaleMatch();
-        DataElement second = MakeStaleMatch();
+        DataElement first = MakeMatch();
+        DataElement second = MakeMatch();
 
         Instance instance = new()
         {
             Id = "1/abc",
             AppId = _appId,
-            Process = ProcessInTaskSince(_baseline),
             Data = [first, second],
         };
 
@@ -334,246 +322,11 @@ public class ProcessDataCleanupServiceTests
         );
     }
 
-    [Fact]
-    public async Task CleanupGeneratedFromTask_NoProcessState_DeletesNothing()
-    {
-        ProcessDataCleanupService target = CreateService();
-
-        Instance instance = new()
-        {
-            Id = "1/abc",
-            AppId = _appId,
-            Process = null,
-            Data = [MakeStaleMatch(), MakeMatch()],
-        };
-
-        int deleted = await target.CleanupGeneratedFromTask(
-            instance,
-            _targetTaskId,
-            CancellationToken.None
-        );
-
-        Assert.Equal(0, deleted);
-        Assert.Equal(2, instance.Data.Count);
-        _dataServiceMock.Verify(
-            d =>
-                d.DeleteImmediately(
-                    It.IsAny<Instance>(),
-                    It.IsAny<DataElement>(),
-                    It.IsAny<int?>()
-                ),
-            Times.Never
-        );
-    }
-
-    [Fact]
-    public async Task CleanupGeneratedFromTask_ProcessNeverStarted_DeletesNothing()
-    {
-        ProcessDataCleanupService target = CreateService();
-
-        Instance instance = new()
-        {
-            Id = "1/abc",
-            AppId = _appId,
-            Process = new ProcessState { Started = null, CurrentTask = null },
-            Data = [MakeStaleMatch()],
-        };
-
-        int deleted = await target.CleanupGeneratedFromTask(
-            instance,
-            _targetTaskId,
-            CancellationToken.None
-        );
-
-        Assert.Equal(0, deleted);
-        Assert.Single(instance.Data);
-        _dataServiceMock.Verify(
-            d =>
-                d.DeleteImmediately(
-                    It.IsAny<Instance>(),
-                    It.IsAny<DataElement>(),
-                    It.IsAny<int?>()
-                ),
-            Times.Never
-        );
-    }
-
-    [Fact]
-    public async Task CleanupGeneratedFromTask_ElementCreatedAfterBaseline_IsSpared()
-    {
-        ProcessDataCleanupService target = CreateService();
-
-        DataElement fresh = MakeMatch(_baseline.AddSeconds(5));
-
-        Instance instance = new()
-        {
-            Id = "1/abc",
-            AppId = _appId,
-            Process = ProcessInTaskSince(_baseline),
-            Data = [fresh],
-        };
-
-        int deleted = await target.CleanupGeneratedFromTask(
-            instance,
-            _targetTaskId,
-            CancellationToken.None
-        );
-
-        Assert.Equal(0, deleted);
-        Assert.Same(fresh, Assert.Single(instance.Data));
-        _dataServiceMock.Verify(
-            d =>
-                d.DeleteImmediately(
-                    It.IsAny<Instance>(),
-                    It.IsAny<DataElement>(),
-                    It.IsAny<int?>()
-                ),
-            Times.Never
-        );
-    }
-
-    [Fact]
-    public async Task CleanupGeneratedFromTask_MixedStaleAndFresh_DeletesOnlyStale()
-    {
-        ProcessDataCleanupService target = CreateService();
-
-        DataElement stale = MakeStaleMatch();
-        DataElement fresh = MakeMatch(_baseline.AddSeconds(5));
-
-        Instance instance = new()
-        {
-            Id = "1/abc",
-            AppId = _appId,
-            Process = ProcessInTaskSince(_baseline),
-            Data = [stale, fresh],
-        };
-
-        _dataServiceMock
-            .Setup(d => d.DeleteImmediately(instance, stale, _storageAccount))
-            .ReturnsAsync(stale);
-
-        int deleted = await target.CleanupGeneratedFromTask(
-            instance,
-            _targetTaskId,
-            CancellationToken.None
-        );
-
-        Assert.Equal(1, deleted);
-        Assert.Same(fresh, Assert.Single(instance.Data));
-        _dataServiceMock.Verify(
-            d => d.DeleteImmediately(instance, stale, _storageAccount),
-            Times.Once
-        );
-        _dataServiceMock.Verify(
-            d => d.DeleteImmediately(instance, fresh, It.IsAny<int?>()),
-            Times.Never
-        );
-    }
-
-    [Fact]
-    public async Task CleanupGeneratedFromTask_NullCreated_TreatedAsStaleAndDeleted()
-    {
-        ProcessDataCleanupService target = CreateService();
-
-        DataElement legacy = MakeMatch(created: null);
-
-        Instance instance = new()
-        {
-            Id = "1/abc",
-            AppId = _appId,
-            Process = ProcessInTaskSince(_baseline),
-            Data = [legacy],
-        };
-
-        _dataServiceMock
-            .Setup(d => d.DeleteImmediately(instance, legacy, _storageAccount))
-            .ReturnsAsync(legacy);
-
-        int deleted = await target.CleanupGeneratedFromTask(
-            instance,
-            _targetTaskId,
-            CancellationToken.None
-        );
-
-        Assert.Equal(1, deleted);
-        Assert.Empty(instance.Data);
-    }
-
-    [Fact]
-    public async Task CleanupGeneratedFromTask_FirstEntryToTask_AllElementsYoungerThanBaseline_DeletesNothing()
-    {
-        // First ever entry to the target task: any tagged elements were created by the
-        // in-flight transition's task-start commands and must survive the process save.
-        ProcessDataCleanupService target = CreateService();
-
-        DataElement taskStart1 = MakeMatch(_baseline.AddSeconds(1));
-        DataElement taskStart2 = MakeMatch(_baseline.AddSeconds(2));
-
-        Instance instance = new()
-        {
-            Id = "1/abc",
-            AppId = _appId,
-            Process = ProcessInTaskSince(_baseline),
-            Data = [taskStart1, taskStart2],
-        };
-
-        int deleted = await target.CleanupGeneratedFromTask(
-            instance,
-            _targetTaskId,
-            CancellationToken.None
-        );
-
-        Assert.Equal(0, deleted);
-        Assert.Equal(2, instance.Data.Count);
-        _dataServiceMock.Verify(
-            d =>
-                d.DeleteImmediately(
-                    It.IsAny<Instance>(),
-                    It.IsAny<DataElement>(),
-                    It.IsAny<int?>()
-                ),
-            Times.Never
-        );
-    }
-
-    [Fact]
-    public async Task CleanupGeneratedFromTask_NoCurrentTask_FallsBackToProcessStarted()
-    {
-        // The process has started but never entered a task (stored state). The baseline
-        // falls back to Process.Started: elements created after it are spared.
-        ProcessDataCleanupService target = CreateService();
-
-        DataElement stale = MakeMatch(_baseline.AddMinutes(-5));
-        DataElement fresh = MakeMatch(_baseline.AddSeconds(5));
-
-        Instance instance = new()
-        {
-            Id = "1/abc",
-            AppId = _appId,
-            Process = new ProcessState { Started = _baseline, CurrentTask = null },
-            Data = [stale, fresh],
-        };
-
-        _dataServiceMock
-            .Setup(d => d.DeleteImmediately(instance, stale, _storageAccount))
-            .ReturnsAsync(stale);
-
-        int deleted = await target.CleanupGeneratedFromTask(
-            instance,
-            _targetTaskId,
-            CancellationToken.None
-        );
-
-        Assert.Equal(1, deleted);
-        Assert.Same(fresh, Assert.Single(instance.Data));
-    }
-
-    private static DataElement MakeMatch(DateTime? created = null) =>
+    private static DataElement MakeMatch() =>
         new()
         {
             Id = Guid.NewGuid().ToString(),
             BlobStoragePath = $"ttd/test-app/instance/data/{Guid.NewGuid()}",
-            Created = created,
             References =
             [
                 new Reference
@@ -583,18 +336,5 @@ public class ProcessDataCleanupServiceTests
                     Value = _targetTaskId,
                 },
             ],
-        };
-
-    private static DataElement MakeStaleMatch() => MakeMatch(_baseline.AddMinutes(-5));
-
-    /// <summary>
-    /// Process state as stored before the update: the instance is currently in a task
-    /// (the one being left) that started at <see cref="_baseline"/>.
-    /// </summary>
-    private static ProcessState ProcessInTaskSince(DateTime started) =>
-        new()
-        {
-            Started = started.AddMinutes(-30),
-            CurrentTask = new ProcessElementInfo { ElementId = "Task_1", Started = started },
         };
 }
