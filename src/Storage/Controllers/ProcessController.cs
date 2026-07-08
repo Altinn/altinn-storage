@@ -131,6 +131,10 @@ public class ProcessController : ControllerBase
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance that should have its process updated.</param>
     /// <param name="processStateUpdate">The new process state of the instance (including instance events).</param>
+    /// <param name="skipTaskDataCleanupHeader">
+    /// Value of the <c>Altinn-Storage-Skip-Task-Data-Cleanup</c> header. When it reads as boolean-true the
+    /// caller is declaring it manages its own task-generated data, and this controller skips its cleanup.
+    /// </param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns></returns>
     [Authorize]
@@ -144,6 +148,7 @@ public class ProcessController : ControllerBase
         int instanceOwnerPartyId,
         Guid instanceGuid,
         [FromBody] ProcessStateUpdate processStateUpdate,
+        [FromHeader(Name = SkipTaskDataCleanupHeaderName)] string? skipTaskDataCleanupHeader,
         CancellationToken cancellationToken
     )
     {
@@ -200,7 +205,10 @@ public class ProcessController : ControllerBase
         // visits to that same task (e.g. stale PDFs, signatures) - unless the caller manages its own
         // task-generated data cleanup and has opted out via header (see SkipTaskDataCleanupHeaderName).
         string? targetTaskId = processState.CurrentTask?.ElementId;
-        if (!string.IsNullOrWhiteSpace(targetTaskId) && !CallerManagesTaskDataCleanup())
+        if (
+            !string.IsNullOrWhiteSpace(targetTaskId)
+            && !CallerManagesTaskDataCleanup(skipTaskDataCleanupHeader)
+        )
         {
             await _processDataCleanupService.CleanupGeneratedFromTask(
                 existingInstance,
@@ -306,10 +314,8 @@ public class ProcessController : ControllerBase
         );
     }
 
-    private bool CallerManagesTaskDataCleanup() =>
-        Request.Headers.TryGetValue(SkipTaskDataCleanupHeaderName, out var value)
-        && bool.TryParse(value.ToString(), out bool skip)
-        && skip;
+    private static bool CallerManagesTaskDataCleanup(string? skipTaskDataCleanupHeader) =>
+        bool.TryParse(skipTaskDataCleanupHeader, out bool skip) && skip;
 
     private void UpdateInstance(
         Instance existingInstance,
