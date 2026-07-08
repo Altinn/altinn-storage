@@ -208,10 +208,8 @@ public class ProcessController : ControllerBase
         // visits to that same task (e.g. stale PDFs, signatures) - unless the caller manages its own
         // task-generated data cleanup and has opted out via header (see SkipTaskDataCleanupHeaderName).
         string? targetTaskId = processState.CurrentTask?.ElementId;
-        if (
-            !string.IsNullOrWhiteSpace(targetTaskId)
-            && !CallerManagesTaskDataCleanup(skipTaskDataCleanupHeader)
-        )
+        bool callerManagesTaskDataCleanup = skipTaskDataCleanupHeader == true;
+        if (!string.IsNullOrWhiteSpace(targetTaskId) && !callerManagesTaskDataCleanup)
         {
             await _processDataCleanupService.CleanupGeneratedFromTask(
                 existingInstance,
@@ -316,9 +314,6 @@ public class ProcessController : ControllerBase
             $"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}: {message}"
         );
     }
-
-    private static bool CallerManagesTaskDataCleanup(bool? skipTaskDataCleanupHeader) =>
-        skipTaskDataCleanupHeader == true;
 
     private void UpdateInstance(
         Instance existingInstance,
