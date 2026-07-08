@@ -739,16 +739,14 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     }
 
     /// <summary>
-    /// Test case: Caller advances into a task and sends the skip-cleanup header, but with a value that
-    /// does not read as boolean-true (e.g. "false" or a non-boolean). The opt-out is only honored for an
-    /// explicit true, so cleanup must still run - this guards the opt-out polarity (absent/false -> clean).
+    /// Test case: Caller advances into a task and sends the skip-cleanup header with a boolean value that
+    /// is not true (e.g. "false", case-insensitively). The opt-out is only honored for an explicit true,
+    /// so cleanup must still run - this guards the opt-out polarity (absent/false -> clean).
     /// </summary>
     [Theory]
     [InlineData("false")]
-    [InlineData("not-a-bool")]
-    public async Task PutInstanceAndEvents_SkipCleanupHeaderNotTrue_InvokesCleanup(
-        string headerValue
-    )
+    [InlineData("False")]
+    public async Task PutInstanceAndEvents_SkipCleanupHeaderFalse_InvokesCleanup(string headerValue)
     {
         // Arrange
         string token = PrincipalUtil.GetToken(3, 1337, 3);
@@ -794,6 +792,65 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
+        );
+    }
+
+    /// <summary>
+    /// Test case: Caller sends the skip-cleanup header with a value that is not a boolean. The header is
+    /// bound as a nullable bool, so model binding rejects it with 400 before the action runs, and cleanup
+    /// is never reached. A caller sending this deliberate header is expected to encode a valid boolean.
+    /// </summary>
+    [Theory]
+    [InlineData("not-a-bool")]
+    [InlineData("maybe")]
+    public async Task PutInstanceAndEvents_SkipCleanupHeaderNotBoolean_ReturnsBadRequest(
+        string headerValue
+    )
+    {
+        // Arrange
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        Mock<IProcessDataCleanupService> cleanupMock = new();
+        cleanupMock
+            .Setup(c =>
+                c.CleanupGeneratedFromTask(
+                    It.IsAny<Instance>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(0);
+
+        // Act
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint: true,
+            token: token,
+            instanceId: "1337/20a1353e-91cf-44d6-8ff7-f68993638ffe",
+            processDataCleanupService: cleanupMock.Object,
+            configure: state =>
+            {
+                state.CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_2",
+                    AltinnTaskType = "data",
+                    FlowType = "CompleteCurrentMoveToNext",
+                };
+            },
+            requestHeaders: new Dictionary<string, string>
+            {
+                ["Altinn-Storage-Skip-Task-Data-Cleanup"] = headerValue,
+            }
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        cleanupMock.Verify(
+            c =>
+                c.CleanupGeneratedFromTask(
+                    It.IsAny<Instance>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
         );
     }
 

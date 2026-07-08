@@ -132,8 +132,11 @@ public class ProcessController : ControllerBase
     /// <param name="instanceGuid">The id of the instance that should have its process updated.</param>
     /// <param name="processStateUpdate">The new process state of the instance (including instance events).</param>
     /// <param name="skipTaskDataCleanupHeader">
-    /// Value of the <c>Altinn-Storage-Skip-Task-Data-Cleanup</c> header. When it reads as boolean-true the
-    /// caller is declaring it manages its own task-generated data, and this controller skips its cleanup.
+    /// Value of the <c>Altinn-Storage-Skip-Task-Data-Cleanup</c> header, bound as a nullable boolean. When
+    /// <c>true</c> the caller is declaring it manages its own task-generated data and this controller skips
+    /// its cleanup; absent (<c>null</c>) or <c>false</c> cleans as normal. A non-boolean value is rejected
+    /// with <c>400 Bad Request</c> by model binding - a caller sending this deliberate header is expected
+    /// to encode a valid boolean.
     /// </param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns></returns>
@@ -148,7 +151,7 @@ public class ProcessController : ControllerBase
         int instanceOwnerPartyId,
         Guid instanceGuid,
         [FromBody] ProcessStateUpdate processStateUpdate,
-        [FromHeader(Name = SkipTaskDataCleanupHeaderName)] string? skipTaskDataCleanupHeader,
+        [FromHeader(Name = SkipTaskDataCleanupHeaderName)] bool? skipTaskDataCleanupHeader,
         CancellationToken cancellationToken
     )
     {
@@ -314,8 +317,8 @@ public class ProcessController : ControllerBase
         );
     }
 
-    private static bool CallerManagesTaskDataCleanup(string? skipTaskDataCleanupHeader) =>
-        bool.TryParse(skipTaskDataCleanupHeader, out bool skip) && skip;
+    private static bool CallerManagesTaskDataCleanup(bool? skipTaskDataCleanupHeader) =>
+        skipTaskDataCleanupHeader == true;
 
     private void UpdateInstance(
         Instance existingInstance,
