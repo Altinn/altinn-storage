@@ -969,6 +969,62 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     }
 
     /// <summary>
+    /// Test GetInstancesFromQuery filtering on the A3 reference, match
+    /// </summary>
+    [Fact]
+    public async Task Instance_GetInstancesFromQuery_A3Ref_Match_Ok()
+    {
+        // Arrange
+        Instance newInstance = TestData.Instance_1_1.Clone();
+        await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
+
+        InstanceQueryParameters queryParams = new()
+        {
+            Size = 100,
+            A3Ref = "b7fe18ccff30",
+            MainVersionInclude = 3,
+        };
+
+        // Act
+        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            queryParams,
+            true,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Equal(1, instances.Count);
+    }
+
+    /// <summary>
+    /// Test GetInstancesFromQuery filtering on the A3 reference, no match
+    /// </summary>
+    [Fact]
+    public async Task Instance_GetInstancesFromQuery_A3Ref_NoMatch_Ok()
+    {
+        // Arrange
+        Instance newInstance = TestData.Instance_1_1.Clone();
+        await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
+
+        InstanceQueryParameters queryParams = new()
+        {
+            Size = 100,
+            A3Ref = "000000000000",
+            MainVersionInclude = 3,
+        };
+
+        // Act
+        var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            queryParams,
+            true,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Equal(0, instances.Count);
+    }
+
+    /// <summary>
     /// Test GetInstancesFromQuery with CompleteConfirmations, primary org, match
     /// </summary>
     [Fact]
