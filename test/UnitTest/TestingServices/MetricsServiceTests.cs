@@ -79,6 +79,7 @@ public class MetricsServiceTests
         Assert.Equal(record.ResourceTitle, response.Metrics[0].ResourceTitle);
         Assert.Equal(record.ServiceOwnerCode, response.Metrics[0].ServiceOwnerCode);
         Assert.Equal(orgNr, response.Metrics[0].ServiceOwnerOrgNumber);
+        Assert.Equal(record.DateTime, response.Metrics[0].DateTime);
 
         metricsRepositoryMock.Verify(
             e => e.GetDailyInstanceMetrics(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
@@ -214,6 +215,7 @@ public class MetricsServiceTests
             ResourceTitle = "Test",
             ServiceOwnerCode = "digdir",
             ServiceOwnerOrgNumber = "0",
+            DateTime = new DateTime(2022, 1, 1, 0, 0, 0, DateTimeKind.Utc),
         };
         return new DailyMetrics<DailyInstanceMetricsRecord>
         {
