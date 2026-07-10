@@ -42,5 +42,6 @@ public record DailyInstanceMetricsRecord
     /// <summary>
     /// Gets or sets the date and time of the record.
     /// </summary>
+    [JsonPropertyName("dateTime")]
     public DateTime DateTime { get; set; }
 }
