@@ -56,7 +56,7 @@ public class MetricsService : IMetricsService
         CancellationToken cancellationToken
     )
     {
-        DateTime date = DateTime.UtcNow.AddDays(-_daysOffsetForDailyMetrics);
+        DateTime date = DateTime.UtcNow.Date.AddDays(-_daysOffsetForDailyMetrics);
 
         var metrics = await _metricsRepository.GetDailyInstanceMetrics(date, cancellationToken);
         try
