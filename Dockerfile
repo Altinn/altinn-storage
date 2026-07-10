@@ -15,7 +15,7 @@ WORKDIR ../Storage/
 RUN dotnet build ./Altinn.Platform.Storage.csproj -c Release -o /app_output
 RUN dotnet publish ./Altinn.Platform.Storage.csproj -c Release -o /app_output
 
-FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine3.23@sha256:16094fe6451d8f6fe48989915f75cea0ee9d7daddc65931f426140c47ddadcd9 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine3.24@sha256:50f2dccb17be5f2c7e75814ca70e6c913a969b503214fe978a82301a450a63cb AS final
 EXPOSE 5010
 WORKDIR /app
 COPY --from=build /app_output .
