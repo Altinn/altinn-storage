@@ -221,7 +221,10 @@ public class SigningService : ISigningService
 
         foreach (SignDocDownloadResult result in results)
         {
-            if (result is null || !SigneesAreEqual(result.SignDocument.SigneeInfo, signee))
+            if (
+                result?.SignDocument is null
+                || !SigneesAreEqual(result.SignDocument.SigneeInfo, signee)
+            )
             {
                 continue;
             }
