@@ -289,12 +289,12 @@ public class ProcessController : ControllerBase
         string? message = null;
         try
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(
+            (Instance? instance, _) = await _instanceRepository.GetOne(
                 instanceGuid,
                 false,
                 cancellationToken
             );
-            if (instance.InstanceOwner.PartyId == instanceOwnerPartyId.ToString())
+            if (instance?.InstanceOwner.PartyId == instanceOwnerPartyId.ToString())
             {
                 return Ok(new AuthInfo() { Process = instance.Process, AppId = instance.AppId });
             }

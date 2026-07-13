@@ -241,7 +241,7 @@ public class MigrationController : ControllerBase
             false,
             cancellationToken
         );
-        if (instanceId == 0)
+        if (instanceId == 0 || instance is null)
         {
             return BadRequest("Instance not found");
         }

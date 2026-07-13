@@ -44,7 +44,11 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         CancellationToken cancellationToken = default
     )
     {
-        dataElement.Id ??= Guid.NewGuid().ToString();
+        if (string.IsNullOrEmpty(dataElement.Id))
+        {
+            dataElement.Id = Guid.NewGuid().ToString();
+        }
+
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Bigint, instanceInternalId);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.InstanceGuid));

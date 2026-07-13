@@ -53,8 +53,9 @@ public class OutboxTests
     public async Task Insert_EnableSendingTrue_InsertsRow()
     {
         var cmdObj = CreateCommand(Guid.NewGuid().ToString());
+        await using NpgsqlConnection connection = GetConnection();
 
-        await GetRepo().Insert(cmdObj, GetConnection());
+        await GetRepo().Insert(cmdObj, connection);
 
         string sql = $"select count(*) from storage.outbox";
         int count = await PostgresUtil.RunCountQuery(sql);
@@ -68,9 +69,10 @@ public class OutboxTests
         var now = DateTime.UtcNow;
         var first = CreateCommand(sharedId, created: now, evt: InstanceEventType.Saved);
         var second = CreateCommand(sharedId, created: now, evt: InstanceEventType.Deleted);
+        await using NpgsqlConnection connection = GetConnection();
 
-        await GetRepo().Insert(first, GetConnection());
-        await GetRepo().Insert(second, GetConnection());
+        await GetRepo().Insert(first, connection);
+        await GetRepo().Insert(second, connection);
 
         string sql = $"select count(*) from storage.outbox";
         int count = await PostgresUtil.RunCountQuery(sql);
@@ -93,10 +95,11 @@ public class OutboxTests
             created: now,
             evt: InstanceEventType.Created
         );
+        await using NpgsqlConnection connection = GetConnection();
 
-        await GetRepo().Insert(first, GetConnection());
-        await GetRepo().Insert(second, GetConnection());
-        await GetRepo().Insert(third, GetConnection());
+        await GetRepo().Insert(first, connection);
+        await GetRepo().Insert(second, connection);
+        await GetRepo().Insert(third, connection);
         var dps = await GetRepo().Poll(10);
 
         Assert.Equal(2, dps.Count);
@@ -106,8 +109,9 @@ public class OutboxTests
     public async Task Delete_RemovesRow()
     {
         var cmdObj = CreateCommand(Guid.NewGuid().ToString());
+        await using NpgsqlConnection connection = GetConnection();
 
-        await GetRepo().Insert(cmdObj, GetConnection());
+        await GetRepo().Insert(cmdObj, connection);
         await GetRepo().Delete(Guid.Parse(cmdObj.InstanceId));
 
         string sql = $"select count(*) from storage.outbox";
