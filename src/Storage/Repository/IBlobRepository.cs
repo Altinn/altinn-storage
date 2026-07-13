@@ -4,7 +4,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 
 namespace Altinn.Platform.Storage.Repository;
 
@@ -58,5 +58,5 @@ public interface IBlobRepository
     /// <param name="instance">The instance to delete from</param>
     /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
     /// <returns>A value indicating whether the delete was successful.</returns>///
-    Task<bool> DeleteDataBlobs(Instance instance, int? storageAccountNumber);
+    Task<bool> DeleteDataBlobs(InstanceInternal instance, int? storageAccountNumber);
 }

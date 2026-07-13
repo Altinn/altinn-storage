@@ -9,6 +9,7 @@ using Altinn.Common.PEP.Helpers;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -99,7 +100,7 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
         }
 
         Guid instanceGuid = Guid.Parse(instanceGuidString);
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        InstanceInternal instanceInternal = await _instanceRepository.GetOne(
             instanceGuid,
             false,
             CancellationToken.None
@@ -118,9 +119,9 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
 
         XacmlJsonResponse? response;
 
-        if (instance is not null)
+        if (instanceInternal is not null)
         {
-            AuthorizationService.EnrichXacmlJsonRequest(request, instance);
+            AuthorizationService.EnrichXacmlJsonRequest(request, instanceInternal);
             response = await GetDecisionForRequest(request);
         }
         else

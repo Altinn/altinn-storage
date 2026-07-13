@@ -72,9 +72,9 @@ public class SimpleDataElement
     public DateTimeOffset? LastChangedAt { get; set; }
 
     /// <summary>
-    /// Converts a <see cref="DataElement"/> into a <see cref="SimpleDataElement"/>.
+    /// Converts a <see cref="DataElementInternal"/> into a <see cref="SimpleDataElement"/>.
     /// </summary>
-    public static SimpleDataElement FromDataElement(DataElement dataElement)
+    public static SimpleDataElement FromDataElement(DataElementInternal dataElement)
     {
         return new SimpleDataElement()
         {

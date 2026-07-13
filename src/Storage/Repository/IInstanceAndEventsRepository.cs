@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 
 namespace Altinn.Platform.Storage.Repository;
 
@@ -20,8 +21,8 @@ public interface IInstanceAndEventsRepository
     /// <param name="events">the events to add</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>The updated instance</returns>
-    Task<Instance> Update(
-        Instance instance,
+    Task<InstanceInternal> Update(
+        InstanceInternal instance,
         List<string> updateProperties,
         List<InstanceEvent> events,
         CancellationToken cancellationToken

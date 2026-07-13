@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Extensions;
 using Altinn.Platform.Storage.UnitTest.Utils;
@@ -23,7 +24,7 @@ public class DataTests : IClassFixture<DataElementFixture>
 
     private readonly DataElementFixture _dataElementFixture;
     private readonly long _instanceInternalId;
-    private readonly Instance _instance;
+    private readonly InstanceInternal _instance;
 
     public DataTests(DataElementFixture dataElementFixture)
     {
@@ -31,18 +32,19 @@ public class DataTests : IClassFixture<DataElementFixture>
 
         string sql = "delete from storage.instances; delete from storage.dataelements;";
         _ = PostgresUtil.RunSql(sql).Result;
-        Instance instance = TestData.Instance_1_1.Clone();
+        InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
         instance.Status.IsSoftDeleted = true;
-        Instance newInstance = _dataElementFixture
+        InstanceInternal newInstance = _dataElementFixture
             .InstanceRepo.Create(instance, CancellationToken.None)
             .Result;
-        (_instance, _instanceInternalId) = _dataElementFixture
+        _instance = _dataElementFixture
             .InstanceRepo.GetOne(
                 Guid.Parse(newInstance.Id.Split('/').Last()),
                 false,
                 CancellationToken.None
             )
             .Result;
+        _instanceInternalId = _instance.InternalId;
     }
 
     /// <summary>
@@ -53,12 +55,12 @@ public class DataTests : IClassFixture<DataElementFixture>
     {
         // Arrange
         DateTime lastChanged = DateTime.UtcNow;
-        DataElement dataElement = TestDataUtil.GetDataElement(DataElement1);
+        DataElementInternal dataElement = TestDataUtil.GetDataElement(DataElement1).FromApiModel();
         dataElement.LastChanged = lastChanged;
 
         // Act
         dataElement = await _dataElementFixture.DataRepo.Create(dataElement, _instanceInternalId);
-        (Instance instance, _) = await _dataElementFixture.InstanceRepo.GetOne(
+        InstanceInternal instance = await _dataElementFixture.InstanceRepo.GetOne(
             Guid.Parse(dataElement.InstanceGuid),
             false,
             CancellationToken.None
@@ -95,8 +97,8 @@ public class DataTests : IClassFixture<DataElementFixture>
         );
 
         // Act
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
+        DataElementInternal dataElement = await _dataElementFixture.DataRepo.Create(
+            TestDataUtil.GetDataElement(DataElement1).FromApiModel(),
             _instanceInternalId
         );
 
@@ -128,13 +130,13 @@ public class DataTests : IClassFixture<DataElementFixture>
                 new() { Key = "key2", Value = "value2" }
             },
         };
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
+        DataElementInternal dataElement = await _dataElementFixture.DataRepo.Create(
+            TestDataUtil.GetDataElement(DataElement1).FromApiModel(),
             _instanceInternalId
         );
 
         // Act
-        DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
+        DataElementInternal updatedElement = await _dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object>() { { "/metadata", metadata } }
@@ -172,15 +174,17 @@ public class DataTests : IClassFixture<DataElementFixture>
                 new() { Key = "key4", Value = "value4" }
             },
         };
-        DataElement initialDataElement = TestDataUtil.GetDataElement(DataElement1);
+        DataElementInternal initialDataElement = TestDataUtil
+            .GetDataElement(DataElement1)
+            .FromApiModel();
         initialDataElement.Metadata = orgMetadata;
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
+        DataElementInternal dataElement = await _dataElementFixture.DataRepo.Create(
             initialDataElement,
             _instanceInternalId
         );
 
         // Act
-        DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
+        DataElementInternal updatedElement = await _dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object>() { { "/metadata", replacedMetadata } }
@@ -209,13 +213,13 @@ public class DataTests : IClassFixture<DataElementFixture>
                 new() { Key = "key2", Value = "value2" }
             },
         };
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
+        DataElementInternal dataElement = await _dataElementFixture.DataRepo.Create(
+            TestDataUtil.GetDataElement(DataElement1).FromApiModel(),
             _instanceInternalId
         );
 
         // Act
-        DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
+        DataElementInternal updatedElement = await _dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object>() { { "/userDefinedMetadata", userDefinedMetadata } }
@@ -253,15 +257,17 @@ public class DataTests : IClassFixture<DataElementFixture>
                 new() { Key = "key4", Value = "value4" }
             },
         };
-        DataElement initialDataElement = TestDataUtil.GetDataElement(DataElement1);
+        DataElementInternal initialDataElement = TestDataUtil
+            .GetDataElement(DataElement1)
+            .FromApiModel();
         initialDataElement.UserDefinedMetadata = originalUserDefinedMetadata;
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
+        DataElementInternal dataElement = await _dataElementFixture.DataRepo.Create(
             initialDataElement,
             _instanceInternalId
         );
 
         // Act
-        DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
+        DataElementInternal updatedElement = await _dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object>()
@@ -285,13 +291,13 @@ public class DataTests : IClassFixture<DataElementFixture>
     {
         // Arrange
         List<string> tags = new() { "s1", "s2" };
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
+        DataElementInternal dataElement = await _dataElementFixture.DataRepo.Create(
+            TestDataUtil.GetDataElement(DataElement1).FromApiModel(),
             _instanceInternalId
         );
 
         // Act
-        DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
+        DataElementInternal updatedElement = await _dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object>() { { "/tags", tags } }
@@ -310,15 +316,17 @@ public class DataTests : IClassFixture<DataElementFixture>
         // Arrange
         List<string> orgTags = new() { "s1", "s2" };
         List<string> replacedTags = new() { "s3", "s4" };
-        DataElement initialDataElement = TestDataUtil.GetDataElement(DataElement1);
+        DataElementInternal initialDataElement = TestDataUtil
+            .GetDataElement(DataElement1)
+            .FromApiModel();
         initialDataElement.Tags = orgTags;
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
+        DataElementInternal dataElement = await _dataElementFixture.DataRepo.Create(
             initialDataElement,
             _instanceInternalId
         );
 
         // Act
-        DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
+        DataElementInternal updatedElement = await _dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object>() { { "/tags", replacedTags } }
@@ -339,8 +347,8 @@ public class DataTests : IClassFixture<DataElementFixture>
     {
         // Arrange
         string contentType = "unittestContentType";
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
+        DataElementInternal dataElement = await _dataElementFixture.DataRepo.Create(
+            TestDataUtil.GetDataElement(DataElement1).FromApiModel(),
             _instanceInternalId
         );
         string restoreValues =
@@ -352,7 +360,7 @@ public class DataTests : IClassFixture<DataElementFixture>
         );
 
         // Act
-        DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
+        DataElementInternal updatedElement = await _dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object>() { { "/contentType", contentType } }
@@ -380,9 +388,9 @@ public class DataTests : IClassFixture<DataElementFixture>
         // Arrange
         string contentType = "unittestContentType";
         DateTime lastChanged = DateTime.UtcNow;
-        DataElement element = TestDataUtil.GetDataElement(DataElement1);
+        DataElementInternal element = TestDataUtil.GetDataElement(DataElement1).FromApiModel();
         element.LastChanged = lastChanged;
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
+        DataElementInternal dataElement = await _dataElementFixture.DataRepo.Create(
             element,
             _instanceInternalId
         );
@@ -393,7 +401,7 @@ public class DataTests : IClassFixture<DataElementFixture>
         );
 
         // Act
-        DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
+        DataElementInternal updatedElement = await _dataElementFixture.DataRepo.Update(
             Guid.Parse(_instance.Id.Split('/').Last()),
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object>()
@@ -404,7 +412,7 @@ public class DataTests : IClassFixture<DataElementFixture>
                 { "/lastChangedBy", dataElement.LastChangedBy },
             }
         );
-        (Instance instance, _) = await _dataElementFixture.InstanceRepo.GetOne(
+        InstanceInternal instance = await _dataElementFixture.InstanceRepo.GetOne(
             Guid.Parse(updatedElement.InstanceGuid),
             false,
             CancellationToken.None
@@ -429,21 +437,19 @@ public class DataTests : IClassFixture<DataElementFixture>
     }
 
     [Fact]
-    public async Task GetOne_InstanceNotFound_ReturnsNullAndZero()
+    public async Task GetOne_InstanceNotFound_ReturnsNull()
     {
         // Arrange
         Guid nonExistentInstanceGuid = Guid.NewGuid();
 
         // Act
-        (Instance instance, long internalId) = await _dataElementFixture.InstanceRepo.GetOne(
+        InstanceInternal instance = await _dataElementFixture.InstanceRepo.GetOne(
             nonExistentInstanceGuid,
             false,
             CancellationToken.None
         );
-
         // Assert
         Assert.Null(instance);
-        Assert.Equal(0, internalId);
     }
 
     /// <summary>
@@ -453,13 +459,13 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_Read_Ok()
     {
         // Arrange
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
+        DataElementInternal dataElement = await _dataElementFixture.DataRepo.Create(
+            TestDataUtil.GetDataElement(DataElement1).FromApiModel(),
             _instanceInternalId
         );
 
         // Act
-        DataElement readDataelement = await _dataElementFixture.DataRepo.Read(
+        DataElementInternal readDataelement = await _dataElementFixture.DataRepo.Read(
             Guid.Empty,
             Guid.Parse(dataElement.Id)
         );
@@ -475,8 +481,8 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_Delete_Change_Instance_Readstatus_Ok()
     {
         // Arrange
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
+        DataElementInternal dataElement = await _dataElementFixture.DataRepo.Create(
+            TestDataUtil.GetDataElement(DataElement1).FromApiModel(),
             _instanceInternalId
         );
         await PostgresUtil.RunSql(
@@ -507,8 +513,8 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_Delete_NoChange_Instance_Readstatus_Ok()
     {
         // Arrange
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
+        DataElementInternal dataElement = await _dataElementFixture.DataRepo.Create(
+            TestDataUtil.GetDataElement(DataElement1).FromApiModel(),
             _instanceInternalId
         );
         await PostgresUtil.RunSql(
@@ -540,11 +546,11 @@ public class DataTests : IClassFixture<DataElementFixture>
     {
         // Arrange
         await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
+            TestDataUtil.GetDataElement(DataElement1).FromApiModel(),
             _instanceInternalId
         );
         await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement2),
+            TestDataUtil.GetDataElement(DataElement2).FromApiModel(),
             _instanceInternalId
         );
 
@@ -568,8 +574,8 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_Update_Too_Many_Properties_Throws_Exception()
     {
         // Arrange
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
+        DataElementInternal dataElement = await _dataElementFixture.DataRepo.Create(
+            TestDataUtil.GetDataElement(DataElement1).FromApiModel(),
             _instanceInternalId
         );
         const int numberOfAllowedProperties = 14;
@@ -596,8 +602,8 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_Exists_Ok()
     {
         // Arrange
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
+        DataElementInternal dataElement = await _dataElementFixture.DataRepo.Create(
+            TestDataUtil.GetDataElement(DataElement1).FromApiModel(),
             _instanceInternalId
         );
 

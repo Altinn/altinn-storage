@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Messages;
+using Altinn.Platform.Storage.Models;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using NpgsqlTypes;
@@ -47,8 +48,8 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
     }
 
     /// <inheritdoc/>
-    public async Task<Instance> Update(
-        Instance instance,
+    public async Task<InstanceInternal> Update(
+        InstanceInternal instance,
         List<string> updateProperties,
         List<InstanceEvent> events,
         CancellationToken cancellationToken
@@ -70,10 +71,8 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
                 ? new DateTime((((DateTime)instance.LastChanged).Ticks / 10) * 10, DateTimeKind.Utc)
                 : null;
 
-        List<DataElement> dataElements = instance.Data;
-
-        PgInstanceRepository.ToInternal(instance);
-        instance.Data = null;
+        List<DataElementInternal> dataElements = instance.Data;
+        long internalId = instance.InternalId;
 
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var tx = await connection.BeginTransactionAsync(cancellationToken);
@@ -95,7 +94,7 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
                 var insertEventsCommand = new NpgsqlBatchCommand(_insertInstanceEventsSql);
                 insertEventsCommand.Parameters.AddWithValue(
                     NpgsqlDbType.Uuid,
-                    new Guid(instance.Id.Split('/')[^1])
+                    new Guid(instance.Id)
                 );
                 insertEventsCommand.Parameters.AddWithValue(NpgsqlDbType.Jsonb, events);
                 batch.BatchCommands.Add(insertEventsCommand);
@@ -103,7 +102,7 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
                 await using var reader = await batch.ExecuteReaderAsync(cancellationToken);
                 if (await reader.ReadAsync(cancellationToken))
                 {
-                    instance = await reader.GetFieldValueAsync<Instance>(
+                    instance = await reader.GetFieldValueAsync<InstanceInternal>(
                         "updatedInstance",
                         cancellationToken
                     );
@@ -111,6 +110,7 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
             }
 
             instance.Data = dataElements; // (Optional) Consider re-querying to reflect persisted state.
+            instance.InternalId = internalId;
 
             if (_outboxRepository != null && events.Count > 0)
             {
@@ -118,7 +118,7 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
                 SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
                     instance.AppId,
                     instance.InstanceOwner.PartyId,
-                    instance.Id.Split('/')[^1],
+                    instance.Id,
                     (DateTime)instance.Created,
                     false,
                     Enum.Parse<Interface.Enums.InstanceEventType>(eventForSync.EventType)
@@ -140,6 +140,6 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
             throw;
         }
 
-        return PgInstanceRepository.ToExternal(instance);
+        return instance;
     }
 }

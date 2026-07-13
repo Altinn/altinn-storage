@@ -5,6 +5,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 
 namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository;
@@ -53,7 +54,7 @@ public class BlobRepositoryMock : IBlobRepository
         return Path.Combine(unitTestFolder, "..", "..", "..", "data", "blob");
     }
 
-    public Task<bool> DeleteDataBlobs(Instance instance, int? storageAccountNumber)
+    public Task<bool> DeleteDataBlobs(InstanceInternal instance, int? storageAccountNumber)
     {
         throw new NotImplementedException();
     }

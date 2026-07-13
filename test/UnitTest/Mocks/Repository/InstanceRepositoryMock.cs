@@ -17,47 +17,47 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 
 public class InstanceRepositoryMock : IInstanceRepository
 {
+    private const long TestInstanceInternalId = 1;
     private static readonly JsonSerializerOptions _options = new()
     {
         PropertyNameCaseInsensitive = true,
         WriteIndented = true,
     };
 
-    public async Task<Instance> Create(
-        Instance instance,
+    public async Task<InstanceInternal> Create(
+        InstanceInternal instance,
         CancellationToken cancellationToken,
         int altinnMainVersion = 3
     )
     {
-        string partyId = instance.InstanceOwner.PartyId;
         Guid instanceGuid = Guid.NewGuid();
 
-        Instance newInstance = new Instance
+        InstanceInternal newInstance = new()
         {
-            Id = $"{partyId}/{instanceGuid}",
+            Id = instanceGuid.ToString(),
             AppId = instance.AppId,
             Org = instance.Org,
             InstanceOwner = instance.InstanceOwner,
             Process = instance.Process,
-            Data = new List<DataElement>(),
+            Data = [],
         };
 
         return await Task.FromResult(newInstance);
     }
 
-    public Task<bool> Delete(Instance instance, CancellationToken cancellationToken)
+    public Task<bool> Delete(Guid instanceGuid, CancellationToken cancellationToken)
     {
         throw new NotImplementedException();
     }
 
-    public Task<InstanceQueryResponse> GetInstancesFromQuery(
+    public Task<InstanceQueryResult> GetInstancesFromQuery(
         InstanceQueryParameters queryParams,
-        bool includeDataelements,
         CancellationToken cancellationToken
     )
     {
-        List<Instance> instances = [];
-        InstanceQueryResponse response = new();
+        bool includeDataElements = queryParams.IncludeDataElements;
+        List<InstanceInternal> instances = [];
+        InstanceQueryResult response = new();
 
         string instancesPath = GetInstancesPath();
 
@@ -72,7 +72,10 @@ public class InstanceRepositoryMock : IInstanceRepository
             foreach (var file in files)
             {
                 string content = File.ReadAllText(file);
-                Instance instance = JsonConvert.DeserializeObject<Instance>(content);
+                InstanceInternal instance = JsonConvert.DeserializeObject<InstanceInternal>(
+                    content
+                );
+                instance.Data = includeDataElements ? instance.Data ?? [] : [];
                 PostProcess(instance);
                 instances.Add(instance);
             }
@@ -147,19 +150,7 @@ public class InstanceRepositoryMock : IInstanceRepository
         return Task.FromResult(response);
     }
 
-    public Task<InstanceQueryResponse> GetInstancesFromQuery(
-        InstanceQueryParameters queryParams,
-        CancellationToken cancellationToken
-    )
-    {
-        return GetInstancesFromQuery(
-            queryParams,
-            queryParams.IncludeDataElements,
-            cancellationToken
-        );
-    }
-
-    public Task<(Instance Instance, long InternalId)> GetOne(
+    public Task<InstanceInternal> GetOne(
         Guid instanceGuid,
         bool includeElements,
         CancellationToken cancellationToken
@@ -169,37 +160,39 @@ public class InstanceRepositoryMock : IInstanceRepository
         if (File.Exists(instancePath))
         {
             string content = File.ReadAllText(instancePath);
-            Instance instance = JsonConvert.DeserializeObject<Instance>(content);
-            instance.Data = includeElements ? GetDataElements(instanceGuid) : null;
+            InstanceInternal instance = JsonConvert.DeserializeObject<InstanceInternal>(content);
+            instance.Data = includeElements ? GetDataElements(instanceGuid) : [];
             PostProcess(instance);
-            return Task.FromResult<(Instance, long)>((instance, 0));
+            return Task.FromResult(instance);
         }
 
-        return Task.FromResult<(Instance, long)>((null, 0));
+        return Task.FromResult<InstanceInternal>(null);
     }
 
-    public Task<Instance> Update(
-        Instance instance,
+    public Task<InstanceInternal> Update(
+        InstanceInternal instance,
         List<string> updateProperties,
         CancellationToken cancellationToken
     )
     {
-        if (instance.Id.Equals("1337/d3b326de-2dd8-49a1-834a-b1d23b11e540"))
+        if (instance.Id.Equals("d3b326de-2dd8-49a1-834a-b1d23b11e540"))
         {
-            return Task.FromResult<Instance>(null);
+            return Task.FromResult<InstanceInternal>(null);
         }
 
-        instance.Data = new List<DataElement>();
+        instance.Data = [];
 
         return Task.FromResult(instance);
     }
 
-    public Task<List<Instance>> GetHardDeletedInstances(CancellationToken cancellationToken)
+    public Task<List<InstanceInternal>> GetHardDeletedInstances(CancellationToken cancellationToken)
     {
         throw new NotImplementedException();
     }
 
-    public Task<List<DataElement>> GetHardDeletedDataElements(CancellationToken cancellationToken)
+    public Task<List<DataElementInternal>> GetHardDeletedDataElements(
+        CancellationToken cancellationToken
+    )
     {
         throw new NotImplementedException();
     }
@@ -209,19 +202,17 @@ public class InstanceRepositoryMock : IInstanceRepository
         return Path.Combine(GetInstancesPath(), instanceGuid.ToString() + ".json");
     }
 
-    private static List<DataElement> GetDataElements(Guid instanceGuid)
+    private static List<DataElementInternal> GetDataElements(Guid instanceGuid)
     {
-        List<DataElement> dataElements = new List<DataElement>();
+        List<DataElementInternal> dataElements = [];
         string dataElementsPath = GetDataElementsPath();
 
         string[] dataElementPaths = Directory.GetFiles(dataElementsPath);
         foreach (string elementPath in dataElementPaths)
         {
             string content = File.ReadAllText(elementPath);
-            DataElement dataElement = System.Text.Json.JsonSerializer.Deserialize<DataElement>(
-                content,
-                _options
-            );
+            DataElementInternal dataElement =
+                System.Text.Json.JsonSerializer.Deserialize<DataElementInternal>(content, _options);
             if (dataElement.InstanceGuid.Contains(instanceGuid.ToString()))
             {
                 dataElements.Add(dataElement);
@@ -255,13 +246,9 @@ public class InstanceRepositoryMock : IInstanceRepository
         return Path.Combine(unitTestFolder, "..", "..", "..", "data", "postgresdata", "instances");
     }
 
-    /// <summary>
-    /// Converts the instanceId (id) of the instance from {instanceGuid} to {instanceOwnerPartyId}/{instanceGuid} to be used outside cosmos.
-    /// </summary>
-    /// <param name="instance">the instance to preprocess</param>
-    private static void PostProcess(Instance instance)
+    private static void PostProcess(InstanceInternal instance)
     {
-        instance.Id = $"{instance.InstanceOwner.PartyId}/{instance.Id}";
+        instance.InternalId = TestInstanceInternalId;
         if (instance.Data != null && instance.Data.Count != 0)
         {
             SetReadStatus(instance);
@@ -272,7 +259,7 @@ public class InstanceRepositoryMock : IInstanceRepository
         instance.LastChangedBy = lastChangedBy;
     }
 
-    private static void SetReadStatus(Instance instance)
+    private static void SetReadStatus(InstanceInternal instance)
     {
         if (instance.Status.ReadStatus == ReadStatus.Read && instance.Data.Exists(d => !d.IsRead))
         {

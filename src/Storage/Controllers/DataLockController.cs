@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
+using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -68,7 +71,7 @@ public class DataLockController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        (Instance? instance, ActionResult? instanceError) = await GetInstanceAsync(
+        (InstanceInternal? instance, ActionResult? instanceError) = await GetInstanceAsync(
             instanceGuid,
             instanceOwnerPartyId,
             true,
@@ -84,24 +87,26 @@ public class DataLockController : ControllerBase
             return Forbid();
         }
 
-        DataElement? dataElement = instance.Data.Find(d => d.Id == dataGuid.ToString());
+        DataElementInternal? dataElement = instance.Data.FirstOrDefault(d =>
+            Guid.TryParse(d.Id, out Guid id) && id == dataGuid
+        );
 
         if (dataElement?.Locked is true)
         {
-            return Ok(dataElement);
+            return Ok(dataElement.ToApiModel());
         }
 
         Dictionary<string, object> propertyList = new() { { "/locked", true } };
 
         try
         {
-            DataElement updatedDataElement = await _dataRepository.Update(
+            DataElementInternal updatedDataElement = await _dataRepository.Update(
                 instanceGuid,
                 dataGuid,
                 propertyList,
                 cancellationToken
             );
-            return Created(updatedDataElement.Id, updatedDataElement);
+            return Created(updatedDataElement.Id, updatedDataElement.ToApiModel());
         }
         catch (RepositoryException e)
         {
@@ -133,7 +138,7 @@ public class DataLockController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        (Instance? instance, _) = await GetInstanceAsync(
+        (InstanceInternal? instance, _) = await GetInstanceAsync(
             instanceGuid,
             instanceOwnerPartyId,
             false,
@@ -156,13 +161,13 @@ public class DataLockController : ControllerBase
         Dictionary<string, object> propertyList = new() { { "/locked", false } };
         try
         {
-            DataElement updatedDataElement = await _dataRepository.Update(
+            DataElementInternal updatedDataElement = await _dataRepository.Update(
                 instanceGuid,
                 dataGuid,
                 propertyList,
                 cancellationToken
             );
-            return Ok(updatedDataElement);
+            return Ok(updatedDataElement.ToApiModel());
         }
         catch (RepositoryException e)
         {
@@ -172,14 +177,14 @@ public class DataLockController : ControllerBase
         }
     }
 
-    private async Task<(Instance? Instance, ActionResult? ErrorMessage)> GetInstanceAsync(
+    private async Task<(InstanceInternal? Instance, ActionResult? ErrorMessage)> GetInstanceAsync(
         Guid instanceGuid,
         int instanceOwnerPartyId,
         bool includeDataElements,
         CancellationToken cancellationToken
     )
     {
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        InstanceInternal? instance = await _instanceRepository.GetOne(
             instanceGuid,
             includeDataElements,
             cancellationToken

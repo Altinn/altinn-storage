@@ -12,6 +12,7 @@ using Altinn.Common.PEP.Helpers;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
@@ -300,7 +301,7 @@ public class InstancesController : ControllerBase
 
         try
         {
-            InstanceQueryResponse result = await _instanceRepository.GetInstancesFromQuery(
+            InstanceQueryResult result = await _instanceRepository.GetInstancesFromQuery(
                 queryParameters,
                 cancellationToken
             );
@@ -319,11 +320,6 @@ public class InstancesController : ControllerBase
 
             if (!appOwnerOrSyncAdapterRequestingInstances)
             {
-                foreach (Instance instance in result.Instances)
-                {
-                    FilterOutDeletedDataElements(instance);
-                }
-
                 if (cancellationToken.IsCancellationRequested)
                 {
                     throw new TimeoutException("Request was cancelled.");
@@ -335,10 +331,19 @@ public class InstancesController : ControllerBase
 
             string nextContinuationToken = HttpUtility.UrlEncode(result.ContinuationToken);
 
+            List<Instance> responseInstances = result
+                .Instances.Select(instance => instance.ToApiModel())
+                .ToList();
+
+            if (!appOwnerOrSyncAdapterRequestingInstances)
+            {
+                responseInstances.ForEach(FilterOutDeletedDataElements);
+            }
+
             QueryResponse<Instance> response = new()
             {
-                Instances = result.Instances,
-                Count = result.Instances.Count,
+                Instances = responseInstances,
+                Count = responseInstances.Count,
                 Self = BuildRequestLink(selfContinuationToken),
             };
 
@@ -384,7 +389,7 @@ public class InstancesController : ControllerBase
     {
         try
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(
+            InstanceInternal instance = await _instanceRepository.GetOne(
                 instanceGuid,
                 true,
                 cancellationToken
@@ -400,8 +405,9 @@ public class InstancesController : ControllerBase
                 ])
             )
             {
-                instance.SetPlatformSelfLinks(_storageBaseAndHost);
-                return Ok(instance);
+                Instance responseInstance = instance.ToApiModel();
+                responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+                return Ok(responseInstance);
             }
 
             if (
@@ -412,13 +418,14 @@ public class InstancesController : ControllerBase
                 return Forbid();
             }
 
+            Instance mappedInstance = instance.ToApiModel();
             if (User.GetOrg() != instance.Org)
             {
-                FilterOutDeletedDataElements(instance);
+                FilterOutDeletedDataElements(mappedInstance);
             }
 
-            instance.SetPlatformSelfLinks(_storageBaseAndHost);
-            return Ok(instance);
+            mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+            return Ok(mappedInstance);
         }
         catch (Exception e)
         {
@@ -445,7 +452,7 @@ public class InstancesController : ControllerBase
     {
         try
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(
+            InstanceInternal instance = await _instanceRepository.GetOne(
                 instanceGuid,
                 true,
                 cancellationToken
@@ -461,8 +468,9 @@ public class InstancesController : ControllerBase
                 ])
             )
             {
-                instance.SetPlatformSelfLinks(_storageBaseAndHost);
-                return Ok(instance);
+                Instance responseInstance = instance.ToApiModel();
+                responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+                return Ok(responseInstance);
             }
 
             if (
@@ -473,13 +481,14 @@ public class InstancesController : ControllerBase
                 return Forbid();
             }
 
+            Instance mappedInstance = instance.ToApiModel();
             if (User.GetOrg() != instance.Org)
             {
-                FilterOutDeletedDataElements(instance);
+                FilterOutDeletedDataElements(mappedInstance);
             }
 
-            instance.SetPlatformSelfLinks(_storageBaseAndHost);
-            return Ok(instance);
+            mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+            return Ok(mappedInstance);
         }
         catch (Exception e)
         {
@@ -599,7 +608,7 @@ public class InstancesController : ControllerBase
             return Forbid();
         }
 
-        Instance storedInstance = null;
+        InstanceInternal storedInstance = null;
         try
         {
             DateTime creationTime = DateTime.UtcNow;
@@ -611,16 +620,20 @@ public class InstancesController : ControllerBase
                 User.GetUserOrOrgNo()
             );
 
-            storedInstance = await _instanceRepository.Create(instanceToCreate, cancellationToken);
+            storedInstance = await _instanceRepository.Create(
+                instanceToCreate.FromApiModel(),
+                cancellationToken
+            );
             await _instanceEventService.DispatchEvent(InstanceEventType.Created, storedInstance);
             _logger.LogInformation(
                 "Created instance: {storedInstance.Id}",
                 storedInstance.Id.RemoveNewlines()
             );
-            storedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+            Instance responseInstance = storedInstance.ToApiModel();
+            responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
 
             await _partiesWithInstancesClient.SetHasAltinn3Instances(instanceOwnerPartyId);
-            return Created(storedInstance.SelfLinks.Platform, storedInstance);
+            return Created(responseInstance.SelfLinks.Platform, responseInstance);
         }
         catch (Exception storageException)
         {
@@ -634,7 +647,7 @@ public class InstancesController : ControllerBase
             // compensating action - delete instance
             if (storedInstance != null)
             {
-                await _instanceRepository.Delete(storedInstance, cancellationToken);
+                await _instanceRepository.Delete(Guid.Parse(storedInstance.Id), cancellationToken);
             }
 
             _logger.LogError(
@@ -671,9 +684,11 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        Instance instance;
-
-        (instance, _) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
+        InstanceInternal instance = await _instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            cancellationToken
+        );
 
         if (instance == null)
         {
@@ -732,7 +747,7 @@ public class InstancesController : ControllerBase
 
         try
         {
-            Instance deletedInstance = await _instanceRepository.Update(
+            InstanceInternal deletedInstance = await _instanceRepository.Update(
                 instance,
                 updateProperties,
                 cancellationToken
@@ -740,7 +755,7 @@ public class InstancesController : ControllerBase
 
             await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, deletedInstance);
 
-            return Ok(deletedInstance);
+            return Ok(deletedInstance.ToApiModel());
         }
         catch (Exception e)
         {
@@ -779,7 +794,7 @@ public class InstancesController : ControllerBase
     )
     {
         List<string> updateProperties = [];
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
@@ -794,8 +809,9 @@ public class InstancesController : ControllerBase
         instance.CompleteConfirmations ??= new List<CompleteConfirmation>();
         if (instance.CompleteConfirmations.Exists(cc => cc.StakeholderId == org))
         {
-            instance.SetPlatformSelfLinks(_storageBaseAndHost);
-            return Ok(instance);
+            Instance responseInstance = instance.ToApiModel();
+            responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+            return Ok(responseInstance);
         }
 
         instance.CompleteConfirmations.Add(
@@ -808,7 +824,7 @@ public class InstancesController : ControllerBase
         updateProperties.Add(nameof(instance.LastChanged));
         updateProperties.Add(nameof(instance.LastChangedBy));
 
-        Instance updatedInstance;
+        InstanceInternal updatedInstance;
         try
         {
             updatedInstance = await _instanceRepository.Update(
@@ -816,7 +832,6 @@ public class InstancesController : ControllerBase
                 updateProperties,
                 cancellationToken
             );
-            updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
         }
         catch (Exception e)
         {
@@ -834,7 +849,9 @@ public class InstancesController : ControllerBase
             updatedInstance
         );
 
-        return Ok(updatedInstance);
+        Instance mappedInstance = updatedInstance.ToApiModel();
+        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        return Ok(mappedInstance);
     }
 
     /// <summary>
@@ -864,7 +881,7 @@ public class InstancesController : ControllerBase
             );
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
@@ -879,7 +896,7 @@ public class InstancesController : ControllerBase
             nameof(instance.Status),
             nameof(instance.Status.ReadStatus),
         ];
-        Instance updatedInstance;
+        InstanceInternal updatedInstance;
         try
         {
             ReadStatus? oldStatus = null;
@@ -902,7 +919,6 @@ public class InstancesController : ControllerBase
                         cancellationToken
                     )
                     : instance;
-            updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
         }
         catch (Exception e)
         {
@@ -915,7 +931,9 @@ public class InstancesController : ControllerBase
             return StatusCode(StatusCodes.Status500InternalServerError);
         }
 
-        return Ok(updatedInstance);
+        Instance mappedInstance = updatedInstance.ToApiModel();
+        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        return Ok(mappedInstance);
     }
 
     /// <summary>
@@ -947,7 +965,7 @@ public class InstancesController : ControllerBase
             );
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
@@ -963,7 +981,7 @@ public class InstancesController : ControllerBase
             return Forbid();
         }
 
-        Instance updatedInstance;
+        InstanceInternal updatedInstance;
         try
         {
             List<string> updateProperties =
@@ -986,7 +1004,6 @@ public class InstancesController : ControllerBase
                 updateProperties,
                 cancellationToken
             );
-            updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
         }
         catch (Exception e)
         {
@@ -1003,7 +1020,9 @@ public class InstancesController : ControllerBase
             InstanceEventType.SubstatusUpdated,
             updatedInstance
         );
-        return Ok(updatedInstance);
+        Instance mappedInstance = updatedInstance.ToApiModel();
+        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        return Ok(mappedInstance);
     }
 
     /// <summary>
@@ -1033,7 +1052,7 @@ public class InstancesController : ControllerBase
             return BadRequest($"Missing parameter value: presentationTexts is misformed or empty");
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
@@ -1067,12 +1086,12 @@ public class InstancesController : ControllerBase
             }
         }
 
-        Instance updatedInstance = await _instanceRepository.Update(
+        InstanceInternal updatedInstance = await _instanceRepository.Update(
             instance,
             updateProperties,
             cancellationToken
         );
-        return updatedInstance;
+        return updatedInstance.ToApiModel();
     }
 
     /// <summary>
@@ -1102,7 +1121,7 @@ public class InstancesController : ControllerBase
             return BadRequest($"Missing parameter value: dataValues is misformed or empty");
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
@@ -1138,7 +1157,7 @@ public class InstancesController : ControllerBase
             updateProperties,
             cancellationToken
         );
-        return Ok(updatedInstance);
+        return Ok(updatedInstance.ToApiModel());
     }
 
     private static Instance CreateInstanceFromTemplate(

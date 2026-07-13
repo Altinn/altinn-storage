@@ -14,7 +14,7 @@ using Altinn.Common.PEP.Helpers;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
-using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -60,7 +60,7 @@ public class AuthorizationService(
 
     /// <inheritdoc />
     public async Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(
-        List<Instance> instances,
+        List<InstanceInternal> instances,
         bool keyAccessMode
     )
     {
@@ -134,9 +134,11 @@ public class AuthorizationService(
                     }
                 }
 
-                Instance authorizedInstance = instances.First(i => i.Id == instanceId);
+                InstanceInternal authorizedInstance = instances.First(i =>
+                    i.Id == instanceId.Split('/')[1]
+                );
 
-                string id = authorizedInstance.Id.Split("/")[1];
+                string id = authorizedInstance.Id;
                 if (
                     !authorizedInstanceList.TryGetValue(
                         id,
@@ -175,7 +177,7 @@ public class AuthorizationService(
 
     /// <inheritdoc />
     public async Task<bool> AuthorizeInstanceAction(
-        Instance instance,
+        InstanceInternal instance,
         string action,
         string task = null
     )
@@ -199,7 +201,7 @@ public class AuthorizationService(
         }
         else
         {
-            Guid instanceGuid = Guid.Parse(instance.Id.Split('/')[1]);
+            Guid instanceGuid = Guid.Parse(instance.Id);
             request = DecisionHelper.CreateDecisionRequest(
                 org,
                 app,
@@ -227,14 +229,17 @@ public class AuthorizationService(
     }
 
     /// <inheritdoc />
-    public async Task<bool> AuthorizeEnrichedInstanceAction(Instance instance, string action)
+    public async Task<bool> AuthorizeEnrichedInstanceAction(
+        InstanceInternal instance,
+        string action
+    )
     {
         string org = instance.Org;
         string app = instance.AppId.Split('/')[1];
         int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
 
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
-        Guid instanceGuid = Guid.Parse(instance.Id.Split('/')[1]);
+        Guid instanceGuid = Guid.Parse(instance.Id);
         XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
             org,
             app,
@@ -278,7 +283,10 @@ public class AuthorizationService(
     }
 
     /// <inheritdoc />
-    public async Task<bool> AuthorizeAnyOfInstanceActions(Instance instance, List<string> actions)
+    public async Task<bool> AuthorizeAnyOfInstanceActions(
+        InstanceInternal instance,
+        List<string> actions
+    )
     {
         if (actions.Count == 0)
         {
@@ -288,7 +296,7 @@ public class AuthorizationService(
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
         XacmlJsonRequestRoot request = CreateMultiDecisionRequest(
             user,
-            new List<Instance>() { instance },
+            new List<InstanceInternal>() { instance },
             actions
         );
 
@@ -317,14 +325,14 @@ public class AuthorizationService(
     }
 
     /// <inheritdoc />
-    public async Task<List<Instance>> AuthorizeInstances(List<Instance> instances)
+    public async Task<List<InstanceInternal>> AuthorizeInstances(List<InstanceInternal> instances)
     {
         if (instances.Count <= 0)
         {
             return instances;
         }
 
-        List<Instance> authorizedInstanceList = new();
+        List<InstanceInternal> authorizedInstanceList = new();
         List<string> actionTypes = new() { "read" };
 
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
@@ -356,7 +364,7 @@ public class AuthorizationService(
                 }
             }
 
-            Instance instance = instances.Find(i => i.Id == instanceId);
+            InstanceInternal instance = instances.Find(i => i.Id == instanceId.Split('/')[1]);
             authorizedInstanceList.Add(instance);
         }
 
@@ -407,7 +415,7 @@ public class AuthorizationService(
     /// </summary>
     public static XacmlJsonRequestRoot CreateMultiDecisionRequest(
         ClaimsPrincipal user,
-        List<Instance> instances,
+        List<InstanceInternal> instances,
         List<string> actionTypes
     )
     {
@@ -434,7 +442,10 @@ public class AuthorizationService(
     /// </summary>
     /// <param name="jsonRequest">The JSON Request</param>
     /// <param name="instance">The instance</param>
-    public static void EnrichXacmlJsonRequest(XacmlJsonRequestRoot jsonRequest, Instance instance)
+    public static void EnrichXacmlJsonRequest(
+        XacmlJsonRequestRoot jsonRequest,
+        InstanceInternal instance
+    )
     {
         XacmlJsonCategory resourceCategory = new() { Attribute = new List<XacmlJsonAttribute>() };
 
@@ -532,10 +543,12 @@ public class AuthorizationService(
         string InstanceOwnerPartyId,
         string Org,
         string App
-    ) GetInstanceProperties(Instance instance)
+    ) GetInstanceProperties(InstanceInternal instance)
     {
-        string instanceId = instance.Id.Contains('/') ? instance.Id : null;
-        string instanceGuid = instance.Id.Contains('/') ? instance.Id.Split("/")[1] : instance.Id;
+        string instanceId = instance.Id is null
+            ? null
+            : $"{instance.InstanceOwner.PartyId}/{instance.Id}";
+        string instanceGuid = instance.Id;
         string task = instance.Process?.CurrentTask?.ElementId;
         string instanceOwnerPartyId = instance.InstanceOwner.PartyId;
         string org = instance.Org;
@@ -569,12 +582,14 @@ public class AuthorizationService(
         return actionCategories;
     }
 
-    private static List<XacmlJsonCategory> CreateMultipleResourceCategory(List<Instance> instances)
+    private static List<XacmlJsonCategory> CreateMultipleResourceCategory(
+        List<InstanceInternal> instances
+    )
     {
         List<XacmlJsonCategory> resourcesCategories = new();
         int counter = 1;
 
-        foreach (Instance instance in instances)
+        foreach (InstanceInternal instance in instances)
         {
             XacmlJsonCategory resourceCategory = new()
             {

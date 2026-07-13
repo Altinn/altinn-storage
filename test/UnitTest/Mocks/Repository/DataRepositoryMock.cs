@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 
@@ -27,8 +28,8 @@ public class DataRepositoryMock : IDataRepository
         _tempRepository = new();
     }
 
-    public async Task<DataElement> Create(
-        DataElement dataElement,
+    public async Task<DataElementInternal> Create(
+        DataElementInternal dataElement,
         long instanceInternalId = 0,
         CancellationToken cancellationToken = default
     )
@@ -38,17 +39,17 @@ public class DataRepositoryMock : IDataRepository
     }
 
     public async Task<bool> Delete(
-        DataElement dataElement,
+        DataElementInternal dataElement,
         CancellationToken cancellationToken = default
     ) => await Task.FromResult(true);
 
-    public async Task<DataElement> Read(
+    public async Task<DataElementInternal> Read(
         Guid instanceGuid,
         Guid dataElementId,
         CancellationToken cancellationToken = default
     )
     {
-        DataElement dataElement = null;
+        DataElementInternal dataElement = null;
 
         lock (TestDataUtil.DataLock)
         {
@@ -59,7 +60,7 @@ public class DataRepositoryMock : IDataRepository
             if (File.Exists(elementPath))
             {
                 string content = File.ReadAllText(elementPath);
-                dataElement = JsonSerializer.Deserialize<DataElement>(content, _options);
+                dataElement = JsonSerializer.Deserialize<DataElementInternal>(content, _options);
             }
         }
 
@@ -73,17 +74,20 @@ public class DataRepositoryMock : IDataRepository
         return null;
     }
 
-    public async Task<DataElement> Update(
+    public async Task<DataElementInternal> Update(
         Guid instanceGuid,
         Guid dataElementId,
         Dictionary<string, object> propertylist,
         CancellationToken cancellationToken = default
     )
     {
-        DataElement dataElement = null;
+        DataElementInternal dataElement = null;
         if (_tempRepository.TryGetValue(dataElementId.ToString(), out string serializedDataElement))
         {
-            dataElement = JsonSerializer.Deserialize<DataElement>(serializedDataElement, _options);
+            dataElement = JsonSerializer.Deserialize<DataElementInternal>(
+                serializedDataElement,
+                _options
+            );
         }
         else
         {

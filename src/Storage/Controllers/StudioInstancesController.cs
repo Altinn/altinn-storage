@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
+using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
@@ -78,9 +79,8 @@ public class StudioInstancesController : ControllerBase
 
         try
         {
-            InstanceQueryResponse result = await _instanceRepository.GetInstancesFromQuery(
+            InstanceQueryResult result = await _instanceRepository.GetInstancesFromQuery(
                 parameters.ToInstanceQueryParameters(),
-                false,
                 ct
             );
 
@@ -136,13 +136,21 @@ public class StudioInstancesController : ControllerBase
     {
         try
         {
-            (var result, _) = await _instanceRepository.GetOne(instanceGuid, true, ct);
-            if (result == null || result.Org != org || result.AppId != $"{org}/{app}")
+            InstanceInternal resultInternal = await _instanceRepository.GetOne(
+                instanceGuid,
+                true,
+                ct
+            );
+            if (
+                resultInternal == null
+                || resultInternal.Org != org
+                || resultInternal.AppId != $"{org}/{app}"
+            )
             {
                 return NotFound();
             }
 
-            return Ok(SimpleInstanceDetails.FromInstance(result));
+            return Ok(SimpleInstanceDetails.FromInstance(resultInternal));
         }
         catch (Exception e)
         {
@@ -175,9 +183,7 @@ public class StudioInstancesController : ControllerBase
         CancellationToken ct
     )
     {
-        Instance instance;
-
-        (instance, _) = await _instanceRepository.GetOne(instanceGuid, false, ct);
+        InstanceInternal instance = await _instanceRepository.GetOne(instanceGuid, false, ct);
 
         if (instance == null || instance.Org != org || instance.AppId != $"{org}/{app}")
         {
@@ -234,7 +240,7 @@ public class StudioInstancesController : ControllerBase
                     $"Could not resolve organisation number for service owner '{instance.Org}'."
                 );
 
-            Instance deletedInstance = await _instanceRepository.Update(
+            InstanceInternal deletedInstance = await _instanceRepository.Update(
                 instance,
                 updateProperties,
                 ct

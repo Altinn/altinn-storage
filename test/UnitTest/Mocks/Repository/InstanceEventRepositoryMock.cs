@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Newtonsoft.Json;
@@ -25,7 +26,7 @@ public class InstanceEventRepositoryMock : IInstanceEventRepository
 
     public Task<InstanceEvent> InsertInstanceEvent(
         InstanceEvent instanceEvent,
-        Instance instance = null
+        InstanceInternal instance = null
     )
     {
         return Task.FromResult(instanceEvent);

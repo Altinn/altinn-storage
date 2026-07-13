@@ -77,13 +77,16 @@ public class InstanceLockController(
             );
         }
 
-        (Instance instance, long instanceInternalId) = await instanceRepository.GetOne(
+        InstanceInternal instanceInternal = await instanceRepository.GetOne(
             instanceGuid,
             false,
             cancellationToken
         );
 
-        if (instance is null || instance.InstanceOwner.PartyId != instanceOwnerPartyId.ToString())
+        if (
+            instanceInternal is null
+            || instanceInternal.InstanceOwner.PartyId != instanceOwnerPartyId.ToString()
+        )
         {
             return Problem(
                 detail: "Instance not found.",
@@ -91,7 +94,7 @@ public class InstanceLockController(
             );
         }
 
-        if (!await processAuthorizer.AuthorizeInstanceLock(instance))
+        if (!await processAuthorizer.AuthorizeInstanceLock(instanceInternal))
         {
             return Problem(
                 detail: "Not authorized to acquire instance lock.",
@@ -100,7 +103,7 @@ public class InstanceLockController(
         }
 
         var (result, lockToken) = await instanceLockRepository.TryAcquireLock(
-            instanceInternalId,
+            instanceInternal.InternalId,
             request.TtlSeconds,
             userOrOrgNo,
             cancellationToken
@@ -167,13 +170,16 @@ public class InstanceLockController(
             );
         }
 
-        (Instance instance, long instanceInternalId) = await instanceRepository.GetOne(
+        InstanceInternal instanceInternal = await instanceRepository.GetOne(
             instanceGuid,
             false,
             cancellationToken
         );
 
-        if (instance is null || instance.InstanceOwner.PartyId != instanceOwnerPartyId.ToString())
+        if (
+            instanceInternal is null
+            || instanceInternal.InstanceOwner.PartyId != instanceOwnerPartyId.ToString()
+        )
         {
             return Problem(
                 detail: "Instance not found.",
@@ -183,7 +189,7 @@ public class InstanceLockController(
 
         var result = await instanceLockRepository.TryUpdateLockExpiration(
             lockToken,
-            instanceInternalId,
+            instanceInternal.InternalId,
             request.TtlSeconds,
             cancellationToken
         );
