@@ -3,7 +3,7 @@
 using System;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
-using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.HelperTests;
@@ -17,7 +17,7 @@ public class DataElementHelperTests
         var actual = DataElementHelper.CreateDataElement(
             "dataType",
             null,
-            new Instance { AppId = "ttd/app-test", Id = $"1337/{Guid.NewGuid()}" },
+            new InstanceInternal { AppId = "ttd/app-test", Id = Guid.NewGuid().ToString() },
             DateTime.UtcNow,
             "application/json",
             "file-name.json",
@@ -39,7 +39,7 @@ public class DataElementHelperTests
         var actual = DataElementHelper.CreateDataElement(
             "dataType",
             null,
-            new Instance { AppId = "ttd/app-test", Id = $"1337/{Guid.NewGuid()}" },
+            new InstanceInternal { AppId = "ttd/app-test", Id = Guid.NewGuid().ToString() },
             DateTime.UtcNow,
             "application/json",
             "file-name.json",

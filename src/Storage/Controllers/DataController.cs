@@ -14,6 +14,7 @@ using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -106,7 +107,7 @@ public class DataController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(
+        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
             instanceGuid,
             instanceOwnerPartyId,
             false,
@@ -117,11 +118,8 @@ public class DataController : ControllerBase
             return instanceError;
         }
 
-        (DataElement dataElement, ActionResult dataElementError) = await GetDataElementAsync(
-            instanceGuid,
-            dataGuid,
-            cancellationToken
-        );
+        (DataElementInternal dataElement, ActionResult dataElementError) =
+            await GetDataElementAsync(instanceGuid, dataGuid, cancellationToken);
         if (dataElement == null)
         {
             return dataElementError;
@@ -139,7 +137,7 @@ public class DataController : ControllerBase
             && dataElement.DeleteStatus?.IsHardDeleted == true
         )
         {
-            return dataElement;
+            return dataElement.ToApiModel();
         }
 
         (Application application, ActionResult applicationError) = await GetApplicationAsync(
@@ -188,7 +186,7 @@ public class DataController : ControllerBase
             application.StorageAccountNumber
         );
 
-        return Ok(dataElement);
+        return Ok(dataElement.ToApiModel());
     }
 
     /// <summary>
@@ -218,7 +216,7 @@ public class DataController : ControllerBase
             return BadRequest("Missing parameter value: instanceOwnerPartyId can not be empty");
         }
 
-        (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(
+        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
             instanceGuid,
             instanceOwnerPartyId,
             false,
@@ -234,11 +232,8 @@ public class DataController : ControllerBase
             return Forbid();
         }
 
-        (DataElement dataElement, ActionResult dataElementError) = await GetDataElementAsync(
-            instanceGuid,
-            dataGuid,
-            cancellationToken
-        );
+        (DataElementInternal dataElement, ActionResult dataElementError) =
+            await GetDataElementAsync(instanceGuid, dataGuid, cancellationToken);
         if (dataElement == null)
         {
             return dataElementError;
@@ -377,7 +372,7 @@ public class DataController : ControllerBase
             return BadRequest("Missing parameter value: instanceOwnerPartyId can not be empty");
         }
 
-        (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(
+        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
             instanceGuid,
             instanceOwnerPartyId,
             true,
@@ -394,11 +389,16 @@ public class DataController : ControllerBase
         }
 
         bool appOwnerRequestingElement = User.GetOrg() == instance.Org;
-        instance.Data = appOwnerRequestingElement
+        IEnumerable<DataElementInternal> visibleDataElements = appOwnerRequestingElement
             ? instance.Data
-            : instance.Data.Where(de => de.DeleteStatus is not { IsHardDeleted: true }).ToList();
+            : instance.Data.Where(de => de.DeleteStatus is not { IsHardDeleted: true });
 
-        return Ok(new DataElementList() { DataElements = instance.Data });
+        return Ok(
+            new DataElementList()
+            {
+                DataElements = visibleDataElements.Select(de => de.ToApiModel()).ToList(),
+            }
+        );
     }
 
     /// <summary>
@@ -434,8 +434,12 @@ public class DataController : ControllerBase
             );
         }
 
-        (Instance instance, long instanceInternalId, ActionResult instanceError) =
-            await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false, cancellationToken);
+        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
+            instanceGuid,
+            instanceOwnerPartyId,
+            false,
+            cancellationToken
+        );
         if (instance == null)
         {
             return instanceError;
@@ -475,7 +479,7 @@ public class DataController : ControllerBase
             instance
         );
         Stream theStream = streamAndDataElement.Stream;
-        DataElement newData = streamAndDataElement.DataElement;
+        DataElementInternal newData = streamAndDataElement.DataElement;
 
         newData.FileScanResult = dataTypeDefinition.EnableFileScan
             ? FileScanResult.Pending
@@ -511,13 +515,11 @@ public class DataController : ControllerBase
             newData.IsRead = false;
         }
 
-        DataElement dataElement = await _dataRepository.Create(
+        DataElementInternal dataElement = await _dataRepository.Create(
             newData,
-            instanceInternalId,
+            instance.InternalId,
             cancellationToken
         );
-        dataElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
-
         await _dataService.StartFileScan(
             instance,
             dataTypeDefinition,
@@ -529,7 +531,9 @@ public class DataController : ControllerBase
 
         await _instanceEventService.DispatchEvent(InstanceEventType.Created, instance, dataElement);
 
-        return Created(dataElement.SelfLinks.Platform, dataElement);
+        DataElement responseDataElement = dataElement.ToApiModel();
+        responseDataElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
+        return Created(responseDataElement.SelfLinks.Platform, responseDataElement);
     }
 
     /// <summary>
@@ -567,7 +571,7 @@ public class DataController : ControllerBase
             );
         }
 
-        (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(
+        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
             instanceGuid,
             instanceOwnerPartyId,
             false,
@@ -588,11 +592,8 @@ public class DataController : ControllerBase
             return applicationError;
         }
 
-        (DataElement dataElement, ActionResult dataElementError) = await GetDataElementAsync(
-            instanceGuid,
-            dataGuid,
-            cancellationToken
-        );
+        (DataElementInternal dataElement, ActionResult dataElementError) =
+            await GetDataElementAsync(instanceGuid, dataGuid, cancellationToken);
         if (dataElement == null)
         {
             return dataElementError;
@@ -638,7 +639,7 @@ public class DataController : ControllerBase
             instance
         );
         Stream theStream = streamAndDataElement.Stream;
-        DataElement updatedData = streamAndDataElement.DataElement;
+        DataElementInternal updatedData = streamAndDataElement.DataElement;
 
         if (theStream == null)
         {
@@ -678,14 +679,12 @@ public class DataController : ControllerBase
 
             updatedProperties.Add("/fileScanResult", scanResult);
 
-            DataElement updatedElement = await _dataRepository.Update(
+            DataElementInternal updatedElement = await _dataRepository.Update(
                 instanceGuid,
                 dataGuid,
                 updatedProperties,
                 cancellationToken
             );
-
-            updatedElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
 
             await _dataService.StartFileScan(
                 instance,
@@ -702,7 +701,9 @@ public class DataController : ControllerBase
                 updatedElement
             );
 
-            return Ok(updatedElement);
+            DataElement responseDataElement = updatedElement.ToApiModel();
+            responseDataElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
+            return Ok(responseDataElement);
         }
 
         return UnprocessableEntity("Could not process attached file");
@@ -739,7 +740,7 @@ public class DataController : ControllerBase
             return BadRequest("Mismatch between path and dataElement content");
         }
 
-        (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(
+        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
             instanceGuid,
             instanceOwnerPartyId,
             false,
@@ -778,14 +779,14 @@ public class DataController : ControllerBase
             { "/lastChangedBy", dataElement.LastChangedBy },
         };
 
-        DataElement updatedDataElement = await _dataRepository.Update(
+        DataElementInternal updatedDataElement = await _dataRepository.Update(
             instanceGuid,
             dataGuid,
             propertyList,
             cancellationToken
         );
 
-        return Ok(updatedDataElement);
+        return Ok(updatedDataElement.ToApiModel());
     }
 
     /// <summary>
@@ -844,13 +845,13 @@ public class DataController : ControllerBase
     /// </summary>
     private async Task<(
         Stream Stream,
-        DataElement DataElement
+        DataElementInternal DataElement
     )> ReadRequestAndCreateDataElementAsync(
         HttpRequest request,
         string elementType,
         List<Guid> refs,
         string generatedForTask,
-        Instance instance
+        InstanceInternal instance
     )
     {
         DateTime creationTime = DateTime.UtcNow;
@@ -863,7 +864,7 @@ public class DataController : ControllerBase
 
         string user = User.GetUserOrOrgNo();
 
-        DataElement newData = DataElementHelper.CreateDataElement(
+        DataElementInternal newData = DataElementHelper.CreateDataElement(
             elementType,
             refs,
             instance,
@@ -895,18 +896,14 @@ public class DataController : ControllerBase
             : (application, null);
     }
 
-    private async Task<(
-        Instance Instance,
-        long InternalId,
-        ActionResult ErrorMessage
-    )> GetInstanceAsync(
+    private async Task<(InstanceInternal Instance, ActionResult ErrorMessage)> GetInstanceAsync(
         Guid instanceGuid,
         int instanceOwnerPartyId,
         bool includeDataelements,
         CancellationToken cancellationToken
     )
     {
-        (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(
+        InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
             includeDataelements,
             cancellationToken
@@ -915,21 +912,23 @@ public class DataController : ControllerBase
         return instance is null
             ? (
                 null,
-                0,
                 NotFound(
                     $"Unable to find any instance with id: {instanceOwnerPartyId}/{instanceGuid}."
                 )
             )
-            : (instance, instanceInternalId, null);
+            : (instance, null);
     }
 
-    private async Task<(DataElement DataElement, ActionResult ErrorMessage)> GetDataElementAsync(
+    private async Task<(
+        DataElementInternal DataElement,
+        ActionResult ErrorMessage
+    )> GetDataElementAsync(
         Guid instanceGuid,
         Guid dataGuid,
         CancellationToken cancellationToken = default
     )
     {
-        DataElement dataElement = await _dataRepository.Read(
+        DataElementInternal dataElement = await _dataRepository.Read(
             instanceGuid,
             dataGuid,
             cancellationToken
@@ -941,8 +940,8 @@ public class DataController : ControllerBase
     }
 
     private async Task<ActionResult<DataElement>> InitiateDelayedDelete(
-        Instance instance,
-        DataElement dataElement
+        InstanceInternal instance,
+        DataElementInternal dataElement
     )
     {
         DateTime deletedTime = DateTime.UtcNow;
@@ -961,11 +960,11 @@ public class DataController : ControllerBase
         );
 
         await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, instance, dataElement);
-        return Ok(updatedDateElement);
+        return Ok(updatedDateElement.ToApiModel());
     }
 
     private async Task<(DataType DataType, ActionResult ErrorMessage)> GetDataTypeAsync(
-        Instance instance,
+        InstanceInternal instance,
         string dataTypeId,
         Application application = null,
         CancellationToken cancellationToken = default

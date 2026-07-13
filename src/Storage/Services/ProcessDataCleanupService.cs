@@ -33,7 +33,7 @@ public class ProcessDataCleanupService : IProcessDataCleanupService
 
     /// <inheritdoc/>
     public async Task<int> CleanupGeneratedFromTask(
-        Instance instance,
+        InstanceInternal instance,
         string taskId,
         CancellationToken cancellationToken
     )
@@ -43,7 +43,7 @@ public class ProcessDataCleanupService : IProcessDataCleanupService
             return 0;
         }
 
-        List<DataElement> stale = instance
+        List<DataElementInternal> stale = instance
             .Data.Where(de =>
                 de.References?.Any(r =>
                     r.Relation == RelationType.GeneratedFrom
@@ -68,7 +68,7 @@ public class ProcessDataCleanupService : IProcessDataCleanupService
 
         int? storageAccountNumber = await GetStorageAccountNumber(instance);
         int deleted = 0;
-        foreach (DataElement dataElement in stale)
+        foreach (DataElementInternal dataElement in stale)
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
@@ -101,7 +101,7 @@ public class ProcessDataCleanupService : IProcessDataCleanupService
         return deleted;
     }
 
-    private async Task<int?> GetStorageAccountNumber(Instance instance)
+    private async Task<int?> GetStorageAccountNumber(InstanceInternal instance)
     {
         (Application? application, ServiceError? error) =
             await _applicationService.GetApplicationOrErrorAsync(instance.AppId);

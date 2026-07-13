@@ -5,9 +5,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -82,7 +84,7 @@ public class ProcessController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        (Instance existingInstance, _) = await _instanceRepository.GetOne(
+        InstanceInternal existingInstance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
@@ -100,7 +102,7 @@ public class ProcessController : ControllerBase
 
         UpdateInstance(existingInstance, processState, out var updateProperties);
 
-        Instance updatedInstance = await _instanceRepository.Update(
+        InstanceInternal updatedInstance = await _instanceRepository.Update(
             existingInstance,
             updateProperties,
             cancellationToken
@@ -114,8 +116,9 @@ public class ProcessController : ControllerBase
             );
         }
 
-        updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
-        return Ok(updatedInstance);
+        Instance responseInstance = updatedInstance.ToApiModel();
+        responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        return Ok(responseInstance);
     }
 
     /// <summary>
@@ -150,7 +153,7 @@ public class ProcessController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        (Instance existingInstance, _) = await _instanceRepository.GetOne(
+        InstanceInternal existingInstance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
@@ -223,15 +226,16 @@ public class ProcessController : ControllerBase
             processStateUpdate.Events.Add(instanceEvent);
         }
 
-        Instance updatedInstance = await _instanceAndEventsRepository.Update(
+        InstanceInternal updatedInstance = await _instanceAndEventsRepository.Update(
             existingInstance,
             updateProperties,
             processStateUpdate.Events,
             cancellationToken
         );
 
-        updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
-        return Ok(updatedInstance);
+        Instance responseInstance = updatedInstance.ToApiModel();
+        responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        return Ok(responseInstance);
     }
 
     /// <summary>
@@ -289,12 +293,12 @@ public class ProcessController : ControllerBase
         string? message = null;
         try
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(
+            InstanceInternal? instance = await _instanceRepository.GetOne(
                 instanceGuid,
                 false,
                 cancellationToken
             );
-            if (instance.InstanceOwner.PartyId == instanceOwnerPartyId.ToString())
+            if (instance?.InstanceOwner.PartyId == instanceOwnerPartyId.ToString())
             {
                 return Ok(new AuthInfo() { Process = instance.Process, AppId = instance.AppId });
             }
@@ -310,7 +314,7 @@ public class ProcessController : ControllerBase
     }
 
     private void UpdateInstance(
-        Instance existingInstance,
+        InstanceInternal existingInstance,
         ProcessState processState,
         out List<string> updateProperties
     )

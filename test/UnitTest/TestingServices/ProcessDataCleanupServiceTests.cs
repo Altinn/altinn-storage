@@ -42,7 +42,7 @@ public class ProcessDataCleanupServiceTests
     public async Task CleanupGeneratedFromTask_NullData_ReturnsZeroAndCallsNothing()
     {
         ProcessDataCleanupService target = CreateService();
-        Instance instance = new()
+        InstanceInternal instance = new()
         {
             Id = "1/abc",
             AppId = _appId,
@@ -59,8 +59,8 @@ public class ProcessDataCleanupServiceTests
         _dataServiceMock.Verify(
             d =>
                 d.DeleteImmediately(
-                    It.IsAny<Instance>(),
-                    It.IsAny<DataElement>(),
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<DataElementInternal>(),
                     It.IsAny<int?>()
                 ),
             Times.Never
@@ -75,7 +75,7 @@ public class ProcessDataCleanupServiceTests
     public async Task CleanupGeneratedFromTask_EmptyData_ReturnsZero()
     {
         ProcessDataCleanupService target = CreateService();
-        Instance instance = new()
+        InstanceInternal instance = new()
         {
             Id = "1/abc",
             AppId = _appId,
@@ -92,8 +92,8 @@ public class ProcessDataCleanupServiceTests
         _dataServiceMock.Verify(
             d =>
                 d.DeleteImmediately(
-                    It.IsAny<Instance>(),
-                    It.IsAny<DataElement>(),
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<DataElementInternal>(),
                     It.IsAny<int?>()
                 ),
             Times.Never
@@ -104,14 +104,14 @@ public class ProcessDataCleanupServiceTests
     public async Task CleanupGeneratedFromTask_NoMatches_ReturnsZero()
     {
         ProcessDataCleanupService target = CreateService();
-        Instance instance = new()
+        InstanceInternal instance = new()
         {
             Id = "1/abc",
             AppId = _appId,
             Data =
             [
-                new DataElement { Id = Guid.NewGuid().ToString(), References = null },
-                new DataElement
+                new DataElementInternal { Id = Guid.NewGuid().ToString(), References = null },
+                new DataElementInternal
                 {
                     Id = Guid.NewGuid().ToString(),
                     References =
@@ -125,7 +125,7 @@ public class ProcessDataCleanupServiceTests
                         },
                     ],
                 },
-                new DataElement
+                new DataElementInternal
                 {
                     Id = Guid.NewGuid().ToString(),
                     References =
@@ -139,7 +139,7 @@ public class ProcessDataCleanupServiceTests
                         },
                     ],
                 },
-                new DataElement
+                new DataElementInternal
                 {
                     Id = Guid.NewGuid().ToString(),
                     References =
@@ -167,8 +167,8 @@ public class ProcessDataCleanupServiceTests
         _dataServiceMock.Verify(
             d =>
                 d.DeleteImmediately(
-                    It.IsAny<Instance>(),
-                    It.IsAny<DataElement>(),
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<DataElementInternal>(),
                     It.IsAny<int?>()
                 ),
             Times.Never
@@ -180,8 +180,8 @@ public class ProcessDataCleanupServiceTests
     {
         ProcessDataCleanupService target = CreateService();
 
-        DataElement match1 = MakeMatch();
-        DataElement keep = new()
+        DataElementInternal match1 = MakeMatch();
+        DataElementInternal keep = new()
         {
             Id = Guid.NewGuid().ToString(),
             References =
@@ -194,9 +194,9 @@ public class ProcessDataCleanupServiceTests
                 },
             ],
         };
-        DataElement match2 = MakeMatch();
+        DataElementInternal match2 = MakeMatch();
 
-        Instance instance = new()
+        InstanceInternal instance = new()
         {
             Id = "1/abc",
             AppId = _appId,
@@ -204,8 +204,10 @@ public class ProcessDataCleanupServiceTests
         };
 
         _dataServiceMock
-            .Setup(d => d.DeleteImmediately(instance, It.IsAny<DataElement>(), _storageAccount))
-            .ReturnsAsync((Instance _, DataElement de, int? _) => de);
+            .Setup(d =>
+                d.DeleteImmediately(instance, It.IsAny<DataElementInternal>(), _storageAccount)
+            )
+            .ReturnsAsync((InstanceInternal _, DataElementInternal de, int? _) => de);
 
         int deleted = await target.CleanupGeneratedFromTask(
             instance,
@@ -232,11 +234,11 @@ public class ProcessDataCleanupServiceTests
     {
         ProcessDataCleanupService target = CreateService();
 
-        DataElement first = MakeMatch();
-        DataElement failing = MakeMatch();
-        DataElement last = MakeMatch();
+        DataElementInternal first = MakeMatch();
+        DataElementInternal failing = MakeMatch();
+        DataElementInternal last = MakeMatch();
 
-        Instance instance = new()
+        InstanceInternal instance = new()
         {
             Id = "1/abc",
             AppId = _appId,
@@ -277,7 +279,7 @@ public class ProcessDataCleanupServiceTests
             NullLogger<ProcessDataCleanupService>.Instance
         );
 
-        Instance instance = new()
+        InstanceInternal instance = new()
         {
             Id = "1/abc",
             AppId = _appId,
@@ -295,10 +297,10 @@ public class ProcessDataCleanupServiceTests
     {
         ProcessDataCleanupService target = CreateService();
 
-        DataElement first = MakeMatch();
-        DataElement second = MakeMatch();
+        DataElementInternal first = MakeMatch();
+        DataElementInternal second = MakeMatch();
 
-        Instance instance = new()
+        InstanceInternal instance = new()
         {
             Id = "1/abc",
             AppId = _appId,
@@ -322,7 +324,7 @@ public class ProcessDataCleanupServiceTests
         );
     }
 
-    private static DataElement MakeMatch() =>
+    private static DataElementInternal MakeMatch() =>
         new()
         {
             Id = Guid.NewGuid().ToString(),

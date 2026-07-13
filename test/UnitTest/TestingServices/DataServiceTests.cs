@@ -33,9 +33,9 @@ public class DataServiceTests
             instanceEventServiceMock.Object
         );
 
-        Instance instance = new Instance();
+        InstanceInternal instance = new InstanceInternal();
         DataType dataType = new DataType { EnableFileScan = false };
-        DataElement dataElement = new DataElement { };
+        DataElementInternal dataElement = new DataElementInternal { };
         DateTimeOffset blobTimestamp = DateTimeOffset.UtcNow;
 
         // Act
@@ -71,9 +71,13 @@ public class DataServiceTests
             instanceEventServiceMock.Object
         );
 
-        Instance instance = new Instance { Id = "343243/guid" };
+        InstanceInternal instance = new()
+        {
+            Id = "guid",
+            InstanceOwner = new InstanceOwner { PartyId = "343243" },
+        };
         DataType dataType = new DataType { EnableFileScan = true };
-        DataElement dataElement = new DataElement { };
+        DataElementInternal dataElement = new DataElementInternal { };
         DateTimeOffset blobTimestamp = DateTimeOffset.UtcNow;
 
         // Act
@@ -112,7 +116,7 @@ public class DataServiceTests
         string expectedHashResult =
             "85738f8f9a7f1b04b5329c590ebcb9e425925c6d0984089c43a022de4f19c281";
 
-        DataElement dataElement = new DataElement
+        DataElementInternal dataElement = new DataElementInternal
         {
             Id = id.ToString(),
             BlobStoragePath = blobStoragePath,
@@ -193,7 +197,7 @@ public class DataServiceTests
         Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
         Mock<IInstanceEventService> instanceEventServiceMock = new Mock<IInstanceEventService>();
 
-        DataElement dataElement = new DataElement
+        DataElementInternal dataElement = new DataElementInternal
         {
             Id = Guid.NewGuid().ToString(),
             BlobStoragePath = "/ttd/some-app",
@@ -245,7 +249,7 @@ public class DataServiceTests
             )
             .ReturnsAsync((666, DateTimeOffset.Now));
 
-        DataElement dataElement = new DataElement
+        DataElementInternal dataElement = new DataElementInternal
         {
             Id = Guid.NewGuid().ToString(),
             BlobStoragePath = "/ttd/some-app",

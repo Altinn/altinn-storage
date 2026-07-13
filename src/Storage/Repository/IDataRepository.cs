@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 
 namespace Altinn.Platform.Storage.Repository;
 
@@ -20,8 +21,8 @@ public interface IDataRepository
     /// <param name="instanceInternalId">the internal id of the parent instance</param>
     /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
     /// <returns>the data element with updated id</returns>
-    Task<DataElement> Create(
-        DataElement dataElement,
+    Task<DataElementInternal> Create(
+        DataElementInternal dataElement,
         long instanceInternalId = 0,
         CancellationToken cancellationToken = default
     );
@@ -33,7 +34,7 @@ public interface IDataRepository
     /// <param name="dataElementId">The data element guid</param>
     /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
     /// <returns>The identified data element.</returns>
-    Task<DataElement> Read(
+    Task<DataElementInternal> Read(
         Guid instanceGuid,
         Guid dataElementId,
         CancellationToken cancellationToken = default
@@ -45,7 +46,10 @@ public interface IDataRepository
     /// <param name="dataElement">the element to delete</param>
     /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
     /// <returns>true if delete went well.</returns>
-    Task<bool> Delete(DataElement dataElement, CancellationToken cancellationToken = default);
+    Task<bool> Delete(
+        DataElementInternal dataElement,
+        CancellationToken cancellationToken = default
+    );
 
     /// <summary>
     /// Deletes the data elements metadata for an instance permanently!
@@ -63,7 +67,7 @@ public interface IDataRepository
     /// <param name="propertylist">A dictionary contaning property id (key) and object (value) to be stored</param>
     /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
     /// <remarks>Dictionary can containt at most 10 entries</remarks>
-    Task<DataElement> Update(
+    Task<DataElementInternal> Update(
         Guid instanceGuid,
         Guid dataElementId,
         Dictionary<string, object> propertylist,

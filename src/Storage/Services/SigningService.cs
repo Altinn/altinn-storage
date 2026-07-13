@@ -65,7 +65,7 @@ public class SigningService : ISigningService
         CancellationToken cancellationToken
     )
     {
-        (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(
+        InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
@@ -121,7 +121,7 @@ public class SigningService : ISigningService
             );
         }
 
-        DataElement dataElement = DataElementHelper.CreateDataElement(
+        DataElementInternal dataElement = DataElementHelper.CreateDataElement(
             signRequest.SignatureDocumentDataType,
             null,
             instance,
@@ -157,7 +157,7 @@ public class SigningService : ISigningService
                 instance.Org,
                 fileStream,
                 dataElement,
-                instanceInternalId,
+                instance.InternalId,
                 app.StorageAccountNumber
             );
         }
@@ -167,7 +167,7 @@ public class SigningService : ISigningService
     }
 
     private async Task DeleteExistingSignDocumentForSignee(
-        Instance instance,
+        InstanceInternal instance,
         string signDocDataType,
         Signee signee,
         CancellationToken cancellationToken
@@ -178,7 +178,7 @@ public class SigningService : ISigningService
             instance.Org,
             cancellationToken
         );
-        List<DataElement> signingDocDataElements =
+        List<DataElementInternal> signingDocDataElements =
             instance.Data?.Where(x => x.DataType == signDocDataType).ToList() ?? [];
 
         List<Task<SignDocDownloadResult>> downloadAndDeserializeSignDocumentTasks =
@@ -272,7 +272,7 @@ public class SigningService : ISigningService
 #pragma warning disable SA1600 // Elements should be documented
 file sealed record SignDocDownloadResult
 {
-    public DataElement DataElement { get; init; }
+    public DataElementInternal DataElement { get; init; }
 
     public SignDocument SignDocument { get; init; }
 }

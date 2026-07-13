@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Http;
 
@@ -30,14 +31,14 @@ public class InstanceEventService : IInstanceEventService
     }
 
     /// <inheritdoc/>
-    public InstanceEvent BuildInstanceEvent(InstanceEventType eventType, Instance instance)
+    public InstanceEvent BuildInstanceEvent(InstanceEventType eventType, InstanceInternal instance)
     {
         var user = _contextAccessor.HttpContext!.User;
 
         InstanceEvent instanceEvent = new()
         {
             EventType = eventType.ToString(),
-            InstanceId = instance.Id,
+            InstanceId = $"{instance.InstanceOwner.PartyId}/{instance.Id}",
             InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
             User = new PlatformUser
             {
@@ -56,7 +57,7 @@ public class InstanceEventService : IInstanceEventService
     }
 
     /// <inheritdoc/>
-    public async Task DispatchEvent(InstanceEventType eventType, Instance instance)
+    public async Task DispatchEvent(InstanceEventType eventType, InstanceInternal instance)
     {
         var instanceEvent = BuildInstanceEvent(eventType, instance);
 
@@ -66,7 +67,7 @@ public class InstanceEventService : IInstanceEventService
     /// <inheritdoc/>
     public async Task DispatchEvent(
         InstanceEventType eventType,
-        Instance instance,
+        InstanceInternal instance,
         PlatformUser user,
         string? additionalInfo = null
     )
@@ -76,7 +77,7 @@ public class InstanceEventService : IInstanceEventService
         InstanceEvent instanceEvent = new()
         {
             EventType = eventType.ToString(),
-            InstanceId = instance.Id,
+            InstanceId = $"{instance.InstanceOwner.PartyId}/{instance.Id}",
             InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
             User = user,
             AdditionalInfo = additionalInfo,
@@ -90,8 +91,8 @@ public class InstanceEventService : IInstanceEventService
     /// <inheritdoc/>
     public async Task DispatchEvent(
         InstanceEventType eventType,
-        Instance instance,
-        DataElement dataElement
+        InstanceInternal instance,
+        DataElementInternal dataElement
     )
     {
         ClaimsPrincipal user = _contextAccessor.HttpContext!.User;
@@ -118,7 +119,7 @@ public class InstanceEventService : IInstanceEventService
         InstanceEvent instanceEvent = new()
         {
             EventType = eventType.ToString(),
-            InstanceId = instance.Id,
+            InstanceId = $"{instance.InstanceOwner.PartyId}/{instance.Id}",
             DataId = dataElement.Id,
             InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
             User = new PlatformUser

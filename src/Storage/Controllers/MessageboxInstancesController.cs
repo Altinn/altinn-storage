@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
+using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
@@ -118,9 +119,8 @@ public class MessageBoxInstancesController : ControllerBase
                 queryParams.AppIds = await MatchStringToAppTitle(queryModel.SearchString);
             }
 
-            InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesFromQuery(
+            InstanceQueryResult queryResponse = await _instanceRepository.GetInstancesFromQuery(
                 queryParams,
-                false,
                 cancellationToken
             );
 
@@ -180,7 +180,7 @@ public class MessageBoxInstancesController : ControllerBase
             languageId = language;
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        InstanceInternal? instance = await _instanceRepository.GetOne(
             instanceGuid,
             false,
             cancellationToken
@@ -204,7 +204,7 @@ public class MessageBoxInstancesController : ControllerBase
 
         List<MessageBoxInstance> authorizedInstanceList =
             await _authorizationService.AuthorizeMesseageBoxInstances(
-                new List<Instance> { instance },
+                [instance],
                 includeInstantiate
             );
         if (authorizedInstanceList.Count <= 0)
@@ -296,7 +296,7 @@ public class MessageBoxInstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        InstanceInternal? instance = await _instanceRepository.GetOne(
             instanceGuid,
             false,
             cancellationToken
@@ -330,7 +330,7 @@ public class MessageBoxInstancesController : ControllerBase
             {
                 Created = DateTime.UtcNow,
                 EventType = InstanceEventType.Undeleted.ToString(),
-                InstanceId = instance.Id,
+                InstanceId = $"{instance.InstanceOwner.PartyId}/{instance.Id}",
                 InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
                 User = new PlatformUser
                 {
@@ -371,7 +371,7 @@ public class MessageBoxInstancesController : ControllerBase
     {
         string instanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
 
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        InstanceInternal? instance = await _instanceRepository.GetOne(
             instanceGuid,
             false,
             cancellationToken
@@ -435,7 +435,7 @@ public class MessageBoxInstancesController : ControllerBase
         {
             Created = DateTime.UtcNow,
             EventType = InstanceEventType.Deleted.ToString(),
-            InstanceId = instance.Id,
+            InstanceId = $"{instance.InstanceOwner.PartyId}/{instance.Id}",
             InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
             User = new PlatformUser
             {
@@ -507,7 +507,7 @@ public class MessageBoxInstancesController : ControllerBase
         }
     }
 
-    private async Task RemoveHiddenInstances(List<Instance> instances)
+    private async Task RemoveHiddenInstances(List<InstanceInternal> instances)
     {
         List<string> appIds = instances.Select(i => i.AppId).Distinct().ToList();
         Dictionary<string, Application> apps = new();
@@ -529,7 +529,7 @@ public class MessageBoxInstancesController : ControllerBase
     {
         string dateTimeFormat = "yyyy-MM-ddTHH:mm:ss";
 
-        InstanceQueryParameters queryParams = new();
+        InstanceQueryParameters queryParams = new() { IncludeDataElements = false };
         if (queryModel.FromLastChanged != null || queryModel.ToLastChanged != null)
         {
             queryParams.LastChanged = new string[
@@ -611,7 +611,7 @@ public class MessageBoxInstancesController : ControllerBase
     }
 
     private async Task<ActionResult> ProcessQueryResponse(
-        InstanceQueryResponse? queryResponse,
+        InstanceQueryResult? queryResponse,
         string language,
         CancellationToken cancellationToken
     )
@@ -625,12 +625,12 @@ public class MessageBoxInstancesController : ControllerBase
             languageId = language.ToLower();
         }
 
-        if (queryResponse == null || queryResponse.Count <= 0)
+        if (queryResponse == null || queryResponse.Instances.Count <= 0)
         {
             return Ok(new List<MessageBoxInstance>());
         }
 
-        List<Instance> allInstances = queryResponse.Instances;
+        List<InstanceInternal> allInstances = queryResponse.Instances;
         await RemoveHiddenInstances(allInstances);
 
         if (allInstances.Count == 0)

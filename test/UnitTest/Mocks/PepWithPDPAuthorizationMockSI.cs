@@ -253,7 +253,7 @@ public class PepWithPDPAuthorizationMockSI : IPDP
 
         if (!resourceAttributeComplete && !string.IsNullOrEmpty(resourceAttributes.InstanceValue))
         {
-            (Instance instanceData, _) = await _instanceService.GetOne(
+            InstanceInternal instanceData = await _instanceService.GetOne(
                 Guid.Parse(resourceAttributes.InstanceValue.Split('/')[1]),
                 true,
                 CancellationToken.None

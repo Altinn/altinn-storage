@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Web;
 using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Primitives;
@@ -22,11 +23,11 @@ public static class DataElementHelper
     /// <summary>
     /// Creates a data element based on element type, instance id, content type, content file name and file size.
     /// </summary>
-    /// <returns>DataElement</returns>
-    public static DataElement CreateDataElement(
+    /// <returns>DataElementInternal</returns>
+    public static DataElementInternal CreateDataElement(
         string dataType,
         List<Guid> refs,
-        Instance instance,
+        InstanceInternal instance,
         DateTime creationTime,
         string contentType,
         string contentFileName,
@@ -37,18 +38,11 @@ public static class DataElementHelper
     {
         string dataId = Guid.NewGuid().ToString();
 
-        string guidFromInstanceId = instance.Id;
-
-        if (guidFromInstanceId != null && guidFromInstanceId.Contains('/'))
-        {
-            guidFromInstanceId = instance.Id.Split("/")[1];
-        }
-
-        DataElement newData = new DataElement
+        DataElementInternal newData = new DataElementInternal
         {
             // update data record
             Id = dataId,
-            InstanceGuid = guidFromInstanceId,
+            InstanceGuid = instance.Id,
             DataType = dataType,
             ContentType = contentType,
             CreatedBy = user,
@@ -73,7 +67,7 @@ public static class DataElementHelper
             };
         }
 
-        string filePath = DataFileName(instance.AppId, guidFromInstanceId, newData.Id);
+        string filePath = DataFileName(instance.AppId, instance.Id, newData.Id);
         newData.BlobStoragePath = filePath;
         return newData;
     }

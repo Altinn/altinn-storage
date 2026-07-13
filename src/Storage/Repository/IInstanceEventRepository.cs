@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 
 namespace Altinn.Platform.Storage.Repository;
 
@@ -18,7 +19,10 @@ public interface IInstanceEventRepository
     /// <param name="instanceEvent">Instance event to be stored. </param>
     /// <param name="instance">The parent instance</param>
     /// <returns>The stored instance event.</returns>
-    Task<InstanceEvent> InsertInstanceEvent(InstanceEvent instanceEvent, Instance instance = null);
+    Task<InstanceEvent> InsertInstanceEvent(
+        InstanceEvent instanceEvent,
+        InstanceInternal instance = null
+    );
 
     /// <summary>
     /// Gets one event.

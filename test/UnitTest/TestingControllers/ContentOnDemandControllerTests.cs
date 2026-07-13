@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Fixture;
@@ -90,9 +91,9 @@ public class ContentOnDemandControllerTests
         Assert.Equal(_html, await response.Content.ReadAsStringAsync());
     }
 
-    private static Instance GetInstance()
+    private static InstanceInternal GetInstance()
     {
-        return new Instance
+        return new InstanceInternal
         {
             Id = $"{_instanceOwnerPartyId}/{_instanceGuid}",
             AppId = $"{_org}/{_app}",
@@ -100,14 +101,14 @@ public class ContentOnDemandControllerTests
             InstanceOwner = new InstanceOwner { PartyId = _instanceOwnerPartyId.ToString() },
             Data =
             [
-                new DataElement
+                new DataElementInternal
                 {
                     Id = _htmlDataGuid.ToString(),
                     DataType = "ref-data-as-html",
                     BlobStoragePath = "ondemand/formdatahtml",
                     Metadata = [new KeyValueEntry { Key = "formid", Value = "1000" }],
                 },
-                new DataElement
+                new DataElementInternal
                 {
                     Id = "3a1b2f4c-7a1e-4b25-9f0f-0d6a0f3a5b21",
                     DataType = "a2-xml",
@@ -126,7 +127,7 @@ public class ContentOnDemandControllerTests
         Mock<IInstanceRepository> instanceRepositoryMock = new();
         instanceRepositoryMock
             .Setup(ir => ir.GetOne(_instanceGuid, true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => (GetInstance(), 1L));
+            .ReturnsAsync(GetInstance);
 
         Mock<IApplicationRepository> applicationRepositoryMock = new();
         applicationRepositoryMock
