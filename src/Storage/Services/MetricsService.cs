@@ -5,12 +5,9 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Altinn.Platform.Storage.Configuration;
-using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Models.Metrics;
 using Altinn.Platform.Storage.Repository;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Parquet.Serialization;
 
 namespace Altinn.Platform.Storage.Services;
@@ -22,33 +19,25 @@ public class MetricsService : IMetricsService
 {
     private readonly IMetricsRepository _metricsRepository;
     private readonly ILogger<MetricsService> _logger;
-    private readonly GeneralSettings _generalSettings;
-    private readonly HttpClient _httpClient;
+    private readonly IOrganisationService _organisationService;
 
     private const int _daysOffsetForDailyMetrics = 1; // Fetch yesterday's metrics
-    private readonly JsonSerializerOptions _serializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MetricsService"/> class.
     /// </summary>
     /// <param name="metricsRepository">Metrics repository</param>
     /// <param name="logger">Logger</param>
-    /// <param name="generalSettings">GeneralSettings</param>
-    /// <param name="httpClient">HttpClient</param>
+    /// <param name="organisationService">Organisation service used to translate service owner codes to org numbers</param>
     public MetricsService(
         IMetricsRepository metricsRepository,
         ILogger<MetricsService> logger,
-        IOptions<GeneralSettings> generalSettings,
-        HttpClient httpClient
+        IOrganisationService organisationService
     )
     {
         _metricsRepository = metricsRepository;
         _logger = logger;
-        _generalSettings = generalSettings.Value;
-        _httpClient = httpClient;
+        _organisationService = organisationService;
     }
 
     /// <inheritdoc/>
@@ -140,42 +129,19 @@ public class MetricsService : IMetricsService
         CancellationToken cancellationToken = default
     )
     {
-        using HttpRequestMessage requestMessage = new(
-            HttpMethod.Get,
-            _generalSettings.OrganisationsUrl
-        );
-        using HttpResponseMessage response = await _httpClient.SendAsync(
-            requestMessage,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken
-        );
-        response.EnsureSuccessStatusCode();
-
-        await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        OrgList? orgList = await JsonSerializer.DeserializeAsync<OrgList?>(
-            stream,
-            _serializerOptions,
-            cancellationToken
-        );
-        if (orgList is null)
-        {
-            throw new InvalidOperationException($"Failed to deserialize {nameof(OrgList)}");
-        }
-
-        var organisations = orgList.Orgs;
-        if (organisations is null)
-            throw new InvalidOperationException($"Failed to deserialize {nameof(orgList.Orgs)}");
-
         foreach (DailyInstanceMetricsRecord record in metrics.Metrics)
         {
-            if (!organisations.TryGetValue(record.ServiceOwnerCode, out Org? org))
-                continue;
+            string? orgNumber = await _organisationService.GetOrgNumber(
+                record.ServiceOwnerCode,
+                cancellationToken
+            );
 
-            if (org.Orgnr is not null)
+            if (orgNumber is not null)
             {
-                record.ServiceOwnerOrgNumber = org.Orgnr;
+                record.ServiceOwnerOrgNumber = orgNumber;
             }
         }
+
         return metrics;
     }
 }
