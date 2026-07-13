@@ -18,6 +18,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 public class InstanceRepositoryMock : IInstanceRepository
 {
     private const long TestInstanceInternalId = 1;
+    private static readonly Dictionary<string, StorageVersions> _versions = [];
     private static readonly JsonSerializerOptions _options = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -40,7 +41,9 @@ public class InstanceRepositoryMock : IInstanceRepository
             InstanceOwner = instance.InstanceOwner,
             Process = instance.Process,
             Data = [],
+            Versions = new StorageVersions(1, 1),
         };
+        SetVersions(newInstance, new StorageVersions(1, 1));
 
         return await Task.FromResult(newInstance);
     }
@@ -172,7 +175,9 @@ public class InstanceRepositoryMock : IInstanceRepository
     public Task<InstanceInternal> Update(
         InstanceInternal instance,
         List<string> updateProperties,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        int? expectedInstanceVersion = null,
+        int? expectedProcessStateVersion = null
     )
     {
         if (instance.Id.Equals("d3b326de-2dd8-49a1-834a-b1d23b11e540"))
@@ -180,9 +185,26 @@ public class InstanceRepositoryMock : IInstanceRepository
             return Task.FromResult<InstanceInternal>(null);
         }
 
-        instance.Data = [];
-
+        ThrowIfVersionMismatch(instance, expectedInstanceVersion, expectedProcessStateVersion);
+        StorageVersions current = GetVersions(instance);
+        StorageVersions updated = new(
+            current.InstanceVersion + 1,
+            current.ProcessStateVersion
+                + (updateProperties.Contains(nameof(instance.Process)) ? 1 : 0)
+        );
+        SetVersions(instance, updated);
+        instance.Versions = updated;
         return Task.FromResult(instance);
+    }
+
+    public Task<InstanceInternal> UpdateReadStatus(
+        InstanceInternal instanceInternal,
+        CancellationToken cancellationToken
+    )
+    {
+        StorageVersions versions = GetVersions(instanceInternal);
+        instanceInternal.Versions = versions;
+        return Task.FromResult(instanceInternal);
     }
 
     public Task<List<InstanceInternal>> GetHardDeletedInstances(CancellationToken cancellationToken)
@@ -249,6 +271,7 @@ public class InstanceRepositoryMock : IInstanceRepository
     private static void PostProcess(InstanceInternal instance)
     {
         instance.InternalId = TestInstanceInternalId;
+        instance.Versions = GetVersions(instance);
         if (instance.Data != null && instance.Data.Count != 0)
         {
             SetReadStatus(instance);
@@ -272,5 +295,52 @@ public class InstanceRepositoryMock : IInstanceRepository
         {
             instance.Status.ReadStatus = ReadStatus.Unread;
         }
+    }
+
+    private static void ThrowIfVersionMismatch(
+        InstanceInternal instance,
+        int? expectedInstanceVersion,
+        int? expectedProcessStateVersion
+    )
+    {
+        StorageVersions current = GetVersions(instance);
+        if (
+            expectedInstanceVersion is not null
+            && expectedInstanceVersion != current.InstanceVersion
+        )
+        {
+            throw new InstanceVersionMismatchException(
+                current.InstanceVersion,
+                current.ProcessStateVersion
+            );
+        }
+
+        if (
+            expectedProcessStateVersion is not null
+            && expectedProcessStateVersion != current.ProcessStateVersion
+        )
+        {
+            throw new ProcessStateVersionMismatchException(
+                current.InstanceVersion,
+                current.ProcessStateVersion
+            );
+        }
+    }
+
+    private static StorageVersions GetVersions(InstanceInternal instance)
+    {
+        string key = instance.Id ?? string.Empty;
+        if (!_versions.TryGetValue(key, out StorageVersions versions))
+        {
+            versions = new StorageVersions(1, 1);
+            _versions[key] = versions;
+        }
+
+        return versions;
+    }
+
+    private static void SetVersions(InstanceInternal instance, StorageVersions versions)
+    {
+        _versions[instance.Id ?? string.Empty] = versions;
     }
 }

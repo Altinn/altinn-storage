@@ -35,16 +35,19 @@ public class PgInstanceRepository : IInstanceRepository
     /// SQL for updating an instance.
     /// </summary>
     internal static readonly string UpdateSql =
-        "select * from storage.updateinstance_v3 (@_alternateid, @_toplevelsimpleprops, @_datavalues,"
-        + " @_completeconfirmations, @_presentationtexts, @_status, @_substatus, @_process, @_lastchanged, @_taskid, @_confirmed)";
+        "select * from storage.updateinstance_v4 (@_alternateid, @_toplevelsimpleprops, @_datavalues,"
+        + " @_completeconfirmations, @_presentationtexts, @_status, @_substatus, @_process, @_lastchanged, @_taskid, @_confirmed,"
+        + " @_expectedinstanceversion, @_expectedprocessstateversion)";
 
     private readonly string _readSql = "select * from storage.readinstance_v2 ($1)";
+    private readonly string _updateReadStatusSql =
+        "select * from storage.updateinstance_readstatus ($1, $2)";
     private readonly string _readSqlFiltered = _readSqlFilteredInitial;
     private readonly string _readDeletedSql = "select * from storage.readdeletedinstances ()";
     private readonly string _readDeletedElementsSql =
         "select * from storage.readdeletedelements ()";
     private readonly string _readSqlNoElements =
-        "select * from storage.readinstancenoelements ($1)";
+        "select * from storage.readinstancenoelements_v2 ($1)";
 
     private readonly ILogger<PgInstanceRepository> _logger;
     private readonly NpgsqlDataSource _dataSource;
@@ -121,6 +124,7 @@ public class PgInstanceRepository : IInstanceRepository
         await pgcom.ExecuteNonQueryAsync(cancellationToken);
 
         instance.Data = [];
+        instance.Versions = new StorageVersions(1, 1);
         instance.InternalId = 0;
         return instance;
     }
@@ -379,6 +383,7 @@ public class PgInstanceRepository : IInstanceRepository
                     );
                     lastChanged = instance.LastChanged ?? DateTime.MinValue;
                     instance.InternalId = id;
+                    instance.Versions = ReadVersionResult(reader);
                     instance.Data = [];
                     queryResult.Instances.Add(instance);
                     previousId = id;
@@ -421,64 +426,63 @@ public class PgInstanceRepository : IInstanceRepository
         CancellationToken cancellationToken
     )
     {
-        InstanceInternal instance = null;
-        List<DataElementInternal> instanceData = [];
-        long instanceInternalId = 0;
-
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(
             includeElements ? _readSql : _readSqlNoElements
         );
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
 
-        await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken))
-        {
-            bool instanceCreated = false;
-            while (await reader.ReadAsync(cancellationToken))
-            {
-                if (!instanceCreated)
-                {
-                    instanceCreated = true;
-                    instance = await reader.GetFieldValueAsync<InstanceInternal>(
-                        "instance",
-                        cancellationToken
-                    );
-                    instanceInternalId = await reader.GetFieldValueAsync<long>(
-                        "id",
-                        cancellationToken
-                    );
-                }
+        await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
+        return await ReadInstanceResultAsync(reader, includeElements, cancellationToken);
+    }
 
-                if (includeElements && !await reader.IsDBNullAsync("element", cancellationToken))
-                {
-                    DataElementInternal element =
-                        await reader.GetFieldValueAsync<DataElementInternal>(
-                            "element",
-                            cancellationToken
-                        );
-                    int versionOrdinal = reader.GetOrdinal("currentblobversion");
-                    string blobVersionId = await reader.IsDBNullAsync(
-                        versionOrdinal,
-                        cancellationToken
-                    )
-                        ? null
-                        : BlobVersionId.Encode(
-                            await reader.GetFieldValueAsync<Guid>(versionOrdinal, cancellationToken)
-                        );
-                    element.BlobVersionId = blobVersionId;
-                    instanceData.Add(element);
-                }
+    internal static async Task<InstanceInternal> ReadInstanceResultAsync(
+        NpgsqlDataReader reader,
+        bool includeElements,
+        CancellationToken cancellationToken
+    )
+    {
+        InstanceInternal instance = null;
+        List<DataElementInternal> instanceData = [];
+        StorageVersions versions = null;
+        long instanceInternalId = 0;
+        bool instanceCreated = false;
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            if (!instanceCreated)
+            {
+                instanceCreated = true;
+                instance = await reader.GetFieldValueAsync<InstanceInternal>(
+                    "instance",
+                    cancellationToken
+                );
+                versions = ReadVersionResult(reader);
+                instanceInternalId = await reader.GetFieldValueAsync<long>("id", cancellationToken);
             }
 
-            if (instance is null)
+            if (includeElements && !await reader.IsDBNullAsync("element", cancellationToken))
             {
-                return null;
+                DataElementInternal element = await reader.GetFieldValueAsync<DataElementInternal>(
+                    "element",
+                    cancellationToken
+                );
+                int versionOrdinal = reader.GetOrdinal("currentblobversion");
+                string blobVersionId = await reader.IsDBNullAsync(versionOrdinal, cancellationToken)
+                    ? null
+                    : BlobVersionId.Encode(reader.GetGuid(versionOrdinal));
+                element.BlobVersionId = blobVersionId;
+                instanceData.Add(element);
             }
         }
 
-        // Present instance data elements in chronological order
-        instance.Data = instanceData.OrderBy(x => x.Created).ToList();
-        instance.InternalId = instanceInternalId;
+        if (instance is null)
+        {
+            return null;
+        }
 
+        instance.Data = instanceData.OrderBy(x => x.Created).ToList();
+        instance.Versions = versions;
+        instance.InternalId = instanceInternalId;
         return instance;
     }
 
@@ -486,7 +490,9 @@ public class PgInstanceRepository : IInstanceRepository
     public async Task<InstanceInternal> Update(
         InstanceInternal instance,
         List<string> updateProperties,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        int? expectedInstanceVersion = null,
+        int? expectedProcessStateVersion = null
     )
     {
         // Remove last decimal digit to make postgres TIMESTAMPTZ equal to json serialized DateTime
@@ -494,23 +500,68 @@ public class PgInstanceRepository : IInstanceRepository
             instance.LastChanged != null
                 ? new DateTime((((DateTime)instance.LastChanged).Ticks / 10) * 10, DateTimeKind.Utc)
                 : null;
-        List<DataElementInternal> dataElements = instance.Data;
-        long internalId = instance.InternalId;
+
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(UpdateSql);
-        BuildUpdateCommand(instance, updateProperties, pgcom.Parameters);
+        BuildUpdateCommand(
+            instance,
+            updateProperties,
+            pgcom.Parameters,
+            expectedInstanceVersion,
+            expectedProcessStateVersion
+        );
 
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
-        if (await reader.ReadAsync(cancellationToken))
+        if (!await reader.ReadAsync(cancellationToken))
         {
-            instance = await reader.GetFieldValueAsync<InstanceInternal>(
-                "updatedInstance",
-                cancellationToken
-            );
+            throw CreateMissingUpdateResultException("storage.updateinstance_v4");
         }
 
-        instance.Data = dataElements;
-        instance.InternalId = internalId;
-        return instance;
+        InstanceInternal result = await ReadUpdatedInstanceAsync(
+            reader,
+            instance.InternalId,
+            cancellationToken
+        );
+        result.Data = instance.Data;
+        return result;
+    }
+
+    /// <inheritdoc/>
+    public async Task<InstanceInternal> UpdateReadStatus(
+        InstanceInternal instanceInternal,
+        CancellationToken cancellationToken
+    )
+    {
+        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateReadStatusSql);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceInternal.Id));
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, instanceInternal.Status);
+
+        await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            throw CreateMissingUpdateResultException("storage.updateinstance_readstatus");
+        }
+
+        string resultCode = await reader.GetFieldValueAsync<string>("result", cancellationToken);
+        if (resultCode != "ok")
+        {
+            throw resultCode switch
+            {
+                "not_found" => CreateInstanceNotFoundException(instanceInternal.Id),
+                _ => new UnreachableException(
+                    $"Unexpected instance read status update result '{resultCode}'."
+                ),
+            };
+        }
+
+        InstanceInternal result = await reader.GetFieldValueAsync<InstanceInternal>(
+            "updatedInstance",
+            cancellationToken
+        );
+        StorageVersions versions = ReadVersionResult(reader);
+        result.Versions = versions;
+        result.InternalId = instanceInternal.InternalId;
+        result.Data = instanceInternal.Data;
+        return result;
     }
 
     /// <summary>
@@ -519,10 +570,14 @@ public class PgInstanceRepository : IInstanceRepository
     /// <param name="instance">Instance</param>
     /// <param name="updateProperties">Updated props</param>
     /// <param name="parameters">Parameters</param>
+    /// <param name="expectedInstanceVersion">Expected instance version for optimistic concurrency checks.</param>
+    /// <param name="expectedProcessStateVersion">Expected process state version for optimistic concurrency checks.</param>
     internal static void BuildUpdateCommand(
         InstanceInternal instance,
         List<string> updateProperties,
-        NpgsqlParameterCollection parameters
+        NpgsqlParameterCollection parameters,
+        int? expectedInstanceVersion = null,
+        int? expectedProcessStateVersion = null
     )
     {
         parameters.AddWithValue("_alternateid", NpgsqlDbType.Uuid, new Guid(instance.Id));
@@ -589,6 +644,83 @@ public class PgInstanceRepository : IInstanceRepository
                 ? true
                 : DBNull.Value
         );
+        parameters.AddWithValue(
+            "_expectedinstanceversion",
+            NpgsqlDbType.Integer,
+            expectedInstanceVersion ?? (object)DBNull.Value
+        );
+        parameters.AddWithValue(
+            "_expectedprocessstateversion",
+            NpgsqlDbType.Integer,
+            expectedProcessStateVersion ?? (object)DBNull.Value
+        );
+    }
+
+    internal static async Task<InstanceInternal> ReadUpdatedInstanceAsync(
+        NpgsqlDataReader reader,
+        long instanceInternalId,
+        CancellationToken cancellationToken
+    )
+    {
+        string result = await reader.GetFieldValueAsync<string>("result", cancellationToken);
+        if (result != "ok")
+        {
+            throw result switch
+            {
+                "not_found" => CreateInstanceNotFoundException(),
+                "instance_version_mismatch" => CreateInstanceVersionMismatchException(reader),
+                "process_state_version_mismatch" => CreateProcessStateVersionMismatchException(
+                    reader
+                ),
+                _ => new UnreachableException($"Unexpected instance update result '{result}'."),
+            };
+        }
+
+        InstanceInternal instance = await reader.GetFieldValueAsync<InstanceInternal>(
+            "updatedInstance",
+            cancellationToken
+        );
+        StorageVersions versions = ReadVersionResult(reader);
+        instance.Versions = versions;
+        instance.InternalId = instanceInternalId;
+        return instance;
+    }
+
+    internal static StorageVersions ReadVersionResult(NpgsqlDataReader reader) =>
+        new(
+            reader.GetInt32(reader.GetOrdinal("instanceversion")),
+            reader.GetInt32(reader.GetOrdinal("processstateversion"))
+        );
+
+    internal static RepositoryException CreateInstanceNotFoundException(string instanceId = null) =>
+        new(
+            instanceId is null
+                ? "Instance was not found."
+                : $"Instance {instanceId} was not found.",
+            System.Net.HttpStatusCode.NotFound
+        );
+
+    internal static UnreachableException CreateMissingUpdateResultException(string functionName) =>
+        new(
+            $"{functionName} returned no result row. The SQL function must return a row with a result code."
+        );
+
+    private static InstanceVersionMismatchException CreateInstanceVersionMismatchException(
+        NpgsqlDataReader reader
+    )
+    {
+        int instanceVersion = reader.GetInt32(reader.GetOrdinal("instanceversion"));
+        int processStateVersion = reader.GetInt32(reader.GetOrdinal("processstateversion"));
+        return new InstanceVersionMismatchException(instanceVersion, processStateVersion);
+    }
+
+    private static ProcessStateVersionMismatchException CreateProcessStateVersionMismatchException(
+        NpgsqlDataReader reader
+    )
+    {
+        int instanceVersion = reader.GetInt32(reader.GetOrdinal("instanceversion"));
+        int processStateVersion = reader.GetInt32(reader.GetOrdinal("processstateversion"));
+        return new ProcessStateVersionMismatchException(instanceVersion, processStateVersion);
     }
 
     private static readonly Dictionary<string, NpgsqlDbType> _paramTypes = new()

@@ -61,7 +61,9 @@ public class ProcessDataCleanupServiceTests
                 d.DeleteImmediately(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<DataElementInternal>(),
-                    It.IsAny<int?>()
+                    It.IsAny<int?>(),
+                    null,
+                    null
                 ),
             Times.Never
         );
@@ -94,7 +96,9 @@ public class ProcessDataCleanupServiceTests
                 d.DeleteImmediately(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<DataElementInternal>(),
-                    It.IsAny<int?>()
+                    It.IsAny<int?>(),
+                    null,
+                    null
                 ),
             Times.Never
         );
@@ -169,7 +173,9 @@ public class ProcessDataCleanupServiceTests
                 d.DeleteImmediately(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<DataElementInternal>(),
-                    It.IsAny<int?>()
+                    It.IsAny<int?>(),
+                    null,
+                    null
                 ),
             Times.Never
         );
@@ -205,9 +211,17 @@ public class ProcessDataCleanupServiceTests
 
         _dataServiceMock
             .Setup(d =>
-                d.DeleteImmediately(instance, It.IsAny<DataElementInternal>(), _storageAccount)
+                d.DeleteImmediately(
+                    instance,
+                    It.IsAny<DataElementInternal>(),
+                    _storageAccount,
+                    null,
+                    null
+                )
             )
-            .ReturnsAsync((InstanceInternal _, DataElementInternal de, int? _) => de);
+            .ReturnsAsync(
+                (InstanceInternal _, DataElementInternal de, int? _, int? _, int? _) => de
+            );
 
         int deleted = await target.CleanupGeneratedFromTask(
             instance,
@@ -220,11 +234,11 @@ public class ProcessDataCleanupServiceTests
         Assert.Same(keep, instance.Data[0]);
 
         _dataServiceMock.Verify(
-            d => d.DeleteImmediately(instance, match1, _storageAccount),
+            d => d.DeleteImmediately(instance, match1, _storageAccount, null, null),
             Times.Once
         );
         _dataServiceMock.Verify(
-            d => d.DeleteImmediately(instance, match2, _storageAccount),
+            d => d.DeleteImmediately(instance, match2, _storageAccount, null, null),
             Times.Once
         );
     }
@@ -246,13 +260,13 @@ public class ProcessDataCleanupServiceTests
         };
 
         _dataServiceMock
-            .Setup(d => d.DeleteImmediately(instance, first, _storageAccount))
+            .Setup(d => d.DeleteImmediately(instance, first, _storageAccount, null, null))
             .ReturnsAsync(first);
         _dataServiceMock
-            .Setup(d => d.DeleteImmediately(instance, failing, _storageAccount))
+            .Setup(d => d.DeleteImmediately(instance, failing, _storageAccount, null, null))
             .ThrowsAsync(new InvalidOperationException("boom"));
         _dataServiceMock
-            .Setup(d => d.DeleteImmediately(instance, last, _storageAccount))
+            .Setup(d => d.DeleteImmediately(instance, last, _storageAccount, null, null))
             .ReturnsAsync(last);
 
         int deleted = await target.CleanupGeneratedFromTask(
@@ -310,7 +324,7 @@ public class ProcessDataCleanupServiceTests
         using CancellationTokenSource cts = new();
 
         _dataServiceMock
-            .Setup(d => d.DeleteImmediately(instance, first, _storageAccount))
+            .Setup(d => d.DeleteImmediately(instance, first, _storageAccount, null, null))
             .Callback(cts.Cancel)
             .ReturnsAsync(first);
 
@@ -319,7 +333,7 @@ public class ProcessDataCleanupServiceTests
         );
 
         _dataServiceMock.Verify(
-            d => d.DeleteImmediately(instance, second, It.IsAny<int?>()),
+            d => d.DeleteImmediately(instance, second, It.IsAny<int?>(), null, null),
             Times.Never
         );
     }

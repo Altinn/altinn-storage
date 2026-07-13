@@ -341,12 +341,12 @@ public class DataServiceTests
                 drm.Create(
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<long>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
                 )
             )
-            .ReturnsAsync(
-                (DataElementInternal dataElement, long _, CancellationToken _) => dataElement
-            );
+            .ReturnsAsync((DataElementInternal de, long _, CancellationToken _) => de);
 
         Guid instanceGuid = Guid.NewGuid();
         Guid dataElementId = Guid.NewGuid();
@@ -376,7 +376,7 @@ public class DataServiceTests
         );
 
         // Act
-        (DataElementInternal created, _) = await dataService.UploadDataAndCreateDataElement(
+        (DataElementInternal created, _, _) = await dataService.UploadDataAndCreateDataElement(
             instance,
             new MemoryStream(Encoding.UTF8.GetBytes("whatever")),
             options,
@@ -401,7 +401,9 @@ public class DataServiceTests
                         && de.BlobVersionId == allocatedBlobVersionId
                     ),
                     It.IsAny<long>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
                 ),
             Times.Once
         );
@@ -481,7 +483,9 @@ public class DataServiceTests
                 repository.Create(
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<long>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
                 ),
             Times.Never
         );
@@ -555,14 +559,16 @@ public class DataServiceTests
                 repository.Create(
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<long>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
                 ),
             Times.Never
         );
     }
 
     [Fact]
-    public async Task UploadDataAndCreateDataElement_CreateThrows_DoesNotDeleteExplicitVersionBlob()
+    public async Task UploadDataAndCreateDataElement_CreateThrows_DeletesAllocatedVersionBlob()
     {
         string allocatedBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
         Guid dataElementId = Guid.NewGuid();
@@ -585,7 +591,9 @@ public class DataServiceTests
                 repository.Create(
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<long>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
                 )
             )
             .ThrowsAsync(new InvalidOperationException("metadata create failed"));
@@ -616,8 +624,14 @@ public class DataServiceTests
         Assert.Equal("metadata create failed", exception.Message);
         blobRepository.Verify(
             repository =>
-                repository.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
-            Times.Never
+                repository.DeleteBlob(
+                    "ttd",
+                    It.Is<string>(path =>
+                        path.EndsWith($"/data-elements/{allocatedBlobVersionId}")
+                    ),
+                    null
+                ),
+            Times.Once
         );
         dataRepository.Verify(
             repository =>
@@ -626,7 +640,7 @@ public class DataServiceTests
                     allocatedBlobVersionId,
                     It.IsAny<CancellationToken>()
                 ),
-            Times.Never
+            Times.Once
         );
     }
 
@@ -664,7 +678,9 @@ public class DataServiceTests
                 repository.Create(
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<long>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
                 )
             )
             .ThrowsAsync(new InvalidOperationException("metadata create failed"));
@@ -703,7 +719,15 @@ public class DataServiceTests
                     It.IsAny<CancellationToken>()
                 )
             )
-            .ReturnsAsync(new DataElementInternal());
+            .ReturnsAsync(
+                (
+                    Guid _,
+                    Guid _,
+                    Dictionary<string, object> _,
+                    DataElementUpdateContext _,
+                    CancellationToken _
+                ) => new DataElement()
+            );
         dataRepository
             .Setup(repository =>
                 repository.Delete(It.IsAny<DataElementInternal>(), It.IsAny<CancellationToken>())
@@ -892,7 +916,7 @@ public class DataServiceTests
                     instanceGuid,
                     dataElementId,
                     It.IsAny<System.Collections.Generic.Dictionary<string, object>>(),
-                    null,
+                    It.IsAny<DataElementUpdateContext>(),
                     CancellationToken.None
                 )
             )

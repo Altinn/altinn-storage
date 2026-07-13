@@ -87,7 +87,7 @@ public class DataBlobIntegrationTests
         };
 
         // Act
-        (DataElementInternal createdDataElement, DateTimeOffset blobTimestamp) =
+        (DataElementInternal createdDataElement, DateTimeOffset blobTimestamp, _) =
             await dataService.UploadDataAndCreateDataElement(
                 _instanceInternal,
                 new MemoryStream(Encoding.UTF8.GetBytes(content)),

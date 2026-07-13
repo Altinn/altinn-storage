@@ -193,17 +193,8 @@ public class CleanupController(
                     );
                 }
 
-                if (!await dataRepository.Delete(dataElement, cancellationToken))
-                {
-                    _logger.LogError(
-                        "CleanupController // CleanupDataelements // Data element not found for dataElement Id: {dataElementId}",
-                        dataElement.Id
-                    );
-                }
-                else
-                {
-                    successfullyDeleted++;
-                }
+                await dataRepository.Delete(dataElement, cancellationToken);
+                successfullyDeleted++;
             }
             catch (Exception e)
             {

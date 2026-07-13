@@ -1,8 +1,10 @@
-#nullable disable
+#nullable enable annotations
+#nullable disable warnings
 
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,6 +20,8 @@ public class DataRepositoryMock : IDataRepository
 {
     private readonly Dictionary<string, string> _tempRepository;
     private readonly Dictionary<string, List<string>> _blobVersions;
+    private int _instanceVersion = 1;
+    private int _processStateVersion = 1;
     private static readonly JsonSerializerOptions _options = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -30,21 +34,29 @@ public class DataRepositoryMock : IDataRepository
         _blobVersions = new();
     }
 
-    public async Task<DataElementInternal> Create(
+    public async Task<DataElementWriteResult> Create(
         DataElementInternal dataElement,
         long instanceInternalId = 0,
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken = default,
+        int? expectedInstanceVersion = null,
+        int? expectedProcessStateVersion = null
     )
     {
+        ThrowIfVersionMismatch(expectedInstanceVersion, expectedProcessStateVersion);
         _tempRepository.Add(dataElement.Id, JsonSerializer.Serialize(dataElement, _options));
         AddBlobVersion(dataElement.Id, dataElement.BlobVersionId);
-        return await Task.FromResult(dataElement);
+        StorageVersions versions = BumpInstanceVersion();
+        return await Task.FromResult(new DataElementWriteResult(dataElement, versions));
     }
 
     public async Task<bool> Delete(
         DataElementInternal dataElement,
         CancellationToken cancellationToken = default
-    ) => await Task.FromResult(true);
+    )
+    {
+        _tempRepository.Remove(dataElement.Id);
+        return await Task.FromResult(true);
+    }
 
     public async Task<DataElementInternal> Read(
         Guid instanceGuid,
@@ -53,6 +65,16 @@ public class DataRepositoryMock : IDataRepository
     )
     {
         DataElementInternal dataElement = null;
+
+        if (_tempRepository.TryGetValue(dataElementId.ToString(), out string serializedDataElement))
+        {
+            dataElement = JsonSerializer.Deserialize<DataElementInternal>(
+                serializedDataElement,
+                _options
+            );
+            dataElement.BlobVersionId = GetLatestBlobVersion(dataElement.Id);
+            return await Task.FromResult(dataElement);
+        }
 
         lock (TestDataUtil.DataLock)
         {
@@ -69,16 +91,15 @@ public class DataRepositoryMock : IDataRepository
 
         if (dataElement != null)
         {
-            dataElement.BlobVersionId = GetLatestBlobVersion(dataElement.Id);
             _tempRepository[dataElement.Id] = JsonSerializer.Serialize(dataElement, _options);
-
+            dataElement.BlobVersionId = GetLatestBlobVersion(dataElement.Id);
             return await Task.FromResult(dataElement);
         }
 
         return null;
     }
 
-    public async Task<DataElementInternal> Update(
+    public async Task<DataElementWriteResult> Update(
         Guid instanceGuid,
         Guid dataElementId,
         Dictionary<string, object> propertylist,
@@ -86,78 +107,11 @@ public class DataRepositoryMock : IDataRepository
         CancellationToken cancellationToken = default
     )
     {
-        DataElementInternal dataElement = null;
-        if (_tempRepository.TryGetValue(dataElementId.ToString(), out string serializedDataElement))
-        {
-            dataElement = JsonSerializer.Deserialize<DataElementInternal>(
-                serializedDataElement,
-                _options
-            );
-        }
-        else
-        {
-            dataElement = await Read(instanceGuid, dataElementId, cancellationToken);
-        }
-
-        if (dataElement == null)
-        {
-            throw new RepositoryException(
-                "Data element not found",
-                System.Net.HttpStatusCode.NotFound
-            );
-        }
-
-        foreach (var entry in propertylist)
-        {
-            if (entry.Key == "/fileScanResult")
-            {
-                dataElement.FileScanResult = (FileScanResult)entry.Value;
-            }
-
-            if (entry.Key == "/locked")
-            {
-                dataElement.Locked = (bool)entry.Value;
-            }
-
-            if (entry.Key == "/currentBlobVersion")
-            {
-                AddBlobVersion(dataElementId.ToString(), (string)entry.Value);
-                dataElement.BlobVersionId = (string)entry.Value;
-            }
-
-            if (entry.Key == "/blobStoragePath")
-            {
-                dataElement.BlobStoragePath = (string)entry.Value;
-            }
-
-            if (entry.Key == "/deleteStatus")
-            {
-                dataElement.DeleteStatus = (DeleteStatus)entry.Value;
-            }
-
-            if (entry.Key == "/lastChanged")
-            {
-                dataElement.LastChanged = (DateTime?)entry.Value;
-            }
-
-            if (entry.Key == "/lastChangedBy")
-            {
-                dataElement.LastChangedBy = (string)entry.Value;
-            }
-        }
-
-        _tempRepository[dataElementId.ToString()] = JsonSerializer.Serialize(dataElement, _options);
-
-        return dataElement;
-    }
-
-    public async Task<DataElementInternal> UpdateFileScanStatus(
-        Guid instanceGuid,
-        Guid dataElementId,
-        FileScanStatus fileScanStatus,
-        CancellationToken cancellationToken = default
-    )
-    {
+        context ??= new DataElementUpdateContext();
+        ThrowIfVersionMismatch(
+            context.ExpectedInstanceVersion,
+            context.ExpectedProcessStateVersion
+        );
         DataElementInternal dataElement = null;
         if (_tempRepository.TryGetValue(dataElementId.ToString(), out string serializedDataElement))
         {
@@ -180,6 +134,117 @@ public class DataRepositoryMock : IDataRepository
         }
 
         if (
+            !string.IsNullOrEmpty(context.ExpectedCurrentBlobVersion)
+            && !string.Equals(
+                context.ExpectedCurrentBlobVersion,
+                GetLatestBlobVersion(dataElement.Id),
+                StringComparison.Ordinal
+            )
+        )
+        {
+            throw new DataElementBlobVersionMismatchException(
+                "Data element current blob version did not match expected version."
+            );
+        }
+
+        foreach (var entry in propertylist)
+        {
+            if (entry.Key == "/fileScanResult")
+            {
+                dataElement.FileScanResult = (FileScanResult)entry.Value;
+            }
+
+            if (entry.Key == "/locked")
+            {
+                dataElement.Locked = (bool)entry.Value;
+            }
+
+            if (entry.Key == "/currentBlobVersion")
+            {
+                AddBlobVersion(dataElementId.ToString(), (string)entry.Value);
+            }
+
+            if (entry.Key == "/blobStoragePath")
+            {
+                dataElement.BlobStoragePath = (string)entry.Value;
+            }
+
+            if (entry.Key == "/deleteStatus")
+            {
+                dataElement.DeleteStatus = (DeleteStatus)entry.Value;
+            }
+
+            if (entry.Key == "/lastChanged")
+            {
+                dataElement.LastChanged = (DateTime?)entry.Value;
+            }
+
+            if (entry.Key == "/lastChangedBy")
+            {
+                dataElement.LastChangedBy = (string)entry.Value;
+            }
+
+            if (entry.Key == "/isRead")
+            {
+                dataElement.IsRead = (bool)entry.Value;
+            }
+        }
+
+        _tempRepository[dataElementId.ToString()] = JsonSerializer.Serialize(dataElement, _options);
+
+        StorageVersions versions = BumpInstanceVersion();
+        dataElement.BlobVersionId = GetLatestBlobVersion(dataElement.Id);
+        return new DataElementWriteResult(dataElement, versions);
+    }
+
+    public async Task<DataElementWriteResult> UpdateReadStatus(
+        Guid instanceGuid,
+        Guid dataElementId,
+        bool isRead,
+        CancellationToken cancellationToken = default
+    )
+    {
+        DataElementInternal dataElement = await GetDataElement(
+            instanceGuid,
+            dataElementId,
+            cancellationToken
+        );
+        dataElement.IsRead = isRead;
+        _tempRepository[dataElement.Id] = JsonSerializer.Serialize(dataElement, _options);
+        return WithVersions(dataElement);
+    }
+
+    public async Task<DataElementWriteResult> UpdateLockStatus(
+        Guid instanceGuid,
+        Guid dataElementId,
+        bool locked,
+        CancellationToken cancellationToken = default
+    )
+    {
+        DataElementInternal dataElement = await GetDataElement(
+            instanceGuid,
+            dataElementId,
+            cancellationToken
+        );
+        dataElement.Locked = locked;
+        _tempRepository[dataElement.Id] = JsonSerializer.Serialize(dataElement, _options);
+        return WithVersions(dataElement);
+    }
+
+    public async Task<DataElementWriteResult?> UpdateFileScanStatus(
+        Guid instanceGuid,
+        Guid dataElementId,
+        FileScanStatus fileScanStatus,
+        CancellationToken cancellationToken = default
+    )
+    {
+        DataElementInternal dataElement = await GetDataElement(
+            instanceGuid,
+            dataElementId,
+            cancellationToken
+        );
+
+        if (
             !string.IsNullOrEmpty(fileScanStatus.BlobVersionId)
             && !string.Equals(
                 fileScanStatus.BlobVersionId,
@@ -192,10 +257,9 @@ public class DataRepositoryMock : IDataRepository
         }
 
         dataElement.FileScanResult = fileScanStatus.FileScanResult;
-        dataElement.BlobVersionId = GetLatestBlobVersion(dataElement.Id);
         _tempRepository[dataElement.Id] = JsonSerializer.Serialize(dataElement, _options);
 
-        return dataElement;
+        return WithVersions(dataElement);
     }
 
     public Task<string> CreateBlobVersionId(
@@ -268,7 +332,6 @@ public class DataRepositoryMock : IDataRepository
                     appId = dataElement.BlobStoragePath[..markerIndex];
                 }
             }
-
             string blobStorageOrg = appId?.Split('/')[0];
             IReadOnlyList<BlobVersionReferencesInternal> blobVersions =
             [
@@ -300,7 +363,7 @@ public class DataRepositoryMock : IDataRepository
     public Task<bool> DeleteForInstance(
         string instanceId,
         CancellationToken cancellationToken = default
-    ) => throw new NotImplementedException();
+    ) => Task.FromResult(true);
 
     private static string GetDataElementsPath()
     {
@@ -349,4 +412,62 @@ public class DataRepositoryMock : IDataRepository
             ? versions[^1]
             : null;
     }
+
+    private async Task<DataElementInternal> GetDataElement(
+        Guid instanceGuid,
+        Guid dataElementId,
+        CancellationToken cancellationToken
+    )
+    {
+        DataElementInternal dataElement = null;
+        if (_tempRepository.TryGetValue(dataElementId.ToString(), out string serializedDataElement))
+        {
+            dataElement = JsonSerializer.Deserialize<DataElementInternal>(
+                serializedDataElement,
+                _options
+            );
+        }
+        else
+        {
+            dataElement = await Read(instanceGuid, dataElementId, cancellationToken);
+        }
+
+        if (dataElement == null)
+        {
+            throw new RepositoryException(
+                "Data element not found",
+                System.Net.HttpStatusCode.NotFound
+            );
+        }
+
+        return dataElement;
+    }
+
+    private void ThrowIfVersionMismatch(
+        int? expectedInstanceVersion,
+        int? expectedProcessStateVersion
+    )
+    {
+        if (expectedInstanceVersion is not null && expectedInstanceVersion != _instanceVersion)
+        {
+            throw new InstanceVersionMismatchException(_instanceVersion, _processStateVersion);
+        }
+
+        if (
+            expectedProcessStateVersion is not null
+            && expectedProcessStateVersion != _processStateVersion
+        )
+        {
+            throw new ProcessStateVersionMismatchException(_instanceVersion, _processStateVersion);
+        }
+    }
+
+    private StorageVersions BumpInstanceVersion()
+    {
+        _instanceVersion++;
+        return new StorageVersions(_instanceVersion, _processStateVersion);
+    }
+
+    private DataElementWriteResult WithVersions(DataElementInternal dataElement) =>
+        new(dataElement, new StorageVersions(_instanceVersion, _processStateVersion));
 }

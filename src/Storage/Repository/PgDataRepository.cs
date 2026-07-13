@@ -1,4 +1,5 @@
-﻿#nullable disable
+﻿#nullable enable annotations
+#nullable disable warnings
 
 using System;
 using System.Collections.Generic;
@@ -30,12 +31,18 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     : IDataRepository
 {
     private readonly string _insertSql =
-        "select * from storage.insertdataelement_v3 ($1, $2, $3, $4, $5)";
+        "select * from storage.insertdataelement_v3 ($1, $2, $3, $4, $5, $6, $7)";
     private readonly string _readSql = "select * from storage.readdataelement_v2($1)";
     private readonly string _deleteSql = "select * from storage.deletedataelement_v2 ($1, $2, $3)";
     private readonly string _deleteForInstanceSql = "select * from storage.deletedataelements ($1)";
     private readonly string _updateSql =
-        "select * from storage.updatedataelement_v3 ($1, $2, $3, $4, $5, $6, $7, $8, $9)";
+        "select * from storage.updatedataelement_v3 ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)";
+    private readonly string _updateReadStatusSql =
+        "select * from storage.updatedataelement_readstatus ($1, $2, $3)";
+    private readonly string _updateLockStatusSql =
+        "select * from storage.updatedataelement_lockstatus ($1, $2, $3)";
+    private readonly string _updateFileScanStatusSql =
+        "select * from storage.updatedataelement_filescanstatus ($1, $2, $3, $4)";
     private readonly string _createBlobVersionSql =
         "select storage.createblobversion($1, $2, $3, $4, $5, $6)";
     private readonly string _deleteBlobVersionSql =
@@ -47,10 +54,12 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     private readonly NpgsqlDataSource _dataSource = dataSource;
 
     /// <inheritdoc/>
-    public async Task<DataElementInternal> Create(
+    public async Task<DataElementWriteResult> Create(
         DataElementInternal dataElement,
         long instanceInternalId = 0,
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken = default,
+        int? expectedInstanceVersion = null,
+        int? expectedProcessStateVersion = null
     )
     {
         if (string.IsNullOrEmpty(dataElement.Id))
@@ -64,6 +73,14 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, dataElement);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, ToBlobVersion(dataElement.BlobVersionId));
+        pgcom.Parameters.AddWithValue(
+            NpgsqlDbType.Integer,
+            expectedInstanceVersion ?? (object)DBNull.Value
+        );
+        pgcom.Parameters.AddWithValue(
+            NpgsqlDbType.Integer,
+            expectedProcessStateVersion ?? (object)DBNull.Value
+        );
 
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
         if (await reader.ReadAsync(cancellationToken))
@@ -85,13 +102,19 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
                         $"Blob version {dataElement.BlobVersionId} is not available for data element {dataElement.Id}.",
                         HttpStatusCode.Conflict
                     ),
+                    "instance_version_mismatch" => CreateInstanceVersionMismatchException(reader),
+                    "process_state_version_mismatch" => CreateProcessStateVersionMismatchException(
+                        reader
+                    ),
                     _ => new UnreachableException(
                         $"Unexpected data element create result '{result}'."
                     ),
                 };
             }
 
-            return await ReadDataElementAsync(reader, "updatedElement", cancellationToken);
+            dataElement = await ReadDataElementAsync(reader, "updatedElement", cancellationToken);
+            StorageVersions versions = ReadVersionResult(reader);
+            return new DataElementWriteResult(dataElement, versions);
         }
 
         throw new RepositoryException(
@@ -161,7 +184,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     }
 
     /// <inheritdoc/>
-    public async Task<DataElementInternal> Update(
+    public async Task<DataElementWriteResult> Update(
         Guid instanceGuid,
         Guid dataElementId,
         Dictionary<string, object> propertylist,
@@ -292,6 +315,14 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
             ToBlobVersion(context.ExpectedCurrentBlobVersion)
         );
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Boolean, context.EnforceLockCheck);
+        pgcom.Parameters.AddWithValue(
+            NpgsqlDbType.Integer,
+            context.ExpectedInstanceVersion ?? (object)DBNull.Value
+        );
+        pgcom.Parameters.AddWithValue(
+            NpgsqlDbType.Integer,
+            context.ExpectedProcessStateVersion ?? (object)DBNull.Value
+        );
 
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
         if (await reader.ReadAsync(cancellationToken))
@@ -320,13 +351,23 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
                         $"Blob version was not available for data element {dataElementId}.",
                         HttpStatusCode.Conflict
                     ),
+                    "instance_version_mismatch" => CreateInstanceVersionMismatchException(reader),
+                    "process_state_version_mismatch" => CreateProcessStateVersionMismatchException(
+                        reader
+                    ),
                     _ => new UnreachableException(
                         $"Unexpected data element update result '{result}'."
                     ),
                 };
             }
 
-            return await ReadDataElementAsync(reader, "updatedElement", cancellationToken);
+            DataElementInternal updatedElement = await ReadDataElementAsync(
+                reader,
+                "updatedElement",
+                cancellationToken
+            );
+            StorageVersions versions = ReadVersionResult(reader);
+            return new DataElementWriteResult(updatedElement, versions);
         }
 
         throw new RepositoryException(
@@ -336,49 +377,129 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     }
 
     /// <inheritdoc/>
-    public async Task<DataElementInternal> UpdateFileScanStatus(
+    public async Task<DataElementWriteResult> UpdateReadStatus(
+        Guid instanceGuid,
+        Guid dataElementId,
+        bool isRead,
+        CancellationToken cancellationToken = default
+    )
+    {
+        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateReadStatusSql);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Boolean, isRead);
+
+        await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
+        if (await reader.ReadAsync(cancellationToken))
+        {
+            string result = await reader.GetFieldValueAsync<string>("result", cancellationToken);
+            if (result == "not_found")
+            {
+                throw new RepositoryException(
+                    $"Data element {dataElementId} was not found.",
+                    HttpStatusCode.NotFound
+                );
+            }
+
+            if (result != "ok")
+            {
+                throw new UnreachableException(
+                    $"Unexpected data element read status update result '{result}'."
+                );
+            }
+
+            DataElementInternal updatedElement = await ReadDataElementAsync(
+                reader,
+                "updatedElement",
+                cancellationToken
+            );
+            StorageVersions versions = ReadVersionResult(reader);
+            return new DataElementWriteResult(updatedElement, versions);
+        }
+
+        throw new RepositoryException(
+            $"Data element {dataElementId} was not found.",
+            HttpStatusCode.NotFound
+        );
+    }
+
+    /// <inheritdoc/>
+    public async Task<DataElementWriteResult> UpdateLockStatus(
+        Guid instanceGuid,
+        Guid dataElementId,
+        bool locked,
+        CancellationToken cancellationToken = default
+    )
+    {
+        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateLockStatusSql);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Boolean, locked);
+
+        await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
+        if (await reader.ReadAsync(cancellationToken))
+        {
+            string result = await reader.GetFieldValueAsync<string>("result", cancellationToken);
+            if (result == "not_found")
+            {
+                throw new RepositoryException(
+                    $"Data element {dataElementId} was not found.",
+                    HttpStatusCode.NotFound
+                );
+            }
+
+            if (result != "ok")
+            {
+                throw new UnreachableException(
+                    $"Unexpected data element lock status update result '{result}'."
+                );
+            }
+
+            DataElementInternal updatedElement = await ReadDataElementAsync(
+                reader,
+                "updatedElement",
+                cancellationToken
+            );
+            StorageVersions versions = ReadVersionResult(reader);
+            return new DataElementWriteResult(updatedElement, versions);
+        }
+
+        throw new RepositoryException(
+            $"Data element {dataElementId} was not found.",
+            HttpStatusCode.NotFound
+        );
+    }
+
+    /// <inheritdoc/>
+    public async Task<DataElementWriteResult?> UpdateFileScanStatus(
         Guid instanceGuid,
         Guid dataElementId,
         FileScanStatus fileScanStatus,
         CancellationToken cancellationToken = default
     )
     {
-        DataElementInternal element = new() { FileScanResult = fileScanStatus.FileScanResult };
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateSql);
+        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateFileScanStatusSql);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
         pgcom.Parameters.AddWithValue(
             NpgsqlDbType.Jsonb,
-            CustomSerializer.Serialize(element, [nameof(DataElementInternal.FileScanResult)])
+            CustomSerializer.Serialize(
+                new DataElementInternal { FileScanResult = fileScanStatus.FileScanResult },
+                [nameof(DataElementInternal.FileScanResult)]
+            )
         );
-        pgcom.Parameters.AddWithValue(
-            NpgsqlDbType.Jsonb,
-            CustomSerializer.Serialize(new InstanceInternal(), [])
-        );
-        pgcom.Parameters.AddWithValue(NpgsqlDbType.Boolean, false);
-        pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, DBNull.Value);
-        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, DBNull.Value);
         pgcom.Parameters.AddWithValue(
             NpgsqlDbType.Uuid,
             ToBlobVersion(fileScanStatus.BlobVersionId)
         );
-        pgcom.Parameters.AddWithValue(NpgsqlDbType.Boolean, false);
 
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
         if (await reader.ReadAsync(cancellationToken))
         {
             string result = await reader.GetFieldValueAsync<string>("result", cancellationToken);
-            if (result is "not_found" or "version_mismatch")
+            if (result is "not_found" or "hard_deleted" or "version_mismatch")
             {
                 return null;
-            }
-
-            if (result == "hard_deleted")
-            {
-                throw new RepositoryException(
-                    $"Data element {dataElementId} is deleted and cannot be updated.",
-                    HttpStatusCode.NotFound
-                );
             }
 
             if (result != "ok")
@@ -388,10 +509,44 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
                 );
             }
 
-            return await ReadDataElementAsync(reader, "updatedElement", cancellationToken);
+            DataElementInternal updatedElement = await ReadDataElementAsync(
+                reader,
+                "updatedElement",
+                cancellationToken
+            );
+            StorageVersions versions = ReadVersionResult(reader);
+            return new DataElementWriteResult(updatedElement, versions);
         }
 
         return null;
+    }
+
+    private static StorageVersions ReadVersionResult(NpgsqlDataReader reader) =>
+        new(
+            reader.GetInt32(reader.GetOrdinal("instanceversion")),
+            reader.GetInt32(reader.GetOrdinal("processstateversion"))
+        );
+
+    private static InstanceVersionMismatchException CreateInstanceVersionMismatchException(
+        NpgsqlDataReader reader
+    )
+    {
+        StorageVersions versions = ReadVersionResult(reader);
+        return new InstanceVersionMismatchException(
+            versions.InstanceVersion,
+            versions.ProcessStateVersion
+        );
+    }
+
+    private static ProcessStateVersionMismatchException CreateProcessStateVersionMismatchException(
+        NpgsqlDataReader reader
+    )
+    {
+        StorageVersions versions = ReadVersionResult(reader);
+        return new ProcessStateVersionMismatchException(
+            versions.InstanceVersion,
+            versions.ProcessStateVersion
+        );
     }
 
     private static object ToBlobVersion(string blobVersionId)

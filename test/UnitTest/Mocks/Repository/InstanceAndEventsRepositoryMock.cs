@@ -23,8 +23,6 @@ public class InstanceAndEventsRepositoryMock : IInstanceAndEventsRepository
             return Task.FromResult<InstanceInternal>(null);
         }
 
-        instance.Data = [];
-
         return Task.FromResult(instance);
     }
 }

@@ -71,8 +71,7 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
                 ? new DateTime((((DateTime)instance.LastChanged).Ticks / 10) * 10, DateTimeKind.Utc)
                 : null;
 
-        List<DataElementInternal> dataElements = instance.Data;
-        long internalId = instance.InternalId;
+        InstanceInternal updateResult = null;
 
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var tx = await connection.BeginTransactionAsync(cancellationToken);
@@ -102,24 +101,31 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
                 await using var reader = await batch.ExecuteReaderAsync(cancellationToken);
                 if (await reader.ReadAsync(cancellationToken))
                 {
-                    instance = await reader.GetFieldValueAsync<InstanceInternal>(
-                        "updatedInstance",
+                    updateResult = await PgInstanceRepository.ReadUpdatedInstanceAsync(
+                        reader,
+                        instance.InternalId,
                         cancellationToken
                     );
                 }
             }
 
-            instance.Data = dataElements; // (Optional) Consider re-querying to reflect persisted state.
-            instance.InternalId = internalId;
+            if (updateResult is null)
+            {
+                throw PgInstanceRepository.CreateMissingUpdateResultException(
+                    "storage.updateinstance_v4"
+                );
+            }
+
+            updateResult.Data = instance.Data;
 
             if (_outboxRepository != null && events.Count > 0)
             {
                 InstanceEvent eventForSync = events.OrderByDescending(e => e.Created).First();
                 SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
-                    instance.AppId,
-                    instance.InstanceOwner.PartyId,
-                    instance.Id,
-                    (DateTime)instance.Created,
+                    updateResult.AppId,
+                    updateResult.InstanceOwner.PartyId,
+                    updateResult.Id,
+                    (DateTime)updateResult.Created,
                     false,
                     Enum.Parse<Interface.Enums.InstanceEventType>(eventForSync.EventType)
                 );
@@ -140,6 +146,6 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
             throw;
         }
 
-        return instance;
+        return updateResult;
     }
 }

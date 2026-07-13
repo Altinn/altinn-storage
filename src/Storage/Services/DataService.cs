@@ -116,16 +116,15 @@ public class DataService : IDataService
     }
 
     /// <inheritdoc/>
-    public async Task<(
-        DataElementInternal DataElement,
-        DateTimeOffset BlobTimestamp
-    )> UploadDataAndCreateDataElement(
+    public async Task<DataUploadResult> UploadDataAndCreateDataElement(
         InstanceInternal instance,
         Stream stream,
         DataElementCreateOptions options,
         long instanceInternalId,
         int? storageAccountNumber,
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken = default,
+        int? expectedInstanceVersion = null,
+        int? expectedProcessStateVersion = null
     )
     {
         string instanceGuid = instance.Id;
@@ -194,20 +193,45 @@ public class DataService : IDataService
             BlobVersionId = blobVersionId,
         };
 
-        DataElementInternal createdDataElement = await _dataRepository.Create(
-            dataElement,
-            instanceInternalId,
-            cancellationToken
-        );
+        DataElementWriteResult createdDataElement;
+        try
+        {
+            createdDataElement = await _dataRepository.Create(
+                dataElement,
+                instanceInternalId,
+                cancellationToken,
+                expectedInstanceVersion,
+                expectedProcessStateVersion
+            );
+        }
+        catch
+        {
+            await DeleteAllocatedBlobVersion(
+                _blobRepository,
+                _dataRepository,
+                instance.Org,
+                options.DataElementId,
+                blobStoragePath,
+                blobVersionId,
+                storageAccountNumber
+            );
+            throw;
+        }
 
-        return (createdDataElement, blobTimestamp);
+        return new DataUploadResult(
+            createdDataElement.DataElement,
+            blobTimestamp,
+            createdDataElement.Versions
+        );
     }
 
     /// <inheritdoc/>
     public async Task<DataElementInternal> DeleteImmediately(
         InstanceInternal instance,
         DataElementInternal dataElement,
-        int? storageAccountNumber
+        int? storageAccountNumber,
+        int? expectedInstanceVersion = null,
+        int? expectedProcessStateVersion = null
     )
     {
         Guid instanceGuid = Guid.Parse(dataElement.InstanceGuid);
@@ -217,7 +241,7 @@ public class DataService : IDataService
         DataElementInternal markedDataElement = null;
         try
         {
-            markedDataElement = await _dataRepository.Update(
+            DataElementWriteResult markedDataElementResult = await _dataRepository.Update(
                 instanceGuid,
                 dataElementId,
                 new Dictionary<string, object>
@@ -225,8 +249,14 @@ public class DataService : IDataService
                     { "/deleteStatus", deleteStatus },
                     { "/lastChanged", deletedTime },
                     { "/lastChangedBy", dataElement.LastChangedBy },
+                },
+                new DataElementUpdateContext
+                {
+                    ExpectedInstanceVersion = expectedInstanceVersion,
+                    ExpectedProcessStateVersion = expectedProcessStateVersion,
                 }
             );
+            markedDataElement = markedDataElementResult.DataElement;
         }
         catch (RepositoryException exception)
             when (exception.StatusCodeSuggestion == HttpStatusCode.NotFound)
@@ -277,7 +307,7 @@ public class DataService : IDataService
         }
 
         DataElementInternal deletedDataElement = markedDataElement ?? dataElement;
-        await _dataRepository.Delete(deletedDataElement);
+        await _dataRepository.Delete(deletedDataElement, CancellationToken.None);
         await _instanceEventService.DispatchEvent(
             InstanceEventType.Deleted,
             instance,

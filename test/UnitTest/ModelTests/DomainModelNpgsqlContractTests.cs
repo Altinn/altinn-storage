@@ -94,6 +94,7 @@ public sealed class DomainModelNpgsqlContractTests : IClassFixture<DomainModelNp
         Assert.Null(withNullKeys.PresentationTexts);
         Assert.Equal("yes", withNullKeys.DataValues["legacy"]);
         Assert.Null(withNullKeys.Data);
+        Assert.Null(withNullKeys.Versions);
         Assert.Equal(0, withNullKeys.InternalId);
 
         Assert.Equal("mixedCase-Id-Is-Preserved", withoutKeys.Id);
@@ -102,6 +103,7 @@ public sealed class DomainModelNpgsqlContractTests : IClassFixture<DomainModelNp
         Assert.Null(withoutKeys.Status);
         Assert.Null(withoutKeys.DataValues);
         Assert.Null(withoutKeys.Data);
+        Assert.Null(withoutKeys.Versions);
     }
 
     [Fact]

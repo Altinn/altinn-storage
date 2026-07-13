@@ -84,6 +84,13 @@ public class ProcessController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        (VersionPreconditions preconditions, ActionResult? preconditionError) =
+            VersionPreconditionHelper.TryParse(Request.Headers);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
         InstanceInternal existingInstance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
@@ -102,11 +109,21 @@ public class ProcessController : ControllerBase
 
         UpdateInstance(existingInstance, processState, out var updateProperties);
 
-        InstanceInternal updatedInstance = await _instanceRepository.Update(
-            existingInstance,
-            updateProperties,
-            cancellationToken
-        );
+        InstanceInternal updatedInstance;
+        try
+        {
+            updatedInstance = await _instanceRepository.Update(
+                existingInstance,
+                updateProperties,
+                cancellationToken,
+                preconditions.InstanceVersion,
+                preconditions.ProcessStateVersion
+            );
+        }
+        catch (StorageVersionMismatchException e)
+        {
+            return VersionPreconditionHelper.VersionMismatch(Response, e);
+        }
 
         if (processState?.CurrentTask?.AltinnTaskType == "signing")
         {
@@ -118,6 +135,7 @@ public class ProcessController : ControllerBase
 
         Instance responseInstance = updatedInstance.ToApiModel();
         responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
         return Ok(responseInstance);
     }
 
@@ -300,6 +318,7 @@ public class ProcessController : ControllerBase
             );
             if (instance?.InstanceOwner.PartyId == instanceOwnerPartyId.ToString())
             {
+                VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
                 return Ok(new AuthInfo() { Process = instance.Process, AppId = instance.AppId });
             }
         }
