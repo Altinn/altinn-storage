@@ -487,7 +487,7 @@ public class InstancesController : ControllerBase
             storedInstance = await _instanceRepository.Create(instanceToCreate, cancellationToken);
             await _instanceEventService.DispatchEvent(InstanceEventType.Created, storedInstance);
             _logger.LogInformation(
-                "Created instance: {storedInstance.Id}",
+                "Created instance: {InstanceId}",
                 storedInstance.Id.RemoveNewlines()
             );
             storedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
@@ -499,7 +499,7 @@ public class InstancesController : ControllerBase
         {
             _logger.LogError(
                 storageException,
-                "Unable to create {appId} instance for {instance.InstanceOwner.PartyId}",
+                "Unable to create {AppId} instance for {PartyId}",
                 appId.RemoveNewlines(),
                 instance.InstanceOwner.PartyId?.RemoveNewlines()
             );
@@ -510,10 +510,7 @@ public class InstancesController : ControllerBase
                 await _instanceRepository.Delete(storedInstance, cancellationToken);
             }
 
-            _logger.LogError(
-                "Deleted instance {storedInstance.Id}",
-                storedInstance?.Id.RemoveNewlines()
-            );
+            _logger.LogError("Deleted instance {InstanceId}", storedInstance?.Id.RemoveNewlines());
             return StatusCode(
                 500,
                 $"Unable to create {appId} instance for {instance.InstanceOwner?.PartyId} due to {storageException.Message}"
@@ -619,7 +616,7 @@ public class InstancesController : ControllerBase
         {
             _logger.LogError(
                 e,
-                "Unexpected exception when deleting instance {instance.Id}",
+                "Unexpected exception when deleting instance {InstanceId}",
                 instance.Id
             );
             return StatusCode(
@@ -644,6 +641,7 @@ public class InstancesController : ControllerBase
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_COMPLETE)]
     [HttpPost("{instanceOwnerPartyId:int}/{instanceGuid:guid}/complete")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> AddCompleteConfirmation(
         [FromRoute] int instanceOwnerPartyId,
@@ -657,6 +655,10 @@ public class InstancesController : ControllerBase
             true,
             cancellationToken
         );
+        if (instance is null)
+        {
+            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
+        }
 
         string org = User.GetOrg();
 
@@ -718,6 +720,7 @@ public class InstancesController : ControllerBase
     [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/readstatus")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> UpdateReadStatus(
         [FromRoute] int instanceOwnerPartyId,
@@ -738,6 +741,10 @@ public class InstancesController : ControllerBase
             true,
             cancellationToken
         );
+        if (instance is null)
+        {
+            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
+        }
 
         List<string> updateProperties =
         [
@@ -795,6 +802,7 @@ public class InstancesController : ControllerBase
     [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/substatus")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> UpdateSubstatus(
         [FromRoute] int instanceOwnerPartyId,
@@ -817,6 +825,10 @@ public class InstancesController : ControllerBase
             true,
             cancellationToken
         );
+        if (instance is null)
+        {
+            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
+        }
 
         string org = User.GetOrg();
         if (!instance.Org.Equals(org))
@@ -880,6 +892,7 @@ public class InstancesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Consumes("application/json")]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> UpdatePresentationTexts(
@@ -899,6 +912,10 @@ public class InstancesController : ControllerBase
             true,
             cancellationToken
         );
+        if (instance is null)
+        {
+            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
+        }
 
         if (!await _processAuthorizer.AuthorizePresentationTextsUpdate(instance))
         {
@@ -945,6 +962,7 @@ public class InstancesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Consumes("application/json")]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> UpdateDataValues(
@@ -964,6 +982,10 @@ public class InstancesController : ControllerBase
             true,
             cancellationToken
         );
+        if (instance is null)
+        {
+            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
+        }
 
         if (!await _processAuthorizer.AuthorizeDataValuesUpdate(instance))
         {
