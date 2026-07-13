@@ -124,6 +124,7 @@ public class DataLockControllerUnitTests
                             p
                         )
                     ),
+                    It.IsAny<DataElementUpdateContext>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -203,6 +204,7 @@ public class DataLockControllerUnitTests
                             p
                         )
                     ),
+                    It.IsAny<DataElementUpdateContext>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -362,6 +364,7 @@ public class DataLockControllerUnitTests
                                 propertyList
                             )
                         ),
+                        It.IsAny<DataElementUpdateContext>(),
                         It.IsAny<CancellationToken>()
                     )
                 )
@@ -381,6 +384,7 @@ public class DataLockControllerUnitTests
                                 propertyList
                             )
                         ),
+                        It.IsAny<DataElementUpdateContext>(),
                         It.IsAny<CancellationToken>()
                     )
                 )

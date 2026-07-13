@@ -131,7 +131,7 @@ public class ContentOnDemandController : Controller
         List<SignatureView> view = await JsonSerializer.DeserializeAsync<List<SignatureView>>(
             await _blobRepository.ReadBlob(
                 $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
-                $"{instance.Org}/{app}/{instanceGuid}/data/{signatureElement.Id}",
+                signatureElement.BlobStoragePath,
                 application.StorageAccountNumber,
                 cancellationToken
             ),
@@ -182,7 +182,7 @@ public class ContentOnDemandController : Controller
         PaymentView view = await JsonSerializer.DeserializeAsync<PaymentView>(
             await _blobRepository.ReadBlob(
                 $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
-                $"{instance.Org}/{app}/{instanceGuid}/data/{paymentElement.Id}",
+                paymentElement.BlobStoragePath,
                 application.StorageAccountNumber,
                 cancellationToken
             ),
@@ -505,8 +505,9 @@ public class ContentOnDemandController : Controller
 
         Stream blob = await _blobRepository.ReadBlob(
             $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
-            $"{instance.Org}/{app}/{instanceGuid}/data/{xmlElement.Id}",
-            application.StorageAccountNumber
+            xmlElement.BlobStoragePath,
+            application.StorageAccountNumber,
+            cancellationToken
         );
 
         return (_a2OndemandFormattingService.GetFormdataHtml(views, blob), views);

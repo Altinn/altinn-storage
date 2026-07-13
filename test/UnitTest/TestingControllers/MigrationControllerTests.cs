@@ -32,7 +32,9 @@ public class MigrationControllerTests : IClassFixture<InstanceFixture>
     {
         _instanceFixture = instanceFixture;
         _ = PostgresUtil
-            .RunSql("delete from storage.instances; delete from storage.dataelements;")
+            .RunSql(
+                "delete from storage.dataelementblobversions; delete from storage.instances; delete from storage.dataelements;"
+            )
             .Result;
     }
 

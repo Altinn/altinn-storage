@@ -47,7 +47,7 @@ public class DataElement : ChangableElement
     public string ContentType { get; set; }
 
     /// <summary>
-    /// Gets or sets the path to blob storage. Might be nullified in export.
+    /// Gets or sets the current path to blob storage. Might be nullified in export.
     /// </summary>
     [JsonProperty(PropertyName = "blobStoragePath")]
     public string BlobStoragePath { get; set; }

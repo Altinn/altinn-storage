@@ -132,9 +132,10 @@ public class DomainModelContractTests
             apiProperties,
             domainProperties,
             apiOnly: ["SelfLinks"],
-            domainOnly: []
+            domainOnly: ["BlobVersionId"]
         );
         AssertMatchingTypes(apiProperties, domainProperties, new Dictionary<string, Type>());
+        AssertJsonIgnoredProperties<DataElementInternal>("BlobVersionId");
         Assert.All(domainProperties.Values, property => Assert.True(property.CanWrite));
         Assert.False(typeof(DataElement).IsAssignableFrom(typeof(DataElementInternal)));
         Assert.Null(
@@ -213,6 +214,8 @@ public class DomainModelContractTests
 
         AssertNewtonsoftJsonEqual(JsonConvert.SerializeObject(expected), actualJson);
         Assert.Null(actual.SelfLinks);
+        Assert.DoesNotContain("blobVersionId", actualJson, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("blob-version-id", domain.BlobVersionId);
         Assert.Same(domain.Refs, actual.Refs);
         Assert.Same(domain.Tags, actual.Tags);
         Assert.Same(domain.UserDefinedMetadata, actual.UserDefinedMetadata);
@@ -231,13 +234,15 @@ public class DomainModelContractTests
     {
         DataElement api = DomainModelContractTestData.CreateApiDataElement();
 
-        DataElementInternal actual = api.FromApiModel();
+        DataElementInternal actual = api.FromApiModel("mapped-blob-version");
         string actualJson = System.Text.Json.JsonSerializer.Serialize(actual);
 
         AssertSystemTextJsonEqual(
             DomainModelContractTestData.ExpectedDataElementDatabaseJson,
             actualJson
         );
+        Assert.Equal("mapped-blob-version", actual.BlobVersionId);
+        Assert.DoesNotContain(nameof(DataElementInternal.BlobVersionId), actualJson);
         Assert.DoesNotContain("SelfLinks", PublicProperties<DataElementInternal>().Keys);
         Assert.Same(api.Refs, actual.Refs);
         Assert.Same(api.Tags, actual.Tags);

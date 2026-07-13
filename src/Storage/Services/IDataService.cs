@@ -50,19 +50,25 @@ public interface IDataService
     );
 
     /// <summary>
-    /// Upload file and save dataElement
+    /// Uploads a blob and creates data element metadata for its first explicit blob version.
     /// </summary>
-    /// <param name="org">The application owner id.</param>
+    /// <param name="instance">The internal instance the data element belongs to.</param>
     /// <param name="stream">Data to be written to blob storage.</param>
-    /// <param name="dataElement">The data element to insert.</param>
-    /// <param name="instanceInternalId">The internal id of the data element to insert.</param>
+    /// <param name="options">Metadata to use when creating the data element.</param>
+    /// <param name="instanceInternalId">The internal id of the parent instance.</param>
     /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
-    Task UploadDataAndCreateDataElement(
-        string org,
+    /// <param name="cancellationToken">A cancellation token to pass to async operations.</param>
+    /// <returns>The created data element with internal blob fields, and the blob timestamp.</returns>
+    Task<(
+        DataElementInternal DataElement,
+        DateTimeOffset BlobTimestamp
+    )> UploadDataAndCreateDataElement(
+        InstanceInternal instance,
         Stream stream,
-        DataElementInternal dataElement,
+        DataElementCreateOptions options,
         long instanceInternalId,
-        int? storageAccountNumber
+        int? storageAccountNumber,
+        CancellationToken cancellationToken = default
     );
 
     /// <summary>

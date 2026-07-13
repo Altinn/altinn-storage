@@ -1,7 +1,9 @@
 ﻿#nullable disable
 
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
@@ -63,6 +65,7 @@ public class DataService : IDataService
                 DataElementId = dataElement.Id,
                 Timestamp = blobTimestamp,
                 BlobStoragePath = dataElement.BlobStoragePath,
+                BlobVersionId = dataElement.BlobVersionId,
                 Filename = dataElement.Filename,
                 Org = instance.Org,
                 StorageAccountNumber = storageAccountNumber,
@@ -113,23 +116,91 @@ public class DataService : IDataService
     }
 
     /// <inheritdoc/>
-    public async Task UploadDataAndCreateDataElement(
-        string org,
+    public async Task<(
+        DataElementInternal DataElement,
+        DateTimeOffset BlobTimestamp
+    )> UploadDataAndCreateDataElement(
+        InstanceInternal instance,
         Stream stream,
-        DataElementInternal dataElement,
+        DataElementCreateOptions options,
         long instanceInternalId,
-        int? storageAccountNumber
+        int? storageAccountNumber,
+        CancellationToken cancellationToken = default
     )
     {
-        (long length, _) = await _blobRepository.WriteBlob(
-            org,
-            stream,
-            dataElement.BlobStoragePath,
-            storageAccountNumber
+        string instanceGuid = instance.Id;
+        string blobVersionId = await _dataRepository.CreateBlobVersionId(
+            Guid.Parse(instanceGuid),
+            options.DataElementId,
+            instance.AppId,
+            instance.Org,
+            storageAccountNumber,
+            cancellationToken
         );
-        dataElement.Size = length;
+        string blobStoragePath = BlobRepository.GetVersionedBlobPath(
+            instance.AppId,
+            instanceGuid,
+            blobVersionId
+        );
 
-        await _dataRepository.Create(dataElement, instanceInternalId);
+        long length;
+        DateTimeOffset blobTimestamp;
+        try
+        {
+            (length, blobTimestamp) = await _blobRepository.WriteBlob(
+                instance.Org,
+                stream,
+                blobStoragePath,
+                storageAccountNumber
+            );
+
+            if (length == 0L)
+            {
+                throw new InvalidDataException("Empty stream provided. Cannot persist data.");
+            }
+        }
+        catch
+        {
+            await DeleteAllocatedBlobVersion(
+                _blobRepository,
+                _dataRepository,
+                instance.Org,
+                options.DataElementId,
+                blobStoragePath,
+                blobVersionId,
+                storageAccountNumber
+            );
+            throw;
+        }
+
+        DataElementInternal dataElement = new()
+        {
+            Id = options.DataElementId.ToString(),
+            InstanceGuid = instanceGuid,
+            DataType = options.DataType,
+            ContentType = options.ContentType,
+            CreatedBy = options.CreatedBy,
+            Created = options.Created,
+            Filename = options.Filename,
+            LastChangedBy = options.CreatedBy,
+            LastChanged = options.Created,
+            Size = length,
+            Refs = options.Refs,
+            BlobStoragePath = blobStoragePath,
+            FileScanResult = options.FileScanResult,
+            Locked = options.Locked,
+            IsRead = options.IsRead,
+            References = CreateGeneratedFromTaskReferences(options.GeneratedFromTask),
+            BlobVersionId = blobVersionId,
+        };
+
+        DataElementInternal createdDataElement = await _dataRepository.Create(
+            dataElement,
+            instanceInternalId,
+            cancellationToken
+        );
+
+        return (createdDataElement, blobTimestamp);
     }
 
     /// <inheritdoc/>
@@ -139,19 +210,81 @@ public class DataService : IDataService
         int? storageAccountNumber
     )
     {
-        string storageFileName = DataElementHelper.DataFileName(
-            instance.AppId,
-            dataElement.InstanceGuid,
-            dataElement.Id
+        Guid instanceGuid = Guid.Parse(dataElement.InstanceGuid);
+        Guid dataElementId = Guid.Parse(dataElement.Id);
+        DateTime deletedTime = DateTime.UtcNow;
+        DeleteStatus deleteStatus = new() { IsHardDeleted = true, HardDeleted = deletedTime };
+        DataElementInternal markedDataElement = null;
+        try
+        {
+            markedDataElement = await _dataRepository.Update(
+                instanceGuid,
+                dataElementId,
+                new Dictionary<string, object>
+                {
+                    { "/deleteStatus", deleteStatus },
+                    { "/lastChanged", deletedTime },
+                    { "/lastChangedBy", dataElement.LastChangedBy },
+                }
+            );
+        }
+        catch (RepositoryException exception)
+            when (exception.StatusCodeSuggestion == HttpStatusCode.NotFound)
+        {
+            // A concurrent delete may have removed the metadata after the caller read it.
+            // Blob and metadata deletion below are idempotent and should still be attempted.
+        }
+
+        IReadOnlyList<BlobVersionReferencesInternal> blobVersions =
+            await _dataRepository.ReadBlobVersions(dataElementId) ?? [];
+
+        if (blobVersions.Count > 0)
+        {
+            foreach (BlobVersionReferencesInternal blobVersion in blobVersions)
+            {
+                foreach (string versionId in blobVersion.BlobVersionIds)
+                {
+                    await _blobRepository.DeleteBlob(
+                        blobVersion.BlobStorageOrg,
+                        BlobRepository.GetVersionedBlobPath(
+                            blobVersion.AppId,
+                            blobVersion.InstanceGuid.ToString(),
+                            versionId
+                        ),
+                        blobVersion.StorageAccountNumber
+                    );
+                }
+            }
+
+            string legacyBlobStoragePath = DataElementHelper.DataFileName(
+                instance.AppId,
+                instanceGuid.ToString(),
+                dataElementId.ToString()
+            );
+            await _blobRepository.DeleteBlob(
+                instance.Org,
+                legacyBlobStoragePath,
+                storageAccountNumber
+            );
+        }
+        else
+        {
+            await _blobRepository.DeleteBlob(
+                instance.Org,
+                dataElement.BlobStoragePath,
+                storageAccountNumber
+            );
+        }
+
+        DataElementInternal deletedDataElement = markedDataElement ?? dataElement;
+        await _dataRepository.Delete(deletedDataElement);
+        await _instanceEventService.DispatchEvent(
+            InstanceEventType.Deleted,
+            instance,
+            deletedDataElement
         );
 
-        await _blobRepository.DeleteBlob(instance.Org, storageFileName, storageAccountNumber);
-
-        await _dataRepository.Delete(dataElement);
-
-        await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, instance, dataElement);
-
-        return dataElement;
+        return deletedDataElement;
     }
 
     /// <summary>
@@ -163,5 +296,70 @@ public class DataService : IDataService
     private static string FormatShaDigest(byte[] digest)
     {
         return Convert.ToHexString(digest).ToLowerInvariant();
+    }
+
+    private static List<Reference> CreateGeneratedFromTaskReferences(string generatedFromTask)
+    {
+        if (string.IsNullOrEmpty(generatedFromTask))
+        {
+            return [];
+        }
+
+        return
+        [
+            new Reference
+            {
+                Relation = RelationType.GeneratedFrom,
+                Value = generatedFromTask,
+                ValueType = ReferenceType.Task,
+            },
+        ];
+    }
+
+    /// <summary>
+    /// Best-effort compensation after a failed write against an allocated blob version:
+    /// deletes the uploaded blob (if any) and then the allocation row. Never throws, so
+    /// the original failure stays visible to the caller.
+    /// </summary>
+    internal static async Task DeleteAllocatedBlobVersion(
+        IBlobRepository blobRepository,
+        IDataRepository dataRepository,
+        string org,
+        Guid dataElementId,
+        string blobStoragePath,
+        string blobVersionId,
+        int? storageAccountNumber
+    )
+    {
+        if (string.IsNullOrEmpty(blobVersionId))
+        {
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(blobStoragePath))
+        {
+            try
+            {
+                await blobRepository.DeleteBlob(org, blobStoragePath, storageAccountNumber);
+            }
+            catch
+            {
+                // Keep the allocation row so orphan cleanup can retry the blob delete later.
+                return;
+            }
+        }
+
+        try
+        {
+            await dataRepository.DeleteBlobVersion(
+                dataElementId,
+                blobVersionId,
+                CancellationToken.None
+            );
+        }
+        catch
+        {
+            // Best-effort compensation must not hide the original failure.
+        }
     }
 }

@@ -39,6 +39,11 @@ public class FileScanRequest
     public string BlobStoragePath { get; set; }
 
     /// <summary>
+    /// Gets or sets the explicit blob version ID to scan.
+    /// </summary>
+    public string BlobVersionId { get; set; }
+
+    /// <summary>
     /// Gets or sets the application owner identifier
     /// </summary>
     public string Org { get; set; }
