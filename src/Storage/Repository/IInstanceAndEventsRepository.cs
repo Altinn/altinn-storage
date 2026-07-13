@@ -20,7 +20,7 @@ public interface IInstanceAndEventsRepository
     /// <param name="updateProperties">a list of which properties should be updated</param>
     /// <param name="events">the events to add</param>
     /// <param name="cancellationToken">CancellationToken</param>
-    /// <returns>The updated instance</returns>
+    /// <returns>The updated instance with storage-owned version metadata.</returns>
     Task<InstanceInternal> Update(
         InstanceInternal instance,
         List<string> updateProperties,

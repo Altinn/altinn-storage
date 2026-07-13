@@ -287,10 +287,12 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                 ir.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
                 )
             )
-            .ReturnsAsync(testInstance.FromApiModel());
+            .ReturnsAsync(InstanceInternalTestFactory.Create(testInstance, [], InternalId: 0));
 
         // Act
         using HttpResponseMessage response = await SendUpdateRequest(
@@ -346,10 +348,12 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                 ir.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
                 )
             )
-            .ReturnsAsync(testInstance.FromApiModel());
+            .ReturnsAsync(InstanceInternalTestFactory.Create(testInstance, [], InternalId: 0));
 
         // Act
         using HttpResponseMessage response = await SendUpdateRequest(
@@ -405,10 +409,12 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                 ir.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
                 )
             )
-            .ReturnsAsync(testInstance.FromApiModel());
+            .ReturnsAsync(InstanceInternalTestFactory.Create(testInstance, [], InternalId: 0));
 
         // Act
         using HttpResponseMessage response = await SendUpdateRequest(
@@ -464,10 +470,12 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                 ir.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
                 )
             )
-            .ReturnsAsync(testInstance.FromApiModel());
+            .ReturnsAsync(InstanceInternalTestFactory.Create(testInstance, [], InternalId: 0));
 
         // Act
         using HttpResponseMessage response = await SendUpdateRequest(
@@ -575,10 +583,14 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                 ir.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
                 )
             )
-            .ReturnsAsync((InstanceInternal i, List<string> _, CancellationToken _) => i);
+            .ReturnsAsync(
+                (InstanceInternal i, List<string> _, CancellationToken _, int? _, int? _) => i
+            );
         batchRepositoryMock
             .Setup(ir =>
                 ir.Update(
@@ -889,10 +901,14 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                 ir.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
                 )
             )
-            .ReturnsAsync((InstanceInternal i, List<string> _, CancellationToken _) => i);
+            .ReturnsAsync(
+                (InstanceInternal i, List<string> _, CancellationToken _, int? _, int? _) => i
+            );
         batchRepositoryMock
             .Setup(ir =>
                 ir.Update(

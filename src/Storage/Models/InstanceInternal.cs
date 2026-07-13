@@ -97,6 +97,12 @@ public sealed class InstanceInternal
     public string LastChangedBy { get; set; }
 
     /// <summary>
+    /// Gets or sets storage-owned optimistic concurrency versions.
+    /// </summary>
+    [TextJson.JsonIgnore]
+    public StorageVersions Versions { get; set; }
+
+    /// <summary>
     /// Gets or sets the storage row identifier.
     /// </summary>
     /// <remarks>

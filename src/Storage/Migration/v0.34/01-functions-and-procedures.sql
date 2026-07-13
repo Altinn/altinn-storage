@@ -320,28 +320,48 @@ CREATE OR REPLACE FUNCTION storage.insertdataelement_v3(
     IN _instanceguid UUID,
     IN _alternateid UUID,
     IN _element JSONB,
-    IN _currentblobversion UUID)
-    RETURNS TABLE (updatedElement JSONB, currentblobversion UUID, result TEXT)
+    IN _currentblobversion UUID,
+    IN _expectedinstanceversion INT DEFAULT NULL,
+    IN _expectedprocessstateversion INT DEFAULT NULL)
+    RETURNS TABLE (updatedElement JSONB, currentblobversion UUID, instanceversion INT, processstateversion INT, result TEXT)
     LANGUAGE plpgsql
 AS $BODY$
 DECLARE
     _instanceIsHardDeleted BOOL;
+    _currentInstanceVersion INT;
+    _currentProcessStateVersion INT;
+    _newInstanceVersion INT;
 BEGIN
-    SELECT COALESCE((i.instance -> 'Status' ->> 'IsHardDeleted')::BOOLEAN, FALSE)
-        INTO _instanceIsHardDeleted
+    SELECT
+        COALESCE((i.instance -> 'Status' ->> 'IsHardDeleted')::BOOLEAN, FALSE),
+        i.instance_version,
+        i.process_state_version
+        INTO _instanceIsHardDeleted, _currentInstanceVersion, _currentProcessStateVersion
         FROM storage.instances i
         WHERE i.id = _instanceinternalid
         FOR UPDATE;
 
     IF NOT FOUND
     THEN
-        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, 'not_found'::TEXT;
+        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, NULL::INT, NULL::INT, 'not_found'::TEXT;
+        RETURN;
+    END IF;
+
+    IF _expectedinstanceversion IS NOT NULL AND _currentInstanceVersion <> _expectedinstanceversion
+    THEN
+        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, 'instance_version_mismatch'::TEXT;
+        RETURN;
+    END IF;
+
+    IF _expectedprocessstateversion IS NOT NULL AND _currentProcessStateVersion <> _expectedprocessstateversion
+    THEN
+        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, 'process_state_version_mismatch'::TEXT;
         RETURN;
     END IF;
 
     IF _instanceIsHardDeleted
     THEN
-        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, 'hard_deleted'::TEXT;
+        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, 'hard_deleted'::TEXT;
         RETURN;
     END IF;
 
@@ -356,7 +376,7 @@ BEGIN
 
         IF NOT FOUND
         THEN
-            RETURN QUERY SELECT NULL::JSONB, NULL::UUID, 'blob_version_not_found'::TEXT;
+            RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, 'blob_version_not_found'::TEXT;
             RETURN;
         END IF;
     END IF;
@@ -364,22 +384,25 @@ BEGIN
     -- Make sure that lastChanged has the Postgres precision (6 digits). The timestamp from C# DateTime and then json serialize has 7 digits
     _element := _element || jsonb_set('{"LastChanged":""}', '{LastChanged}', to_jsonb(REPLACE(((_element ->> 'LastChanged')::TIMESTAMPTZ AT TIME ZONE 'UTC')::TEXT, ' ', 'T') || 'Z'));
 
-    IF _element ->> 'IsRead' = 'false' THEN
-        UPDATE storage.instances
-        SET instance = jsonb_set(instance, '{Status, ReadStatus}', '2')
-        WHERE id = _instanceinternalid AND instance -> 'Status' ->> 'ReadStatus' = '1';
-    END IF;
-
     UPDATE storage.instances
         SET lastchanged = (_element ->> 'LastChanged')::TIMESTAMPTZ,
-            instance = instance
+            instance_version = instance_version + 1,
+            instance = (
+                CASE
+                    WHEN _element ->> 'IsRead' = 'false' AND instance -> 'Status' ->> 'ReadStatus' = '1'
+                    THEN jsonb_set(instance, '{Status, ReadStatus}', '2')
+                    ELSE instance
+                END
+            )
                 || jsonb_set('{"LastChanged":""}', '{LastChanged}', to_jsonb(_element ->> 'LastChanged'))
                 || jsonb_set('{"LastChangedBy":""}', '{LastChangedBy}', to_jsonb(_element ->> 'LastChangedBy'))
-        WHERE id = _instanceinternalid;
+        WHERE id = _instanceinternalid
+        RETURNING storage.instances.instance_version INTO _newInstanceVersion;
 
     RETURN QUERY
-        INSERT INTO storage.dataelements(instanceinternalid, instanceGuid, alternateid, element, currentblobversion) VALUES (_instanceinternalid, _instanceGuid, _alternateid, jsonb_strip_nulls(_element), _currentblobversion)
-            RETURNING element, storage.dataelements.currentblobversion, 'ok'::TEXT;
+        INSERT INTO storage.dataelements(instanceinternalid, instanceGuid, alternateid, element, currentblobversion)
+            VALUES (_instanceinternalid, _instanceGuid, _alternateid, jsonb_strip_nulls(_element), _currentblobversion)
+            RETURNING element, storage.dataelements.currentblobversion, _newInstanceVersion, _currentProcessStateVersion, 'ok'::TEXT;
 END;
 $BODY$;
 
@@ -605,13 +628,13 @@ $BODY$;
 
 -- readinstance.sql:
 CREATE OR REPLACE FUNCTION storage.readinstance_v2(_alternateid UUID)
-    RETURNS TABLE (id BIGINT, instance JSONB, element JSONB, currentblobversion UUID)
+    RETURNS TABLE (id BIGINT, instance JSONB, instanceversion INT, processstateversion INT, element JSONB, currentblobversion UUID)
     LANGUAGE 'plpgsql'
-    
+
 AS $BODY$
 BEGIN
-RETURN QUERY 
-    SELECT i.id, i.instance, d.element, d.currentblobversion FROM storage.instances i
+RETURN QUERY
+    SELECT i.id, i.instance, i.instance_version, i.process_state_version, d.element, d.currentblobversion FROM storage.instances i
         LEFT JOIN storage.dataelements d ON i.id = d.instanceinternalid
         WHERE i.alternateid = _alternateid
         ORDER BY d.id;
@@ -691,7 +714,7 @@ CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v9(
     _visibleAfter_lt TEXT DEFAULT NULL,
     _visibleAfter_lte TEXT DEFAULT NULL
     )
-    RETURNS TABLE (id BIGINT, instance JSONB, element JSONB, currentblobversion UUID)
+    RETURNS TABLE (id BIGINT, instance JSONB, instanceversion INT, processstateversion INT, element JSONB, currentblobversion UUID)
     LANGUAGE 'plpgsql'
 
 AS $BODY$
@@ -763,28 +786,31 @@ BEGIN
             i.id
         FETCH FIRST _size ROWS ONLY
     )
-        SELECT filteredInstances.id, filteredInstances.instance, d.element, d.currentblobversion FROM filteredInstances
+        SELECT filteredInstances.id, filteredInstances.instance, i.instance_version, i.process_state_version, d.element, d.currentblobversion FROM filteredInstances
+            JOIN storage.instances i ON filteredInstances.id = i.id
             LEFT JOIN storage.dataelements d ON filteredInstances.id = d.instanceInternalId AND _includeElements = TRUE
         ORDER BY
             (CASE WHEN _sort_ascending = true  THEN filteredInstances.lastChanged END) ASC,
             (CASE WHEN _sort_ascending = false THEN filteredInstances.lastChanged END) DESC,
-            filteredInstances.id;
+            filteredInstances.id,
+            d.id;
 END;
 $BODY$;
 
 
 -- readinstancenoelements.sql:
-CREATE OR REPLACE FUNCTION storage.readinstancenoelements(_alternateid UUID)
-    RETURNS TABLE (id BIGINT, instance JSONB)
+CREATE OR REPLACE FUNCTION storage.readinstancenoelements_v2(_alternateid UUID)
+    RETURNS TABLE (id BIGINT, instance JSONB, instanceversion INT, processstateversion INT)
     LANGUAGE 'plpgsql'
-    
+
 AS $BODY$
 BEGIN
-RETURN QUERY 
-    SELECT i.id, i.instance FROM storage.instances i
+RETURN QUERY
+    SELECT i.id, i.instance, i.instance_version, i.process_state_version FROM storage.instances i
         WHERE i.alternateid = _alternateid;
 END;
 $BODY$;
+
 
 -- updatea1migrationstatestarted.sql:
 CREATE OR REPLACE PROCEDURE storage.updatea1migrationstatestarted (_a1archivereference BIGINT, _instanceguid UUID)
@@ -806,6 +832,156 @@ BEGIN
 END;
 $BODY$;
 
+-- updatedataelement_filescanstatus.sql:
+CREATE OR REPLACE FUNCTION storage.updatedataelement_filescanstatus(
+    _dataelementGuid UUID,
+    _instanceGuid UUID,
+    _elementChanges JSONB,
+    _expectedcurrentblobversion UUID)
+    RETURNS TABLE (updatedElement JSONB, currentblobversion UUID, instanceversion INT, processstateversion INT, result TEXT)
+    LANGUAGE 'plpgsql'
+AS $BODY$
+DECLARE
+    _currentInstanceVersion INT;
+    _currentProcessStateVersion INT;
+    _dataElementCurrentBlobVersion UUID;
+BEGIN
+    SELECT
+        i.instance_version,
+        i.process_state_version
+        INTO _currentInstanceVersion, _currentProcessStateVersion
+        FROM storage.instances i
+        WHERE i.alternateid = _instanceGuid
+        FOR UPDATE;
+
+    IF NOT FOUND
+    THEN
+        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, NULL::INT, NULL::INT, 'not_found'::TEXT;
+        RETURN;
+    END IF;
+
+    SELECT d.currentblobversion
+        INTO _dataElementCurrentBlobVersion
+        FROM storage.dataelements d
+        WHERE d.alternateid = _dataelementGuid AND d.instanceguid = _instanceGuid
+        FOR UPDATE;
+
+    IF NOT FOUND
+    THEN
+        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, 'not_found'::TEXT;
+        RETURN;
+    END IF;
+
+    IF _expectedcurrentblobversion IS NOT NULL AND _dataElementCurrentBlobVersion IS DISTINCT FROM _expectedcurrentblobversion
+    THEN
+        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, 'version_mismatch'::TEXT;
+        RETURN;
+    END IF;
+
+    RETURN QUERY
+        UPDATE storage.dataelements
+            SET element = element || _elementChanges
+            WHERE alternateid = _dataelementGuid AND instanceguid = _instanceGuid
+            RETURNING element, storage.dataelements.currentblobversion, _currentInstanceVersion, _currentProcessStateVersion, 'ok'::TEXT;
+END;
+$BODY$;
+
+
+-- updatedataelement_lockstatus.sql:
+CREATE OR REPLACE FUNCTION storage.updatedataelement_lockstatus(
+    _dataelementGuid UUID,
+    _instanceGuid UUID,
+    _locked BOOL)
+    RETURNS TABLE (updatedElement JSONB, currentblobversion UUID, instanceversion INT, processstateversion INT, result TEXT)
+    LANGUAGE 'plpgsql'
+AS $BODY$
+DECLARE
+    _currentInstanceVersion INT;
+    _currentProcessStateVersion INT;
+BEGIN
+    SELECT i.instance_version, i.process_state_version
+        INTO _currentInstanceVersion, _currentProcessStateVersion
+        FROM storage.instances i
+        WHERE i.alternateid = _instanceGuid
+        FOR UPDATE;
+
+    IF NOT FOUND
+    THEN
+        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, NULL::INT, NULL::INT, 'not_found'::TEXT;
+        RETURN;
+    END IF;
+
+    RETURN QUERY
+        UPDATE storage.dataelements
+            SET element = element || jsonb_build_object('Locked', _locked)
+            WHERE alternateid = _dataelementGuid AND instanceguid = _instanceGuid
+            RETURNING element, storage.dataelements.currentblobversion, _currentInstanceVersion, _currentProcessStateVersion, 'ok'::TEXT;
+
+    IF NOT FOUND
+    THEN
+        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, 'not_found'::TEXT;
+    END IF;
+END;
+$BODY$;
+
+
+-- updatedataelement_readstatus.sql:
+CREATE OR REPLACE FUNCTION storage.updatedataelement_readstatus(
+    _dataelementGuid UUID,
+    _instanceGuid UUID,
+    _isRead BOOL)
+    RETURNS TABLE (updatedElement JSONB, currentblobversion UUID, instanceversion INT, processstateversion INT, result TEXT)
+    LANGUAGE 'plpgsql'
+AS $BODY$
+DECLARE
+    _currentInstanceVersion INT;
+    _currentProcessStateVersion INT;
+    _updatedElement JSONB;
+    _currentBlobVersion UUID;
+BEGIN
+    SELECT i.instance_version, i.process_state_version
+        INTO _currentInstanceVersion, _currentProcessStateVersion
+        FROM storage.instances i
+        WHERE i.alternateid = _instanceGuid
+        FOR UPDATE;
+
+    IF NOT FOUND
+    THEN
+        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, NULL::INT, NULL::INT, 'not_found'::TEXT;
+        RETURN;
+    END IF;
+
+    UPDATE storage.dataelements
+        SET element = element || jsonb_build_object('IsRead', _isRead)
+        WHERE alternateid = _dataelementGuid AND instanceguid = _instanceGuid
+        RETURNING element, storage.dataelements.currentblobversion
+            INTO _updatedElement, _currentBlobVersion;
+
+    IF NOT FOUND
+    THEN
+        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, 'not_found'::TEXT;
+        RETURN;
+    END IF;
+
+    IF _isRead = FALSE
+    THEN
+        UPDATE storage.instances
+            SET instance = jsonb_set(instance, '{Status, ReadStatus}', '0')
+            WHERE alternateid = _instanceGuid
+                AND instance -> 'Status' ->> 'ReadStatus' = '1'
+                AND NOT EXISTS (
+                    SELECT 1 FROM storage.dataelements
+                        WHERE element -> 'IsRead' = 'true'
+                            AND instanceguid = _instanceGuid
+                            AND alternateid <> _dataelementGuid
+                );
+    END IF;
+
+    RETURN QUERY SELECT _updatedElement, _currentBlobVersion, _currentInstanceVersion, _currentProcessStateVersion, 'ok'::TEXT;
+END;
+$BODY$;
+
+
 -- updatedataelement.sql:
 CREATE OR REPLACE FUNCTION storage.updatedataelement_v3(
     _dataelementGuid UUID,
@@ -816,32 +992,52 @@ CREATE OR REPLACE FUNCTION storage.updatedataelement_v3(
     _lastChanged TIMESTAMPTZ,
     _newcurrentblobversion UUID,
     _expectedcurrentblobversion UUID,
-    _enforceLockCheck BOOL)
-    RETURNS TABLE (updatedElement JSONB, currentblobversion UUID, result TEXT)
-    LANGUAGE 'plpgsql'	
+    _enforceLockCheck BOOL,
+    _expectedinstanceversion INT DEFAULT NULL,
+    _expectedprocessstateversion INT DEFAULT NULL)
+    RETURNS TABLE (updatedElement JSONB, currentblobversion UUID, instanceversion INT, processstateversion INT, result TEXT)
+    LANGUAGE 'plpgsql'
 AS $BODY$
 DECLARE
     _lastChanged6digits TEXT;
     _instanceIsHardDeleted BOOL;
+    _currentInstanceVersion INT;
+    _currentProcessStateVersion INT;
+    _newInstanceVersion INT;
     _dataElementIsHardDeleted BOOL;
     _dataElementIsLocked BOOL;
     _dataElementCurrentBlobVersion UUID;
 BEGIN
-    SELECT COALESCE((i.instance -> 'Status' ->> 'IsHardDeleted')::BOOLEAN, FALSE)
-        INTO _instanceIsHardDeleted
+    SELECT
+        COALESCE((i.instance -> 'Status' ->> 'IsHardDeleted')::BOOLEAN, FALSE),
+        i.instance_version,
+        i.process_state_version
+        INTO _instanceIsHardDeleted, _currentInstanceVersion, _currentProcessStateVersion
         FROM storage.instances i
         WHERE i.alternateid = _instanceGuid
         FOR UPDATE;
 
     IF NOT FOUND
     THEN
-        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, 'not_found'::TEXT;
+        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, NULL::INT, NULL::INT, 'not_found'::TEXT;
+        RETURN;
+    END IF;
+
+    IF _expectedinstanceversion IS NOT NULL AND _currentInstanceVersion <> _expectedinstanceversion
+    THEN
+        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, 'instance_version_mismatch'::TEXT;
+        RETURN;
+    END IF;
+
+    IF _expectedprocessstateversion IS NOT NULL AND _currentProcessStateVersion <> _expectedprocessstateversion
+    THEN
+        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, 'process_state_version_mismatch'::TEXT;
         RETURN;
     END IF;
 
     IF _instanceIsHardDeleted
     THEN
-        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, 'hard_deleted'::TEXT;
+        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, 'hard_deleted'::TEXT;
         RETURN;
     END IF;
 
@@ -855,25 +1051,25 @@ BEGIN
 
     IF NOT FOUND
     THEN
-        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, 'not_found'::TEXT;
+        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, 'not_found'::TEXT;
         RETURN;
     END IF;
 
     IF _expectedcurrentblobversion IS NOT NULL AND _dataElementCurrentBlobVersion IS DISTINCT FROM _expectedcurrentblobversion
     THEN
-        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, 'version_mismatch'::TEXT;
+        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, 'version_mismatch'::TEXT;
         RETURN;
     END IF;
 
     IF _enforceLockCheck AND _dataElementIsHardDeleted
     THEN
-        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, 'hard_deleted'::TEXT;
+        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, 'hard_deleted'::TEXT;
         RETURN;
     END IF;
 
     IF _enforceLockCheck AND _dataElementIsLocked
     THEN
-        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, 'locked'::TEXT;
+        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, 'locked'::TEXT;
         RETURN;
     END IF;
 
@@ -895,40 +1091,75 @@ BEGIN
 
         IF NOT FOUND
         THEN
-            RETURN QUERY SELECT NULL::JSONB, NULL::UUID, 'blob_version_not_found'::TEXT;
+            RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, 'blob_version_not_found'::TEXT;
             RETURN;
         END IF;
     END IF;
 
-    IF _isReadChangedToFalse = true AND
-        (SELECT COUNT(*) FROM storage.dataelements
-            WHERE element -> 'IsRead' = 'true' AND instanceguid = _instanceGuid AND alternateid <> _dataelementGuid) = 0
-    THEN
-        UPDATE storage.instances
-        SET instance = jsonb_set(instance, '{Status, ReadStatus}', '0')
-        WHERE alternateid = _instanceGuid AND instance -> 'Status' ->> 'ReadStatus' = '1';
-    END IF;
-
-    IF _lastChanged IS NOT NULL
-    THEN
-        UPDATE storage.instances
-            SET lastchanged = _lastChanged,
-                instance = instance || _instanceChanges || jsonb_set('{"LastChanged":""}', '{LastChanged}', to_jsonb(_lastChanged6digits))   
-            WHERE alternateid = _instanceGuid;
-    END IF;
+    UPDATE storage.instances
+        SET lastchanged = COALESCE(_lastChanged, lastchanged),
+            instance_version = instance_version + 1,
+            instance = (
+                CASE
+                    WHEN _isReadChangedToFalse = true AND
+                        (SELECT COUNT(*) FROM storage.dataelements
+                            WHERE element -> 'IsRead' = 'true' AND instanceguid = _instanceGuid AND alternateid <> _dataelementGuid) = 0
+                        AND instance -> 'Status' ->> 'ReadStatus' = '1'
+                    THEN jsonb_set(instance, '{Status, ReadStatus}', '0')
+                    ELSE instance
+                END
+            )
+            || CASE
+                WHEN _lastChanged IS NOT NULL
+                THEN _instanceChanges || jsonb_set('{"LastChanged":""}', '{LastChanged}', to_jsonb(_lastChanged6digits))
+                ELSE '{}'::JSONB
+            END
+        WHERE alternateid = _instanceGuid
+        RETURNING storage.instances.instance_version INTO _newInstanceVersion;
 
     RETURN QUERY
         UPDATE storage.dataelements
             SET element = element || _elementChanges,
                 currentblobversion = COALESCE(_newcurrentblobversion, storage.dataelements.currentblobversion)
             WHERE alternateid = _dataelementGuid AND instanceguid = _instanceGuid
-            RETURNING element, storage.dataelements.currentblobversion, 'ok'::TEXT;
+            RETURNING element, storage.dataelements.currentblobversion, _newInstanceVersion, _currentProcessStateVersion, 'ok'::TEXT;
+END;
+$BODY$;
+
+
+-- updateinstance_readstatus.sql:
+CREATE OR REPLACE FUNCTION storage.updateinstance_readstatus(
+        _alternateid UUID,
+        _status JSONB)
+    RETURNS TABLE (updatedInstance JSONB, instanceversion INT, processstateversion INT, result TEXT)
+    LANGUAGE 'plpgsql'
+AS $BODY$
+BEGIN
+    RETURN QUERY
+        UPDATE storage.instances SET
+            instance = instance ||
+                jsonb_set(
+                    instance,
+                    '{Status}',
+                    CASE WHEN instance -> 'Status' IS NOT NULL THEN
+                        instance -> 'Status' || _status
+                    ELSE
+                        _status
+                    END
+                )
+        WHERE _alternateid = alternateid
+        RETURNING instance, storage.instances.instance_version, storage.instances.process_state_version, 'ok'::TEXT;
+
+    IF NOT FOUND
+    THEN
+        RETURN QUERY SELECT NULL::JSONB, NULL::INT, NULL::INT, 'not_found'::TEXT;
+    END IF;
 END;
 $BODY$;
 
 
 -- updateinstance.sql:
-CREATE OR REPLACE FUNCTION storage.updateinstance_v3(
+CREATE OR REPLACE FUNCTION storage.updateinstance_v4(
         _alternateid UUID,
         _toplevelsimpleprops JSONB,
         _datavalues JSONB,
@@ -939,11 +1170,40 @@ CREATE OR REPLACE FUNCTION storage.updateinstance_v3(
         _process JSONB,
         _lastchanged TIMESTAMPTZ,
         _taskid TEXT,
-        _confirmed BOOLEAN DEFAULT NULL)
-    RETURNS TABLE (updatedInstance JSONB)
-    LANGUAGE 'plpgsql'	
+        _confirmed BOOLEAN DEFAULT NULL,
+        _expectedinstanceversion INT DEFAULT NULL,
+        _expectedprocessstateversion INT DEFAULT NULL)
+    RETURNS TABLE (updatedInstance JSONB, instanceversion INT, processstateversion INT, result TEXT)
+    LANGUAGE 'plpgsql'
 AS $BODY$
+DECLARE
+    _currentInstanceVersion INT;
+    _currentProcessStateVersion INT;
 BEGIN
+    SELECT i.instance_version, i.process_state_version
+        INTO _currentInstanceVersion, _currentProcessStateVersion
+        FROM storage.instances i
+        WHERE i.alternateid = _alternateid
+        FOR UPDATE;
+
+    IF NOT FOUND
+    THEN
+        RETURN QUERY SELECT NULL::JSONB, NULL::INT, NULL::INT, 'not_found'::TEXT;
+        RETURN;
+    END IF;
+
+    IF _expectedinstanceversion IS NOT NULL AND _currentInstanceVersion <> _expectedinstanceversion
+    THEN
+        RETURN QUERY SELECT NULL::JSONB, _currentInstanceVersion, _currentProcessStateVersion, 'instance_version_mismatch'::TEXT;
+        RETURN;
+    END IF;
+
+    IF _expectedprocessstateversion IS NOT NULL AND _currentProcessStateVersion <> _expectedprocessstateversion
+    THEN
+        RETURN QUERY SELECT NULL::JSONB, _currentInstanceVersion, _currentProcessStateVersion, 'process_state_version_mismatch'::TEXT;
+        RETURN;
+    END IF;
+
     IF _datavalues IS NOT NULL THEN
         RETURN QUERY
             UPDATE storage.instances SET
@@ -960,9 +1220,10 @@ BEGIN
                         )
                     ),
                 lastchanged = _lastchanged,
+                instance_version = instance_version + 1,
                 confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END
             WHERE _alternateid = alternateid
-            RETURNING instance;
+            RETURNING instance, storage.instances.instance_version, storage.instances.process_state_version, 'ok'::TEXT;
     ELSIF _presentationtexts IS NOT NULL THEN
         RETURN QUERY
             UPDATE storage.instances SET
@@ -979,9 +1240,10 @@ BEGIN
                         )
                     ),
                 lastchanged = _lastchanged,
+                instance_version = instance_version + 1,
                 confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END
             WHERE _alternateid = alternateid
-            RETURNING instance;
+            RETURNING instance, storage.instances.instance_version, storage.instances.process_state_version, 'ok'::TEXT;
     ELSIF _completeconfirmations IS NOT NULL THEN
         RETURN QUERY
             UPDATE storage.instances SET
@@ -996,9 +1258,10 @@ BEGIN
                         END
                     ),
                 lastchanged = _lastchanged,
+                instance_version = instance_version + 1,
                 confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END
             WHERE _alternateid = alternateid
-            RETURNING instance;
+            RETURNING instance, storage.instances.instance_version, storage.instances.process_state_version, 'ok'::TEXT;
     ELSIF _status IS NOT NULL AND _process IS NULL THEN
         RETURN QUERY
             UPDATE storage.instances SET
@@ -1013,9 +1276,10 @@ BEGIN
                         END
                     ),
                 lastchanged = _lastchanged,
+                instance_version = instance_version + 1,
                 confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END
             WHERE _alternateid = alternateid
-            RETURNING instance;
+            RETURNING instance, storage.instances.instance_version, storage.instances.process_state_version, 'ok'::TEXT;
     ELSIF _substatus IS NOT NULL THEN
         RETURN QUERY
             UPDATE storage.instances SET
@@ -1026,9 +1290,10 @@ BEGIN
                         jsonb_strip_nulls(_substatus)
                     ),
                 lastchanged = _lastchanged,
+                instance_version = instance_version + 1,
                 confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END
             WHERE _alternateid = alternateid
-            RETURNING instance;
+            RETURNING instance, storage.instances.instance_version, storage.instances.process_state_version, 'ok'::TEXT;
     ELSIF _process IS NOT NULL AND _status IS NOT NULL THEN
         RETURN QUERY
             UPDATE storage.instances SET
@@ -1046,12 +1311,14 @@ BEGIN
                         ELSE
                             _status
                         END
-                    ),                
+                    ),
                 lastchanged = _lastchanged,
+                instance_version = instance_version + 1,
+                process_state_version = process_state_version + 1,
                 confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END,
                 taskid = _taskid
             WHERE _alternateid = alternateid
-            RETURNING instance;
+            RETURNING instance, storage.instances.instance_version, storage.instances.process_state_version, 'ok'::TEXT;
     ELSIF _process IS NOT NULL THEN
         RETURN QUERY
             UPDATE storage.instances SET
@@ -1060,12 +1327,14 @@ BEGIN
                         instance || _toplevelsimpleprops,
                         '{Process}',
                         jsonb_strip_nulls(_process)
-                    ),               
+                    ),
                 lastchanged = _lastchanged,
+                instance_version = instance_version + 1,
+                process_state_version = process_state_version + 1,
                 confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END,
                 taskid = _taskid
             WHERE _alternateid = alternateid
-            RETURNING instance;                
+            RETURNING instance, storage.instances.instance_version, storage.instances.process_state_version, 'ok'::TEXT;
     ELSE
         RAISE EXCEPTION 'Unexpected parameters to update instance';
     END IF;

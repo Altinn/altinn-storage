@@ -1,4 +1,5 @@
-#nullable disable
+#nullable enable annotations
+#nullable disable warnings
 
 using System;
 using System.Collections.Generic;
@@ -15,16 +16,20 @@ namespace Altinn.Platform.Storage.Repository;
 public interface IDataRepository
 {
     /// <summary>
-    /// Creates a dataElement into the repository
+    /// Creates a dataElement with internal storage-only fields.
     /// </summary>
     /// <param name="dataElement">the data element to insert</param>
     /// <param name="instanceInternalId">the internal id of the parent instance</param>
     /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
-    /// <returns>the data element with updated id</returns>
-    Task<DataElementInternal> Create(
+    /// <param name="expectedInstanceVersion">Expected instance version for optimistic concurrency checks.</param>
+    /// <param name="expectedProcessStateVersion">Expected process state version for optimistic concurrency checks.</param>
+    /// <returns>the data element with internal storage-only fields</returns>
+    Task<DataElementWriteResult> Create(
         DataElementInternal dataElement,
         long instanceInternalId = 0,
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken = default,
+        int? expectedInstanceVersion = null,
+        int? expectedProcessStateVersion = null
     );
 
     /// <summary>
@@ -68,11 +73,41 @@ public interface IDataRepository
     /// <param name="context">Storage-level context and preconditions for the update.</param>
     /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
     /// <remarks>Dictionary can contain at most 16 entries</remarks>
-    Task<DataElementInternal> Update(
+    Task<DataElementWriteResult> Update(
         Guid instanceGuid,
         Guid dataElementId,
         Dictionary<string, object> propertylist,
         DataElementUpdateContext context = null,
+        CancellationToken cancellationToken = default
+    );
+
+    /// <summary>
+    /// Updates only the read status of a data element without bumping parent instance versions.
+    /// </summary>
+    /// <param name="instanceGuid">The instance guid</param>
+    /// <param name="dataElementId">The data element id</param>
+    /// <param name="isRead">The read flag to persist</param>
+    /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
+    /// <returns>The updated data element with the current parent instance versions.</returns>
+    Task<DataElementWriteResult> UpdateReadStatus(
+        Guid instanceGuid,
+        Guid dataElementId,
+        bool isRead,
+        CancellationToken cancellationToken = default
+    );
+
+    /// <summary>
+    /// Updates only the lock status of a data element without bumping parent instance versions.
+    /// </summary>
+    /// <param name="instanceGuid">The instance guid</param>
+    /// <param name="dataElementId">The data element id</param>
+    /// <param name="locked">The lock flag to persist</param>
+    /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
+    /// <returns>The updated data element with the current parent instance versions.</returns>
+    Task<DataElementWriteResult> UpdateLockStatus(
+        Guid instanceGuid,
+        Guid dataElementId,
+        bool locked,
         CancellationToken cancellationToken = default
     );
 
@@ -83,8 +118,8 @@ public interface IDataRepository
     /// <param name="dataElementId">The data element id</param>
     /// <param name="fileScanStatus">The file scan status, optionally including the scanned blob version id.</param>
     /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
-    /// <returns>The updated data element, or null if no row matched the supplied blob version.</returns>
-    Task<DataElementInternal> UpdateFileScanStatus(
+    /// <returns>The updated data element, or null if the element is missing or its blob version does not match.</returns>
+    Task<DataElementWriteResult?> UpdateFileScanStatus(
         Guid instanceGuid,
         Guid dataElementId,
         FileScanStatus fileScanStatus,

@@ -891,7 +891,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
                     It.IsAny<CancellationToken>()
                 )
             )
-            .ReturnsAsync(new DataElementInternal());
+            .ReturnsAsync(new DataElement());
 
         string dataPathWithData =
             $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe30?delay=true";
@@ -953,6 +953,22 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         blobRepositoryMock
             .Setup(dr => dr.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()))
             .ReturnsAsync(true);
+
+        dataRepositoryMock
+            .Setup(dr =>
+                dr.Update(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<Dictionary<string, object>>(),
+                    It.IsAny<DataElementUpdateContext>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(de);
+
+        dataRepositoryMock
+            .Setup(dr => dr.ReadBlobVersions(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<BlobVersionReferencesInternal>());
 
         dataRepositoryMock
             .Setup(dr => dr.Delete(It.IsAny<DataElementInternal>(), It.IsAny<CancellationToken>()))

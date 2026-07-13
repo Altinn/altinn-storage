@@ -58,3 +58,71 @@ public class DataElementBlobVersionMismatchException : RepositoryException
     public DataElementBlobVersionMismatchException(string message)
         : base(message, HttpStatusCode.Conflict) { }
 }
+
+/// <summary>
+/// Exception thrown when a supplied storage-owned version precondition does not match.
+/// </summary>
+public abstract class StorageVersionMismatchException : RepositoryException
+{
+    /// <summary>
+    /// Create a storage version mismatch exception.
+    /// </summary>
+    protected StorageVersionMismatchException(
+        string message,
+        int currentInstanceVersion,
+        int currentProcessStateVersion
+    )
+        : base(message, HttpStatusCode.PreconditionFailed)
+    {
+        CurrentInstanceVersion = currentInstanceVersion;
+        CurrentProcessStateVersion = currentProcessStateVersion;
+    }
+
+    /// <summary>
+    /// Current aggregate instance version.
+    /// </summary>
+    public int CurrentInstanceVersion { get; }
+
+    /// <summary>
+    /// Current process-state version.
+    /// </summary>
+    public int CurrentProcessStateVersion { get; }
+}
+
+/// <summary>
+/// Exception thrown when If-Instance-Version-Match does not match.
+/// </summary>
+public sealed class InstanceVersionMismatchException : StorageVersionMismatchException
+{
+    /// <summary>
+    /// Create an instance-version mismatch exception.
+    /// </summary>
+    public InstanceVersionMismatchException(
+        int currentInstanceVersion,
+        int currentProcessStateVersion
+    )
+        : base(
+            "Instance version did not match expected version.",
+            currentInstanceVersion,
+            currentProcessStateVersion
+        ) { }
+}
+
+/// <summary>
+/// Exception thrown when If-Process-State-Version-Match does not match.
+/// </summary>
+public sealed class ProcessStateVersionMismatchException : StorageVersionMismatchException
+{
+    /// <summary>
+    /// Create a process-state-version mismatch exception.
+    /// </summary>
+    public ProcessStateVersionMismatchException(
+        int currentInstanceVersion,
+        int currentProcessStateVersion
+    )
+        : base(
+            "Process state version did not match expected version.",
+            currentInstanceVersion,
+            currentProcessStateVersion
+        ) { }
+}

@@ -499,6 +499,69 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     }
 
     /// <summary>
+    /// Test case: Registering the party with the parties-with-instances client fails after
+    /// the instance is created, hitting the catch-all that deletes the instance again.
+    /// Expected: 500 without success version headers, and the created instance is deleted.
+    /// </summary>
+    [Fact]
+    public async Task Post_SetHasAltinn3InstancesThrows_DeletesInstanceAndOmitsVersionHeaders()
+    {
+        // Arrange
+        string appId = "tdd/endring-av-navn";
+        string requestUri = $"{BasePath}?appId={appId}";
+
+        Mock<IInstanceRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(r =>
+                r.Create(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<int>()
+                )
+            )
+            .ReturnsAsync(
+                (InstanceInternal toCreate, CancellationToken _, int _) =>
+                {
+                    toCreate.Id ??= Guid.NewGuid().ToString();
+                    toCreate.Versions = new StorageVersions(1, 1);
+                    return toCreate;
+                }
+            );
+        repositoryMock
+            .Setup(r => r.Delete(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        Mock<IPartiesWithInstancesClient> partiesWithInstancesClient = new();
+        partiesWithInstancesClient
+            .Setup(c => c.SetHasAltinn3Instances(It.IsAny<int>()))
+            .ThrowsAsync(new InvalidOperationException("parties registration failed"));
+
+        HttpClient client = GetTestClient(
+            repositoryMock,
+            partiesWithInstancesClient: partiesWithInstancesClient
+        );
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        Instance instance = new Instance { InstanceOwner = new InstanceOwner { PartyId = "1337" } };
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"))
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.False(response.Headers.Contains(StorageHeaders.InstanceVersion));
+        Assert.False(response.Headers.Contains(StorageHeaders.ProcessStateVersion));
+        repositoryMock.Verify(
+            r => r.Delete(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Once
+        );
+    }
+
+    /// <summary>
     /// Test case: User has to low authentication level.
     /// Expected: Returns status forbidden.
     /// </summary>
@@ -2880,6 +2943,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Mock<IRegisterService> registerService = null,
         Mock<IApplicationService> applicationService = null,
         Mock<IAuthorization> authorizationService = null,
+        Mock<IPartiesWithInstancesClient> partiesWithInstancesClient = null,
         Mock<IPDP> pdpMock = null,
         Mock<ILogger<InstancesController>> loggerMock = null
     )
@@ -2930,6 +2994,11 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                     IPartiesWithInstancesClient,
                     PartiesWithInstancesClientMock
                 >();
+
+                if (partiesWithInstancesClient != null)
+                {
+                    services.AddSingleton(partiesWithInstancesClient.Object);
+                }
                 services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
 
                 if (pdpMock != null)

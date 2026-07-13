@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
@@ -17,6 +18,12 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories;
 [Collection("StoragePostgreSQL")]
 public class InstanceTests : IClassFixture<InstanceFixture>
 {
+    public enum ExpectedVersionKind
+    {
+        Instance,
+        ProcessState,
+    }
+
     private readonly InstanceFixture _instanceFixture;
 
     public InstanceTests(InstanceFixture instanceFixture)
@@ -35,10 +42,15 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_Create_Ok()
     {
         // Arrange
+        InstanceInternal input = TestData.Instance_1_1.Clone().FromApiModel();
+        input.Id = input.Id.ToUpperInvariant();
+        string expectedStorageId = input.Id;
+        input.InternalId = 42;
+        input.Versions = new StorageVersions(9, 8);
 
         // Act
         InstanceInternal newInstance = await _instanceFixture.InstanceRepo.Create(
-            TestData.Instance_1_1.Clone().FromApiModel(),
+            input,
             CancellationToken.None
         );
 
@@ -50,8 +62,21 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             $"select confirmed from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
         bool? confirmed = await PostgresUtil.RunQuery<bool?>(sql);
         Assert.Equal(1, count);
-        Assert.Equal(TestData.Instance_1_1.Id.Split('/').Last(), newInstance.Id);
+        Assert.Same(input, newInstance);
+        Assert.Equal(expectedStorageId, newInstance.Id);
+        Assert.Empty(newInstance.Data);
+        Assert.Equal(new StorageVersions(1, 1), newInstance.Versions);
+        Assert.Equal(0, newInstance.InternalId);
+        Assert.Equal(0, newInstance.LastChanged.Value.Ticks % 10);
         Assert.Equal(false, confirmed);
+
+        InstanceInternal persistedInstance = await _instanceFixture.InstanceRepo.GetOne(
+            Guid.Parse(expectedStorageId),
+            false,
+            CancellationToken.None
+        );
+        Assert.NotSame(input, persistedInstance);
+        Assert.Equal(expectedStorageId, persistedInstance.Id);
     }
 
     [Fact]
@@ -67,6 +92,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
 
         Assert.True(Guid.TryParse(created.Id, out Guid generatedId));
         Assert.Equal(0, created.InternalId);
+        Assert.Equal(new StorageVersions(1, 1), created.Versions);
 
         InstanceInternal read = await _instanceFixture.InstanceRepo.GetOne(
             generatedId,
@@ -74,6 +100,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             CancellationToken.None
         );
         Assert.True(read.InternalId > 0);
+        Assert.Equal(new StorageVersions(1, 1), read.Versions);
     }
 
     /// <summary>
@@ -157,6 +184,76 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Assert.Same(input.Data[0], Assert.Single(result.Data));
     }
 
+    [Fact]
+    public async Task Instance_UpdateReadStatus_PreservesCallerDomainDataList()
+    {
+        Instance instance = await CreateApiInstance(
+            TestData.Instance_1_1.Clone(),
+            CancellationToken.None
+        );
+        DataElement apiDataElement = new()
+        {
+            Id = Guid.NewGuid().ToString(),
+            InstanceGuid = instance.Id.Split('/').Last(),
+        };
+        instance.Data = [apiDataElement];
+        instance.Status.ReadStatus = ReadStatus.Unread;
+        InstanceInternal input = InstanceInternalTestFactory.Create(
+            instance,
+            [apiDataElement.FromApiModel("input-blob-version")],
+            InternalId: 0
+        );
+
+        InstanceInternal result = await _instanceFixture.InstanceRepo.UpdateReadStatus(
+            input,
+            CancellationToken.None
+        );
+
+        Assert.Same(input.Data, result.Data);
+        Assert.Same(input.Data[0], Assert.Single(result.Data));
+    }
+
+    [Theory]
+    [InlineData(ExpectedVersionKind.Instance)]
+    [InlineData(ExpectedVersionKind.ProcessState)]
+    public async Task Instance_Update_MismatchedExpectedVersion_ReportsCurrentVersions(
+        ExpectedVersionKind versionKind
+    )
+    {
+        InstanceInternal instance = await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone().FromApiModel(),
+            CancellationToken.None
+        );
+        instance.LastChanged = DateTime.UtcNow;
+
+        StorageVersionMismatchException exception;
+        if (versionKind == ExpectedVersionKind.Instance)
+        {
+            exception = await Assert.ThrowsAsync<InstanceVersionMismatchException>(() =>
+                _instanceFixture.InstanceRepo.Update(
+                    instance,
+                    [nameof(instance.LastChanged)],
+                    CancellationToken.None,
+                    expectedInstanceVersion: instance.Versions.InstanceVersion + 1
+                )
+            );
+        }
+        else
+        {
+            exception = await Assert.ThrowsAsync<ProcessStateVersionMismatchException>(() =>
+                _instanceFixture.InstanceRepo.Update(
+                    instance,
+                    [nameof(instance.LastChanged)],
+                    CancellationToken.None,
+                    expectedProcessStateVersion: instance.Versions.ProcessStateVersion + 1
+                )
+            );
+        }
+
+        Assert.Equal(instance.Versions.InstanceVersion, exception.CurrentInstanceVersion);
+        Assert.Equal(instance.Versions.ProcessStateVersion, exception.CurrentProcessStateVersion);
+    }
+
     /// <summary>
     /// Test update task with events
     /// </summary>
@@ -218,6 +315,59 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         }
 
         Assert.Equal("Task_2", updatedInstance.Process.CurrentTask.ElementId);
+    }
+
+    /// <summary>
+    /// Test update with returned not_found result
+    /// </summary>
+    [Fact]
+    public async Task Instance_Update_NotFoundResult_ThrowsNotFound()
+    {
+        // Arrange
+        Instance newInstance = TestData.Instance_1_1.Clone();
+        newInstance.LastChanged = DateTime.UtcNow;
+        newInstance.LastChangedBy = "unittest";
+
+        List<string> updateProperties =
+        [
+            nameof(newInstance.LastChanged),
+            nameof(newInstance.LastChangedBy),
+            nameof(newInstance.Process),
+        ];
+
+        // Act
+        RepositoryException exception = await Assert.ThrowsAsync<RepositoryException>(() =>
+            _instanceFixture.InstanceRepo.Update(
+                InstanceInternalTestFactory.Create(newInstance, [], InternalId: 0),
+                updateProperties,
+                CancellationToken.None
+            )
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, exception.StatusCodeSuggestion);
+    }
+
+    /// <summary>
+    /// Test update read status with returned not_found result
+    /// </summary>
+    [Fact]
+    public async Task Instance_UpdateReadStatus_NotFoundResult_ThrowsNotFound()
+    {
+        // Arrange
+        Instance newInstance = TestData.Instance_1_1.Clone();
+        newInstance.Status.ReadStatus = ReadStatus.Unread;
+
+        // Act
+        RepositoryException exception = await Assert.ThrowsAsync<RepositoryException>(() =>
+            _instanceFixture.InstanceRepo.UpdateReadStatus(
+                InstanceInternalTestFactory.Create(newInstance, [], InternalId: 0),
+                CancellationToken.None
+            )
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, exception.StatusCodeSuggestion);
     }
 
     /// <summary>
@@ -724,6 +874,16 @@ public class InstanceTests : IClassFixture<InstanceFixture>
 
         // Assert
         Assert.Equal(2, instances.Count);
+        Assert.All(
+            instances,
+            instance =>
+            {
+                Assert.DoesNotContain('/', instance.Id);
+                Assert.Null(instance.Data);
+                Assert.Null(instance.Versions);
+                Assert.Equal(0, instance.InternalId);
+            }
+        );
     }
 
     /// <summary>
@@ -824,6 +984,9 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             CancellationToken.None
         );
         Assert.NotEqual(firstBlobVersionId, secondBlobVersionId);
+        await PostgresUtil.RunSql(
+            $"update storage.instances set instance_version = 7, process_state_version = 3 where id = {persisted.InternalId}"
+        );
 
         InstanceQueryResult result = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             new InstanceQueryParameters
@@ -841,6 +1004,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Assert.DoesNotContain('/', instance.Id);
         Assert.Equal(persisted.InternalId, instance.InternalId);
         Assert.NotEqual(0, instance.InternalId);
+        Assert.Equal(new StorageVersions(7, 3), instance.Versions);
         Assert.Collection(
             instance.Data,
             element =>

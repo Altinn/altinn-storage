@@ -1,10 +1,10 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Extensions;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
@@ -93,20 +93,24 @@ public class DataLockController : ControllerBase
 
         if (dataElement?.Locked is true)
         {
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
             return Ok(dataElement.ToApiModel());
         }
 
-        Dictionary<string, object> propertyList = new() { { "/locked", true } };
-
         try
         {
-            DataElementInternal updatedDataElement = await _dataRepository.Update(
+            DataElementWriteResult updatedDataElement = await _dataRepository.UpdateLockStatus(
                 instanceGuid,
                 dataGuid,
-                propertyList,
+                true,
                 cancellationToken: cancellationToken
             );
-            return Created(updatedDataElement.Id, updatedDataElement.ToApiModel());
+            VersionPreconditionHelper.WriteVersionResponseHeaders(
+                Response,
+                updatedDataElement.Versions
+            );
+            DataElement response = updatedDataElement.DataElement.ToApiModel();
+            return Created(response.Id, response);
         }
         catch (RepositoryException e)
         {
@@ -158,16 +162,19 @@ public class DataLockController : ControllerBase
             return Forbid();
         }
 
-        Dictionary<string, object> propertyList = new() { { "/locked", false } };
         try
         {
-            DataElementInternal updatedDataElement = await _dataRepository.Update(
+            DataElementWriteResult updatedDataElement = await _dataRepository.UpdateLockStatus(
                 instanceGuid,
                 dataGuid,
-                propertyList,
+                false,
                 cancellationToken: cancellationToken
             );
-            return Ok(updatedDataElement.ToApiModel());
+            VersionPreconditionHelper.WriteVersionResponseHeaders(
+                Response,
+                updatedDataElement.Versions
+            );
+            return Ok(updatedDataElement.DataElement.ToApiModel());
         }
         catch (RepositoryException e)
         {

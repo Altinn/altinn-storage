@@ -95,7 +95,9 @@ public class SigningServiceTest
                 It.Is<DataElementCreateOptions>(options => options.Locked),
                 0,
                 It.IsAny<int?>(),
-                It.IsAny<CancellationToken>()
+                It.IsAny<CancellationToken>(),
+                null,
+                null
             )
         );
 
@@ -230,7 +232,9 @@ public class SigningServiceTest
             x.DeleteImmediately(
                 It.Is<InstanceInternal>(x => x.Id == instance.Id),
                 It.Is<DataElementInternal>(x => x.Id == oldSignatureDataElement.Id),
-                It.IsAny<int?>()
+                It.IsAny<int?>(),
+                null,
+                null
             )
         );
 
@@ -241,7 +245,9 @@ public class SigningServiceTest
                 It.Is<DataElementCreateOptions>(options => options.Locked),
                 0,
                 It.IsAny<int?>(),
-                It.IsAny<CancellationToken>()
+                It.IsAny<CancellationToken>(),
+                null,
+                null
             )
         );
 
@@ -326,7 +332,9 @@ public class SigningServiceTest
             x.DeleteImmediately(
                 It.Is<InstanceInternal>(x => x.Id == instance.Id),
                 It.Is<DataElementInternal>(x => x.Id == oldSignatureDataElement.Id),
-                It.IsAny<int?>()
+                It.IsAny<int?>(),
+                null,
+                null
             )
         );
     }
@@ -616,7 +624,9 @@ public class SigningServiceTest
                     It.IsAny<DataElementCreateOptions>(),
                     0,
                     It.IsAny<int?>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
                 )
             )
             .ThrowsAsync(new InvalidOperationException("metadata create failed"));
@@ -736,7 +746,9 @@ public class SigningServiceTest
                 service.DeleteImmediately(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<DataElementInternal>(),
-                    It.IsAny<int?>()
+                    It.IsAny<int?>(),
+                    null,
+                    null
                 )
             )
             .ThrowsAsync(new InvalidOperationException("metadata delete failed"));
@@ -807,7 +819,9 @@ public class SigningServiceTest
                     It.IsAny<DataElementCreateOptions>(),
                     It.IsAny<long>(),
                     It.IsAny<int?>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
                 ),
             Times.Never
         );

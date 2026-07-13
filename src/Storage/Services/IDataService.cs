@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
+using Altinn.Platform.Storage.Repository;
 
 namespace Altinn.Platform.Storage.Services;
 
@@ -58,17 +59,18 @@ public interface IDataService
     /// <param name="instanceInternalId">The internal id of the parent instance.</param>
     /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
     /// <param name="cancellationToken">A cancellation token to pass to async operations.</param>
+    /// <param name="expectedInstanceVersion">Expected instance version for optimistic concurrency checks.</param>
+    /// <param name="expectedProcessStateVersion">Expected process state version for optimistic concurrency checks.</param>
     /// <returns>The created data element with internal blob fields, and the blob timestamp.</returns>
-    Task<(
-        DataElementInternal DataElement,
-        DateTimeOffset BlobTimestamp
-    )> UploadDataAndCreateDataElement(
+    Task<DataUploadResult> UploadDataAndCreateDataElement(
         InstanceInternal instance,
         Stream stream,
         DataElementCreateOptions options,
         long instanceInternalId,
         int? storageAccountNumber,
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken = default,
+        int? expectedInstanceVersion = null,
+        int? expectedProcessStateVersion = null
     );
 
     /// <summary>
@@ -77,10 +79,14 @@ public interface IDataService
     /// <param name="instance">The instance</param>
     /// <param name="dataElement">The data element</param>
     /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
+    /// <param name="expectedInstanceVersion">Expected instance version for optimistic concurrency checks.</param>
+    /// <param name="expectedProcessStateVersion">Expected process state version for optimistic concurrency checks.</param>
     /// <returns></returns>
     Task<DataElementInternal> DeleteImmediately(
         InstanceInternal instance,
         DataElementInternal dataElement,
-        int? storageAccountNumber
+        int? storageAccountNumber,
+        int? expectedInstanceVersion = null,
+        int? expectedProcessStateVersion = null
     );
 }

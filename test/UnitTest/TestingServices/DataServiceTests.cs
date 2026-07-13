@@ -14,6 +14,7 @@ using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Moq;
+using Npgsql;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingServices;
@@ -288,12 +289,12 @@ public class DataServiceTests
                 drm.Create(
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<long>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
                 )
             )
-            .ReturnsAsync(
-                (DataElementInternal dataElement, long _, CancellationToken _) => dataElement
-            );
+            .ReturnsAsync((DataElementInternal de, long _, CancellationToken _) => de);
 
         Guid instanceGuid = Guid.NewGuid();
         Guid dataElementId = Guid.NewGuid();
@@ -323,7 +324,7 @@ public class DataServiceTests
         );
 
         // Act
-        (DataElementInternal created, _) = await dataService.UploadDataAndCreateDataElement(
+        (DataElementInternal created, _, _) = await dataService.UploadDataAndCreateDataElement(
             instance,
             new MemoryStream(Encoding.UTF8.GetBytes("whatever")),
             options,
@@ -349,7 +350,9 @@ public class DataServiceTests
                         && de.BlobVersionId == allocatedBlobVersionId
                     ),
                     It.IsAny<long>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
                 ),
             Times.Once
         );
@@ -429,7 +432,9 @@ public class DataServiceTests
                 repository.Create(
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<long>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
                 ),
             Times.Never
         );
@@ -503,14 +508,16 @@ public class DataServiceTests
                 repository.Create(
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<long>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
                 ),
             Times.Never
         );
     }
 
     [Fact]
-    public async Task UploadDataAndCreateDataElement_CreateThrows_DoesNotDeleteExplicitVersionBlob()
+    public async Task UploadDataAndCreateDataElement_CreateThrowsDefiniteRollback_DeletesAllocatedVersionBlob()
     {
         string allocatedBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
         Guid dataElementId = Guid.NewGuid();
@@ -533,10 +540,12 @@ public class DataServiceTests
                 repository.Create(
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<long>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
                 )
             )
-            .ThrowsAsync(new InvalidOperationException("metadata create failed"));
+            .ThrowsAsync(new PostgresException("deadlock detected", "ERROR", "ERROR", "40P01"));
         blobRepository
             .Setup(repository =>
                 repository.WriteBlob(
@@ -549,19 +558,94 @@ public class DataServiceTests
             .ReturnsAsync((123L, DateTimeOffset.UtcNow));
         DataService service = CreateDataService(dataRepository, blobRepository);
 
-        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () =>
-                service.UploadDataAndCreateDataElement(
-                    CreateInstance(),
-                    new MemoryStream("content"u8.ToArray()),
-                    CreateOptions(dataElementId),
-                    0,
-                    null,
-                    CancellationToken.None
-                )
+        PostgresException exception = await Assert.ThrowsAsync<PostgresException>(() =>
+            service.UploadDataAndCreateDataElement(
+                CreateInstance(),
+                new MemoryStream("content"u8.ToArray()),
+                CreateOptions(dataElementId),
+                0,
+                null,
+                CancellationToken.None
+            )
         );
 
-        Assert.Equal("metadata create failed", exception.Message);
+        Assert.Equal("40P01", exception.SqlState);
+        blobRepository.Verify(
+            repository =>
+                repository.DeleteBlob(
+                    "ttd",
+                    It.Is<string>(path =>
+                        path.EndsWith($"/data-elements/{allocatedBlobVersionId}")
+                    ),
+                    null
+                ),
+            Times.Once
+        );
+        dataRepository.Verify(
+            repository =>
+                repository.DeleteBlobVersion(
+                    dataElementId,
+                    allocatedBlobVersionId,
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task UploadDataAndCreateDataElement_CreateOutcomeUnknown_LeavesBlobForOrphanCleanup()
+    {
+        string allocatedBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        Guid dataElementId = Guid.NewGuid();
+        Mock<IDataRepository> dataRepository = new();
+        Mock<IBlobRepository> blobRepository = new();
+        dataRepository
+            .Setup(repository =>
+                repository.CreateBlobVersionId(
+                    It.IsAny<Guid>(),
+                    dataElementId,
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(allocatedBlobVersionId);
+        dataRepository
+            .Setup(repository =>
+                repository.Create(
+                    It.IsAny<DataElementInternal>(),
+                    It.IsAny<long>(),
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
+                )
+            )
+            .ThrowsAsync(new TimeoutException("commit outcome unknown"));
+        blobRepository
+            .Setup(repository =>
+                repository.WriteBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<Stream>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>()
+                )
+            )
+            .ReturnsAsync((123L, DateTimeOffset.UtcNow));
+        DataService service = CreateDataService(dataRepository, blobRepository);
+
+        TimeoutException exception = await Assert.ThrowsAsync<TimeoutException>(() =>
+            service.UploadDataAndCreateDataElement(
+                CreateInstance(),
+                new MemoryStream("content"u8.ToArray()),
+                CreateOptions(dataElementId),
+                0,
+                null,
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal("commit outcome unknown", exception.Message);
         blobRepository.Verify(
             repository =>
                 repository.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
@@ -570,8 +654,8 @@ public class DataServiceTests
         dataRepository.Verify(
             repository =>
                 repository.DeleteBlobVersion(
-                    dataElementId,
-                    allocatedBlobVersionId,
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -612,7 +696,9 @@ public class DataServiceTests
                 repository.Create(
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<long>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
                 )
             )
             .ThrowsAsync(new InvalidOperationException("metadata create failed"));
@@ -651,7 +737,15 @@ public class DataServiceTests
                     It.IsAny<CancellationToken>()
                 )
             )
-            .ReturnsAsync(new DataElementInternal());
+            .ReturnsAsync(
+                (
+                    Guid _,
+                    Guid _,
+                    Dictionary<string, object> _,
+                    DataElementUpdateContext _,
+                    CancellationToken _
+                ) => new DataElement()
+            );
         dataRepository
             .Setup(repository =>
                 repository.Delete(It.IsAny<DataElementInternal>(), It.IsAny<CancellationToken>())
@@ -840,7 +934,7 @@ public class DataServiceTests
                     instanceGuid,
                     dataElementId,
                     It.IsAny<System.Collections.Generic.Dictionary<string, object>>(),
-                    null,
+                    It.IsAny<DataElementUpdateContext>(),
                     CancellationToken.None
                 )
             )
@@ -914,6 +1008,85 @@ public class DataServiceTests
         );
         dataRepository.VerifyAll();
         eventService.VerifyAll();
+    }
+
+    public static TheoryData<Exception, bool> RollbackClassificationData =>
+        new()
+        {
+            { new PostgresException("deadlock detected", "ERROR", "ERROR", "40P01"), true },
+            {
+                new OperationCanceledException(
+                    "canceled",
+                    new PostgresException("deadlock detected", "ERROR", "ERROR", "40P01")
+                ),
+                true
+            },
+            {
+                new AggregateException(
+                    new TimeoutException("timeout"),
+                    new PostgresException("unique violation", "ERROR", "ERROR", "23505")
+                ),
+                false
+            },
+            {
+                new AggregateException(
+                    new PostgresException("unique violation", "ERROR", "ERROR", "23505"),
+                    new RepositoryException("instance is deleted", HttpStatusCode.NotFound)
+                ),
+                true
+            },
+            {
+                new AggregateException(
+                    new AggregateException(
+                        new PostgresException("deadlock detected", "ERROR", "ERROR", "40P01")
+                    )
+                ),
+                true
+            },
+            {
+                new AggregateException(
+                    new OperationCanceledException(
+                        "canceled",
+                        new PostgresException("deadlock detected", "ERROR", "ERROR", "40P01")
+                    )
+                ),
+                true
+            },
+            {
+                new AggregateException(
+                    new TimeoutException("timeout"),
+                    new NpgsqlException("broken connection")
+                ),
+                false
+            },
+            {
+                new AggregateException(
+                    new PostgresException("deadlock detected", "ERROR", "ERROR", "40P01"),
+                    new AggregateException(new TimeoutException("timeout"))
+                ),
+                false
+            },
+            { new AggregateException(), false },
+            { new RepositoryException("instance is deleted", HttpStatusCode.NotFound), true },
+            { new InstanceVersionMismatchException(8, 3), true },
+            { new ProcessStateVersionMismatchException(8, 3), true },
+            { new DataElementBlobVersionMismatchException("blob version mismatch"), true },
+            { new OperationCanceledException("canceled"), false },
+            { new TaskCanceledException("canceled"), false },
+            { new TimeoutException("timed out"), false },
+            { new ObjectDisposedException("connection"), false },
+            { new NpgsqlException("broken connection"), false },
+            { new InvalidOperationException("unknown failure"), false },
+        };
+
+    [Theory]
+    [MemberData(nameof(RollbackClassificationData))]
+    public void IndicatesDefiniteRollback_ClassifiesExceptionChain(
+        Exception exception,
+        bool expectedDefiniteRollback
+    )
+    {
+        Assert.Equal(expectedDefiniteRollback, DataService.IndicatesDefiniteRollback(exception));
     }
 
     private static DataService CreateDataService(
