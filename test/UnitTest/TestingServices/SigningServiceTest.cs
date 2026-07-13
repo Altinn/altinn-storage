@@ -54,17 +54,14 @@ public class SigningServiceTest
         instanceRepositoryMock
             .Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
             .ReturnsAsync(
-                (
-                    new Instance()
+                new InstanceInternal()
+                {
+                    InstanceOwner = new(),
+                    Process = new ProcessState
                     {
-                        InstanceOwner = new(),
-                        Process = new ProcessState
-                        {
-                            CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" },
-                        },
+                        CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" },
                     },
-                    0
-                )
+                }
             );
 
         var applicationServiceMock = new Mock<IApplicationService>();
@@ -95,7 +92,7 @@ public class SigningServiceTest
             dsm.UploadDataAndCreateDataElement(
                 It.IsAny<string>(),
                 It.IsAny<Stream>(),
-                It.Is<DataElement>(de => de.Locked),
+                It.Is<DataElementInternal>(de => de.Locked),
                 0,
                 It.IsAny<int?>()
             )
@@ -105,7 +102,7 @@ public class SigningServiceTest
         instanceEventServiceMock.Setup(esm =>
             esm.DispatchEvent(
                 It.Is<InstanceEventType>(ies => ies == InstanceEventType.Signed),
-                It.IsAny<Instance>()
+                It.IsAny<InstanceInternal>()
             )
         );
 
@@ -182,10 +179,10 @@ public class SigningServiceTest
             DataElementSignatures = [],
         };
 
-        DataElement oldSignatureDataElement = new() { DataType = signatureDataType };
+        DataElementInternal oldSignatureDataElement = new() { DataType = signatureDataType };
 
         var instanceRepositoryMock = new Mock<IInstanceRepository>();
-        var instance = new Instance()
+        var instance = new InstanceInternal()
         {
             Id = instanceId,
             InstanceOwner = new InstanceOwner(),
@@ -202,7 +199,7 @@ public class SigningServiceTest
 
         instanceRepositoryMock
             .Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((instance, 0));
+            .ReturnsAsync(instance);
 
         var applicationServiceMock = new Mock<IApplicationService>();
         applicationServiceMock
@@ -230,8 +227,8 @@ public class SigningServiceTest
 
         dataServiceMock.Setup(x =>
             x.DeleteImmediately(
-                It.Is<Instance>(x => x.Id == instance.Id),
-                It.Is<DataElement>(x => x.Id == oldSignatureDataElement.Id),
+                It.Is<InstanceInternal>(x => x.Id == instance.Id),
+                It.Is<DataElementInternal>(x => x.Id == oldSignatureDataElement.Id),
                 It.IsAny<int?>()
             )
         );
@@ -240,7 +237,7 @@ public class SigningServiceTest
             dsm.UploadDataAndCreateDataElement(
                 It.IsAny<string>(),
                 It.IsAny<Stream>(),
-                It.Is<DataElement>(de => de.Locked),
+                It.Is<DataElementInternal>(de => de.Locked),
                 0,
                 It.IsAny<int?>()
             )
@@ -250,7 +247,7 @@ public class SigningServiceTest
         instanceEventServiceMock.Setup(esm =>
             esm.DispatchEvent(
                 It.Is<InstanceEventType>(ies => ies == InstanceEventType.Signed),
-                It.IsAny<Instance>()
+                It.IsAny<InstanceInternal>()
             )
         );
 
@@ -325,8 +322,8 @@ public class SigningServiceTest
         // Verify explicitly that the old signature was deleted
         dataServiceMock.Verify(x =>
             x.DeleteImmediately(
-                It.Is<Instance>(x => x.Id == instance.Id),
-                It.Is<DataElement>(x => x.Id == oldSignatureDataElement.Id),
+                It.Is<InstanceInternal>(x => x.Id == instance.Id),
+                It.Is<DataElementInternal>(x => x.Id == oldSignatureDataElement.Id),
                 It.IsAny<int?>()
             )
         );
@@ -339,7 +336,7 @@ public class SigningServiceTest
         var instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
             .Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(((Instance)null, 0));
+            .ReturnsAsync((InstanceInternal)null);
 
         var applicationServiceMock = new Mock<IApplicationService>();
         var dataServiceMock = new Mock<IDataService>();
@@ -388,17 +385,14 @@ public class SigningServiceTest
         instanceRepositoryMock
             .Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
             .ReturnsAsync(
-                (
-                    new Instance()
+                new InstanceInternal()
+                {
+                    InstanceOwner = new(),
+                    Process = new ProcessState
                     {
-                        InstanceOwner = new(),
-                        Process = new ProcessState
-                        {
-                            CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" },
-                        },
+                        CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" },
                     },
-                    0
-                )
+                }
             );
 
         var applicationServiceMock = new Mock<IApplicationService>();
@@ -471,17 +465,14 @@ public class SigningServiceTest
         instanceRepositoryMock
             .Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
             .ReturnsAsync(
-                (
-                    new Instance()
+                new InstanceInternal()
+                {
+                    InstanceOwner = new(),
+                    Process = new ProcessState
                     {
-                        InstanceOwner = new(),
-                        Process = new ProcessState
-                        {
-                            CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" },
-                        },
+                        CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" },
                     },
-                    0
-                )
+                }
             );
 
         var applicationServiceMock = new Mock<IApplicationService>();

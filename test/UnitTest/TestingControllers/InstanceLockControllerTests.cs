@@ -612,12 +612,17 @@ public class InstanceLockControllerTest
                                     CancellationToken cancellationToken
                                 ) =>
                                 {
-                                    var (instance, _) = await internalInstanceRepositoryMock.GetOne(
+                                    var instance = await internalInstanceRepositoryMock.GetOne(
                                         _instanceGuid,
                                         false,
                                         cancellationToken
                                     );
-                                    return (instance, _instanceInternalId);
+                                    if (instance is not null)
+                                    {
+                                        instance.InternalId = _instanceInternalId;
+                                    }
+
+                                    return instance;
                                 }
                             );
 
@@ -636,12 +641,17 @@ public class InstanceLockControllerTest
                                     CancellationToken cancellationToken
                                 ) =>
                                 {
-                                    var (instance, _) = await internalInstanceRepositoryMock.GetOne(
+                                    var instance = await internalInstanceRepositoryMock.GetOne(
                                         instanceGuid,
                                         includeElements,
                                         cancellationToken
                                     );
-                                    return (instance, _instanceInternalId);
+                                    if (instance is not null)
+                                    {
+                                        instance.InternalId = _instanceInternalId;
+                                    }
+
+                                    return instance;
                                 }
                             );
                         services.AddSingleton(instanceRepositoryMock.Object);

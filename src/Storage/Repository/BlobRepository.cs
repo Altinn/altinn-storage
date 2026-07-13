@@ -5,7 +5,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
-using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Azure;
 using Azure.Core;
 using Azure.Identity;
@@ -168,7 +168,7 @@ public class BlobRepository(
     }
 
     /// <inheritdoc/>
-    public async Task<bool> DeleteDataBlobs(Instance instance, int? storageAccountNumber)
+    public async Task<bool> DeleteDataBlobs(InstanceInternal instance, int? storageAccountNumber)
     {
         BlobContainerClient container = CreateContainerClient(instance.Org, storageAccountNumber);
 

@@ -24,6 +24,7 @@ namespace Altinn.Platform.Storage.Repository;
 /// </summary>
 public class PgInstanceRepository : IInstanceRepository
 {
+    private const string ElementColumn = "element";
     private const string _readSqlFilteredInitial =
         "select * from storage.readinstancefromquery_v8 (";
     private readonly string _deleteSql = "select * from storage.deleteinstance ($1)";
@@ -68,8 +69,8 @@ public class PgInstanceRepository : IInstanceRepository
     }
 
     /// <inheritdoc/>
-    public async Task<Instance> Create(
-        Instance instance,
+    public async Task<InstanceInternal> Create(
+        InstanceInternal instance,
         CancellationToken cancellationToken,
         int altinnMainVersion = 3
     )
@@ -81,8 +82,6 @@ public class PgInstanceRepository : IInstanceRepository
                 : null;
 
         instance.Id ??= Guid.NewGuid().ToString();
-        ToInternal(instance);
-        instance.Data = null;
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
         pgcom.Parameters.AddWithValue(
             "_partyid",
@@ -123,73 +122,43 @@ public class PgInstanceRepository : IInstanceRepository
         await pgcom.ExecuteNonQueryAsync(cancellationToken);
 
         instance.Data = [];
-        return ToExternal(instance);
+        instance.InternalId = 0;
+        return instance;
     }
 
     /// <inheritdoc/>
-    public async Task<bool> Delete(Instance instance, CancellationToken cancellationToken)
+    public async Task<bool> Delete(Guid instanceGuid, CancellationToken cancellationToken)
     {
-        ToInternal(instance);
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
-        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instance.Id));
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
 
         int rc = (int)await pgcom.ExecuteScalarAsync(cancellationToken);
         return rc == 1;
     }
 
     /// <inheritdoc/>
-    public async Task<InstanceQueryResponse> GetInstancesFromQuery(
-        InstanceQueryParameters queryParams,
-        bool includeDataElements,
-        CancellationToken cancellationToken
-    )
-    {
-        try
-        {
-            return await GetInstancesInternal(queryParams, includeDataElements, cancellationToken);
-        }
-        catch (Exception e)
-        {
-            _logger.LogError(e, "Error running GetInstancesFromQuery");
-            return new()
-            {
-                Count = 0,
-                Instances = [],
-                Exception = e.Message,
-            };
-        }
-    }
-
-    /// <inheritdoc/>
-    public async Task<InstanceQueryResponse> GetInstancesFromQuery(
+    public async Task<InstanceQueryResult> GetInstancesFromQuery(
         InstanceQueryParameters queryParams,
         CancellationToken cancellationToken
     )
     {
         try
         {
-            return await GetInstancesInternal(
-                queryParams,
-                queryParams.IncludeDataElements,
-                cancellationToken
-            );
+            return await GetInstancesInternal(queryParams, cancellationToken);
         }
         catch (Exception e)
         {
             _logger.LogError(e, "Error running GetInstancesFromQuery");
-            return new()
-            {
-                Count = 0,
-                Instances = [],
-                Exception = e.Message,
-            };
+            return new() { Instances = [], Exception = e.Message };
         }
     }
 
     /// <inheritdoc/>
-    public async Task<List<Instance>> GetHardDeletedInstances(CancellationToken cancellationToken)
+    public async Task<List<InstanceInternal>> GetHardDeletedInstances(
+        CancellationToken cancellationToken
+    )
     {
-        List<Instance> instances = [];
+        List<InstanceInternal> instances = [];
 
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readDeletedSql);
         pgcom.CommandTimeout = 600; // 10 minutes
@@ -197,7 +166,7 @@ public class PgInstanceRepository : IInstanceRepository
         {
             while (await reader.ReadAsync(cancellationToken))
             {
-                Instance i = await reader.GetFieldValueAsync<Instance>(
+                InstanceInternal i = await reader.GetFieldValueAsync<InstanceInternal>(
                     "instance",
                     cancellationToken
                 );
@@ -220,11 +189,11 @@ public class PgInstanceRepository : IInstanceRepository
     }
 
     /// <inheritdoc/>
-    public async Task<List<DataElement>> GetHardDeletedDataElements(
+    public async Task<List<DataElementInternal>> GetHardDeletedDataElements(
         CancellationToken cancellationToken
     )
     {
-        List<DataElement> elements = [];
+        List<DataElementInternal> elements = [];
         try
         {
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readDeletedElementsSql);
@@ -238,7 +207,7 @@ public class PgInstanceRepository : IInstanceRepository
                 id = await reader.GetFieldValueAsync<long>("id", cancellationToken);
                 if (id != previousId)
                 {
-                    Instance instance = await reader.GetFieldValueAsync<Instance>(
+                    InstanceInternal instance = await reader.GetFieldValueAsync<InstanceInternal>(
                         "instance",
                         cancellationToken
                     );
@@ -254,7 +223,10 @@ public class PgInstanceRepository : IInstanceRepository
                 if (currentInstanceAllowsDelete)
                 {
                     elements.Add(
-                        await reader.GetFieldValueAsync<DataElement>("element", cancellationToken)
+                        await reader.GetFieldValueAsync<DataElementInternal>(
+                            ElementColumn,
+                            cancellationToken
+                        )
                     );
                 }
             }
@@ -355,19 +327,18 @@ public class PgInstanceRepository : IInstanceRepository
         return value.ToString()[..^2] + "}'";
     }
 
-    private async Task<InstanceQueryResponse> GetInstancesInternal(
+    private async Task<InstanceQueryResult> GetInstancesInternal(
         InstanceQueryParameters queryParams,
-        bool includeDataelements,
         CancellationToken cancellationToken
     )
     {
         DateTime lastChanged = DateTime.MinValue;
-        InstanceQueryResponse queryResponse = new() { Count = 0, Instances = [] };
+        InstanceQueryResult queryResult = new() { Instances = [] };
 
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSqlFiltered);
 
         Dictionary<string, object> postgresParams = queryParams.GeneratePostgreSQLParameters();
-        postgresParams.Add("_includeElements", includeDataelements);
+        postgresParams.Add("_includeElements", queryParams.IncludeDataElements);
         foreach (string name in _paramTypes.Keys)
         {
             pgcom.Parameters.AddWithValue(
@@ -387,61 +358,54 @@ public class PgInstanceRepository : IInstanceRepository
         {
             long previousId = -1;
             long id = -1;
-            Instance instance = new(); // make sonarcloud happy
+            InstanceInternal instance = new(); // make sonarcloud happy
             while (await reader.ReadAsync(cancellationToken))
             {
                 id = await reader.GetFieldValueAsync<long>("id", cancellationToken);
                 if (id != previousId)
                 {
-                    if (previousId != -1)
-                    {
-                        ToExternal(instance);
-                    }
-
-                    instance = await reader.GetFieldValueAsync<Instance>(
+                    instance = await reader.GetFieldValueAsync<InstanceInternal>(
                         "instance",
                         cancellationToken
                     );
                     lastChanged = instance.LastChanged ?? DateTime.MinValue;
-                    queryResponse.Instances.Add(instance);
+                    instance.InternalId = id;
                     instance.Data = [];
+                    queryResult.Instances.Add(instance);
                     previousId = id;
                 }
 
-                if (!await reader.IsDBNullAsync("element", cancellationToken))
+                if (!await reader.IsDBNullAsync(ElementColumn, cancellationToken))
                 {
                     instance.Data.Add(
-                        await reader.GetFieldValueAsync<DataElement>("element", cancellationToken)
+                        await reader.GetFieldValueAsync<DataElementInternal>(
+                            ElementColumn,
+                            cancellationToken
+                        )
                     );
                 }
             }
 
-            if (id != -1)
-            {
-                ToExternal(instance);
-            }
-
-            queryResponse.ContinuationToken =
-                queryResponse.Instances.Count == queryParams.Size
+            queryResult.ContinuationToken =
+                queryResult.Instances.Count == queryParams.Size
                     ? $"{lastChanged.Ticks};{id}"
                     : null;
         }
 
-        queryResponse.Count = queryResponse.Instances.Count;
-        Activity.Current?.AddTag("instanceCount", queryResponse.Count.ToString());
+        Activity.Current?.AddTag("instanceCount", queryResult.Instances.Count.ToString());
 
-        return queryResponse;
+        return queryResult;
     }
 
     /// <inheritdoc/>
-    public async Task<(Instance Instance, long InternalId)> GetOne(
+    public async Task<InstanceInternal> GetOne(
         Guid instanceGuid,
         bool includeElements,
         CancellationToken cancellationToken
     )
     {
-        Instance instance = null;
-        List<DataElement> instanceData = [];
+        InstanceInternal instance = null;
+        List<DataElementInternal> instanceData = [];
         long instanceInternalId = 0;
 
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(
@@ -457,7 +421,7 @@ public class PgInstanceRepository : IInstanceRepository
                 if (!instanceCreated)
                 {
                     instanceCreated = true;
-                    instance = await reader.GetFieldValueAsync<Instance>(
+                    instance = await reader.GetFieldValueAsync<InstanceInternal>(
                         "instance",
                         cancellationToken
                     );
@@ -470,27 +434,30 @@ public class PgInstanceRepository : IInstanceRepository
                 if (includeElements && !await reader.IsDBNullAsync("element", cancellationToken))
                 {
                     instanceData.Add(
-                        await reader.GetFieldValueAsync<DataElement>("element", cancellationToken)
+                        await reader.GetFieldValueAsync<DataElementInternal>(
+                            "element",
+                            cancellationToken
+                        )
                     );
                 }
             }
 
             if (instance is null)
             {
-                return (null, 0);
+                return null;
             }
         }
 
         // Present instance data elements in chronological order
         instance.Data = instanceData.OrderBy(x => x.Created).ToList();
-        ToExternal(instance);
+        instance.InternalId = instanceInternalId;
 
-        return (instance, instanceInternalId);
+        return instance;
     }
 
     /// <inheritdoc/>
-    public async Task<Instance> Update(
-        Instance instance,
+    public async Task<InstanceInternal> Update(
+        InstanceInternal instance,
         List<string> updateProperties,
         CancellationToken cancellationToken
     )
@@ -500,24 +467,23 @@ public class PgInstanceRepository : IInstanceRepository
             instance.LastChanged != null
                 ? new DateTime((((DateTime)instance.LastChanged).Ticks / 10) * 10, DateTimeKind.Utc)
                 : null;
-        List<DataElement> dataElements = instance.Data;
-
-        ToInternal(instance);
-        instance.Data = null;
+        List<DataElementInternal> dataElements = instance.Data;
+        long internalId = instance.InternalId;
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(UpdateSql);
         BuildUpdateCommand(instance, updateProperties, pgcom.Parameters);
 
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
         if (await reader.ReadAsync(cancellationToken))
         {
-            instance = await reader.GetFieldValueAsync<Instance>(
+            instance = await reader.GetFieldValueAsync<InstanceInternal>(
                 "updatedInstance",
                 cancellationToken
             );
         }
 
         instance.Data = dataElements;
-        return ToExternal(instance);
+        instance.InternalId = internalId;
+        return instance;
     }
 
     /// <summary>
@@ -527,7 +493,7 @@ public class PgInstanceRepository : IInstanceRepository
     /// <param name="updateProperties">Updated props</param>
     /// <param name="parameters">Parameters</param>
     internal static void BuildUpdateCommand(
-        Instance instance,
+        InstanceInternal instance,
         List<string> updateProperties,
         NpgsqlParameterCollection parameters
     )
@@ -596,33 +562,6 @@ public class PgInstanceRepository : IInstanceRepository
                 ? true
                 : DBNull.Value
         );
-    }
-
-    /// <summary>
-    /// Converts the instance to internal format.
-    /// </summary>
-    /// <param name="instance">Instance</param>
-    internal static void ToInternal(Instance instance)
-    {
-        if (instance.Id.Contains('/', StringComparison.Ordinal))
-        {
-            instance.Id = instance.Id.Split('/')[1];
-        }
-    }
-
-    /// <summary>
-    /// Converts the instance to external format.
-    /// </summary>
-    /// <param name="instance">Instance</param>
-    /// <returns></returns>
-    internal static Instance ToExternal(Instance instance)
-    {
-        if (!instance.Id.Contains('/', StringComparison.Ordinal))
-        {
-            instance.Id = $"{instance.InstanceOwner.PartyId}/{instance.Id}";
-        }
-
-        return instance;
     }
 
     private static readonly Dictionary<string, NpgsqlDbType> _paramTypes = new()

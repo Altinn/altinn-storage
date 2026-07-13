@@ -27,9 +27,9 @@ public interface IDataService
     /// <param name="ct">A cancellation token should the request be cancelled.</param>
     /// <returns>A task representing the asynconous call to file scan service.</returns>
     Task StartFileScan(
-        Instance instance,
+        InstanceInternal instance,
         DataType dataType,
-        DataElement dataElement,
+        DataElementInternal dataElement,
         DateTimeOffset blobTimestamp,
         int? storageAccountNumber,
         CancellationToken ct
@@ -60,7 +60,7 @@ public interface IDataService
     Task UploadDataAndCreateDataElement(
         string org,
         Stream stream,
-        DataElement dataElement,
+        DataElementInternal dataElement,
         long instanceInternalId,
         int? storageAccountNumber
     );
@@ -72,9 +72,9 @@ public interface IDataService
     /// <param name="dataElement">The data element</param>
     /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
     /// <returns></returns>
-    Task<DataElement> DeleteImmediately(
-        Instance instance,
-        DataElement dataElement,
+    Task<DataElementInternal> DeleteImmediately(
+        InstanceInternal instance,
+        DataElementInternal dataElement,
         int? storageAccountNumber
     );
 }

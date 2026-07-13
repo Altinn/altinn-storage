@@ -47,9 +47,9 @@ public class DataService : IDataService
 
     /// <inheritdoc/>
     public async Task StartFileScan(
-        Instance instance,
+        InstanceInternal instance,
         DataType dataType,
-        DataElement dataElement,
+        DataElementInternal dataElement,
         DateTimeOffset blobTimestamp,
         int? storageAccountNumber,
         CancellationToken ct
@@ -59,7 +59,7 @@ public class DataService : IDataService
         {
             FileScanRequest fileScanRequest = new()
             {
-                InstanceId = instance.Id,
+                InstanceId = $"{instance.InstanceOwner.PartyId}/{instance.Id}",
                 DataElementId = dataElement.Id,
                 Timestamp = blobTimestamp,
                 BlobStoragePath = dataElement.BlobStoragePath,
@@ -85,7 +85,7 @@ public class DataService : IDataService
         int? storageAccountNumber
     )
     {
-        DataElement dataElement = await _dataRepository.Read(instanceGuid, dataElementId);
+        DataElementInternal dataElement = await _dataRepository.Read(instanceGuid, dataElementId);
         if (dataElement == null)
         {
             return (
@@ -116,7 +116,7 @@ public class DataService : IDataService
     public async Task UploadDataAndCreateDataElement(
         string org,
         Stream stream,
-        DataElement dataElement,
+        DataElementInternal dataElement,
         long instanceInternalId,
         int? storageAccountNumber
     )
@@ -133,9 +133,9 @@ public class DataService : IDataService
     }
 
     /// <inheritdoc/>
-    public async Task<DataElement> DeleteImmediately(
-        Instance instance,
-        DataElement dataElement,
+    public async Task<DataElementInternal> DeleteImmediately(
+        InstanceInternal instance,
+        DataElementInternal dataElement,
         int? storageAccountNumber
     )
     {

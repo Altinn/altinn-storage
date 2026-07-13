@@ -41,13 +41,14 @@ public class InstanceLockTests(InstanceLockFixture fixture)
     public async Task TryAcquireLock_WhenLockActive_ReturnsLockAlreadyHeld_WhenExpired_ReturnsSuccess()
     {
         // Arrange
-        var instance = TestData.Instance_1_1.Clone();
+        InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
         instance = await _fixture.InstanceRepo.Create(instance, CancellationToken.None);
-        (_, long instanceInternalId) = await _fixture.InstanceRepo.GetOne(
-            Guid.Parse(instance.Id.Split('/').Last()),
+        InstanceInternal instanceInternal = await _fixture.InstanceRepo.GetOne(
+            Guid.Parse(instance.Id),
             false,
             CancellationToken.None
         );
+        long instanceInternalId = instanceInternal.InternalId;
         var ttlSeconds = 300;
         var userId = "123";
 
@@ -134,13 +135,14 @@ public class InstanceLockTests(InstanceLockFixture fixture)
     public async Task TryAcquireLock_AfterReleasingLock_AllowsNewLockAcquisition()
     {
         // Arrange
-        var instance = TestData.Instance_1_1.Clone();
+        InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
         instance = await _fixture.InstanceRepo.Create(instance, CancellationToken.None);
-        (_, long instanceInternalId) = await _fixture.InstanceRepo.GetOne(
-            Guid.Parse(instance.Id.Split('/').Last()),
+        InstanceInternal instanceInternal = await _fixture.InstanceRepo.GetOne(
+            Guid.Parse(instance.Id),
             false,
             CancellationToken.None
         );
+        long instanceInternalId = instanceInternal.InternalId;
         var ttlSeconds = 300;
         var userId = "123";
 
@@ -245,13 +247,14 @@ public class InstanceLockTests(InstanceLockFixture fixture)
     public async Task UpdateLockExpiration_ExtendsLock_PreventsAcquisitionUntilExpired()
     {
         // Arrange
-        var instance = TestData.Instance_1_1.Clone();
+        InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
         instance = await _fixture.InstanceRepo.Create(instance, CancellationToken.None);
-        (_, long instanceInternalId) = await _fixture.InstanceRepo.GetOne(
-            Guid.Parse(instance.Id.Split('/').Last()),
+        InstanceInternal instanceInternal = await _fixture.InstanceRepo.GetOne(
+            Guid.Parse(instance.Id),
             false,
             CancellationToken.None
         );
+        long instanceInternalId = instanceInternal.InternalId;
         var ttlSeconds = 300;
         var userId = "123";
 
@@ -340,13 +343,14 @@ public class InstanceLockTests(InstanceLockFixture fixture)
     public async Task UpdateExpiration_Fails_WhenLockDoesNotExist()
     {
         // Arrange
-        var instance = TestData.Instance_1_1.Clone();
+        InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
         instance = await _fixture.InstanceRepo.Create(instance, CancellationToken.None);
-        (_, long instanceInternalId) = await _fixture.InstanceRepo.GetOne(
-            Guid.Parse(instance.Id.Split('/').Last()),
+        InstanceInternal instanceInternal = await _fixture.InstanceRepo.GetOne(
+            Guid.Parse(instance.Id),
             false,
             CancellationToken.None
         );
+        long instanceInternalId = instanceInternal.InternalId;
         var nonExistentLockId = long.MaxValue;
         var ttlSeconds = 300;
         var dummyToken = new byte[20];
@@ -386,13 +390,14 @@ public class InstanceLockTests(InstanceLockFixture fixture)
     public async Task UpdateExpiration_Fails_WhenLockIsExpired()
     {
         // Arrange
-        var instance = TestData.Instance_1_1.Clone();
+        InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
         instance = await _fixture.InstanceRepo.Create(instance, CancellationToken.None);
-        (_, long instanceInternalId) = await _fixture.InstanceRepo.GetOne(
-            Guid.Parse(instance.Id.Split('/').Last()),
+        InstanceInternal instanceInternal = await _fixture.InstanceRepo.GetOne(
+            Guid.Parse(instance.Id),
             false,
             CancellationToken.None
         );
+        long instanceInternalId = instanceInternal.InternalId;
         var ttlSeconds = 300;
         var userId = "123";
 

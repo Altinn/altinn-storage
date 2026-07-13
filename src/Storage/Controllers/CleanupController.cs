@@ -52,7 +52,7 @@ public class CleanupController(
     {
         try
         {
-            List<Instance> instances = await instanceRepository.GetHardDeletedInstances(
+            List<InstanceInternal> instances = await instanceRepository.GetHardDeletedInstances(
                 cancellationToken
             );
             List<string> autoDeleteAppIds = (await applicationRepository.FindAll())
@@ -105,7 +105,7 @@ public class CleanupController(
     {
         int successfullyDeleted = 0;
         int processed = 0;
-        InstanceQueryResponse instancesResponse = new() { ContinuationToken = null };
+        InstanceQueryResult instancesResponse = new() { ContinuationToken = null };
 
         Stopwatch stopwatch = Stopwatch.StartNew();
         do
@@ -115,11 +115,11 @@ public class CleanupController(
                 Size = 5000,
                 AppId = $"{org}/{app}",
                 ContinuationToken = instancesResponse.ContinuationToken,
+                IncludeDataElements = true,
             };
 
             instancesResponse = await instanceRepository.GetInstancesFromQuery(
                 queryParameters,
-                true,
                 cancellationToken
             );
             successfullyDeleted += await CleanupInstancesInternal(
@@ -127,7 +127,7 @@ public class CleanupController(
                 [],
                 cancellationToken
             );
-            processed += (int)instancesResponse.Count;
+            processed += instancesResponse.Instances.Count;
         } while (instancesResponse.ContinuationToken != null);
         stopwatch.Stop();
 
@@ -152,23 +152,22 @@ public class CleanupController(
     [ApiExplorerSettings(IgnoreApi = true)]
     public async Task<ActionResult> CleanupDataelements(CancellationToken cancellationToken)
     {
-        List<DataElement> dataElements = await instanceRepository.GetHardDeletedDataElements(
-            cancellationToken
-        );
+        List<DataElementInternal> dataElements =
+            await instanceRepository.GetHardDeletedDataElements(cancellationToken);
 
         int successfullyDeleted = 0;
 
         Stopwatch stopwatch = Stopwatch.StartNew();
 
         Application app = null;
-        Instance instance = null;
-        foreach (DataElement dataElement in dataElements.OrderBy(d => d.InstanceGuid))
+        InstanceInternal instance = null;
+        foreach (DataElementInternal dataElement in dataElements.OrderBy(d => d.InstanceGuid))
         {
             try
             {
-                if (instance == null || instance.Id.Split('/')[1] != dataElement.InstanceGuid)
+                if (instance == null || instance.Id != dataElement.InstanceGuid)
                 {
-                    (instance, _) = await instanceRepository.GetOne(
+                    instance = await instanceRepository.GetOne(
                         new Guid(dataElement.InstanceGuid),
                         false,
                         cancellationToken
@@ -239,13 +238,13 @@ public class CleanupController(
     }
 
     private async Task<int> CleanupInstancesInternal(
-        List<Instance> instances,
+        List<InstanceInternal> instances,
         List<string> autoDeleteAppIds,
         CancellationToken cancellationToken
     )
     {
         int successfullyDeleted = 0;
-        foreach (Instance instance in instances)
+        foreach (InstanceInternal instance in instances)
         {
             bool blobsNoException = false;
             bool instanceEventsNoException = false;
@@ -261,9 +260,7 @@ public class CleanupController(
 
                 if (blobsNoException)
                 {
-                    dataElementsNoException = await dataRepository.DeleteForInstance(
-                        instance.Id.Split('/')[^1]
-                    );
+                    dataElementsNoException = await dataRepository.DeleteForInstance(instance.Id);
                 }
 
                 try
@@ -288,7 +285,7 @@ public class CleanupController(
                     && (!autoDeleteAppIds.Contains(instance.AppId) || instanceEventsNoException)
                 )
                 {
-                    if (await instanceRepository.Delete(instance, cancellationToken))
+                    if (await instanceRepository.Delete(Guid.Parse(instance.Id), cancellationToken))
                     {
                         successfullyDeleted += 1;
                     }

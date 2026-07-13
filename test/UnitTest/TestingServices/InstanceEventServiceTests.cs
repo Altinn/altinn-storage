@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using AltinnCore.Authentication.Constants;
@@ -39,13 +40,13 @@ public class InstanceEventServiceTests
             instanceEventRepositoryMock.Object,
             contextAccessorMock.Object
         );
-        Instance instance = new()
+        InstanceInternal instance = new()
         {
             Id = "test",
             InstanceOwner = new InstanceOwner { PartyId = "someId" },
             Process = new ProcessState(),
         };
-        DataElement dataElement = new() { Id = "test" };
+        DataElementInternal dataElement = new() { Id = "test" };
 
         // Act
         await target.DispatchEvent(eventType, instance, dataElement);
@@ -78,13 +79,13 @@ public class InstanceEventServiceTests
             instanceEventRepositoryMock.Object,
             contextAccessorMock.Object
         );
-        Instance instance = new()
+        InstanceInternal instance = new()
         {
             Id = "test",
             InstanceOwner = new InstanceOwner { PartyId = "someId" },
             Process = new ProcessState(),
         };
-        DataElement dataElement = new() { Id = "test" };
+        DataElementInternal dataElement = new() { Id = "test" };
 
         // Act and Assert
         InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
@@ -118,13 +119,13 @@ public class InstanceEventServiceTests
             instanceEventRepositoryMock.Object,
             contextAccessorMock.Object
         );
-        Instance instance = new()
+        InstanceInternal instance = new()
         {
             Id = "test",
             InstanceOwner = new InstanceOwner { PartyId = "someId" },
             Process = new ProcessState(),
         };
-        DataElement dataElement = new() { Id = "test" };
+        DataElementInternal dataElement = new() { Id = "test" };
 
         // Act and Assert
         InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(

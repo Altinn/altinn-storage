@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 
 namespace Altinn.Platform.Storage.Services;
 
@@ -32,7 +33,7 @@ public interface IProcessDataCleanupService
     /// <returns>The number of data elements that were successfully deleted.</returns>
     /// <exception cref="InvalidOperationException">Error looking up the application's storage account.</exception>
     Task<int> CleanupGeneratedFromTask(
-        Instance instance,
+        InstanceInternal instance,
         string taskId,
         CancellationToken cancellationToken
     );

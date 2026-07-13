@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using NpgsqlTypes;
@@ -38,8 +39,8 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     private readonly NpgsqlDataSource _dataSource = dataSource;
 
     /// <inheritdoc/>
-    public async Task<DataElement> Create(
-        DataElement dataElement,
+    public async Task<DataElementInternal> Create(
+        DataElementInternal dataElement,
         long instanceInternalId = 0,
         CancellationToken cancellationToken = default
     )
@@ -58,7 +59,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
         if (await reader.ReadAsync(cancellationToken))
         {
-            dataElement = await reader.GetFieldValueAsync<DataElement>(
+            dataElement = await reader.GetFieldValueAsync<DataElementInternal>(
                 "updatedElement",
                 cancellationToken: cancellationToken
             );
@@ -69,7 +70,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
 
     /// <inheritdoc/>
     public async Task<bool> Delete(
-        DataElement dataElement,
+        DataElementInternal dataElement,
         CancellationToken cancellationToken = default
     )
     {
@@ -108,20 +109,20 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     }
 
     /// <inheritdoc/>
-    public async Task<DataElement> Read(
+    public async Task<DataElementInternal> Read(
         Guid instanceGuid,
         Guid dataElementId,
         CancellationToken cancellationToken = default
     )
     {
-        DataElement dataElement = null;
+        DataElementInternal dataElement = null;
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSql);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
 
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
         if (await reader.ReadAsync(cancellationToken))
         {
-            dataElement = await reader.GetFieldValueAsync<DataElement>(
+            dataElement = await reader.GetFieldValueAsync<DataElementInternal>(
                 "element",
                 cancellationToken: cancellationToken
             );
@@ -131,7 +132,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     }
 
     /// <inheritdoc/>
-    public async Task<DataElement> Update(
+    public async Task<DataElementInternal> Update(
         Guid instanceGuid,
         Guid dataElementId,
         Dictionary<string, object> propertylist,
@@ -149,7 +150,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
 
         List<string> elementProperties = [];
         List<string> instanceProperties = [];
-        DataElement element = new();
+        DataElementInternal element = new();
         bool isReadChangedToFalse = false;
         foreach (var kvp in propertylist)
         {
@@ -157,61 +158,61 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
             {
                 case "/locked":
                     element.Locked = (bool)kvp.Value;
-                    elementProperties.Add(nameof(DataElement.Locked));
+                    elementProperties.Add(nameof(DataElementInternal.Locked));
                     break;
                 case "/refs":
                     element.Refs = (List<Guid>)kvp.Value;
-                    elementProperties.Add(nameof(DataElement.Refs));
+                    elementProperties.Add(nameof(DataElementInternal.Refs));
                     break;
                 case "/references":
                     element.References = (List<Reference>)kvp.Value;
-                    elementProperties.Add(nameof(DataElement.References));
+                    elementProperties.Add(nameof(DataElementInternal.References));
                     break;
                 case "/tags":
                     element.Tags = (List<string>)kvp.Value;
-                    elementProperties.Add(nameof(DataElement.Tags));
+                    elementProperties.Add(nameof(DataElementInternal.Tags));
                     break;
                 case "/userDefinedMetadata":
                     element.UserDefinedMetadata = (List<KeyValueEntry>)kvp.Value;
-                    elementProperties.Add(nameof(DataElement.UserDefinedMetadata));
+                    elementProperties.Add(nameof(DataElementInternal.UserDefinedMetadata));
                     break;
                 case "/metadata":
                     element.Metadata = (List<KeyValueEntry>)kvp.Value;
-                    elementProperties.Add(nameof(DataElement.Metadata));
+                    elementProperties.Add(nameof(DataElementInternal.Metadata));
                     break;
                 case "/deleteStatus":
                     element.DeleteStatus = (DeleteStatus)kvp.Value;
-                    elementProperties.Add(nameof(DataElement.DeleteStatus));
+                    elementProperties.Add(nameof(DataElementInternal.DeleteStatus));
                     break;
                 case "/lastChanged":
                     element.LastChanged = (DateTime?)kvp.Value;
-                    elementProperties.Add(nameof(DataElement.LastChanged));
-                    instanceProperties.Add(nameof(Instance.LastChanged));
+                    elementProperties.Add(nameof(DataElementInternal.LastChanged));
+                    instanceProperties.Add(nameof(InstanceInternal.LastChanged));
                     break;
                 case "/lastChangedBy":
                     element.LastChangedBy = (string)kvp.Value;
-                    elementProperties.Add(nameof(DataElement.LastChangedBy));
-                    instanceProperties.Add(nameof(Instance.LastChangedBy));
+                    elementProperties.Add(nameof(DataElementInternal.LastChangedBy));
+                    instanceProperties.Add(nameof(InstanceInternal.LastChangedBy));
                     break;
                 case "/fileScanResult":
                     element.FileScanResult = (FileScanResult)kvp.Value;
-                    elementProperties.Add(nameof(DataElement.FileScanResult));
+                    elementProperties.Add(nameof(DataElementInternal.FileScanResult));
                     break;
                 case "/contentType":
                     element.ContentType = (string)kvp.Value;
-                    elementProperties.Add(nameof(DataElement.ContentType));
+                    elementProperties.Add(nameof(DataElementInternal.ContentType));
                     break;
                 case "/filename":
                     element.Filename = (string)kvp.Value;
-                    elementProperties.Add(nameof(DataElement.Filename));
+                    elementProperties.Add(nameof(DataElementInternal.Filename));
                     break;
                 case "/size":
                     element.Size = (long)kvp.Value;
-                    elementProperties.Add(nameof(DataElement.Size));
+                    elementProperties.Add(nameof(DataElementInternal.Size));
                     break;
                 case "/isRead":
                     element.IsRead = (bool)kvp.Value;
-                    elementProperties.Add(nameof(DataElement.IsRead));
+                    elementProperties.Add(nameof(DataElementInternal.IsRead));
                     isReadChangedToFalse = !element.IsRead;
                     break;
                 default:
@@ -219,7 +220,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
             }
         }
 
-        Instance lastChangedWrapper = new()
+        InstanceInternal lastChangedWrapper = new()
         {
             LastChanged = element.LastChanged,
             LastChangedBy = element.LastChangedBy,
@@ -232,14 +233,20 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
             NpgsqlDbType.Jsonb,
             CustomSerializer.Serialize(
                 element,
-                new Dictionary<Type, List<string>> { [typeof(DataElement)] = elementProperties }
+                new Dictionary<Type, List<string>>
+                {
+                    [typeof(DataElementInternal)] = elementProperties,
+                }
             )
         );
         pgcom.Parameters.AddWithValue(
             NpgsqlDbType.Jsonb,
             CustomSerializer.Serialize(
                 lastChangedWrapper,
-                new Dictionary<Type, List<string>> { [typeof(Instance)] = instanceProperties }
+                new Dictionary<Type, List<string>>
+                {
+                    [typeof(InstanceInternal)] = instanceProperties,
+                }
             )
         );
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Boolean, isReadChangedToFalse);
@@ -251,7 +258,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
         if (await reader.ReadAsync(cancellationToken))
         {
-            element = await reader.GetFieldValueAsync<DataElement>(
+            element = await reader.GetFieldValueAsync<DataElementInternal>(
                 "updatedElement",
                 cancellationToken: cancellationToken
             );

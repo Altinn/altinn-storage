@@ -6,8 +6,8 @@ using System.Data;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Enums;
-using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Messages;
+using Altinn.Platform.Storage.Models;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using NpgsqlTypes;
@@ -250,13 +250,12 @@ public class PgA2Repository(
     }
 
     /// <inheritdoc/>
-    public async Task UpdateCompleteMigrationState(Instance instance)
+    public async Task UpdateCompleteMigrationState(InstanceInternal instance)
     {
-        string instanceId = instance.Id.Split('/')[^1];
         await using var connection = await _dataSource.OpenConnectionAsync();
         await using var tx = await connection.BeginTransactionAsync();
         await using NpgsqlCommand pgcom = new(_updateMigrationStateCompletedSql, connection);
-        pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, new Guid(instanceId));
+        pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, new Guid(instance.Id));
 
         await pgcom.ExecuteNonQueryAsync();
 
@@ -265,7 +264,7 @@ public class PgA2Repository(
             SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
                 instance.AppId,
                 instance.InstanceOwner.PartyId,
-                instanceId,
+                instance.Id,
                 (DateTime)instance.Created,
                 true,
                 InstanceEventType.Created
@@ -277,19 +276,18 @@ public class PgA2Repository(
     }
 
     /// <inheritdoc/>
-    public async Task SendDeleteToDialogporten(Instance instance)
+    public async Task SendDeleteToDialogporten(InstanceInternal instance)
     {
         if (!(wolverineSettings.Value.EnableSending && wolverineSettings.Value.EnableA2Migration))
         {
             return;
         }
 
-        string instanceId = instance.Id.Split('/')[^1];
         await using var connection = await _dataSource.OpenConnectionAsync();
         SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
             instance.AppId,
             instance.InstanceOwner.PartyId,
-            instanceId,
+            instance.Id,
             (DateTime)instance.Created,
             true,
             InstanceEventType.Deleted

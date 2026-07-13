@@ -13,6 +13,7 @@ using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Utils;
@@ -400,13 +401,13 @@ public class DataControllerUnitTests
                     It.IsAny<CancellationToken>()
                 )
             )
-            .ReturnsAsync(new DataElement());
+            .ReturnsAsync(new DataElementInternal());
 
         dataRepositoryMock
             .Setup(d => d.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(
                 (Guid instanceGuid, Guid dataElementId, CancellationToken cancellationToken) =>
-                    new DataElement
+                    new DataElementInternal
                     {
                         Id = dataElementId.ToString(),
                         InstanceGuid = instanceGuid.ToString(),
@@ -449,18 +450,7 @@ public class DataControllerUnitTests
                     Guid instanceGuid,
                     bool includeDataElements,
                     CancellationToken cancellationToken
-                ) =>
-                    (
-                        new Instance
-                        {
-                            Id = $"555/{instanceGuid}",
-                            InstanceOwner = new InstanceOwner { PartyId = "555" },
-                            Org = _org,
-                            AppId = _appId,
-                            Data = includeDataElements ? GetDataElements(instanceGuid) : null,
-                        },
-                        0
-                    )
+                ) => CreateInstanceInternal(instanceGuid, includeDataElements)
             );
 
         applicationRepositoryMock
@@ -484,16 +474,16 @@ public class DataControllerUnitTests
         instanceEventServiceMock.Setup(ier =>
             ier.DispatchEvent(
                 It.IsAny<InstanceEventType>(),
-                It.IsAny<Instance>(),
-                It.IsAny<DataElement>()
+                It.IsAny<InstanceInternal>(),
+                It.IsAny<DataElementInternal>()
             )
         );
 
         dataServiceMock.Setup(d =>
             d.StartFileScan(
-                It.IsAny<Instance>(),
+                It.IsAny<InstanceInternal>(),
                 It.IsAny<DataType>(),
-                It.IsAny<DataElement>(),
+                It.IsAny<DataElementInternal>(),
                 It.IsAny<DateTimeOffset>(),
                 It.IsAny<int?>(),
                 It.IsAny<CancellationToken>()
@@ -501,7 +491,9 @@ public class DataControllerUnitTests
         );
 
         authorizationServiceMock
-            .Setup(a => a.AuthorizeEnrichedInstanceAction(It.IsAny<Instance>(), It.IsAny<string>()))
+            .Setup(a =>
+                a.AuthorizeEnrichedInstanceAction(It.IsAny<InstanceInternal>(), It.IsAny<string>())
+            )
             .ReturnsAsync(true);
 
         Mock<HttpContext> httpContextMock = new();
@@ -556,6 +548,23 @@ public class DataControllerUnitTests
         };
 
         return (sut, dataRepositoryMock);
+    }
+
+    private InstanceInternal CreateInstanceInternal(Guid instanceGuid, bool includeDataElements)
+    {
+        Instance instance = new()
+        {
+            Id = $"555/{instanceGuid}",
+            InstanceOwner = new InstanceOwner { PartyId = "555" },
+            Org = _org,
+            AppId = _appId,
+            Data = includeDataElements ? GetDataElements(instanceGuid) : null,
+        };
+
+        List<DataElementInternal> dataElements =
+            instance.Data?.Select(dataElement => dataElement.FromApiModel()).ToList() ?? [];
+
+        return InstanceInternalTestFactory.Create(instance, dataElements, InternalId: 123L);
     }
 
     private static List<DataElement> GetDataElements(Guid instanceGuid)

@@ -17,6 +17,7 @@ using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Mocks;
@@ -871,7 +872,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         Mock<IDataRepository> dataRepositoryMock = new();
         dataRepositoryMock
             .Setup(dr => dr.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(de);
+            .ReturnsAsync(de.FromApiModel());
 
         dataRepositoryMock
             .Setup(dr =>
@@ -884,7 +885,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
                     It.IsAny<CancellationToken>()
                 )
             )
-            .ReturnsAsync(new DataElement());
+            .ReturnsAsync(new DataElementInternal());
 
         string dataPathWithData =
             $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe30?delay=true";
@@ -941,14 +942,14 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         Mock<IBlobRepository> blobRepositoryMock = new();
         dataRepositoryMock
             .Setup(dr => dr.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(de);
+            .ReturnsAsync(de.FromApiModel());
 
         blobRepositoryMock
             .Setup(dr => dr.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()))
             .ReturnsAsync(true);
 
         dataRepositoryMock
-            .Setup(dr => dr.Delete(It.IsAny<DataElement>(), It.IsAny<CancellationToken>()))
+            .Setup(dr => dr.Delete(It.IsAny<DataElementInternal>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
         string dataPathWithData =
@@ -988,7 +989,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         Mock<IDataRepository> dataRepositoryMock = new();
         dataRepositoryMock
             .Setup(dr => dr.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(de);
+            .ReturnsAsync(de.FromApiModel());
 
         string dataPathWithData =
             $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe88?delay=true";

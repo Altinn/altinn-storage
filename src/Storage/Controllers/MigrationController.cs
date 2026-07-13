@@ -15,6 +15,7 @@ using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Filters;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Azure.Storage;
 using Azure.Storage.Blobs;
@@ -116,7 +117,7 @@ public class MigrationController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        Instance storedInstance;
+        InstanceInternal storedInstance;
         try
         {
             int a1ArchiveReference = instance.DataValues.TryGetValue(
@@ -144,7 +145,7 @@ public class MigrationController : ControllerBase
                 : await _a2Repository.GetA2MigrationInstanceId(a2ArchiveReference);
             if (instanceId != null)
             {
-                (storedInstance, _) = await _instanceRepository.GetOne(
+                storedInstance = await _instanceRepository.GetOne(
                     Guid.Parse(instanceId),
                     false,
                     cancellationToken
@@ -169,7 +170,7 @@ public class MigrationController : ControllerBase
             }
 
             storedInstance = await _instanceRepository.Create(
-                instance,
+                instance.FromApiModel(),
                 cancellationToken,
                 isA1 ? 1 : 2
             );
@@ -178,18 +179,18 @@ public class MigrationController : ControllerBase
             {
                 await _a2Repository.UpdateStartA1MigrationState(
                     a1ArchiveReference,
-                    storedInstance.Id.Split('/')[^1]
+                    storedInstance.Id
                 );
             }
             else
             {
                 await _a2Repository.UpdateStartA2MigrationState(
                     a2ArchiveReference,
-                    storedInstance.Id.Split('/')[^1]
+                    storedInstance.Id
                 );
             }
 
-            return Created((string)null, storedInstance);
+            return Created((string)null, storedInstance.ToApiModel());
         }
         catch (Exception storageException)
         {
@@ -236,12 +237,12 @@ public class MigrationController : ControllerBase
     {
         DateTime created = new DateTime(createdTicks, DateTimeKind.Utc).ToLocalTime();
         DateTime lastChanged = new DateTime(changedTicks, DateTimeKind.Utc).ToLocalTime();
-        (Instance instance, long instanceId) = await _instanceRepository.GetOne(
+        InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
             false,
             cancellationToken
         );
-        if (instanceId == 0)
+        if (instance is null || instance.InternalId == 0)
         {
             return BadRequest("Instance not found");
         }
@@ -257,11 +258,11 @@ public class MigrationController : ControllerBase
             throw new Exception($"Internal error. Can't determine app type for {app.Id}");
         }
 
-        DataElement storedDataElement;
+        DataElementInternal storedDataElement;
         try
         {
             string dataElementId = Guid.NewGuid().ToString();
-            DataElement dataElement = new()
+            DataElementInternal dataElement = new()
             {
                 Id = dataElementId,
                 Created = created,
@@ -332,9 +333,9 @@ public class MigrationController : ControllerBase
                 };
             }
 
-            storedDataElement = await _dataRepository.Create(dataElement, instanceId);
+            storedDataElement = await _dataRepository.Create(dataElement, instance.InternalId);
 
-            return Created((string)null, storedDataElement);
+            return Created((string)null, storedDataElement.ToApiModel());
         }
         catch (Exception storageException)
         {
@@ -370,7 +371,7 @@ public class MigrationController : ControllerBase
                 await _instanceEventRepository.InsertInstanceEvent(instanceEvent, null);
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(
+            InstanceInternal instance = await _instanceRepository.GetOne(
                 new Guid(instanceEvents[0].InstanceId),
                 false,
                 CancellationToken.None
@@ -683,7 +684,7 @@ public class MigrationController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        InstanceInternal instance = await _instanceRepository.GetOne(
             new Guid(instanceId),
             false,
             cancellationToken
@@ -714,7 +715,7 @@ public class MigrationController : ControllerBase
         await _blobRepository.DeleteDataBlobs(instance, app.StorageAccountNumber);
         await _dataRepository.DeleteForInstance(instanceId);
         await _instanceEventRepository.DeleteAllInstanceEvents(instanceId);
-        await _instanceRepository.Delete(instance, cancellationToken);
+        await _instanceRepository.Delete(Guid.Parse(instance.Id), cancellationToken);
         await _a2Repository.DeleteMigrationState(instanceId);
 
         return true;

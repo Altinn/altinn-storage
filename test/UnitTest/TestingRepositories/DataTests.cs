@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Extensions;
 using Altinn.Platform.Storage.UnitTest.Utils;
@@ -40,7 +41,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     private static readonly List<string> _replacementTags = ["s3", "s4"];
 
     private long _instanceInternalId;
-    private Instance _instance;
+    private InstanceInternal _instance;
     private string _instanceGuid;
 
     public async Task InitializeAsync()
@@ -50,17 +51,18 @@ public class DataTests(DataElementFixture dataElementFixture)
         await PostgresUtil.RunSql(sql);
         await PostgresUtil.FreezeTime(_frozenTime);
 
-        Instance instance = TestData.Instance_1_1.Clone();
+        InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
         instance.Status.IsSoftDeleted = true;
-        Instance newInstance = await dataElementFixture.InstanceRepo.Create(
+        InstanceInternal newInstance = await dataElementFixture.InstanceRepo.Create(
             instance,
             CancellationToken.None
         );
-        (_instance, _instanceInternalId) = await dataElementFixture.InstanceRepo.GetOne(
+        _instance = await dataElementFixture.InstanceRepo.GetOne(
             Guid.Parse(newInstance.Id.Split('/').Last()),
             false,
             CancellationToken.None
         );
+        _instanceInternalId = _instance.InternalId;
         _instanceGuid = _instance.Id.Split('/').Last();
     }
 
@@ -77,12 +79,12 @@ public class DataTests(DataElementFixture dataElementFixture)
     {
         // Arrange
         DateTime lastChanged = _frozenTime;
-        DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
-        dataElement.LastChanged = lastChanged;
+        DataElement element = TestDataUtil.GetDataElement(_dataElement1);
+        element.LastChanged = lastChanged;
 
         // Act
-        dataElement = await CreateDataElement(dataElement);
-        (Instance instance, _) = await dataElementFixture.InstanceRepo.GetOne(
+        DataElementInternal dataElement = await CreateDataElement(element);
+        InstanceInternal instance = await dataElementFixture.InstanceRepo.GetOne(
             Guid.Parse(dataElement.InstanceGuid),
             false,
             CancellationToken.None
@@ -107,10 +109,10 @@ public class DataTests(DataElementFixture dataElementFixture)
         await SetInstanceReadStatus(ReadStatus.Unread);
 
         // Act
-        DataElement dataElement = await CreateDataElement();
+        DataElementInternal dataElement = await CreateDataElement();
 
         // Assert
-        Instance instance = await ReadInstance();
+        InstanceInternal instance = await ReadInstance();
         Assert.True(await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id)));
         Assert.Equal(ReadStatus.Unread, instance.Status.ReadStatus);
         Assert.Equal(dataElement.LastChangedBy, instance.LastChangedBy);
@@ -125,10 +127,10 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_Update_Metadata_Insert_Ok()
     {
         // Arrange
-        DataElement dataElement = await CreateDataElement();
+        DataElementInternal dataElement = await CreateDataElement();
 
         // Act
-        DataElement updatedElement = await dataElementFixture.DataRepo.Update(
+        DataElementInternal updatedElement = await dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object> { { "/metadata", _originalEntries } }
@@ -150,10 +152,10 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Arrange
         DataElement initialDataElement = TestDataUtil.GetDataElement(_dataElement1);
         initialDataElement.Metadata = _originalEntries;
-        DataElement dataElement = await CreateDataElement(initialDataElement);
+        DataElementInternal dataElement = await CreateDataElement(initialDataElement);
 
         // Act
-        DataElement updatedElement = await dataElementFixture.DataRepo.Update(
+        DataElementInternal updatedElement = await dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object> { { "/metadata", _replacementEntries } }
@@ -173,10 +175,10 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_Update_UserDefinedMetadata_Insert_Ok()
     {
         // Arrange
-        DataElement dataElement = await CreateDataElement();
+        DataElementInternal dataElement = await CreateDataElement();
 
         // Act
-        DataElement updatedElement = await dataElementFixture.DataRepo.Update(
+        DataElementInternal updatedElement = await dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object> { { "/userDefinedMetadata", _originalEntries } }
@@ -198,10 +200,10 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Arrange
         DataElement initialDataElement = TestDataUtil.GetDataElement(_dataElement1);
         initialDataElement.UserDefinedMetadata = _originalEntries;
-        DataElement dataElement = await CreateDataElement(initialDataElement);
+        DataElementInternal dataElement = await CreateDataElement(initialDataElement);
 
         // Act
-        DataElement updatedElement = await dataElementFixture.DataRepo.Update(
+        DataElementInternal updatedElement = await dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object> { { "/userDefinedMetadata", _replacementEntries } }
@@ -221,10 +223,10 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_Update_Tags_Insert_Ok()
     {
         // Arrange
-        DataElement dataElement = await CreateDataElement();
+        DataElementInternal dataElement = await CreateDataElement();
 
         // Act
-        DataElement updatedElement = await dataElementFixture.DataRepo.Update(
+        DataElementInternal updatedElement = await dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object> { { "/tags", _originalTags } }
@@ -246,10 +248,10 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Arrange
         DataElement initialDataElement = TestDataUtil.GetDataElement(_dataElement1);
         initialDataElement.Tags = _originalTags;
-        DataElement dataElement = await CreateDataElement(initialDataElement);
+        DataElementInternal dataElement = await CreateDataElement(initialDataElement);
 
         // Act
-        DataElement updatedElement = await dataElementFixture.DataRepo.Update(
+        DataElementInternal updatedElement = await dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object> { { "/tags", _replacementTags } }
@@ -271,10 +273,10 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Arrange
         DateTime hardDeleted = _frozenTime;
         DeleteStatus deleteStatus = new() { IsHardDeleted = true, HardDeleted = hardDeleted };
-        DataElement dataElement = await CreateDataElement();
+        DataElementInternal dataElement = await CreateDataElement();
 
         // Act
-        DataElement updatedElement = await dataElementFixture.DataRepo.Update(
+        DataElementInternal updatedElement = await dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object> { { "/deleteStatus", deleteStatus } }
@@ -292,7 +294,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_Update_NoChange_Instance_Readstatus_Ok()
     {
         // Arrange
-        DataElement dataElement = await CreateDataElement();
+        DataElementInternal dataElement = await CreateDataElement();
         DateTime seededLastChanged =
             _instance.LastChanged
             ?? throw new InvalidOperationException(
@@ -307,18 +309,18 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
 
         // Act
-        DataElement updatedElement = await dataElementFixture.DataRepo.Update(
+        DataElementInternal updatedElement = await dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object> { { "/contentType", _contentType } }
         );
 
         // Assert
-        DataElement readElement = await dataElementFixture.DataRepo.Read(
+        DataElementInternal readElement = await dataElementFixture.DataRepo.Read(
             Guid.Empty,
             Guid.Parse(dataElement.Id)
         );
-        Instance instance = await ReadInstance();
+        InstanceInternal instance = await ReadInstance();
         Assert.Equal(_contentType, readElement.ContentType);
         Assert.Equal(_contentType, updatedElement.ContentType);
         Assert.Equal(ReadStatus.Unread, instance.Status.ReadStatus);
@@ -337,11 +339,11 @@ public class DataTests(DataElementFixture dataElementFixture)
         DateTime lastChanged = _frozenTime;
         DataElement element = TestDataUtil.GetDataElement(_dataElement1);
         element.LastChanged = lastChanged;
-        DataElement dataElement = await CreateDataElement(element);
+        DataElementInternal dataElement = await CreateDataElement(element);
         await SetInstanceReadStatus(ReadStatus.Read);
 
         // Act
-        DataElement updatedElement = await dataElementFixture.DataRepo.Update(
+        DataElementInternal updatedElement = await dataElementFixture.DataRepo.Update(
             Guid.Parse(_instanceGuid),
             Guid.Parse(dataElement.Id),
             new Dictionary<string, object>
@@ -352,14 +354,14 @@ public class DataTests(DataElementFixture dataElementFixture)
                 { "/lastChangedBy", dataElement.LastChangedBy },
             }
         );
-        (Instance instance, _) = await dataElementFixture.InstanceRepo.GetOne(
+        InstanceInternal instance = await dataElementFixture.InstanceRepo.GetOne(
             Guid.Parse(updatedElement.InstanceGuid),
             false,
             CancellationToken.None
         );
 
         // Assert
-        DataElement readElement = await dataElementFixture.DataRepo.Read(
+        DataElementInternal readElement = await dataElementFixture.DataRepo.Read(
             Guid.Empty,
             Guid.Parse(dataElement.Id)
         );
@@ -373,13 +375,13 @@ public class DataTests(DataElementFixture dataElementFixture)
     }
 
     [Fact]
-    public async Task GetOne_InstanceNotFound_ReturnsNullAndZero()
+    public async Task GetOne_InstanceNotFound_ReturnsNull()
     {
         // Arrange
         Guid nonExistentInstanceGuid = Guid.NewGuid();
 
         // Act
-        (Instance instance, long internalId) = await dataElementFixture.InstanceRepo.GetOne(
+        InstanceInternal instance = await dataElementFixture.InstanceRepo.GetOne(
             nonExistentInstanceGuid,
             false,
             CancellationToken.None
@@ -387,7 +389,6 @@ public class DataTests(DataElementFixture dataElementFixture)
 
         // Assert
         Assert.Null(instance);
-        Assert.Equal(0, internalId);
     }
 
     /// <summary>
@@ -397,10 +398,10 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_Read_Ok()
     {
         // Arrange
-        DataElement dataElement = await CreateDataElement();
+        DataElementInternal dataElement = await CreateDataElement();
 
         // Act
-        DataElement readDataelement = await dataElementFixture.DataRepo.Read(
+        DataElementInternal readDataelement = await dataElementFixture.DataRepo.Read(
             Guid.Empty,
             Guid.Parse(dataElement.Id)
         );
@@ -416,14 +417,14 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_Delete_Change_Instance_Readstatus_Ok()
     {
         // Arrange
-        DataElement dataElement = await CreateDataElement();
+        DataElementInternal dataElement = await CreateDataElement();
         await SetInstanceReadStatus(ReadStatus.Read);
 
         // Act
         bool deleted = await dataElementFixture.DataRepo.Delete(dataElement);
 
         // Assert
-        Instance instance = await ReadInstance();
+        InstanceInternal instance = await ReadInstance();
         Assert.True(deleted);
         Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id)));
         Assert.Equal(ReadStatus.Unread, instance.Status.ReadStatus);
@@ -439,14 +440,14 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_Delete_NoChange_Instance_Readstatus_Ok()
     {
         // Arrange
-        DataElement dataElement = await CreateDataElement();
+        DataElementInternal dataElement = await CreateDataElement();
         await SetInstanceReadStatus(ReadStatus.Unread);
 
         // Act
         bool deleted = await dataElementFixture.DataRepo.Delete(dataElement);
 
         // Assert
-        Instance instance = await ReadInstance();
+        InstanceInternal instance = await ReadInstance();
         Assert.True(deleted);
         Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id)));
         Assert.Equal(ReadStatus.Unread, instance.Status.ReadStatus);
@@ -469,7 +470,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         bool deleted = await dataElementFixture.DataRepo.DeleteForInstance(_instanceGuid);
 
         // Assert
-        Instance instance = await ReadInstance(includeElements: true);
+        InstanceInternal instance = await ReadInstance(includeElements: true);
         Assert.True(deleted);
         Assert.Empty(instance.Data);
     }
@@ -481,7 +482,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_Update_Too_Many_Properties_Throws_Exception()
     {
         // Arrange
-        DataElement dataElement = await CreateDataElement();
+        DataElementInternal dataElement = await CreateDataElement();
         const int numberOfAllowedProperties = 14;
 
         var tooManyPropertiesDictionary = Enumerable
@@ -506,7 +507,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_Exists_Ok()
     {
         // Arrange
-        DataElement dataElement = await CreateDataElement();
+        DataElementInternal dataElement = await CreateDataElement();
 
         // Act
         bool result = await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id));
@@ -528,15 +529,13 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.False(result);
     }
 
-    private async Task<Instance> ReadInstance(bool includeElements = false)
+    private Task<InstanceInternal> ReadInstance(bool includeElements = false)
     {
-        (Instance instance, _) = await dataElementFixture.InstanceRepo.GetOne(
+        return dataElementFixture.InstanceRepo.GetOne(
             Guid.Parse(_instanceGuid),
             includeElements,
             CancellationToken.None
         );
-
-        return instance;
     }
 
     /// <summary>
@@ -550,14 +549,14 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
     }
 
-    private Task<DataElement> CreateDataElement(string dataElementId = _dataElement1)
+    private Task<DataElementInternal> CreateDataElement(string dataElementId = _dataElement1)
     {
         return CreateDataElement(TestDataUtil.GetDataElement(dataElementId));
     }
 
-    private Task<DataElement> CreateDataElement(DataElement dataElement)
+    private Task<DataElementInternal> CreateDataElement(DataElement dataElement)
     {
-        return dataElementFixture.DataRepo.Create(dataElement, _instanceInternalId);
+        return dataElementFixture.DataRepo.Create(dataElement.FromApiModel(), _instanceInternalId);
     }
 
     private Task<int> SetInstanceReadStatus(ReadStatus readStatus)

@@ -36,8 +36,8 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Arrange
 
         // Act
-        Instance newInstance = await _instanceFixture.InstanceRepo.Create(
-            TestData.Instance_1_1.Clone(),
+        InstanceInternal newInstance = await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone().FromApiModel(),
             CancellationToken.None
         );
 
@@ -49,8 +49,30 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             $"select confirmed from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'";
         bool? confirmed = await PostgresUtil.RunQuery<bool?>(sql);
         Assert.Equal(1, count);
-        Assert.Equal(TestData.Instance_1_1.Id, newInstance.Id);
+        Assert.Equal(TestData.Instance_1_1.Id.Split('/').Last(), newInstance.Id);
         Assert.Equal(false, confirmed);
+    }
+
+    [Fact]
+    public async Task Instance_Create_GeneratesIdAndHydratesInternalStateOnlyOnRead()
+    {
+        InstanceInternal input = TestData.Instance_1_1.Clone().FromApiModel();
+        input.Id = null;
+
+        InstanceInternal created = await _instanceFixture.InstanceRepo.Create(
+            input,
+            CancellationToken.None
+        );
+
+        Assert.True(Guid.TryParse(created.Id, out Guid generatedId));
+        Assert.Equal(0, created.InternalId);
+
+        InstanceInternal read = await _instanceFixture.InstanceRepo.GetOne(
+            generatedId,
+            false,
+            CancellationToken.None
+        );
+        Assert.True(read.InternalId > 0);
     }
 
     /// <summary>
@@ -60,7 +82,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_Update_Task_Ok()
     {
         // Arrange
-        Instance newInstance = TestData.Instance_1_1.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.Process.CurrentTask.Name = "Before update";
         newInstance.Process.StartEvent = "s1";
         newInstance = await _instanceFixture.InstanceRepo.Create(
@@ -80,7 +102,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         updateProperties.Add(nameof(newInstance.Process));
 
         // Act
-        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(
+        InstanceInternal updatedInstance = await _instanceFixture.InstanceRepo.Update(
             newInstance,
             updateProperties,
             CancellationToken.None
@@ -104,6 +126,36 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Assert.Equal(newInstance.LastChangedBy, updatedInstance.LastChangedBy);
     }
 
+    [Fact]
+    public async Task Instance_Update_PreservesCallerDomainDataList()
+    {
+        Instance instance = await CreateApiInstance(
+            TestData.Instance_1_1.Clone(),
+            CancellationToken.None
+        );
+        DataElement apiDataElement = new()
+        {
+            Id = Guid.NewGuid().ToString(),
+            InstanceGuid = instance.Id.Split('/').Last(),
+        };
+        instance.Data = [apiDataElement];
+        instance.LastChanged = DateTime.UtcNow;
+        InstanceInternal input = InstanceInternalTestFactory.Create(
+            instance,
+            [apiDataElement.FromApiModel()],
+            InternalId: 0
+        );
+
+        InstanceInternal result = await _instanceFixture.InstanceRepo.Update(
+            input,
+            [nameof(instance.LastChanged), nameof(instance.Process)],
+            CancellationToken.None
+        );
+
+        Assert.Same(input.Data, result.Data);
+        Assert.Same(input.Data[0], Assert.Single(result.Data));
+    }
+
     /// <summary>
     /// Test update task with events
     /// </summary>
@@ -114,7 +166,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_Update_Task_With_Events_Ok(int eventCount)
     {
         // Arrange
-        Instance newInstance = TestData.Instance_1_1.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.Process.CurrentTask.Name = "Before update";
         newInstance.Process.StartEvent = "s1";
         newInstance = await _instanceFixture.InstanceRepo.Create(
@@ -147,7 +199,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         }
 
         // Act
-        Instance updatedInstance = await _instanceFixture.InstanceAndEventsRepo.Update(
+        InstanceInternal updatedInstance = await _instanceFixture.InstanceAndEventsRepo.Update(
             newInstance,
             updateProperties,
             instanceEvents,
@@ -174,7 +226,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_Update_Status_Ok()
     {
         // Arrange
-        Instance newInstance = TestData.Instance_1_1.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.Status.IsArchived = true;
         newInstance.Status.Substatus = new() { Description = "desc " };
         newInstance = await _instanceFixture.InstanceRepo.Create(
@@ -194,7 +246,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         ];
 
         // Act
-        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(
+        InstanceInternal updatedInstance = await _instanceFixture.InstanceRepo.Update(
             newInstance,
             updateProperties,
             CancellationToken.None
@@ -222,7 +274,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_Update_Substatus_Ok()
     {
         // Arrange
-        Instance newInstance = TestData.Instance_1_1.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.Status.IsArchived = true;
         newInstance.Status.Substatus = new() { Description = "substatustest-desc" };
         newInstance = await _instanceFixture.InstanceRepo.Create(
@@ -242,7 +294,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         ];
 
         // Act
-        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(
+        InstanceInternal updatedInstance = await _instanceFixture.InstanceRepo.Update(
             newInstance,
             updateProperties,
             CancellationToken.None
@@ -267,7 +319,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_Update_PresentationTexts_Ok()
     {
         // Arrange
-        Instance newInstance = TestData.Instance_1_1.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.PresentationTexts = new() { { "k1", "v1" }, { "k2", "v2" } };
         newInstance = await _instanceFixture.InstanceRepo.Create(
             newInstance,
@@ -283,7 +335,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         updateProperties.Add(nameof(newInstance.PresentationTexts));
 
         // Act
-        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(
+        InstanceInternal updatedInstance = await _instanceFixture.InstanceRepo.Update(
             newInstance,
             updateProperties,
             CancellationToken.None
@@ -310,7 +362,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     {
         // Arrange
         DateTime unchangedSofteDeleted = DateTime.UtcNow.AddYears(-2);
-        Instance newInstance = TestData.Instance_1_1.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.Status.SoftDeleted = unchangedSofteDeleted;
         newInstance = await _instanceFixture.InstanceRepo.Create(
             newInstance,
@@ -336,7 +388,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         ];
 
         // Act
-        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(
+        InstanceInternal updatedInstance = await _instanceFixture.InstanceRepo.Update(
             newInstance,
             updateProperties,
             CancellationToken.None
@@ -367,7 +419,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     {
         // Arrange
         DateTime unchangedSofteDeleted = DateTime.UtcNow.AddYears(-2);
-        Instance newInstance = TestData.Instance_1_1.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.Status.SoftDeleted = unchangedSofteDeleted;
         newInstance = await _instanceFixture.InstanceRepo.Create(
             newInstance,
@@ -390,7 +442,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         ];
 
         // Act
-        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(
+        InstanceInternal updatedInstance = await _instanceFixture.InstanceRepo.Update(
             newInstance,
             updateProperties,
             CancellationToken.None
@@ -419,7 +471,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_Update_DataValues_Ok()
     {
         // Arrange
-        Instance newInstance = TestData.Instance_1_1.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.DataValues = new() { { "k1", "v1" }, { "k2", "v2" } };
         newInstance = await _instanceFixture.InstanceRepo.Create(
             newInstance,
@@ -435,7 +487,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         updateProperties.Add(nameof(newInstance.DataValues));
 
         // Act
-        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(
+        InstanceInternal updatedInstance = await _instanceFixture.InstanceRepo.Update(
             newInstance,
             updateProperties,
             CancellationToken.None
@@ -461,7 +513,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_Update_CompleteConfirmations_PrimaryOrg_Ok()
     {
         // Arrange
-        Instance newInstance = TestData.Instance_1_1.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.CompleteConfirmations =
         [
             new CompleteConfirmation()
@@ -491,7 +543,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         updateProperties.Add(nameof(newInstance.CompleteConfirmations));
 
         // Act
-        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(
+        InstanceInternal updatedInstance = await _instanceFixture.InstanceRepo.Update(
             newInstance,
             updateProperties,
             CancellationToken.None
@@ -519,7 +571,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_Update_CompleteConfirmations_OtherOrg_Ok()
     {
         // Arrange
-        Instance newInstance = TestData.Instance_1_1.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.CompleteConfirmations =
         [
             new CompleteConfirmation()
@@ -549,7 +601,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         updateProperties.Add(nameof(newInstance.CompleteConfirmations));
 
         // Act
-        Instance updatedInstance = await _instanceFixture.InstanceRepo.Update(
+        InstanceInternal updatedInstance = await _instanceFixture.InstanceRepo.Update(
             newInstance,
             updateProperties,
             CancellationToken.None
@@ -577,14 +629,14 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_Delete_Ok()
     {
         // Arrange
-        Instance newInstance = await _instanceFixture.InstanceRepo.Create(
-            TestData.Instance_1_1.Clone(),
+        InstanceInternal newInstance = await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone().FromApiModel(),
             CancellationToken.None
         );
 
         // Act
         bool deleted = await _instanceFixture.InstanceRepo.Delete(
-            newInstance,
+            Guid.Parse(newInstance.Id),
             CancellationToken.None
         );
 
@@ -603,17 +655,22 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_GetOne_Ok()
     {
         // Arrange
-        DataElement data = TestDataUtil.GetDataElement("cdb627fd-c586-41f5-99db-bae38daa2b59");
-        Instance instance = await InsertInstanceAndData(TestData.Instance_1_1.Clone(), data);
+        DataElementInternal data = TestDataUtil
+            .GetDataElement("cdb627fd-c586-41f5-99db-bae38daa2b59")
+            .FromApiModel();
+        InstanceInternal instance = await InsertInstanceAndData(
+            TestData.Instance_1_1.Clone().FromApiModel(),
+            data
+        );
 
         // Act
-        (Instance instanceNoData, _) = await _instanceFixture.InstanceRepo.GetOne(
-            Guid.Parse(instance.Id.Split('/').Last()),
+        InstanceInternal instanceNoData = await _instanceFixture.InstanceRepo.GetOne(
+            Guid.Parse(instance.Id),
             false,
             CancellationToken.None
         );
-        (Instance instanceWithData, _) = await _instanceFixture.InstanceRepo.GetOne(
-            Guid.Parse(instance.Id.Split('/').Last()),
+        InstanceInternal instanceWithData = await _instanceFixture.InstanceRepo.GetOne(
+            Guid.Parse(instance.Id),
             true,
             CancellationToken.None
         );
@@ -633,15 +690,15 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     {
         // Arrange
         await _instanceFixture.InstanceRepo.Create(
-            HardDelete(TestData.Instance_1_1.Clone()),
+            HardDelete(TestData.Instance_1_1.Clone().FromApiModel()),
             CancellationToken.None
         );
         await _instanceFixture.InstanceRepo.Create(
-            HardDelete(TestData.Instance_2_1.Clone()),
+            HardDelete(TestData.Instance_2_1.Clone().FromApiModel()),
             CancellationToken.None
         );
         await _instanceFixture.InstanceRepo.Create(
-            TestData.Instance_3_1.Clone(),
+            TestData.Instance_3_1.Clone().FromApiModel(),
             CancellationToken.None
         );
 
@@ -661,12 +718,18 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_GetHardDeletedDataElements_Ok()
     {
         // Arrange
-        DataElement data1 = TestDataUtil.GetDataElement("11f7c994-6681-47a1-9626-fcf6c27308a5");
-        DataElement data2 = TestDataUtil.GetDataElement("1336b773-4ae2-4bdf-9529-d71dfc1c8b43");
-        DataElement data3 = TestDataUtil.GetDataElement("24bfec2e-c4ce-4e82-8fa9-aa39da329fd5");
-        await InsertInstanceAndDataHardDelete(TestData.Instance_1_1.Clone(), data1);
-        await InsertInstanceAndDataHardDelete(TestData.Instance_2_1.Clone(), data2);
-        await InsertInstanceAndDataHardDelete(TestData.Instance_3_1.Clone(), data3);
+        DataElementInternal data1 = TestDataUtil
+            .GetDataElement("11f7c994-6681-47a1-9626-fcf6c27308a5")
+            .FromApiModel();
+        DataElementInternal data2 = TestDataUtil
+            .GetDataElement("1336b773-4ae2-4bdf-9529-d71dfc1c8b43")
+            .FromApiModel();
+        DataElementInternal data3 = TestDataUtil
+            .GetDataElement("24bfec2e-c4ce-4e82-8fa9-aa39da329fd5")
+            .FromApiModel();
+        await InsertInstanceAndDataHardDelete(TestData.Instance_1_1.Clone().FromApiModel(), data1);
+        await InsertInstanceAndDataHardDelete(TestData.Instance_2_1.Clone().FromApiModel(), data2);
+        await InsertInstanceAndDataHardDelete(TestData.Instance_3_1.Clone().FromApiModel(), data3);
 
         // Act
         var dataElements3 = await _instanceFixture.InstanceRepo.GetHardDeletedDataElements(
@@ -690,19 +753,235 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     /// Test GetInstancesFromQuery
     /// </summary>
     [Fact]
+    public async Task Instance_GetInstancesFromQuery_FullyHydratesDomainState()
+    {
+        InstanceInternal input = TestData.Instance_1_1.Clone().FromApiModel();
+        input.Id = input.Id.ToUpperInvariant();
+        string expectedStorageId = input.Id;
+        await _instanceFixture.InstanceRepo.Create(input, CancellationToken.None);
+
+        InstanceInternal persisted = await _instanceFixture.InstanceRepo.GetOne(
+            Guid.Parse(expectedStorageId),
+            false,
+            CancellationToken.None
+        );
+        DataElement firstInsertedElement = TestDataUtil.GetDataElement(
+            "24bfec2e-c4ce-4e82-8fa9-aa39da329fd5"
+        );
+        firstInsertedElement.InstanceGuid = expectedStorageId;
+        await _instanceFixture.DataRepo.Create(
+            firstInsertedElement.FromApiModel(),
+            persisted.InternalId,
+            CancellationToken.None
+        );
+
+        DataElement secondInsertedElement = TestDataUtil.GetDataElement(
+            "1336b773-4ae2-4bdf-9529-d71dfc1c8b43"
+        );
+        secondInsertedElement.InstanceGuid = expectedStorageId;
+        await _instanceFixture.DataRepo.Create(
+            secondInsertedElement.FromApiModel(),
+            persisted.InternalId,
+            CancellationToken.None
+        );
+
+        InstanceQueryResult result = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            new InstanceQueryParameters
+            {
+                Size = 100,
+                AppId = input.AppId,
+                IncludeDataElements = true,
+            },
+            CancellationToken.None
+        );
+
+        Assert.Null(result.Exception);
+        InstanceInternal instance = Assert.Single(result.Instances);
+        Assert.Equal(expectedStorageId, instance.Id);
+        Assert.DoesNotContain('/', instance.Id);
+        Assert.Equal(persisted.InternalId, instance.InternalId);
+        Assert.NotEqual(0, instance.InternalId);
+        Assert.Collection(
+            instance.Data,
+            element =>
+            {
+                Assert.Equal(firstInsertedElement.Id, element.Id);
+            },
+            element =>
+            {
+                Assert.Equal(secondInsertedElement.Id, element.Id);
+            }
+        );
+    }
+
+    [Fact]
+    public async Task Instance_GetInstancesFromQuery_PreservesOrderingFilteringAndContinuation()
+    {
+        Instance first = TestData.Instance_1_1.Clone();
+        Instance second = TestData.Instance_1_2.Clone();
+        Instance third = TestData.Instance_1_3.Clone();
+        first.LastChanged = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        second.LastChanged = new DateTime(2024, 1, 2, 0, 0, 0, DateTimeKind.Utc);
+        third.LastChanged = new DateTime(2024, 1, 3, 0, 0, 0, DateTimeKind.Utc);
+        await CreateApiInstance(first, CancellationToken.None);
+        await CreateApiInstance(second, CancellationToken.None);
+        await CreateApiInstance(third, CancellationToken.None);
+
+        InstanceQueryParameters query = new()
+        {
+            Size = 1,
+            SortBy = "asc:lastChanged",
+            IncludeDataElements = false,
+        };
+        InstanceQueryResult firstPage = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            query,
+            CancellationToken.None
+        );
+        query.ContinuationToken = firstPage.ContinuationToken;
+        InstanceQueryResult secondPage = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            query,
+            CancellationToken.None
+        );
+
+        Assert.Equal(first.Id.Split('/').Last(), Assert.Single(firstPage.Instances).Id);
+        Assert.Equal(second.Id.Split('/').Last(), Assert.Single(secondPage.Instances).Id);
+        Assert.NotNull(firstPage.ContinuationToken);
+        Assert.NotNull(secondPage.ContinuationToken);
+        Assert.NotEqual(firstPage.ContinuationToken, secondPage.ContinuationToken);
+        Assert.Empty(firstPage.Instances[0].Data);
+
+        InstanceQueryResult filtered = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            new InstanceQueryParameters
+            {
+                Size = 100,
+                InstanceOwnerPartyId = Convert.ToInt32(third.InstanceOwner.PartyId),
+                IncludeDataElements = false,
+            },
+            CancellationToken.None
+        );
+        Assert.Equal(third.Id.Split('/').Last(), Assert.Single(filtered.Instances).Id);
+    }
+
+    [Fact]
+    public async Task Instance_GetInstancesFromQuery_PreservesDeleteStatusForConsumerFiltering()
+    {
+        Instance instance = TestData.Instance_1_1.Clone();
+        await CreateApiInstance(instance, CancellationToken.None);
+        InstanceInternal persisted = await _instanceFixture.InstanceRepo.GetOne(
+            Guid.Parse(instance.Id.Split('/').Last()),
+            false,
+            CancellationToken.None
+        );
+        DataElement visibleElement = TestDataUtil.GetDataElement(
+            "24bfec2e-c4ce-4e82-8fa9-aa39da329fd5"
+        );
+        visibleElement.InstanceGuid = persisted.Id;
+        DataElement deletedElement = TestDataUtil.GetDataElement(
+            "1336b773-4ae2-4bdf-9529-d71dfc1c8b43"
+        );
+        deletedElement.InstanceGuid = persisted.Id;
+        deletedElement.DeleteStatus = new DeleteStatus
+        {
+            IsHardDeleted = true,
+            HardDeleted = DateTime.UtcNow,
+        };
+        await _instanceFixture.DataRepo.Create(
+            visibleElement.FromApiModel(),
+            persisted.InternalId,
+            CancellationToken.None
+        );
+        await _instanceFixture.DataRepo.Create(
+            deletedElement.FromApiModel(),
+            persisted.InternalId,
+            CancellationToken.None
+        );
+
+        InstanceQueryResult result = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            new InstanceQueryParameters { Size = 100, IncludeDataElements = true },
+            CancellationToken.None
+        );
+
+        List<DataElementInternal> elements = Assert.Single(result.Instances).Data;
+        Assert.Equal(2, elements.Count);
+        Assert.True(
+            Assert
+                .Single(elements, element => element.Id == deletedElement.Id)
+                .DeleteStatus.IsHardDeleted
+        );
+        Assert.Equal(
+            visibleElement.Id,
+            Assert.Single(elements, element => element.DeleteStatus?.IsHardDeleted != true).Id
+        );
+    }
+
+    [Fact]
+    public async Task Instance_GetInstancesFromQuery_ReturnsErrorResultOnCancellation()
+    {
+        using CancellationTokenSource cancellation = new();
+        cancellation.Cancel();
+
+        InstanceQueryResult result = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            new InstanceQueryParameters { Size = 100, IncludeDataElements = true },
+            cancellation.Token
+        );
+
+        Assert.Empty(result.Instances);
+        Assert.NotNull(result.Exception);
+    }
+
+    [Fact]
+    public async Task Instance_GetInstancesFromQuery_ReturnsErrorResultOnInvalidQuery()
+    {
+        InstanceQueryResult result = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+            new InstanceQueryParameters
+            {
+                Size = 100,
+                ProcessEnded = ["true"],
+                IncludeDataElements = true,
+            },
+            CancellationToken.None
+        );
+
+        Assert.Empty(result.Instances);
+        Assert.NotNull(result.Exception);
+    }
+
+    [Fact]
+    public void InstanceQueryResult_IsNotAnApiWireModel()
+    {
+        string[] propertyNames = typeof(InstanceQueryResult)
+            .GetProperties()
+            .Select(property => property.Name)
+            .OrderBy(name => name)
+            .ToArray();
+
+        Assert.Equal(["ContinuationToken", "Exception", "Instances"], propertyNames);
+        Assert.All(
+            typeof(InstanceQueryResult).GetProperties(),
+            property =>
+                Assert.Empty(
+                    property.GetCustomAttributes(
+                        typeof(Newtonsoft.Json.JsonPropertyAttribute),
+                        inherit: true
+                    )
+                )
+        );
+    }
+
+    [Fact]
     public async Task Instance_GetInstancesFromQuery_Ok()
     {
         // Arrange
         await _instanceFixture.InstanceRepo.Create(
-            TestData.Instance_1_1.Clone(),
+            TestData.Instance_1_1.Clone().FromApiModel(),
             CancellationToken.None
         );
         await _instanceFixture.InstanceRepo.Create(
-            TestData.Instance_1_2.Clone(),
+            TestData.Instance_1_2.Clone().FromApiModel(),
             CancellationToken.None
         );
         await _instanceFixture.InstanceRepo.Create(
-            TestData.Instance_1_3.Clone(),
+            TestData.Instance_1_3.Clone().FromApiModel(),
             CancellationToken.None
         );
 
@@ -711,7 +990,6 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Act
         var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             queryParams,
-            true,
             CancellationToken.None
         );
 
@@ -720,13 +998,12 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         );
         var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             queryParams,
-            true,
             CancellationToken.None
         );
 
         // Assert
-        Assert.Equal(3, instances3.Count);
-        Assert.Equal(1, instances1.Count);
+        Assert.Equal(3, instances3.Instances.Count);
+        Assert.Single(instances1.Instances);
     }
 
     /// <summary>
@@ -737,15 +1014,15 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     {
         // Arrange
         await _instanceFixture.InstanceRepo.Create(
-            TestData.Instance_1_1.Clone(),
+            TestData.Instance_1_1.Clone().FromApiModel(),
             CancellationToken.None
         );
         await _instanceFixture.InstanceRepo.Create(
-            TestData.Instance_1_2.Clone(),
+            TestData.Instance_1_2.Clone().FromApiModel(),
             CancellationToken.None
         );
         await _instanceFixture.InstanceRepo.Create(
-            TestData.Instance_1_3.Clone(),
+            TestData.Instance_1_3.Clone().FromApiModel(),
             CancellationToken.None
         );
         InstanceQueryParameters queryParams = new() { Size = 1, SortBy = "asc:" };
@@ -753,7 +1030,6 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Act
         var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             queryParams,
-            true,
             CancellationToken.None
         );
         string contToken1 = instances1.ContinuationToken;
@@ -761,7 +1037,6 @@ public class InstanceTests : IClassFixture<InstanceFixture>
 
         var instances2 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             queryParams,
-            true,
             CancellationToken.None
         );
         string contToken2 = instances2.ContinuationToken;
@@ -770,20 +1045,28 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         queryParams.Size = 2;
         var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             queryParams,
-            true,
             CancellationToken.None
         );
         string contToken3 = instances3.ContinuationToken;
 
         // Assert
-        Assert.Equal(1, instances1.Count);
-        Assert.Equal(1, instances2.Count);
-        Assert.Equal(1, instances3.Count);
+        Assert.Single(instances1.Instances);
+        Assert.Single(instances2.Instances);
+        Assert.Single(instances3.Instances);
         Assert.Null(contToken3);
         Assert.True(string.CompareOrdinal(contToken1, contToken2) < 0);
-        Assert.Equal(instances1.Instances.FirstOrDefault().Id, TestData.Instance_1_1.Id);
-        Assert.Equal(instances2.Instances.FirstOrDefault().Id, TestData.Instance_1_2.Id);
-        Assert.Equal(instances3.Instances.FirstOrDefault().Id, TestData.Instance_1_3.Id);
+        Assert.Equal(
+            instances1.Instances.FirstOrDefault().Id,
+            TestData.Instance_1_1.Id.Split('/').Last()
+        );
+        Assert.Equal(
+            instances2.Instances.FirstOrDefault().Id,
+            TestData.Instance_1_2.Id.Split('/').Last()
+        );
+        Assert.Equal(
+            instances3.Instances.FirstOrDefault().Id,
+            TestData.Instance_1_3.Id.Split('/').Last()
+        );
     }
 
     /// <summary>
@@ -794,7 +1077,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     {
         // Arrange
         await _instanceFixture.InstanceRepo.Create(
-            TestData.Instance_1_1.Clone(),
+            TestData.Instance_1_1.Clone().FromApiModel(),
             CancellationToken.None
         );
 
@@ -807,12 +1090,11 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Act
         var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             queryParams,
-            true,
             CancellationToken.None
         );
 
         // Assert
-        Assert.Equal(1, instances.Count);
+        Assert.Single(instances.Instances);
     }
 
     /// <summary>
@@ -859,7 +1141,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_GetInstancesFromQuery_NoMatchFromPresentationFields_Ok()
     {
         // Arrange
-        Instance newInstance = TestData.Instance_1_1.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.PresentationTexts = new() { { "field1", "tjo" }, { "field2", "bing" } };
         await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
 
@@ -873,12 +1155,11 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Act
         var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             queryParams,
-            true,
             CancellationToken.None
         );
 
         // Assert
-        Assert.Equal(0, instances.Count);
+        Assert.Empty(instances.Instances);
     }
 
     /// <summary>
@@ -888,7 +1169,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_GetInstancesFromQuery_MatchFromPresentationFields_Ok()
     {
         // Arrange
-        Instance newInstance = TestData.Instance_1_1.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.PresentationTexts = new() { { "field1", "tjo" }, { "field2", "bing" } };
         await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
 
@@ -902,12 +1183,11 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Act
         var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             queryParams,
-            true,
             CancellationToken.None
         );
 
         // Assert
-        Assert.Equal(1, instances.Count);
+        Assert.Single(instances.Instances);
     }
 
     /// <summary>
@@ -917,7 +1197,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_GetInstancesFromQuery_DataValuesA2ArchRef_Match_Ok()
     {
         // Arrange
-        Instance newInstance = TestData.Instance_1_1.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.DataValues = new() { { "A2ArchRef", "123456" } };
         await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None, 2);
 
@@ -931,12 +1211,11 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Act
         var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             queryParams,
-            true,
             CancellationToken.None
         );
 
         // Assert
-        Assert.Equal(1, instances.Count);
+        Assert.Single(instances.Instances);
     }
 
     /// <summary>
@@ -946,7 +1225,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_GetInstancesFromQuery_DataValuesA2ArchRef_NoMatch_Ok()
     {
         // Arrange
-        Instance newInstance = TestData.Instance_1_1.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.DataValues = new() { { "A2ArchRef", "123456" } };
         await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None, 2);
 
@@ -960,12 +1239,11 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Act
         var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             queryParams,
-            true,
             CancellationToken.None
         );
 
         // Assert
-        Assert.Equal(0, instances.Count);
+        Assert.Empty(instances.Instances);
     }
 
     /// <summary>
@@ -975,7 +1253,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_GetInstancesFromQuery_A3Ref_Match_Ok()
     {
         // Arrange
-        Instance newInstance = TestData.Instance_1_1.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
 
         InstanceQueryParameters queryParams = new()
@@ -988,12 +1266,11 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Act
         var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             queryParams,
-            true,
             CancellationToken.None
         );
 
         // Assert
-        Assert.Equal(1, instances.Count);
+        Assert.Single(instances.Instances);
     }
 
     /// <summary>
@@ -1003,7 +1280,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_GetInstancesFromQuery_A3Ref_NoMatch_Ok()
     {
         // Arrange
-        Instance newInstance = TestData.Instance_1_1.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
 
         InstanceQueryParameters queryParams = new()
@@ -1016,12 +1293,11 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Act
         var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             queryParams,
-            true,
             CancellationToken.None
         );
 
         // Assert
-        Assert.Equal(0, instances.Count);
+        Assert.Empty(instances.Instances);
     }
 
     /// <summary>
@@ -1031,7 +1307,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_GetInstancesFromQuery_CompleteConfirmations_PrimaryOrg_Match_Ok()
     {
         // Arrange
-        Instance newInstance = TestData.Instance_1_1.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.CompleteConfirmations = new()
         {
             new() { StakeholderId = "TTD", ConfirmedOn = DateTime.Now },
@@ -1048,12 +1324,11 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Act
         var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             queryParams,
-            true,
             CancellationToken.None
         );
 
         // Assert
-        Assert.Equal(0, instances.Count);
+        Assert.Empty(instances.Instances);
     }
 
     /// <summary>
@@ -1063,7 +1338,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_GetInstancesFromQuery_CompleteConfirmations_PrimaryOrg_NoMatch_Ok()
     {
         // Arrange
-        Instance newInstance = TestData.Instance_1_1.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.CompleteConfirmations = new()
         {
             new() { StakeholderId = "TTD", ConfirmedOn = DateTime.Now },
@@ -1080,12 +1355,11 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Act
         var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             queryParams,
-            true,
             CancellationToken.None
         );
 
         // Assert
-        Assert.Equal(1, instances.Count);
+        Assert.Single(instances.Instances);
     }
 
     /// <summary>
@@ -1095,7 +1369,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_GetInstancesFromQuery_CompleteConfirmations_OtherOrg_Match_Ok()
     {
         // Arrange
-        Instance newInstance = TestData.Instance_1_1.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.CompleteConfirmations = new()
         {
             new() { StakeholderId = "SKD", ConfirmedOn = DateTime.Now },
@@ -1112,12 +1386,11 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Act
         var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             queryParams,
-            true,
             CancellationToken.None
         );
 
         // Assert
-        Assert.Equal(0, instances.Count);
+        Assert.Empty(instances.Instances);
     }
 
     /// <summary>
@@ -1127,7 +1400,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_GetInstancesFromQuery_CompleteConfirmations_OtherOrg_NoMatch_Ok()
     {
         // Arrange
-        Instance newInstance = TestData.Instance_1_1.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.CompleteConfirmations = new()
         {
             new() { StakeholderId = "SKD", ConfirmedOn = DateTime.Now },
@@ -1144,12 +1417,11 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Act
         var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             queryParams,
-            true,
             CancellationToken.None
         );
 
         // Assert
-        Assert.Equal(1, instances.Count);
+        Assert.Single(instances.Instances);
     }
 
     /// <summary>
@@ -1159,7 +1431,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_GetInstancesFromQuery_MatchFromAppIds_Ok()
     {
         // Arrange
-        Instance newInstance = TestData.Instance_1_1.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.PresentationTexts = new() { { "field1", "tjo" }, { "field2", "bing" } };
         await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
 
@@ -1173,12 +1445,11 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Act
         var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             queryParams,
-            true,
             CancellationToken.None
         );
 
         // Assert
-        Assert.Equal(1, instances.Count);
+        Assert.Single(instances.Instances);
     }
 
     /// <summary>
@@ -1188,8 +1459,8 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_GetInstancesFromQuery_MatchFromAppIdsAndPresFields_Ok()
     {
         // Arrange
-        Instance newInstance1 = TestData.Instance_1_1.Clone();
-        Instance newInstance2 = TestData.Instance_1_2.Clone();
+        InstanceInternal newInstance1 = TestData.Instance_1_1.Clone().FromApiModel();
+        InstanceInternal newInstance2 = TestData.Instance_1_2.Clone().FromApiModel();
         newInstance1.PresentationTexts = new() { { "field1", "tjo" }, { "field2", "bing" } };
         newInstance2.AppId = "ttd/test-applikasjon-3";
         await _instanceFixture.InstanceRepo.Create(newInstance1, CancellationToken.None);
@@ -1209,12 +1480,11 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Act
         var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             queryParams,
-            true,
             CancellationToken.None
         );
 
         // Assert
-        Assert.Equal(2, instances.Count);
+        Assert.Equal(2, instances.Instances.Count);
     }
 
     /// <summary>
@@ -1229,42 +1499,36 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Act
         var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             GetDateQueryParams("2021", "2021"),
-            true,
             CancellationToken.None
         );
         var instances2 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             GetDateQueryParams("2022", "2022"),
-            true,
             CancellationToken.None
         );
         var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             GetDateQueryParams("2023", "2023"),
-            true,
             CancellationToken.None
         );
         var instances4 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             GetDateQueryParams("2024", "2024"),
-            true,
             CancellationToken.None
         );
         var instances5 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             GetDateQueryParams("2019", "2019"),
-            true,
             CancellationToken.None
         );
         var instances6 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             GetDateQueryParams("2021", "2024"),
-            true,
             CancellationToken.None
         );
 
         // Assert
-        Assert.Equal(1, instances1.Count);
-        Assert.Equal(1, instances2.Count);
-        Assert.Equal(1, instances3.Count);
-        Assert.Equal(1, instances4.Count);
-        Assert.Equal(0, instances5.Count);
-        Assert.Equal(4, instances6.Count);
+        Assert.Single(instances1.Instances);
+        Assert.Single(instances2.Instances);
+        Assert.Single(instances3.Instances);
+        Assert.Single(instances4.Instances);
+        Assert.Empty(instances5.Instances);
+        Assert.Equal(4, instances6.Instances.Count);
     }
 
     /// <summary>
@@ -1275,15 +1539,15 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     {
         // Arrange
         await _instanceFixture.InstanceRepo.Create(
-            TestData.Instance_1_1.Clone(),
+            TestData.Instance_1_1.Clone().FromApiModel(),
             CancellationToken.None
         );
         await _instanceFixture.InstanceRepo.Create(
-            TestData.Instance_1_2.Clone(),
+            TestData.Instance_1_2.Clone().FromApiModel(),
             CancellationToken.None
         );
         await _instanceFixture.InstanceRepo.Create(
-            TestData.Instance_1_3.Clone(),
+            TestData.Instance_1_3.Clone().FromApiModel(),
             CancellationToken.None
         );
 
@@ -1297,12 +1561,11 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Act
         var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             queryParams,
-            true,
             CancellationToken.None
         );
 
         // Assert
-        Assert.Equal(0, instances.Count);
+        Assert.Empty(instances.Instances);
         Assert.NotNull(instances.Exception);
     }
 
@@ -1314,15 +1577,15 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     {
         // Arrange
         await _instanceFixture.InstanceRepo.Create(
-            TestData.Instance_1_1.Clone(),
+            TestData.Instance_1_1.Clone().FromApiModel(),
             CancellationToken.None
         );
         await _instanceFixture.InstanceRepo.Create(
-            TestData.Instance_1_2.Clone(),
+            TestData.Instance_1_2.Clone().FromApiModel(),
             CancellationToken.None
         );
         await _instanceFixture.InstanceRepo.Create(
-            TestData.Instance_1_3.Clone(),
+            TestData.Instance_1_3.Clone().FromApiModel(),
             CancellationToken.None
         );
 
@@ -1343,8 +1606,8 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         );
 
         // Assert
-        Assert.Equal(3, instances3.Count);
-        Assert.Equal(1, instances1.Count);
+        Assert.Equal(3, instances3.Instances.Count);
+        Assert.Single(instances1.Instances);
     }
 
     /// <summary>
@@ -1355,15 +1618,15 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     {
         // Arrange
         await _instanceFixture.InstanceRepo.Create(
-            TestData.Instance_1_1.Clone(),
+            TestData.Instance_1_1.Clone().FromApiModel(),
             CancellationToken.None
         );
         await _instanceFixture.InstanceRepo.Create(
-            TestData.Instance_1_2.Clone(),
+            TestData.Instance_1_2.Clone().FromApiModel(),
             CancellationToken.None
         );
         await _instanceFixture.InstanceRepo.Create(
-            TestData.Instance_1_3.Clone(),
+            TestData.Instance_1_3.Clone().FromApiModel(),
             CancellationToken.None
         );
 
@@ -1381,7 +1644,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         );
 
         // Assert
-        Assert.Equal(0, instances.Count);
+        Assert.Empty(instances.Instances);
         Assert.NotNull(instances.Exception);
     }
 
@@ -1392,10 +1655,10 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_Create_WithEmail_Ok()
     {
         // Arrange
-        Instance newInstance = TestData.Instance_1_Email.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_Email.Clone().FromApiModel();
 
         // Act
-        Instance createdInstance = await _instanceFixture.InstanceRepo.Create(
+        InstanceInternal createdInstance = await _instanceFixture.InstanceRepo.Create(
             newInstance,
             CancellationToken.None
         );
@@ -1423,10 +1686,10 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_Create_WithUsername_Ok()
     {
         // Arrange
-        Instance newInstance = TestData.Instance_1_Username.Clone();
+        InstanceInternal newInstance = TestData.Instance_1_Username.Clone().FromApiModel();
 
         // Act
-        Instance createdInstance = await _instanceFixture.InstanceRepo.Create(
+        InstanceInternal createdInstance = await _instanceFixture.InstanceRepo.Create(
             newInstance,
             CancellationToken.None
         );
@@ -1442,9 +1705,17 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Assert.Equal("legacy_username", createdInstance.InstanceOwner.Username);
     }
 
-    private async Task<Instance> InsertInstanceAndDataHardDelete(
+    private async Task<Instance> CreateApiInstance(
         Instance instance,
-        DataElement dataelement
+        CancellationToken cancellationToken
+    ) =>
+        (
+            await _instanceFixture.InstanceRepo.Create(instance.FromApiModel(), cancellationToken)
+        ).ToApiModel();
+
+    private async Task<InstanceInternal> InsertInstanceAndDataHardDelete(
+        InstanceInternal instance,
+        DataElementInternal dataelement
     )
     {
         dataelement.DeleteStatus = new()
@@ -1464,19 +1735,24 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         return await InsertInstanceAndData(instance, dataelement);
     }
 
-    private async Task<Instance> InsertInstanceAndData(Instance instance, DataElement dataelement)
+    private async Task<InstanceInternal> InsertInstanceAndData(
+        InstanceInternal instance,
+        DataElementInternal dataelement
+    )
     {
         instance = await _instanceFixture.InstanceRepo.Create(instance, CancellationToken.None);
-        (_, long internalId) = await _instanceFixture.InstanceRepo.GetOne(
-            Guid.Parse(instance.Id.Split('/').Last()),
-            true,
-            CancellationToken.None
-        );
+        long internalId = (
+            await _instanceFixture.InstanceRepo.GetOne(
+                Guid.Parse(instance.Id),
+                true,
+                CancellationToken.None
+            )
+        ).InternalId;
         await _instanceFixture.DataRepo.Create(dataelement, internalId);
         return instance;
     }
 
-    private static Instance HardDelete(Instance instance)
+    private static InstanceInternal HardDelete(InstanceInternal instance)
     {
         instance.Status.IsHardDeleted = true;
         instance.Status.HardDeleted = DateTime.Now.AddDays(-8).ToUniversalTime();
@@ -1499,10 +1775,10 @@ public class InstanceTests : IClassFixture<InstanceFixture>
 
     private async Task PrepareDateSearch()
     {
-        Instance newInstance1 = TestData.Instance_1_1.Clone();
-        Instance newInstance2 = TestData.Instance_1_2.Clone();
-        Instance newInstance3 = TestData.Instance_1_3.Clone();
-        Instance newInstance4 = TestData.Instance_2_1.Clone();
+        InstanceInternal newInstance1 = TestData.Instance_1_1.Clone().FromApiModel();
+        InstanceInternal newInstance2 = TestData.Instance_1_2.Clone().FromApiModel();
+        InstanceInternal newInstance3 = TestData.Instance_1_3.Clone().FromApiModel();
+        InstanceInternal newInstance4 = TestData.Instance_2_1.Clone().FromApiModel();
 
         newInstance1.Created = new DateTime(2021, 1, 6, 0, 0, 0, 0, 0, DateTimeKind.Utc);
         newInstance2.Created = new DateTime(2022, 1, 6, 0, 0, 0, 0, 0, DateTimeKind.Utc);

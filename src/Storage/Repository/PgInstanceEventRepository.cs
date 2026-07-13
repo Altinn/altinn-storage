@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Messages;
+using Altinn.Platform.Storage.Models;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -36,7 +37,7 @@ public class PgInstanceEventRepository(
     /// <inheritdoc/>
     public async Task<InstanceEvent> InsertInstanceEvent(
         InstanceEvent instanceEvent,
-        Instance instance = null
+        InstanceInternal instance = null
     )
     {
         instanceEvent.Id ??= Guid.NewGuid();
@@ -58,7 +59,7 @@ public class PgInstanceEventRepository(
             SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
                 instance.AppId,
                 instance.InstanceOwner.PartyId,
-                instance.Id.Split('/')[^1],
+                instance.Id,
                 (DateTime)instance.Created,
                 false,
                 Enum.Parse<Interface.Enums.InstanceEventType>(instanceEvent.EventType)

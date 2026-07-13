@@ -13,6 +13,7 @@ using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Fixture;
@@ -280,12 +281,16 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         var instanceRepoMock = new Mock<IInstanceRepository>();
         instanceRepoMock
             .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((testInstance, 0));
+            .ReturnsAsync(InstanceInternalTestFactory.Create(testInstance, [], InternalId: 0));
         instanceRepoMock
             .Setup(ir =>
-                ir.Update(testInstance, It.IsAny<List<string>>(), It.IsAny<CancellationToken>())
+                ir.Update(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<List<string>>(),
+                    It.IsAny<CancellationToken>()
+                )
             )
-            .ReturnsAsync(testInstance);
+            .ReturnsAsync(testInstance.FromApiModel());
 
         // Act
         using HttpResponseMessage response = await SendUpdateRequest(
@@ -335,12 +340,16 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         var instanceRepoMock = new Mock<IInstanceRepository>();
         instanceRepoMock
             .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((testInstance, 0));
+            .ReturnsAsync(InstanceInternalTestFactory.Create(testInstance, [], InternalId: 0));
         instanceRepoMock
             .Setup(ir =>
-                ir.Update(testInstance, It.IsAny<List<string>>(), It.IsAny<CancellationToken>())
+                ir.Update(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<List<string>>(),
+                    It.IsAny<CancellationToken>()
+                )
             )
-            .ReturnsAsync(testInstance);
+            .ReturnsAsync(testInstance.FromApiModel());
 
         // Act
         using HttpResponseMessage response = await SendUpdateRequest(
@@ -390,12 +399,16 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         var instanceRepoMock = new Mock<IInstanceRepository>();
         instanceRepoMock
             .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((testInstance, 0));
+            .ReturnsAsync(InstanceInternalTestFactory.Create(testInstance, [], InternalId: 0));
         instanceRepoMock
             .Setup(ir =>
-                ir.Update(testInstance, It.IsAny<List<string>>(), It.IsAny<CancellationToken>())
+                ir.Update(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<List<string>>(),
+                    It.IsAny<CancellationToken>()
+                )
             )
-            .ReturnsAsync(testInstance);
+            .ReturnsAsync(testInstance.FromApiModel());
 
         // Act
         using HttpResponseMessage response = await SendUpdateRequest(
@@ -445,12 +458,16 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         var instanceRepoMock = new Mock<IInstanceRepository>();
         instanceRepoMock
             .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((testInstance, 0));
+            .ReturnsAsync(InstanceInternalTestFactory.Create(testInstance, [], InternalId: 0));
         instanceRepoMock
             .Setup(ir =>
-                ir.Update(testInstance, It.IsAny<List<string>>(), It.IsAny<CancellationToken>())
+                ir.Update(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<List<string>>(),
+                    It.IsAny<CancellationToken>()
+                )
             )
-            .ReturnsAsync(testInstance);
+            .ReturnsAsync(testInstance.FromApiModel());
 
         // Act
         using HttpResponseMessage response = await SendUpdateRequest(
@@ -552,27 +569,28 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
             new Mock<IInstanceAndEventsRepository>();
         repositoryMock
             .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((testInstance, 0));
+            .ReturnsAsync(InstanceInternalTestFactory.Create(testInstance, [], InternalId: 0));
         repositoryMock
             .Setup(ir =>
                 ir.Update(
-                    It.IsAny<Instance>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
                     It.IsAny<CancellationToken>()
                 )
             )
-            .ReturnsAsync((Instance i, List<string> _, CancellationToken _) => i);
+            .ReturnsAsync((InstanceInternal i, List<string> _, CancellationToken _) => i);
         batchRepositoryMock
             .Setup(ir =>
                 ir.Update(
-                    It.IsAny<Instance>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
                     It.IsAny<List<InstanceEvent>>(),
                     It.IsAny<CancellationToken>()
                 )
             )
             .ReturnsAsync(
-                (Instance i, List<string> _, List<InstanceEvent> _, CancellationToken _) => i
+                (InstanceInternal i, List<string> _, List<InstanceEvent> _, CancellationToken _) =>
+                    i
             );
 
         // Act
@@ -646,7 +664,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         cleanupMock
             .Setup(c =>
                 c.CleanupGeneratedFromTask(
-                    It.IsAny<Instance>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<string>(),
                     It.IsAny<CancellationToken>()
                 )
@@ -675,7 +693,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         cleanupMock.Verify(
             c =>
                 c.CleanupGeneratedFromTask(
-                    It.IsAny<Instance>(),
+                    It.IsAny<InstanceInternal>(),
                     "Task_2",
                     It.IsAny<CancellationToken>()
                 ),
@@ -696,7 +714,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         cleanupMock
             .Setup(c =>
                 c.CleanupGeneratedFromTask(
-                    It.IsAny<Instance>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<string>(),
                     It.IsAny<CancellationToken>()
                 )
@@ -726,7 +744,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         cleanupMock.Verify(
             c =>
                 c.CleanupGeneratedFromTask(
-                    It.IsAny<Instance>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<string>(),
                     It.IsAny<CancellationToken>()
                 ),
@@ -753,7 +771,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         cleanupMock
             .Setup(c =>
                 c.CleanupGeneratedFromTask(
-                    It.IsAny<Instance>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<string>(),
                     It.IsAny<CancellationToken>()
                 )
@@ -783,7 +801,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         cleanupMock.Verify(
             c =>
                 c.CleanupGeneratedFromTask(
-                    It.IsAny<Instance>(),
+                    It.IsAny<InstanceInternal>(),
                     "Task_2",
                     It.IsAny<CancellationToken>()
                 ),
@@ -809,7 +827,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         cleanupMock
             .Setup(c =>
                 c.CleanupGeneratedFromTask(
-                    It.IsAny<Instance>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<string>(),
                     It.IsAny<CancellationToken>()
                 )
@@ -839,7 +857,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         cleanupMock.Verify(
             c =>
                 c.CleanupGeneratedFromTask(
-                    It.IsAny<Instance>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<string>(),
                     It.IsAny<CancellationToken>()
                 ),
@@ -865,27 +883,28 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         Mock<IInstanceAndEventsRepository> batchRepositoryMock = new();
         repositoryMock
             .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((testInstance, 0));
+            .ReturnsAsync(InstanceInternalTestFactory.Create(testInstance, [], InternalId: 0));
         repositoryMock
             .Setup(ir =>
                 ir.Update(
-                    It.IsAny<Instance>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
                     It.IsAny<CancellationToken>()
                 )
             )
-            .ReturnsAsync((Instance i, List<string> _, CancellationToken _) => i);
+            .ReturnsAsync((InstanceInternal i, List<string> _, CancellationToken _) => i);
         batchRepositoryMock
             .Setup(ir =>
                 ir.Update(
-                    It.IsAny<Instance>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
                     It.IsAny<List<InstanceEvent>>(),
                     It.IsAny<CancellationToken>()
                 )
             )
             .ReturnsAsync(
-                (Instance i, List<string> _, List<InstanceEvent> _, CancellationToken _) => i
+                (InstanceInternal i, List<string> _, List<InstanceEvent> _, CancellationToken _) =>
+                    i
             );
 
         Mock<IProcessDataCleanupService> cleanupMock = new();
@@ -913,7 +932,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         cleanupMock.Verify(
             c =>
                 c.CleanupGeneratedFromTask(
-                    It.IsAny<Instance>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<string>(),
                     It.IsAny<CancellationToken>()
                 ),
@@ -955,7 +974,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         cleanupMock.Verify(
             c =>
                 c.CleanupGeneratedFromTask(
-                    It.IsAny<Instance>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<string>(),
                     It.IsAny<CancellationToken>()
                 ),
@@ -979,7 +998,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         cleanupMock
             .Setup(c =>
                 c.CleanupGeneratedFromTask(
-                    It.IsAny<Instance>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<string>(),
                     It.IsAny<CancellationToken>()
                 )

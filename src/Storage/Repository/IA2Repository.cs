@@ -2,7 +2,7 @@
 
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 
 namespace Altinn.Platform.Storage.Repository;
 
@@ -82,12 +82,12 @@ public interface IA2Repository
     /// <summary>
     /// Update an a1/a2 migration state
     /// </summary>
-    Task UpdateCompleteMigrationState(Instance instance);
+    Task UpdateCompleteMigrationState(InstanceInternal instance);
 
     /// <summary>
     /// Update dialogporten with deleted instance
     /// </summary>
-    Task SendDeleteToDialogporten(Instance instance);
+    Task SendDeleteToDialogporten(InstanceInternal instance);
 
     /// <summary>
     /// Delete an a1/a2 migration state
