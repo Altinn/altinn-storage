@@ -283,6 +283,11 @@ public class InstancesController : ControllerBase
         // The A3 reference is only available on Altinn 3 instances, this enables the partial index on the reference.
         if (!string.IsNullOrEmpty(queryParameters.A3Ref))
         {
+            if (queryParameters.A3Ref.Length != 12)
+            {
+                return BadRequest("The A3 reference needs to be exactly 12 characters long.");
+            }
+
             queryParameters.MainVersionInclude = 3;
             queryParameters.MainVersionExclude = null;
         }
