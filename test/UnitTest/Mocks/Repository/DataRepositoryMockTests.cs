@@ -140,18 +140,20 @@ public class DataRepositoryMockTests
         Guid dataElementId = Guid.NewGuid();
         string blobVersionId = await AllocateBlobVersion(repository, instanceGuid, dataElementId);
 
-        DataElementInternal createdElement = await repository.Create(
-            CreateDataElement(instanceGuid, dataElementId, blobVersionId)
-        );
-        DataElementInternal updatedElement = await repository.UpdateFileScanStatus(
-            instanceGuid,
-            dataElementId,
-            new FileScanStatus
-            {
-                BlobVersionId = blobVersionId,
-                FileScanResult = FileScanResult.Clean,
-            }
-        );
+        DataElementInternal createdElement = (
+            await repository.Create(CreateDataElement(instanceGuid, dataElementId, blobVersionId))
+        ).DataElement;
+        DataElementInternal updatedElement = (
+            await repository.UpdateFileScanStatus(
+                instanceGuid,
+                dataElementId,
+                new FileScanStatus
+                {
+                    BlobVersionId = blobVersionId,
+                    FileScanResult = FileScanResult.Clean,
+                }
+            )
+        )!.DataElement;
 
         Assert.Equal(blobVersionId, createdElement.BlobVersionId);
         Assert.Equal(
@@ -239,7 +241,7 @@ public class DataRepositoryMockTests
         RepositoryException updateException = await Assert.ThrowsAsync<RepositoryException>(() =>
             AttachBlobVersion(repository, otherInstanceGuid, dataElementId, otherInstanceVersion)
         );
-        DataElementInternal scanResult = await repository.UpdateFileScanStatus(
+        var scanResult = await repository.UpdateFileScanStatus(
             otherInstanceGuid,
             dataElementId,
             new FileScanStatus
@@ -420,6 +422,153 @@ public class DataRepositoryMockTests
         Assert.False(unchangedElement.Locked);
     }
 
+    [Fact]
+    public async Task CurrentVersion_PersistsAcrossDirectStatusUpdates()
+    {
+        DataRepositoryMock repository = new();
+        Guid instanceGuid = Guid.NewGuid();
+        Guid dataElementId = Guid.NewGuid();
+        string firstAllocatedVersion = await AllocateBlobVersion(
+            repository,
+            instanceGuid,
+            dataElementId
+        );
+        string secondAllocatedVersion = await AllocateBlobVersion(
+            repository,
+            instanceGuid,
+            dataElementId
+        );
+        await repository.Create(
+            CreateDataElement(instanceGuid, dataElementId, secondAllocatedVersion)
+        );
+        await AttachBlobVersion(repository, instanceGuid, dataElementId, firstAllocatedVersion);
+
+        DataElementWriteResult readStatusResult = await repository.UpdateReadStatus(
+            instanceGuid,
+            dataElementId,
+            true
+        );
+        DataElementWriteResult lockStatusResult = await repository.UpdateLockStatus(
+            instanceGuid,
+            dataElementId,
+            true
+        );
+
+        Assert.Equal(firstAllocatedVersion, readStatusResult.DataElement.BlobVersionId);
+        Assert.True(readStatusResult.DataElement.IsRead);
+        Assert.Equal(firstAllocatedVersion, lockStatusResult.DataElement.BlobVersionId);
+        Assert.True(lockStatusResult.DataElement.Locked);
+        Assert.Equal(
+            firstAllocatedVersion,
+            (await repository.Read(instanceGuid, dataElementId)).BlobVersionId
+        );
+    }
+
+    [Fact]
+    public async Task RejectedMutations_DoNotChangeStateOrBumpStorageVersions()
+    {
+        DataRepositoryMock repo = new();
+        Guid instance = Guid.NewGuid();
+        Guid id = Guid.NewGuid();
+        DataElementUpdateContext atVersionTwo = new() { ExpectedInstanceVersion = 2 };
+        string current = await AllocateBlobVersion(repo, instance, id);
+        string detached = await AllocateBlobVersion(repo, instance, id);
+        DataElementWriteResult createResult = await repo.Create(
+            CreateDataElement(instance, id, current)
+        );
+        Assert.Equal(new StorageVersions(2, 1), createResult.Versions);
+
+        Guid wrongInstanceId = Guid.NewGuid();
+        string wrongInstanceVersion = await AllocateBlobVersion(
+            repo,
+            Guid.NewGuid(),
+            wrongInstanceId
+        );
+        await Assert.ThrowsAsync<RepositoryException>(() =>
+            repo.Create(
+                CreateDataElement(instance, wrongInstanceId, wrongInstanceVersion),
+                expectedInstanceVersion: 2
+            )
+        );
+        Assert.Null(await repo.Read(instance, wrongInstanceId));
+
+        Guid allocationElementId = Guid.NewGuid();
+        Guid wrongElementId = Guid.NewGuid();
+        string wrongElementVersion = await AllocateBlobVersion(repo, instance, allocationElementId);
+        await Assert.ThrowsAsync<RepositoryException>(() =>
+            repo.Create(
+                CreateDataElement(instance, wrongElementId, wrongElementVersion),
+                expectedInstanceVersion: 2
+            )
+        );
+        Assert.Null(await repo.Read(instance, wrongElementId));
+
+        Guid otherInstance = Guid.NewGuid();
+        string otherVersion = await AllocateBlobVersion(repo, otherInstance, id);
+        DataElementInternal beforeOwnerFailures = await repo.Read(instance, id);
+        await AssertDataElementNotFound(
+            id,
+            () => repo.Update(otherInstance, id, BlobVersionUpdate(otherVersion), atVersionTwo)
+        );
+        await AssertDataElementNotFound(id, () => repo.UpdateReadStatus(otherInstance, id, true));
+        await AssertDataElementNotFound(id, () => repo.UpdateLockStatus(otherInstance, id, true));
+        DataElementInternal afterOwnerFailures = await repo.Read(instance, id);
+        Assert.Equal(current, afterOwnerFailures.BlobVersionId);
+        Assert.Equal(beforeOwnerFailures.IsRead, afterOwnerFailures.IsRead);
+        Assert.Equal(beforeOwnerFailures.Locked, afterOwnerFailures.Locked);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            repo.Create(CreateDataElement(instance, id, detached), expectedInstanceVersion: 2)
+        );
+        await Assert.ThrowsAsync<RepositoryException>(() =>
+            repo.Update(
+                instance,
+                id,
+                BlobVersionUpdate(BlobVersionId.Encode(Guid.NewGuid())),
+                atVersionTwo
+            )
+        );
+        await Assert.ThrowsAsync<RepositoryException>(() =>
+            repo.Update(instance, id, BlobVersionUpdate(current), atVersionTwo)
+        );
+        await Assert.ThrowsAsync<InvalidCastException>(() =>
+            repo.Update(
+                instance,
+                id,
+                new Dictionary<string, object>
+                {
+                    ["/currentBlobVersion"] = detached,
+                    ["/locked"] = "not-a-boolean",
+                },
+                atVersionTwo
+            )
+        );
+
+        DataElementWriteResult success = await repo.Update(
+            instance,
+            id,
+            BlobVersionUpdate(null!),
+            atVersionTwo
+        );
+
+        Assert.Equal(new StorageVersions(3, 1), success.Versions);
+        Assert.Equal(current, success.DataElement.BlobVersionId);
+        Assert.True(await repo.DeleteBlobVersion(wrongInstanceId, wrongInstanceVersion));
+        Assert.True(await repo.DeleteBlobVersion(allocationElementId, wrongElementVersion));
+        Assert.True(await repo.DeleteBlobVersion(id, otherVersion));
+        Assert.True(await repo.DeleteBlobVersion(id, detached));
+    }
+
+    private static async Task AssertDataElementNotFound(Guid dataElementId, Func<Task> action)
+    {
+        RepositoryException exception = await Assert.ThrowsAsync<RepositoryException>(action);
+        Assert.Equal(HttpStatusCode.NotFound, exception.StatusCodeSuggestion);
+        Assert.Equal($"Data element {dataElementId} was not found.", exception.Message);
+    }
+
+    private static Dictionary<string, object> BlobVersionUpdate(string blobVersionId) =>
+        new() { ["/currentBlobVersion"] = blobVersionId };
+
     private static DataElementInternal CreateDataElement(
         Guid instanceGuid,
         Guid dataElementId,
@@ -438,11 +587,13 @@ public class DataRepositoryMockTests
         Guid dataElementId,
         string blobVersionId
     ) =>
-        await repository.Update(
-            instanceGuid,
-            dataElementId,
-            new Dictionary<string, object> { ["/currentBlobVersion"] = blobVersionId }
-        );
+        (
+            await repository.Update(
+                instanceGuid,
+                dataElementId,
+                new Dictionary<string, object> { ["/currentBlobVersion"] = blobVersionId }
+            )
+        ).DataElement;
 
     private static Task<string> AllocateBlobVersion(
         DataRepositoryMock repository,

@@ -369,11 +369,12 @@ public class MigrationController : ControllerBase
                 }
             }
 
-            storedDataElement = await _dataRepository.Create(
+            DataElementWriteResult storedDataElementResult = await _dataRepository.Create(
                 dataElement,
                 instance.InternalId,
                 cancellationToken
             );
+            storedDataElement = storedDataElementResult.DataElement;
 
             return Created((string)null, storedDataElement.ToApiModel());
         }

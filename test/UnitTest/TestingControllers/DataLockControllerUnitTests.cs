@@ -114,17 +114,10 @@ public class DataLockControllerUnitTests
         instanceRepoMock.VerifyNoOtherCalls();
         dataRepositoryMock.Verify(
             d =>
-                d.Update(
+                d.UpdateLockStatus(
                     instanceGuid,
                     dataElementId,
-                    It.Is<Dictionary<string, object>>(p =>
-                        VerifyPropertyListInput(
-                            expectedPropertiesForPatch.Count,
-                            expectedPropertiesForPatch,
-                            p
-                        )
-                    ),
-                    It.IsAny<DataElementUpdateContext>(),
+                    true,
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -194,17 +187,10 @@ public class DataLockControllerUnitTests
         Assert.IsType<OkObjectResult>(result.Result);
         dataRepositoryMock.Verify(
             d =>
-                d.Update(
+                d.UpdateLockStatus(
                     instanceGuid,
                     dataElementId,
-                    It.Is<Dictionary<string, object>>(p =>
-                        VerifyPropertyListInput(
-                            expectedPropertiesForPatch.Count,
-                            expectedPropertiesForPatch,
-                            p
-                        )
-                    ),
-                    It.IsAny<DataElementUpdateContext>(),
+                    false,
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -354,37 +340,23 @@ public class DataLockControllerUnitTests
         {
             dataRepositoryMock
                 .Setup(d =>
-                    d.Update(
+                    d.UpdateLockStatus(
                         It.IsAny<Guid>(),
                         It.Is<Guid>(g => g == dataGuid),
-                        It.Is<Dictionary<string, object>>(propertyList =>
-                            VerifyPropertyListInput(
-                                expectedPropertiesForPatch.Count,
-                                expectedPropertiesForPatch,
-                                propertyList
-                            )
-                        ),
-                        It.IsAny<DataElementUpdateContext>(),
+                        It.IsAny<bool>(),
                         It.IsAny<CancellationToken>()
                     )
                 )
-                .ReturnsAsync(new DataElementInternal());
+                .ReturnsAsync(new DataElement { Id = dataGuid.ToString() });
         }
         else
         {
             dataRepositoryMock
                 .Setup(d =>
-                    d.Update(
+                    d.UpdateLockStatus(
                         It.IsAny<Guid>(),
                         It.Is<Guid>(g => g == dataGuid),
-                        It.Is<Dictionary<string, object>>(propertyList =>
-                            VerifyPropertyListInput(
-                                expectedPropertiesForPatch.Count,
-                                expectedPropertiesForPatch,
-                                propertyList
-                            )
-                        ),
-                        It.IsAny<DataElementUpdateContext>(),
+                        It.IsAny<bool>(),
                         It.IsAny<CancellationToken>()
                     )
                 )
@@ -450,13 +422,12 @@ public class DataLockControllerUnitTests
                 );
         }
 
-        Mock<HttpContext> httpContextMock = new();
-        httpContextMock.Setup(c => c.User).Returns(PrincipalUtil.GetPrincipal(200001, 1337));
-
-        ControllerContext controllerContext = new ControllerContext()
+        HttpContext httpContext = new DefaultHttpContext
         {
-            HttpContext = httpContextMock.Object,
+            User = PrincipalUtil.GetPrincipal(200001, 1337),
         };
+
+        ControllerContext controllerContext = new ControllerContext() { HttpContext = httpContext };
 
         var sut = new DataLockController(
             instanceRepositoryMock.Object,

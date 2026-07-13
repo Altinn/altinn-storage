@@ -55,7 +55,7 @@ CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v9(
     _visibleAfter_lt TEXT DEFAULT NULL,
     _visibleAfter_lte TEXT DEFAULT NULL
     )
-    RETURNS TABLE (id BIGINT, instance JSONB, element JSONB, currentblobversion UUID)
+    RETURNS TABLE (id BIGINT, instance JSONB, instanceversion INT, processstateversion INT, element JSONB, currentblobversion UUID)
     LANGUAGE 'plpgsql'
 
 AS $BODY$
@@ -127,11 +127,13 @@ BEGIN
             i.id
         FETCH FIRST _size ROWS ONLY
     )
-        SELECT filteredInstances.id, filteredInstances.instance, d.element, d.currentblobversion FROM filteredInstances
+        SELECT filteredInstances.id, filteredInstances.instance, i.instance_version, i.process_state_version, d.element, d.currentblobversion FROM filteredInstances
+            JOIN storage.instances i ON filteredInstances.id = i.id
             LEFT JOIN storage.dataelements d ON filteredInstances.id = d.instanceInternalId AND _includeElements = TRUE
         ORDER BY
             (CASE WHEN _sort_ascending = true  THEN filteredInstances.lastChanged END) ASC,
             (CASE WHEN _sort_ascending = false THEN filteredInstances.lastChanged END) DESC,
-            filteredInstances.id;
+            filteredInstances.id,
+            d.id;
 END;
 $BODY$;

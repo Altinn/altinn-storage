@@ -1,4 +1,5 @@
-#nullable disable
+#nullable enable annotations
+#nullable disable warnings
 
 using System;
 using System.Collections.Generic;
@@ -21,16 +22,20 @@ public class DataRepositoryMock : IDataRepository
     private readonly object _stateLock = new();
     private readonly Dictionary<string, StoredDataElement> _tempRepository = new();
     private readonly Dictionary<string, List<BlobVersionEntry>> _blobVersions = new();
+    private int _instanceVersion = 1;
+    private int _processStateVersion = 1;
     private static readonly JsonSerializerOptions _options = new()
     {
         PropertyNameCaseInsensitive = true,
         WriteIndented = true,
     };
 
-    public Task<DataElementInternal> Create(
+    public Task<DataElementWriteResult> Create(
         DataElementInternal dataElement,
         long instanceInternalId = 0,
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken = default,
+        int? expectedInstanceVersion = null,
+        int? expectedProcessStateVersion = null
     )
     {
         string dataElementId = string.IsNullOrEmpty(dataElement.Id)
@@ -43,8 +48,10 @@ public class DataRepositoryMock : IDataRepository
         stagedElement.Id = dataElementId;
         stagedElement.BlobVersionId = blobVersionId;
 
+        StorageVersions versions;
         lock (_stateLock)
         {
+            ThrowIfVersionMismatchLocked(expectedInstanceVersion, expectedProcessStateVersion);
             if (_tempRepository.ContainsKey(dataElementId))
             {
                 throw new ArgumentException(
@@ -75,17 +82,26 @@ public class DataRepositoryMock : IDataRepository
                 dataElementId,
                 new StoredDataElement(serializedDataElement, blobVersionId, instanceGuid)
             );
+            versions = BumpInstanceVersionLocked();
         }
 
         dataElement.Id = dataElementId;
         dataElement.BlobVersionId = blobVersionId;
-        return Task.FromResult(dataElement);
+        return Task.FromResult(new DataElementWriteResult(dataElement, versions));
     }
 
     public Task<bool> Delete(
         DataElementInternal dataElement,
         CancellationToken cancellationToken = default
-    ) => Task.FromResult(true);
+    )
+    {
+        lock (_stateLock)
+        {
+            _tempRepository.Remove(dataElement.Id);
+        }
+
+        return Task.FromResult(true);
+    }
 
     public Task<DataElementInternal> Read(
         Guid instanceGuid,
@@ -108,7 +124,7 @@ public class DataRepositoryMock : IDataRepository
         return Task.FromResult(dataElement);
     }
 
-    public Task<DataElementInternal> Update(
+    public Task<DataElementWriteResult> Update(
         Guid instanceGuid,
         Guid dataElementId,
         Dictionary<string, object> propertylist,
@@ -131,8 +147,13 @@ public class DataRepositoryMock : IDataRepository
         EnsureDataElementLoaded(dataElementId);
 
         DataElementInternal stagedElement;
+        StorageVersions versions;
         lock (_stateLock)
         {
+            ThrowIfVersionMismatchLocked(
+                context.ExpectedInstanceVersion,
+                context.ExpectedProcessStateVersion
+            );
             if (
                 !_tempRepository.TryGetValue(
                     dataElementKey,
@@ -189,12 +210,33 @@ public class DataRepositoryMock : IDataRepository
                 currentBlobVersion,
                 storedDataElement.InstanceGuid
             );
+            versions = BumpInstanceVersionLocked();
         }
 
-        return Task.FromResult(stagedElement);
+        return Task.FromResult(new DataElementWriteResult(stagedElement, versions));
     }
 
-    public Task<DataElementInternal> UpdateFileScanStatus(
+    public Task<DataElementWriteResult> UpdateReadStatus(
+        Guid instanceGuid,
+        Guid dataElementId,
+        bool isRead,
+        CancellationToken cancellationToken = default
+    ) =>
+        Task.FromResult(
+            UpdateStoredDataElement(instanceGuid, dataElementId, element => element.IsRead = isRead)
+        );
+
+    public Task<DataElementWriteResult> UpdateLockStatus(
+        Guid instanceGuid,
+        Guid dataElementId,
+        bool locked,
+        CancellationToken cancellationToken = default
+    ) =>
+        Task.FromResult(
+            UpdateStoredDataElement(instanceGuid, dataElementId, element => element.Locked = locked)
+        );
+
+    public Task<DataElementWriteResult?> UpdateFileScanStatus(
         Guid instanceGuid,
         Guid dataElementId,
         FileScanStatus fileScanStatus,
@@ -206,6 +248,7 @@ public class DataRepositoryMock : IDataRepository
         EnsureDataElementLoaded(dataElementId);
 
         DataElementInternal stagedElement;
+        StorageVersions versions;
         lock (_stateLock)
         {
             if (
@@ -224,7 +267,7 @@ public class DataRepositoryMock : IDataRepository
                 )
             )
             {
-                return Task.FromResult<DataElementInternal>(null);
+                return Task.FromResult<DataElementWriteResult?>(null);
             }
 
             stagedElement = DeserializeStoredDataElement(storedDataElement);
@@ -235,9 +278,12 @@ public class DataRepositoryMock : IDataRepository
                 storedDataElement.CurrentBlobVersion,
                 storedDataElement.InstanceGuid
             );
+            versions = CurrentStorageVersionsLocked();
         }
 
-        return Task.FromResult(stagedElement);
+        return Task.FromResult<DataElementWriteResult?>(
+            new DataElementWriteResult(stagedElement, versions)
+        );
     }
 
     public Task<string> CreateBlobVersionId(
@@ -438,6 +484,11 @@ public class DataRepositoryMock : IDataRepository
             {
                 dataElement.LastChangedBy = (string)entry.Value;
             }
+
+            if (entry.Key == "/isRead")
+            {
+                dataElement.IsRead = (bool)entry.Value;
+            }
         }
 
         return requestedBlobVersionId;
@@ -563,6 +614,67 @@ public class DataRepositoryMock : IDataRepository
 
         return null;
     }
+
+    private DataElementWriteResult UpdateStoredDataElement(
+        Guid instanceGuid,
+        Guid dataElementId,
+        Action<DataElementInternal> update
+    )
+    {
+        EnsureDataElementLoaded(dataElementId);
+        string dataElementKey = dataElementId.ToString();
+        lock (_stateLock)
+        {
+            if (
+                !_tempRepository.TryGetValue(
+                    dataElementKey,
+                    out StoredDataElement storedDataElement
+                )
+                || storedDataElement.InstanceGuid != instanceGuid
+            )
+            {
+                throw DataElementNotFound(dataElementId);
+            }
+
+            DataElementInternal stagedElement = DeserializeStoredDataElement(storedDataElement);
+            update(stagedElement);
+            string serializedDataElement = JsonSerializer.Serialize(stagedElement, _options);
+            _tempRepository[dataElementKey] = new StoredDataElement(
+                serializedDataElement,
+                storedDataElement.CurrentBlobVersion,
+                storedDataElement.InstanceGuid
+            );
+            return new DataElementWriteResult(stagedElement, CurrentStorageVersionsLocked());
+        }
+    }
+
+    private void ThrowIfVersionMismatchLocked(
+        int? expectedInstanceVersion,
+        int? expectedProcessStateVersion
+    )
+    {
+        if (expectedInstanceVersion is not null && expectedInstanceVersion != _instanceVersion)
+        {
+            throw new InstanceVersionMismatchException(_instanceVersion, _processStateVersion);
+        }
+
+        if (
+            expectedProcessStateVersion is not null
+            && expectedProcessStateVersion != _processStateVersion
+        )
+        {
+            throw new ProcessStateVersionMismatchException(_instanceVersion, _processStateVersion);
+        }
+    }
+
+    private StorageVersions BumpInstanceVersionLocked()
+    {
+        _instanceVersion++;
+        return CurrentStorageVersionsLocked();
+    }
+
+    private StorageVersions CurrentStorageVersionsLocked() =>
+        new(_instanceVersion, _processStateVersion);
 
     private static RepositoryException DataElementNotFound(Guid dataElementId) =>
         new($"Data element {dataElementId} was not found.", HttpStatusCode.NotFound);

@@ -11,7 +11,8 @@ internal static class InstanceInternalTestFactory
     internal static InstanceInternal Create(
         Instance instance,
         IReadOnlyList<DataElementInternal> data,
-        long InternalId
+        long InternalId,
+        StorageVersions versions = null
     )
     {
         InstanceInternal result = instance.FromApiModel();
@@ -19,6 +20,7 @@ internal static class InstanceInternalTestFactory
             data is null ? null
             : data is List<DataElementInternal> list ? list
             : [.. data];
+        result.Versions = versions ?? new StorageVersions(1, 1);
         result.InternalId = InternalId;
         return result;
     }

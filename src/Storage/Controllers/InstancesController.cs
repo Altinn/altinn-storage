@@ -278,6 +278,7 @@ public class InstancesController : ControllerBase
             {
                 Instance responseInstance = instance.ToApiModel();
                 responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+                VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
                 return Ok(responseInstance);
             }
 
@@ -296,6 +297,7 @@ public class InstancesController : ControllerBase
             }
 
             mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
             return Ok(mappedInstance);
         }
         catch (Exception e)
@@ -342,6 +344,7 @@ public class InstancesController : ControllerBase
             {
                 Instance responseInstance = instance.ToApiModel();
                 responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+                VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
                 return Ok(responseInstance);
             }
 
@@ -360,6 +363,7 @@ public class InstancesController : ControllerBase
             }
 
             mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
             return Ok(mappedInstance);
         }
         catch (Exception e)
@@ -505,6 +509,7 @@ public class InstancesController : ControllerBase
             responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
 
             await _partiesWithInstancesClient.SetHasAltinn3Instances(instanceOwnerPartyId);
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, storedInstance);
             return Created(responseInstance.SelfLinks.Platform, responseInstance);
         }
         catch (Exception storageException)
@@ -553,6 +558,13 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(Request.Headers);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
         InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
             false,
@@ -619,12 +631,19 @@ public class InstancesController : ControllerBase
             InstanceInternal deletedInstance = await _instanceRepository.Update(
                 instance,
                 updateProperties,
-                cancellationToken
+                cancellationToken,
+                preconditions.InstanceVersion,
+                preconditions.ProcessStateVersion
             );
 
             await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, deletedInstance);
 
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, deletedInstance);
             return Ok(deletedInstance.ToApiModel());
+        }
+        catch (StorageVersionMismatchException e)
+        {
+            return VersionPreconditionHelper.VersionMismatch(Response, e);
         }
         catch (Exception e)
         {
@@ -663,6 +682,13 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(Request.Headers);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
         List<string> updateProperties = [];
         InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
@@ -681,6 +707,7 @@ public class InstancesController : ControllerBase
         {
             Instance responseInstance = instance.ToApiModel();
             responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
             return Ok(responseInstance);
         }
 
@@ -700,8 +727,14 @@ public class InstancesController : ControllerBase
             updatedInstance = await _instanceRepository.Update(
                 instance,
                 updateProperties,
-                cancellationToken
+                cancellationToken,
+                preconditions.InstanceVersion,
+                preconditions.ProcessStateVersion
             );
+        }
+        catch (StorageVersionMismatchException e)
+        {
+            return VersionPreconditionHelper.VersionMismatch(Response, e);
         }
         catch (Exception e)
         {
@@ -721,6 +754,7 @@ public class InstancesController : ControllerBase
 
         Instance mappedInstance = updatedInstance.ToApiModel();
         mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
         return Ok(mappedInstance);
     }
 
@@ -762,11 +796,6 @@ public class InstancesController : ControllerBase
             return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
         }
 
-        List<string> updateProperties =
-        [
-            nameof(instance.Status),
-            nameof(instance.Status.ReadStatus),
-        ];
         InstanceInternal updatedInstance;
         try
         {
@@ -784,11 +813,7 @@ public class InstancesController : ControllerBase
 
             updatedInstance =
                 (oldStatus == null || oldStatus != newStatus)
-                    ? await _instanceRepository.Update(
-                        instance,
-                        updateProperties,
-                        cancellationToken
-                    )
+                    ? await _instanceRepository.UpdateReadStatus(instance, cancellationToken)
                     : instance;
         }
         catch (Exception e)
@@ -804,6 +829,7 @@ public class InstancesController : ControllerBase
 
         Instance mappedInstance = updatedInstance.ToApiModel();
         mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
         return Ok(mappedInstance);
     }
 
@@ -828,6 +854,13 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(Request.Headers);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
         DateTime creationTime = DateTime.UtcNow;
 
         if (substatus == null || string.IsNullOrEmpty(substatus.Label))
@@ -874,8 +907,14 @@ public class InstancesController : ControllerBase
             updatedInstance = await _instanceRepository.Update(
                 instance,
                 updateProperties,
-                cancellationToken
+                cancellationToken,
+                preconditions.InstanceVersion,
+                preconditions.ProcessStateVersion
             );
+        }
+        catch (StorageVersionMismatchException e)
+        {
+            return VersionPreconditionHelper.VersionMismatch(Response, e);
         }
         catch (Exception e)
         {
@@ -894,6 +933,7 @@ public class InstancesController : ControllerBase
         );
         Instance mappedInstance = updatedInstance.ToApiModel();
         mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
         return Ok(mappedInstance);
     }
 
@@ -920,6 +960,13 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(Request.Headers);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
         if (presentationTexts?.Texts == null)
         {
             return BadRequest($"Missing parameter value: presentationTexts is misformed or empty");
@@ -959,11 +1006,23 @@ public class InstancesController : ControllerBase
             }
         }
 
-        InstanceInternal updatedInstance = await _instanceRepository.Update(
-            instance,
-            updateProperties,
-            cancellationToken
-        );
+        InstanceInternal updatedInstance;
+        try
+        {
+            updatedInstance = await _instanceRepository.Update(
+                instance,
+                updateProperties,
+                cancellationToken,
+                preconditions.InstanceVersion,
+                preconditions.ProcessStateVersion
+            );
+        }
+        catch (StorageVersionMismatchException e)
+        {
+            return VersionPreconditionHelper.VersionMismatch(Response, e);
+        }
+
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
         return updatedInstance.ToApiModel();
     }
 
@@ -990,6 +1049,13 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(Request.Headers);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
         if (dataValues?.Values == null)
         {
             return BadRequest($"Missing parameter value: dataValues is misformed or empty");
@@ -1026,11 +1092,23 @@ public class InstancesController : ControllerBase
             }
         }
 
-        var updatedInstance = await _instanceRepository.Update(
-            instance,
-            updateProperties,
-            cancellationToken
-        );
+        InstanceInternal updatedInstance;
+        try
+        {
+            updatedInstance = await _instanceRepository.Update(
+                instance,
+                updateProperties,
+                cancellationToken,
+                preconditions.InstanceVersion,
+                preconditions.ProcessStateVersion
+            );
+        }
+        catch (StorageVersionMismatchException e)
+        {
+            return VersionPreconditionHelper.VersionMismatch(Response, e);
+        }
+
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
         return Ok(updatedInstance.ToApiModel());
     }
 

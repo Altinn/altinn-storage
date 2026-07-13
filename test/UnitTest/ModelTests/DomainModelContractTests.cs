@@ -104,14 +104,14 @@ public class DomainModelContractTests
             apiProperties,
             domainProperties,
             apiOnly: ["SelfLinks"],
-            domainOnly: ["InternalId"]
+            domainOnly: ["Versions", "InternalId"]
         );
         AssertMatchingTypes(
             apiProperties,
             domainProperties,
             new Dictionary<string, Type> { ["Data"] = typeof(List<DataElementInternal>) }
         );
-        AssertJsonIgnoredProperties<InstanceInternal>("Data", "InternalId");
+        AssertJsonIgnoredProperties<InstanceInternal>("Data", "Versions", "InternalId");
         Assert.All(domainProperties.Values, property => Assert.True(property.CanWrite));
         Assert.False(typeof(Instance).IsAssignableFrom(typeof(InstanceInternal)));
         Assert.Null(
@@ -268,7 +268,7 @@ public class DomainModelContractTests
             {
                 Assert.Equal(typeof(DataElementInternal), method.GetParameters()[0].ParameterType);
                 Assert.Equal(
-                    typeof(DataElementInternal),
+                    typeof(DataElementWriteResult),
                     method.ReturnType.GetGenericArguments().Single()
                 );
             }
@@ -289,9 +289,21 @@ public class DomainModelContractTests
             methods.Where(method => method.Name.StartsWith("Update", StringComparison.Ordinal)),
             method =>
                 Assert.Equal(
-                    typeof(DataElementInternal),
+                    typeof(DataElementWriteResult),
                     method.ReturnType.GetGenericArguments().Single()
                 )
+        );
+    }
+
+    [Fact]
+    public void DataElementWriteResult_IsNonGenericAndCarriesDomainValue()
+    {
+        Assert.False(typeof(DataElementWriteResult).IsGenericType);
+        Assert.Equal(
+            typeof(DataElementInternal),
+            typeof(DataElementWriteResult)
+                .GetProperty(nameof(DataElementWriteResult.DataElement))!
+                .PropertyType
         );
     }
 
@@ -334,6 +346,7 @@ public class DomainModelContractTests
 
         AssertNewtonsoftJsonEqual(JsonConvert.SerializeObject(expected), actualJson);
         Assert.Null(actual.SelfLinks);
+        Assert.DoesNotContain("versions", actualJson, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("internalId", actualJson, StringComparison.OrdinalIgnoreCase);
         Assert.Equal("1337/045ea5db-6dd4-4476-b774-bdb2a09da7ea", actual.Id);
         Assert.Same(domain.InstanceOwner, actual.InstanceOwner);
@@ -365,6 +378,7 @@ public class DomainModelContractTests
             actualJson
         );
         Assert.Equal(DomainModelContractTestData.InstanceGuid, actual.Id);
+        Assert.Null(actual.Versions);
         Assert.Equal(0, actual.InternalId);
         Assert.NotSame(api.Data, actual.Data);
         Assert.NotSame(api.Data[0], actual.Data[0]);

@@ -109,6 +109,13 @@ public class DataController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(Request.Headers);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
         (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
             instanceGuid,
             instanceOwnerPartyId,
@@ -179,14 +186,32 @@ public class DataController : ControllerBase
                 );
             }
 
-            return await InitiateDelayedDelete(instance, dataElement);
+            return await InitiateDelayedDelete(instance, dataElement, preconditions);
         }
 
-        await _dataService.DeleteImmediately(
-            instance,
-            dataElement,
-            application.StorageAccountNumber
-        );
+        try
+        {
+            await _dataService.DeleteImmediately(
+                instance,
+                dataElement,
+                application.StorageAccountNumber,
+                preconditions.InstanceVersion,
+                preconditions.ProcessStateVersion
+            );
+            InstanceInternal updatedInstance = await _instanceRepository.GetOne(
+                instanceGuid,
+                false,
+                cancellationToken
+            );
+            if (updatedInstance is not null)
+            {
+                VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
+            }
+        }
+        catch (StorageVersionMismatchException exception)
+        {
+            return VersionPreconditionHelper.VersionMismatch(Response, exception);
+        }
 
         return Ok(dataElement.ToApiModel());
     }
@@ -271,6 +296,7 @@ public class DataController : ControllerBase
 
         if (dataElement.DeleteStatus?.IsHardDeleted == true && !appOwnerRequestingElement)
         {
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
             return NotFound();
         }
 
@@ -278,16 +304,17 @@ public class DataController : ControllerBase
         {
             try
             {
-                await _dataRepository.Update(
+                await _dataRepository.UpdateReadStatus(
                     instanceGuid,
                     dataGuid,
-                    new Dictionary<string, object>() { { "/isRead", true } },
-                    cancellationToken: cancellationToken
+                    true,
+                    cancellationToken
                 );
             }
             catch (RepositoryException exception)
                 when (exception.StatusCodeSuggestion == HttpStatusCode.NotFound)
             {
+                VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
                 return NotFound($"Unable to find any data element with id: {dataGuid}.");
             }
         }
@@ -311,10 +338,12 @@ public class DataController : ControllerBase
 
             if (dataStream == null)
             {
+                VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
                 return NotFound($"Unable to read data element from blob storage for {dataGuid}");
             }
 
             SetBlobVersionETag(dataElement.BlobVersionId);
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
 
             // Migrated Altinn 2 Websa main forms should be shown inline in the browser
             if (
@@ -343,15 +372,16 @@ public class DataController : ControllerBase
                 contentDispositionHeader.ToString()
             );
 
-            return File(
-                await _onDemandClient.GetStreamAsync(
-                    $"ondemand/{instance.AppId}/{instanceOwnerPartyId}/{instanceGuid}/{dataGuid}/"
-                        + $"{LanguageHelper.GetCurrentUserLanguage(Request)}/{dataElement.BlobStoragePath.Split('/')[1]}"
-                ),
-                dataElement.ContentType
+            Stream onDemandStream = await _onDemandClient.GetStreamAsync(
+                $"ondemand/{instance.AppId}/{instanceOwnerPartyId}/{instanceGuid}/{dataGuid}/"
+                    + $"{LanguageHelper.GetCurrentUserLanguage(Request)}/{dataElement.BlobStoragePath.Split('/')[1]}"
             );
+
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
+            return File(onDemandStream, dataElement.ContentType);
         }
 
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
         return NotFound("Unable to find requested data item");
     }
 
@@ -399,6 +429,8 @@ public class DataController : ControllerBase
             ? instance.Data
             : instance.Data.Where(de => de.DeleteStatus is not { IsHardDeleted: true });
 
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
+
         return Ok(
             new DataElementList()
             {
@@ -433,6 +465,13 @@ public class DataController : ControllerBase
         [FromQuery(Name = "generatedFromTask")] string generatedFromTask = null
     )
     {
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(Request.Headers);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
         if (instanceOwnerPartyId == 0 || string.IsNullOrEmpty(dataType) || Request.Body == null)
         {
             return BadRequest(
@@ -509,20 +548,31 @@ public class DataController : ControllerBase
 
         DataElementInternal dataElement;
         DateTimeOffset blobTimestamp;
+        StorageVersions versions;
         try
         {
-            (dataElement, blobTimestamp) = await _dataService.UploadDataAndCreateDataElement(
+            DataUploadResult uploadResult = await _dataService.UploadDataAndCreateDataElement(
                 instance,
                 theStream,
                 createOptions,
                 instance.InternalId,
                 application.StorageAccountNumber,
-                cancellationToken
+                cancellationToken,
+                preconditions.InstanceVersion,
+                preconditions.ProcessStateVersion
             );
+
+            dataElement = uploadResult.DataElement;
+            blobTimestamp = uploadResult.BlobTimestamp;
+            versions = uploadResult.Versions;
         }
         catch (InvalidDataException exception)
         {
             return BadRequest(exception.Message);
+        }
+        catch (StorageVersionMismatchException exception)
+        {
+            return VersionPreconditionHelper.VersionMismatch(Response, exception);
         }
         catch (RepositoryException exception) when (exception.StatusCodeSuggestion.HasValue)
         {
@@ -542,6 +592,7 @@ public class DataController : ControllerBase
 
         DataElement responseDataElement = dataElement.ToApiModel();
         responseDataElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, versions);
         return Created(responseDataElement.SelfLinks.Platform, responseDataElement);
     }
 
@@ -573,6 +624,13 @@ public class DataController : ControllerBase
         [FromQuery(Name = "generatedFromTask")] string generatedFromTask = null
     )
     {
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(Request.Headers);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
         if (instanceOwnerPartyId == 0 || Request.Body == null)
         {
             return BadRequest(
@@ -749,10 +807,10 @@ public class DataController : ControllerBase
 
         updatedProperties.Add("/fileScanResult", scanResult);
 
-        DataElementInternal updatedElement;
+        DataElementWriteResult updatedElementResult;
         try
         {
-            updatedElement = await _dataRepository.Update(
+            updatedElementResult = await _dataRepository.Update(
                 instanceGuid,
                 dataGuid,
                 updatedProperties,
@@ -760,9 +818,24 @@ public class DataController : ControllerBase
                 {
                     EnforceLockCheck = true,
                     ExpectedCurrentBlobVersion = expectedCurrentBlobVersion,
+                    ExpectedInstanceVersion = preconditions.InstanceVersion,
+                    ExpectedProcessStateVersion = preconditions.ProcessStateVersion,
                 },
                 cancellationToken: cancellationToken
             );
+        }
+        catch (StorageVersionMismatchException exception)
+        {
+            await DataService.DeleteAllocatedBlobVersion(
+                _blobRepository,
+                _dataRepository,
+                instance.Org,
+                dataGuid,
+                versionedBlobStoragePath,
+                blobVersionId,
+                application.StorageAccountNumber
+            );
+            return VersionPreconditionHelper.VersionMismatch(Response, exception);
         }
         catch (DataElementBlobVersionMismatchException exception)
         {
@@ -806,9 +879,9 @@ public class DataController : ControllerBase
             return NotFound(exception.Message);
         }
 
+        DataElementInternal updatedElement = updatedElementResult.DataElement;
         DataElement responseDataElement = updatedElement.ToApiModel();
         responseDataElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
-        SetBlobVersionETag(blobVersionId);
 
         await _dataService.StartFileScan(
             instance,
@@ -823,6 +896,12 @@ public class DataController : ControllerBase
             InstanceEventType.Saved,
             instance,
             updatedElement
+        );
+
+        SetBlobVersionETag(blobVersionId);
+        VersionPreconditionHelper.WriteVersionResponseHeaders(
+            Response,
+            updatedElementResult.Versions
         );
 
         return Ok(responseDataElement);
@@ -851,6 +930,13 @@ public class DataController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(Request.Headers);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
         if (
             !instanceGuid.ToString().Equals(dataElement.InstanceGuid)
             || !dataGuid.ToString().Equals(dataElement.Id)
@@ -898,22 +984,35 @@ public class DataController : ControllerBase
             { "/lastChangedBy", dataElement.LastChangedBy },
         };
 
-        DataElementInternal updatedDataElement;
+        DataElementWriteResult updatedDataElementResult;
         try
         {
-            updatedDataElement = await _dataRepository.Update(
+            updatedDataElementResult = await _dataRepository.Update(
                 instanceGuid,
                 dataGuid,
                 propertyList,
+                new DataElementUpdateContext
+                {
+                    ExpectedInstanceVersion = preconditions.InstanceVersion,
+                    ExpectedProcessStateVersion = preconditions.ProcessStateVersion,
+                },
                 cancellationToken: cancellationToken
             );
+        }
+        catch (StorageVersionMismatchException exception)
+        {
+            return VersionPreconditionHelper.VersionMismatch(Response, exception);
         }
         catch (RepositoryException exception) when (exception.StatusCodeSuggestion.HasValue)
         {
             return StatusCode((int)exception.StatusCodeSuggestion.Value, exception.Message);
         }
 
-        return Ok(updatedDataElement.ToApiModel());
+        VersionPreconditionHelper.WriteVersionResponseHeaders(
+            Response,
+            updatedDataElementResult.Versions
+        );
+        return Ok(updatedDataElementResult.DataElement.ToApiModel());
     }
 
     /// <summary>
@@ -937,9 +1036,18 @@ public class DataController : ControllerBase
     {
         try
         {
-            await _dataRepository.UpdateFileScanStatus(instanceGuid, dataGuid, fileScanStatus);
+            DataElementWriteResult result = await _dataRepository.UpdateFileScanStatus(
+                instanceGuid,
+                dataGuid,
+                fileScanStatus
+            );
+            if (result is not null)
+            {
+                VersionPreconditionHelper.WriteVersionResponseHeaders(Response, result.Versions);
+            }
         }
-        catch (RepositoryException exception) when (exception.StatusCodeSuggestion.HasValue)
+        catch (RepositoryException exception)
+            when (exception.StatusCodeSuggestion == HttpStatusCode.BadRequest)
         {
             return StatusCode((int)exception.StatusCodeSuggestion.Value, exception.Message);
         }
@@ -1029,17 +1137,18 @@ public class DataController : ControllerBase
 
     private async Task<ActionResult<DataElement>> InitiateDelayedDelete(
         InstanceInternal instance,
-        DataElementInternal dataElement
+        DataElementInternal dataElement,
+        VersionPreconditions preconditions
     )
     {
         DateTime deletedTime = DateTime.UtcNow;
 
         DeleteStatus deleteStatus = new() { IsHardDeleted = true, HardDeleted = deletedTime };
 
-        DataElementInternal updatedDataElement;
+        DataElementWriteResult updatedDataElementResult;
         try
         {
-            updatedDataElement = await _dataRepository.Update(
+            updatedDataElementResult = await _dataRepository.Update(
                 Guid.Parse(dataElement.InstanceGuid),
                 Guid.Parse(dataElement.Id),
                 new Dictionary<string, object>()
@@ -1047,8 +1156,17 @@ public class DataController : ControllerBase
                     { "/deleteStatus", deleteStatus },
                     { "/lastChanged", deletedTime },
                     { "/lastChangedBy", dataElement.LastChangedBy },
+                },
+                new DataElementUpdateContext
+                {
+                    ExpectedInstanceVersion = preconditions.InstanceVersion,
+                    ExpectedProcessStateVersion = preconditions.ProcessStateVersion,
                 }
             );
+        }
+        catch (StorageVersionMismatchException exception)
+        {
+            return VersionPreconditionHelper.VersionMismatch(Response, exception);
         }
         catch (RepositoryException exception) when (exception.StatusCodeSuggestion.HasValue)
         {
@@ -1056,7 +1174,11 @@ public class DataController : ControllerBase
         }
 
         await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, instance, dataElement);
-        return Ok(updatedDataElement.ToApiModel());
+        VersionPreconditionHelper.WriteVersionResponseHeaders(
+            Response,
+            updatedDataElementResult.Versions
+        );
+        return Ok(updatedDataElementResult.DataElement.ToApiModel());
     }
 
     private async Task<(DataType DataType, ActionResult ErrorMessage)> GetDataTypeAsync(

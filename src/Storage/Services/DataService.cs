@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -14,6 +15,7 @@ using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
+using Npgsql;
 
 namespace Altinn.Platform.Storage.Services;
 
@@ -116,16 +118,15 @@ public class DataService : IDataService
     }
 
     /// <inheritdoc/>
-    public async Task<(
-        DataElementInternal DataElement,
-        DateTimeOffset BlobTimestamp
-    )> UploadDataAndCreateDataElement(
+    public async Task<DataUploadResult> UploadDataAndCreateDataElement(
         InstanceInternal instance,
         Stream stream,
         DataElementCreateOptions options,
         long instanceInternalId,
         int? storageAccountNumber,
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken = default,
+        int? expectedInstanceVersion = null,
+        int? expectedProcessStateVersion = null
     )
     {
         string instanceGuid = instance.Id;
@@ -194,20 +195,49 @@ public class DataService : IDataService
             BlobVersionId = blobVersionId,
         };
 
-        DataElementInternal createdDataElement = await _dataRepository.Create(
-            dataElement,
-            instanceInternalId,
-            cancellationToken
-        );
+        DataElementWriteResult createdDataElement;
+        try
+        {
+            createdDataElement = await _dataRepository.Create(
+                dataElement,
+                instanceInternalId,
+                cancellationToken,
+                expectedInstanceVersion,
+                expectedProcessStateVersion
+            );
+        }
+        catch (Exception exception)
+        {
+            if (IndicatesDefiniteRollback(exception))
+            {
+                await DeleteAllocatedBlobVersion(
+                    _blobRepository,
+                    _dataRepository,
+                    instance.Org,
+                    options.DataElementId,
+                    blobStoragePath,
+                    blobVersionId,
+                    storageAccountNumber
+                );
+            }
 
-        return (createdDataElement, blobTimestamp);
+            throw;
+        }
+
+        return new DataUploadResult(
+            createdDataElement.DataElement,
+            blobTimestamp,
+            createdDataElement.Versions
+        );
     }
 
     /// <inheritdoc/>
     public async Task<DataElementInternal> DeleteImmediately(
         InstanceInternal instance,
         DataElementInternal dataElement,
-        int? storageAccountNumber
+        int? storageAccountNumber,
+        int? expectedInstanceVersion = null,
+        int? expectedProcessStateVersion = null
     )
     {
         Guid instanceGuid = Guid.Parse(dataElement.InstanceGuid);
@@ -217,7 +247,7 @@ public class DataService : IDataService
         DataElementInternal markedDataElement = null;
         try
         {
-            markedDataElement = await _dataRepository.Update(
+            DataElementWriteResult markedDataElementResult = await _dataRepository.Update(
                 instanceGuid,
                 dataElementId,
                 new Dictionary<string, object>
@@ -225,8 +255,14 @@ public class DataService : IDataService
                     { "/deleteStatus", deleteStatus },
                     { "/lastChanged", deletedTime },
                     { "/lastChangedBy", dataElement.LastChangedBy },
+                },
+                new DataElementUpdateContext
+                {
+                    ExpectedInstanceVersion = expectedInstanceVersion,
+                    ExpectedProcessStateVersion = expectedProcessStateVersion,
                 }
             );
+            markedDataElement = markedDataElementResult.DataElement;
         }
         catch (RepositoryException exception)
             when (exception.StatusCodeSuggestion == HttpStatusCode.NotFound)
@@ -314,6 +350,33 @@ public class DataService : IDataService
                 ValueType = ReferenceType.Task,
             },
         ];
+    }
+
+    /// <summary>
+    /// Returns true when some exception in the chain proves the database transaction rolled
+    /// back, so staged blob compensation is safe; false when the commit outcome is unknown
+    /// and cleanup must be left to the orphan cleanup job. An inner-exception chain is the
+    /// causality of one operation, so one definite link decides it; the flattened siblings of
+    /// an <see cref="AggregateException"/> represent separate operations, so every sibling
+    /// must be definite — one proven abort does not decide an ambiguous sibling's outcome.
+    /// </summary>
+    internal static bool IndicatesDefiniteRollback(Exception exception)
+    {
+        for (Exception current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is PostgresException or RepositoryException)
+            {
+                return true;
+            }
+
+            if (current is AggregateException aggregateException)
+            {
+                var siblings = aggregateException.Flatten().InnerExceptions;
+                return siblings.Count > 0 && siblings.All(IndicatesDefiniteRollback);
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
