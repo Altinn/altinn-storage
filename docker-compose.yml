@@ -52,10 +52,15 @@ services:
       - ./infra/servers.json:/pgadmin4/servers.json
 
   altinn_platform_storage_azurite:
-    image: mcr.microsoft.com/azure-storage/azurite:3.35.0
+    image: mcr.microsoft.com/azure-storage/azurite:3.35.0@sha256:647c63a91102a9d8e8000aab803436e1fc85fbb285e7ce830a82ee5d6661cf37
     container_name: storage_azurite
     restart: unless-stopped
-    command: "azurite --blobHost 0.0.0.0 --blobPort 10000 --queueHost 0.0.0.0 --queuePort 10001 --tableHost 0.0.0.0 --tablePort 10002"
+    command: "azurite --blobHost 0.0.0.0 --blobPort 10000 --queueHost 0.0.0.0 --queuePort 10001 --tableHost 0.0.0.0 --tablePort 10002 --skipApiVersionCheck"
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "127.0.0.1", "10000" ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
     ports:
       - "10000:10000"
       - "10001:10001"

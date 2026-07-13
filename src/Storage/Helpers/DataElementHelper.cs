@@ -1,13 +1,9 @@
 #nullable disable
 
-using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using System.Web;
 using Altinn.Platform.Storage.Extensions;
-using Altinn.Platform.Storage.Interface.Models;
-using Altinn.Platform.Storage.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Primitives;
@@ -20,58 +16,6 @@ namespace Altinn.Platform.Storage.Helpers;
 /// </summary>
 public static class DataElementHelper
 {
-    /// <summary>
-    /// Creates a data element based on element type, instance id, content type, content file name and file size.
-    /// </summary>
-    /// <returns>DataElementInternal</returns>
-    public static DataElementInternal CreateDataElement(
-        string dataType,
-        List<Guid> refs,
-        InstanceInternal instance,
-        DateTime creationTime,
-        string contentType,
-        string contentFileName,
-        long fileSize,
-        string user,
-        string generatedFromTask
-    )
-    {
-        string dataId = Guid.NewGuid().ToString();
-
-        DataElementInternal newData = new DataElementInternal
-        {
-            // update data record
-            Id = dataId,
-            InstanceGuid = instance.Id,
-            DataType = dataType,
-            ContentType = contentType,
-            CreatedBy = user,
-            Created = creationTime,
-            Filename = contentFileName,
-            LastChangedBy = user,
-            LastChanged = creationTime,
-            Size = fileSize,
-            Refs = refs,
-        };
-
-        if (!string.IsNullOrEmpty(generatedFromTask))
-        {
-            newData.References = new List<Reference>
-            {
-                new Reference
-                {
-                    Relation = Interface.Enums.RelationType.GeneratedFrom,
-                    Value = generatedFromTask,
-                    ValueType = Interface.Enums.ReferenceType.Task,
-                },
-            };
-        }
-
-        string filePath = DataFileName(instance.AppId, instance.Id, newData.Id);
-        newData.BlobStoragePath = filePath;
-        return newData;
-    }
-
     /// <summary>
     /// Formats a filename for blob storage.
     /// </summary>

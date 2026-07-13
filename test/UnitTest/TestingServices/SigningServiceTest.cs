@@ -90,11 +90,12 @@ public class SigningServiceTest
 
         dataServiceMock.Setup(dsm =>
             dsm.UploadDataAndCreateDataElement(
-                It.IsAny<string>(),
+                It.IsAny<InstanceInternal>(),
                 It.IsAny<Stream>(),
-                It.Is<DataElementInternal>(de => de.Locked),
+                It.Is<DataElementCreateOptions>(options => options.Locked),
                 0,
-                It.IsAny<int?>()
+                It.IsAny<int?>(),
+                It.IsAny<CancellationToken>()
             )
         );
 
@@ -235,11 +236,12 @@ public class SigningServiceTest
 
         dataServiceMock.Setup(dsm =>
             dsm.UploadDataAndCreateDataElement(
-                It.IsAny<string>(),
+                It.IsAny<InstanceInternal>(),
                 It.IsAny<Stream>(),
-                It.Is<DataElementInternal>(de => de.Locked),
+                It.Is<DataElementCreateOptions>(options => options.Locked),
                 0,
-                It.IsAny<int?>()
+                It.IsAny<int?>(),
+                It.IsAny<CancellationToken>()
             )
         );
 
@@ -563,5 +565,251 @@ public class SigningServiceTest
         instanceRepositoryMock.VerifyAll();
         applicationServiceMock.VerifyAll();
         dataServiceMock.VerifyAll();
+    }
+
+    [Fact]
+    public async Task CreateSignDocument_UploadThrows_PropagatesException()
+    {
+        // Arrange
+        var instanceRepositoryMock = new Mock<IInstanceRepository>();
+        instanceRepositoryMock
+            .Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                new InstanceInternal
+                {
+                    InstanceOwner = new(),
+                    Process = new ProcessState
+                    {
+                        CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" },
+                    },
+                }
+            );
+
+        var applicationServiceMock = new Mock<IApplicationService>();
+        applicationServiceMock
+            .Setup(asm =>
+                asm.ValidateDataTypeForApp(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>()
+                )
+            )
+            .ReturnsAsync((true, null));
+
+        var dataServiceMock = new Mock<IDataService>();
+        dataServiceMock
+            .Setup(dsm =>
+                dsm.GenerateSha256Hash(
+                    It.IsAny<string>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<int?>()
+                )
+            )
+            .ReturnsAsync((Guid.NewGuid().ToString(), null));
+        dataServiceMock
+            .Setup(dsm =>
+                dsm.UploadDataAndCreateDataElement(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<Stream>(),
+                    It.IsAny<DataElementCreateOptions>(),
+                    0,
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(new InvalidOperationException("metadata create failed"));
+
+        var instanceEventServiceMock = new Mock<IInstanceEventService>();
+        var applicationRepositoryMock = new Mock<IApplicationRepository>();
+        applicationRepositoryMock
+            .Setup(am =>
+                am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(new Application());
+
+        var service = new SigningService(
+            instanceRepositoryMock.Object,
+            dataServiceMock.Object,
+            applicationServiceMock.Object,
+            instanceEventServiceMock.Object,
+            applicationRepositoryMock.Object,
+            Mock.Of<IBlobRepository>(),
+            Mock.Of<ILogger<SigningService>>()
+        );
+
+        SignRequest signRequest = new SignRequest
+        {
+            SignatureDocumentDataType = "sign-data-type",
+            DataElementSignatures =
+            [
+                new DataElementSignature
+                {
+                    DataElementId = Guid.NewGuid().ToString(),
+                    Signed = true,
+                },
+            ],
+            Signee = new Signee { UserId = "1337", PersonNumber = "22117612345" },
+        };
+
+        // Act/assert
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.CreateSignDocument(Guid.NewGuid(), signRequest, "1337", CancellationToken.None)
+        );
+
+        Assert.Equal("metadata create failed", exception.Message);
+        instanceEventServiceMock.Verify(
+            service =>
+                service.DispatchEvent(It.IsAny<InstanceEventType>(), It.IsAny<InstanceInternal>()),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task CreateSignDocument_DeleteExistingSignDocThrows_PropagatesException()
+    {
+        // Arrange
+        var instanceGuid = Guid.NewGuid();
+        var signatureDataType = "sign-data-type";
+        var signee = new Signee { UserId = "1337", PersonNumber = "22117612345" };
+
+        SignDocument oldSignDocument = new()
+        {
+            Id = Guid.NewGuid().ToString(),
+            InstanceGuid = instanceGuid.ToString(),
+            SignedTime = default,
+            SigneeInfo = signee,
+            DataElementSignatures = [],
+        };
+        DataElementInternal oldSignatureDataElement = new()
+        {
+            Id = Guid.NewGuid().ToString(),
+            DataType = signatureDataType,
+            BlobStoragePath = "org/app/instance/signature.json",
+        };
+        InstanceInternal instance = new()
+        {
+            Id = instanceGuid.ToString(),
+            InstanceOwner = new InstanceOwner(),
+            Process = new ProcessState
+            {
+                CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_1",
+                    AltinnTaskType = "signing",
+                },
+            },
+            Data = [oldSignatureDataElement],
+        };
+
+        var instanceRepositoryMock = new Mock<IInstanceRepository>();
+        instanceRepositoryMock
+            .Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(instance);
+
+        var applicationServiceMock = new Mock<IApplicationService>();
+        applicationServiceMock
+            .Setup(asm =>
+                asm.ValidateDataTypeForApp(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>()
+                )
+            )
+            .ReturnsAsync((true, null));
+
+        var dataServiceMock = new Mock<IDataService>();
+        dataServiceMock
+            .Setup(dsm =>
+                dsm.GenerateSha256Hash(
+                    It.IsAny<string>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<int?>()
+                )
+            )
+            .ReturnsAsync((Guid.NewGuid().ToString(), null));
+        dataServiceMock
+            .Setup(service =>
+                service.DeleteImmediately(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<DataElementInternal>(),
+                    It.IsAny<int?>()
+                )
+            )
+            .ThrowsAsync(new InvalidOperationException("metadata delete failed"));
+
+        var instanceEventServiceMock = new Mock<IInstanceEventService>();
+        var applicationRepositoryMock = new Mock<IApplicationRepository>();
+        applicationRepositoryMock
+            .Setup(am =>
+                am.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(new Application());
+
+        var blobRepositoryMock = new Mock<IBlobRepository>();
+        blobRepositoryMock
+            .Setup(repository =>
+                repository.ReadBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    null,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(oldSignDocument)));
+
+        var service = new SigningService(
+            instanceRepositoryMock.Object,
+            dataServiceMock.Object,
+            applicationServiceMock.Object,
+            instanceEventServiceMock.Object,
+            applicationRepositoryMock.Object,
+            blobRepositoryMock.Object,
+            Mock.Of<ILogger<SigningService>>()
+        );
+
+        SignRequest signRequest = new SignRequest
+        {
+            SignatureDocumentDataType = signatureDataType,
+            DataElementSignatures =
+            [
+                new DataElementSignature
+                {
+                    DataElementId = Guid.NewGuid().ToString(),
+                    Signed = true,
+                },
+            ],
+            Signee = signee,
+        };
+
+        // Act/assert
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.CreateSignDocument(instanceGuid, signRequest, "1337", CancellationToken.None)
+        );
+
+        Assert.Equal("metadata delete failed", exception.Message);
+        instanceEventServiceMock.Verify(
+            eventService =>
+                eventService.DispatchEvent(
+                    It.IsAny<InstanceEventType>(),
+                    It.IsAny<InstanceInternal>()
+                ),
+            Times.Never
+        );
+        dataServiceMock.Verify(
+            dataService =>
+                dataService.UploadDataAndCreateDataElement(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<Stream>(),
+                    It.IsAny<DataElementCreateOptions>(),
+                    It.IsAny<long>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
     }
 }

@@ -403,6 +403,7 @@ internal static class DomainModelContractTestData
             CreatedBy = "created-by",
             LastChanged = Utc(2024, 1, 3, 4, 5, 6),
             LastChangedBy = "last-changed-by",
+            BlobVersionId = "blob-version-id",
         };
 
     internal static Instance CreateApiInstance(bool apiFormatId)

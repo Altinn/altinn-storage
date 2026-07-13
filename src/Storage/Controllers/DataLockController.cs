@@ -104,7 +104,7 @@ public class DataLockController : ControllerBase
                 instanceGuid,
                 dataGuid,
                 propertyList,
-                cancellationToken
+                cancellationToken: cancellationToken
             );
             return Created(updatedDataElement.Id, updatedDataElement.ToApiModel());
         }
@@ -165,7 +165,7 @@ public class DataLockController : ControllerBase
                 instanceGuid,
                 dataGuid,
                 propertyList,
-                cancellationToken
+                cancellationToken: cancellationToken
             );
             return Ok(updatedDataElement.ToApiModel());
         }

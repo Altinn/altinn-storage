@@ -23,7 +23,8 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     {
         _instanceFixture = instanceFixture;
 
-        string sql = "delete from storage.instances; delete from storage.dataelements;";
+        string sql =
+            "delete from storage.dataelementblobversions; delete from storage.instances; delete from storage.dataelements;";
         _ = PostgresUtil.RunSql(sql).Result;
     }
 
@@ -658,10 +659,22 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         DataElementInternal data = TestDataUtil
             .GetDataElement("cdb627fd-c586-41f5-99db-bae38daa2b59")
             .FromApiModel();
-        InstanceInternal instance = await InsertInstanceAndData(
-            TestData.Instance_1_1.Clone().FromApiModel(),
-            data
+        InstanceInternal input = TestData.Instance_1_1.Clone().FromApiModel();
+        string blobVersionId = await _instanceFixture.DataRepo.CreateBlobVersionId(
+            Guid.Parse(data.InstanceGuid),
+            Guid.Parse(data.Id),
+            input.AppId,
+            input.Org,
+            null,
+            CancellationToken.None
         );
+        data.BlobVersionId = blobVersionId;
+        data.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+            input.AppId,
+            data.InstanceGuid,
+            blobVersionId
+        );
+        InstanceInternal instance = await InsertInstanceAndData(input, data);
 
         // Act
         InstanceInternal instanceNoData = await _instanceFixture.InstanceRepo.GetOne(
@@ -679,7 +692,9 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Assert.Equal(instanceNoData.Id, instance.Id.Split('/').Last());
         Assert.Equal(instanceWithData.Id, instance.Id.Split('/').Last());
         Assert.Empty(instanceNoData.Data);
-        Assert.Single(instanceWithData.Data);
+        DataElementInternal hydrated = Assert.Single(instanceWithData.Data);
+        Assert.Equal(blobVersionId, hydrated.BlobVersionId);
+        Assert.Equal(data.BlobStoragePath, hydrated.BlobStoragePath);
     }
 
     /// <summary>
@@ -727,6 +742,9 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         DataElementInternal data3 = TestDataUtil
             .GetDataElement("24bfec2e-c4ce-4e82-8fa9-aa39da329fd5")
             .FromApiModel();
+        data1.InstanceGuid = TestData.Instance_1_1.Id.Split('/').Last();
+        data2.InstanceGuid = TestData.Instance_2_1.Id.Split('/').Last();
+        data3.InstanceGuid = TestData.Instance_3_1.Id.Split('/').Last();
         await InsertInstanceAndDataHardDelete(TestData.Instance_1_1.Clone().FromApiModel(), data1);
         await InsertInstanceAndDataHardDelete(TestData.Instance_2_1.Clone().FromApiModel(), data2);
         await InsertInstanceAndDataHardDelete(TestData.Instance_3_1.Clone().FromApiModel(), data3);
@@ -736,7 +754,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             CancellationToken.None
         );
         await _instanceFixture.DataRepo.Update(
-            Guid.Empty,
+            Guid.Parse(data1.InstanceGuid),
             Guid.Parse(data1.Id),
             new Dictionary<string, object>() { { "/deleteStatus", new DeleteStatus() } }
         );
@@ -769,8 +787,21 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             "24bfec2e-c4ce-4e82-8fa9-aa39da329fd5"
         );
         firstInsertedElement.InstanceGuid = expectedStorageId;
+        string firstBlobVersionId = await _instanceFixture.DataRepo.CreateBlobVersionId(
+            Guid.Parse(expectedStorageId),
+            Guid.Parse(firstInsertedElement.Id),
+            input.AppId,
+            input.Org,
+            null,
+            CancellationToken.None
+        );
+        firstInsertedElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+            input.AppId,
+            expectedStorageId,
+            firstBlobVersionId
+        );
         await _instanceFixture.DataRepo.Create(
-            firstInsertedElement.FromApiModel(),
+            firstInsertedElement.FromApiModel(firstBlobVersionId),
             persisted.InternalId,
             CancellationToken.None
         );
@@ -779,11 +810,20 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             "1336b773-4ae2-4bdf-9529-d71dfc1c8b43"
         );
         secondInsertedElement.InstanceGuid = expectedStorageId;
+        string secondBlobVersionId = await _instanceFixture.DataRepo.CreateBlobVersionId(
+            Guid.Parse(expectedStorageId),
+            Guid.Parse(secondInsertedElement.Id),
+            input.AppId,
+            input.Org,
+            null,
+            CancellationToken.None
+        );
         await _instanceFixture.DataRepo.Create(
-            secondInsertedElement.FromApiModel(),
+            secondInsertedElement.FromApiModel(secondBlobVersionId),
             persisted.InternalId,
             CancellationToken.None
         );
+        Assert.NotEqual(firstBlobVersionId, secondBlobVersionId);
 
         InstanceQueryResult result = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
             new InstanceQueryParameters
@@ -806,10 +846,13 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             element =>
             {
                 Assert.Equal(firstInsertedElement.Id, element.Id);
+                Assert.Equal(firstBlobVersionId, element.BlobVersionId);
+                Assert.Equal(firstInsertedElement.BlobStoragePath, element.BlobStoragePath);
             },
             element =>
             {
                 Assert.Equal(secondInsertedElement.Id, element.Id);
+                Assert.Equal(secondBlobVersionId, element.BlobVersionId);
             }
         );
     }

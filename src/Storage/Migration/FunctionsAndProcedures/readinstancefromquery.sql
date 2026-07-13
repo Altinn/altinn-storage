@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v7(
+CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v8(
     _appId TEXT DEFAULT NULL,
     _appIds TEXT[] DEFAULT NULL,
     _archiveReference TEXT DEFAULT NULL,
@@ -54,7 +54,7 @@ CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v7(
     _visibleAfter_lt TEXT DEFAULT NULL,
     _visibleAfter_lte TEXT DEFAULT NULL
     )
-    RETURNS TABLE (id BIGINT, instance JSONB, element JSONB)
+    RETURNS TABLE (id BIGINT, instance JSONB, element JSONB, currentblobversion UUID)
     LANGUAGE 'plpgsql'
     
 AS $BODY$
@@ -125,7 +125,7 @@ BEGIN
             i.id
         FETCH FIRST _size ROWS ONLY
     )
-        SELECT filteredInstances.id, filteredInstances.instance, d.element FROM filteredInstances
+        SELECT filteredInstances.id, filteredInstances.instance, d.element, d.currentblobversion FROM filteredInstances
             LEFT JOIN storage.dataelements d ON filteredInstances.id = d.instanceInternalId AND _includeElements = TRUE
         ORDER BY
             (CASE WHEN _sort_ascending = true  THEN filteredInstances.lastChanged END) ASC,

@@ -17,6 +17,7 @@ using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Services;
 using Azure.Storage;
 using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Authorization;
@@ -262,6 +263,40 @@ public class MigrationController : ControllerBase
         try
         {
             string dataElementId = Guid.NewGuid().ToString();
+            bool hasBlob = Request.ContentLength > 0 || dataType == "binary-data";
+            string blobOrg = $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}";
+            string blobVersionId;
+            string blobStoragePath;
+            if (hasBlob)
+            {
+                blobVersionId = await _dataRepository.CreateBlobVersionId(
+                    instanceGuid,
+                    Guid.Parse(dataElementId),
+                    instance.AppId,
+                    blobOrg,
+                    app.StorageAccountNumber,
+                    cancellationToken
+                );
+                blobStoragePath = BlobRepository.GetVersionedBlobPath(
+                    instance.AppId,
+                    instanceGuid.ToString(),
+                    blobVersionId
+                );
+            }
+            else
+            {
+                blobStoragePath = dataType switch
+                {
+                    "signature-presentation" => "ondemand/signature",
+                    "ref-data-as-pdf" => "ondemand/formdatapdf",
+                    "ref-data-as-html" => "ondemand/formdatahtml",
+                    "ref-summary-data-as-html" => "ondemand/formsummaryhtml",
+                    "payment-presentation" => "ondemand/payment",
+                    _ => throw new ArgumentException(dataType),
+                };
+                blobVersionId = null;
+            }
+
             DataElementInternal dataElement = new()
             {
                 Id = dataElementId,
@@ -272,11 +307,8 @@ public class MigrationController : ControllerBase
                 IsRead = true,
                 LastChanged = lastChanged,
                 LastChangedBy = instance.LastChangedBy,
-                BlobStoragePath = DataElementHelper.DataFileName(
-                    instance.AppId,
-                    instanceGuid.ToString(),
-                    dataElementId
-                ),
+                BlobStoragePath = blobStoragePath,
+                BlobVersionId = blobVersionId,
                 Metadata =
                     formid == null
                         ? null
@@ -311,29 +343,37 @@ public class MigrationController : ControllerBase
                     FormOptions.DefaultMultipartBoundaryLengthLimit
                 );
 
-            if (Request.ContentLength > 0 || dataElement.DataType == "binary-data")
+            if (hasBlob)
             {
-                (dataElement.Size, _) = await _blobRepository.WriteBlob(
-                    $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
-                    theStream,
-                    dataElement.BlobStoragePath,
-                    app.StorageAccountNumber
-                );
-            }
-            else
-            {
-                dataElement.BlobStoragePath = dataElement.DataType switch
+                try
                 {
-                    "signature-presentation" => "ondemand/signature",
-                    "ref-data-as-pdf" => "ondemand/formdatapdf",
-                    "ref-data-as-html" => "ondemand/formdatahtml",
-                    "ref-summary-data-as-html" => "ondemand/formsummaryhtml",
-                    "payment-presentation" => "ondemand/payment",
-                    _ => throw new ArgumentException(dataElement.DataType),
-                };
+                    (dataElement.Size, _) = await _blobRepository.WriteBlob(
+                        blobOrg,
+                        theStream,
+                        blobStoragePath,
+                        app.StorageAccountNumber
+                    );
+                }
+                catch
+                {
+                    await DataService.DeleteAllocatedBlobVersion(
+                        _blobRepository,
+                        _dataRepository,
+                        blobOrg,
+                        Guid.Parse(dataElementId),
+                        blobStoragePath,
+                        blobVersionId,
+                        app.StorageAccountNumber
+                    );
+                    throw;
+                }
             }
 
-            storedDataElement = await _dataRepository.Create(dataElement, instance.InternalId);
+            storedDataElement = await _dataRepository.Create(
+                dataElement,
+                instance.InternalId,
+                cancellationToken
+            );
 
             return Created((string)null, storedDataElement.ToApiModel());
         }

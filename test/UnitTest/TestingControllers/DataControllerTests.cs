@@ -830,6 +830,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
                     It.Is<Dictionary<string, object>>(propertyList =>
                         VerifyDeleteStatusPresentInDictionary(propertyList)
                     ),
+                    It.IsAny<DataElementUpdateContext>(),
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -955,6 +956,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
                     It.IsAny<Guid>(),
                     It.IsAny<Guid>(),
                     It.IsAny<Dictionary<string, object>>(),
+                    It.IsAny<DataElementUpdateContext>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never

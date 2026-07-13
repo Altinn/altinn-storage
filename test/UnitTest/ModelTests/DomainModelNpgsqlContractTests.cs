@@ -127,6 +127,7 @@ public sealed class DomainModelNpgsqlContractTests : IClassFixture<DomainModelNp
         Assert.Equal(FileScanResult.Infected, withNullKey.FileScanResult);
         Assert.Equal(RelationType.GeneratedFrom, withNullKey.References[0].Relation);
         Assert.Equal(ReferenceType.Task, withNullKey.References[0].ValueType);
+        Assert.Null(withNullKey.BlobVersionId);
         Assert.Equal(DomainModelContractTestData.DataElementGuid, withoutKey.Id);
         Assert.Equal(DomainModelContractTestData.InstanceGuid, withoutKey.InstanceGuid);
         Assert.Null(withoutKey.DataType);

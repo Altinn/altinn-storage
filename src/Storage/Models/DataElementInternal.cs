@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using TextJson = System.Text.Json.Serialization;
 
 namespace Altinn.Platform.Storage.Models;
 
@@ -124,4 +125,10 @@ public sealed class DataElementInternal
     /// Gets or sets who last changed the element.
     /// </summary>
     public string LastChangedBy { get; set; }
+
+    /// <summary>
+    /// Gets or sets the current blob version identifier.
+    /// </summary>
+    [TextJson.JsonIgnore]
+    public string BlobVersionId { get; set; }
 }

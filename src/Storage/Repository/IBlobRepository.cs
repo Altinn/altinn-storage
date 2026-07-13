@@ -20,7 +20,7 @@ public interface IBlobRepository
     /// <param name="stream">Data to be written to blob storage.</param>
     /// <param name="blobStoragePath">Path to save the stream to in blob storage.</param>
     /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
-    /// <returns>The size of the blob.</returns>
+    /// <returns>The size of the blob and last modified timestamp.</returns>
     Task<(long ContentLength, DateTimeOffset LastModified)> WriteBlob(
         string org,
         Stream stream,
@@ -32,7 +32,7 @@ public interface IBlobRepository
     /// Reads a data file from blob storage
     /// </summary>
     /// <param name="org">The application owner id.</param>
-    /// <param name="blobStoragePath">Path to be file to read blob storage.</param>
+    /// <param name="blobStoragePath">Path to the file to read from blob storage.</param>
     /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The stream with the file</returns>
@@ -44,8 +44,11 @@ public interface IBlobRepository
     );
 
     /// <summary>
-    /// Deletes the blob element permanently
+    /// Deletes a blob at the supplied concrete path.
     /// </summary>
+    /// <remarks>
+    /// Explicit blob versions are represented as path suffixes and should be included in <paramref name="blobStoragePath"/> by the caller.
+    /// </remarks>
     /// <param name="org">The application owner id.</param>
     /// <param name="blobStoragePath">Path to the file to delete.</param>
     /// <param name="storageAccountNumber">Alternate number to append to container name</param>
