@@ -7,7 +7,6 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -121,20 +120,8 @@ public class SigningService : ISigningService
             );
         }
 
-        DataElementInternal dataElement = DataElementHelper.CreateDataElement(
-            signRequest.SignatureDocumentDataType,
-            null,
-            instance,
-            signDocument.SignedTime,
-            "application/json",
-            $"{signRequest.SignatureDocumentDataType}.json",
-            0,
-            performedBy,
-            signRequest.GeneratedFromTask
-        );
-
-        dataElement.Locked = true; // Lock the data element to prevent changes after signing
-        signDocument.Id = dataElement.Id;
+        Guid signDocumentDataElementId = Guid.NewGuid();
+        signDocument.Id = signDocumentDataElementId.ToString();
 
         await DeleteExistingSignDocumentForSignee(
             instance,
@@ -154,11 +141,22 @@ public class SigningService : ISigningService
 
             fileStream.Position = 0;
             await _dataService.UploadDataAndCreateDataElement(
-                instance.Org,
+                instance,
                 fileStream,
-                dataElement,
+                new DataElementCreateOptions
+                {
+                    DataElementId = signDocumentDataElementId,
+                    DataType = signRequest.SignatureDocumentDataType,
+                    ContentType = "application/json",
+                    Filename = $"{signRequest.SignatureDocumentDataType}.json",
+                    Created = signDocument.SignedTime,
+                    CreatedBy = performedBy,
+                    GeneratedFromTask = signRequest.GeneratedFromTask,
+                    Locked = true,
+                },
                 instance.InternalId,
-                app.StorageAccountNumber
+                app.StorageAccountNumber,
+                cancellationToken
             );
         }
 

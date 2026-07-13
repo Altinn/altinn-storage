@@ -1091,6 +1091,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                     ContentType = "application/json",
                     Size = 42,
                     Tags = ["visible"],
+                    BlobVersionId = "must-not-leak",
                 },
                 new DataElementInternal
                 {
@@ -1098,6 +1099,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                     InstanceGuid = instanceId,
                     DataType = "attachment",
                     DeleteStatus = new DeleteStatus { IsHardDeleted = true },
+                    BlobVersionId = "must-not-leak-either",
                 },
             ],
         };
@@ -1194,6 +1196,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         );
         Assert.Equal($"1337/{instanceId}", publicInstance.Value<string>("id"));
         Assert.Equal("preserved", publicInstance["dataValues"].Value<string>("nested"));
+        Assert.Null(publicInstance.SelectToken("$..blobVersionId"));
         Assert.Equal(2, authorizedInstance.Data.Count);
         repository.VerifyAll();
         authorization.Verify(

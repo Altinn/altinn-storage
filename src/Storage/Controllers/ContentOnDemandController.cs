@@ -518,7 +518,8 @@ public class ContentOnDemandController : Controller
         Stream blob = await _blobRepository.ReadBlob(
             $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
             xmlElement.BlobStoragePath,
-            application.StorageAccountNumber
+            application.StorageAccountNumber,
+            cancellationToken
         );
 
         return (_a2OndemandFormattingService.GetFormdataHtml(views, blob), views);

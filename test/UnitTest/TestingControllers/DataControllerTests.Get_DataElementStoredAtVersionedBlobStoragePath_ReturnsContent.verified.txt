@@ -1,6 +1,9 @@
 ﻿{
   Response: {
     Status: 200 OK,
+    Headers: {
+      ETag: "AZfQZ9nHc0eLm4Xv2R1qAA"
+    },
     Content: {
       Headers: {
         Content-Length: 29,

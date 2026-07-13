@@ -199,7 +199,7 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
     public async Task User_with_write_is_allowed_to_unlock_already_unlocked_dataelement()
     {
         string dataPathWithData =
-            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dccc/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
 
         HttpClient client = GetTestClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
@@ -217,7 +217,7 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
     public async Task User_with_read_write_unlock_is_allowed_to_unlock()
     {
         string dataPathWithData =
-            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dccc/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
 
         HttpClient client = GetTestClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(

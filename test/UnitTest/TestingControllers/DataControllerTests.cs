@@ -551,7 +551,12 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
                 b.WriteBlob(
                     It.IsAny<string>(),
                     It.IsAny<Stream>(),
-                    VersionedBlobElement.BlobStoragePath,
+                    It.Is<string>(blobStoragePath =>
+                        blobStoragePath.StartsWith(
+                            $"tdd/endring-av-navn/{VersionedBlobElement.InstanceGuid}/data-elements/"
+                        )
+                        && blobStoragePath != VersionedBlobElement.BlobStoragePath
+                    ),
                     It.IsAny<int?>()
                 )
             )
@@ -882,6 +887,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
                     It.Is<Dictionary<string, object>>(propertyList =>
                         VerifyDeleteStatusPresentInDictionary(propertyList)
                     ),
+                    It.IsAny<DataElementUpdateContext>(),
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -1007,6 +1013,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
                     It.IsAny<Guid>(),
                     It.IsAny<Guid>(),
                     It.IsAny<Dictionary<string, object>>(),
+                    It.IsAny<DataElementUpdateContext>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never

@@ -76,7 +76,12 @@ public class BlobRepository(
                     _memoryCache.Remove(_credsCacheKey);
                     _memoryCache.Remove(GetClientCacheKey(org, storageAccountNumber));
 
-                    return await DownloadBlobAsync(org, blobStoragePath, storageAccountNumber);
+                    return await DownloadBlobAsync(
+                        org,
+                        blobStoragePath,
+                        storageAccountNumber,
+                        cancellationToken
+                    );
                 case "BlobNotFound":
                     _logger.LogWarning(
                         "Unable to find a blob based on the given information - {Org}: {BlobStoragePath}",
@@ -204,6 +209,11 @@ public class BlobRepository(
         }
 
         return true;
+    }
+
+    internal static string GetVersionedBlobPath(string appId, string instanceGuid, string versionId)
+    {
+        return $"{appId}/{instanceGuid}/data-elements/{versionId}";
     }
 
     private async Task<BlobProperties> UploadFromStreamAsync(

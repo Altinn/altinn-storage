@@ -6,7 +6,10 @@ using System.Net;
 namespace Altinn.Platform.Storage.Repository;
 
 /// <summary>
-/// Exception thrown by the repository layer
+/// Exception thrown by the repository layer. Constructed only from a completed-and-failed
+/// server response (a PostgreSQL error or a repository-detected failed outcome), never from
+/// a transport failure whose commit outcome is unknown; consumers rely on this to treat a
+/// RepositoryException as proof that the failed operation did not commit.
 /// </summary>
 public class RepositoryException : Exception
 {
@@ -41,4 +44,17 @@ public class RepositoryException : Exception
     {
         StatusCodeSuggestion = statusCodeSuggestion;
     }
+}
+
+/// <summary>
+/// Exception thrown when a data element blob version precondition does not match.
+/// </summary>
+public class DataElementBlobVersionMismatchException : RepositoryException
+{
+    /// <summary>
+    /// Create DataElementBlobVersionMismatchException with message and conflict status.
+    /// </summary>
+    /// <param name="message">Exception message</param>
+    public DataElementBlobVersionMismatchException(string message)
+        : base(message, HttpStatusCode.Conflict) { }
 }

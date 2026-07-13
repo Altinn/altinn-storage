@@ -26,7 +26,7 @@ public class PgInstanceRepository : IInstanceRepository
 {
     private const string ElementColumn = "element";
     private const string _readSqlFilteredInitial =
-        "select * from storage.readinstancefromquery_v8 (";
+        "select * from storage.readinstancefromquery_v9 (";
     private readonly string _deleteSql = "select * from storage.deleteinstance ($1)";
     private readonly string _insertSql =
         "call storage.insertinstance_v3 (@_partyid, @_alternateid, @_instance, @_created, @_lastchanged,"
@@ -39,7 +39,7 @@ public class PgInstanceRepository : IInstanceRepository
         "select * from storage.updateinstance_v3 (@_alternateid, @_toplevelsimpleprops, @_datavalues,"
         + " @_completeconfirmations, @_presentationtexts, @_status, @_substatus, @_process, @_lastchanged, @_taskid, @_confirmed)";
 
-    private readonly string _readSql = "select * from storage.readinstance ($1)";
+    private readonly string _readSql = "select * from storage.readinstance_v2 ($1)";
     private readonly string _readSqlFiltered = _readSqlFilteredInitial;
     private readonly string _readDeletedSql = "select * from storage.readdeletedinstances ()";
     private readonly string _readDeletedElementsSql =
@@ -377,12 +377,19 @@ public class PgInstanceRepository : IInstanceRepository
 
                 if (!await reader.IsDBNullAsync(ElementColumn, cancellationToken))
                 {
-                    instance.Data.Add(
+                    DataElementInternal element =
                         await reader.GetFieldValueAsync<DataElementInternal>(
                             ElementColumn,
                             cancellationToken
-                        )
-                    );
+                        );
+                    int versionOrdinal = reader.GetOrdinal("currentblobversion");
+                    element.BlobVersionId = await reader.IsDBNullAsync(
+                        versionOrdinal,
+                        cancellationToken
+                    )
+                        ? null
+                        : BlobVersionId.Encode(reader.GetGuid(versionOrdinal));
+                    instance.Data.Add(element);
                 }
             }
 
@@ -433,12 +440,22 @@ public class PgInstanceRepository : IInstanceRepository
 
                 if (includeElements && !await reader.IsDBNullAsync("element", cancellationToken))
                 {
-                    instanceData.Add(
+                    DataElementInternal element =
                         await reader.GetFieldValueAsync<DataElementInternal>(
                             "element",
                             cancellationToken
-                        )
-                    );
+                        );
+                    int versionOrdinal = reader.GetOrdinal("currentblobversion");
+                    string blobVersionId = await reader.IsDBNullAsync(
+                        versionOrdinal,
+                        cancellationToken
+                    )
+                        ? null
+                        : BlobVersionId.Encode(
+                            await reader.GetFieldValueAsync<Guid>(versionOrdinal, cancellationToken)
+                        );
+                    element.BlobVersionId = blobVersionId;
+                    instanceData.Add(element);
                 }
             }
 

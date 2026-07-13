@@ -47,7 +47,10 @@ internal static class DataElementExtensions
     /// <summary>
     /// Maps an API data element entering storage to the domain model. Nested mutable values are intentionally shared.
     /// </summary>
-    internal static DataElementInternal FromApiModel(this DataElement dataElement)
+    internal static DataElementInternal FromApiModel(
+        this DataElement dataElement,
+        string blobVersionId = null
+    )
     {
         ArgumentNullException.ThrowIfNull(dataElement);
 
@@ -74,6 +77,7 @@ internal static class DataElementExtensions
             CreatedBy = dataElement.CreatedBy,
             LastChanged = dataElement.LastChanged,
             LastChangedBy = dataElement.LastChangedBy,
+            BlobVersionId = blobVersionId,
         };
     }
 }

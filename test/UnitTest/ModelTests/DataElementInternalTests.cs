@@ -22,13 +22,14 @@ public class DataElementInternalTests
         };
 
         // Act
-        DataElementInternal dataElementInternal = dataElement.FromApiModel();
+        DataElementInternal dataElementInternal = dataElement.FromApiModel("blob-version-id");
 
         // Assert
         Assert.Equal(dataElement.Id, dataElementInternal.Id);
         Assert.Equal(dataElement.InstanceGuid, dataElementInternal.InstanceGuid);
         Assert.Equal(dataElement.BlobStoragePath, dataElementInternal.BlobStoragePath);
         Assert.Same(dataElement.Metadata, dataElementInternal.Metadata);
+        Assert.Equal("blob-version-id", dataElementInternal.BlobVersionId);
 
         dataElement.Filename = "api-only.txt";
         Assert.Null(dataElementInternal.Filename);

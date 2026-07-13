@@ -64,13 +64,73 @@ public interface IDataRepository
     /// </summary>
     /// <param name="instanceGuid">The instance guid</param>
     /// <param name="dataElementId">The data element id</param>
-    /// <param name="propertylist">A dictionary contaning property id (key) and object (value) to be stored</param>
+    /// <param name="propertylist">A dictionary containing property id (key) and object (value) to be stored</param>
+    /// <param name="context">Storage-level context and preconditions for the update.</param>
     /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
-    /// <remarks>Dictionary can containt at most 10 entries</remarks>
+    /// <remarks>Dictionary can contain at most 16 entries</remarks>
     Task<DataElementInternal> Update(
         Guid instanceGuid,
         Guid dataElementId,
         Dictionary<string, object> propertylist,
+        DataElementUpdateContext context = null,
+        CancellationToken cancellationToken = default
+    );
+
+    /// <summary>
+    /// Updates the file scan status if the scanned blob version still matches current metadata.
+    /// </summary>
+    /// <param name="instanceGuid">The instance guid</param>
+    /// <param name="dataElementId">The data element id</param>
+    /// <param name="fileScanStatus">The file scan status, optionally including the scanned blob version id.</param>
+    /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
+    /// <returns>The updated data element, or null if no row matched the supplied blob version.</returns>
+    Task<DataElementInternal> UpdateFileScanStatus(
+        Guid instanceGuid,
+        Guid dataElementId,
+        FileScanStatus fileScanStatus,
+        CancellationToken cancellationToken = default
+    );
+
+    /// <summary>
+    /// Allocates a blob version ID before a blob upload.
+    /// </summary>
+    /// <param name="instanceGuid">The instance guid for the data element.</param>
+    /// <param name="dataElementId">The data element id that owns the allocated blob version.</param>
+    /// <param name="appId">The application id.</param>
+    /// <param name="blobStorageOrg">The org used to locate the blob container/account.</param>
+    /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
+    /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
+    /// <returns>The allocated version ID as a base64url-encoded UUID.</returns>
+    Task<string> CreateBlobVersionId(
+        Guid instanceGuid,
+        Guid dataElementId,
+        string appId,
+        string blobStorageOrg,
+        int? storageAccountNumber,
+        CancellationToken cancellationToken = default
+    );
+
+    /// <summary>
+    /// Deletes an allocated blob version if it is not referenced by current data element metadata.
+    /// </summary>
+    /// <param name="dataElementId">The data element id.</param>
+    /// <param name="blobVersionId">The allocated blob version id as a base64url-encoded UUID.</param>
+    /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
+    /// <returns>true if the blob version row was deleted.</returns>
+    Task<bool> DeleteBlobVersion(
+        Guid dataElementId,
+        string blobVersionId,
+        CancellationToken cancellationToken = default
+    );
+
+    /// <summary>
+    /// Reads attached blob versions for a data element grouped by storage context.
+    /// </summary>
+    /// <param name="dataElementId">The data element id.</param>
+    /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
+    /// <returns>The attached blob versions grouped by storage context.</returns>
+    Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadBlobVersions(
+        Guid dataElementId,
         CancellationToken cancellationToken = default
     );
 

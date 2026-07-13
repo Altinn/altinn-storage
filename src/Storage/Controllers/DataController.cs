@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
@@ -22,6 +23,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Net.Http.Headers;
 
 namespace Altinn.Platform.Storage.Controllers;
@@ -274,12 +276,20 @@ public class DataController : ControllerBase
 
         if (!dataElement.IsRead && !appOwnerRequestingElement)
         {
-            await _dataRepository.Update(
-                instanceGuid,
-                dataGuid,
-                new Dictionary<string, object>() { { "/isRead", true } },
-                cancellationToken
-            );
+            try
+            {
+                await _dataRepository.Update(
+                    instanceGuid,
+                    dataGuid,
+                    new Dictionary<string, object>() { { "/isRead", true } },
+                    cancellationToken: cancellationToken
+                );
+            }
+            catch (RepositoryException exception)
+                when (exception.StatusCodeSuggestion == HttpStatusCode.NotFound)
+            {
+                return NotFound($"Unable to find any data element with id: {dataGuid}.");
+            }
         }
 
         if (
@@ -308,7 +318,7 @@ public class DataController : ControllerBase
             );
         }
 
-        DataElementHelper.EnsureExpectedBlobStoragePath(dataElement, instanceGuid, instance.AppId);
+        EnsureExpectedBlobStoragePath(dataElement, instance.AppId, instanceGuid, dataGuid);
 
         Stream dataStream = await _blobRepository.ReadBlob(
             instance.Org,
@@ -321,6 +331,8 @@ public class DataController : ControllerBase
         {
             return NotFound($"Unable to read data element from blob storage for {dataGuid}");
         }
+
+        SetBlobVersionETag(dataElement.BlobVersionId);
 
         // Migrated Altinn 2 Websa main forms should be shown inline in the browser
         if (
@@ -463,55 +475,58 @@ public class DataController : ControllerBase
             return Forbid();
         }
 
-        var streamAndDataElement = await ReadRequestAndCreateDataElementAsync(
+        DateTime creationTime = DateTime.UtcNow;
+        var upload = await DataElementHelper.GetStream(
             Request,
-            dataType,
-            refs,
-            generatedFromTask,
-            instance
+            _defaultFormOptions.MultipartBoundaryLengthLimit
         );
-        Stream theStream = streamAndDataElement.Stream;
-        DataElementInternal newData = streamAndDataElement.DataElement;
-
-        newData.FileScanResult = dataTypeDefinition.EnableFileScan
-            ? FileScanResult.Pending
-            : FileScanResult.NotApplicable;
+        Stream theStream = upload.Stream;
 
         if (theStream == null)
         {
             return BadRequest("No data attachments found");
         }
 
-        newData.Filename = HttpUtility.UrlDecode(newData.Filename);
-        (long length, DateTimeOffset blobTimestamp) = await _blobRepository.WriteBlob(
-            instance.Org,
-            theStream,
-            newData.BlobStoragePath,
-            application.StorageAccountNumber
-        );
-
-        if (length == 0L)
+        Guid dataGuid = Guid.NewGuid();
+        string user = User.GetUserOrOrgNo();
+        DataElementCreateOptions createOptions = new()
         {
-            await _blobRepository.DeleteBlob(
-                instance.Org,
-                newData.BlobStoragePath,
-                application.StorageAccountNumber
+            DataElementId = dataGuid,
+            DataType = dataType,
+            ContentType = upload.ContentType,
+            Filename = HttpUtility.UrlDecode(upload.ContentFileName),
+            Refs = refs,
+            GeneratedFromTask = generatedFromTask,
+            Created = creationTime,
+            CreatedBy = user,
+            FileScanResult = dataTypeDefinition.EnableFileScan
+                ? FileScanResult.Pending
+                : FileScanResult.NotApplicable,
+            IsRead = User.GetOrg() != instance.Org,
+        };
+
+        DataElementInternal dataElement;
+        DateTimeOffset blobTimestamp;
+        try
+        {
+            (dataElement, blobTimestamp) = await _dataService.UploadDataAndCreateDataElement(
+                instance,
+                theStream,
+                createOptions,
+                instance.InternalId,
+                application.StorageAccountNumber,
+                cancellationToken
             );
-            return BadRequest("Empty stream provided. Cannot persist data.");
         }
-
-        newData.Size = length;
-
-        if (User.GetOrg() == instance.Org)
+        catch (InvalidDataException exception)
         {
-            newData.IsRead = false;
+            return BadRequest(exception.Message);
+        }
+        catch (RepositoryException exception) when (exception.StatusCodeSuggestion.HasValue)
+        {
+            return StatusCode((int)exception.StatusCodeSuggestion.Value, exception.Message);
         }
 
-        DataElementInternal dataElement = await _dataRepository.Create(
-            newData,
-            instance.InternalId,
-            cancellationToken
-        );
         await _dataService.StartFileScan(
             instance,
             dataTypeDefinition,
@@ -612,41 +627,110 @@ public class DataController : ControllerBase
             return Conflict($"Data element {dataGuid} is locked and cannot be updated");
         }
 
-        DataElementHelper.EnsureExpectedBlobStoragePath(dataElement, instanceGuid, instance.AppId);
+        if (dataElement.DeleteStatus?.IsHardDeleted == true)
+        {
+            return Conflict($"Data element {dataGuid} is deleted and cannot be updated");
+        }
 
-        var streamAndDataElement = await ReadRequestAndCreateDataElementAsync(
+        EnsureExpectedBlobStoragePath(dataElement, instance.AppId, instanceGuid, dataGuid);
+
+        (string expectedCurrentBlobVersion, ActionResult ifMatchError) = TryGetIfMatchBlobVersion();
+        if (ifMatchError is not null)
+        {
+            return ifMatchError;
+        }
+
+        var upload = await DataElementHelper.GetStream(
             Request,
-            dataElement.DataType,
-            refs,
-            generatedFromTask,
-            instance
+            _defaultFormOptions.MultipartBoundaryLengthLimit
         );
-        Stream theStream = streamAndDataElement.Stream;
-        DataElementInternal updatedData = streamAndDataElement.DataElement;
+        Stream theStream = upload.Stream;
 
         if (theStream == null)
         {
             return BadRequest("No data found in request body");
         }
 
+        List<Reference> references = null;
+        if (!string.IsNullOrEmpty(generatedFromTask))
+        {
+            references =
+            [
+                new()
+                {
+                    Relation = RelationType.GeneratedFrom,
+                    Value = generatedFromTask,
+                    ValueType = ReferenceType.Task,
+                },
+            ];
+        }
+
         DateTime changedTime = DateTime.UtcNow;
 
-        (long blobSize, DateTimeOffset blobTimestamp) = await _blobRepository.WriteBlob(
+        string blobVersionId = await _dataRepository.CreateBlobVersionId(
+            instanceGuid,
+            dataGuid,
+            instance.AppId,
             instance.Org,
-            theStream,
-            dataElement.BlobStoragePath,
-            application.StorageAccountNumber
+            application.StorageAccountNumber,
+            cancellationToken
         );
+        string versionedBlobStoragePath = BlobRepository.GetVersionedBlobPath(
+            instance.AppId,
+            instanceGuid.ToString(),
+            blobVersionId
+        );
+
+        long blobSize;
+        DateTimeOffset blobTimestamp;
+        try
+        {
+            (blobSize, blobTimestamp) = await _blobRepository.WriteBlob(
+                instance.Org,
+                theStream,
+                versionedBlobStoragePath,
+                application.StorageAccountNumber
+            );
+
+            if (blobSize == 0)
+            {
+                await DataService.DeleteAllocatedBlobVersion(
+                    _blobRepository,
+                    _dataRepository,
+                    instance.Org,
+                    dataGuid,
+                    versionedBlobStoragePath,
+                    blobVersionId,
+                    application.StorageAccountNumber
+                );
+                return UnprocessableEntity("Could not process attached file");
+            }
+        }
+        catch
+        {
+            await DataService.DeleteAllocatedBlobVersion(
+                _blobRepository,
+                _dataRepository,
+                instance.Org,
+                dataGuid,
+                versionedBlobStoragePath,
+                blobVersionId,
+                application.StorageAccountNumber
+            );
+            throw;
+        }
 
         var updatedProperties = new Dictionary<string, object>()
         {
-            { "/contentType", updatedData.ContentType },
-            { "/filename", HttpUtility.UrlDecode(updatedData.Filename) },
+            { "/contentType", upload.ContentType },
+            { "/filename", HttpUtility.UrlDecode(upload.ContentFileName) },
             { "/lastChangedBy", User.GetUserOrOrgNo() },
             { "/lastChanged", changedTime },
-            { "/refs", updatedData.Refs },
-            { "/references", updatedData.References },
+            { "/refs", refs },
+            { "/references", references },
             { "/size", blobSize },
+            { "/blobStoragePath", versionedBlobStoragePath },
+            { "/currentBlobVersion", blobVersionId },
         };
 
         if (User.GetOrg() == instance.Org)
@@ -654,42 +738,89 @@ public class DataController : ControllerBase
             updatedProperties.Add("/isRead", false);
         }
 
-        if (blobSize > 0)
+        FileScanResult scanResult = dataTypeDefinition.EnableFileScan
+            ? FileScanResult.Pending
+            : FileScanResult.NotApplicable;
+
+        updatedProperties.Add("/fileScanResult", scanResult);
+
+        DataElementInternal updatedElement;
+        try
         {
-            FileScanResult scanResult = dataTypeDefinition.EnableFileScan
-                ? FileScanResult.Pending
-                : FileScanResult.NotApplicable;
-
-            updatedProperties.Add("/fileScanResult", scanResult);
-
-            DataElementInternal updatedElement = await _dataRepository.Update(
+            updatedElement = await _dataRepository.Update(
                 instanceGuid,
                 dataGuid,
                 updatedProperties,
-                cancellationToken
+                new DataElementUpdateContext
+                {
+                    EnforceLockCheck = true,
+                    ExpectedCurrentBlobVersion = expectedCurrentBlobVersion,
+                },
+                cancellationToken: cancellationToken
             );
-
-            await _dataService.StartFileScan(
-                instance,
-                dataTypeDefinition,
-                dataElement,
-                blobTimestamp,
-                application.StorageAccountNumber,
-                CancellationToken.None
+        }
+        catch (DataElementBlobVersionMismatchException exception)
+        {
+            await DataService.DeleteAllocatedBlobVersion(
+                _blobRepository,
+                _dataRepository,
+                instance.Org,
+                dataGuid,
+                versionedBlobStoragePath,
+                blobVersionId,
+                application.StorageAccountNumber
             );
-
-            await _instanceEventService.DispatchEvent(
-                InstanceEventType.Saved,
-                instance,
-                updatedElement
+            return StatusCode(StatusCodes.Status412PreconditionFailed, exception.Message);
+        }
+        catch (RepositoryException exception)
+            when (exception.StatusCodeSuggestion == HttpStatusCode.Conflict)
+        {
+            await DataService.DeleteAllocatedBlobVersion(
+                _blobRepository,
+                _dataRepository,
+                instance.Org,
+                dataGuid,
+                versionedBlobStoragePath,
+                blobVersionId,
+                application.StorageAccountNumber
             );
-
-            DataElement responseDataElement = updatedElement.ToApiModel();
-            responseDataElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
-            return Ok(responseDataElement);
+            return Conflict(exception.Message);
+        }
+        catch (RepositoryException exception)
+            when (exception.StatusCodeSuggestion == HttpStatusCode.NotFound)
+        {
+            await DataService.DeleteAllocatedBlobVersion(
+                _blobRepository,
+                _dataRepository,
+                instance.Org,
+                dataGuid,
+                versionedBlobStoragePath,
+                blobVersionId,
+                application.StorageAccountNumber
+            );
+            return NotFound(exception.Message);
         }
 
-        return UnprocessableEntity("Could not process attached file");
+        DataElement responseDataElement = updatedElement.ToApiModel();
+        responseDataElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
+        SetBlobVersionETag(blobVersionId);
+
+        await _dataService.StartFileScan(
+            instance,
+            dataTypeDefinition,
+            updatedElement,
+            blobTimestamp,
+            application.StorageAccountNumber,
+            CancellationToken.None
+        );
+
+        await _instanceEventService.DispatchEvent(
+            InstanceEventType.Saved,
+            instance,
+            updatedElement
+        );
+
+        return Ok(responseDataElement);
     }
 
     /// <summary>
@@ -762,12 +893,20 @@ public class DataController : ControllerBase
             { "/lastChangedBy", dataElement.LastChangedBy },
         };
 
-        DataElementInternal updatedDataElement = await _dataRepository.Update(
-            instanceGuid,
-            dataGuid,
-            propertyList,
-            cancellationToken
-        );
+        DataElementInternal updatedDataElement;
+        try
+        {
+            updatedDataElement = await _dataRepository.Update(
+                instanceGuid,
+                dataGuid,
+                propertyList,
+                cancellationToken: cancellationToken
+            );
+        }
+        catch (RepositoryException exception) when (exception.StatusCodeSuggestion.HasValue)
+        {
+            return StatusCode((int)exception.StatusCodeSuggestion.Value, exception.Message);
+        }
 
         return Ok(updatedDataElement.ToApiModel());
     }
@@ -791,14 +930,14 @@ public class DataController : ControllerBase
         [FromBody] FileScanStatus fileScanStatus
     )
     {
-        await _dataRepository.Update(
-            instanceGuid,
-            dataGuid,
-            new Dictionary<string, object>()
-            {
-                { "/fileScanResult", fileScanStatus.FileScanResult },
-            }
-        );
+        try
+        {
+            await _dataRepository.UpdateFileScanStatus(instanceGuid, dataGuid, fileScanStatus);
+        }
+        catch (RepositoryException exception) when (exception.StatusCodeSuggestion.HasValue)
+        {
+            return StatusCode((int)exception.StatusCodeSuggestion.Value, exception.Message);
+        }
 
         return Ok();
     }
@@ -821,45 +960,6 @@ public class DataController : ControllerBase
     {
         bool result = await _dataRepository.Exists(dataGuid, cancellationToken);
         return Ok(result);
-    }
-
-    /// <summary>
-    /// Creates a data element by reading the first multipart element or body of the request.
-    /// </summary>
-    private async Task<(
-        Stream Stream,
-        DataElementInternal DataElement
-    )> ReadRequestAndCreateDataElementAsync(
-        HttpRequest request,
-        string elementType,
-        List<Guid> refs,
-        string generatedForTask,
-        InstanceInternal instance
-    )
-    {
-        DateTime creationTime = DateTime.UtcNow;
-
-        (Stream theStream, string contentType, string contentFileName, long fileSize) =
-            await DataElementHelper.GetStream(
-                request,
-                _defaultFormOptions.MultipartBoundaryLengthLimit
-            );
-
-        string user = User.GetUserOrOrgNo();
-
-        DataElementInternal newData = DataElementHelper.CreateDataElement(
-            elementType,
-            refs,
-            instance,
-            creationTime,
-            contentType,
-            contentFileName,
-            fileSize,
-            user,
-            generatedForTask
-        );
-
-        return (theStream, newData);
     }
 
     private async Task<(Application Application, ActionResult ErrorMessage)> GetApplicationAsync(
@@ -931,19 +1031,27 @@ public class DataController : ControllerBase
 
         DeleteStatus deleteStatus = new() { IsHardDeleted = true, HardDeleted = deletedTime };
 
-        var updatedDateElement = await _dataRepository.Update(
-            Guid.Parse(dataElement.InstanceGuid),
-            Guid.Parse(dataElement.Id),
-            new Dictionary<string, object>()
-            {
-                { "/deleteStatus", deleteStatus },
-                { "/lastChanged", deletedTime },
-                { "/lastChangedBy", dataElement.LastChangedBy },
-            }
-        );
+        DataElementInternal updatedDataElement;
+        try
+        {
+            updatedDataElement = await _dataRepository.Update(
+                Guid.Parse(dataElement.InstanceGuid),
+                Guid.Parse(dataElement.Id),
+                new Dictionary<string, object>()
+                {
+                    { "/deleteStatus", deleteStatus },
+                    { "/lastChanged", deletedTime },
+                    { "/lastChangedBy", dataElement.LastChangedBy },
+                }
+            );
+        }
+        catch (RepositoryException exception) when (exception.StatusCodeSuggestion.HasValue)
+        {
+            return StatusCode((int)exception.StatusCodeSuggestion.Value, exception.Message);
+        }
 
         await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, instance, dataElement);
-        return Ok(updatedDateElement.ToApiModel());
+        return Ok(updatedDataElement.ToApiModel());
     }
 
     private async Task<(DataType DataType, ActionResult ErrorMessage)> GetDataTypeAsync(
@@ -971,5 +1079,102 @@ public class DataController : ControllerBase
         return dataTypeDefinition is null
             ? (null, BadRequest("Requested element type is not declared in application metadata"))
             : (dataTypeDefinition, null);
+    }
+
+    private static void EnsureExpectedBlobStoragePath(
+        DataElementInternal dataElement,
+        string appId,
+        Guid instanceGuid,
+        Guid dataGuid
+    )
+    {
+        if (!HasExpectedBlobStoragePath(dataElement, appId, instanceGuid, dataGuid))
+        {
+            throw new InvalidOperationException(
+                $"Blob storage path of data element {dataGuid} was unexpected for instance {instanceGuid}."
+            );
+        }
+    }
+
+    private static bool HasExpectedBlobStoragePath(
+        DataElementInternal dataElement,
+        string appId,
+        Guid instanceGuid,
+        Guid dataGuid
+    )
+    {
+        string blobStoragePath = dataElement.BlobStoragePath;
+        if (string.IsNullOrEmpty(blobStoragePath))
+        {
+            return false;
+        }
+
+        string legacyBlobStoragePath = DataElementHelper.DataFileName(
+            appId,
+            instanceGuid.ToString(),
+            dataGuid.ToString()
+        );
+        if (string.Equals(blobStoragePath, legacyBlobStoragePath, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        string blobVersionId = dataElement.BlobVersionId;
+        if (string.IsNullOrEmpty(blobVersionId))
+        {
+            return false;
+        }
+
+        string versionedBlobStoragePath = BlobRepository.GetVersionedBlobPath(
+            appId,
+            instanceGuid.ToString(),
+            blobVersionId
+        );
+        return string.Equals(blobStoragePath, versionedBlobStoragePath, StringComparison.Ordinal);
+    }
+
+    private (string BlobVersionId, ActionResult Error) TryGetIfMatchBlobVersion()
+    {
+        if (!Request.Headers.TryGetValue(HeaderNames.IfMatch, out StringValues ifMatchHeader))
+        {
+            return (null, null);
+        }
+
+        if (
+            !EntityTagHeaderValue.TryParseList(
+                ifMatchHeader.ToArray(),
+                out IList<EntityTagHeaderValue> ifMatch
+            )
+            || ifMatch.Count != 1
+            || ifMatch[0].IsWeak
+            || ifMatch[0].Equals(EntityTagHeaderValue.Any)
+        )
+        {
+            return (null, BadRequest("If-Match must contain exactly one strong ETag."));
+        }
+
+        string blobVersionId = ifMatch[0].Tag.Value[1..^1];
+        try
+        {
+            BlobVersionId.Decode(blobVersionId);
+        }
+        catch (Exception exception) when (exception is ArgumentException or FormatException)
+        {
+            return (null, BadRequest("If-Match ETag value must be a blob version id."));
+        }
+
+        return (blobVersionId, null);
+    }
+
+    private void SetBlobVersionETag(string blobVersionId)
+    {
+        if (string.IsNullOrEmpty(blobVersionId))
+        {
+            return;
+        }
+
+        Response.Headers[HeaderNames.ETag] = new EntityTagHeaderValue(
+            $"\"{blobVersionId}\""
+        ).ToString();
     }
 }
