@@ -20,5 +20,9 @@ CREATE INDEX dataelementblobversions_attached_instance
 ON storage.dataelementblobversions(instanceguid, created)
 WHERE attached = true;
 
+CREATE INDEX dataelementblobversions_unattached
+ON storage.dataelementblobversions(created, instanceguid)
+WHERE attached = false;
+
 GRANT SELECT,INSERT,UPDATE,REFERENCES,DELETE,TRUNCATE,TRIGGER ON ALL TABLES IN SCHEMA storage TO platform_storage;
 GRANT SELECT,INSERT,UPDATE,REFERENCES,DELETE,TRUNCATE,TRIGGER ON ALL TABLES IN SCHEMA storage TO platform_storage_admin;

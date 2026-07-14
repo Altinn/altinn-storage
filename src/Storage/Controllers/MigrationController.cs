@@ -753,7 +753,13 @@ public class MigrationController : ControllerBase
         }
 
         instance.Id = instanceId;
-        await _blobRepository.DeleteDataBlobs(instance, app.StorageAccountNumber);
+        await _blobRepository.DeleteDataBlobs(
+            instance.Org,
+            instance.AppId,
+            instance.Id,
+            app.StorageAccountNumber,
+            CancellationToken.None
+        );
         await _dataRepository.DeleteForInstance(instanceId);
         await _instanceEventRepository.DeleteAllInstanceEvents(instanceId);
         await _instanceRepository.Delete(Guid.Parse(instance.Id), cancellationToken);

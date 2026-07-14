@@ -103,6 +103,11 @@ public class DataRepositoryMock : IDataRepository
         return Task.FromResult(true);
     }
 
+    public Task<bool> DeleteForCleanup(
+        DataElementInternal dataElement,
+        CancellationToken cancellationToken = default
+    ) => Task.FromResult(true);
+
     public Task<DataElementInternal> Read(
         Guid instanceGuid,
         Guid dataElementId,
@@ -363,6 +368,32 @@ public class DataRepositoryMock : IDataRepository
         }
     }
 
+    public Task<int> DeleteOrphanBlobVersions(
+        IReadOnlyList<string> blobVersionIds,
+        CancellationToken cancellationToken = default
+    )
+    {
+        HashSet<string> normalizedBlobVersionIds = NormalizeBlobVersionIds(blobVersionIds);
+        lock (_stateLock)
+        {
+            int deleteCount = 0;
+            foreach (
+                (string dataElementId, List<BlobVersionEntry> versions) in _blobVersions.ToArray()
+            )
+            {
+                deleteCount += versions.RemoveAll(version =>
+                    !version.Attached && normalizedBlobVersionIds.Contains(version.BlobVersionId)
+                );
+                if (versions.Count == 0)
+                {
+                    _blobVersions.Remove(dataElementId);
+                }
+            }
+
+            return Task.FromResult(deleteCount);
+        }
+    }
+
     public Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadBlobVersions(
         Guid dataElementId,
         CancellationToken cancellationToken = default
@@ -418,7 +449,7 @@ public class DataRepositoryMock : IDataRepository
     public Task<bool> DeleteForInstance(
         string instanceId,
         CancellationToken cancellationToken = default
-    ) => throw new NotImplementedException();
+    ) => Task.FromResult(true);
 
     private static string GetDataElementsPath()
     {

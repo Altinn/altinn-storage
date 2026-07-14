@@ -45,8 +45,12 @@ public class PgInstanceRepository : IInstanceRepository
         "select * from storage.updateinstance_readstatus ($1, $2)";
     private readonly string _readSqlFiltered = _readSqlFilteredInitial;
     private readonly string _readDeletedSql = "select * from storage.readdeletedinstances ()";
-    private readonly string _readDeletedElementsSql =
-        "select * from storage.readdeletedelements ()";
+    private readonly string _readHardDeletedDataElementsForCleanupSql =
+        "select * from storage.readharddeleteddataelementsforcleanup ()";
+    private readonly string _readBlobVersionsForInstanceSql =
+        "select * from storage.readblobversionsforinstance ($1)";
+    private readonly string _readOrphanBlobVersionsForCleanupSql =
+        "select * from storage.readorphanblobversionsforcleanup ()";
     private readonly string _readSqlNoElements =
         "select * from storage.readinstancenoelements_v2 ($1)";
 
@@ -193,14 +197,20 @@ public class PgInstanceRepository : IInstanceRepository
     }
 
     /// <inheritdoc/>
-    public async Task<List<DataElementInternal>> GetHardDeletedDataElements(
+    public async Task<List<DeletedDataElementInternal>> GetHardDeletedDataElements(
         CancellationToken cancellationToken
     )
     {
-        List<DataElementInternal> elements = [];
+        Dictionary<
+            string,
+            (DataElementInternal DataElement, List<BlobVersionReferencesInternal> BlobVersions)
+        > elements = [];
+        List<string> elementOrder = [];
         try
         {
-            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readDeletedElementsSql);
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(
+                _readHardDeletedDataElementsForCleanupSql
+            );
             pgcom.CommandTimeout = 600; // 10 minutes
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
             long previousId = -1;
@@ -226,21 +236,107 @@ public class PgInstanceRepository : IInstanceRepository
 
                 if (currentInstanceAllowsDelete)
                 {
-                    elements.Add(
+                    DataElementInternal element =
                         await reader.GetFieldValueAsync<DataElementInternal>(
                             ElementColumn,
                             cancellationToken
-                        )
+                        );
+                    string elementId = element.Id;
+                    if (!elements.TryGetValue(elementId, out var elementWithVersions))
+                    {
+                        elementWithVersions = (element, []);
+                        elements[elementId] = elementWithVersions;
+                        elementOrder.Add(elementId);
+                    }
+
+                    Guid[] blobVersions = await reader.GetFieldValueAsync<Guid[]>(
+                        "blobversions",
+                        cancellationToken
                     );
+                    if (blobVersions.Length > 0)
+                    {
+                        elementWithVersions.BlobVersions.Add(
+                            await PgDataRepository.ReadBlobVersionReferencesAsync(
+                                reader,
+                                instanceGuidColumn: "blobversioninstanceguid",
+                                appIdColumn: "blobversionappid",
+                                blobStorageOrgColumn: "blobversionblobstorageorg",
+                                storageAccountNumberColumn: "blobversionstorageaccountnumber",
+                                cancellationToken: cancellationToken
+                            )
+                        );
+                    }
                 }
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deleting data elements");
+            _logger.LogError(ex, "Error reading hard-deleted data elements for cleanup");
         }
 
-        return elements;
+        return elementOrder
+            .Select(elementId => new DeletedDataElementInternal(
+                elements[elementId].DataElement,
+                elements[elementId].BlobVersions
+            ))
+            .ToList();
+    }
+
+    /// <inheritdoc/>
+    public async Task<List<BlobVersionReferencesInternal>> GetOrphanBlobVersionsForCleanup(
+        CancellationToken cancellationToken
+    )
+    {
+        List<BlobVersionReferencesInternal> orphanBlobVersions = [];
+        try
+        {
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(
+                _readOrphanBlobVersionsForCleanupSql
+            );
+            pgcom.CommandTimeout = 600; // 10 minutes
+            await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                orphanBlobVersions.Add(
+                    await PgDataRepository.ReadBlobVersionReferencesAsync(
+                        reader,
+                        cancellationToken: cancellationToken
+                    )
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error reading orphan blob versions for cleanup");
+        }
+
+        return orphanBlobVersions;
+    }
+
+    /// <inheritdoc/>
+    public async Task<List<BlobVersionReferencesInternal>> GetBlobVersionsForInstance(
+        Guid instanceGuid,
+        CancellationToken cancellationToken
+    )
+    {
+        List<BlobVersionReferencesInternal> blobVersions = [];
+        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(
+            _readBlobVersionsForInstanceSql
+        );
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
+
+        await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            blobVersions.Add(
+                await PgDataRepository.ReadBlobVersionReferencesAsync(
+                    reader,
+                    cancellationToken: cancellationToken
+                )
+            );
+        }
+
+        return blobVersions;
     }
 
     private static string FormatManualFunctionCall(Dictionary<string, object> postgresParams)

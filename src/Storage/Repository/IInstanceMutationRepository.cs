@@ -28,6 +28,15 @@ public interface IInstanceMutationRepository
     );
 
     /// <summary>
+    /// Deletes aggregate mutation idempotency records created before the supplied timestamp.
+    /// </summary>
+    Task<int> DeleteIdempotencyRecordsCreatedBefore(
+        DateTime createdBeforeUtc,
+        int batchSize = 10_000,
+        CancellationToken cancellationToken = default
+    );
+
+    /// <summary>
     /// Applies the mutations in one database transaction.
     /// </summary>
     Task<InstanceMutationApplyResult> Apply(
