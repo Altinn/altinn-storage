@@ -135,7 +135,7 @@ public class DomainModelContractTests
         AssertPropertyNames(
             apiProperties,
             domainProperties,
-            apiOnly: ["SelfLinks"],
+            apiOnly: ["SelfLinks", "ContentEtag"],
             domainOnly: ["BlobVersionId"]
         );
         AssertMatchingTypes(apiProperties, domainProperties, new Dictionary<string, Type>());
@@ -219,7 +219,8 @@ public class DomainModelContractTests
         AssertNewtonsoftJsonEqual(JsonConvert.SerializeObject(expected), actualJson);
         Assert.Null(actual.SelfLinks);
         Assert.DoesNotContain("blobVersionId", actualJson, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal("blob-version-id", domain.BlobVersionId);
+        Assert.Equal("\"api-content-version\"", actual.ContentEtag);
+        Assert.Equal("api-content-version", domain.BlobVersionId);
         Assert.Same(domain.Refs, actual.Refs);
         Assert.Same(domain.Tags, actual.Tags);
         Assert.Same(domain.UserDefinedMetadata, actual.UserDefinedMetadata);
@@ -246,6 +247,7 @@ public class DomainModelContractTests
             actualJson
         );
         Assert.Equal("mapped-blob-version", actual.BlobVersionId);
+        Assert.Equal("\"api-content-version\"", api.ContentEtag);
         Assert.DoesNotContain(nameof(DataElementInternal.BlobVersionId), actualJson);
         Assert.DoesNotContain("SelfLinks", PublicProperties<DataElementInternal>().Keys);
         Assert.Same(api.Refs, actual.Refs);
@@ -259,6 +261,29 @@ public class DomainModelContractTests
         Assert.Equal("contract.pdf", actual.Filename);
         api.Metadata[0].Value = "shared-change";
         Assert.Equal("shared-change", actual.Metadata[0].Value);
+    }
+
+    [Fact]
+    public void DataElementContentEtag_IsOmittedFromNewtonsoftJsonWhenNull()
+    {
+        string json = JsonConvert.SerializeObject(new DataElement { ContentEtag = null });
+
+        Assert.DoesNotContain("contentEtag", json, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void DataElementToApiModel_WithoutBlobVersion_OmitsContentEtag(string blobVersionId)
+    {
+        DataElementInternal domain = DomainModelContractTestData.CreateDomainDataElement();
+        domain.BlobVersionId = blobVersionId;
+
+        DataElement actual = domain.ToApiModel();
+        string json = JsonConvert.SerializeObject(actual);
+
+        Assert.Null(actual.ContentEtag);
+        Assert.DoesNotContain("contentEtag", json, StringComparison.Ordinal);
     }
 
     [Fact]

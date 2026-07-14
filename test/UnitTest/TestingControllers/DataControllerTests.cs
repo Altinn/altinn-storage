@@ -947,7 +947,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         if (!withExistingStatus)
         {
             Assert.Equal(
-                """{"instance":{"id":"1337/99194777-a691-433a-ace1-225e9a691653","instanceOwner":{"partyId":"1337"},"appId":"ttd/sensitive-data","org":"ttd","selfLinks":{"platform":"https://platform.at22.altinn.cloud/storage/api/v1/instances/1337/99194777-a691-433a-ace1-225e9a691653"},"process":{"started":"2026-07-10T08:00:00Z","startEvent":"StartEvent_1","ended":"2026-07-10T09:08:07Z","endEvent":"EndEvent_1"},"status":{"isArchived":true,"archived":"2026-07-10T09:08:07Z","isSoftDeleted":false,"isHardDeleted":false,"readStatus":"Unread"},"data":[]},"createdDataElementIds":[],"replayed":false,"dataElementContentEtags":{}}""",
+                """{"instance":{"id":"1337/99194777-a691-433a-ace1-225e9a691653","instanceOwner":{"partyId":"1337"},"appId":"ttd/sensitive-data","org":"ttd","selfLinks":{"platform":"https://platform.at22.altinn.cloud/storage/api/v1/instances/1337/99194777-a691-433a-ace1-225e9a691653"},"process":{"started":"2026-07-10T08:00:00Z","startEvent":"StartEvent_1","ended":"2026-07-10T09:08:07Z","endEvent":"EndEvent_1"},"status":{"isArchived":true,"archived":"2026-07-10T09:08:07Z","isSoftDeleted":false,"isHardDeleted":false,"readStatus":"Unread"},"data":[]},"createdDataElementIds":[],"replayed":false}""",
                 responseBody
             );
         }

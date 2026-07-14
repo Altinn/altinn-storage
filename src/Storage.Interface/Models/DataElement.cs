@@ -71,6 +71,18 @@ public class DataElement : ChangableElement
     public string ContentHash { get; set; }
 
     /// <summary>
+    /// Gets or sets the current entity tag of the data element content, as a quoted strong HTTP ETag.
+    /// </summary>
+    /// <remarks>
+    /// The value matches the ETag response header on content downloads and can be sent verbatim in
+    /// If-Match headers on content reads and updates. It versions the content only: metadata-only
+    /// updates (tags, read status, lock status) do not change it. Null for elements whose content
+    /// is not stored with a blob version, such as on-demand elements.
+    /// </remarks>
+    [JsonProperty(PropertyName = "contentEtag")]
+    public string ContentEtag { get; set; }
+
+    /// <summary>
     /// Gets or sets a value indicating whether the element can be updated.
     /// </summary>
     [JsonProperty(PropertyName = "locked")]

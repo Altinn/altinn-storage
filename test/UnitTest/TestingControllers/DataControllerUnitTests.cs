@@ -135,17 +135,24 @@ public class DataControllerUnitTests
         Guid instanceGuid = Guid.NewGuid();
         Guid idempotencyKey = Guid.Parse("11111111-1111-1111-1111-111111111111");
         Guid deletedDataElementId = Guid.NewGuid();
+        string replayedBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        DataElement replayedDataElement = new()
+        {
+            Id = Guid.NewGuid().ToString(),
+            InstanceGuid = instanceGuid.ToString(),
+            DataType = _dataType,
+        };
         Instance instance = new()
         {
             Id = $"555/{instanceGuid}",
             InstanceOwner = new InstanceOwner { PartyId = "555" },
             Org = _org,
             AppId = _appId,
-            Data = [],
+            Data = [replayedDataElement],
         };
         InstanceInternal instanceInternal = InstanceInternalTestFactory.Create(
             instance,
-            [],
+            [replayedDataElement.FromApiModel(replayedBlobVersionId)],
             InternalId: 123L,
             versions: new StorageVersions(13, 9)
         );
@@ -203,6 +210,10 @@ public class DataControllerUnitTests
         Assert.Equal(instance.Id, response.Instance.Id);
         Assert.NotNull(response.Instance.SelfLinks?.Platform);
         Assert.True(response.Replayed);
+        Assert.Equal(
+            $"\"{replayedBlobVersionId}\"",
+            Assert.Single(response.Instance.Data).ContentEtag
+        );
         Assert.Equal(
             "13",
             fixture.HttpContext.Response.Headers[StorageHeaders.InstanceVersion].Single()
@@ -1658,6 +1669,18 @@ public class DataControllerUnitTests
             createdIds,
             createdId =>
                 Assert.Contains(response.Instance.Data, dataElement => dataElement.Id == createdId)
+        );
+        Assert.All(
+            capturedMutation.CreateDataElements,
+            createdDataElement =>
+                Assert.Equal(
+                    $"\"{createdDataElement.BlobVersionId}\"",
+                    response
+                        .Instance.Data.Single(dataElement =>
+                            dataElement.Id == createdDataElement.Id
+                        )
+                        .ContentEtag
+                )
         );
         Assert.False(
             response.Instance.Data.Single(dataElement => dataElement.Id == createdIds[0]).Locked
@@ -4150,6 +4173,211 @@ public class DataControllerUnitTests
     }
 
     [Fact]
+    public async Task Get_WithMatchingIfMatch_ReturnsFileAndEmitsETag()
+    {
+        string currentBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        HeaderDictionary requestHeaders = new()
+        {
+            [HeaderNames.IfMatch] = $"\"{currentBlobVersionId}\"",
+        };
+        (DataController testController, _, _) = GetTestController(
+            ["/isRead"],
+            blobVersionId: currentBlobVersionId,
+            requestHeaders: requestHeaders
+        );
+
+        ActionResult result = await testController.Get(
+            12345,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            CancellationToken.None
+        );
+
+        Assert.IsType<FileStreamResult>(result);
+        Assert.Equal(
+            $"\"{currentBlobVersionId}\"",
+            testController.Response.Headers[HeaderNames.ETag]
+        );
+    }
+
+    [Fact]
+    public async Task Get_WithStaleIfMatch_ReturnsPreconditionFailedBeforeReadingBlob()
+    {
+        string currentBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        string staleBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        HeaderDictionary requestHeaders = new()
+        {
+            [HeaderNames.IfMatch] = $"\"{staleBlobVersionId}\"",
+        };
+        (
+            DataController testController,
+            Mock<IDataRepository> dataRepositoryMock,
+            Mock<IBlobRepository> blobRepositoryMock
+        ) = GetTestController(
+            ["/isRead"],
+            blobVersionId: currentBlobVersionId,
+            requestHeaders: requestHeaders
+        );
+
+        ActionResult result = await testController.Get(
+            12345,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            CancellationToken.None
+        );
+
+        StatusCodeResult preconditionFailed = Assert.IsType<StatusCodeResult>(result);
+        Assert.Equal(StatusCodes.Status412PreconditionFailed, preconditionFailed.StatusCode);
+        Assert.False(testController.Response.Headers.ContainsKey(StorageHeaders.InstanceVersion));
+        Assert.False(
+            testController.Response.Headers.ContainsKey(StorageHeaders.ProcessStateVersion)
+        );
+        VerifyNoContentReadSideEffects(dataRepositoryMock, blobRepositoryMock);
+    }
+
+    [Fact]
+    public async Task Get_WithIfMatchAndNoBlobVersion_ReturnsPreconditionFailedBeforeReadingBlob()
+    {
+        string expectedBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        HeaderDictionary requestHeaders = new()
+        {
+            [HeaderNames.IfMatch] = $"\"{expectedBlobVersionId}\"",
+        };
+        (
+            DataController testController,
+            Mock<IDataRepository> dataRepositoryMock,
+            Mock<IBlobRepository> blobRepositoryMock
+        ) = GetTestController(["/isRead"], blobVersionId: null, requestHeaders: requestHeaders);
+
+        ActionResult result = await testController.Get(
+            12345,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            CancellationToken.None
+        );
+
+        StatusCodeResult preconditionFailed = Assert.IsType<StatusCodeResult>(result);
+        Assert.Equal(StatusCodes.Status412PreconditionFailed, preconditionFailed.StatusCode);
+        Assert.False(testController.Response.Headers.ContainsKey(StorageHeaders.InstanceVersion));
+        Assert.False(
+            testController.Response.Headers.ContainsKey(StorageHeaders.ProcessStateVersion)
+        );
+        VerifyNoContentReadSideEffects(dataRepositoryMock, blobRepositoryMock);
+    }
+
+    [Theory]
+    [InlineData("*")]
+    [InlineData("W/\"weak\"")]
+    [InlineData("\"first\", \"second\"")]
+    [InlineData("\"not-a-blob-version\"")]
+    public async Task Get_WithInvalidIfMatch_ReturnsBadRequestBeforeReadingBlob(string ifMatch)
+    {
+        HeaderDictionary requestHeaders = new() { [HeaderNames.IfMatch] = ifMatch };
+        (
+            DataController testController,
+            Mock<IDataRepository> dataRepositoryMock,
+            Mock<IBlobRepository> blobRepositoryMock
+        ) = GetTestController(
+            ["/isRead"],
+            blobVersionId: BlobVersionId.Encode(Guid.CreateVersion7()),
+            requestHeaders: requestHeaders
+        );
+
+        ActionResult result = await testController.Get(
+            12345,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            CancellationToken.None
+        );
+
+        Assert.IsType<BadRequestObjectResult>(result);
+        VerifyNoContentReadSideEffects(dataRepositoryMock, blobRepositoryMock);
+    }
+
+    [Fact]
+    public async Task Get_HiddenHardDeletedElement_WithStaleIfMatch_ReturnsNotFound()
+    {
+        string currentBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        string staleBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        HeaderDictionary requestHeaders = new()
+        {
+            [HeaderNames.IfMatch] = $"\"{staleBlobVersionId}\"",
+        };
+        (
+            DataController testController,
+            Mock<IDataRepository> dataRepositoryMock,
+            Mock<IBlobRepository> blobRepositoryMock
+        ) = GetTestController(
+            ["/isRead"],
+            blobVersionId: currentBlobVersionId,
+            requestHeaders: requestHeaders,
+            isHardDeleted: true
+        );
+
+        ActionResult result = await testController.Get(
+            12345,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            CancellationToken.None
+        );
+
+        Assert.IsType<NotFoundResult>(result);
+        Assert.Equal("1", testController.Response.Headers[StorageHeaders.InstanceVersion]);
+        Assert.Equal("1", testController.Response.Headers[StorageHeaders.ProcessStateVersion]);
+        VerifyNoContentReadSideEffects(dataRepositoryMock, blobRepositoryMock);
+    }
+
+    [Fact]
+    public async Task Get_HiddenHardDeletedElement_WithMalformedIfMatch_ReturnsNotFound()
+    {
+        HeaderDictionary requestHeaders = new() { [HeaderNames.IfMatch] = "*" };
+        (
+            DataController testController,
+            Mock<IDataRepository> dataRepositoryMock,
+            Mock<IBlobRepository> blobRepositoryMock
+        ) = GetTestController(
+            ["/isRead"],
+            blobVersionId: BlobVersionId.Encode(Guid.CreateVersion7()),
+            requestHeaders: requestHeaders,
+            isHardDeleted: true
+        );
+
+        ActionResult result = await testController.Get(
+            12345,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            CancellationToken.None
+        );
+
+        Assert.IsType<NotFoundResult>(result);
+        Assert.Equal("1", testController.Response.Headers[StorageHeaders.InstanceVersion]);
+        Assert.Equal("1", testController.Response.Headers[StorageHeaders.ProcessStateVersion]);
+        VerifyNoContentReadSideEffects(dataRepositoryMock, blobRepositoryMock);
+    }
+
+    [Fact]
+    public async Task Get_WhenInstanceReadAuthorizationFails_IgnoresMalformedIfMatch()
+    {
+        HeaderDictionary requestHeaders = new() { [HeaderNames.IfMatch] = "*" };
+        (DataController testController, Mock<IDataRepository> dataRepositoryMock, _) =
+            GetTestController(["/isRead"], requestHeaders: requestHeaders, authorized: false);
+
+        ActionResult result = await testController.Get(
+            12345,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            CancellationToken.None
+        );
+
+        Assert.IsType<ForbidResult>(result);
+        dataRepositoryMock.Verify(
+            repository =>
+                repository.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+    }
+
+    [Fact]
     public async Task Get_WithoutBlobVersionId_OmitsETag()
     {
         // Arrange
@@ -5636,6 +5864,33 @@ public class DataControllerUnitTests
         );
     }
 
+    private static void VerifyNoContentReadSideEffects(
+        Mock<IDataRepository> dataRepositoryMock,
+        Mock<IBlobRepository> blobRepositoryMock
+    )
+    {
+        dataRepositoryMock.Verify(
+            repository =>
+                repository.UpdateReadStatus(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    true,
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+        blobRepositoryMock.Verify(
+            repository =>
+                repository.ReadBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
     private static bool VerifyPropertyListInput(
         int expectedPropCount,
         List<string> expectedProperties,
@@ -5686,6 +5941,8 @@ public class DataControllerUnitTests
         Action<Mock<IDataService>> configureDataService = null,
         string allocatedBlobVersionId = null,
         HeaderDictionary requestHeaders = null,
+        bool isHardDeleted = false,
+        bool authorized = true,
         Action<Mock<IInstanceEventService>> configureInstanceEventService = null,
         string blobStoragePathOverride = null,
         IOnDemandClient onDemandClient = null
@@ -5822,6 +6079,9 @@ public class DataControllerUnitTests
                         IsRead = isRead,
                         ContentType = "application/octet-stream",
                         BlobStoragePath = blobStoragePath,
+                        DeleteStatus = isHardDeleted
+                            ? new DeleteStatus { IsHardDeleted = true }
+                            : null,
                     }.FromApiModel(blobVersionId);
                 }
             );
@@ -5993,7 +6253,7 @@ public class DataControllerUnitTests
             .Setup(a =>
                 a.AuthorizeEnrichedInstanceAction(It.IsAny<InstanceInternal>(), It.IsAny<string>())
             )
-            .ReturnsAsync(true);
+            .ReturnsAsync(authorized);
 
         Mock<HttpContext> httpContextMock = new();
         httpContextMock.Setup(c => c.User).Returns(PrincipalUtil.GetPrincipal(200001, 1337));

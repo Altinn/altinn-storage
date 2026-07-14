@@ -27,10 +27,4 @@ public class InstanceMutationResponse
     /// </summary>
     [JsonProperty(PropertyName = "replayed")]
     public bool Replayed { get; set; }
-
-    /// <summary>
-    /// Current quoted HTTP ETag values for data element content, keyed by data element id.
-    /// </summary>
-    [JsonProperty(PropertyName = "dataElementContentEtags")]
-    public Dictionary<string, string> DataElementContentEtags { get; set; }
 }

@@ -1094,7 +1094,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                     ContentType = "application/json",
                     Size = 42,
                     Tags = ["visible"],
-                    BlobVersionId = "must-not-leak",
+                    BlobVersionId = "visible-content-version",
                 },
                 new DataElementInternal
                 {
@@ -1190,6 +1190,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                     Filename = "payload.json",
                     ContentType = "application/json",
                     Size = 42,
+                    ContentEtag = "\"visible-content-version\"",
                     Tags = ["visible"],
                 },
             ],

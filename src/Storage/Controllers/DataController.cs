@@ -128,7 +128,7 @@ public class DataController : ControllerBase
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance that should be mutated.</param>
     /// <param name="cancellationToken">CancellationToken</param>
-    /// <returns>The updated instance and current data element content ETags.</returns>
+    /// <returns>The updated instance, including current content ETags on its data elements.</returns>
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
     [HttpPost("mutations")]
     [DisableFormValueModelBinding]
@@ -1261,7 +1261,6 @@ public class DataController : ControllerBase
                 Instance = updatedInstance,
                 CreatedDataElementIds = [.. createdDataElementIds],
                 Replayed = replayed,
-                DataElementContentEtags = BuildContentETagMap(updatedInstanceInternal),
             }
         );
     }
@@ -1448,6 +1447,7 @@ public class DataController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status412PreconditionFailed)]
     [Produces("application/json")]
     public async Task<ActionResult> Get(
         int instanceOwnerPartyId,
@@ -1516,6 +1516,24 @@ public class DataController : ControllerBase
         {
             VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
             return NotFound();
+        }
+
+        (string expectedBlobVersionId, ActionResult ifMatchError) = TryGetIfMatchBlobVersion();
+        if (ifMatchError is not null)
+        {
+            return ifMatchError;
+        }
+
+        if (
+            expectedBlobVersionId is not null
+            && !string.Equals(
+                expectedBlobVersionId,
+                dataElement.BlobVersionId,
+                StringComparison.Ordinal
+            )
+        )
+        {
+            return StatusCode(StatusCodes.Status412PreconditionFailed);
         }
 
         if (!dataElement.IsRead && !appOwnerRequestingElement)
@@ -2850,21 +2868,30 @@ public class DataController : ControllerBase
                 );
             }
 
-            blobVersionId = ifMatch[0].Tag.Value[1..^1];
+            if (!BlobVersionId.TryParseContentEtag(ifMatch[0].Tag.Value, out blobVersionId))
+            {
+                return (
+                    null,
+                    BadRequest("expectedCurrentBlobVersion must identify a blob version id.")
+                );
+            }
+        }
+        else
+        {
+            try
+            {
+                BlobVersionId.Decode(blobVersionId);
+            }
+            catch (Exception exception) when (exception is ArgumentException or FormatException)
+            {
+                return (
+                    null,
+                    BadRequest("expectedCurrentBlobVersion must identify a blob version id.")
+                );
+            }
         }
 
-        try
-        {
-            BlobVersionId.Decode(blobVersionId);
-            return (blobVersionId, null);
-        }
-        catch (Exception exception) when (exception is ArgumentException or FormatException)
-        {
-            return (
-                null,
-                BadRequest("expectedCurrentBlobVersion must identify a blob version id.")
-            );
-        }
+        return (blobVersionId, null);
     }
 
     private static DataElementInternal CloneDataElementForScan(
@@ -2911,16 +2938,6 @@ public class DataController : ControllerBase
 
         return clone;
     }
-
-    private static Dictionary<string, string> BuildContentETagMap(
-        InstanceInternal updatedInstanceInternal
-    ) =>
-        updatedInstanceInternal
-            .Data.Where(dataElement => !string.IsNullOrEmpty(dataElement.BlobVersionId))
-            .ToDictionary(
-                dataElement => dataElement.Id,
-                dataElement => $"\"{dataElement.BlobVersionId}\""
-            );
 
     private static string FirstNonEmpty(string primary, string fallback) =>
         string.IsNullOrEmpty(primary) ? fallback : primary;
@@ -3344,12 +3361,7 @@ public class DataController : ControllerBase
             return (null, BadRequest("If-Match must contain exactly one strong ETag."));
         }
 
-        string blobVersionId = ifMatch[0].Tag.Value[1..^1];
-        try
-        {
-            BlobVersionId.Decode(blobVersionId);
-        }
-        catch (Exception exception) when (exception is ArgumentException or FormatException)
+        if (!BlobVersionId.TryParseContentEtag(ifMatch[0].Tag.Value, out string blobVersionId))
         {
             return (null, BadRequest("If-Match ETag value must be a blob version id."));
         }
@@ -3359,13 +3371,12 @@ public class DataController : ControllerBase
 
     private void SetBlobVersionETag(string blobVersionId)
     {
-        if (string.IsNullOrEmpty(blobVersionId))
+        string etag = BlobVersionId.ToContentEtag(blobVersionId);
+        if (etag is null)
         {
             return;
         }
 
-        Response.Headers[HeaderNames.ETag] = new EntityTagHeaderValue(
-            $"\"{blobVersionId}\""
-        ).ToString();
+        Response.Headers[HeaderNames.ETag] = etag;
     }
 }
