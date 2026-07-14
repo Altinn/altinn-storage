@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -14,6 +15,9 @@ using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Npgsql;
 
 namespace Altinn.Platform.Storage.Services;
 
@@ -30,6 +34,7 @@ public class DataService : IDataService
     private readonly IDataRepository _dataRepository;
     private readonly IBlobRepository _blobRepository;
     private readonly IInstanceEventService _instanceEventService;
+    private readonly ILogger<DataService> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DataService"/> class.
@@ -38,13 +43,15 @@ public class DataService : IDataService
         IFileScanQueueClient fileScanQueueClient,
         IDataRepository dataRepository,
         IBlobRepository blobRepository,
-        IInstanceEventService instanceEventService
+        IInstanceEventService instanceEventService,
+        ILogger<DataService> logger = null
     )
     {
         _fileScanQueueClient = fileScanQueueClient;
         _dataRepository = dataRepository;
         _blobRepository = blobRepository;
         _instanceEventService = instanceEventService;
+        _logger = logger ?? NullLogger<DataService>.Instance;
     }
 
     /// <inheritdoc/>
@@ -317,6 +324,19 @@ public class DataService : IDataService
         return deletedDataElement;
     }
 
+    /// <inheritdoc/>
+    public async Task CleanupDeletedDataElementBlobs(
+        InstanceInternal instance,
+        DataElementInternal dataElement,
+        int? storageAccountNumber,
+        CancellationToken cancellationToken = default
+    )
+    {
+        Guid dataElementId = Guid.Parse(dataElement.Id);
+        await CleanupDetachedBlobVersions(dataElementId, cancellationToken);
+        await DeleteLegacyDataElementBlob(instance, dataElement, storageAccountNumber);
+    }
+
     /// <summary>
     /// Formats a SHA digest with common best best practice:<br/>
     /// Lowercase hexadecimal representation without delimiters
@@ -344,6 +364,194 @@ public class DataService : IDataService
                 ValueType = ReferenceType.Task,
             },
         ];
+    }
+
+    private async Task CleanupDetachedBlobVersions(
+        Guid dataElementId,
+        CancellationToken cancellationToken
+    )
+    {
+        IReadOnlyList<BlobVersionReferencesInternal> detachedBlobVersions;
+        try
+        {
+            detachedBlobVersions =
+                await _dataRepository.ReadDetachedBlobVersions(dataElementId, cancellationToken)
+                ?? [];
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogWarning(
+                exception,
+                "Failed to read detached blob versions for deleted data element {DataElementId}; leaving cleanup for retry.",
+                dataElementId
+            );
+            return;
+        }
+
+        Dictionary<
+            (string BlobStorageOrg, int? StorageAccountNumber),
+            List<(string BlobVersionId, string BlobStoragePath)>
+        > blobVersionsByStorage = [];
+        foreach (BlobVersionReferencesInternal blobVersion in detachedBlobVersions)
+        {
+            foreach (string blobVersionId in blobVersion.BlobVersionIds)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                string versionedBlobStoragePath = BlobRepository.GetVersionedBlobPath(
+                    blobVersion.AppId,
+                    blobVersion.InstanceGuid.ToString(),
+                    blobVersionId
+                );
+
+                (string BlobStorageOrg, int? StorageAccountNumber) storageKey = (
+                    blobVersion.BlobStorageOrg,
+                    blobVersion.StorageAccountNumber
+                );
+                if (!blobVersionsByStorage.TryGetValue(storageKey, out var blobVersionPaths))
+                {
+                    blobVersionPaths = [];
+                    blobVersionsByStorage[storageKey] = blobVersionPaths;
+                }
+
+                blobVersionPaths.Add((blobVersionId, versionedBlobStoragePath));
+            }
+        }
+
+        List<string> deletedBlobVersionIds = [];
+        foreach (
+            KeyValuePair<
+                (string BlobStorageOrg, int? StorageAccountNumber),
+                List<(string BlobVersionId, string BlobStoragePath)>
+            > blobStorageGroup in blobVersionsByStorage
+        )
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            IReadOnlyList<string> blobStoragePaths = blobStorageGroup
+                .Value.Select(blobVersion => blobVersion.BlobStoragePath)
+                .ToArray();
+            bool[] deletedBlobs;
+            try
+            {
+                deletedBlobs = await _blobRepository.DeleteBlobsIfExists(
+                    blobStorageGroup.Key.BlobStorageOrg,
+                    blobStoragePaths,
+                    blobStorageGroup.Key.StorageAccountNumber,
+                    cancellationToken
+                );
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // Keep all rows from this storage batch so orphan cleanup can retry later.
+                _logger.LogWarning(
+                    exception,
+                    "Failed to delete detached blobs in batch for {BlobStorageOrg}; leaving blob-version rows for retry.",
+                    blobStorageGroup.Key.BlobStorageOrg
+                );
+                continue;
+            }
+
+            for (int index = 0; index < blobStorageGroup.Value.Count; index++)
+            {
+                if (index < deletedBlobs.Length && deletedBlobs[index])
+                {
+                    deletedBlobVersionIds.Add(blobStorageGroup.Value[index].BlobVersionId);
+                }
+            }
+        }
+
+        if (deletedBlobVersionIds.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            await _dataRepository.DeleteBlobVersions(
+                dataElementId,
+                deletedBlobVersionIds,
+                cancellationToken
+            );
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Metadata cleanup is best-effort after the aggregate metadata commit.
+            _logger.LogWarning(
+                exception,
+                "Failed to delete {BlobVersionCount} detached blob-version rows for data element {DataElementId}.",
+                deletedBlobVersionIds.Count,
+                dataElementId
+            );
+        }
+    }
+
+    private async Task DeleteLegacyDataElementBlob(
+        InstanceInternal instance,
+        DataElementInternal dataElementInternal,
+        int? storageAccountNumber
+    )
+    {
+        string instanceGuid = instance.Id;
+        string legacyBlobStoragePath =
+            string.IsNullOrEmpty(dataElementInternal.BlobVersionId)
+            && !string.IsNullOrEmpty(dataElementInternal.BlobStoragePath)
+                ? dataElementInternal.BlobStoragePath
+                : DataElementHelper.DataFileName(
+                    instance.AppId,
+                    instanceGuid,
+                    dataElementInternal.Id
+                );
+
+        if (string.IsNullOrEmpty(legacyBlobStoragePath))
+        {
+            return;
+        }
+
+        try
+        {
+            await _blobRepository.DeleteBlob(
+                instance.Org,
+                legacyBlobStoragePath,
+                storageAccountNumber
+            );
+        }
+        catch (Exception exception)
+        {
+            // Legacy blobs have no durable blob-version cleanup row; cleanup remains best-effort.
+            _logger.LogWarning(
+                exception,
+                "Failed to delete legacy blob {BlobStoragePath} for deleted data element {DataElementId}.",
+                legacyBlobStoragePath,
+                dataElementInternal.Id
+            );
+        }
+    }
+
+    /// <summary>
+    /// Returns true when some exception in the chain proves the database transaction rolled
+    /// back, so staged blob compensation is safe; false when the commit outcome is unknown
+    /// and cleanup must be left to the orphan cleanup job. An inner-exception chain is the
+    /// causality of one operation, so one definite link decides it; the flattened siblings of
+    /// an <see cref="AggregateException"/> represent separate operations, so every sibling
+    /// must be definite — one proven abort does not decide an ambiguous sibling's outcome.
+    /// </summary>
+    internal static bool IndicatesDefiniteRollback(Exception exception)
+    {
+        for (Exception current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is PostgresException or RepositoryException)
+            {
+                return true;
+            }
+
+            if (current is AggregateException aggregateException)
+            {
+                var siblings = aggregateException.Flatten().InnerExceptions;
+                return siblings.Count > 0 && siblings.All(IndicatesDefiniteRollback);
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

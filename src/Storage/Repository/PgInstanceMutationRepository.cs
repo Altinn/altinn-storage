@@ -25,7 +25,7 @@ namespace Altinn.Platform.Storage.Repository;
 /// <summary>
 /// PostgreSQL implementation of aggregate instance mutations.
 /// </summary>
-internal sealed class PgInstanceMutationRepository(
+public sealed class PgInstanceMutationRepository(
     ILogger<PgInstanceMutationRepository> logger,
     NpgsqlDataSource dataSource,
     OutboxInsertRowFactory outboxInsertRowFactory

@@ -294,6 +294,24 @@ public class DataRepositoryMock : IDataRepository
         return Task.FromResult(true);
     }
 
+    public Task<int> DeleteBlobVersions(
+        Guid dataElementId,
+        IReadOnlyList<string> blobVersionIds,
+        CancellationToken cancellationToken = default
+    )
+    {
+        int deleteCount = 0;
+        if (
+            blobVersionIds is not null
+            && _blobVersions.TryGetValue(dataElementId.ToString(), out List<string> versions)
+        )
+        {
+            deleteCount = versions.RemoveAll(version => blobVersionIds.Contains(version));
+        }
+
+        return Task.FromResult(deleteCount);
+    }
+
     public Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadBlobVersions(
         Guid dataElementId,
         CancellationToken cancellationToken = default
@@ -353,6 +371,11 @@ public class DataRepositoryMock : IDataRepository
 
         return Task.FromResult<IReadOnlyList<BlobVersionReferencesInternal>>([]);
     }
+
+    public Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadDetachedBlobVersions(
+        Guid dataElementId,
+        CancellationToken cancellationToken = default
+    ) => ReadBlobVersions(dataElementId, cancellationToken);
 
     public async Task<bool> Exists(
         Guid dataElementId,

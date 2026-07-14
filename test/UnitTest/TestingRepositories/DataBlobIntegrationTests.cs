@@ -11,6 +11,7 @@ using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
+using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Extensions;
 using Altinn.Platform.Storage.UnitTest.Utils;
@@ -38,7 +39,7 @@ public class DataBlobIntegrationTests
         _blobFixture = blobFixture;
 
         string sql =
-            "delete from storage.dataelementblobversions; delete from storage.instances; delete from storage.dataelements;";
+            "delete from storage.instanceevents; delete from storage.dataelementblobversions; delete from storage.instances; delete from storage.dataelements;";
         _ = PostgresUtil.RunSql(sql).Result;
         InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
         instance.Org = BlobRepositoryAzuriteFixture.Org;
@@ -57,22 +58,11 @@ public class DataBlobIntegrationTests
     {
         // Arrange
         Mock<IFileScanQueueClient> fileScanQueueClientMock = new();
-        Mock<IInstanceEventService> instanceEventServiceMock = new();
-        instanceEventServiceMock
-            .Setup(ies =>
-                ies.DispatchEvent(
-                    It.IsAny<InstanceEventType>(),
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<DataElementInternal>()
-                )
-            )
-            .Returns(Task.CompletedTask);
-
         DataService dataService = new(
             fileScanQueueClientMock.Object,
             _dataElementFixture.DataRepo,
             _blobFixture.Repository,
-            instanceEventServiceMock.Object
+            Mock.Of<IInstanceEventService>()
         );
         Guid dataElementId = Guid.NewGuid();
         string content = $"integration-content-{Guid.NewGuid():N}";
@@ -125,7 +115,36 @@ public class DataBlobIntegrationTests
         Assert.Single(await _dataElementFixture.DataRepo.ReadBlobVersions(dataElementId));
 
         // Act delete
-        await dataService.DeleteImmediately(_instanceInternal, createdDataElement, null);
+        Guid instanceGuid = Guid.Parse(createdDataElement.InstanceGuid);
+        InstanceMutationCommit mutation = new(
+            [],
+            [],
+            [new InstanceMutationDataElementDelete(createdDataElement, IgnoreLock: false)],
+            _instanceInternal,
+            [],
+            null,
+            null,
+            [
+                new InstanceEvent
+                {
+                    EventType = InstanceEventType.Deleted.ToString(),
+                    DataId = dataElementId.ToString(),
+                    Created = DateTime.UtcNow,
+                },
+            ]
+        );
+        await _dataElementFixture.InstanceMutationRepo.Apply(
+            instanceGuid,
+            _instanceInternalId,
+            mutation,
+            CancellationToken.None
+        );
+        await dataService.CleanupDeletedDataElementBlobs(
+            _instanceInternal,
+            createdDataElement,
+            null,
+            CancellationToken.None
+        );
 
         // Assert delete
         Assert.Null(
@@ -137,14 +156,16 @@ public class DataBlobIntegrationTests
         );
         Assert.Empty(await _dataElementFixture.DataRepo.ReadBlobVersions(dataElementId));
         Assert.False(await _blobFixture.Exists(createdDataElement.BlobStoragePath));
-        instanceEventServiceMock.Verify(
-            ies =>
-                ies.DispatchEvent(
-                    InstanceEventType.Deleted,
-                    It.Is<InstanceInternal>(i => i.Id == _instanceInternal.Id),
-                    It.Is<DataElementInternal>(de => de.Id == dataElementId.ToString())
-                ),
-            Times.Once
-        );
+        Assert.Equal(1, await CountInstanceEvents(instanceGuid, InstanceEventType.Deleted));
     }
+
+    private static Task<int> CountInstanceEvents(Guid instanceGuid, InstanceEventType eventType) =>
+        PostgresUtil.RunCountQuery(
+            $"""
+            select count(*)
+            from storage.instanceevents
+            where instance = '{instanceGuid}'
+              and event ->> 'EventType' = '{eventType}'
+            """
+        );
 }

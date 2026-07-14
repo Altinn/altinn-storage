@@ -21,6 +21,19 @@ public interface IInstanceEventService
     public InstanceEvent BuildInstanceEvent(InstanceEventType eventType, InstanceInternal instance);
 
     /// <summary>
+    /// Construct an instance event related to a data element.
+    /// </summary>
+    /// <param name="eventType">Event type</param>
+    /// <param name="instance">Instance</param>
+    /// <param name="dataElement">Data element</param>
+    /// <returns></returns>
+    public InstanceEvent BuildInstanceEvent(
+        InstanceEventType eventType,
+        InstanceInternal instance,
+        DataElementInternal dataElement
+    );
+
+    /// <summary>
     /// Dispatch an instance event to the repository
     /// </summary>
     /// <param name="eventType">The event type</param>

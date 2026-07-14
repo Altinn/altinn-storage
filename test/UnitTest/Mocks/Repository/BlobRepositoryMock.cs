@@ -1,6 +1,7 @@
 #nullable disable
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,6 +20,19 @@ public class BlobRepositoryMock : IBlobRepository
     )
     {
         return await Task.FromResult(true);
+    }
+
+    public Task<bool[]> DeleteBlobsIfExists(
+        string org,
+        IReadOnlyList<string> blobStoragePaths,
+        int? storageAccountNumber,
+        CancellationToken cancellationToken = default
+    )
+    {
+        bool[] result = new bool[blobStoragePaths.Count];
+        Array.Fill(result, true);
+
+        return Task.FromResult(result);
     }
 
     public async Task<Stream> ReadBlob(

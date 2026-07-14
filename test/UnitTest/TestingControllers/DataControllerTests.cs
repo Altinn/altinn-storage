@@ -812,6 +812,315 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         Assert.Equal(expected, actual);
     }
 
+    [Theory]
+    [InlineData("duplicate-updates")]
+    [InlineData("duplicate-deletes")]
+    [InlineData("update-and-delete")]
+    public async Task CommitMutation_DuplicateDataElementMutationIds_ReturnsBadRequest(
+        string requestShape
+    )
+    {
+        // Arrange
+        Guid dataElementId = Guid.Parse(SensitiveDataApp.DataElements.Default);
+        InstanceMutationRequest request = requestShape switch
+        {
+            "duplicate-updates" => new InstanceMutationRequest
+            {
+                UpdateDataElements =
+                [
+                    new InstanceMutationUpdateDataElement
+                    {
+                        DataElementId = dataElementId,
+                        Locked = false,
+                    },
+                    new InstanceMutationUpdateDataElement
+                    {
+                        DataElementId = dataElementId,
+                        Locked = true,
+                    },
+                ],
+            },
+            "duplicate-deletes" => new InstanceMutationRequest
+            {
+                DeleteDataElements =
+                [
+                    new InstanceMutationDeleteDataElement { DataElementId = dataElementId },
+                    new InstanceMutationDeleteDataElement { DataElementId = dataElementId },
+                ],
+            },
+            "update-and-delete" => new InstanceMutationRequest
+            {
+                UpdateDataElements =
+                [
+                    new InstanceMutationUpdateDataElement
+                    {
+                        DataElementId = dataElementId,
+                        Locked = true,
+                    },
+                ],
+                DeleteDataElements =
+                [
+                    new InstanceMutationDeleteDataElement { DataElementId = dataElementId },
+                ],
+            },
+            _ => throw new ArgumentOutOfRangeException(nameof(requestShape)),
+        };
+
+        Mock<IInstanceMutationRepository> mutationRepositoryMock = new();
+        HttpClient client = GetTestClient(
+            bearerAuthToken: PrincipalUtil.GetOrgToken("ttd"),
+            mutationRepositoryMock: mutationRepositoryMock
+        );
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            $"{SensitiveDataApp.GetInstanceUrl()}/mutations",
+            JsonContent.Create(request, options: _serializerOptions)
+        );
+        string content = await response.Content.ReadAsStringAsync();
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(ExpectedDuplicateDataElementMutationIdsResponse(dataElementId), content);
+        InstanceMutationAsserts.VerifyApplyNever(mutationRepositoryMock);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CommitMutation_NewlyEndedProcess_ArchivesResponseAndStoredInstance(
+        bool withExistingStatus
+    )
+    {
+        // Arrange
+        DateTime ended = new(2026, 7, 10, 9, 8, 7, DateTimeKind.Utc);
+        InstanceInternal storedInstance = CreateMutationInstance(
+            new ProcessState
+            {
+                Started = new DateTime(2026, 7, 10, 8, 0, 0, DateTimeKind.Utc),
+                StartEvent = "StartEvent_1",
+                CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_1",
+                    AltinnTaskType = "data",
+                },
+            },
+            withExistingStatus ? new InstanceStatus { ReadStatus = ReadStatus.Read } : null
+        );
+        Mock<IInstanceRepository> instanceRepositoryMock = CreateMutationInstanceRepository(
+            storedInstance
+        );
+        InstanceMutationCommit capturedMutation = null;
+        Mock<IInstanceMutationRepository> mutationRepositoryMock =
+            CreatePersistingMutationRepository(
+                storedInstance,
+                mutation => capturedMutation = mutation
+            );
+        HttpClient client = GetTestClient(
+            bearerAuthToken: PrincipalUtil.GetOrgToken("ttd"),
+            mutationRepositoryMock: mutationRepositoryMock,
+            instanceRepositoryMock: instanceRepositoryMock
+        );
+        InstanceMutationRequest request = new()
+        {
+            ProcessState = new ProcessStateUpdate
+            {
+                State = new ProcessState
+                {
+                    Started = storedInstance.Process.Started,
+                    StartEvent = storedInstance.Process.StartEvent,
+                    Ended = ended,
+                    EndEvent = "EndEvent_1",
+                },
+            },
+        };
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            $"{SensitiveDataApp.GetInstanceUrl()}/mutations",
+            JsonContent.Create(request, options: _serializerOptions)
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        string responseBody = await response.Content.ReadAsStringAsync();
+        if (!withExistingStatus)
+        {
+            Assert.Equal(
+                """{"instance":{"id":"1337/99194777-a691-433a-ace1-225e9a691653","instanceOwner":{"partyId":"1337"},"appId":"ttd/sensitive-data","org":"ttd","selfLinks":{"platform":"https://platform.at22.altinn.cloud/storage/api/v1/instances/1337/99194777-a691-433a-ace1-225e9a691653"},"process":{"started":"2026-07-10T08:00:00Z","startEvent":"StartEvent_1","ended":"2026-07-10T09:08:07Z","endEvent":"EndEvent_1"},"status":{"isArchived":true,"archived":"2026-07-10T09:08:07Z","isSoftDeleted":false,"isHardDeleted":false,"readStatus":"Unread"},"data":[]},"createdDataElementIds":[],"replayed":false,"dataElementContentEtags":{}}""",
+                responseBody
+            );
+        }
+
+        using JsonDocument responseJson = JsonDocument.Parse(responseBody);
+        JsonElement responseStatus = responseJson
+            .RootElement.GetProperty("instance")
+            .GetProperty("status");
+        Assert.True(responseStatus.GetProperty("isArchived").GetBoolean());
+        Assert.Equal(ended, responseStatus.GetProperty("archived").GetDateTime());
+        Assert.True(storedInstance.Status.IsArchived);
+        Assert.Equal(ended, storedInstance.Status.Archived);
+        if (withExistingStatus)
+        {
+            Assert.Equal("Read", responseStatus.GetProperty("readStatus").GetString());
+            Assert.Equal(ReadStatus.Read, storedInstance.Status.ReadStatus);
+        }
+
+        Assert.Equal(ended, storedInstance.Process.Ended);
+        Assert.NotNull(capturedMutation);
+        Assert.Equal(
+            1,
+            capturedMutation.InstanceUpdateProperties.Count(property =>
+                property == nameof(InstanceInternal.Status)
+            )
+        );
+        Assert.Contains(
+            nameof(InstanceStatus.IsArchived),
+            capturedMutation.InstanceUpdateProperties
+        );
+        Assert.Contains(nameof(InstanceStatus.Archived), capturedMutation.InstanceUpdateProperties);
+    }
+
+    [Fact]
+    public async Task CommitMutation_NonEndedProcess_DoesNotTouchStatus()
+    {
+        // Arrange
+        InstanceStatus initialStatus = new() { ReadStatus = ReadStatus.Read };
+        InstanceInternal storedInstance = CreateMutationInstance(
+            new ProcessState
+            {
+                Started = new DateTime(2026, 7, 10, 8, 0, 0, DateTimeKind.Utc),
+                StartEvent = "StartEvent_1",
+                CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_1",
+                    AltinnTaskType = "data",
+                },
+            },
+            initialStatus
+        );
+        Mock<IInstanceRepository> instanceRepositoryMock = CreateMutationInstanceRepository(
+            storedInstance
+        );
+        InstanceMutationCommit capturedMutation = null;
+        Mock<IInstanceMutationRepository> mutationRepositoryMock =
+            CreatePersistingMutationRepository(
+                storedInstance,
+                mutation => capturedMutation = mutation
+            );
+        HttpClient client = GetTestClient(
+            bearerAuthToken: PrincipalUtil.GetOrgToken("ttd"),
+            mutationRepositoryMock: mutationRepositoryMock,
+            instanceRepositoryMock: instanceRepositoryMock
+        );
+        InstanceMutationRequest request = new()
+        {
+            ProcessState = new ProcessStateUpdate
+            {
+                State = new ProcessState
+                {
+                    Started = storedInstance.Process.Started,
+                    StartEvent = storedInstance.Process.StartEvent,
+                    CurrentTask = new ProcessElementInfo { ElementId = "Task_2" },
+                },
+            },
+        };
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            $"{SensitiveDataApp.GetInstanceUrl()}/mutations",
+            JsonContent.Create(request, options: _serializerOptions)
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Same(initialStatus, storedInstance.Status);
+        Assert.False(storedInstance.Status.IsArchived);
+        Assert.Null(storedInstance.Status.Archived);
+        Assert.NotNull(capturedMutation);
+        Assert.Null(capturedMutation.InstanceUpdates.Status);
+        Assert.DoesNotContain(
+            nameof(InstanceInternal.Status),
+            capturedMutation.InstanceUpdateProperties
+        );
+        Assert.DoesNotContain(
+            nameof(InstanceStatus.IsArchived),
+            capturedMutation.InstanceUpdateProperties
+        );
+        Assert.DoesNotContain(
+            nameof(InstanceStatus.Archived),
+            capturedMutation.InstanceUpdateProperties
+        );
+    }
+
+    [Fact]
+    public async Task CommitMutation_AlreadyEndedStoredProcess_ReturnsForbidden()
+    {
+        // Arrange
+        DateTime storedEnded = new(2026, 7, 10, 8, 30, 0, DateTimeKind.Utc);
+        DateTime storedArchived = new(2026, 7, 10, 8, 31, 0, DateTimeKind.Utc);
+        DateTime incomingEnded = new(2026, 7, 10, 9, 0, 0, DateTimeKind.Utc);
+        InstanceStatus initialStatus = new()
+        {
+            IsArchived = true,
+            Archived = storedArchived,
+            ReadStatus = ReadStatus.Read,
+        };
+        InstanceInternal storedInstance = CreateMutationInstance(
+            new ProcessState
+            {
+                Started = new DateTime(2026, 7, 10, 8, 0, 0, DateTimeKind.Utc),
+                StartEvent = "StartEvent_1",
+                Ended = storedEnded,
+                EndEvent = "EndEvent_1",
+            },
+            initialStatus
+        );
+        Mock<IInstanceRepository> instanceRepositoryMock = CreateMutationInstanceRepository(
+            storedInstance
+        );
+        InstanceMutationCommit capturedMutation = null;
+        Mock<IInstanceMutationRepository> mutationRepositoryMock =
+            CreatePersistingMutationRepository(
+                storedInstance,
+                mutation => capturedMutation = mutation
+            );
+        HttpClient client = GetTestClient(
+            bearerAuthToken: PrincipalUtil.GetOrgToken("ttd"),
+            mutationRepositoryMock: mutationRepositoryMock,
+            instanceRepositoryMock: instanceRepositoryMock
+        );
+        InstanceMutationRequest request = new()
+        {
+            ProcessState = new ProcessStateUpdate
+            {
+                State = new ProcessState
+                {
+                    Started = storedInstance.Process.Started,
+                    StartEvent = storedInstance.Process.StartEvent,
+                    Ended = incomingEnded,
+                    EndEvent = "EndEvent_2",
+                },
+            },
+        };
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            $"{SensitiveDataApp.GetInstanceUrl()}/mutations",
+            JsonContent.Create(request, options: _serializerOptions)
+        );
+
+        // Assert
+        // An ended process has no current task, so process-state mutations are rejected
+        // (parity with the process controller); the stored instance stays untouched.
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Same(initialStatus, storedInstance.Status);
+        Assert.True(storedInstance.Status.IsArchived);
+        Assert.Equal(storedArchived, storedInstance.Status.Archived);
+        Assert.Equal(storedEnded, storedInstance.Process.Ended);
+        Assert.Null(capturedMutation);
+    }
+
     [Fact]
     public async Task Delete_Delayed_UpdateMethodCalledInRepository()
     {
@@ -1158,10 +1467,6 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
             )
             .ReturnsAsync((0, DateTime.UtcNow));
 
-        repoMock
-            .Setup(r => r.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()))
-            .ReturnsAsync(true);
-
         string token = PrincipalUtil.GetToken(1337, 1337, 3);
         HttpClient client = GetTestClient(null, repoMock, null, token);
 
@@ -1173,16 +1478,122 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
 
         // Assert
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        repoMock.VerifyAll();
+        repoMock.Verify(
+            r =>
+                r.WriteBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<Stream>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>()
+                ),
+            Times.Once
+        );
+        repoMock.Verify(
+            r => r.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            Times.Once
+        );
+    }
+
+    private static string ExpectedDuplicateDataElementMutationIdsResponse(Guid dataElementId) =>
+        $"\"dataElementId '{dataElementId}' is referenced by more than one operation.\"";
+
+    private static InstanceInternal CreateMutationInstance(
+        ProcessState process,
+        InstanceStatus status
+    )
+    {
+        Instance instance = new()
+        {
+            Id = $"{SensitiveDataApp.InstanceOwnerPartyId}/{SensitiveDataApp.InstanceGuid}",
+            InstanceOwner = new InstanceOwner { PartyId = SensitiveDataApp.InstanceOwnerPartyId },
+            AppId = "ttd/sensitive-data",
+            Org = "ttd",
+            Process = process,
+            Status = status,
+            Data = [],
+        };
+
+        return InstanceInternalTestFactory.Create(instance, [], InternalId: 1);
+    }
+
+    private static Mock<IInstanceRepository> CreateMutationInstanceRepository(
+        InstanceInternal storedInstance
+    )
+    {
+        Mock<IInstanceRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(repository =>
+                repository.GetOne(
+                    Guid.Parse(SensitiveDataApp.InstanceGuid),
+                    true,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(storedInstance);
+        return repositoryMock;
+    }
+
+    private static Mock<IInstanceMutationRepository> CreatePersistingMutationRepository(
+        InstanceInternal storedInstance,
+        Action<InstanceMutationCommit> captureMutation
+    )
+    {
+        Mock<IInstanceMutationRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(repository =>
+                repository.Apply(
+                    Guid.Parse(SensitiveDataApp.InstanceGuid),
+                    storedInstance.InternalId,
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                (Guid _, long _, InstanceMutationCommit mutation, CancellationToken _) =>
+                {
+                    captureMutation(mutation);
+                    if (mutation.InstanceUpdateProperties.Contains(nameof(InstanceInternal.Status)))
+                    {
+                        storedInstance.Status = mutation.InstanceUpdates.Status;
+                    }
+
+                    if (
+                        mutation.InstanceUpdateProperties.Contains(nameof(InstanceInternal.Process))
+                    )
+                    {
+                        storedInstance.Process = mutation.InstanceUpdates.Process;
+                    }
+
+                    return new InstanceMutationApplyResult(false, [], storedInstance);
+                }
+            );
+        return repositoryMock;
     }
 
     private HttpClient GetTestClient(
         Mock<IDataRepository> dataRepositoryMock = null,
         Mock<IBlobRepository> blobRepositoryMock = null,
         Mock<IFileScanQueueClient> fileScanMock = null,
-        string bearerAuthToken = null
+        string bearerAuthToken = null,
+        Mock<IInstanceMutationRepository> mutationRepositoryMock = null,
+        Mock<IInstanceRepository> instanceRepositoryMock = null
     )
     {
+        if (mutationRepositoryMock is null)
+        {
+            mutationRepositoryMock = new Mock<IInstanceMutationRepository>();
+            mutationRepositoryMock
+                .Setup(repository =>
+                    repository.Apply(
+                        It.IsAny<Guid>(),
+                        It.IsAny<long>(),
+                        It.IsAny<InstanceMutationCommit>(),
+                        It.IsAny<CancellationToken>()
+                    )
+                )
+                .ReturnsAsync(new InstanceMutationApplyResult(false, []));
+        }
+
         // No setup required for these services. They are not in use by the InstanceController
         Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
         Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
@@ -1217,6 +1628,16 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
                 if (fileScanMock is not null)
                 {
                     services.AddSingleton(fileScanMock.Object);
+                }
+
+                if (mutationRepositoryMock is not null)
+                {
+                    services.AddSingleton(mutationRepositoryMock.Object);
+                }
+
+                if (instanceRepositoryMock is not null)
+                {
+                    services.AddSingleton(instanceRepositoryMock.Object);
                 }
 
                 services.AddSingleton<

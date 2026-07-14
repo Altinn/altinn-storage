@@ -12,7 +12,7 @@ namespace Altinn.Platform.Storage.Repository;
 /// <summary>
 /// Commits a batch of Storage-visible mutations for one instance.
 /// </summary>
-internal interface IInstanceMutationRepository
+public interface IInstanceMutationRepository
 {
     /// <summary>
     /// Admits a replay when an idempotent aggregate mutation has already been committed.
@@ -41,7 +41,7 @@ internal interface IInstanceMutationRepository
 /// <summary>
 /// Internal aggregate mutation prepared by the controller after blob staging.
 /// </summary>
-internal sealed record InstanceMutationCommit(
+public sealed record InstanceMutationCommit(
     IReadOnlyList<DataElementInternal> CreateDataElements,
     IReadOnlyList<InstanceMutationDataElementUpdate> UpdateDataElements,
     IReadOnlyList<InstanceMutationDataElementDelete> DeleteDataElements,
@@ -58,7 +58,7 @@ internal sealed record InstanceMutationCommit(
 /// <summary>
 /// Result from applying an aggregate mutation.
 /// </summary>
-internal sealed record InstanceMutationApplyResult(
+public sealed record InstanceMutationApplyResult(
     bool Replayed,
     IReadOnlyList<string> CreatedDataElementIds,
     InstanceInternal Instance = null
@@ -67,7 +67,7 @@ internal sealed record InstanceMutationApplyResult(
 /// <summary>
 /// Internal data element update prepared by the controller after blob staging.
 /// </summary>
-internal sealed record InstanceMutationDataElementUpdate(
+public sealed record InstanceMutationDataElementUpdate(
     Guid DataElementId,
     Dictionary<string, object> Properties,
     string ExpectedCurrentBlobVersion,
@@ -77,7 +77,7 @@ internal sealed record InstanceMutationDataElementUpdate(
 /// <summary>
 /// Internal data element delete prepared by the controller.
 /// </summary>
-internal sealed record InstanceMutationDataElementDelete(
+public sealed record InstanceMutationDataElementDelete(
     DataElementInternal DataElement,
     bool IgnoreLock = false
 );

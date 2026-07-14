@@ -47,7 +47,11 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         "select storage.createblobversion($1, $2, $3, $4, $5, $6)";
     private readonly string _deleteBlobVersionSql =
         "select * from storage.deleteblobversion($1, $2)";
+    private readonly string _deleteBlobVersionsSql =
+        "select * from storage.deleteblobversions($1, $2)";
     private readonly string _readBlobVersionsSql = "select * from storage.readblobversions($1)";
+    private readonly string _readDetachedBlobVersionsSql =
+        "select * from storage.readdetachedblobversions($1)";
     private readonly string _existsSql = "select * from storage.readdataelementexists($1)";
 
     private readonly ILogger<PgDataRepository> _logger = logger;
@@ -626,10 +630,22 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     public async Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadBlobVersions(
         Guid dataElementId,
         CancellationToken cancellationToken = default
+    ) => await ReadBlobVersions(_readBlobVersionsSql, dataElementId, cancellationToken);
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadDetachedBlobVersions(
+        Guid dataElementId,
+        CancellationToken cancellationToken = default
+    ) => await ReadBlobVersions(_readDetachedBlobVersionsSql, dataElementId, cancellationToken);
+
+    private async Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadBlobVersions(
+        string sql,
+        Guid dataElementId,
+        CancellationToken cancellationToken
     )
     {
         List<BlobVersionReferencesInternal> blobVersions = [];
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readBlobVersionsSql);
+        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(sql);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
 
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
@@ -680,6 +696,27 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
 
         int rc = (int)await pgcom.ExecuteScalarAsync(cancellationToken);
         return rc == 1;
+    }
+
+    /// <inheritdoc/>
+    public async Task<int> DeleteBlobVersions(
+        Guid dataElementId,
+        IReadOnlyList<string> blobVersionIds,
+        CancellationToken cancellationToken = default
+    )
+    {
+        Guid[] versions =
+            blobVersionIds
+                ?.Where(versionId => !string.IsNullOrEmpty(versionId))
+                .Select(BlobVersionId.Decode)
+                .ToArray()
+            ?? [];
+
+        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteBlobVersionsSql);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Array | NpgsqlDbType.Uuid, versions);
+
+        return (int)await pgcom.ExecuteScalarAsync(cancellationToken);
     }
 
     /// <inheritdoc/>

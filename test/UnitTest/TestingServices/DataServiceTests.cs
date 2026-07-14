@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
@@ -13,7 +11,10 @@ using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
+using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
+using Microsoft.Extensions.Logging;
 using Moq;
+using Npgsql;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingServices;
@@ -765,8 +766,7 @@ public class DataServiceTests
         );
 
         InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () =>
-                dataService.DeleteImmediately(instance, dataElement, null)
+            () => dataService.DeleteImmediately(instance, dataElement, null)
         );
 
         Assert.Equal("cleanup failed", exception.Message);
@@ -915,7 +915,7 @@ public class DataServiceTests
                 repository.Update(
                     instanceGuid,
                     dataElementId,
-                    It.IsAny<System.Collections.Generic.Dictionary<string, object>>(),
+                    It.IsAny<Dictionary<string, object>>(),
                     It.IsAny<DataElementUpdateContext>(),
                     CancellationToken.None
                 )
@@ -990,6 +990,672 @@ public class DataServiceTests
         );
         dataRepository.VerifyAll();
         eventService.VerifyAll();
+    }
+
+    [Fact]
+    public async Task CleanupDeletedDataElementBlobs_LegacyBlobDeleteThrows_DoesNotThrow()
+    {
+        Mock<IFileScanQueueClient> fileScanQueueClientMock = new Mock<IFileScanQueueClient>();
+        Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
+        Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+
+        dataRepositoryMock
+            .Setup(drm =>
+                drm.ReadDetachedBlobVersions(It.IsAny<Guid>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(Array.Empty<BlobVersionReferencesInternal>());
+
+        blobRepositoryMock
+            .Setup(drm => drm.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()))
+            .ThrowsAsync(new InvalidOperationException("cleanup failed"));
+
+        DataService dataService = new DataService(
+            fileScanQueueClientMock.Object,
+            dataRepositoryMock.Object,
+            blobRepositoryMock.Object,
+            Mock.Of<IInstanceEventService>(),
+            Mock.Of<ILogger<DataService>>()
+        );
+
+        Guid instanceGuid = Guid.NewGuid();
+        var instance = new Instance
+        {
+            Id = $"1337/{instanceGuid}",
+            AppId = "ttd/app",
+            Org = "ttd",
+        };
+        var dataElement = new DataElement
+        {
+            Id = Guid.NewGuid().ToString(),
+            InstanceGuid = instanceGuid.ToString(),
+            BlobStoragePath = "ttd/app/instance-guid/data/element",
+        };
+
+        await dataService.CleanupDeletedDataElementBlobs(
+            instance.FromApiModel(),
+            dataElement.FromApiModel(null),
+            null
+        );
+
+        blobRepositoryMock.Verify(
+            drm => drm.DeleteBlob("ttd", dataElement.BlobStoragePath, null),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task CleanupDeletedDataElementBlobs_DeletesLegacyBlob()
+    {
+        Mock<IFileScanQueueClient> fileScanQueueClientMock = new Mock<IFileScanQueueClient>();
+        Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
+        Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+
+        Guid dataElementId = Guid.NewGuid();
+        Guid instanceGuid = Guid.NewGuid();
+        const string currentBlobStoragePath = "ttd/app/instance-guid/data/element";
+
+        dataRepositoryMock
+            .Setup(drm =>
+                drm.ReadDetachedBlobVersions(dataElementId, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(Array.Empty<BlobVersionReferencesInternal>());
+        blobRepositoryMock
+            .Setup(drm => drm.DeleteBlob("ttd", currentBlobStoragePath, null))
+            .ReturnsAsync(true);
+        DataService dataService = new DataService(
+            fileScanQueueClientMock.Object,
+            dataRepositoryMock.Object,
+            blobRepositoryMock.Object,
+            Mock.Of<IInstanceEventService>(),
+            Mock.Of<ILogger<DataService>>()
+        );
+        Instance instance = new()
+        {
+            Id = $"1337/{instanceGuid}",
+            AppId = "ttd/app",
+            Org = "ttd",
+        };
+        DataElement dataElement = new()
+        {
+            Id = dataElementId.ToString(),
+            InstanceGuid = instanceGuid.ToString(),
+            BlobStoragePath = currentBlobStoragePath,
+        };
+
+        await dataService.CleanupDeletedDataElementBlobs(
+            instance.FromApiModel(),
+            dataElement.FromApiModel(null),
+            null
+        );
+
+        blobRepositoryMock.Verify(
+            drm => drm.DeleteBlob("ttd", currentBlobStoragePath, null),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task CleanupDeletedDataElementBlobs_DetachedBlobVersionReadThrows_StillDeletesLegacyBlob()
+    {
+        Mock<IFileScanQueueClient> fileScanQueueClientMock = new Mock<IFileScanQueueClient>();
+        Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
+        Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+
+        Guid dataElementId = Guid.NewGuid();
+        Guid instanceGuid = Guid.NewGuid();
+        string legacyBlobStoragePath = $"ttd/app/{instanceGuid}/data/{dataElementId}";
+
+        dataRepositoryMock
+            .Setup(drm =>
+                drm.ReadDetachedBlobVersions(dataElementId, It.IsAny<CancellationToken>())
+            )
+            .ThrowsAsync(new InvalidOperationException("read failed"));
+
+        DataService dataService = new DataService(
+            fileScanQueueClientMock.Object,
+            dataRepositoryMock.Object,
+            blobRepositoryMock.Object,
+            Mock.Of<IInstanceEventService>(),
+            Mock.Of<ILogger<DataService>>()
+        );
+        Instance instance = new()
+        {
+            Id = $"1337/{instanceGuid}",
+            AppId = "ttd/app",
+            Org = "ttd",
+        };
+        DataElement dataElement = new()
+        {
+            Id = dataElementId.ToString(),
+            InstanceGuid = instanceGuid.ToString(),
+            BlobStoragePath = legacyBlobStoragePath,
+        };
+
+        await dataService.CleanupDeletedDataElementBlobs(
+            instance.FromApiModel(),
+            dataElement.FromApiModel(null),
+            null
+        );
+
+        blobRepositoryMock.Verify(
+            drm => drm.DeleteBlob("ttd", legacyBlobStoragePath, null),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task CleanupDeletedDataElementBlobs_WithDetachedBlobVersions_AttemptsAllPhysicalDeletesBeforeBatchMetadataDelete()
+    {
+        string firstBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        string secondBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        List<string> callOrder = [];
+        IReadOnlyList<string> deletedMetadataIds = [];
+        Mock<IFileScanQueueClient> fileScanQueueClientMock = new Mock<IFileScanQueueClient>();
+        Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
+        Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+
+        Guid dataElementId = Guid.NewGuid();
+        Guid instanceGuid = Guid.NewGuid();
+        const int blobStorageAccountNumber = 7;
+        string legacyBlobStoragePath = $"ttd/app/{instanceGuid}/data/{dataElementId}";
+        string firstBlobStoragePath =
+            $"stored/app/{instanceGuid}/data-elements/{firstBlobVersionId}";
+        string secondBlobStoragePath =
+            $"stored/app/{instanceGuid}/data-elements/{secondBlobVersionId}";
+
+        dataRepositoryMock
+            .Setup(drm =>
+                drm.ReadDetachedBlobVersions(dataElementId, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync([
+                new BlobVersionReferencesInternal(
+                    instanceGuid,
+                    "stored/app",
+                    "storage-org",
+                    blobStorageAccountNumber,
+                    [firstBlobVersionId, secondBlobVersionId]
+                ),
+            ]);
+        blobRepositoryMock
+            .Setup(drm =>
+                drm.DeleteBlobsIfExists(
+                    "storage-org",
+                    It.IsAny<IReadOnlyList<string>>(),
+                    blobStorageAccountNumber,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .Callback<string, IReadOnlyList<string>, int?, CancellationToken>(
+                (_, blobStoragePaths, _, _) =>
+                {
+                    Assert.Equal([firstBlobStoragePath, secondBlobStoragePath], blobStoragePaths);
+                    callOrder.Add("blob-batch");
+                }
+            )
+            .ReturnsAsync([true, true]);
+        blobRepositoryMock
+            .Setup(drm => drm.DeleteBlob("ttd", legacyBlobStoragePath, null))
+            .ReturnsAsync(true);
+        dataRepositoryMock
+            .Setup(drm =>
+                drm.DeleteBlobVersions(
+                    dataElementId,
+                    It.IsAny<IReadOnlyList<string>>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .Callback<Guid, IReadOnlyList<string>, CancellationToken>(
+                (_, blobVersionIds, _) =>
+                {
+                    deletedMetadataIds = [.. blobVersionIds];
+                    callOrder.Add("metadata");
+                }
+            )
+            .ReturnsAsync(2);
+        DataService dataService = new DataService(
+            fileScanQueueClientMock.Object,
+            dataRepositoryMock.Object,
+            blobRepositoryMock.Object,
+            Mock.Of<IInstanceEventService>(),
+            Mock.Of<ILogger<DataService>>()
+        );
+        Instance instance = new()
+        {
+            Id = $"1337/{instanceGuid}",
+            AppId = "ttd/app",
+            Org = "ttd",
+        };
+        DataElement dataElement = new()
+        {
+            Id = dataElementId.ToString(),
+            InstanceGuid = instanceGuid.ToString(),
+            BlobStoragePath = $"stored/app/{instanceGuid}/data-elements/{secondBlobVersionId}",
+        };
+
+        await dataService.CleanupDeletedDataElementBlobs(
+            instance.FromApiModel(),
+            dataElement.FromApiModel(secondBlobVersionId),
+            null
+        );
+
+        blobRepositoryMock.Verify(
+            drm =>
+                drm.DeleteBlobsIfExists(
+                    "storage-org",
+                    It.IsAny<IReadOnlyList<string>>(),
+                    blobStorageAccountNumber,
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+        Assert.Equal(["blob-batch", "metadata"], callOrder);
+        Assert.Equal([firstBlobVersionId, secondBlobVersionId], deletedMetadataIds);
+        dataRepositoryMock.Verify(
+            drm =>
+                drm.DeleteBlobVersions(
+                    dataElementId,
+                    It.IsAny<IReadOnlyList<string>>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+        dataRepositoryMock.Verify(
+            drm =>
+                drm.DeleteBlobVersion(
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+        blobRepositoryMock.Verify(
+            drm => drm.DeleteBlob("ttd", legacyBlobStoragePath, null),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task CleanupDeletedDataElementBlobs_DetachedBlobBatchPartialSuccess_LeavesFailedIdOutOfBatchMetadataDelete()
+    {
+        string failedBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        string successfulBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        IReadOnlyList<string> deletedMetadataIds = [];
+        Mock<IFileScanQueueClient> fileScanQueueClientMock = new Mock<IFileScanQueueClient>();
+        Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
+        Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+
+        Guid dataElementId = Guid.NewGuid();
+        Guid instanceGuid = Guid.NewGuid();
+        const int blobStorageAccountNumber = 7;
+        string failedBlobStoragePath =
+            $"stored/app/{instanceGuid}/data-elements/{failedBlobVersionId}";
+        string successfulBlobStoragePath =
+            $"stored/app/{instanceGuid}/data-elements/{successfulBlobVersionId}";
+
+        dataRepositoryMock
+            .Setup(drm =>
+                drm.ReadDetachedBlobVersions(dataElementId, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync([
+                new BlobVersionReferencesInternal(
+                    instanceGuid,
+                    "stored/app",
+                    "storage-org",
+                    blobStorageAccountNumber,
+                    [failedBlobVersionId, successfulBlobVersionId]
+                ),
+            ]);
+        blobRepositoryMock
+            .Setup(drm =>
+                drm.DeleteBlobsIfExists(
+                    "storage-org",
+                    It.IsAny<IReadOnlyList<string>>(),
+                    blobStorageAccountNumber,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .Callback<string, IReadOnlyList<string>, int?, CancellationToken>(
+                (_, blobStoragePaths, _, _) =>
+                    Assert.Equal(
+                        [failedBlobStoragePath, successfulBlobStoragePath],
+                        blobStoragePaths
+                    )
+            )
+            .ReturnsAsync([false, true]);
+        blobRepositoryMock
+            .Setup(drm =>
+                drm.DeleteBlob("ttd", $"ttd/app/{instanceGuid}/data/{dataElementId}", null)
+            )
+            .ReturnsAsync(true);
+        dataRepositoryMock
+            .Setup(drm =>
+                drm.DeleteBlobVersions(
+                    dataElementId,
+                    It.IsAny<IReadOnlyList<string>>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .Callback<Guid, IReadOnlyList<string>, CancellationToken>(
+                (_, blobVersionIds, _) => deletedMetadataIds = [.. blobVersionIds]
+            )
+            .ReturnsAsync(1);
+        DataService dataService = new DataService(
+            fileScanQueueClientMock.Object,
+            dataRepositoryMock.Object,
+            blobRepositoryMock.Object,
+            Mock.Of<IInstanceEventService>(),
+            Mock.Of<ILogger<DataService>>()
+        );
+        Instance instance = new()
+        {
+            Id = $"1337/{instanceGuid}",
+            AppId = "ttd/app",
+            Org = "ttd",
+        };
+        DataElement dataElement = new()
+        {
+            Id = dataElementId.ToString(),
+            InstanceGuid = instanceGuid.ToString(),
+            BlobStoragePath = $"stored/app/{instanceGuid}/data-elements/{successfulBlobVersionId}",
+        };
+
+        await dataService.CleanupDeletedDataElementBlobs(
+            instance.FromApiModel(),
+            dataElement.FromApiModel(successfulBlobVersionId),
+            null
+        );
+
+        Assert.Equal([successfulBlobVersionId], deletedMetadataIds);
+        dataRepositoryMock.Verify(
+            drm =>
+                drm.DeleteBlobVersions(
+                    dataElementId,
+                    It.IsAny<IReadOnlyList<string>>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+        dataRepositoryMock.Verify(
+            drm =>
+                drm.DeleteBlobVersion(
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task CleanupDeletedDataElementBlobs_DetachedBlobBatchDeleteThrows_DoesNotDeleteMetadataRows()
+    {
+        string blobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        InvalidOperationException batchException = new("batch submit failed");
+        Mock<IFileScanQueueClient> fileScanQueueClientMock = new Mock<IFileScanQueueClient>();
+        Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
+        Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+        Mock<ILogger<DataService>> loggerMock = new Mock<ILogger<DataService>>();
+
+        Guid dataElementId = Guid.NewGuid();
+        Guid instanceGuid = Guid.NewGuid();
+        const int blobStorageAccountNumber = 7;
+
+        dataRepositoryMock
+            .Setup(drm =>
+                drm.ReadDetachedBlobVersions(dataElementId, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync([
+                new BlobVersionReferencesInternal(
+                    instanceGuid,
+                    "stored/app",
+                    "storage-org",
+                    blobStorageAccountNumber,
+                    [blobVersionId]
+                ),
+            ]);
+        blobRepositoryMock
+            .Setup(drm =>
+                drm.DeleteBlobsIfExists(
+                    "storage-org",
+                    It.IsAny<IReadOnlyList<string>>(),
+                    blobStorageAccountNumber,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(batchException);
+        blobRepositoryMock
+            .Setup(drm =>
+                drm.DeleteBlob("ttd", $"ttd/app/{instanceGuid}/data/{dataElementId}", null)
+            )
+            .ReturnsAsync(true);
+        DataService dataService = new DataService(
+            fileScanQueueClientMock.Object,
+            dataRepositoryMock.Object,
+            blobRepositoryMock.Object,
+            Mock.Of<IInstanceEventService>(),
+            logger: loggerMock.Object
+        );
+        Instance instance = new()
+        {
+            Id = $"1337/{instanceGuid}",
+            AppId = "ttd/app",
+            Org = "ttd",
+        };
+        DataElement dataElement = new()
+        {
+            Id = dataElementId.ToString(),
+            InstanceGuid = instanceGuid.ToString(),
+            BlobStoragePath = $"stored/app/{instanceGuid}/data-elements/{blobVersionId}",
+        };
+
+        await dataService.CleanupDeletedDataElementBlobs(
+            instance.FromApiModel(),
+            dataElement.FromApiModel(blobVersionId),
+            null
+        );
+
+        dataRepositoryMock.Verify(
+            drm =>
+                drm.DeleteBlobVersions(
+                    It.IsAny<Guid>(),
+                    It.IsAny<IReadOnlyList<string>>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+        dataRepositoryMock.Verify(
+            drm =>
+                drm.DeleteBlobVersion(
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+        loggerMock.Verify(
+            logger =>
+                logger.Log(
+                    LogLevel.Warning,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>((_, _) => true),
+                    batchException,
+                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task CleanupDeletedDataElementBlobs_DetachedMetadataBatchDeleteThrows_LogsAndContinues()
+    {
+        string blobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        InvalidOperationException metadataException = new("metadata delete failed");
+        Mock<IFileScanQueueClient> fileScanQueueClientMock = new Mock<IFileScanQueueClient>();
+        Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
+        Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+        Mock<ILogger<DataService>> loggerMock = new Mock<ILogger<DataService>>();
+
+        Guid dataElementId = Guid.NewGuid();
+        Guid instanceGuid = Guid.NewGuid();
+        const int blobStorageAccountNumber = 7;
+        string legacyBlobStoragePath = $"ttd/app/{instanceGuid}/data/{dataElementId}";
+        string blobStoragePath = $"stored/app/{instanceGuid}/data-elements/{blobVersionId}";
+
+        dataRepositoryMock
+            .Setup(drm =>
+                drm.ReadDetachedBlobVersions(dataElementId, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync([
+                new BlobVersionReferencesInternal(
+                    instanceGuid,
+                    "stored/app",
+                    "storage-org",
+                    blobStorageAccountNumber,
+                    [blobVersionId]
+                ),
+            ]);
+        blobRepositoryMock
+            .Setup(drm =>
+                drm.DeleteBlobsIfExists(
+                    "storage-org",
+                    It.IsAny<IReadOnlyList<string>>(),
+                    blobStorageAccountNumber,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync([true]);
+        blobRepositoryMock
+            .Setup(drm => drm.DeleteBlob("ttd", legacyBlobStoragePath, null))
+            .ReturnsAsync(true);
+        dataRepositoryMock
+            .Setup(drm =>
+                drm.DeleteBlobVersions(
+                    dataElementId,
+                    It.IsAny<IReadOnlyList<string>>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(metadataException);
+        DataService dataService = new DataService(
+            fileScanQueueClientMock.Object,
+            dataRepositoryMock.Object,
+            blobRepositoryMock.Object,
+            Mock.Of<IInstanceEventService>(),
+            logger: loggerMock.Object
+        );
+        Instance instance = new()
+        {
+            Id = $"1337/{instanceGuid}",
+            AppId = "ttd/app",
+            Org = "ttd",
+        };
+        DataElement dataElement = new()
+        {
+            Id = dataElementId.ToString(),
+            InstanceGuid = instanceGuid.ToString(),
+            BlobStoragePath = $"stored/app/{instanceGuid}/data-elements/{blobVersionId}",
+        };
+
+        await dataService.CleanupDeletedDataElementBlobs(
+            instance.FromApiModel(),
+            dataElement.FromApiModel(blobVersionId),
+            null
+        );
+
+        blobRepositoryMock.Verify(
+            drm => drm.DeleteBlob("ttd", legacyBlobStoragePath, null),
+            Times.Once
+        );
+        loggerMock.Verify(
+            logger =>
+                logger.Log(
+                    LogLevel.Warning,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>((_, _) => true),
+                    metadataException,
+                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()
+                ),
+            Times.Once
+        );
+    }
+
+    public static TheoryData<Exception, bool> RollbackClassificationData =>
+        new()
+        {
+            { new PostgresException("deadlock detected", "ERROR", "ERROR", "40P01"), true },
+            {
+                new OperationCanceledException(
+                    "canceled",
+                    new PostgresException("deadlock detected", "ERROR", "ERROR", "40P01")
+                ),
+                true
+            },
+            {
+                new AggregateException(
+                    new TimeoutException("timeout"),
+                    new PostgresException("unique violation", "ERROR", "ERROR", "23505")
+                ),
+                false
+            },
+            {
+                new AggregateException(
+                    new PostgresException("unique violation", "ERROR", "ERROR", "23505"),
+                    new RepositoryException("instance is deleted", HttpStatusCode.NotFound)
+                ),
+                true
+            },
+            {
+                new AggregateException(
+                    new AggregateException(
+                        new PostgresException("deadlock detected", "ERROR", "ERROR", "40P01")
+                    )
+                ),
+                true
+            },
+            {
+                new AggregateException(
+                    new OperationCanceledException(
+                        "canceled",
+                        new PostgresException("deadlock detected", "ERROR", "ERROR", "40P01")
+                    )
+                ),
+                true
+            },
+            {
+                new AggregateException(
+                    new TimeoutException("timeout"),
+                    new NpgsqlException("broken connection")
+                ),
+                false
+            },
+            {
+                new AggregateException(
+                    new PostgresException("deadlock detected", "ERROR", "ERROR", "40P01"),
+                    new AggregateException(new TimeoutException("timeout"))
+                ),
+                false
+            },
+            { new AggregateException(), false },
+            { new RepositoryException("instance is deleted", HttpStatusCode.NotFound), true },
+            { new InstanceVersionMismatchException(8, 3), true },
+            { new ProcessStateVersionMismatchException(8, 3), true },
+            { new DataElementBlobVersionMismatchException("blob version mismatch", 8, 3), true },
+            { new OperationCanceledException("canceled"), false },
+            { new TaskCanceledException("canceled"), false },
+            { new TimeoutException("timed out"), false },
+            { new ObjectDisposedException("connection"), false },
+            { new NpgsqlException("broken connection"), false },
+            { new InvalidOperationException("unknown failure"), false },
+        };
+
+    [Theory]
+    [MemberData(nameof(RollbackClassificationData))]
+    public void IndicatesDefiniteRollback_ClassifiesExceptionChain(
+        Exception exception,
+        bool expectedDefiniteRollback
+    )
+    {
+        Assert.Equal(expectedDefiniteRollback, DataService.IndicatesDefiniteRollback(exception));
     }
 
     private static DataService CreateDataService(
