@@ -1022,47 +1022,13 @@ public class InstancesController : ControllerBase
     )
     {
         string orgClaim = User.GetOrg();
-        int? userId = User.GetUserId();
-        SystemUserClaim systemUser = User.GetSystemUser();
 
         if (orgClaim != null)
         {
-            if (
-                !hasSyncAdapterScope
-                && !_authorizationService.UserHasRequiredScope(_generalSettings.InstanceReadScope)
-            )
-            {
-                return Forbid();
-            }
-
-            if (
-                string.IsNullOrEmpty(queryParameters.Org)
-                && string.IsNullOrEmpty(queryParameters.AppId)
-            )
-            {
-                return BadRequest("Org or AppId must be defined.");
-            }
-
-            if (string.IsNullOrEmpty(queryParameters.Org))
-            {
-                queryParameters.Org = queryParameters.AppId.Split('/')[0];
-            }
-
-            if (
-                !hasSyncAdapterScope
-                && !orgClaim.Equals(
-                    queryParameters.Org,
-                    StringComparison.InvariantCultureIgnoreCase
-                )
-            )
-            {
-                return await AuthorizeCrossOrgAccess(queryParameters);
-            }
-
-            return null;
+            return await AuthorizeOrgCaller(queryParameters, hasSyncAdapterScope, orgClaim);
         }
 
-        if (userId is not null || systemUser is not null)
+        if (User.GetUserId() is not null || User.GetSystemUser() is not null)
         {
             if (
                 queryParameters.InstanceOwnerPartyId == null
@@ -1078,6 +1044,51 @@ public class InstancesController : ControllerBase
         }
 
         return BadRequest();
+    }
+
+    /// <summary>
+    /// Authorizes an org/service owner caller, resolving the org from the query parameters and
+    /// verifying scope and cross-org access.
+    /// </summary>
+    /// <returns>
+    /// <c>null</c> when access is granted and processing should continue; otherwise an
+    /// <see cref="ActionResult"/> the caller must return immediately.
+    /// </returns>
+    private async Task<ActionResult> AuthorizeOrgCaller(
+        InstanceQueryParameters queryParameters,
+        bool hasSyncAdapterScope,
+        string orgClaim
+    )
+    {
+        if (
+            !hasSyncAdapterScope
+            && !_authorizationService.UserHasRequiredScope(_generalSettings.InstanceReadScope)
+        )
+        {
+            return Forbid();
+        }
+
+        if (
+            string.IsNullOrEmpty(queryParameters.Org) && string.IsNullOrEmpty(queryParameters.AppId)
+        )
+        {
+            return BadRequest("Org or AppId must be defined.");
+        }
+
+        if (string.IsNullOrEmpty(queryParameters.Org))
+        {
+            queryParameters.Org = queryParameters.AppId.Split('/')[0];
+        }
+
+        if (
+            !hasSyncAdapterScope
+            && !orgClaim.Equals(queryParameters.Org, StringComparison.InvariantCultureIgnoreCase)
+        )
+        {
+            return await AuthorizeCrossOrgAccess(queryParameters);
+        }
+
+        return null;
     }
 
     /// <summary>
