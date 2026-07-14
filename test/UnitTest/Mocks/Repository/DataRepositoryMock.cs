@@ -143,7 +143,9 @@ public class DataRepositoryMock : IDataRepository
         )
         {
             throw new DataElementBlobVersionMismatchException(
-                "Data element current blob version did not match expected version."
+                "Data element current blob version did not match expected version.",
+                _instanceVersion,
+                _processStateVersion
             );
         }
 

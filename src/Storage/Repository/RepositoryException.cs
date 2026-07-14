@@ -52,11 +52,31 @@ public class RepositoryException : Exception
 public class DataElementBlobVersionMismatchException : RepositoryException
 {
     /// <summary>
-    /// Create DataElementBlobVersionMismatchException with message and conflict status.
+    /// Create DataElementBlobVersionMismatchException with message, conflict status and current storage versions.
     /// </summary>
     /// <param name="message">Exception message</param>
-    public DataElementBlobVersionMismatchException(string message)
-        : base(message, HttpStatusCode.Conflict) { }
+    /// <param name="currentInstanceVersion">Current aggregate instance version.</param>
+    /// <param name="currentProcessStateVersion">Current process-state version.</param>
+    public DataElementBlobVersionMismatchException(
+        string message,
+        int currentInstanceVersion,
+        int currentProcessStateVersion
+    )
+        : base(message, HttpStatusCode.Conflict)
+    {
+        CurrentInstanceVersion = currentInstanceVersion;
+        CurrentProcessStateVersion = currentProcessStateVersion;
+    }
+
+    /// <summary>
+    /// Current aggregate instance version.
+    /// </summary>
+    public int CurrentInstanceVersion { get; }
+
+    /// <summary>
+    /// Current process-state version.
+    /// </summary>
+    public int CurrentProcessStateVersion { get; }
 }
 
 /// <summary>

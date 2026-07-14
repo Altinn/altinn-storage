@@ -3,9 +3,9 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Messages;
 using Altinn.Platform.Storage.Models;
@@ -120,17 +120,18 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
 
             if (_outboxRepository != null && events.Count > 0)
             {
-                InstanceEvent eventForSync = events.OrderByDescending(e => e.Created).First();
+                InstanceEventType eventType =
+                    OutboxEventSyncPolicy.SelectEventTypeForInstanceMutation(events);
                 SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
                     updateResult.AppId,
                     updateResult.InstanceOwner.PartyId,
                     updateResult.Id,
                     (DateTime)updateResult.Created,
                     false,
-                    Enum.Parse<Interface.Enums.InstanceEventType>(eventForSync.EventType)
+                    eventType
                 );
 
-                await _outboxRepository.Insert(instanceUpdateCommand, connection);
+                await _outboxRepository.Insert(instanceUpdateCommand, connection, tx);
             }
 
             await tx.CommitAsync(cancellationToken);

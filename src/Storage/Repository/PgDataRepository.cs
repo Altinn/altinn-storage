@@ -345,7 +345,9 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
                         HttpStatusCode.Conflict
                     ),
                     "version_mismatch" => new DataElementBlobVersionMismatchException(
-                        $"Data element {dataElementId} current blob version did not match expected version."
+                        $"Data element {dataElementId} current blob version did not match expected version.",
+                        reader.GetInt32(reader.GetOrdinal("instanceversion")),
+                        reader.GetInt32(reader.GetOrdinal("processstateversion"))
                     ),
                     "blob_version_not_found" => new RepositoryException(
                         $"Blob version was not available for data element {dataElementId}.",

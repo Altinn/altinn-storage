@@ -254,7 +254,7 @@ public class PgA2Repository(
     {
         await using var connection = await _dataSource.OpenConnectionAsync();
         await using var tx = await connection.BeginTransactionAsync();
-        await using NpgsqlCommand pgcom = new(_updateMigrationStateCompletedSql, connection);
+        await using NpgsqlCommand pgcom = new(_updateMigrationStateCompletedSql, connection, tx);
         pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, new Guid(instance.Id));
 
         await pgcom.ExecuteNonQueryAsync();
@@ -269,7 +269,7 @@ public class PgA2Repository(
                 true,
                 InstanceEventType.Created
             );
-            await outboxRepository.Insert(instanceUpdateCommand, connection);
+            await outboxRepository.Insert(instanceUpdateCommand, connection, tx);
         }
 
         await tx.CommitAsync();
@@ -293,7 +293,17 @@ public class PgA2Repository(
             InstanceEventType.Deleted
         );
 
-        await outboxRepository.Insert(instanceUpdateCommand, connection);
+        await using var tx = await connection.BeginTransactionAsync();
+        try
+        {
+            await outboxRepository.Insert(instanceUpdateCommand, connection, tx);
+            await tx.CommitAsync();
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
     }
 
     /// <inheritdoc/>

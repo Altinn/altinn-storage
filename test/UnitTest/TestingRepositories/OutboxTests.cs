@@ -41,8 +41,13 @@ public class OutboxTests
     public async Task Insert_EnableSendingFalse_DoesNotInsertRow()
     {
         var cmdObj = CreateCommand(Guid.NewGuid().ToString());
+        await using NpgsqlConnection connection = GetConnection();
 
-        await GetRepo(new WolverineSettings() { EnableSending = false }).Insert(cmdObj, null);
+        await InsertAndCommit(
+            GetRepo(new WolverineSettings() { EnableSending = false }),
+            cmdObj,
+            connection
+        );
 
         string sql = $"select count(*) from storage.outbox";
         int count = await PostgresUtil.RunCountQuery(sql);
@@ -55,7 +60,7 @@ public class OutboxTests
         var cmdObj = CreateCommand(Guid.NewGuid().ToString());
         await using NpgsqlConnection connection = GetConnection();
 
-        await GetRepo().Insert(cmdObj, connection);
+        await InsertAndCommit(GetRepo(), cmdObj, connection);
 
         string sql = $"select count(*) from storage.outbox";
         int count = await PostgresUtil.RunCountQuery(sql);
@@ -63,7 +68,7 @@ public class OutboxTests
     }
 
     [Fact]
-    public async Task Insert_SecondInsertWithEarlierValidFrom_UpdatesValidFrom()
+    public async Task Insert_SecondInsertWithEarlierValidFrom_UpdatesValidFromAndKeepsEventType()
     {
         var sharedId = Guid.NewGuid().ToString();
         var now = DateTime.UtcNow;
@@ -71,16 +76,36 @@ public class OutboxTests
         var second = CreateCommand(sharedId, created: now, evt: InstanceEventType.Deleted);
         await using NpgsqlConnection connection = GetConnection();
 
-        await GetRepo().Insert(first, connection);
-        await GetRepo().Insert(second, connection);
+        await InsertAndCommit(GetRepo(), first, connection);
+        await InsertAndCommit(GetRepo(), second, connection);
 
         string sql = $"select count(*) from storage.outbox";
         int count = await PostgresUtil.RunCountQuery(sql);
         sql = $"select validfrom from storage.outbox";
         DateTime validfrom = await PostgresUtil.RunQuery<DateTime>(sql);
+        sql = $"select instanceeventtype::int from storage.outbox";
+        int instanceEventType = await PostgresUtil.RunQuery<int>(sql);
         var diff = validfrom - now;
         Assert.Equal(1, count);
         Assert.True(diff.TotalSeconds < 2); // Less than the delay given for Saved event
+        Assert.Equal((int)InstanceEventType.Saved, instanceEventType);
+    }
+
+    [Fact]
+    public async Task Insert_SecondInsertWithLaterValidFrom_DoesNotReplaceUrgentEventType()
+    {
+        var sharedId = Guid.NewGuid().ToString();
+        var now = DateTime.UtcNow;
+        var first = CreateCommand(sharedId, created: now, evt: InstanceEventType.Deleted);
+        var second = CreateCommand(sharedId, created: now, evt: InstanceEventType.Saved);
+        await using NpgsqlConnection connection = GetConnection();
+
+        await InsertAndCommit(GetRepo(), first, connection);
+        await InsertAndCommit(GetRepo(), second, connection);
+        var dps = await GetRepo().Poll(10);
+
+        SyncInstanceToDialogportenCommand dp = Assert.Single(dps);
+        Assert.Equal(InstanceEventType.Deleted, dp.EventType);
     }
 
     [Fact]
@@ -97,9 +122,9 @@ public class OutboxTests
         );
         await using NpgsqlConnection connection = GetConnection();
 
-        await GetRepo().Insert(first, connection);
-        await GetRepo().Insert(second, connection);
-        await GetRepo().Insert(third, connection);
+        await InsertAndCommit(GetRepo(), first, connection);
+        await InsertAndCommit(GetRepo(), second, connection);
+        await InsertAndCommit(GetRepo(), third, connection);
         var dps = await GetRepo().Poll(10);
 
         Assert.Equal(2, dps.Count);
@@ -111,12 +136,36 @@ public class OutboxTests
         var cmdObj = CreateCommand(Guid.NewGuid().ToString());
         await using NpgsqlConnection connection = GetConnection();
 
-        await GetRepo().Insert(cmdObj, connection);
+        await InsertAndCommit(GetRepo(), cmdObj, connection);
         await GetRepo().Delete(Guid.Parse(cmdObj.InstanceId));
 
         string sql = $"select count(*) from storage.outbox";
         int count = await PostgresUtil.RunCountQuery(sql);
         Assert.Equal(0, count);
+    }
+
+    [Fact]
+    public async Task Insert_WithTransaction_RollsBackWithTransaction()
+    {
+        var cmdObj = CreateCommand(Guid.NewGuid().ToString());
+        await using NpgsqlConnection connection = GetConnection();
+        await using NpgsqlTransaction tx = await connection.BeginTransactionAsync();
+
+        await GetRepo().Insert(cmdObj, connection, tx);
+
+        await using var countCommand = new NpgsqlCommand(
+            "select count(*) from storage.outbox",
+            connection,
+            tx
+        );
+        int countBeforeRollback = Convert.ToInt32(await countCommand.ExecuteScalarAsync());
+        Assert.Equal(1, countBeforeRollback);
+
+        await tx.RollbackAsync();
+
+        string sql = $"select count(*) from storage.outbox";
+        int countAfterRollback = await PostgresUtil.RunCountQuery(sql);
+        Assert.Equal(0, countAfterRollback);
     }
 
     [Fact]
@@ -197,6 +246,17 @@ public class OutboxTests
         NpgsqlDataSource dataSource = (NpgsqlDataSource)
             ServiceUtil.GetServices([typeof(NpgsqlDataSource)])[0]!;
         return dataSource.OpenConnection();
+    }
+
+    private static async Task InsertAndCommit(
+        IOutboxRepository repository,
+        SyncInstanceToDialogportenCommand command,
+        NpgsqlConnection connection
+    )
+    {
+        await using NpgsqlTransaction tx = await connection.BeginTransactionAsync();
+        await repository.Insert(command, connection, tx);
+        await tx.CommitAsync();
     }
 
     private static List<object> GetServices(
