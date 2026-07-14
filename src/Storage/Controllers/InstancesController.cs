@@ -1123,7 +1123,11 @@ public class InstancesController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Something went wrong during GetDecisionForRequest for org: {Org}", queryParameters.Org);
+            _logger.LogError(
+                ex,
+                "Something went wrong during GetDecisionForRequest for org: {Org}",
+                queryParameters.Org
+            );
             throw;
         }
 
