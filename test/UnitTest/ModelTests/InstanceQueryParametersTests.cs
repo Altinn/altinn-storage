@@ -1,5 +1,3 @@
-#nullable disable
-
 using Altinn.Platform.Storage.Models;
 using Xunit;
 
@@ -11,7 +9,7 @@ public class InstanceQueryParametersTests
     public void ApplyQueryDefaults_EmptyParameters_SetsDefaults()
     {
         // Arrange
-        var parameters = new InstanceQueryParameters();
+        InstanceQueryParameters parameters = new();
 
         // Act
         parameters.ApplyQueryDefaults();
@@ -27,7 +25,7 @@ public class InstanceQueryParametersTests
     public void ApplyQueryDefaults_ExplicitValues_ArePreserved()
     {
         // Arrange
-        var parameters = new InstanceQueryParameters { SortBy = "asc:created", Size = 42 };
+        InstanceQueryParameters parameters = new() { SortBy = "asc:created", Size = 42 };
 
         // Act
         parameters.ApplyQueryDefaults();
@@ -41,7 +39,7 @@ public class InstanceQueryParametersTests
     public void ApplyQueryDefaults_DataValuesA2ArchRef_ForcesMainVersion2()
     {
         // Arrange
-        var parameters = new InstanceQueryParameters { DataValuesA2ArchRef = "ABC123" };
+        InstanceQueryParameters parameters = new() { DataValuesA2ArchRef = "ABC123" };
 
         // Act
         parameters.ApplyQueryDefaults();
@@ -55,7 +53,7 @@ public class InstanceQueryParametersTests
     public void ApplyQueryDefaults_DataValuesA2ArchRef_OverridesExistingMainVersion()
     {
         // Arrange
-        var parameters = new InstanceQueryParameters
+        InstanceQueryParameters parameters = new()
         {
             DataValuesA2ArchRef = "ABC123",
             MainVersionInclude = 3,
@@ -74,7 +72,7 @@ public class InstanceQueryParametersTests
     public void ApplyQueryDefaults_ExplicitMainVersionInclude_IsPreserved()
     {
         // Arrange
-        var parameters = new InstanceQueryParameters { MainVersionInclude = 2 };
+        InstanceQueryParameters parameters = new() { MainVersionInclude = 2 };
 
         // Act
         parameters.ApplyQueryDefaults();
@@ -88,7 +86,7 @@ public class InstanceQueryParametersTests
     public void ApplyQueryDefaults_ExplicitMainVersionExclude_SuppressesDefaultInclude()
     {
         // Arrange
-        var parameters = new InstanceQueryParameters { MainVersionExclude = 2 };
+        InstanceQueryParameters parameters = new() { MainVersionExclude = 2 };
 
         // Act
         parameters.ApplyQueryDefaults();
@@ -102,7 +100,7 @@ public class InstanceQueryParametersTests
     public void ParseInstanceOwnerIdentifier_ValidPerson_ReturnsPerson()
     {
         // Arrange
-        var parameters = new InstanceQueryParameters
+        InstanceQueryParameters parameters = new()
         {
             InstanceOwnerIdentifier = "Person:33312321321",
         };
@@ -121,7 +119,7 @@ public class InstanceQueryParametersTests
     public void ParseInstanceOwnerIdentifier_ValidOrganisation_ReturnsOrgNo()
     {
         // Arrange
-        var parameters = new InstanceQueryParameters
+        InstanceQueryParameters parameters = new()
         {
             InstanceOwnerIdentifier = "Organisation:333123213",
         };
@@ -140,7 +138,7 @@ public class InstanceQueryParametersTests
     public void ParseInstanceOwnerIdentifier_PersonWrongLength_ReturnsError()
     {
         // Arrange
-        var parameters = new InstanceQueryParameters { InstanceOwnerIdentifier = "Person:33312" };
+        InstanceQueryParameters parameters = new() { InstanceOwnerIdentifier = "Person:33312" };
 
         // Act
         InstanceOwnerIdentifierParseResult result = parameters.ParseInstanceOwnerIdentifier();
@@ -154,7 +152,7 @@ public class InstanceQueryParametersTests
     public void ParseInstanceOwnerIdentifier_OrganisationWrongLength_ReturnsError()
     {
         // Arrange
-        var parameters = new InstanceQueryParameters
+        InstanceQueryParameters parameters = new()
         {
             InstanceOwnerIdentifier = "Organisation:33312",
         };
@@ -174,7 +172,7 @@ public class InstanceQueryParametersTests
     public void ParseInstanceOwnerIdentifier_UnknownOrMalformed_ReturnsInvalid(string identifier)
     {
         // Arrange
-        var parameters = new InstanceQueryParameters { InstanceOwnerIdentifier = identifier };
+        InstanceQueryParameters parameters = new() { InstanceOwnerIdentifier = identifier };
 
         // Act
         InstanceOwnerIdentifierParseResult result = parameters.ParseInstanceOwnerIdentifier();
