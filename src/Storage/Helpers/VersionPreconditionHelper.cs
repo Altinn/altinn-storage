@@ -27,7 +27,7 @@ public static class VersionPreconditionHelper
         );
         if (instanceError is not null)
         {
-            return (new VersionPreconditions(null, null), instanceError);
+            return (VersionPreconditions.None, instanceError);
         }
 
         (int? expectedProcessStateVersion, ActionResult? processError) = TryParseHeader(
@@ -36,7 +36,7 @@ public static class VersionPreconditionHelper
         );
         if (processError is not null)
         {
-            return (new VersionPreconditions(null, null), processError);
+            return (VersionPreconditions.None, processError);
         }
 
         return (
@@ -158,4 +158,10 @@ public static class VersionPreconditionHelper
 /// <summary>
 /// Optional version preconditions from request headers.
 /// </summary>
-public sealed record VersionPreconditions(int? InstanceVersion, int? ProcessStateVersion);
+public sealed record VersionPreconditions(int? InstanceVersion, int? ProcessStateVersion)
+{
+    /// <summary>
+    /// Empty version preconditions.
+    /// </summary>
+    public static VersionPreconditions None { get; } = new(null, null);
+}

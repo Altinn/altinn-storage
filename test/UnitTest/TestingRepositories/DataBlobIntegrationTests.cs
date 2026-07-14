@@ -61,8 +61,7 @@ public class DataBlobIntegrationTests
         DataService dataService = new(
             fileScanQueueClientMock.Object,
             _dataElementFixture.DataRepo,
-            _blobFixture.Repository,
-            Mock.Of<IInstanceEventService>()
+            _blobFixture.Repository
         );
         Guid dataElementId = Guid.NewGuid();
         string content = $"integration-content-{Guid.NewGuid():N}";
@@ -157,102 +156,6 @@ public class DataBlobIntegrationTests
         Assert.Empty(await _dataElementFixture.DataRepo.ReadBlobVersions(dataElementId));
         Assert.False(await _blobFixture.Exists(createdDataElement.BlobStoragePath));
         Assert.Equal(1, await CountInstanceEvents(instanceGuid, InstanceEventType.Deleted));
-    }
-
-    [Fact]
-    public async Task UploadAndDeleteImmediately_WithPostgresAndAzurite_PersistsAndRemovesMetadataAndBlob()
-    {
-        // Arrange
-        Mock<IFileScanQueueClient> fileScanQueueClientMock = new();
-        Mock<IInstanceEventService> instanceEventServiceMock = new();
-        instanceEventServiceMock
-            .Setup(ies =>
-                ies.DispatchEvent(
-                    It.IsAny<InstanceEventType>(),
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<DataElementInternal>()
-                )
-            )
-            .Returns(Task.CompletedTask);
-
-        DataService dataService = new(
-            fileScanQueueClientMock.Object,
-            _dataElementFixture.DataRepo,
-            _blobFixture.Repository,
-            instanceEventServiceMock.Object
-        );
-        Guid dataElementId = Guid.NewGuid();
-        string content = $"integration-content-{Guid.NewGuid():N}";
-        DataElementCreateOptions options = new()
-        {
-            DataElementId = dataElementId,
-            DataType = "default",
-            ContentType = "text/plain",
-            Filename = "integration.txt",
-            Created = DateTime.UtcNow,
-            CreatedBy = "ttd",
-        };
-
-        // Act
-        (DataElementInternal createdDataElement, DateTimeOffset blobTimestamp, _) =
-            await dataService.UploadDataAndCreateDataElement(
-                _instanceInternal,
-                new MemoryStream(Encoding.UTF8.GetBytes(content)),
-                options,
-                _instanceInternalId,
-                null,
-                CancellationToken.None
-            );
-
-        // Assert upload
-        Assert.NotEqual(default, blobTimestamp);
-        Assert.False(string.IsNullOrEmpty(createdDataElement.BlobVersionId));
-        Assert.EndsWith(
-            $"/data-elements/{createdDataElement.BlobVersionId}",
-            createdDataElement.BlobStoragePath,
-            StringComparison.Ordinal
-        );
-
-        DataElementInternal readDataElement = await _dataElementFixture.DataRepo.Read(
-            Guid.Parse(createdDataElement.InstanceGuid),
-            dataElementId,
-            CancellationToken.None
-        );
-        Assert.Equal(createdDataElement.BlobVersionId, readDataElement.BlobVersionId);
-
-        using Stream readBlob = await _blobFixture.Repository.ReadBlob(
-            _instanceInternal.Org,
-            createdDataElement.BlobStoragePath,
-            null,
-            CancellationToken.None
-        );
-        using StreamReader reader = new(readBlob, Encoding.UTF8);
-        Assert.Equal(content, await reader.ReadToEndAsync());
-        Assert.True(await _blobFixture.Exists(createdDataElement.BlobStoragePath));
-        Assert.Single(await _dataElementFixture.DataRepo.ReadBlobVersions(dataElementId));
-
-        // Act delete
-        await dataService.DeleteImmediately(_instanceInternal, createdDataElement, null);
-
-        // Assert delete
-        Assert.Null(
-            await _dataElementFixture.DataRepo.Read(
-                Guid.Parse(createdDataElement.InstanceGuid),
-                dataElementId,
-                CancellationToken.None
-            )
-        );
-        Assert.Empty(await _dataElementFixture.DataRepo.ReadBlobVersions(dataElementId));
-        Assert.False(await _blobFixture.Exists(createdDataElement.BlobStoragePath));
-        instanceEventServiceMock.Verify(
-            ies =>
-                ies.DispatchEvent(
-                    InstanceEventType.Deleted,
-                    It.Is<InstanceInternal>(i => i.Id == _instanceInternal.Id),
-                    It.Is<DataElementInternal>(de => de.Id == dataElementId.ToString())
-                ),
-            Times.Once
-        );
     }
 
     private static Task<int> CountInstanceEvents(Guid instanceGuid, InstanceEventType eventType) =>

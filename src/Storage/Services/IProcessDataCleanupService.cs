@@ -1,7 +1,4 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-using Altinn.Platform.Storage.Interface.Models;
+using System.Collections.Generic;
 using Altinn.Platform.Storage.Models;
 
 namespace Altinn.Platform.Storage.Services;
@@ -13,28 +10,17 @@ namespace Altinn.Platform.Storage.Services;
 public interface IProcessDataCleanupService
 {
     /// <summary>
-    /// Deletes all data elements on <paramref name="instance"/> whose
-    /// <see cref="DataElement.References"/> contain a reference matching
+    /// Finds all data elements on <paramref name="instanceInternal"/> whose
+    /// <see cref="DataElementInternal.References"/> contain a reference matching
     /// <c>{Relation = GeneratedFrom, ValueType = Task, Value = taskId}</c>.
-    /// Each delete is best-effort: individual failures are logged and skipped,
-    /// not propagated.
     /// </summary>
-    /// <remarks>
-    /// This operation has a hard dependency on resolving the relevant application and its storage account number,
-    /// via <see cref="IApplicationService.GetApplicationOrErrorAsync"/>. A failure with this lookup will result in an
-    /// <see cref="InvalidOperationException"/>.
-    /// </remarks>
-    /// <param name="instance">
-    /// The instance whose data elements should be evaluated. The <see cref="Instance.Data"/> list is mutated to remove
-    /// successfully deleted elements so subsequent persistence reflects the cleanup.
+    /// <param name="instanceInternal">
+    /// The instance whose data elements should be evaluated. The wrapped instance is not mutated.
     /// </param>
     /// <param name="taskId">The id of the task that the instance is entering.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>The number of data elements that were successfully deleted.</returns>
-    /// <exception cref="InvalidOperationException">Error looking up the application's storage account.</exception>
-    Task<int> CleanupGeneratedFromTask(
-        InstanceInternal instance,
-        string taskId,
-        CancellationToken cancellationToken
+    /// <returns>The data elements to delete in the aggregate process transition.</returns>
+    IReadOnlyList<DataElementInternal> GetGeneratedFromTaskDataElements(
+        InstanceInternal instanceInternal,
+        string taskId
     );
 }

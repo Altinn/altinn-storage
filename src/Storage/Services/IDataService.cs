@@ -74,20 +74,23 @@ public interface IDataService
     );
 
     /// <summary>
-    /// Delete a data element and it's blob data immediately.
+    /// Uploads a blob and allocates its explicit blob version without creating metadata.
     /// </summary>
-    /// <param name="instance">The instance</param>
-    /// <param name="dataElement">The data element</param>
-    /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
-    /// <param name="expectedInstanceVersion">Expected instance version for optimistic concurrency checks.</param>
-    /// <param name="expectedProcessStateVersion">Expected process state version for optimistic concurrency checks.</param>
-    /// <returns></returns>
-    Task<DataElementInternal> DeleteImmediately(
+    Task<StagedDataElementBlob> StageDataElementBlob(
+        InstanceInternal instance,
+        Stream stream,
+        DataElementCreateOptions options,
+        int? storageAccountNumber,
+        CancellationToken cancellationToken = default
+    );
+
+    /// <summary>
+    /// Best-effort cleanup for a staged blob whose metadata was not committed.
+    /// </summary>
+    Task DeleteStagedDataElementBlob(
         InstanceInternal instance,
         DataElementInternal dataElement,
-        int? storageAccountNumber,
-        int? expectedInstanceVersion = null,
-        int? expectedProcessStateVersion = null
+        int? storageAccountNumber
     );
 
     /// <summary>
