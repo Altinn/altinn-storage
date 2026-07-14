@@ -1,5 +1,6 @@
 using System;
 using System.Buffers.Text;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Altinn.Platform.Storage.Models;
 
@@ -37,5 +38,50 @@ internal static class BlobVersionId
         }
 
         return new Guid(bytes, bigEndian: true);
+    }
+
+    public static bool TryDecode(string? versionId, out Guid version)
+    {
+        version = Guid.Empty;
+        if (versionId is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            version = Decode(versionId);
+            return true;
+        }
+        catch (Exception exception) when (exception is ArgumentException or FormatException)
+        {
+            return false;
+        }
+    }
+
+    public static string? ToContentEtag(string? blobVersionId)
+    {
+        return string.IsNullOrEmpty(blobVersionId) ? null : $"\"{blobVersionId}\"";
+    }
+
+    public static bool TryParseContentEtag(
+        string? etag,
+        [NotNullWhen(true)] out string? blobVersionId
+    )
+    {
+        blobVersionId = null;
+        if (etag is not { Length: >= 2 } || etag[0] != '"' || etag[^1] != '"')
+        {
+            return false;
+        }
+
+        string candidate = etag[1..^1];
+        if (!TryDecode(candidate, out _))
+        {
+            return false;
+        }
+
+        blobVersionId = candidate;
+        return true;
     }
 }
