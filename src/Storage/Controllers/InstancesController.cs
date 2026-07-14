@@ -1126,7 +1126,7 @@ public class InstancesController : ControllerBase
             _logger.LogError(
                 ex,
                 "Something went wrong during GetDecisionForRequest for org: {Org}",
-                queryParameters.Org
+                queryParameters.Org.RemoveNewlines()
             );
             throw;
         }
