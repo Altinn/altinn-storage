@@ -205,6 +205,7 @@ internal static class DomainModelContractTestData
           },
           "size": 12345,
           "contentHash": "YWJjZA==",
+          "contentEtag": "\"api-content-version\"",
           "locked": true,
           "refs": ["99999999-8888-4777-8666-555555555555"],
           "isRead": false,
@@ -296,6 +297,7 @@ internal static class DomainModelContractTestData
               },
               "size": 12345,
               "contentHash": "YWJjZA==",
+              "contentEtag": "\"api-content-version\"",
               "locked": true,
               "refs": ["99999999-8888-4777-8666-555555555555"],
               "isRead": false,
@@ -404,7 +406,7 @@ internal static class DomainModelContractTestData
             CreatedBy = "created-by",
             LastChanged = Utc(2024, 1, 3, 4, 5, 6),
             LastChangedBy = "last-changed-by",
-            BlobVersionId = "blob-version-id",
+            BlobVersionId = "api-content-version",
         };
 
     internal static Instance CreateApiInstance(bool apiFormatId)
@@ -467,6 +469,7 @@ internal static class DomainModelContractTestData
             },
             Size = 12345,
             ContentHash = "YWJjZA==",
+            ContentEtag = "\"api-content-version\"",
             Locked = true,
             Refs = [Guid.Parse("99999999-8888-4777-8666-555555555555")],
             IsRead = false,
