@@ -89,4 +89,18 @@ public interface IDataService
         int? expectedInstanceVersion = null,
         int? expectedProcessStateVersion = null
     );
+
+    /// <summary>
+    /// Best-effort cleanup for blobs belonging to data element metadata that has already been deleted.
+    /// </summary>
+    /// <remarks>
+    /// Detached explicit blob-version rows are removed only after their physical blob has been deleted.
+    /// Legacy non-versioned blobs are deleted directly because they have no blob-version row to retry from.
+    /// </remarks>
+    Task CleanupDeletedDataElementBlobs(
+        InstanceInternal instance,
+        DataElementInternal dataElement,
+        int? storageAccountNumber,
+        CancellationToken cancellationToken = default
+    );
 }

@@ -337,6 +337,32 @@ public class DataRepositoryMock : IDataRepository
         }
     }
 
+    public Task<int> DeleteBlobVersions(
+        Guid dataElementId,
+        IReadOnlyList<string> blobVersionIds,
+        CancellationToken cancellationToken = default
+    )
+    {
+        HashSet<string> normalizedBlobVersionIds = NormalizeBlobVersionIds(blobVersionIds);
+        string dataElementKey = dataElementId.ToString();
+        lock (_stateLock)
+        {
+            int deleteCount = 0;
+            if (_blobVersions.TryGetValue(dataElementKey, out List<BlobVersionEntry> versions))
+            {
+                deleteCount = versions.RemoveAll(version =>
+                    !version.Attached && normalizedBlobVersionIds.Contains(version.BlobVersionId)
+                );
+                if (versions.Count == 0)
+                {
+                    _blobVersions.Remove(dataElementKey);
+                }
+            }
+
+            return Task.FromResult(deleteCount);
+        }
+    }
+
     public Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadBlobVersions(
         Guid dataElementId,
         CancellationToken cancellationToken = default
@@ -380,6 +406,11 @@ public class DataRepositoryMock : IDataRepository
 
         return Task.FromResult(blobVersions);
     }
+
+    public Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadDetachedBlobVersions(
+        Guid dataElementId,
+        CancellationToken cancellationToken = default
+    ) => ReadBlobVersionsByAttachment(dataElementId, false);
 
     public Task<bool> Exists(Guid dataElementId, CancellationToken cancellationToken = default) =>
         Task.FromResult(true);
@@ -425,6 +456,13 @@ public class DataRepositoryMock : IDataRepository
             );
         }
     }
+
+    private static HashSet<string> NormalizeBlobVersionIds(IReadOnlyList<string> blobVersionIds) =>
+        blobVersionIds
+            ?.Where(blobVersionId => !string.IsNullOrEmpty(blobVersionId))
+            .Select(blobVersionId => BlobVersionId.Encode(BlobVersionId.Decode(blobVersionId)))
+            .ToHashSet(StringComparer.Ordinal)
+        ?? [];
 
     private static DataElementInternal CloneDataElement(DataElementInternal dataElement) =>
         JsonSerializer.Deserialize<DataElementInternal>(

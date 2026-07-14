@@ -1,6 +1,7 @@
 #nullable disable
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -54,6 +55,23 @@ public interface IBlobRepository
     /// <param name="storageAccountNumber">Alternate number to append to container name</param>
     /// <returns>A value indicating whether the delete was successful.</returns>
     Task<bool> DeleteBlob(string org, string blobStoragePath, int? storageAccountNumber);
+
+    /// <summary>
+    /// Deletes multiple concrete blob paths if they exist.
+    /// </summary>
+    /// <param name="org">The application owner id.</param>
+    /// <param name="blobStoragePaths">The blob paths to delete.</param>
+    /// <param name="storageAccountNumber">Alternate number to append to container name</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>
+    /// An array matching <paramref name="blobStoragePaths"/> by index. A true value means the blob was deleted or already missing.
+    /// </returns>
+    Task<bool[]> DeleteBlobsIfExists(
+        string org,
+        IReadOnlyList<string> blobStoragePaths,
+        int? storageAccountNumber,
+        CancellationToken cancellationToken = default
+    );
 
     /// <summary>
     /// Deletes the blob elements for an instance permanently

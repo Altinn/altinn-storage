@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -7,6 +8,7 @@ using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Azure.Storage;
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Specialized;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -99,6 +101,51 @@ public class BlobRepositoryAzuriteTests : IClassFixture<BlobRepositoryAzuriteFix
         Assert.False(secondDelete);
         Assert.False(await _fixture.Exists(blobStoragePath));
     }
+
+    [Fact]
+    public async Task DeleteBlobsIfExists_ExistingMissingAndDuplicatePaths_ReturnsIndexedResults()
+    {
+        string existingBlob = _fixture.NewBlobPath("data-elements/per-path-existing");
+        string missingBlob = _fixture.NewBlobPath("data-elements/per-path-missing");
+        await _fixture.UploadText(existingBlob, "delete me");
+
+        bool[] result = await _fixture.Repository.DeleteBlobsIfExists(
+            BlobRepositoryAzuriteFixture.Org,
+            [existingBlob, missingBlob, existingBlob],
+            null
+        );
+
+        Assert.Equal([true, true, true], result);
+        Assert.False(await _fixture.Exists(existingBlob));
+    }
+
+    [Fact]
+    public async Task DeleteBlobsIfExists_PerBlobFailure_ReturnsOnlySafePositions()
+    {
+        string existingBlob = _fixture.NewBlobPath("data-elements/per-path-existing");
+        string leasedBlob = _fixture.NewBlobPath("data-elements/per-path-leased");
+        string missingBlob = _fixture.NewBlobPath("data-elements/per-path-missing");
+        await _fixture.UploadText(existingBlob, "delete me");
+        await _fixture.UploadText(leasedBlob, "keep me leased");
+        BlobLeaseClient leaseClient = await _fixture.AcquireLease(leasedBlob);
+
+        try
+        {
+            bool[] result = await _fixture.Repository.DeleteBlobsIfExists(
+                BlobRepositoryAzuriteFixture.Org,
+                [existingBlob, leasedBlob, missingBlob],
+                null
+            );
+
+            Assert.Equal([true, false, true], result);
+            Assert.False(await _fixture.Exists(existingBlob));
+            Assert.True(await _fixture.Exists(leasedBlob));
+        }
+        finally
+        {
+            await leaseClient.ReleaseAsync();
+        }
+    }
 }
 
 public sealed class BlobRepositoryAzuriteFixture : IAsyncLifetime
@@ -167,6 +214,16 @@ public sealed class BlobRepositoryAzuriteFixture : IAsyncLifetime
     {
         await using MemoryStream stream = new(Encoding.UTF8.GetBytes(content));
         await Repository.WriteBlob(Org, stream, blobStoragePath, null);
+    }
+
+    public async Task<BlobLeaseClient> AcquireLease(string blobStoragePath)
+    {
+        BlobLeaseClient leaseClient = _container
+            .GetBlobClient(blobStoragePath)
+            .GetBlobLeaseClient();
+        await leaseClient.AcquireAsync(TimeSpan.FromSeconds(60));
+
+        return leaseClient;
     }
 
     public async Task<bool> Exists(string blobStoragePath)

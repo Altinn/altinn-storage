@@ -26,4 +26,9 @@ public static class StorageHeaders
     /// Current process-state version response header.
     /// </summary>
     public const string ProcessStateVersion = "Process-State-Version";
+
+    /// <summary>
+    /// Optional idempotency key for workflow-owned aggregate saves.
+    /// </summary>
+    public const string IdempotencyKey = "Idempotency-Key";
 }

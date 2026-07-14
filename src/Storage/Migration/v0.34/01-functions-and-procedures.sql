@@ -454,6 +454,25 @@ END;
 $BODY$;
 
 
+-- deleteblobversions.sql:
+CREATE OR REPLACE FUNCTION storage.deleteblobversions(_dataelementid UUID, _blobversionids UUID[])
+    RETURNS INT
+    LANGUAGE 'plpgsql'
+AS $BODY$
+DECLARE
+    _deleteCount INTEGER;
+BEGIN
+    DELETE FROM storage.dataelementblobversions
+        WHERE id = ANY(_blobversionids)
+            AND dataelementid = _dataelementid
+            AND attached = false;
+    GET DIAGNOSTICS _deleteCount = ROW_COUNT;
+
+    RETURN _deleteCount;
+END;
+$BODY$;
+
+
 -- deletedataelement.sql:
 CREATE OR REPLACE FUNCTION storage.deletedataelement_v2(_alternateid UUID, _instanceGuid UUID, _lastChangedBy TEXT)
     RETURNS INT
@@ -1281,6 +1300,28 @@ RETURN QUERY
         OR (i.instance -> 'CompleteConfirmations') IS NOT NULL AND (i.instance -> 'Status' ->> 'HardDeleted')::TIMESTAMPTZ <= (NOW() - (7 ||' days')::INTERVAL)
     )
     AND i.AltinnMainVersion >= 3;
+END;
+$BODY$;
+
+
+-- readdetachedblobversions.sql:
+CREATE OR REPLACE FUNCTION storage.readdetachedblobversions(_dataelementid UUID)
+    RETURNS TABLE (instanceguid UUID, appid TEXT, blobstorageorg TEXT, storageaccountnumber INT, blobversions UUID[])
+    LANGUAGE 'plpgsql'
+AS $BODY$
+BEGIN
+    RETURN QUERY
+        SELECT
+            bv.instanceguid,
+            bv.appid,
+            bv.blobstorageorg,
+            bv.storageaccountnumber,
+            array_agg(bv.id ORDER BY bv.created, bv.id) AS blobversions
+        FROM storage.dataelementblobversions bv
+        WHERE bv.dataelementid = _dataelementid
+            AND bv.attached = false
+        GROUP BY bv.instanceguid, bv.appid, bv.blobstorageorg, bv.storageaccountnumber
+        ORDER BY min(bv.created), min(bv.id::TEXT);
 END;
 $BODY$;
 

@@ -146,7 +146,7 @@ public interface IDataRepository
     );
 
     /// <summary>
-    /// Deletes an allocated blob version if it is not referenced by current data element metadata.
+    /// Deletes detached blob-version metadata after the physical blob has been deleted.
     /// </summary>
     /// <param name="dataElementId">The data element id.</param>
     /// <param name="blobVersionId">The allocated blob version id as a base64url-encoded UUID.</param>
@@ -159,12 +159,36 @@ public interface IDataRepository
     );
 
     /// <summary>
+    /// Deletes detached blob-version metadata after the physical blobs have been deleted.
+    /// </summary>
+    /// <param name="dataElementId">The data element id.</param>
+    /// <param name="blobVersionIds">The allocated blob version ids as base64url-encoded UUIDs.</param>
+    /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
+    /// <returns>The number of deleted blob version rows.</returns>
+    Task<int> DeleteBlobVersions(
+        Guid dataElementId,
+        IReadOnlyList<string> blobVersionIds,
+        CancellationToken cancellationToken = default
+    );
+
+    /// <summary>
     /// Reads attached blob versions for a data element grouped by storage context.
     /// </summary>
     /// <param name="dataElementId">The data element id.</param>
     /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
     /// <returns>The attached blob versions grouped by storage context.</returns>
     Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadBlobVersions(
+        Guid dataElementId,
+        CancellationToken cancellationToken = default
+    );
+
+    /// <summary>
+    /// Reads detached blob versions for a data element grouped by storage context.
+    /// </summary>
+    /// <param name="dataElementId">The data element id.</param>
+    /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
+    /// <returns>The detached blob versions grouped by storage context.</returns>
+    Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadDetachedBlobVersions(
         Guid dataElementId,
         CancellationToken cancellationToken = default
     );

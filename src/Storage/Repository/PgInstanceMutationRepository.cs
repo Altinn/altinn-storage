@@ -24,7 +24,7 @@ namespace Altinn.Platform.Storage.Repository;
 /// <summary>
 /// PostgreSQL implementation of aggregate instance mutations.
 /// </summary>
-internal sealed class PgInstanceMutationRepository(
+public sealed class PgInstanceMutationRepository(
     NpgsqlDataSource dataSource,
     OutboxInsertRowFactory outboxInsertRowFactory
 ) : IInstanceMutationRepository
@@ -140,12 +140,12 @@ internal sealed class PgInstanceMutationRepository(
         AddNullableParameter(cmd.Parameters, NpgsqlDbType.Uuid, mutation.IdempotencyKey);
         cmd.Parameters.AddWithValue(
             NpgsqlDbType.TimestampTz,
-            NormalizePayloadTimestamp(DateTime.UtcNow)
+            NormalizePayloadTimestamp(mutation.LastChanged ?? DateTime.UtcNow)
         );
         AddNullableParameter(
             cmd.Parameters,
             NpgsqlDbType.Text,
-            mutation.InstanceUpdates?.LastChangedBy
+            mutation.LastChangedBy ?? mutation.InstanceUpdates?.LastChangedBy
         );
         AddNullableParameter(
             cmd.Parameters,
