@@ -416,65 +416,65 @@ public class PgInstanceRepository : IInstanceRepository
         CancellationToken cancellationToken
     )
     {
-        InstanceInternal instance = null;
-        List<DataElementInternal> instanceData = [];
-        StorageVersions versions = null;
-        long instanceInternalId = 0;
-
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(
             includeElements ? _readSql : _readSqlNoElements
         );
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
 
-        await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken))
-        {
-            bool instanceCreated = false;
-            while (await reader.ReadAsync(cancellationToken))
-            {
-                if (!instanceCreated)
-                {
-                    instanceCreated = true;
-                    instance = await reader.GetFieldValueAsync<InstanceInternal>(
-                        "instance",
-                        cancellationToken
-                    );
-                    versions = ReadVersionResult(reader);
-                    instanceInternalId = await reader.GetFieldValueAsync<long>(
-                        "id",
-                        cancellationToken
-                    );
-                }
+        await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
+        return await ReadInstanceResultAsync(reader, includeElements, cancellationToken);
+    }
 
-                if (includeElements && !await reader.IsDBNullAsync("element", cancellationToken))
-                {
-                    DataElementInternal element =
-                        await reader.GetFieldValueAsync<DataElementInternal>(
-                            "element",
-                            cancellationToken
-                        );
-                    int versionOrdinal = reader.GetOrdinal("currentblobversion");
-                    string blobVersionId = await reader.IsDBNullAsync(
-                        versionOrdinal,
-                        cancellationToken
-                    )
-                        ? null
-                        : BlobVersionId.Encode(reader.GetGuid(versionOrdinal));
-                    element.BlobVersionId = blobVersionId;
-                    instanceData.Add(element);
-                }
+    internal static async Task<InstanceInternal> ReadInstanceResultAsync(
+        NpgsqlDataReader reader,
+        bool includeElements,
+        CancellationToken cancellationToken,
+        Action<NpgsqlDataReader> firstRowCallback = null
+    )
+    {
+        InstanceInternal instance = null;
+        List<DataElementInternal> instanceData = [];
+        StorageVersions versions = null;
+        long instanceInternalId = 0;
+        bool instanceCreated = false;
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            if (!instanceCreated)
+            {
+                instanceCreated = true;
+                firstRowCallback?.Invoke(reader);
+                instance = await reader.GetFieldValueAsync<InstanceInternal>(
+                    "instance",
+                    cancellationToken
+                );
+                versions = ReadVersionResult(reader);
+                instanceInternalId = await reader.GetFieldValueAsync<long>("id", cancellationToken);
             }
 
-            if (instance is null)
+            if (includeElements && !await reader.IsDBNullAsync(ElementColumn, cancellationToken))
             {
-                return null;
+                DataElementInternal element = await reader.GetFieldValueAsync<DataElementInternal>(
+                    ElementColumn,
+                    cancellationToken
+                );
+                int versionOrdinal = reader.GetOrdinal("currentblobversion");
+                string blobVersionId = await reader.IsDBNullAsync(versionOrdinal, cancellationToken)
+                    ? null
+                    : BlobVersionId.Encode(reader.GetGuid(versionOrdinal));
+                element.BlobVersionId = blobVersionId;
+                instanceData.Add(element);
             }
         }
 
-        // Present instance data elements in chronological order
+        if (instance is null)
+        {
+            return null;
+        }
+
         instance.Data = instanceData.OrderBy(x => x.Created).ToList();
         instance.Versions = versions;
         instance.InternalId = instanceInternalId;
-
         return instance;
     }
 
@@ -543,6 +543,25 @@ public class PgInstanceRepository : IInstanceRepository
     }
 
     /// <summary>
+    /// Arguments passed to storage.updateinstance_v4.
+    /// </summary>
+    internal sealed record InstanceUpdateCommandArguments(
+        Guid AlternateId,
+        string TopLevelSimpleProperties,
+        object DataValues,
+        object CompleteConfirmations,
+        object PresentationTexts,
+        object Status,
+        object Substatus,
+        object Process,
+        DateTime LastChanged,
+        object TaskId,
+        object Confirmed,
+        object ExpectedInstanceVersion,
+        object ExpectedProcessStateVersion
+    );
+
+    /// <summary>
     /// Builds the update command for the instance.
     /// </summary>
     /// <param name="instance">Instance</param>
@@ -558,79 +577,87 @@ public class PgInstanceRepository : IInstanceRepository
         int? expectedProcessStateVersion = null
     )
     {
-        parameters.AddWithValue("_alternateid", NpgsqlDbType.Uuid, new Guid(instance.Id));
+        InstanceUpdateCommandArguments arguments = BuildUpdateCommandArguments(
+            instance,
+            updateProperties,
+            expectedInstanceVersion,
+            expectedProcessStateVersion
+        );
+        AddUpdateCommandParameters(arguments, parameters);
+    }
+
+    internal static InstanceUpdateCommandArguments BuildUpdateCommandArguments(
+        InstanceInternal instance,
+        List<string> updateProperties,
+        int? expectedInstanceVersion = null,
+        int? expectedProcessStateVersion = null
+    ) =>
+        new(
+            new Guid(instance.Id),
+            CustomSerializer.Serialize(instance, updateProperties),
+            updateProperties.Contains(nameof(instance.DataValues))
+                ? instance.DataValues
+                : DBNull.Value,
+            updateProperties.Contains(nameof(instance.CompleteConfirmations))
+                ? instance.CompleteConfirmations
+                : DBNull.Value,
+            updateProperties.Contains(nameof(instance.PresentationTexts))
+                ? instance.PresentationTexts
+                : DBNull.Value,
+            updateProperties.Contains(nameof(instance.Status))
+                ? CustomSerializer.Serialize(instance.Status, updateProperties)
+                : DBNull.Value,
+            updateProperties.Contains(nameof(instance.Status.Substatus))
+                ? instance.Status.Substatus
+                : DBNull.Value,
+            updateProperties.Contains(nameof(instance.Process)) ? instance.Process : DBNull.Value,
+            instance.LastChanged ?? DateTime.UtcNow,
+            instance.Process?.CurrentTask?.ElementId ?? (object)DBNull.Value,
+            instance.CompleteConfirmations != null
+            && instance.CompleteConfirmations.Any(c => c.StakeholderId == instance.Org)
+                ? true
+                : DBNull.Value,
+            expectedInstanceVersion ?? (object)DBNull.Value,
+            expectedProcessStateVersion ?? (object)DBNull.Value
+        );
+
+    internal static void AddUpdateCommandParameters(
+        InstanceUpdateCommandArguments arguments,
+        NpgsqlParameterCollection parameters
+    )
+    {
+        parameters.AddWithValue("_alternateid", NpgsqlDbType.Uuid, arguments.AlternateId);
         parameters.AddWithValue(
             "_toplevelsimpleprops",
             NpgsqlDbType.Jsonb,
-            CustomSerializer.Serialize(instance, updateProperties)
+            arguments.TopLevelSimpleProperties
         );
-        parameters.AddWithValue(
-            "_datavalues",
-            NpgsqlDbType.Jsonb,
-            updateProperties.Contains(nameof(instance.DataValues))
-                ? instance.DataValues
-                : DBNull.Value
-        );
+        parameters.AddWithValue("_datavalues", NpgsqlDbType.Jsonb, arguments.DataValues);
         parameters.AddWithValue(
             "_completeconfirmations",
             NpgsqlDbType.Jsonb,
-            updateProperties.Contains(nameof(instance.CompleteConfirmations))
-                ? instance.CompleteConfirmations
-                : DBNull.Value
+            arguments.CompleteConfirmations
         );
         parameters.AddWithValue(
             "_presentationtexts",
             NpgsqlDbType.Jsonb,
-            updateProperties.Contains(nameof(instance.PresentationTexts))
-                ? instance.PresentationTexts
-                : DBNull.Value
+            arguments.PresentationTexts
         );
-        parameters.AddWithValue(
-            "_status",
-            NpgsqlDbType.Jsonb,
-            updateProperties.Contains(nameof(instance.Status))
-                ? CustomSerializer.Serialize(instance.Status, updateProperties)
-                : DBNull.Value
-        );
-        parameters.AddWithValue(
-            "_substatus",
-            NpgsqlDbType.Jsonb,
-            updateProperties.Contains(nameof(instance.Status.Substatus))
-                ? instance.Status.Substatus
-                : DBNull.Value
-        );
-        parameters.AddWithValue(
-            "_process",
-            NpgsqlDbType.Jsonb,
-            updateProperties.Contains(nameof(instance.Process)) ? instance.Process : DBNull.Value
-        );
-        parameters.AddWithValue(
-            "_lastchanged",
-            NpgsqlDbType.TimestampTz,
-            instance.LastChanged ?? DateTime.UtcNow
-        );
-        parameters.AddWithValue(
-            "_taskid",
-            NpgsqlDbType.Text,
-            instance.Process?.CurrentTask?.ElementId ?? (object)DBNull.Value
-        );
-        parameters.AddWithValue(
-            "_confirmed",
-            NpgsqlDbType.Boolean,
-            instance.CompleteConfirmations != null
-            && instance.CompleteConfirmations.Any(c => c.StakeholderId == instance.Org)
-                ? true
-                : DBNull.Value
-        );
+        parameters.AddWithValue("_status", NpgsqlDbType.Jsonb, arguments.Status);
+        parameters.AddWithValue("_substatus", NpgsqlDbType.Jsonb, arguments.Substatus);
+        parameters.AddWithValue("_process", NpgsqlDbType.Jsonb, arguments.Process);
+        parameters.AddWithValue("_lastchanged", NpgsqlDbType.TimestampTz, arguments.LastChanged);
+        parameters.AddWithValue("_taskid", NpgsqlDbType.Text, arguments.TaskId);
+        parameters.AddWithValue("_confirmed", NpgsqlDbType.Boolean, arguments.Confirmed);
         parameters.AddWithValue(
             "_expectedinstanceversion",
             NpgsqlDbType.Integer,
-            expectedInstanceVersion ?? (object)DBNull.Value
+            arguments.ExpectedInstanceVersion
         );
         parameters.AddWithValue(
             "_expectedprocessstateversion",
             NpgsqlDbType.Integer,
-            expectedProcessStateVersion ?? (object)DBNull.Value
+            arguments.ExpectedProcessStateVersion
         );
     }
 

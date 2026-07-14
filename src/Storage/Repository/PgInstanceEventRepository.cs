@@ -44,7 +44,7 @@ public class PgInstanceEventRepository(
 
         await using var connection = await _dataSource.OpenConnectionAsync();
         await using var tx = await connection.BeginTransactionAsync();
-        await using NpgsqlCommand pgcom = new(_insertSql, connection);
+        await using NpgsqlCommand pgcom = new(_insertSql, connection, tx);
         pgcom.Parameters.AddWithValue(
             NpgsqlDbType.Uuid,
             new Guid(instanceEvent.InstanceId.Split('/')[^1])
@@ -64,7 +64,7 @@ public class PgInstanceEventRepository(
                 false,
                 Enum.Parse<Interface.Enums.InstanceEventType>(instanceEvent.EventType)
             );
-            await outboxRepository.Insert(instanceUpdateCommand, connection);
+            await outboxRepository.Insert(instanceUpdateCommand, connection, tx);
         }
 
         await tx.CommitAsync();
