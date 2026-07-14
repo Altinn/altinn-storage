@@ -28,13 +28,11 @@ public class DataServiceTests
         Mock<IFileScanQueueClient> fileScanMock = new Mock<IFileScanQueueClient>();
         Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
         Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
-        Mock<IInstanceEventService> instanceEventServiceMock = new Mock<IInstanceEventService>();
 
         DataService target = new DataService(
             fileScanMock.Object,
             dataRepositoryMock.Object,
-            blobRepositoryMock.Object,
-            instanceEventServiceMock.Object
+            blobRepositoryMock.Object
         );
 
         InstanceInternal instance = new InstanceInternal();
@@ -66,13 +64,11 @@ public class DataServiceTests
         Mock<IFileScanQueueClient> fileScanMock = new Mock<IFileScanQueueClient>();
         Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
         Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
-        Mock<IInstanceEventService> instanceEventServiceMock = new Mock<IInstanceEventService>();
 
         DataService target = new DataService(
             fileScanMock.Object,
             dataRepositoryMock.Object,
-            blobRepositoryMock.Object,
-            instanceEventServiceMock.Object
+            blobRepositoryMock.Object
         );
 
         InstanceInternal instance = new()
@@ -122,7 +118,6 @@ public class DataServiceTests
         Mock<IFileScanQueueClient> fileScanQueueClientMock = new Mock<IFileScanQueueClient>();
         Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
         Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
-        Mock<IInstanceEventService> instanceEventServiceMock = new Mock<IInstanceEventService>();
 
         Guid id = Guid.NewGuid();
         string blobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
@@ -157,8 +152,7 @@ public class DataServiceTests
         DataService dataService = new DataService(
             fileScanQueueClientMock.Object,
             dataRepositoryMock.Object,
-            blobRepositoryMock.Object,
-            instanceEventServiceMock.Object
+            blobRepositoryMock.Object
         );
 
         // Act
@@ -187,7 +181,6 @@ public class DataServiceTests
         Mock<IFileScanQueueClient> fileScanQueueClientMock = new Mock<IFileScanQueueClient>();
         Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
         Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
-        Mock<IInstanceEventService> instanceEventServiceMock = new Mock<IInstanceEventService>();
 
         Guid instanceGuid = Guid.NewGuid();
         Guid dataElementId = Guid.NewGuid();
@@ -212,8 +205,7 @@ public class DataServiceTests
         DataService dataService = new DataService(
             fileScanQueueClientMock.Object,
             dataRepositoryMock.Object,
-            blobRepositoryMock.Object,
-            instanceEventServiceMock.Object
+            blobRepositoryMock.Object
         );
 
         // Act
@@ -240,13 +232,11 @@ public class DataServiceTests
         Mock<IFileScanQueueClient> fileScanQueueClientMock = new Mock<IFileScanQueueClient>();
         Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
         Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
-        Mock<IInstanceEventService> instanceEventServiceMock = new Mock<IInstanceEventService>();
 
         DataService dataService = new DataService(
             fileScanQueueClientMock.Object,
             dataRepositoryMock.Object,
-            blobRepositoryMock.Object,
-            instanceEventServiceMock.Object
+            blobRepositoryMock.Object
         );
 
         // Act
@@ -269,7 +259,6 @@ public class DataServiceTests
         Mock<IFileScanQueueClient> fileScanQueueClientMock = new Mock<IFileScanQueueClient>();
         Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
         Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
-        Mock<IInstanceEventService> instanceEventServiceMock = new Mock<IInstanceEventService>();
 
         DataElementInternal dataElement = new DataElementInternal
         {
@@ -286,8 +275,7 @@ public class DataServiceTests
         DataService dataService = new DataService(
             fileScanQueueClientMock.Object,
             dataRepositoryMock.Object,
-            blobRepositoryMock.Object,
-            instanceEventServiceMock.Object
+            blobRepositoryMock.Object
         );
 
         // Act
@@ -312,7 +300,6 @@ public class DataServiceTests
         Mock<IFileScanQueueClient> fileScanQueueClientMock = new Mock<IFileScanQueueClient>();
         Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
         Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
-        Mock<IInstanceEventService> instanceEventServiceMock = new Mock<IInstanceEventService>();
 
         blobRepositoryMock
             .Setup(drm =>
@@ -372,8 +359,7 @@ public class DataServiceTests
         DataService dataService = new DataService(
             fileScanQueueClientMock.Object,
             dataRepositoryMock.Object,
-            blobRepositoryMock.Object,
-            instanceEventServiceMock.Object
+            blobRepositoryMock.Object
         );
 
         // Act
@@ -569,7 +555,7 @@ public class DataServiceTests
     }
 
     [Fact]
-    public async Task UploadDataAndCreateDataElement_CreateThrows_DeletesAllocatedVersionBlob()
+    public async Task UploadDataAndCreateDataElement_CreateThrowsDefiniteRollback_DeletesAllocatedVersionBlob()
     {
         string allocatedBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
         Guid dataElementId = Guid.NewGuid();
@@ -597,7 +583,7 @@ public class DataServiceTests
                     null
                 )
             )
-            .ThrowsAsync(new InvalidOperationException("metadata create failed"));
+            .ThrowsAsync(new PostgresException("deadlock detected", "ERROR", "ERROR", "40P01"));
         blobRepository
             .Setup(repository =>
                 repository.WriteBlob(
@@ -610,19 +596,18 @@ public class DataServiceTests
             .ReturnsAsync((123L, DateTimeOffset.UtcNow));
         DataService service = CreateDataService(dataRepository, blobRepository);
 
-        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () =>
-                service.UploadDataAndCreateDataElement(
-                    CreateInstance(),
-                    new MemoryStream("content"u8.ToArray()),
-                    CreateOptions(dataElementId),
-                    0,
-                    null,
-                    CancellationToken.None
-                )
+        PostgresException exception = await Assert.ThrowsAsync<PostgresException>(() =>
+            service.UploadDataAndCreateDataElement(
+                CreateInstance(),
+                new MemoryStream("content"u8.ToArray()),
+                CreateOptions(dataElementId),
+                0,
+                null,
+                CancellationToken.None
+            )
         );
 
-        Assert.Equal("metadata create failed", exception.Message);
+        Assert.Equal("40P01", exception.SqlState);
         blobRepository.Verify(
             repository =>
                 repository.DeleteBlob(
@@ -642,6 +627,76 @@ public class DataServiceTests
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task UploadDataAndCreateDataElement_CreateOutcomeUnknown_LeavesBlobForOrphanCleanup()
+    {
+        string allocatedBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        Guid dataElementId = Guid.NewGuid();
+        Mock<IDataRepository> dataRepository = new();
+        Mock<IBlobRepository> blobRepository = new();
+        dataRepository
+            .Setup(repository =>
+                repository.CreateBlobVersionId(
+                    It.IsAny<Guid>(),
+                    dataElementId,
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(allocatedBlobVersionId);
+        dataRepository
+            .Setup(repository =>
+                repository.Create(
+                    It.IsAny<DataElementInternal>(),
+                    It.IsAny<long>(),
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
+                )
+            )
+            .ThrowsAsync(new TimeoutException("commit outcome unknown"));
+        blobRepository
+            .Setup(repository =>
+                repository.WriteBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<Stream>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>()
+                )
+            )
+            .ReturnsAsync((123L, DateTimeOffset.UtcNow));
+        DataService service = CreateDataService(dataRepository, blobRepository);
+
+        TimeoutException exception = await Assert.ThrowsAsync<TimeoutException>(() =>
+            service.UploadDataAndCreateDataElement(
+                CreateInstance(),
+                new MemoryStream("content"u8.ToArray()),
+                CreateOptions(dataElementId),
+                0,
+                null,
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal("commit outcome unknown", exception.Message);
+        blobRepository.Verify(
+            repository =>
+                repository.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            Times.Never
+        );
+        dataRepository.Verify(
+            repository =>
+                repository.DeleteBlobVersion(
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
         );
     }
 
@@ -704,295 +759,6 @@ public class DataServiceTests
     }
 
     [Fact]
-    public async Task DeleteImmediately_LegacyBlobDeleteThrows_Throws()
-    {
-        Mock<IDataRepository> dataRepository = new();
-        Mock<IBlobRepository> blobRepository = new();
-        Mock<IInstanceEventService> eventService = new();
-
-        dataRepository
-            .Setup(repository =>
-                repository.Update(
-                    It.IsAny<Guid>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<Dictionary<string, object>>(),
-                    It.IsAny<DataElementUpdateContext>(),
-                    It.IsAny<CancellationToken>()
-                )
-            )
-            .ReturnsAsync(
-                (
-                    Guid _,
-                    Guid _,
-                    Dictionary<string, object> _,
-                    DataElementUpdateContext _,
-                    CancellationToken _
-                ) => new DataElement()
-            );
-        dataRepository
-            .Setup(repository =>
-                repository.Delete(It.IsAny<DataElementInternal>(), It.IsAny<CancellationToken>())
-            )
-            .ReturnsAsync(true);
-        dataRepository
-            .Setup(repository =>
-                repository.ReadBlobVersions(It.IsAny<Guid>(), It.IsAny<CancellationToken>())
-            )
-            .ReturnsAsync(Array.Empty<BlobVersionReferencesInternal>());
-        blobRepository
-            .Setup(repository =>
-                repository.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>())
-            )
-            .ThrowsAsync(new InvalidOperationException("cleanup failed"));
-
-        Guid instanceGuid = Guid.NewGuid();
-        InstanceInternal instance = new()
-        {
-            Id = instanceGuid.ToString(),
-            AppId = "ttd/app",
-            Org = "ttd",
-        };
-        DataElementInternal dataElement = new()
-        {
-            Id = Guid.NewGuid().ToString(),
-            InstanceGuid = instanceGuid.ToString(),
-            BlobStoragePath = "ttd/app/instance-guid/data/element",
-        };
-        DataService dataService = new(
-            Mock.Of<IFileScanQueueClient>(),
-            dataRepository.Object,
-            blobRepository.Object,
-            eventService.Object
-        );
-
-        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => dataService.DeleteImmediately(instance, dataElement, null)
-        );
-
-        Assert.Equal("cleanup failed", exception.Message);
-        dataRepository.Verify(
-            repository =>
-                repository.Delete(It.IsAny<DataElementInternal>(), It.IsAny<CancellationToken>()),
-            Times.Never
-        );
-        eventService.Verify(
-            service =>
-                service.DispatchEvent(
-                    It.IsAny<InstanceEventType>(),
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<DataElementInternal>()
-                ),
-            Times.Never
-        );
-    }
-
-    [Fact]
-    public async Task DeleteImmediately_MarkMetadataNotFound_DeletesBlobAndMetadata()
-    {
-        Guid dataElementId = Guid.NewGuid();
-        Guid instanceGuid = Guid.NewGuid();
-        const string currentBlobStoragePath = "ttd/app/instance-guid/data/element";
-        Mock<IDataRepository> dataRepository = new();
-        Mock<IBlobRepository> blobRepository = new();
-        Mock<IInstanceEventService> eventService = new();
-
-        dataRepository
-            .Setup(repository =>
-                repository.Update(
-                    instanceGuid,
-                    dataElementId,
-                    It.Is<Dictionary<string, object>>(properties =>
-                        properties.ContainsKey("/deleteStatus")
-                    ),
-                    It.IsAny<DataElementUpdateContext>(),
-                    It.IsAny<CancellationToken>()
-                )
-            )
-            .ThrowsAsync(
-                new RepositoryException("Data element was not found.", HttpStatusCode.NotFound)
-            );
-        dataRepository
-            .Setup(repository =>
-                repository.ReadBlobVersions(dataElementId, It.IsAny<CancellationToken>())
-            )
-            .ReturnsAsync(Array.Empty<BlobVersionReferencesInternal>());
-        dataRepository
-            .Setup(repository =>
-                repository.Delete(It.IsAny<DataElementInternal>(), It.IsAny<CancellationToken>())
-            )
-            .ReturnsAsync(false);
-        blobRepository
-            .Setup(repository => repository.DeleteBlob("ttd", currentBlobStoragePath, null))
-            .ReturnsAsync(true);
-
-        InstanceInternal instance = new()
-        {
-            Id = instanceGuid.ToString(),
-            AppId = "ttd/app",
-            Org = "ttd",
-        };
-        DataElementInternal dataElement = new()
-        {
-            Id = dataElementId.ToString(),
-            InstanceGuid = instanceGuid.ToString(),
-            BlobStoragePath = currentBlobStoragePath,
-        };
-        eventService
-            .Setup(service =>
-                service.DispatchEvent(InstanceEventType.Deleted, instance, dataElement)
-            )
-            .Returns(Task.CompletedTask);
-        DataService dataService = new(
-            Mock.Of<IFileScanQueueClient>(),
-            dataRepository.Object,
-            blobRepository.Object,
-            eventService.Object
-        );
-
-        await dataService.DeleteImmediately(instance, dataElement, null);
-
-        blobRepository.Verify(
-            repository => repository.DeleteBlob("ttd", currentBlobStoragePath, null),
-            Times.Once
-        );
-        dataRepository.Verify(
-            repository =>
-                repository.Delete(
-                    It.Is<DataElementInternal>(element => element.Id == dataElement.Id),
-                    It.IsAny<CancellationToken>()
-                ),
-            Times.Once
-        );
-        eventService.Verify(
-            service =>
-                service.DispatchEvent(
-                    InstanceEventType.Deleted,
-                    It.Is<InstanceInternal>(value => value.Id == instance.Id),
-                    It.Is<DataElementInternal>(element => element.Id == dataElement.Id)
-                ),
-            Times.Once
-        );
-    }
-
-    [Fact]
-    public async Task DeleteImmediately_WithBlobVersions_DeletesVersionedBlobsAndLegacyBase()
-    {
-        Guid instanceGuid = Guid.NewGuid();
-        Guid dataElementId = Guid.NewGuid();
-        const string firstVersion = "first-version";
-        const string secondVersion = "second-version";
-        InstanceInternal instance = new()
-        {
-            Id = instanceGuid.ToString(),
-            AppId = "ttd/app",
-            Org = "ttd",
-        };
-        DataElementInternal dataElement = new()
-        {
-            Id = dataElementId.ToString(),
-            InstanceGuid = instanceGuid.ToString(),
-            BlobStoragePath = BlobRepository.GetVersionedBlobPath(
-                instance.AppId,
-                instanceGuid.ToString(),
-                secondVersion
-            ),
-            BlobVersionId = secondVersion,
-            LastChangedBy = "1337",
-        };
-        DataElementInternal marked = new()
-        {
-            Id = dataElement.Id,
-            InstanceGuid = dataElement.InstanceGuid,
-            BlobStoragePath = dataElement.BlobStoragePath,
-            BlobVersionId = secondVersion,
-            DeleteStatus = new DeleteStatus { IsHardDeleted = true },
-        };
-        Mock<IDataRepository> dataRepository = new();
-        Mock<IBlobRepository> blobRepository = new();
-        Mock<IInstanceEventService> eventService = new();
-        dataRepository
-            .Setup(repository =>
-                repository.Update(
-                    instanceGuid,
-                    dataElementId,
-                    It.IsAny<Dictionary<string, object>>(),
-                    It.IsAny<DataElementUpdateContext>(),
-                    CancellationToken.None
-                )
-            )
-            .ReturnsAsync(marked);
-        dataRepository
-            .Setup(repository => repository.ReadBlobVersions(dataElementId, CancellationToken.None))
-            .ReturnsAsync([
-                new BlobVersionReferencesInternal(
-                    instanceGuid,
-                    instance.AppId,
-                    instance.Org,
-                    null,
-                    [firstVersion, secondVersion]
-                ),
-            ]);
-        dataRepository
-            .Setup(repository => repository.Delete(marked, CancellationToken.None))
-            .ReturnsAsync(true);
-        blobRepository
-            .Setup(repository =>
-                repository.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>())
-            )
-            .ReturnsAsync(true);
-        eventService.Setup(service =>
-            service.DispatchEvent(InstanceEventType.Deleted, instance, marked)
-        );
-        DataService service = new(
-            Mock.Of<IFileScanQueueClient>(),
-            dataRepository.Object,
-            blobRepository.Object,
-            eventService.Object
-        );
-
-        DataElementInternal deleted = await service.DeleteImmediately(instance, dataElement, null);
-
-        Assert.Same(marked, deleted);
-        blobRepository.Verify(
-            repository =>
-                repository.DeleteBlob(
-                    instance.Org,
-                    BlobRepository.GetVersionedBlobPath(
-                        instance.AppId,
-                        instanceGuid.ToString(),
-                        firstVersion
-                    ),
-                    null
-                ),
-            Times.Once
-        );
-        blobRepository.Verify(
-            repository =>
-                repository.DeleteBlob(
-                    instance.Org,
-                    BlobRepository.GetVersionedBlobPath(
-                        instance.AppId,
-                        instanceGuid.ToString(),
-                        secondVersion
-                    ),
-                    null
-                ),
-            Times.Once
-        );
-        blobRepository.Verify(
-            repository =>
-                repository.DeleteBlob(
-                    instance.Org,
-                    $"{instance.AppId}/{instanceGuid}/data/{dataElementId}",
-                    null
-                ),
-            Times.Once
-        );
-        dataRepository.VerifyAll();
-        eventService.VerifyAll();
-    }
-
-    [Fact]
     public async Task CleanupDeletedDataElementBlobs_LegacyBlobDeleteThrows_DoesNotThrow()
     {
         Mock<IFileScanQueueClient> fileScanQueueClientMock = new Mock<IFileScanQueueClient>();
@@ -1012,9 +778,7 @@ public class DataServiceTests
         DataService dataService = new DataService(
             fileScanQueueClientMock.Object,
             dataRepositoryMock.Object,
-            blobRepositoryMock.Object,
-            Mock.Of<IInstanceEventService>(),
-            Mock.Of<ILogger<DataService>>()
+            blobRepositoryMock.Object
         );
 
         Guid instanceGuid = Guid.NewGuid();
@@ -1065,9 +829,7 @@ public class DataServiceTests
         DataService dataService = new DataService(
             fileScanQueueClientMock.Object,
             dataRepositoryMock.Object,
-            blobRepositoryMock.Object,
-            Mock.Of<IInstanceEventService>(),
-            Mock.Of<ILogger<DataService>>()
+            blobRepositoryMock.Object
         );
         Instance instance = new()
         {
@@ -1114,9 +876,7 @@ public class DataServiceTests
         DataService dataService = new DataService(
             fileScanQueueClientMock.Object,
             dataRepositoryMock.Object,
-            blobRepositoryMock.Object,
-            Mock.Of<IInstanceEventService>(),
-            Mock.Of<ILogger<DataService>>()
+            blobRepositoryMock.Object
         );
         Instance instance = new()
         {
@@ -1215,9 +975,7 @@ public class DataServiceTests
         DataService dataService = new DataService(
             fileScanQueueClientMock.Object,
             dataRepositoryMock.Object,
-            blobRepositoryMock.Object,
-            Mock.Of<IInstanceEventService>(),
-            Mock.Of<ILogger<DataService>>()
+            blobRepositoryMock.Object
         );
         Instance instance = new()
         {
@@ -1342,9 +1100,7 @@ public class DataServiceTests
         DataService dataService = new DataService(
             fileScanQueueClientMock.Object,
             dataRepositoryMock.Object,
-            blobRepositoryMock.Object,
-            Mock.Of<IInstanceEventService>(),
-            Mock.Of<ILogger<DataService>>()
+            blobRepositoryMock.Object
         );
         Instance instance = new()
         {
@@ -1432,8 +1188,7 @@ public class DataServiceTests
             fileScanQueueClientMock.Object,
             dataRepositoryMock.Object,
             blobRepositoryMock.Object,
-            Mock.Of<IInstanceEventService>(),
-            logger: loggerMock.Object
+            loggerMock.Object
         );
         Instance instance = new()
         {
@@ -1540,8 +1295,7 @@ public class DataServiceTests
             fileScanQueueClientMock.Object,
             dataRepositoryMock.Object,
             blobRepositoryMock.Object,
-            Mock.Of<IInstanceEventService>(),
-            logger: loggerMock.Object
+            loggerMock.Object
         );
         Instance instance = new()
         {
@@ -1661,13 +1415,7 @@ public class DataServiceTests
     private static DataService CreateDataService(
         Mock<IDataRepository> dataRepository,
         Mock<IBlobRepository> blobRepository
-    ) =>
-        new(
-            Mock.Of<IFileScanQueueClient>(),
-            dataRepository.Object,
-            blobRepository.Object,
-            Mock.Of<IInstanceEventService>()
-        );
+    ) => new(Mock.Of<IFileScanQueueClient>(), dataRepository.Object, blobRepository.Object);
 
     private static InstanceInternal CreateInstance() =>
         new()

@@ -82,10 +82,12 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
                     It.IsAny<Guid>(),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<int?>()
                 )
             )
-            .ReturnsAsync((true, null));
+            .ReturnsAsync(SignDocumentCreateResult.Success(new StorageVersions(1, 1)));
 
         HttpClient client = GetTestClient(instanceServiceMock);
         string token = !string.IsNullOrWhiteSpace(signee.UserId)
@@ -183,10 +185,14 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
                     It.IsAny<Guid>(),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<int?>()
                 )
             )
-            .ReturnsAsync((false, new ServiceError(404, "Instance not found")));
+            .ReturnsAsync(
+                SignDocumentCreateResult.Failure(new ServiceError(404, "Instance not found"))
+            );
 
         HttpClient client = GetTestClient(instanceServiceMock);
         string token = PrincipalUtil.GetToken(10016, 1600, 2);

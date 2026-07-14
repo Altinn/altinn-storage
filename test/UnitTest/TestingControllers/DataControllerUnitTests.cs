@@ -22,6 +22,7 @@ using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Utils;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -939,6 +940,508 @@ public class DataControllerUnitTests
             Times.Never
         );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+    }
+
+    [Fact]
+    public async Task CommitMutation_DeleteInstanceHard_WhenDeletePolicyFails_ReturnsForbid()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, []),
+            CreateAggregateApplication(),
+            """
+            {
+              "deleteInstance": {
+                "hard": true
+              }
+            }
+            """
+        );
+        fixture
+            .PolicyAuthorizationService.Setup(service =>
+                service.AuthorizeAsync(
+                    It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
+                    It.Is<object>(resource => resource == null),
+                    AuthzConstants.POLICY_INSTANCE_DELETE
+                )
+            )
+            .ReturnsAsync(AuthorizationResult.Failed());
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        Assert.IsType<ForbidResult>(result.Result);
+        fixture.PolicyAuthorizationService.Verify(
+            service =>
+                service.AuthorizeAsync(
+                    It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
+                    It.Is<object>(resource => resource == null),
+                    AuthzConstants.POLICY_INSTANCE_DELETE
+                ),
+            Times.Once
+        );
+        fixture.InstanceRepository.Verify(
+            repository => repository.GetOne(instanceGuid, true, It.IsAny<CancellationToken>()),
+            Times.Once
+        );
+        fixture.MutationRepository.Verify(
+            repository =>
+                repository.Apply(
+                    It.IsAny<Guid>(),
+                    It.IsAny<long>(),
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task CommitMutation_DeleteInstanceHard_WhenInstanceIsMissing_ReturnsNotFoundBeforeDeleteAuthorization()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, []),
+            CreateAggregateApplication(),
+            """
+            {
+              "deleteInstance": {
+                "hard": true
+              }
+            }
+            """
+        );
+        fixture
+            .InstanceRepository.Setup(repository =>
+                repository.GetOne(instanceGuid, true, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync((InstanceInternal)null);
+        fixture
+            .PolicyAuthorizationService.Setup(service =>
+                service.AuthorizeAsync(
+                    It.IsAny<ClaimsPrincipal>(),
+                    It.Is<object>(resource => resource == null),
+                    AuthzConstants.POLICY_INSTANCE_DELETE
+                )
+            )
+            .ReturnsAsync(AuthorizationResult.Failed());
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        NotFoundObjectResult notFound = Assert.IsType<NotFoundObjectResult>(result.Result);
+        Assert.Equal($"Unable to find any instance with id: 555/{instanceGuid}.", notFound.Value);
+        fixture.PolicyAuthorizationService.Verify(
+            service =>
+                service.AuthorizeAsync(
+                    It.IsAny<ClaimsPrincipal>(),
+                    It.IsAny<object>(),
+                    AuthzConstants.POLICY_INSTANCE_DELETE
+                ),
+            Times.Never
+        );
+        fixture.MutationRepository.Verify(
+            repository =>
+                repository.Apply(
+                    It.IsAny<Guid>(),
+                    It.IsAny<long>(),
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task CommitMutation_DeleteInstanceHard_WhenHardIsFalse_ReturnsBadRequestBeforeInstanceFetch()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, []),
+            CreateAggregateApplication(),
+            """
+            {
+              "deleteInstance": {
+                "hard": false
+              }
+            }
+            """
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Equal("deleteInstance.hard must be true.", badRequest.Value);
+        fixture.InstanceRepository.Verify(
+            repository =>
+                repository.GetOne(
+                    It.IsAny<Guid>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+        fixture.MutationRepository.Verify(
+            repository =>
+                repository.Apply(
+                    It.IsAny<Guid>(),
+                    It.IsAny<long>(),
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task CommitMutation_DeleteInstanceHard_AppliesStatusMarkerAndDeletedEvent()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        InstanceMutationCommit capturedMutation = null;
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, []),
+            CreateAggregateApplication(),
+            """
+            {
+              "deleteInstance": {
+                "hard": true
+              }
+            }
+            """
+        );
+        fixture
+            .InstanceEventService.Setup(service =>
+                service.BuildInstanceEvent(InstanceEventType.Deleted, It.IsAny<InstanceInternal>())
+            )
+            .Returns(
+                (InstanceEventType eventType, InstanceInternal instance) =>
+                    new InstanceEvent
+                    {
+                        EventType = eventType.ToString(),
+                        InstanceId = instance.Id,
+                        InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
+                    }
+            );
+        fixture
+            .MutationRepository.Setup(repository =>
+                repository.Apply(
+                    instanceGuid,
+                    123L,
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .Callback<Guid, long, InstanceMutationCommit, CancellationToken>(
+                (_, _, mutation, _) => capturedMutation = mutation
+            )
+            .ReturnsAsync(
+                (Guid _, long _, InstanceMutationCommit mutation, CancellationToken _) =>
+                    CreateApplyResult(fixture.InstanceInternal, mutation)
+            );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(result.Result);
+        InstanceMutationResponse response = Assert.IsType<InstanceMutationResponse>(ok.Value);
+        Assert.True(response.Instance.Status.IsHardDeleted);
+        Assert.True(response.Instance.Status.IsSoftDeleted);
+        Assert.NotNull(response.Instance.Status.HardDeleted);
+        Assert.Equal(response.Instance.Status.HardDeleted, response.Instance.Status.SoftDeleted);
+
+        Assert.NotNull(capturedMutation);
+        Assert.Contains(nameof(InstanceInternal.Status), capturedMutation.InstanceUpdateProperties);
+        Assert.Contains(
+            nameof(InstanceStatus.IsHardDeleted),
+            capturedMutation.InstanceUpdateProperties
+        );
+        Assert.Contains(
+            nameof(InstanceStatus.HardDeleted),
+            capturedMutation.InstanceUpdateProperties
+        );
+        Assert.DoesNotContain(
+            nameof(InstanceInternal.LastChanged),
+            capturedMutation.InstanceUpdateProperties
+        );
+        Assert.DoesNotContain(
+            nameof(InstanceInternal.LastChangedBy),
+            capturedMutation.InstanceUpdateProperties
+        );
+        Assert.NotNull(capturedMutation.LastChanged);
+        Assert.Equal(capturedMutation.InstanceUpdates.LastChanged, capturedMutation.LastChanged);
+        Assert.Equal(
+            capturedMutation.InstanceUpdates.LastChangedBy,
+            capturedMutation.LastChangedBy
+        );
+        Assert.True(capturedMutation.InstanceUpdates.Status.IsHardDeleted);
+        Assert.True(capturedMutation.InstanceUpdates.Status.IsSoftDeleted);
+        InstanceEvent deletedEvent = Assert.Single(capturedMutation.InstanceEvents);
+        Assert.Equal(InstanceEventType.Deleted.ToString(), deletedEvent.EventType);
+        Assert.Empty(capturedMutation.CreateDataElements);
+        Assert.Empty(capturedMutation.UpdateDataElements);
+        Assert.Empty(capturedMutation.DeleteDataElements);
+        fixture.PolicyAuthorizationService.Verify(
+            service =>
+                service.AuthorizeAsync(
+                    It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
+                    It.Is<object>(resource => resource == null),
+                    AuthzConstants.POLICY_INSTANCE_DELETE
+                ),
+            Times.Once
+        );
+    }
+
+    [Theory]
+    [MemberData(nameof(DeleteInstanceCombinationRequests))]
+    public async Task CommitMutation_DeleteInstanceHard_WhenCombinedWithOtherMutation_ReturnsBadRequest(
+        string operationName,
+        string mutationJson
+    )
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, []),
+            CreateAggregateApplication(),
+            mutationJson
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        Assert.False(string.IsNullOrWhiteSpace(operationName));
+        BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Equal(
+            "deleteInstance cannot be combined with other aggregate mutation operations.",
+            badRequest.Value
+        );
+        fixture.PolicyAuthorizationService.Verify(
+            service =>
+                service.AuthorizeAsync(
+                    It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
+                    It.IsAny<object>(),
+                    AuthzConstants.POLICY_INSTANCE_DELETE
+                ),
+            Times.Never
+        );
+        fixture.MutationRepository.Verify(
+            repository =>
+                repository.Apply(
+                    It.IsAny<Guid>(),
+                    It.IsAny<long>(),
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
+    public static IEnumerable<object[]> DeleteInstanceCombinationRequests()
+    {
+        yield return new object[]
+        {
+            "dataValues",
+            """
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "dataValues": {
+                    "status": "deleted"
+                  }
+                }
+                """,
+        };
+        yield return new object[]
+        {
+            "presentationTexts",
+            """
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "presentationTexts": {
+                    "status": "deleted"
+                  }
+                }
+                """,
+        };
+        yield return new object[]
+        {
+            "processState.state",
+            """
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "processState": {
+                    "state": {
+                      "started": "2024-01-01T00:00:00Z"
+                    }
+                  }
+                }
+                """,
+        };
+        yield return new object[]
+        {
+            "processState.events",
+            """
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "processState": {
+                    "events": [
+                      {
+                        "eventType": "process_StartEvent",
+                        "instanceId": "555/11111111-1111-1111-1111-111111111111"
+                      }
+                    ]
+                  }
+                }
+                """,
+        };
+        yield return new object[]
+        {
+            "createDataElements",
+            """
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "createDataElements": [
+                    {
+                      "dataType": "attachment",
+                      "contentPartName": "attachment"
+                    }
+                  ]
+                }
+                """,
+        };
+        yield return new object[]
+        {
+            "updateDataElements",
+            """
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "updateDataElements": [
+                    {
+                      "dataElementId": "11111111-1111-1111-1111-111111111111",
+                      "locked": true
+                    }
+                  ]
+                }
+                """,
+        };
+        yield return new object[]
+        {
+            "deleteDataElements",
+            """
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "deleteDataElements": [
+                    {
+                      "dataElementId": "11111111-1111-1111-1111-111111111111"
+                    }
+                  ]
+                }
+                """,
+        };
+    }
+
+    [Fact]
+    public async Task CommitMutation_DeleteInstanceHard_WhenIdempotencyReplaysAfterMarker_ReturnsInstanceDeleted()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        Guid idempotencyKey = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        DateTime deletedAt = DateTime.UtcNow;
+        InstanceInternal instanceInternal = CreateAggregateInstanceInternal(instanceGuid, []);
+        instanceInternal.Status = new InstanceStatus
+        {
+            IsHardDeleted = true,
+            IsSoftDeleted = true,
+            HardDeleted = deletedAt,
+            SoftDeleted = deletedAt,
+        };
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            instanceInternal,
+            CreateAggregateApplication(),
+            """
+            {
+              "deleteInstance": {
+                "hard": true
+              }
+            }
+            """
+        );
+        fixture.HttpContext.Request.Headers[StorageHeaders.IdempotencyKey] =
+            idempotencyKey.ToString();
+        fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] = "10";
+        fixture
+            .MutationRepository.Setup(repository =>
+                repository.TryReplayAdmission(
+                    instanceGuid,
+                    10,
+                    1,
+                    1,
+                    idempotencyKey,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(
+                new RepositoryException(
+                    $"Instance {instanceGuid} is deleted and cannot be modified.",
+                    HttpStatusCode.NotFound
+                )
+            );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        ObjectResult objectResult = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status404NotFound, objectResult.StatusCode);
+        Assert.Equal(
+            $"Instance {instanceGuid} is deleted and cannot be modified.",
+            objectResult.Value
+        );
+        fixture.MutationRepository.Verify(
+            repository =>
+                repository.Apply(
+                    It.IsAny<Guid>(),
+                    It.IsAny<long>(),
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
     }
 
     [Fact]
@@ -3184,6 +3687,319 @@ public class DataControllerUnitTests
     }
 
     [Fact]
+    public async Task Delete_ImmediateDelete_AppliesMetadataDeleteAndDeletedEventBeforeBlobCleanup()
+    {
+        ImmediateDeleteFixture fixture = CreateImmediateDeleteFixture();
+        InstanceMutationCommit capturedMutation = null;
+        int order = 0;
+        int buildEventOrder = 0;
+        int applyOrder = 0;
+        int cleanupOrder = 0;
+
+        fixture
+            .InstanceEventService.Setup(service =>
+                service.BuildInstanceEvent(
+                    InstanceEventType.Deleted,
+                    fixture.InstanceInternal,
+                    It.Is<DataElementInternal>(dataElement =>
+                        dataElement.Id == fixture.DataElementId.ToString()
+                    )
+                )
+            )
+            .Callback(() => buildEventOrder = ++order)
+            .Returns(
+                new InstanceEvent
+                {
+                    EventType = InstanceEventType.Deleted.ToString(),
+                    DataId = fixture.DataElementId.ToString(),
+                }
+            );
+        fixture
+            .MutationRepository.Setup(repository =>
+                repository.Apply(
+                    fixture.InstanceGuid,
+                    fixture.InstanceInternalId,
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .Callback<Guid, long, InstanceMutationCommit, CancellationToken>(
+                (_, _, mutation, _) =>
+                {
+                    applyOrder = ++order;
+                    capturedMutation = mutation;
+                }
+            )
+            .ReturnsAsync(
+                (Guid _, long _, InstanceMutationCommit mutation, CancellationToken _) =>
+                    CreateApplyResult(fixture.InstanceInternal, mutation)
+            );
+        fixture
+            .DataService.Setup(service =>
+                service.CleanupDeletedDataElementBlobs(
+                    fixture.InstanceInternal,
+                    fixture.DataElementInternal,
+                    7,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .Callback(() => cleanupOrder = ++order)
+            .Returns(Task.CompletedTask);
+
+        ActionResult<DataElement> result = await fixture.Sut.Delete(
+            fixture.InstanceOwnerPartyId,
+            fixture.InstanceGuid,
+            fixture.DataElementId,
+            false,
+            CancellationToken.None
+        );
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(result.Result);
+        DataElement response = Assert.IsType<DataElement>(ok.Value);
+        Assert.NotSame(fixture.DataElement, response);
+        Assert.Equal(fixture.DataElement.Id, response.Id);
+        Assert.True(buildEventOrder < applyOrder);
+        Assert.True(applyOrder < cleanupOrder);
+        Assert.Contains(
+            capturedMutation.DeleteDataElements,
+            delete => delete.DataElement == fixture.DataElementInternal && delete.IgnoreLock
+        );
+        InstanceEvent deletedEvent = Assert.Single(capturedMutation.InstanceEvents);
+        Assert.Equal(InstanceEventType.Deleted.ToString(), deletedEvent.EventType);
+        Assert.Equal(fixture.DataElementId.ToString(), deletedEvent.DataId);
+        Assert.Equal(4, capturedMutation.ExpectedInstanceVersion);
+        Assert.Equal(2, capturedMutation.ExpectedProcessStateVersion);
+        Assert.Equal(
+            "5",
+            fixture.HttpContext.Response.Headers[StorageHeaders.InstanceVersion].Single()
+        );
+        Assert.Equal(
+            "3",
+            fixture.HttpContext.Response.Headers[StorageHeaders.ProcessStateVersion].Single()
+        );
+        fixture.DataRepository.Verify(
+            repository =>
+                repository.Delete(It.IsAny<DataElementInternal>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+        fixture.InstanceEventService.Verify(
+            service =>
+                service.DispatchEvent(
+                    It.IsAny<InstanceEventType>(),
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<DataElementInternal>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task Delete_ImmediateDelete_WhenDeletedEventBuildFails_DoesNotApplyOrCleanup()
+    {
+        ImmediateDeleteFixture fixture = CreateImmediateDeleteFixture();
+        fixture
+            .InstanceEventService.Setup(service =>
+                service.BuildInstanceEvent(
+                    InstanceEventType.Deleted,
+                    fixture.InstanceInternal,
+                    It.Is<DataElementInternal>(dataElement =>
+                        dataElement.Id == fixture.DataElementId.ToString()
+                    )
+                )
+            )
+            .Throws(new InvalidOperationException("missing user"));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            fixture.Sut.Delete(
+                fixture.InstanceOwnerPartyId,
+                fixture.InstanceGuid,
+                fixture.DataElementId,
+                false,
+                CancellationToken.None
+            )
+        );
+
+        fixture.MutationRepository.Verify(
+            repository =>
+                repository.Apply(
+                    It.IsAny<Guid>(),
+                    It.IsAny<long>(),
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+        fixture.DataService.Verify(
+            service =>
+                service.CleanupDeletedDataElementBlobs(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<DataElementInternal>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+        fixture.DataRepository.Verify(
+            repository =>
+                repository.Delete(It.IsAny<DataElementInternal>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task Delete_ImmediateDelete_WhenAggregateApplyFails_DoesNotRunBlobCleanup()
+    {
+        ImmediateDeleteFixture fixture = CreateImmediateDeleteFixture();
+        fixture
+            .InstanceEventService.Setup(service =>
+                service.BuildInstanceEvent(
+                    InstanceEventType.Deleted,
+                    fixture.InstanceInternal,
+                    fixture.DataElementInternal
+                )
+            )
+            .Returns(new InstanceEvent { EventType = InstanceEventType.Deleted.ToString() });
+        fixture
+            .MutationRepository.Setup(repository =>
+                repository.Apply(
+                    fixture.InstanceGuid,
+                    fixture.InstanceInternalId,
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(new InvalidOperationException("event insert failed"));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            fixture.Sut.Delete(
+                fixture.InstanceOwnerPartyId,
+                fixture.InstanceGuid,
+                fixture.DataElementId,
+                false,
+                CancellationToken.None
+            )
+        );
+
+        fixture.DataService.Verify(
+            service =>
+                service.CleanupDeletedDataElementBlobs(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<DataElementInternal>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+        fixture.DataRepository.Verify(
+            repository =>
+                repository.Delete(It.IsAny<DataElementInternal>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task Delete_ImmediateDelete_WhenVersionMismatch_ReturnsPreconditionFailedAndDoesNotCleanup()
+    {
+        ImmediateDeleteFixture fixture = CreateImmediateDeleteFixture();
+        fixture
+            .InstanceEventService.Setup(service =>
+                service.BuildInstanceEvent(
+                    InstanceEventType.Deleted,
+                    fixture.InstanceInternal,
+                    fixture.DataElementInternal
+                )
+            )
+            .Returns(new InstanceEvent { EventType = InstanceEventType.Deleted.ToString() });
+        fixture
+            .MutationRepository.Setup(repository =>
+                repository.Apply(
+                    fixture.InstanceGuid,
+                    fixture.InstanceInternalId,
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(new InstanceVersionMismatchException(9, 4));
+
+        ActionResult<DataElement> result = await fixture.Sut.Delete(
+            fixture.InstanceOwnerPartyId,
+            fixture.InstanceGuid,
+            fixture.DataElementId,
+            false,
+            CancellationToken.None
+        );
+
+        ObjectResult objectResult = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status412PreconditionFailed, objectResult.StatusCode);
+        Assert.Equal(
+            "9",
+            fixture.HttpContext.Response.Headers[StorageHeaders.InstanceVersion].Single()
+        );
+        Assert.Equal(
+            "4",
+            fixture.HttpContext.Response.Headers[StorageHeaders.ProcessStateVersion].Single()
+        );
+        fixture.DataService.Verify(
+            service =>
+                service.CleanupDeletedDataElementBlobs(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<DataElementInternal>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task Delete_ImmediateDelete_WhenRepositoryReportsConflict_ReturnsConflictAndDoesNotCleanup()
+    {
+        ImmediateDeleteFixture fixture = CreateImmediateDeleteFixture();
+        string errorMessage = $"Data element {fixture.DataElementId} could not be deleted.";
+        fixture
+            .InstanceEventService.Setup(service =>
+                service.BuildInstanceEvent(
+                    InstanceEventType.Deleted,
+                    fixture.InstanceInternal,
+                    fixture.DataElementInternal
+                )
+            )
+            .Returns(new InstanceEvent { EventType = InstanceEventType.Deleted.ToString() });
+        fixture
+            .MutationRepository.Setup(repository =>
+                repository.Apply(
+                    fixture.InstanceGuid,
+                    fixture.InstanceInternalId,
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(new RepositoryException(errorMessage, HttpStatusCode.Conflict));
+
+        ActionResult<DataElement> result = await fixture.Sut.Delete(
+            fixture.InstanceOwnerPartyId,
+            fixture.InstanceGuid,
+            fixture.DataElementId,
+            false,
+            CancellationToken.None
+        );
+
+        ObjectResult objectResult = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status409Conflict, objectResult.StatusCode);
+        Assert.Equal(errorMessage, objectResult.Value);
+        fixture.DataService.Verify(
+            service =>
+                service.CleanupDeletedDataElementBlobs(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<DataElementInternal>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
     public async Task Get_VerifyDataRepositoryUpdateInput()
     {
         // Arrange
@@ -3890,17 +4706,11 @@ public class DataControllerUnitTests
     }
 
     [Fact]
-    public async Task Delete_VerifyDataRepositoryUpdateInput()
+    public async Task Delete_Delayed_DoesNotUseLegacyRepositoryUpdate()
     {
         // Arrange
-        List<string> expectedPropertiesForPatch =
-        [
-            "/deleteStatus",
-            "/lastChanged",
-            "/lastChangedBy",
-        ];
         (DataController testController, Mock<IDataRepository> dataRepositoryMock, _) =
-            GetTestController(expectedPropertiesForPatch);
+            GetTestController([]);
 
         // Act
         var result = await testController.Delete(
@@ -3918,17 +4728,11 @@ public class DataControllerUnitTests
                 d.Update(
                     It.IsAny<Guid>(),
                     It.IsAny<Guid>(),
-                    It.Is<Dictionary<string, object>>(p =>
-                        VerifyPropertyListInput(
-                            expectedPropertiesForPatch.Count,
-                            expectedPropertiesForPatch,
-                            p
-                        )
-                    ),
+                    It.IsAny<Dictionary<string, object>>(),
                     It.IsAny<DataElementUpdateContext>(),
                     It.IsAny<CancellationToken>()
                 ),
-            Times.Once
+            Times.Never
         );
     }
 
@@ -4897,6 +5701,7 @@ public class DataControllerUnitTests
         Mock<IInstanceEventService> instanceEventServiceMock = new();
         Mock<IDataService> dataServiceMock = new();
         Mock<IAuthorization> authorizationServiceMock = new();
+        Mock<IAuthorizationService> policyAuthorizationServiceMock = new();
 
         var updateSetup = dataRepositoryMock.Setup(d =>
             d.Update(
@@ -5222,6 +6027,34 @@ public class DataControllerUnitTests
             new GeneralSettings { Hostname = "https://altinn.no/" }
         );
         Mock<IInstanceMutationRepository> instanceMutationRepositoryMock = new();
+        var applySetup = instanceMutationRepositoryMock.Setup(repository =>
+            repository.Apply(
+                It.IsAny<Guid>(),
+                It.IsAny<long>(),
+                It.IsAny<InstanceMutationCommit>(),
+                It.IsAny<CancellationToken>()
+            )
+        );
+        if (repositoryExceptionOnUpdate != null)
+        {
+            applySetup.ThrowsAsync(repositoryExceptionOnUpdate);
+        }
+        else if (throwOnUpdate)
+        {
+            applySetup.ThrowsAsync(new InvalidOperationException("metadata update failed"));
+        }
+        else
+        {
+            applySetup.ReturnsAsync(
+                (Guid mutatedInstanceGuid, long _, InstanceMutationCommit _, CancellationToken _) =>
+                    new InstanceMutationApplyResult(
+                        false,
+                        [],
+                        CreateInstanceInternal(mutatedInstanceGuid, true)
+                    )
+            );
+        }
+
         Mock<IProcessAuthorizer> processAuthorizerMock = new();
         processAuthorizerMock
             .Setup(a => a.AuthorizePresentationTextsUpdate(It.IsAny<InstanceInternal>()))
@@ -5241,6 +6074,7 @@ public class DataControllerUnitTests
             generalSettings,
             onDemandClient,
             authorizationServiceMock.Object,
+            policyAuthorizationServiceMock.Object,
             processAuthorizerMock.Object
         )
         {
@@ -5266,6 +6100,7 @@ public class DataControllerUnitTests
         Mock<IDataService> dataServiceMock = new();
         Mock<IInstanceEventService> instanceEventServiceMock = new();
         Mock<IAuthorization> authorizationServiceMock = new();
+        Mock<IAuthorizationService> policyAuthorizationServiceMock = new();
         Mock<IProcessAuthorizer> processAuthorizerMock = new();
 
         dataRepositoryMock
@@ -5371,6 +6206,15 @@ public class DataControllerUnitTests
                 )
             )
             .ReturnsAsync(true);
+        policyAuthorizationServiceMock
+            .Setup(service =>
+                service.AuthorizeAsync(
+                    It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
+                    It.Is<object>(resource => resource == null),
+                    AuthzConstants.POLICY_INSTANCE_DELETE
+                )
+            )
+            .ReturnsAsync(AuthorizationResult.Success());
 
         DefaultHttpContext httpContext = new() { User = PrincipalUtil.GetPrincipal(200001, 1337) };
         if (mutationJson is not null)
@@ -5389,6 +6233,7 @@ public class DataControllerUnitTests
             Options.Create(new GeneralSettings { Hostname = "https://altinn.no/" }),
             null,
             authorizationServiceMock.Object,
+            policyAuthorizationServiceMock.Object,
             processAuthorizerMock.Object
         )
         {
@@ -5405,6 +6250,7 @@ public class DataControllerUnitTests
             dataServiceMock,
             mutationRepositoryMock,
             instanceEventServiceMock,
+            policyAuthorizationServiceMock,
             processAuthorizerMock
         );
     }
@@ -5611,7 +6457,129 @@ public class DataControllerUnitTests
         Mock<IDataService> DataService,
         Mock<IInstanceMutationRepository> MutationRepository,
         Mock<IInstanceEventService> InstanceEventService,
+        Mock<IAuthorizationService> PolicyAuthorizationService,
         Mock<IProcessAuthorizer> ProcessAuthorizer
+    );
+
+    private ImmediateDeleteFixture CreateImmediateDeleteFixture()
+    {
+        const int instanceOwnerPartyId = 555;
+        Guid instanceGuid = Guid.NewGuid();
+        Guid dataElementId = Guid.NewGuid();
+        DataElement dataElement = new()
+        {
+            Id = dataElementId.ToString(),
+            InstanceGuid = instanceGuid.ToString(),
+            DataType = _dataType,
+            LastChangedBy = "previous-user",
+        };
+        DataElementInternal dataElementInternal = dataElement.FromApiModel();
+        Instance instance = new()
+        {
+            Id = $"{instanceOwnerPartyId}/{instanceGuid}",
+            InstanceOwner = new InstanceOwner { PartyId = instanceOwnerPartyId.ToString() },
+            Org = _org,
+            AppId = _appId,
+            Data = [dataElement],
+        };
+        InstanceInternal instanceInternal = InstanceInternalTestFactory.Create(
+            instance,
+            [dataElementInternal],
+            InternalId: 123L,
+            versions: new StorageVersions(5, 3)
+        );
+
+        Mock<IDataRepository> dataRepositoryMock = new();
+        Mock<IBlobRepository> blobRepositoryMock = new();
+        Mock<IInstanceRepository> instanceRepositoryMock = new();
+        Mock<IInstanceMutationRepository> mutationRepositoryMock = new();
+        Mock<IApplicationRepository> applicationRepositoryMock = new();
+        Mock<IDataService> dataServiceMock = new();
+        Mock<IInstanceEventService> instanceEventServiceMock = new();
+        Mock<IAuthorization> authorizationServiceMock = new();
+        Mock<IAuthorizationService> policyAuthorizationServiceMock = new();
+        Mock<IProcessAuthorizer> processAuthorizerMock = new();
+
+        dataRepositoryMock
+            .Setup(repository =>
+                repository.Read(instanceGuid, dataElementId, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(dataElementInternal);
+        instanceRepositoryMock
+            .Setup(repository =>
+                repository.GetOne(instanceGuid, false, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(instanceInternal);
+        applicationRepositoryMock
+            .Setup(repository => repository.FindOne(_appId, _org, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                new Application
+                {
+                    Id = _appId,
+                    Org = _org,
+                    StorageAccountNumber = 7,
+                    DataTypes = [new DataType { Id = _dataType }],
+                }
+            );
+
+        DefaultHttpContext httpContext = new()
+        {
+            User = PrincipalUtil.GetPrincipal(200001, instanceOwnerPartyId),
+        };
+        httpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] = "4";
+        httpContext.Request.Headers[StorageHeaders.IfProcessStateVersionMatch] = "2";
+
+        DataController sut = new(
+            dataRepositoryMock.Object,
+            blobRepositoryMock.Object,
+            instanceRepositoryMock.Object,
+            mutationRepositoryMock.Object,
+            applicationRepositoryMock.Object,
+            dataServiceMock.Object,
+            instanceEventServiceMock.Object,
+            Options.Create(new GeneralSettings { Hostname = "https://altinn.no/" }),
+            null,
+            authorizationServiceMock.Object,
+            policyAuthorizationServiceMock.Object,
+            processAuthorizerMock.Object
+        )
+        {
+            ControllerContext = new ControllerContext { HttpContext = httpContext },
+        };
+
+        return new ImmediateDeleteFixture(
+            sut,
+            httpContext,
+            instanceOwnerPartyId,
+            instanceGuid,
+            123L,
+            dataElementId,
+            instanceInternal,
+            instance,
+            dataElement,
+            dataElementInternal,
+            dataRepositoryMock,
+            mutationRepositoryMock,
+            dataServiceMock,
+            instanceEventServiceMock
+        );
+    }
+
+    private sealed record ImmediateDeleteFixture(
+        DataController Sut,
+        DefaultHttpContext HttpContext,
+        int InstanceOwnerPartyId,
+        Guid InstanceGuid,
+        long InstanceInternalId,
+        Guid DataElementId,
+        InstanceInternal InstanceInternal,
+        Instance Instance,
+        DataElement DataElement,
+        DataElementInternal DataElementInternal,
+        Mock<IDataRepository> DataRepository,
+        Mock<IInstanceMutationRepository> MutationRepository,
+        Mock<IDataService> DataService,
+        Mock<IInstanceEventService> InstanceEventService
     );
 
     private InstanceInternal CreateInstanceInternal(Guid instanceGuid, bool includeDataElements)

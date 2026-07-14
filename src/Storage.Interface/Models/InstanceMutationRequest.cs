@@ -30,6 +30,12 @@ public class InstanceMutationRequest
     public List<InstanceMutationDeleteDataElement> DeleteDataElements { get; set; }
 
     /// <summary>
+    /// Optional hard-delete operation for the instance itself.
+    /// </summary>
+    [JsonProperty(PropertyName = "deleteInstance")]
+    public InstanceMutationDeleteInstance DeleteInstance { get; set; }
+
+    /// <summary>
     /// DataValues entries to merge into the instance. Null or empty values remove keys.
     /// </summary>
     [JsonProperty(PropertyName = "dataValues")]
@@ -204,4 +210,16 @@ public class InstanceMutationDeleteDataElement
     /// </summary>
     [JsonProperty(PropertyName = "ignoreLock")]
     public bool IgnoreLock { get; set; }
+}
+
+/// <summary>
+/// Delete-instance operation inside an instance mutation request.
+/// </summary>
+public class InstanceMutationDeleteInstance
+{
+    /// <summary>
+    /// Whether to mark the instance as hard-deleted.
+    /// </summary>
+    [JsonProperty(PropertyName = "hard")]
+    public bool Hard { get; set; }
 }

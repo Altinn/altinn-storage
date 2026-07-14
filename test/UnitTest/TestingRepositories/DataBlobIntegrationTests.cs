@@ -61,8 +61,7 @@ public class DataBlobIntegrationTests
         DataService dataService = new(
             fileScanQueueClientMock.Object,
             _dataElementFixture.DataRepo,
-            _blobFixture.Repository,
-            Mock.Of<IInstanceEventService>()
+            _blobFixture.Repository
         );
         Guid dataElementId = Guid.NewGuid();
         string content = $"integration-content-{Guid.NewGuid():N}";

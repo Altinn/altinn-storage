@@ -15,6 +15,8 @@ using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace Altinn.Platform.Storage.Controllers;
@@ -28,39 +30,51 @@ public class ProcessController : ControllerBase
 {
     private readonly IInstanceRepository _instanceRepository;
     private readonly IInstanceEventRepository _instanceEventRepository;
-    private readonly IInstanceAndEventsRepository _instanceAndEventsRepository;
+    private readonly IInstanceMutationRepository _instanceMutationRepository;
     private readonly string _storageBaseAndHost;
     private readonly IProcessAuthorizer _processAuthorizer;
     private readonly IInstanceEventService _instanceEventService;
     private readonly IProcessDataCleanupService _processDataCleanupService;
+    private readonly IApplicationService _applicationService;
+    private readonly IDataService _dataService;
+    private readonly ILogger<ProcessController> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ProcessController"/> class
     /// </summary>
     /// <param name="instanceRepository">the instance repository handler</param>
     /// <param name="instanceEventRepository">the instance event repository service</param>
-    /// <param name="instanceAndEventsRepository">the instance and events repository</param>
+    /// <param name="instanceMutationRepository">the aggregate instance mutation repository</param>
     /// <param name="generalsettings">the general settings</param>
     /// <param name="processAuthorizer">the process authorizer</param>
     /// <param name="instanceEventService">the instance event service</param>
     /// <param name="processDataCleanupService">the process data cleanup service</param>
+    /// <param name="applicationService">the application service</param>
+    /// <param name="dataService">the data service</param>
+    /// <param name="logger">the logger</param>
     public ProcessController(
         IInstanceRepository instanceRepository,
         IInstanceEventRepository instanceEventRepository,
-        IInstanceAndEventsRepository instanceAndEventsRepository,
+        IInstanceMutationRepository instanceMutationRepository,
         IOptions<GeneralSettings> generalsettings,
         IProcessAuthorizer processAuthorizer,
         IInstanceEventService instanceEventService,
-        IProcessDataCleanupService processDataCleanupService
+        IProcessDataCleanupService processDataCleanupService,
+        IApplicationService applicationService,
+        IDataService dataService,
+        ILogger<ProcessController>? logger = null
     )
     {
         _instanceRepository = instanceRepository;
         _instanceEventRepository = instanceEventRepository;
-        _instanceAndEventsRepository = instanceAndEventsRepository;
+        _instanceMutationRepository = instanceMutationRepository;
         _storageBaseAndHost = $"{generalsettings.Value.Hostname}/storage/api/v1/";
         _processAuthorizer = processAuthorizer;
         _instanceEventService = instanceEventService;
         _processDataCleanupService = processDataCleanupService;
+        _applicationService = applicationService;
+        _dataService = dataService;
+        _logger = logger ?? NullLogger<ProcessController>.Instance;
     }
 
     /// <summary>
@@ -171,6 +185,13 @@ public class ProcessController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        (VersionPreconditions preconditions, ActionResult? preconditionError) =
+            VersionPreconditionHelper.TryParse(Request.Headers);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
         InstanceInternal existingInstance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
@@ -224,13 +245,15 @@ public class ProcessController : ControllerBase
         // visits to that same task (e.g. stale PDFs, signatures) - unless the caller manages its own
         // task-generated data cleanup and has opted out with deleteGeneratedElements=false.
         string? targetTaskId = processState.CurrentTask?.ElementId;
+        IReadOnlyList<DataElementInternal> generatedDataElementsToDelete = [];
         if (!string.IsNullOrWhiteSpace(targetTaskId) && (deleteGeneratedElements ?? true))
         {
-            await _processDataCleanupService.CleanupGeneratedFromTask(
-                existingInstance,
-                targetTaskId,
-                cancellationToken
-            );
+            generatedDataElementsToDelete =
+                await _processDataCleanupService.GetGeneratedFromTaskDataElements(
+                    existingInstance,
+                    targetTaskId,
+                    cancellationToken
+                );
         }
 
         processStateUpdate.Events ??= [];
@@ -244,15 +267,94 @@ public class ProcessController : ControllerBase
             processStateUpdate.Events.Add(instanceEvent);
         }
 
-        InstanceInternal updatedInstance = await _instanceAndEventsRepository.Update(
-            existingInstance,
-            updateProperties,
-            processStateUpdate.Events,
-            cancellationToken
-        );
+        foreach (DataElementInternal dataElement in generatedDataElementsToDelete)
+        {
+            processStateUpdate.Events.Add(
+                _instanceEventService.BuildInstanceEvent(
+                    InstanceEventType.Deleted,
+                    existingInstance,
+                    dataElement
+                )
+            );
+        }
+
+        InstanceMutationApplyResult applyResult;
+        try
+        {
+            string lastChangedBy = User.GetUserOrOrgNo() ?? string.Empty;
+            foreach (DataElementInternal dataElement in generatedDataElementsToDelete)
+            {
+                dataElement.LastChangedBy = lastChangedBy;
+            }
+
+            InstanceMutationCommit mutation = new(
+                [],
+                [],
+                generatedDataElementsToDelete
+                    .Select(dataElement => new InstanceMutationDataElementDelete(
+                        dataElement,
+                        IgnoreLock: true
+                    ))
+                    .ToList(),
+                existingInstance,
+                updateProperties,
+                preconditions.InstanceVersion,
+                preconditions.ProcessStateVersion,
+                processStateUpdate.Events,
+                null
+            );
+
+            applyResult = await _instanceMutationRepository.Apply(
+                instanceGuid,
+                existingInstance.InternalId,
+                mutation,
+                cancellationToken
+            );
+        }
+        catch (StorageVersionMismatchException e)
+        {
+            return VersionPreconditionHelper.VersionMismatch(Response, e);
+        }
+        catch (RepositoryException e) when (e.StatusCodeSuggestion.HasValue)
+        {
+            return StatusCode((int)e.StatusCodeSuggestion.Value, e.Message);
+        }
+
+        InstanceInternal updatedInstance = applyResult.Instance;
+
+        int? cleanupStorageAccountNumber = null;
+        if (generatedDataElementsToDelete.Count > 0)
+        {
+            try
+            {
+                (Application application, _) = await _applicationService.GetApplicationOrErrorAsync(
+                    updatedInstance.AppId
+                );
+                cleanupStorageAccountNumber = application?.StorageAccountNumber;
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(
+                    exception,
+                    "Failed to resolve application {AppId} for post-commit generated-data blob cleanup.",
+                    updatedInstance.AppId
+                );
+            }
+        }
+
+        foreach (DataElementInternal dataElementInternal in generatedDataElementsToDelete)
+        {
+            await _dataService.CleanupDeletedDataElementBlobs(
+                updatedInstance,
+                dataElementInternal,
+                cleanupStorageAccountNumber,
+                CancellationToken.None
+            );
+        }
 
         Instance responseInstance = updatedInstance.ToApiModel();
         responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
         return Ok(responseInstance);
     }
 

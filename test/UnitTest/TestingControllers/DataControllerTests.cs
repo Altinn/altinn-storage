@@ -1122,82 +1122,110 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     }
 
     [Fact]
-    public async Task Delete_Delayed_UpdateMethodCalledInRepository()
+    public async Task Delete_Delayed_AggregateMutationApplied()
     {
         // Arrange
         DataElement de = TestDataUtil.GetDataElement("887c5e56-6f73-494a-9730-6ebd11bffe30");
         Mock<IDataRepository> dataRepositoryMock = new();
+        Mock<IInstanceMutationRepository> mutationRepositoryMock = new();
+        InstanceMutationCommit capturedMutation = null;
         dataRepositoryMock
             .Setup(dr => dr.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(de.FromApiModel());
 
-        dataRepositoryMock
-            .Setup(dr =>
-                dr.Update(
+        DataElementInternal snapshotElement = de.FromApiModel(null);
+        snapshotElement.DeleteStatus = new DeleteStatus
+        {
+            IsHardDeleted = true,
+            HardDeleted = DateTime.UtcNow,
+        };
+        InstanceInternal snapshotInstance = InstanceInternalTestFactory.Create(
+            new Instance
+            {
+                Id = "1337/4914257c-9920-47a5-a37a-eae80f950767",
+                InstanceOwner = new InstanceOwner { PartyId = "1337" },
+                Data = [snapshotElement.ToApiModel()],
+            },
+            [snapshotElement],
+            InternalId: 1,
+            versions: new StorageVersions(2, 1)
+        );
+        mutationRepositoryMock
+            .Setup(repository =>
+                repository.Apply(
                     It.IsAny<Guid>(),
-                    It.IsAny<Guid>(),
-                    It.Is<Dictionary<string, object>>(propertyList =>
-                        VerifyDeleteStatusPresentInDictionary(propertyList)
-                    ),
-                    It.IsAny<DataElementUpdateContext>(),
+                    It.IsAny<long>(),
+                    It.IsAny<InstanceMutationCommit>(),
                     It.IsAny<CancellationToken>()
                 )
             )
-            .ReturnsAsync(new DataElement());
+            .Callback<Guid, long, InstanceMutationCommit, CancellationToken>(
+                (_, _, mutation, _) => capturedMutation = mutation
+            )
+            .ReturnsAsync(new InstanceMutationApplyResult(false, [], snapshotInstance));
 
         string dataPathWithData =
             $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe30?delay=true";
         string token = PrincipalUtil.GetToken(1337, 1337, 3);
-        HttpClient client = GetTestClient(dataRepositoryMock, bearerAuthToken: token);
+        HttpClient client = GetTestClient(
+            dataRepositoryMock,
+            bearerAuthToken: token,
+            mutationRepositoryMock: mutationRepositoryMock
+        );
 
         // Act
         HttpResponseMessage response = await client.DeleteAsync(dataPathWithData);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        dataRepositoryMock.VerifyAll();
-    }
-
-    private static bool VerifyDeleteStatusPresentInDictionary(
-        Dictionary<string, object> propertyList
-    )
-    {
-        if (
-            !propertyList.ContainsKey("/deleteStatus")
-            || !propertyList.ContainsKey("/lastChanged")
-            || !propertyList.ContainsKey("/lastChangedBy")
-        )
-        {
-            return false;
-        }
-
-        if (propertyList.Count > 3)
-        {
-            // property list should only contain one element when called from this controller method
-            return false;
-        }
-
-        if (!propertyList.TryGetValue("/deleteStatus", out object value))
-        {
-            return false;
-        }
-
-        DeleteStatus actual = (DeleteStatus)value;
-        if (!actual.IsHardDeleted || actual.HardDeleted == null)
-        {
-            return false;
-        }
-
-        return true;
+        mutationRepositoryMock.Verify(
+            repository =>
+                repository.Apply(
+                    It.IsAny<Guid>(),
+                    It.IsAny<long>(),
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+        Assert.Empty(capturedMutation.CreateDataElements);
+        Assert.Empty(capturedMutation.DeleteDataElements);
+        InstanceMutationDataElementUpdate capturedUpdate = Assert.Single(
+            capturedMutation.UpdateDataElements
+        );
+        Assert.Equal(de.Id, capturedUpdate.DataElementId.ToString());
+        Assert.True(capturedUpdate.IgnoreLock);
+        Assert.Null(capturedUpdate.ExpectedCurrentBlobVersion);
+        KeyValuePair<string, object> capturedProperty = Assert.Single(capturedUpdate.Properties);
+        Assert.Equal("/deleteStatus", capturedProperty.Key);
+        DeleteStatus capturedDeleteStatus = Assert.IsType<DeleteStatus>(capturedProperty.Value);
+        Assert.True(capturedDeleteStatus.IsHardDeleted);
+        Assert.NotNull(capturedDeleteStatus.HardDeleted);
+        InstanceEvent deletedEvent = Assert.Single(capturedMutation.InstanceEvents);
+        Assert.Equal(InstanceEventType.Deleted.ToString(), deletedEvent.EventType);
+        Assert.Equal(de.Id, deletedEvent.DataId);
+        dataRepositoryMock.Verify(
+            dr =>
+                dr.Update(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<Dictionary<string, object>>(),
+                    It.IsAny<DataElementUpdateContext>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
     }
 
     [Fact]
-    public async Task Delete_Immediate_DeleteMethodCalledInRepository()
+    public async Task Delete_Immediate_AggregateMutationApplied()
     {
         // Arrange
         DataElement de = TestDataUtil.GetDataElement("887c5e56-6f73-494a-9730-6ebd11bffe30");
         Mock<IDataRepository> dataRepositoryMock = new();
         Mock<IBlobRepository> blobRepositoryMock = new();
+        Mock<IInstanceMutationRepository> mutationRepositoryMock = new();
+        InstanceMutationCommit capturedMutation = null;
         dataRepositoryMock
             .Setup(dr => dr.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(de.FromApiModel());
@@ -1208,28 +1236,32 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
 
         dataRepositoryMock
             .Setup(dr =>
-                dr.Update(
+                dr.ReadDetachedBlobVersions(It.IsAny<Guid>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(Array.Empty<BlobVersionReferencesInternal>());
+
+        mutationRepositoryMock
+            .Setup(repository =>
+                repository.Apply(
                     It.IsAny<Guid>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<Dictionary<string, object>>(),
-                    It.IsAny<DataElementUpdateContext>(),
+                    It.IsAny<long>(),
+                    It.IsAny<InstanceMutationCommit>(),
                     It.IsAny<CancellationToken>()
                 )
             )
-            .ReturnsAsync(de);
-
-        dataRepositoryMock
-            .Setup(dr => dr.ReadBlobVersions(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Array.Empty<BlobVersionReferencesInternal>());
-
-        dataRepositoryMock
-            .Setup(dr => dr.Delete(It.IsAny<DataElementInternal>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
+            .Callback<Guid, long, InstanceMutationCommit, CancellationToken>(
+                (_, _, mutation, _) => capturedMutation = mutation
+            )
+            .ReturnsAsync(new InstanceMutationApplyResult(false, []));
 
         string dataPathWithData =
             $"{_versionPrefix}/instances/1337/4914257c-9920-47a5-a37a-eae80f950767/data/887c5e56-6f73-494a-9730-6ebd11bffe30";
         string token = PrincipalUtil.GetToken(1337, 1337, 3);
-        HttpClient client = GetTestClient(dataRepositoryMock, bearerAuthToken: token);
+        HttpClient client = GetTestClient(
+            dataRepositoryMock,
+            bearerAuthToken: token,
+            mutationRepositoryMock: mutationRepositoryMock
+        );
 
         // Act
         HttpResponseMessage response = await client.DeleteAsync(dataPathWithData);
@@ -1237,6 +1269,38 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         dataRepositoryMock.VerifyAll();
+        mutationRepositoryMock.Verify(
+            repository =>
+                repository.Apply(
+                    It.IsAny<Guid>(),
+                    It.IsAny<long>(),
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+        Assert.Contains(
+            capturedMutation.DeleteDataElements,
+            delete => delete.DataElement.Id == de.Id && delete.IgnoreLock
+        );
+        InstanceEvent deletedEvent = Assert.Single(capturedMutation.InstanceEvents);
+        Assert.Equal(InstanceEventType.Deleted.ToString(), deletedEvent.EventType);
+        Assert.Equal(de.Id, deletedEvent.DataId);
+        dataRepositoryMock.Verify(
+            dr => dr.Delete(It.IsAny<DataElementInternal>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+        dataRepositoryMock.Verify(
+            dr =>
+                dr.Update(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<Dictionary<string, object>>(),
+                    It.IsAny<DataElementUpdateContext>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
     }
 
     [Fact]

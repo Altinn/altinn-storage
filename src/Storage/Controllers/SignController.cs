@@ -1,6 +1,7 @@
 #nullable disable
 
 using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Helpers;
@@ -50,6 +51,13 @@ public class SignController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(Request.Headers);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
         if (
             string.IsNullOrEmpty(signRequest?.Signee?.UserId)
             && signRequest?.Signee?.SystemUserId is null
@@ -68,16 +76,49 @@ public class SignController : ControllerBase
             return Unauthorized();
         }
 
-        (bool created, ServiceError serviceError) = await _signingService.CreateSignDocument(
+        SignDocumentCreateResult result = await _signingService.CreateSignDocument(
             instanceGuid,
             signRequest,
             performedBy,
-            cancellationToken
+            cancellationToken,
+            preconditions.InstanceVersion,
+            preconditions.ProcessStateVersion
         );
 
-        if (created)
+        if (result.Created)
         {
+            StorageVersions versions =
+                result.Versions
+                ?? throw new UnreachableException(
+                    "Created sign document result must include versions."
+                );
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, versions);
             return StatusCode(201, "SignDocument is created");
+        }
+
+        ServiceError serviceError =
+            result.ServiceError
+            ?? throw new UnreachableException("Failed sign document result must include an error.");
+        if (serviceError.ErrorCode == StatusCodes.Status412PreconditionFailed)
+        {
+            StorageVersions versions =
+                result.Versions
+                ?? throw new UnreachableException(
+                    "Precondition-failed sign document result must include versions."
+                );
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, versions);
+            return StatusCode(
+                StatusCodes.Status412PreconditionFailed,
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status412PreconditionFailed,
+                    Type = serviceError.ErrorMessage,
+                    Title =
+                        serviceError.ErrorMessage == "instance_version_mismatch"
+                            ? "Instance version did not match expected version."
+                            : "Process state version did not match expected version.",
+                }
+            );
         }
 
         return Problem(serviceError.ErrorMessage, null, serviceError.ErrorCode);
