@@ -1070,7 +1070,7 @@ public class DataServiceTests
             { new RepositoryException("instance is deleted", HttpStatusCode.NotFound), true },
             { new InstanceVersionMismatchException(8, 3), true },
             { new ProcessStateVersionMismatchException(8, 3), true },
-            { new DataElementBlobVersionMismatchException("blob version mismatch"), true },
+            { new DataElementBlobVersionMismatchException("blob version mismatch", 8, 3), true },
             { new OperationCanceledException("canceled"), false },
             { new TaskCanceledException("canceled"), false },
             { new TimeoutException("timed out"), false },

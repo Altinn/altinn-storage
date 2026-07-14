@@ -334,6 +334,31 @@ public class DomainModelContractTests
     }
 
     [Fact]
+    public void InstanceMutationCommit_UsesDomainAggregateValues()
+    {
+        Assert.Equal(
+            typeof(InstanceInternal),
+            typeof(InstanceMutationCommit)
+                .GetProperty(nameof(InstanceMutationCommit.InstanceUpdates))!
+                .PropertyType
+        );
+        Assert.Equal(
+            typeof(IReadOnlyList<DataElementInternal>),
+            typeof(InstanceMutationCommit)
+                .GetProperty(nameof(InstanceMutationCommit.CreateDataElements))!
+                .PropertyType
+        );
+        Assert.DoesNotContain(
+            typeof(InstanceMutationCommit).GetProperties(),
+            property => property.PropertyType == typeof(Instance)
+        );
+        Assert.DoesNotContain(
+            typeof(InstanceMutationCommit).GetProperties(),
+            property => property.PropertyType == typeof(DataElement)
+        );
+    }
+
+    [Fact]
     public void InstanceToApiModel_MapsCompleteIndependentApiValueAndKeepsStorageStateOut()
     {
         InstanceInternal domain = DomainModelContractTestData.CreateDomainInstance();

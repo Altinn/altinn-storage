@@ -1327,7 +1327,9 @@ public class DataControllerUnitTests
             expectedPropertiesForPatch,
             includeRequestBody: true,
             repositoryExceptionOnUpdate: new DataElementBlobVersionMismatchException(
-                "Data element current blob version did not match expected version."
+                "Data element current blob version did not match expected version.",
+                1,
+                1
             ),
             blobVersionId: currentBlobVersionId,
             allocatedBlobVersionId: allocatedBlobVersionId,

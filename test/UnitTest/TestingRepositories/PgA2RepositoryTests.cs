@@ -11,6 +11,7 @@ using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Moq;
 using Npgsql;
 using Xunit;
 
@@ -61,6 +62,41 @@ public class PgA2RepositoryTests
     }
 
     [Fact]
+    public async Task UpdateCompleteMigrationState_OutboxFailureRollsBackStateAndRethrows()
+    {
+        InstanceInternal instance = CreateInstance(
+            "11234567-89ab-cdef-0123-456789abcdef",
+            DateTime.UtcNow
+        );
+        Mock<IOutboxRepository> outbox = new(MockBehavior.Strict);
+        outbox
+            .Setup(repository =>
+                repository.Insert(
+                    It.IsAny<Messages.SyncInstanceToDialogportenCommand>(),
+                    It.IsAny<NpgsqlConnection>(),
+                    It.IsAny<NpgsqlTransaction>()
+                )
+            )
+            .ThrowsAsync(new InvalidOperationException("outbox unavailable"));
+        PgA2Repository repository = CreateRepository(EnabledSettings(), outbox.Object);
+        await repository.CreateA2MigrationState(ArchiveReference);
+        await repository.UpdateStartA2MigrationState(ArchiveReference, instance.Id);
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () =>
+                repository.UpdateCompleteMigrationState(instance)
+        );
+
+        Assert.Equal("outbox unavailable", exception.Message);
+        Assert.False(
+            await PostgresUtil.RunQuery<bool>(
+                $"select completed is not null from storage.a2migrationstate where instanceguid = '{instance.Id}'"
+            )
+        );
+        outbox.VerifyAll();
+    }
+
+    [Fact]
     public async Task SendDeleteToDialogporten_CommitsMigrationDeletedOutbox()
     {
         InstanceInternal instance = CreateInstance(
@@ -78,16 +114,18 @@ public class PgA2RepositoryTests
         );
     }
 
-    private PgA2Repository CreateRepository(WolverineSettings settings) =>
-        new(
+    private PgA2Repository CreateRepository(
+        WolverineSettings settings,
+        IOutboxRepository outbox = null
+    )
+    {
+        outbox ??= new PgOutboxRepository(
             _dataSource,
-            new PgOutboxRepository(
-                Options.Create(settings),
-                _dataSource,
-                NullLogger<PgOutboxRepository>.Instance
-            ),
-            Options.Create(settings)
+            NullLogger<PgOutboxRepository>.Instance,
+            new OutboxInsertRowFactory(Options.Create(settings))
         );
+        return new PgA2Repository(_dataSource, outbox, Options.Create(settings));
+    }
 
     private static WolverineSettings EnabledSettings() =>
         new() { EnableSending = true, EnableA2Migration = true };
