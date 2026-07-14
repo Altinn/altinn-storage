@@ -569,6 +569,92 @@ public class DataRepositoryMockTests
     private static Dictionary<string, object> BlobVersionUpdate(string blobVersionId) =>
         new() { ["/currentBlobVersion"] = blobVersionId };
 
+    [Fact]
+    public async Task BatchDeletion_RemovesOnlyDetachedVersionsAndReturnsActualCounts()
+    {
+        DataRepositoryMock repo = new();
+        Guid instance = Guid.NewGuid();
+        Guid firstId = Guid.NewGuid();
+        Guid secondId = Guid.NewGuid();
+        Guid detachedOnlyId = Guid.NewGuid();
+
+        string firstAttached = await AllocateBlobVersion(repo, instance, firstId);
+        string firstDetached = await AllocateBlobVersion(repo, instance, firstId);
+        string secondAttached = await AllocateBlobVersion(
+            repo,
+            instance,
+            secondId,
+            "other/app",
+            "other",
+            null
+        );
+        string secondDetached = await AllocateBlobVersion(
+            repo,
+            instance,
+            secondId,
+            "other/app",
+            "other",
+            null
+        );
+        string lastDetached = await AllocateBlobVersion(repo, instance, detachedOnlyId);
+        await repo.Create(CreateDataElement(instance, firstId, firstAttached));
+        await repo.Create(CreateDataElement(instance, secondId, secondAttached));
+
+        Assert.Equal(0, await repo.DeleteBlobVersions(firstId, null!));
+        Assert.Equal(0, await repo.DeleteOrphanBlobVersions(null!));
+        await AssertBlobVersions(repo, firstId, true, firstAttached);
+        await AssertBlobVersions(repo, firstId, false, firstDetached);
+        await AssertBlobVersions(repo, secondId, true, secondAttached);
+        await AssertBlobVersions(repo, secondId, false, secondDetached);
+        Assert.Empty(await repo.ReadBlobVersions(detachedOnlyId));
+        await AssertBlobVersions(repo, detachedOnlyId, false, lastDetached);
+        Assert.Equal(0, await repo.DeleteBlobVersions(firstId, [null!, string.Empty]));
+        Assert.Equal(0, await repo.DeleteOrphanBlobVersions([null!, string.Empty]));
+
+        FormatException elementMalformed = await Assert.ThrowsAsync<FormatException>(() =>
+            repo.DeleteBlobVersions(firstId, [null!, string.Empty, "**********************"])
+        );
+        FormatException orphanMalformed = await Assert.ThrowsAsync<FormatException>(() =>
+            repo.DeleteOrphanBlobVersions(["**********************"])
+        );
+        Assert.Equal("Invalid blob version id.", elementMalformed.Message);
+        Assert.IsType<FormatException>(elementMalformed.InnerException);
+        Assert.Equal("Invalid blob version id.", orphanMalformed.Message);
+        await AssertBlobVersions(repo, firstId, false, firstDetached);
+        await AssertBlobVersions(repo, secondId, false, secondDetached);
+
+        string missing = BlobVersionId.Encode(Guid.NewGuid());
+        string[] firstDelete = [firstAttached, firstDetached, missing];
+        Assert.Equal(1, await repo.DeleteBlobVersions(firstId, firstDelete));
+        Assert.Equal(0, await repo.DeleteBlobVersions(firstId, firstDelete));
+        await AssertBlobVersions(repo, firstId, true, firstAttached);
+        Assert.Empty(await repo.ReadDetachedBlobVersions(firstId));
+
+        string[] orphanDelete = [firstAttached, secondAttached, secondDetached, missing];
+        Assert.Equal(1, await repo.DeleteOrphanBlobVersions(orphanDelete));
+        Assert.Equal(0, await repo.DeleteOrphanBlobVersions(orphanDelete));
+        await AssertBlobVersions(repo, secondId, true, secondAttached);
+        Assert.Empty(await repo.ReadDetachedBlobVersions(secondId));
+
+        Assert.Equal(1, await repo.DeleteBlobVersions(detachedOnlyId, [lastDetached]));
+        Assert.Equal(0, await repo.DeleteBlobVersions(detachedOnlyId, [lastDetached]));
+        Assert.Empty(await repo.ReadBlobVersions(detachedOnlyId));
+        Assert.Empty(await repo.ReadDetachedBlobVersions(detachedOnlyId));
+    }
+
+    private static async Task AssertBlobVersions(
+        DataRepositoryMock repository,
+        Guid dataElementId,
+        bool attached,
+        params string[] expectedVersions
+    )
+    {
+        IReadOnlyList<BlobVersionReferencesInternal> groups = attached
+            ? await repository.ReadBlobVersions(dataElementId)
+            : await repository.ReadDetachedBlobVersions(dataElementId);
+        Assert.Equal(expectedVersions, Assert.Single(groups).BlobVersionIds);
+    }
+
     private static DataElementInternal CreateDataElement(
         Guid instanceGuid,
         Guid dataElementId,

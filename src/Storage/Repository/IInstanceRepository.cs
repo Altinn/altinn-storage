@@ -107,6 +107,28 @@ public interface IInstanceRepository
     /// Gets hard deleted data elements for cleanup
     /// </summary>
     /// <param name="cancellationToken">CancellationToken</param>
-    /// <returns>Hard deleted data elements</returns>
-    Task<List<DataElementInternal>> GetHardDeletedDataElements(CancellationToken cancellationToken);
+    /// <returns>Hard deleted data elements with cleanup metadata</returns>
+    Task<List<DeletedDataElementInternal>> GetHardDeletedDataElements(
+        CancellationToken cancellationToken
+    );
+
+    /// <summary>
+    /// Gets attached blob versions for all data elements in an instance.
+    /// </summary>
+    /// <param name="instanceGuid">The instance guid.</param>
+    /// <param name="cancellationToken">CancellationToken</param>
+    /// <returns>Attached blob versions grouped by storage context</returns>
+    Task<List<BlobVersionReferencesInternal>> GetBlobVersionsForInstance(
+        Guid instanceGuid,
+        CancellationToken cancellationToken
+    );
+
+    /// <summary>
+    /// Gets aged blob version rows without a data element metadata row for cleanup.
+    /// </summary>
+    /// <param name="cancellationToken">CancellationToken</param>
+    /// <returns>Orphan blob versions grouped by storage context</returns>
+    Task<List<BlobVersionReferencesInternal>> GetOrphanBlobVersionsForCleanup(
+        CancellationToken cancellationToken
+    );
 }

@@ -46,7 +46,7 @@ public interface IDataRepository
     );
 
     /// <summary>
-    /// Deletes the data element metadata object permanently!
+    /// Deletes the data element metadata object permanently and detaches attached blob-version rows.
     /// </summary>
     /// <param name="dataElement">the element to delete</param>
     /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
@@ -57,7 +57,18 @@ public interface IDataRepository
     );
 
     /// <summary>
-    /// Deletes the data elements metadata for an instance permanently!
+    /// Deletes hard-deleted data element metadata during cleanup and detaches attached blob-version rows.
+    /// </summary>
+    /// <param name="dataElement">the element to delete</param>
+    /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
+    /// <returns>true if delete went well.</returns>
+    Task<bool> DeleteForCleanup(
+        DataElementInternal dataElement,
+        CancellationToken cancellationToken = default
+    );
+
+    /// <summary>
+    /// Deletes the data elements metadata for an instance permanently and detaches attached blob-version rows.
     /// </summary>
     /// <param name="instanceId">the parent instance id of the data elements to delete</param>
     /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
@@ -167,6 +178,17 @@ public interface IDataRepository
     /// <returns>The number of deleted blob version rows.</returns>
     Task<int> DeleteBlobVersions(
         Guid dataElementId,
+        IReadOnlyList<string> blobVersionIds,
+        CancellationToken cancellationToken = default
+    );
+
+    /// <summary>
+    /// Deletes detached orphan blob-version metadata for exact version ids after physical blob cleanup.
+    /// </summary>
+    /// <param name="blobVersionIds">The blob version ids to delete as base64url-encoded UUIDs.</param>
+    /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
+    /// <returns>The number of deleted blob version rows.</returns>
+    Task<int> DeleteOrphanBlobVersions(
         IReadOnlyList<string> blobVersionIds,
         CancellationToken cancellationToken = default
     );

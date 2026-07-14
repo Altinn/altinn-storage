@@ -38,6 +38,8 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         "select * from storage.insertdataelement_v3 ($1, $2, $3, $4, $5, $6, $7)";
     private readonly string _readSql = "select * from storage.readdataelement_v2($1)";
     private readonly string _deleteSql = "select * from storage.deletedataelement_v2 ($1, $2, $3)";
+    private readonly string _deleteForCleanupSql =
+        "select * from storage.deletedataelementforcleanup ($1)";
     private readonly string _deleteForInstanceSql = "select * from storage.deletedataelements ($1)";
     private readonly string _updateSql =
         "select * from storage.updatedataelement_v3 ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)";
@@ -53,6 +55,8 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         "select * from storage.deleteblobversion($1, $2)";
     private readonly string _deleteBlobVersionsSql =
         "select * from storage.deleteblobversions($1, $2)";
+    private readonly string _deleteOrphanBlobVersionsSql =
+        "select * from storage.deleteorphanblobversions($1)";
     private readonly string _readBlobVersionsSql = "select * from storage.readblobversions($1)";
     private readonly string _readDetachedBlobVersionsSql =
         "select * from storage.readdetachedblobversions($1)";
@@ -148,6 +152,19 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.InstanceGuid));
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, dataElement.LastChangedBy);
+
+        int rc = (int)await pgcom.ExecuteScalarAsync(cancellationToken);
+        return rc == 1;
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> DeleteForCleanup(
+        DataElementInternal dataElement,
+        CancellationToken cancellationToken = default
+    )
+    {
+        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteForCleanupSql);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
 
         int rc = (int)await pgcom.ExecuteScalarAsync(cancellationToken);
         return rc == 1;
@@ -682,18 +699,25 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
-            blobVersions.Add(await ReadBlobVersionReferencesAsync(reader, cancellationToken));
+            blobVersions.Add(
+                await ReadBlobVersionReferencesAsync(reader, cancellationToken: cancellationToken)
+            );
         }
 
         return blobVersions;
     }
 
-    private static async Task<BlobVersionReferencesInternal> ReadBlobVersionReferencesAsync(
+    internal static async Task<BlobVersionReferencesInternal> ReadBlobVersionReferencesAsync(
         NpgsqlDataReader reader,
-        CancellationToken cancellationToken
+        string instanceGuidColumn = "instanceguid",
+        string appIdColumn = "appid",
+        string blobStorageOrgColumn = "blobstorageorg",
+        string storageAccountNumberColumn = "storageaccountnumber",
+        string blobVersionsColumn = "blobversions",
+        CancellationToken cancellationToken = default
     )
     {
-        int storageAccountOrdinal = reader.GetOrdinal("storageaccountnumber");
+        int storageAccountOrdinal = reader.GetOrdinal(storageAccountNumberColumn);
         int? storageAccountNumber = await reader.IsDBNullAsync(
             storageAccountOrdinal,
             cancellationToken
@@ -701,14 +725,14 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
             ? null
             : await reader.GetFieldValueAsync<int>(storageAccountOrdinal, cancellationToken);
         Guid[] blobVersions = await reader.GetFieldValueAsync<Guid[]>(
-            "blobversions",
+            blobVersionsColumn,
             cancellationToken
         );
 
         return new BlobVersionReferencesInternal(
-            await reader.GetFieldValueAsync<Guid>("instanceguid", cancellationToken),
-            await reader.GetFieldValueAsync<string>("appid", cancellationToken),
-            await reader.GetFieldValueAsync<string>("blobstorageorg", cancellationToken),
+            await reader.GetFieldValueAsync<Guid>(instanceGuidColumn, cancellationToken),
+            await reader.GetFieldValueAsync<string>(appIdColumn, cancellationToken),
+            await reader.GetFieldValueAsync<string>(blobStorageOrgColumn, cancellationToken),
             storageAccountNumber,
             blobVersions.Select(BlobVersionId.Encode)
         );
@@ -745,6 +769,27 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
 
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteBlobVersionsSql);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
+#pragma warning disable S3265 // NpgsqlDbType.Array is meant to be OR-combined with an element type; Npgsql just doesn't mark it [Flags].
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Array | NpgsqlDbType.Uuid, versions);
+#pragma warning restore S3265
+
+        return (int)await pgcom.ExecuteScalarAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<int> DeleteOrphanBlobVersions(
+        IReadOnlyList<string> blobVersionIds,
+        CancellationToken cancellationToken = default
+    )
+    {
+        Guid[] versions =
+            blobVersionIds
+                ?.Where(versionId => !string.IsNullOrEmpty(versionId))
+                .Select(BlobVersionId.Decode)
+                .ToArray()
+            ?? [];
+
+        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteOrphanBlobVersionsSql);
 #pragma warning disable S3265 // NpgsqlDbType.Array is meant to be OR-combined with an element type; Npgsql just doesn't mark it [Flags].
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Array | NpgsqlDbType.Uuid, versions);
 #pragma warning restore S3265

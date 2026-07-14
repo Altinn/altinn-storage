@@ -103,6 +103,32 @@ public class BlobRepositoryAzuriteTests : IClassFixture<BlobRepositoryAzuriteFix
     }
 
     [Fact]
+    public async Task DeleteDataBlobs_DeletesTargetInstancePrefixOnly()
+    {
+        string targetInstanceGuid = Guid.NewGuid().ToString();
+        string otherInstanceGuid = Guid.NewGuid().ToString();
+        string firstTargetBlob = $"ttd/app/{targetInstanceGuid}/data-elements/version-1";
+        string secondTargetBlob = $"ttd/app/{targetInstanceGuid}/data/legacy";
+        string otherInstanceBlob = $"ttd/app/{otherInstanceGuid}/data-elements/version-2";
+
+        await _fixture.UploadText(firstTargetBlob, "first target");
+        await _fixture.UploadText(secondTargetBlob, "second target");
+        await _fixture.UploadText(otherInstanceBlob, "other instance");
+
+        bool result = await _fixture.Repository.DeleteDataBlobs(
+            BlobRepositoryAzuriteFixture.Org,
+            "ttd/app",
+            targetInstanceGuid,
+            null
+        );
+
+        Assert.True(result);
+        Assert.False(await _fixture.Exists(firstTargetBlob));
+        Assert.False(await _fixture.Exists(secondTargetBlob));
+        Assert.True(await _fixture.Exists(otherInstanceBlob));
+    }
+
+    [Fact]
     public async Task DeleteBlobsIfExists_ExistingMissingAndDuplicatePaths_ReturnsIndexedResults()
     {
         string existingBlob = _fixture.NewBlobPath("data-elements/per-path-existing");

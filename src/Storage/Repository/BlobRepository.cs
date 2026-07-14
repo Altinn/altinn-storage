@@ -7,7 +7,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
-using Altinn.Platform.Storage.Models;
 using Azure;
 using Azure.Core;
 using Azure.Identity;
@@ -233,9 +232,15 @@ public class BlobRepository(
     }
 
     /// <inheritdoc/>
-    public async Task<bool> DeleteDataBlobs(InstanceInternal instance, int? storageAccountNumber)
+    public async Task<bool> DeleteDataBlobs(
+        string org,
+        string appId,
+        string instanceGuid,
+        int? storageAccountNumber,
+        CancellationToken cancellationToken = default
+    )
     {
-        BlobContainerClient container = CreateContainerClient(instance.Org, storageAccountNumber);
+        BlobContainerClient container = CreateContainerClient(org, storageAccountNumber);
 
         if (container == null)
         {
@@ -247,24 +252,26 @@ public class BlobRepository(
 
         try
         {
+            string blobPrefix = $"{appId}/{instanceGuid}";
             await foreach (
                 BlobItem item in container.GetBlobsAsync(
                     BlobTraits.None,
                     BlobStates.None,
-                    $"{instance.AppId}/{instance.Id}",
-                    CancellationToken.None
+                    blobPrefix,
+                    cancellationToken
                 )
             )
             {
                 await container.DeleteBlobIfExistsAsync(
                     item.Name,
-                    DeleteSnapshotsOption.IncludeSnapshots
+                    DeleteSnapshotsOption.IncludeSnapshots,
+                    cancellationToken: cancellationToken
                 );
             }
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "BlobService // DeleteDataBlobs // Org: {Instance}", instance.Org);
+            _logger.LogError(e, "BlobService // DeleteDataBlobs // Org: {Org}", org);
             return false;
         }
 

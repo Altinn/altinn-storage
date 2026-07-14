@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Altinn.Platform.Storage.Models;
 
 namespace Altinn.Platform.Storage.Repository;
 
@@ -74,10 +73,19 @@ public interface IBlobRepository
     );
 
     /// <summary>
-    /// Deletes the blob elements for an instance permanently
+    /// Deletes blobs under an explicit instance prefix in blob storage.
     /// </summary>
-    /// <param name="instance">The instance to delete from</param>
+    /// <param name="org">The blob storage owner id.</param>
+    /// <param name="appId">The application id used as the blob path prefix.</param>
+    /// <param name="instanceGuid">The instance guid used as the blob path prefix.</param>
     /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
-    /// <returns>A value indicating whether the delete was successful.</returns>///
-    Task<bool> DeleteDataBlobs(InstanceInternal instance, int? storageAccountNumber);
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>A value indicating whether the delete was successful.</returns>
+    Task<bool> DeleteDataBlobs(
+        string org,
+        string appId,
+        string instanceGuid,
+        int? storageAccountNumber,
+        CancellationToken cancellationToken = default
+    );
 }

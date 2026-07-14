@@ -150,6 +150,7 @@
     Altinn.Platform.Storage.Controllers.ApplicationsController.Post (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.ApplicationsController.Put (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.CleanupController.CleanupDataelements (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.CleanupController.CleanupInstanceMutationIdempotency (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.CleanupController.CleanupInstances (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.CleanupController.CleanupInstancesForApp (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.ContentOnDemandController.GetFormdataAsHtml (Altinn.Platform.Storage),
