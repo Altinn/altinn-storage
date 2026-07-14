@@ -57,39 +57,7 @@ public class InstanceEventService : IInstanceEventService
     }
 
     /// <inheritdoc/>
-    public async Task DispatchEvent(InstanceEventType eventType, InstanceInternal instance)
-    {
-        var instanceEvent = BuildInstanceEvent(eventType, instance);
-
-        await _repository.InsertInstanceEvent(instanceEvent, instance);
-    }
-
-    /// <inheritdoc/>
-    public async Task DispatchEvent(
-        InstanceEventType eventType,
-        InstanceInternal instance,
-        PlatformUser user,
-        string? additionalInfo = null
-    )
-    {
-        ArgumentNullException.ThrowIfNull(user);
-
-        InstanceEvent instanceEvent = new()
-        {
-            EventType = eventType.ToString(),
-            InstanceId = $"{instance.InstanceOwner.PartyId}/{instance.Id}",
-            InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
-            User = user,
-            AdditionalInfo = additionalInfo,
-            ProcessInfo = instance.Process,
-            Created = DateTime.UtcNow,
-        };
-
-        await _repository.InsertInstanceEvent(instanceEvent, instance);
-    }
-
-    /// <inheritdoc/>
-    public async Task DispatchEvent(
+    public InstanceEvent BuildInstanceEvent(
         InstanceEventType eventType,
         InstanceInternal instance,
         DataElementInternal dataElement
@@ -133,6 +101,50 @@ public class InstanceEventService : IInstanceEventService
             ProcessInfo = instance.Process,
             Created = DateTime.UtcNow,
         };
+
+        return instanceEvent;
+    }
+
+    /// <inheritdoc/>
+    public async Task DispatchEvent(InstanceEventType eventType, InstanceInternal instance)
+    {
+        var instanceEvent = BuildInstanceEvent(eventType, instance);
+
+        await _repository.InsertInstanceEvent(instanceEvent, instance);
+    }
+
+    /// <inheritdoc/>
+    public async Task DispatchEvent(
+        InstanceEventType eventType,
+        InstanceInternal instance,
+        PlatformUser user,
+        string? additionalInfo = null
+    )
+    {
+        ArgumentNullException.ThrowIfNull(user);
+
+        InstanceEvent instanceEvent = new()
+        {
+            EventType = eventType.ToString(),
+            InstanceId = $"{instance.InstanceOwner.PartyId}/{instance.Id}",
+            InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
+            User = user,
+            AdditionalInfo = additionalInfo,
+            ProcessInfo = instance.Process,
+            Created = DateTime.UtcNow,
+        };
+
+        await _repository.InsertInstanceEvent(instanceEvent, instance);
+    }
+
+    /// <inheritdoc/>
+    public async Task DispatchEvent(
+        InstanceEventType eventType,
+        InstanceInternal instance,
+        DataElementInternal dataElement
+    )
+    {
+        InstanceEvent instanceEvent = BuildInstanceEvent(eventType, instance, dataElement);
 
         await _repository.InsertInstanceEvent(instanceEvent, instance);
     }

@@ -1167,6 +1167,48 @@ public class DataTests(DataElementFixture dataElementFixture)
     }
 
     [Fact]
+    public async Task DeleteBlobVersions_DeletesExactUnattachedVersionsForDataElement()
+    {
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid dataElementId = Guid.NewGuid();
+        Guid otherDataElementId = Guid.NewGuid();
+        string firstVersion = await CreateBlobVersionId(instanceGuid, dataElementId.ToString());
+        string secondVersion = await CreateBlobVersionId(instanceGuid, dataElementId.ToString());
+        string otherDataElementVersion = await CreateBlobVersionId(
+            instanceGuid,
+            otherDataElementId.ToString()
+        );
+
+        int deleted = await dataElementFixture.DataRepo.DeleteBlobVersions(
+            dataElementId,
+            [firstVersion, otherDataElementVersion]
+        );
+
+        Assert.Equal(1, deleted);
+        Assert.Equal(0, await CountBlobVersionRows(firstVersion));
+        Assert.Equal(1, await CountBlobVersionRows(secondVersion));
+        Assert.Equal(1, await CountBlobVersionRows(otherDataElementVersion));
+    }
+
+    [Fact]
+    public async Task DeleteBlobVersions_AttachedBlobVersion_KeepsRow()
+    {
+        DataElement element = TestDataUtil.GetDataElement(_dataElement1);
+        element.Id = Guid.NewGuid().ToString();
+        element.InstanceGuid = _instance.Id.Split('/').Last();
+        (DataElement dataElement, string blobVersionId) = await CreateVersionedDataElement(element);
+
+        int deleted = await dataElementFixture.DataRepo.DeleteBlobVersions(
+            Guid.Parse(dataElement.Id),
+            [blobVersionId]
+        );
+
+        Assert.Equal(0, deleted);
+        Assert.Equal(1, await CountBlobVersionRows(blobVersionId));
+        Assert.Equal(1, await CountAttachedBlobVersionRows(blobVersionId));
+    }
+
+    [Fact]
     public async Task GetOne_InstanceNotFound_ReturnsNull()
     {
         // Arrange
@@ -1205,6 +1247,29 @@ public class DataTests(DataElementFixture dataElementFixture)
     /// <summary>
     /// Test delete and change instance read status
     /// </summary>
+    [Fact]
+    public async Task DeleteBlobVersion_AttachedBlobVersion_ReturnsFalseAndKeepsRow()
+    {
+        DataElement element = TestDataUtil.GetDataElement(_dataElement1);
+        element.Id = Guid.NewGuid().ToString();
+        element.InstanceGuid = _instance.Id.Split('/').Last();
+        (DataElement dataElement, string blobVersionId) = await CreateVersionedDataElement(element);
+
+        int versionCountBeforeDelete = await CountBlobVersionRows(blobVersionId);
+        int attachedVersionCountBeforeDelete = await CountAttachedBlobVersionRows(blobVersionId);
+
+        bool deleted = await dataElementFixture.DataRepo.DeleteBlobVersion(
+            Guid.Parse(dataElement.Id),
+            blobVersionId
+        );
+
+        Assert.False(deleted);
+        Assert.Equal(1, versionCountBeforeDelete);
+        Assert.Equal(1, attachedVersionCountBeforeDelete);
+        Assert.Equal(1, await CountBlobVersionRows(blobVersionId));
+        Assert.Equal(1, await CountAttachedBlobVersionRows(blobVersionId));
+    }
+
     [Fact]
     public async Task DataElement_Delete_Change_Instance_Readstatus_Ok()
     {
