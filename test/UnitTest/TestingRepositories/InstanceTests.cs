@@ -819,6 +819,10 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             TestData.Instance_3_1.Clone().FromApiModel(),
             CancellationToken.None
         );
+        InstanceInternal freshHardDeleted = await _instanceFixture.InstanceRepo.Create(
+            HardDelete(TestData.Instance_1_3.Clone().FromApiModel(), DateTime.UtcNow),
+            CancellationToken.None
+        );
 
         // Act
         var instances = await _instanceFixture.InstanceRepo.GetHardDeletedInstances(
@@ -827,6 +831,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
 
         // Assert
         Assert.Equal(2, instances.Count);
+        Assert.DoesNotContain(instances, i => i.Id == freshHardDeleted.Id);
         Assert.All(
             instances,
             instance =>
@@ -858,7 +863,34 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         data1.InstanceGuid = TestData.Instance_1_1.Id.Split('/').Last();
         data2.InstanceGuid = TestData.Instance_2_1.Id.Split('/').Last();
         data3.InstanceGuid = TestData.Instance_3_1.Id.Split('/').Last();
-        await InsertInstanceAndDataHardDelete(TestData.Instance_1_1.Clone().FromApiModel(), data1);
+        InstanceInternal instance1 = TestData.Instance_1_1.Clone().FromApiModel();
+        string firstVersion = await _instanceFixture.DataRepo.CreateBlobVersionId(
+            Guid.Parse(data1.InstanceGuid),
+            Guid.Parse(data1.Id),
+            instance1.AppId,
+            instance1.Org,
+            null,
+            CancellationToken.None
+        );
+        string secondVersion = await _instanceFixture.DataRepo.CreateBlobVersionId(
+            Guid.Parse(data1.InstanceGuid),
+            Guid.Parse(data1.Id),
+            instance1.AppId,
+            instance1.Org,
+            null,
+            CancellationToken.None
+        );
+        data1.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+            instance1.AppId,
+            data1.InstanceGuid,
+            secondVersion
+        );
+        data1.BlobVersionId = secondVersion;
+        await InsertInstanceAndDataHardDelete(instance1, data1);
+        Guid firstVersionUuid = BlobVersionId.Decode(firstVersion);
+        await PostgresUtil.RunSql(
+            $"update storage.dataelementblobversions set attached = true where id = '{firstVersionUuid}'"
+        );
         await InsertInstanceAndDataHardDelete(TestData.Instance_2_1.Clone().FromApiModel(), data2);
         await InsertInstanceAndDataHardDelete(TestData.Instance_3_1.Clone().FromApiModel(), data3);
 
@@ -878,6 +910,181 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Assert
         Assert.Equal(3, dataElements3.Count);
         Assert.Equal(2, dataElements2.Count);
+        DeletedDataElementInternal versionedElement = Assert.Single(
+            dataElements3,
+            element => element.DataElement.Id == data1.Id
+        );
+        BlobVersionReferencesInternal blobVersions = Assert.Single(versionedElement.BlobVersions);
+        Assert.Equal(Guid.Parse(data1.InstanceGuid), blobVersions.InstanceGuid);
+        Assert.Equal(instance1.AppId, blobVersions.AppId);
+        Assert.Equal(instance1.Org, blobVersions.BlobStorageOrg);
+        Assert.Equal([firstVersion, secondVersion], blobVersions.BlobVersionIds);
+    }
+
+    [Fact]
+    public async Task Instance_GetOrphanBlobVersionsForCleanup_Ok()
+    {
+        // Arrange
+        Instance instance = await CreateApiInstance(
+            TestData.Instance_1_1.Clone(),
+            CancellationToken.None
+        );
+        Guid instanceGuid = Guid.Parse(instance.Id.Split('/').Last());
+        string firstOldVersion = await _instanceFixture.DataRepo.CreateBlobVersionId(
+            instanceGuid,
+            Guid.NewGuid(),
+            instance.AppId,
+            instance.Org,
+            null,
+            CancellationToken.None
+        );
+        string secondOldVersion = await _instanceFixture.DataRepo.CreateBlobVersionId(
+            instanceGuid,
+            Guid.NewGuid(),
+            instance.AppId,
+            instance.Org,
+            null,
+            CancellationToken.None
+        );
+        Guid firstOldVersionUuid = BlobVersionId.Decode(firstOldVersion);
+        Guid secondOldVersionUuid = BlobVersionId.Decode(secondOldVersion);
+        await PostgresUtil.RunSql(
+            $"update storage.dataelementblobversions set created = now() - interval '8 days' where id in ('{firstOldVersionUuid}', '{secondOldVersionUuid}')"
+        );
+
+        await _instanceFixture.DataRepo.CreateBlobVersionId(
+            instanceGuid,
+            Guid.NewGuid(),
+            instance.AppId,
+            instance.Org,
+            null,
+            CancellationToken.None
+        );
+
+        DataElement existingDataElement = TestDataUtil.GetDataElement(
+            "1336b773-4ae2-4bdf-9529-d71dfc1c8b43"
+        );
+        Instance existingInstance = TestData.Instance_2_1.Clone();
+        string existingVersion = await _instanceFixture.DataRepo.CreateBlobVersionId(
+            Guid.Parse(existingDataElement.InstanceGuid),
+            Guid.Parse(existingDataElement.Id),
+            existingInstance.AppId,
+            existingInstance.Org,
+            null,
+            CancellationToken.None
+        );
+        existingDataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+            existingInstance.AppId,
+            existingDataElement.InstanceGuid,
+            existingVersion
+        );
+        Guid existingVersionUuid = BlobVersionId.Decode(existingVersion);
+        await PostgresUtil.RunSql(
+            $"update storage.dataelementblobversions set created = now() - interval '8 days' where id = '{existingVersionUuid}'"
+        );
+        await InsertInstanceAndData(existingInstance, existingDataElement, existingVersion);
+
+        // Act
+        List<BlobVersionReferencesInternal> orphanBlobVersions =
+            await _instanceFixture.InstanceRepo.GetOrphanBlobVersionsForCleanup(
+                CancellationToken.None
+            );
+
+        // Assert
+        BlobVersionReferencesInternal orphanBlobVersion = Assert.Single(orphanBlobVersions);
+        Assert.Equal(instanceGuid, orphanBlobVersion.InstanceGuid);
+        Assert.Equal(instance.AppId, orphanBlobVersion.AppId);
+        Assert.Equal(instance.Org, orphanBlobVersion.BlobStorageOrg);
+        Assert.Equal(
+            new[] { firstOldVersion, secondOldVersion }.OrderBy(version => version),
+            orphanBlobVersion.BlobVersionIds.OrderBy(version => version)
+        );
+    }
+
+    [Fact]
+    public async Task Instance_GetBlobVersionsForInstance_Ok()
+    {
+        // Arrange
+        DataElement dataElement = TestDataUtil.GetDataElement(
+            "24bfec2e-c4ce-4e82-8fa9-aa39da329fd5"
+        );
+        Instance instance = TestData.Instance_1_1.Clone();
+        string firstVersion = await _instanceFixture.DataRepo.CreateBlobVersionId(
+            Guid.Parse(dataElement.InstanceGuid),
+            Guid.Parse(dataElement.Id),
+            instance.AppId,
+            instance.Org,
+            null,
+            CancellationToken.None
+        );
+        string secondVersion = await _instanceFixture.DataRepo.CreateBlobVersionId(
+            Guid.Parse(dataElement.InstanceGuid),
+            Guid.Parse(dataElement.Id),
+            instance.AppId,
+            instance.Org,
+            null,
+            CancellationToken.None
+        );
+        dataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+            instance.AppId,
+            dataElement.InstanceGuid,
+            secondVersion
+        );
+        await InsertInstanceAndData(instance, dataElement, secondVersion);
+        Guid firstVersionUuid = BlobVersionId.Decode(firstVersion);
+        await PostgresUtil.RunSql(
+            $"update storage.dataelementblobversions set attached = true where id = '{firstVersionUuid}'"
+        );
+        DataElement otherDataElement = TestDataUtil.GetDataElement(
+            "1336b773-4ae2-4bdf-9529-d71dfc1c8b43"
+        );
+        otherDataElement.InstanceGuid = dataElement.InstanceGuid;
+        string otherVersion = await _instanceFixture.DataRepo.CreateBlobVersionId(
+            Guid.Parse(otherDataElement.InstanceGuid),
+            Guid.Parse(otherDataElement.Id),
+            instance.AppId,
+            instance.Org,
+            null,
+            CancellationToken.None
+        );
+        otherDataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+            instance.AppId,
+            otherDataElement.InstanceGuid,
+            otherVersion
+        );
+        InstanceInternal instanceInternal = await _instanceFixture.InstanceRepo.GetOne(
+            Guid.Parse(dataElement.InstanceGuid),
+            true,
+            CancellationToken.None
+        );
+        await _instanceFixture.DataRepo.Create(
+            otherDataElement.FromApiModel(otherVersion),
+            instanceInternal.InternalId,
+            CancellationToken.None
+        );
+
+        // Act
+        List<BlobVersionReferencesInternal> blobVersions =
+            await _instanceFixture.InstanceRepo.GetBlobVersionsForInstance(
+                Guid.Parse(dataElement.InstanceGuid),
+                CancellationToken.None
+            );
+
+        // Assert
+        Assert.Equal(2, blobVersions.Count);
+        BlobVersionReferencesInternal blobVersion = Assert.Single(
+            blobVersions,
+            versions => versions.BlobVersionIds.Contains(firstVersion)
+        );
+        Assert.Equal(Guid.Parse(dataElement.InstanceGuid), blobVersion.InstanceGuid);
+        Assert.Equal(instance.AppId, blobVersion.AppId);
+        Assert.Equal(instance.Org, blobVersion.BlobStorageOrg);
+        Assert.Equal([firstVersion, secondVersion], blobVersion.BlobVersionIds);
+        BlobVersionReferencesInternal otherBlobVersion = Assert.Single(
+            blobVersions,
+            versions => versions.BlobVersionIds.Contains(otherVersion)
+        );
+        Assert.Equal([otherVersion], otherBlobVersion.BlobVersionIds);
     }
 
     /// <summary>
@@ -1860,10 +2067,27 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         return instance;
     }
 
-    private static InstanceInternal HardDelete(InstanceInternal instance)
+    private async Task<InstanceInternal> InsertInstanceAndData(
+        Instance instance,
+        DataElement dataelement,
+        string blobVersionId
+    )
+    {
+        InstanceInternal instanceInternal = instance.FromApiModel();
+        instanceInternal.Id = dataelement.InstanceGuid;
+        return await InsertInstanceAndData(
+            instanceInternal,
+            dataelement.FromApiModel(blobVersionId)
+        );
+    }
+
+    private static InstanceInternal HardDelete(
+        InstanceInternal instance,
+        DateTime? hardDeleted = null
+    )
     {
         instance.Status.IsHardDeleted = true;
-        instance.Status.HardDeleted = DateTime.Now.AddDays(-8).ToUniversalTime();
+        instance.Status.HardDeleted = hardDeleted ?? DateTime.Now.AddDays(-8).ToUniversalTime();
         instance.CompleteConfirmations = new();
         return instance;
     }

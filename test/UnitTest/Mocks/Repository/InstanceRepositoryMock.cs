@@ -212,7 +212,22 @@ public class InstanceRepositoryMock : IInstanceRepository
         throw new NotImplementedException();
     }
 
-    public Task<List<DataElementInternal>> GetHardDeletedDataElements(
+    public Task<List<DeletedDataElementInternal>> GetHardDeletedDataElements(
+        CancellationToken cancellationToken
+    )
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<List<BlobVersionReferencesInternal>> GetBlobVersionsForInstance(
+        Guid instanceGuid,
+        CancellationToken cancellationToken
+    )
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<List<BlobVersionReferencesInternal>> GetOrphanBlobVersionsForCleanup(
         CancellationToken cancellationToken
     )
     {

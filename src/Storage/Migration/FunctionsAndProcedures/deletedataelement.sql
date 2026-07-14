@@ -21,7 +21,8 @@ BEGIN
     DELETE FROM storage.dataelements WHERE alternateid = _alternateid;
     GET DIAGNOSTICS _deleteCount = ROW_COUNT;
 
-    DELETE FROM storage.dataelementblobversions
+    UPDATE storage.dataelementblobversions
+        SET attached = false
         WHERE dataelementid = _alternateid
             AND attached = true;
 

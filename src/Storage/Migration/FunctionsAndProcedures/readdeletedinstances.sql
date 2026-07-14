@@ -9,9 +9,10 @@ RETURN QUERY
     SELECT i.instance FROM storage.instances i
     WHERE (i.instance -> 'Status' -> 'IsHardDeleted')::BOOLEAN AND
     (
-        NOT (i.instance -> 'Status' -> 'IsArchived')::BOOLEAN
-        OR (i.instance -> 'CompleteConfirmations') IS NOT NULL AND (i.instance -> 'Status' ->> 'HardDeleted')::TIMESTAMPTZ <= (NOW() - (7 ||' days')::INTERVAL)
+        NOT (i.instance -> 'Status' -> 'IsArchived')::BOOLEAN OR (i.instance -> 'CompleteConfirmations') IS NOT NULL
     )
+    -- Keep hard-deleted instance rows past the workflow callback retry window so delete mutations can replay.
+    AND (i.instance -> 'Status' ->> 'HardDeleted')::TIMESTAMPTZ <= (NOW() - INTERVAL '7 days')
     AND i.AltinnMainVersion >= 3;
 END;
 $BODY$;

@@ -599,7 +599,13 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
             return Task.FromResult(result);
         }
 
-        public Task<bool> DeleteDataBlobs(InstanceInternal instance, int? storageAccountNumber)
+        public Task<bool> DeleteDataBlobs(
+            string org,
+            string appId,
+            string instanceGuid,
+            int? storageAccountNumber,
+            CancellationToken cancellationToken = default
+        )
         {
             return Task.FromResult(true);
         }

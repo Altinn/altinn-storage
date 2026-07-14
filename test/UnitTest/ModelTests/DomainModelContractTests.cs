@@ -289,6 +289,13 @@ public class DomainModelContractTests
             method =>
                 Assert.Equal(typeof(DataElementInternal), method.GetParameters()[0].ParameterType)
         );
+        Assert.Equal(
+            typeof(DataElementInternal),
+            Assert
+                .Single(methods, method => method.Name == nameof(IDataRepository.DeleteForCleanup))
+                .GetParameters()[0]
+                .ParameterType
+        );
         Assert.All(
             methods.Where(method => method.Name.StartsWith("Update", StringComparison.Ordinal)),
             method =>

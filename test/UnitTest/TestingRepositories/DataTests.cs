@@ -1199,6 +1199,35 @@ public class DataTests : IClassFixture<DataElementFixture>
     }
 
     [Fact]
+    public async Task DeleteOrphanBlobVersions_DeletesExactUnattachedVersions()
+    {
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        string firstVersion = await CreateBlobVersionId(instanceGuid);
+        string secondVersion = await CreateBlobVersionId(instanceGuid);
+        Guid firstVersionUuid = BlobVersionId.Decode(firstVersion);
+        Guid secondVersionUuid = BlobVersionId.Decode(secondVersion);
+
+        int deletedFirst = await _dataElementFixture.DataRepo.DeleteOrphanBlobVersions([
+            firstVersion,
+        ]);
+        int versionCountAfterFirstDelete = await PostgresUtil.RunCountQuery(
+            $"select count(*) from storage.dataelementblobversions where id in ('{firstVersionUuid}', '{secondVersionUuid}')"
+        );
+
+        int deletedSecond = await _dataElementFixture.DataRepo.DeleteOrphanBlobVersions([
+            secondVersion,
+        ]);
+        int versionCountAfterSecondDelete = await PostgresUtil.RunCountQuery(
+            $"select count(*) from storage.dataelementblobversions where id in ('{firstVersionUuid}', '{secondVersionUuid}')"
+        );
+
+        Assert.Equal(1, deletedFirst);
+        Assert.Equal(1, versionCountAfterFirstDelete);
+        Assert.Equal(1, deletedSecond);
+        Assert.Equal(0, versionCountAfterSecondDelete);
+    }
+
+    [Fact]
     public async Task DeleteBlobVersions_DeletesExactUnattachedVersionsForDataElement()
     {
         Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
@@ -1238,6 +1267,34 @@ public class DataTests : IClassFixture<DataElementFixture>
         Assert.Equal(0, deleted);
         Assert.Equal(1, await CountBlobVersionRows(blobVersionId));
         Assert.Equal(1, await CountAttachedBlobVersionRows(blobVersionId));
+    }
+
+    /// <summary>
+    /// The deployed baseline's delete path calls deletedataelement_v2 directly. It must
+    /// detach the element's blob-version rows so the orphan cleanup job can reclaim the
+    /// physical blob when a baseline pod deletes a versioned element during the transition.
+    /// </summary>
+    [Fact]
+    public async Task DeleteDataElementV2Sql_VersionedDataElement_DeletesRowAndDetachesBlobVersions()
+    {
+        DataElement element = TestDataUtil.GetDataElement(DataElement1);
+        element.Id = Guid.NewGuid().ToString();
+        element.InstanceGuid = _instance.Id.Split('/').Last();
+        (DataElement dataElement, string blobVersionId) = await CreateVersionedDataElement(element);
+
+        int deleteCount = await PostgresUtil.RunQuery<int>(
+            $"select storage.deletedataelement_v2('{dataElement.Id}', '{dataElement.InstanceGuid}', 'baseline-pod')"
+        );
+
+        Assert.Equal(1, deleteCount);
+        Assert.Equal(
+            0,
+            await PostgresUtil.RunCountQuery(
+                $"select count(*) from storage.dataelements where alternateid = '{dataElement.Id}'"
+            )
+        );
+        Assert.Equal(1, await CountBlobVersionRows(blobVersionId));
+        Assert.Equal(1, await CountDetachedBlobVersionRows(blobVersionId));
     }
 
     [Fact]
@@ -1305,6 +1362,36 @@ public class DataTests : IClassFixture<DataElementFixture>
     }
 
     [Fact]
+    public async Task DataElement_Delete_VersionedDataElement_DetachesBlobVersionRowsForCleanup()
+    {
+        DataElement element = TestDataUtil.GetDataElement(DataElement1);
+        element.Id = Guid.NewGuid().ToString();
+        element.InstanceGuid = _instance.Id.Split('/').Last();
+        (DataElement dataElement, string blobVersionId) = await CreateVersionedDataElement(element);
+
+        int versionCountBeforeDelete = await CountBlobVersionRows(blobVersionId);
+        bool deleted = await _dataElementFixture.DataRepo.Delete(dataElement.FromApiModel());
+        int dataElementCountAfterDelete = await PostgresUtil.RunCountQuery(
+            $"select count(*) from storage.dataelements where alternateid = '{dataElement.Id}'"
+        );
+        int versionCountAfterDelete = await CountBlobVersionRows(blobVersionId);
+        int detachedVersionCountAfterDelete = await CountDetachedBlobVersionRows(blobVersionId);
+        IReadOnlyList<BlobVersionReferencesInternal> activeBlobVersions =
+            await _dataElementFixture.DataRepo.ReadBlobVersions(Guid.Parse(dataElement.Id));
+        IReadOnlyList<BlobVersionReferencesInternal> detachedBlobVersions =
+            await _dataElementFixture.DataRepo.ReadDetachedBlobVersions(Guid.Parse(dataElement.Id));
+
+        Assert.True(deleted);
+        Assert.Equal(1, versionCountBeforeDelete);
+        Assert.Equal(0, dataElementCountAfterDelete);
+        Assert.Equal(1, versionCountAfterDelete);
+        Assert.Equal(1, detachedVersionCountAfterDelete);
+        Assert.Empty(activeBlobVersions);
+        BlobVersionReferencesInternal detachedBlobVersion = Assert.Single(detachedBlobVersions);
+        Assert.Equal([blobVersionId], detachedBlobVersion.BlobVersionIds);
+    }
+
+    [Fact]
     public async Task DataElement_Delete_Change_Instance_Readstatus_Ok()
     {
         // Arrange
@@ -1336,6 +1423,30 @@ public class DataTests : IClassFixture<DataElementFixture>
     /// <summary>
     /// Test delete and don't change instance read status
     /// </summary>
+    [Fact]
+    public async Task DataElement_DeleteForCleanup_VersionedDataElement_DetachesBlobVersionRows()
+    {
+        // Arrange
+        DataElement element = TestDataUtil.GetDataElement(DataElement1);
+        element.Id = Guid.NewGuid().ToString();
+        element.InstanceGuid = _instance.Id.Split('/').Last();
+        (DataElement dataElement, string blobVersionId) = await CreateVersionedDataElement(element);
+
+        // Act
+        int versionCountBeforeDelete = await CountBlobVersionRows(blobVersionId);
+        bool deleted = await _dataElementFixture.DataRepo.DeleteForCleanup(
+            dataElement.FromApiModel()
+        );
+        int versionCountAfterDelete = await CountBlobVersionRows(blobVersionId);
+        int detachedVersionCountAfterDelete = await CountDetachedBlobVersionRows(blobVersionId);
+
+        // Assert
+        Assert.True(deleted);
+        Assert.Equal(1, versionCountBeforeDelete);
+        Assert.Equal(1, versionCountAfterDelete);
+        Assert.Equal(1, detachedVersionCountAfterDelete);
+    }
+
     [Fact]
     public async Task DataElement_Delete_NoChange_Instance_Readstatus_Ok()
     {
@@ -1392,6 +1503,44 @@ public class DataTests : IClassFixture<DataElementFixture>
         int count = await PostgresUtil.RunCountQuery(sql);
         Assert.Equal(0, count);
         Assert.True(deleted);
+    }
+
+    [Fact]
+    public async Task DataElement_DeleteForInstance_DetachesBlobVersionRowsForCleanup()
+    {
+        (_, string firstBlobVersionId) = await CreateVersionedDataElement(
+            TestDataUtil.GetDataElement(DataElement1)
+        );
+        (_, string secondBlobVersionId) = await CreateVersionedDataElement(
+            TestDataUtil.GetDataElement(DataElement2)
+        );
+        int firstVersionCountBeforeDelete = await CountBlobVersionRows(firstBlobVersionId);
+        int secondVersionCountBeforeDelete = await CountBlobVersionRows(secondBlobVersionId);
+
+        bool deleted = await _dataElementFixture.DataRepo.DeleteForInstance(
+            _instance.Id.Split('/').Last()
+        );
+
+        int dataElementCountAfterDelete = await PostgresUtil.RunCountQuery(
+            $"select count(*) from storage.dataelements where instanceguid = '{_instance.Id.Split('/').Last()}'"
+        );
+        int firstVersionCountAfterDelete = await CountBlobVersionRows(firstBlobVersionId);
+        int secondVersionCountAfterDelete = await CountBlobVersionRows(secondBlobVersionId);
+        int firstDetachedVersionCountAfterDelete = await CountDetachedBlobVersionRows(
+            firstBlobVersionId
+        );
+        int secondDetachedVersionCountAfterDelete = await CountDetachedBlobVersionRows(
+            secondBlobVersionId
+        );
+
+        Assert.True(deleted);
+        Assert.Equal(1, firstVersionCountBeforeDelete);
+        Assert.Equal(1, secondVersionCountBeforeDelete);
+        Assert.Equal(0, dataElementCountAfterDelete);
+        Assert.Equal(1, firstVersionCountAfterDelete);
+        Assert.Equal(1, secondVersionCountAfterDelete);
+        Assert.Equal(1, firstDetachedVersionCountAfterDelete);
+        Assert.Equal(1, secondDetachedVersionCountAfterDelete);
     }
 
     /// <summary>
@@ -2189,6 +2338,55 @@ public class DataTests : IClassFixture<DataElementFixture>
         Assert.Equal(HttpStatusCode.Conflict, applyException.StatusCodeSuggestion);
         Assert.Equal(replayException.Message, applyException.Message);
         Assert.Equal(previousInstanceVersion, await ReadInstanceVersion(instanceGuid));
+    }
+
+    [Fact]
+    public async Task AggregateMutation_DeleteIdempotencyRecordsCreatedBefore_DeletesOnlyExpiredRecords()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        Guid expiredKey1 = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa6");
+        Guid expiredKey2 = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa7");
+        Guid expiredKey3 = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa8");
+        Guid boundaryKey = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa9");
+        Guid freshKey = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa10");
+        DateTime cutoffUtc = new(2026, 1, 2, 12, 0, 0, DateTimeKind.Utc);
+        await PostgresUtil.RunSql(
+            $"""
+            insert into storage.instance_mutation_idempotency
+                (instance, previous_instance_version, idempotency_key, produced_instance_version, created, created_data_element_ids)
+            values
+                ('{instanceGuid}', 1, '{expiredKey1}', 2, '{cutoffUtc.AddSeconds(
+                -1
+            ):O}', ARRAY[]::text[]),
+                ('{instanceGuid}', 2, '{expiredKey2}', 3, '{cutoffUtc.AddSeconds(
+                -2
+            ):O}', ARRAY[]::text[]),
+                ('{instanceGuid}', 3, '{expiredKey3}', 4, '{cutoffUtc.AddSeconds(
+                -3
+            ):O}', ARRAY[]::text[]),
+                ('{instanceGuid}', 4, '{boundaryKey}', 5, '{cutoffUtc:O}', ARRAY[]::text[]),
+                ('{instanceGuid}', 5, '{freshKey}', 6, '{cutoffUtc.AddSeconds(
+                1
+            ):O}', ARRAY[]::text[]);
+            """
+        );
+
+        // Act
+        int deleted =
+            await _dataElementFixture.InstanceMutationRepo.DeleteIdempotencyRecordsCreatedBefore(
+                cutoffUtc,
+                batchSize: 2,
+                cancellationToken: CancellationToken.None
+            );
+
+        // Assert
+        Assert.Equal(3, deleted);
+        Assert.Equal(0, await CountIdempotencyRecords(expiredKey1));
+        Assert.Equal(0, await CountIdempotencyRecords(expiredKey2));
+        Assert.Equal(0, await CountIdempotencyRecords(expiredKey3));
+        Assert.Equal(1, await CountIdempotencyRecords(boundaryKey));
+        Assert.Equal(1, await CountIdempotencyRecords(freshKey));
     }
 
     [Fact]

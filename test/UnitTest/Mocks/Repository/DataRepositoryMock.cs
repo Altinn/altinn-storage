@@ -58,6 +58,11 @@ public class DataRepositoryMock : IDataRepository
         return await Task.FromResult(true);
     }
 
+    public async Task<bool> DeleteForCleanup(
+        DataElementInternal dataElement,
+        CancellationToken cancellationToken = default
+    ) => await Task.FromResult(true);
+
     public async Task<DataElementInternal> Read(
         Guid instanceGuid,
         Guid dataElementId,
@@ -307,6 +312,23 @@ public class DataRepositoryMock : IDataRepository
         )
         {
             deleteCount = versions.RemoveAll(version => blobVersionIds.Contains(version));
+        }
+
+        return Task.FromResult(deleteCount);
+    }
+
+    public Task<int> DeleteOrphanBlobVersions(
+        IReadOnlyList<string> blobVersionIds,
+        CancellationToken cancellationToken = default
+    )
+    {
+        int deleteCount = 0;
+        if (blobVersionIds is not null)
+        {
+            foreach (List<string> versions in _blobVersions.Values)
+            {
+                deleteCount += versions.RemoveAll(version => blobVersionIds.Contains(version));
+            }
         }
 
         return Task.FromResult(deleteCount);

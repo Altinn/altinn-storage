@@ -498,7 +498,30 @@ BEGIN
     DELETE FROM storage.dataelements WHERE alternateid = _alternateid;
     GET DIAGNOSTICS _deleteCount = ROW_COUNT;
 
-    DELETE FROM storage.dataelementblobversions
+    UPDATE storage.dataelementblobversions
+        SET attached = false
+        WHERE dataelementid = _alternateid
+            AND attached = true;
+
+    RETURN _deleteCount;
+END;
+$BODY$;
+
+
+-- deletedataelementforcleanup.sql:
+CREATE OR REPLACE FUNCTION storage.deletedataelementforcleanup(_alternateid UUID)
+    RETURNS INT
+    LANGUAGE 'plpgsql'
+AS $BODY$
+DECLARE
+    _deleteCount INTEGER;
+BEGIN
+    DELETE FROM storage.dataelements
+        WHERE alternateid = _alternateid;
+    GET DIAGNOSTICS _deleteCount = ROW_COUNT;
+
+    UPDATE storage.dataelementblobversions
+        SET attached = false
         WHERE dataelementid = _alternateid
             AND attached = true;
 
@@ -527,7 +550,8 @@ BEGIN
         WHERE i.alternateid = d.instanceguid AND i.alternateid = _instanceguid;
     GET DIAGNOSTICS _deleteCount = ROW_COUNT;
 
-    DELETE FROM storage.dataelementblobversions
+    UPDATE storage.dataelementblobversions
+        SET attached = false
         WHERE instanceguid = _instanceguid
             AND attached = true;
 
@@ -573,6 +597,24 @@ BEGIN
 	DELETE FROM storage.a2migrationstate WHERE instanceguid = _instanceguid;
 END;
 $BODY$;
+
+-- deleteorphanblobversions.sql:
+CREATE OR REPLACE FUNCTION storage.deleteorphanblobversions(_versions UUID[])
+    RETURNS INT
+    LANGUAGE 'plpgsql'
+AS $BODY$
+DECLARE
+    _deleteCount INTEGER;
+BEGIN
+    DELETE FROM storage.dataelementblobversions
+        WHERE id = ANY(_versions)
+            AND attached = false;
+    GET DIAGNOSTICS _deleteCount = ROW_COUNT;
+
+    RETURN _deleteCount;
+END;
+$BODY$;
+
 
 -- diagnoseinstancemutationdeletefailure.sql:
 CREATE OR REPLACE PROCEDURE storage.diagnoseinstancemutationdeletefailure(
@@ -1227,6 +1269,29 @@ END;
 $BODY$;
 
 
+-- readblobversionsforinstance.sql:
+CREATE OR REPLACE FUNCTION storage.readblobversionsforinstance(_instanceguid UUID)
+    RETURNS TABLE (dataelementid UUID, instanceguid UUID, appid TEXT, blobstorageorg TEXT, storageaccountnumber INT, blobversions UUID[])
+    LANGUAGE 'plpgsql'
+AS $BODY$
+BEGIN
+    RETURN QUERY
+        SELECT
+            bv.dataelementid,
+            bv.instanceguid,
+            bv.appid,
+            bv.blobstorageorg,
+            bv.storageaccountnumber,
+            array_agg(bv.id ORDER BY bv.created, bv.id) AS blobversions
+        FROM storage.dataelementblobversions bv
+        WHERE bv.instanceguid = _instanceguid
+            AND bv.attached = true
+        GROUP BY bv.dataelementid, bv.instanceguid, bv.appid, bv.blobstorageorg, bv.storageaccountnumber
+        ORDER BY min(bv.created), min(bv.id::TEXT);
+END;
+$BODY$;
+
+
 -- readdataelement.sql:
 CREATE OR REPLACE FUNCTION storage.readdataelement_v2(_alternateid UUID)
     RETURNS TABLE (element JSONB, currentblobversion UUID)
@@ -1259,32 +1324,6 @@ END;
 $BODY$;
 
 
--- readdeletedelements.sql:
-CREATE OR REPLACE FUNCTION storage.readdeletedelements()
-    RETURNS TABLE (id BIGINT, instance JSONB, element JSONB)
-    LANGUAGE 'plpgsql'  
-AS $BODY$
-BEGIN
-    -- Force nested loop join to avoid hash join on large instances table
-    -- With only a small count of hard-deleted records, nested loop with index lookups is optimal
-    SET LOCAL enable_hashjoin = off;
-    SET LOCAL enable_mergejoin = off;
-
-    RETURN QUERY
-    SELECT i.id, i.instance, d.element 
-    FROM (
-        -- Target index dataelements_isharddeleted
-        SELECT instanceinternalid, de.element
-        FROM storage.dataelements de
-        WHERE (de.element -> 'DeleteStatus' -> 'IsHardDeleted')::BOOLEAN
-            AND (de.element -> 'DeleteStatus' ->> 'HardDeleted')::TIMESTAMPTZ <= NOW() - INTERVAL '7 days'
-        OFFSET 0  -- Optimization fence: prevents subquery flattening which causes wrong join strategy
-    ) d
-    JOIN storage.instances i ON i.id = d.instanceinternalid
-    WHERE i.AltinnMainVersion >= 3;
-END;
-$BODY$;
-
 -- readdeletedinstances.sql:
 CREATE OR REPLACE FUNCTION storage.readdeletedinstances()
     RETURNS TABLE (instance JSONB)
@@ -1297,9 +1336,10 @@ RETURN QUERY
     SELECT i.instance FROM storage.instances i
     WHERE (i.instance -> 'Status' -> 'IsHardDeleted')::BOOLEAN AND
     (
-        NOT (i.instance -> 'Status' -> 'IsArchived')::BOOLEAN
-        OR (i.instance -> 'CompleteConfirmations') IS NOT NULL AND (i.instance -> 'Status' ->> 'HardDeleted')::TIMESTAMPTZ <= (NOW() - (7 ||' days')::INTERVAL)
+        NOT (i.instance -> 'Status' -> 'IsArchived')::BOOLEAN OR (i.instance -> 'CompleteConfirmations') IS NOT NULL
     )
+    -- Keep hard-deleted instance rows past the workflow callback retry window so delete mutations can replay.
+    AND (i.instance -> 'Status' ->> 'HardDeleted')::TIMESTAMPTZ <= (NOW() - INTERVAL '7 days')
     AND i.AltinnMainVersion >= 3;
 END;
 $BODY$;
@@ -1323,6 +1363,61 @@ BEGIN
             AND bv.attached = false
         GROUP BY bv.instanceguid, bv.appid, bv.blobstorageorg, bv.storageaccountnumber
         ORDER BY min(bv.created), min(bv.id::TEXT);
+END;
+$BODY$;
+
+
+-- readharddeleteddataelementsforcleanup.sql:
+CREATE OR REPLACE FUNCTION storage.readharddeleteddataelementsforcleanup()
+    RETURNS TABLE (
+        id BIGINT,
+        instance JSONB,
+        element JSONB,
+        blobversioninstanceguid UUID,
+        blobversionappid TEXT,
+        blobversionblobstorageorg TEXT,
+        blobversionstorageaccountnumber INT,
+        blobversions UUID[])
+    LANGUAGE 'plpgsql'
+AS $BODY$
+BEGIN
+    -- Force nested loop join to avoid hash join on large instances table
+    -- With only a small count of hard-deleted records, nested loop with index lookups is optimal
+    SET LOCAL enable_hashjoin = off;
+    SET LOCAL enable_mergejoin = off;
+
+    RETURN QUERY
+    SELECT
+        i.id,
+        i.instance,
+        d.element,
+        v.instanceguid,
+        v.appid,
+        v.blobstorageorg,
+        v.storageaccountnumber,
+        COALESCE(v.blobversions, ARRAY[]::UUID[])
+    FROM (
+        -- Target index dataelements_isharddeleted
+        SELECT instanceinternalid, de.alternateid, de.element
+        FROM storage.dataelements de
+        WHERE (de.element -> 'DeleteStatus' -> 'IsHardDeleted')::BOOLEAN
+            AND (de.element -> 'DeleteStatus' ->> 'HardDeleted')::TIMESTAMPTZ <= NOW() - INTERVAL '7 days'
+        OFFSET 0  -- Optimization fence: prevents subquery flattening which causes wrong join strategy
+    ) d
+    JOIN storage.instances i ON i.id = d.instanceinternalid
+    LEFT JOIN LATERAL (
+        SELECT
+            bv.instanceguid,
+            bv.appid,
+            bv.blobstorageorg,
+            bv.storageaccountnumber,
+            array_agg(bv.id ORDER BY bv.created, bv.id) AS blobversions
+        FROM storage.dataelementblobversions bv
+        WHERE bv.dataelementid = d.alternateid
+            AND bv.attached = true
+        GROUP BY bv.instanceguid, bv.appid, bv.blobstorageorg, bv.storageaccountnumber
+    ) v ON TRUE
+    WHERE i.AltinnMainVersion >= 3;
 END;
 $BODY$;
 
@@ -1507,6 +1602,27 @@ BEGIN
 RETURN QUERY
     SELECT i.id, i.instance, i.instance_version, i.process_state_version FROM storage.instances i
         WHERE i.alternateid = _alternateid;
+END;
+$BODY$;
+
+
+-- readorphanblobversionsforcleanup.sql:
+CREATE OR REPLACE FUNCTION storage.readorphanblobversionsforcleanup()
+    RETURNS TABLE (instanceguid UUID, appid TEXT, blobstorageorg TEXT, storageaccountnumber INT, blobversions UUID[])
+    LANGUAGE 'plpgsql'
+AS $BODY$
+BEGIN
+    RETURN QUERY
+        SELECT
+            v.instanceguid,
+            v.appid,
+            v.blobstorageorg,
+            v.storageaccountnumber,
+            array_agg(v.id ORDER BY v.created, v.id) AS blobversions
+        FROM storage.dataelementblobversions v
+        WHERE v.attached = false
+            AND v.created <= NOW() - INTERVAL '7 days'
+        GROUP BY v.instanceguid, v.appid, v.blobstorageorg, v.storageaccountnumber;
 END;
 $BODY$;
 

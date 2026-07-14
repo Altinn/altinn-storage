@@ -41,6 +41,16 @@ public sealed class PgInstanceMutationRepository(
     private const string TryReplayAdmissionSql =
         "select storage.tryreplayinstancemutation_v2($1, $2, $3, $4, $5) as createddataelementids";
     private const string ReadInstanceSql = "select * from storage.readinstance_v2($1)";
+    private const string DeleteIdempotencyRecordsCreatedBeforeSql = """
+        delete from storage.instance_mutation_idempotency
+        where ctid in (
+            select ctid
+            from storage.instance_mutation_idempotency
+            where created < $1
+            limit $2
+        )
+        """;
+
     private readonly ILogger<PgInstanceMutationRepository> _logger = logger;
     private readonly NpgsqlDataSource _dataSource = dataSource;
     private readonly OutboxInsertRowFactory _outboxInsertRowFactory = outboxInsertRowFactory;
@@ -117,6 +127,45 @@ public sealed class PgInstanceMutationRepository(
         await transaction.CommitAsync(cancellationToken);
 
         return new InstanceMutationApplyResult(true, createdDataElementIds, instance);
+    }
+
+    /// <inheritdoc/>
+    public async Task<int> DeleteIdempotencyRecordsCreatedBefore(
+        DateTime createdBeforeUtc,
+        int batchSize = 10_000,
+        CancellationToken cancellationToken = default
+    )
+    {
+        if (batchSize <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(batchSize),
+                "Batch size must be greater than zero."
+            );
+        }
+
+        DateTime cutoffUtc =
+            createdBeforeUtc.Kind == DateTimeKind.Utc
+                ? createdBeforeUtc
+                : createdBeforeUtc.ToUniversalTime();
+
+        await using NpgsqlCommand cmd = _dataSource.CreateCommand(
+            DeleteIdempotencyRecordsCreatedBeforeSql
+        );
+        cmd.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, cutoffUtc);
+        cmd.Parameters.AddWithValue(NpgsqlDbType.Integer, batchSize);
+
+        int totalDeleted = 0;
+        while (true)
+        {
+            int deleted = await cmd.ExecuteNonQueryAsync(cancellationToken);
+            if (deleted == 0)
+            {
+                return totalDeleted;
+            }
+
+            totalDeleted += deleted;
+        }
     }
 
     /// <inheritdoc/>
