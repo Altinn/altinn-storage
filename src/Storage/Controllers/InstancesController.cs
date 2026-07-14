@@ -1116,7 +1116,16 @@ public class InstancesController : ControllerBase
             HttpContext.User,
             "read"
         );
-        XacmlJsonResponse response = await _authorizationService.GetDecisionForRequest(request);
+        XacmlJsonResponse response;
+        try
+        {
+            response = await _authorizationService.GetDecisionForRequest(request);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Something went wrong during GetDecisionForRequest for org: {Org}", queryParameters.Org);
+            throw;
+        }
 
         if (!DecisionHelper.ValidatePdpDecision(response?.Response, HttpContext.User))
         {
