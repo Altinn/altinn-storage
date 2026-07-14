@@ -573,7 +573,6 @@ public class InstanceQueryParameters
     }
 }
 
-
 /// <summary>
 /// The result of parsing an <see cref="InstanceQueryParameters.InstanceOwnerIdentifier"/> value.
 /// </summary>
