@@ -1154,7 +1154,7 @@ public class InstancesController : ControllerBase
     /// <c>null</c> when processing should continue; otherwise an empty result the caller must
     /// return immediately (when the caller explicitly requested hard deleted instances).
     /// </returns>
-    private ActionResult ApplyHardDeleteFilter(
+    private OkObjectResult ApplyHardDeleteFilter(
         InstanceQueryParameters queryParameters,
         bool appOwnerOrSyncAdapterRequestingInstances,
         string selfContinuationToken
