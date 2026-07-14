@@ -35,6 +35,7 @@ public class PgMetricsRepository(NpgsqlDataSource dataSource) : IMetricsReposito
         {
             DailyInstanceMetricsRecord instanceRow = await GenerateInstanceMetricsRecord(
                 reader,
+                dateTime,
                 cancellationToken
             );
             metrics.Metrics.Add(instanceRow);
@@ -45,6 +46,7 @@ public class PgMetricsRepository(NpgsqlDataSource dataSource) : IMetricsReposito
 
     private static async Task<DailyInstanceMetricsRecord> GenerateInstanceMetricsRecord(
         NpgsqlDataReader reader,
+        DateTime dateTime,
         CancellationToken cancellationToken
     )
     {
@@ -67,6 +69,7 @@ public class PgMetricsRepository(NpgsqlDataSource dataSource) : IMetricsReposito
                 "completed_instances",
                 cancellationToken
             ),
+            DateTime = dateTime,
         };
     }
 

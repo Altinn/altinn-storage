@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
@@ -32,6 +33,8 @@ public class MetricsControllerTests(TestApplicationFactory<MetricsController> fa
 
     private const string _basePath = "storage/api/v1/metrics";
 
+    private const string _validApiKey = "test-metrics-api-key";
+
     [Fact]
     public async Task Get_DailyMetrics_ReturnsOk()
     {
@@ -63,7 +66,7 @@ public class MetricsControllerTests(TestApplicationFactory<MetricsController> fa
         HttpClient client = GetTestClient(serviceMock);
         const string uri = $"{_basePath}/instances";
         using HttpRequestMessage message = new(HttpMethod.Get, uri);
-        message.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken());
+        message.Headers.Add("X-API-Key", _validApiKey);
 
         // Act
         using HttpResponseMessage response = await client.SendAsync(
@@ -103,7 +106,7 @@ public class MetricsControllerTests(TestApplicationFactory<MetricsController> fa
         HttpClient client = GetTestClient(serviceMock);
         const string uri = $"{_basePath}/instances";
         using HttpRequestMessage message = new(HttpMethod.Get, uri);
-        message.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken());
+        message.Headers.Add("X-API-Key", _validApiKey);
 
         // Act
         using HttpResponseMessage response = await client.SendAsync(
@@ -135,7 +138,7 @@ public class MetricsControllerTests(TestApplicationFactory<MetricsController> fa
         HttpClient client = GetTestClient(serviceMock);
         const string uri = $"{_basePath}/instances";
         using HttpRequestMessage message = new(HttpMethod.Get, uri);
-        message.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken());
+        message.Headers.Add("X-API-Key", _validApiKey);
 
         // Act
         using HttpResponseMessage response = await client.SendAsync(
@@ -156,7 +159,93 @@ public class MetricsControllerTests(TestApplicationFactory<MetricsController> fa
         serviceMock.VerifyNoOtherCalls();
     }
 
-    private HttpClient GetTestClient(Mock<IMetricsService>? metricsService = null)
+    [Fact]
+    public async Task Get_DailyMetrics_MissingApiKey_ReturnsUnauthorized()
+    {
+        // Arrange
+        Mock<IMetricsService> serviceMock = new();
+        HttpClient client = GetTestClient(serviceMock);
+        const string uri = $"{_basePath}/instances";
+        using HttpRequestMessage message = new(HttpMethod.Get, uri);
+
+        // Act
+        using HttpResponseMessage response = await client.SendAsync(
+            message,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        serviceMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Get_DailyMetrics_InvalidApiKey_ReturnsUnauthorized()
+    {
+        // Arrange
+        Mock<IMetricsService> serviceMock = new();
+        HttpClient client = GetTestClient(serviceMock);
+        const string uri = $"{_basePath}/instances";
+        using HttpRequestMessage message = new(HttpMethod.Get, uri);
+        message.Headers.Add("X-API-Key", "wrong-key");
+
+        // Act
+        using HttpResponseMessage response = await client.SendAsync(
+            message,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        serviceMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Get_DailyMetrics_EmptyApiKey_ReturnsUnauthorized()
+    {
+        // Arrange
+        Mock<IMetricsService> serviceMock = new();
+        HttpClient client = GetTestClient(serviceMock);
+        const string uri = $"{_basePath}/instances";
+        using HttpRequestMessage message = new(HttpMethod.Get, uri);
+        message.Headers.Add("X-API-Key", string.Empty);
+
+        // Act
+        using HttpResponseMessage response = await client.SendAsync(
+            message,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        serviceMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Get_DailyMetrics_ApiKeyNotConfigured_Returns503ServiceUnavailable()
+    {
+        // Arrange
+        Mock<IMetricsService> serviceMock = new();
+        HttpClient client = GetTestClient(serviceMock, configuredApiKey: null);
+        const string uri = $"{_basePath}/instances";
+        using HttpRequestMessage message = new(HttpMethod.Get, uri);
+        message.Headers.Add("X-API-Key", _validApiKey);
+
+        // Act
+        using HttpResponseMessage response = await client.SendAsync(
+            message,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        serviceMock.VerifyNoOtherCalls();
+    }
+
+    private HttpClient GetTestClient(
+        Mock<IMetricsService>? metricsService = null,
+        string? configuredApiKey = _validApiKey
+    )
     {
         HttpClient client = _factory
             .WithWebHostBuilder(builder =>
@@ -168,6 +257,15 @@ public class MetricsControllerTests(TestApplicationFactory<MetricsController> fa
                     (_, config) =>
                     {
                         config.AddConfiguration(configuration);
+                        if (configuredApiKey is not null)
+                        {
+                            config.AddInMemoryCollection(
+                                new Dictionary<string, string?>
+                                {
+                                    ["StorageMetricsApiKey"] = configuredApiKey,
+                                }
+                            );
+                        }
                     }
                 );
 
