@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
@@ -33,7 +32,6 @@ public class DataService : IDataService
     private readonly IFileScanQueueClient _fileScanQueueClient;
     private readonly IDataRepository _dataRepository;
     private readonly IBlobRepository _blobRepository;
-    private readonly IInstanceEventService _instanceEventService;
     private readonly ILogger<DataService> _logger;
 
     /// <summary>
@@ -43,14 +41,12 @@ public class DataService : IDataService
         IFileScanQueueClient fileScanQueueClient,
         IDataRepository dataRepository,
         IBlobRepository blobRepository,
-        IInstanceEventService instanceEventService,
         ILogger<DataService> logger = null
     )
     {
         _fileScanQueueClient = fileScanQueueClient;
         _dataRepository = dataRepository;
         _blobRepository = blobRepository;
-        _instanceEventService = instanceEventService;
         _logger = logger ?? NullLogger<DataService>.Instance;
     }
 
@@ -134,6 +130,55 @@ public class DataService : IDataService
         int? expectedProcessStateVersion = null
     )
     {
+        StagedDataElementBlob stagedDataElement = await StageDataElementBlob(
+            instance,
+            stream,
+            options,
+            storageAccountNumber,
+            cancellationToken
+        );
+
+        DataElementWriteResult createdDataElement;
+        try
+        {
+            createdDataElement = await _dataRepository.Create(
+                stagedDataElement.DataElement,
+                instanceInternalId,
+                cancellationToken,
+                expectedInstanceVersion,
+                expectedProcessStateVersion
+            );
+        }
+        catch (Exception exception)
+        {
+            if (IndicatesDefiniteRollback(exception))
+            {
+                await DeleteStagedDataElementBlob(
+                    instance,
+                    stagedDataElement.DataElement,
+                    storageAccountNumber
+                );
+            }
+
+            throw;
+        }
+
+        return new DataUploadResult(
+            createdDataElement.DataElement,
+            stagedDataElement.BlobTimestamp,
+            createdDataElement.Versions
+        );
+    }
+
+    /// <inheritdoc/>
+    public async Task<StagedDataElementBlob> StageDataElementBlob(
+        InstanceInternal instance,
+        Stream stream,
+        DataElementCreateOptions options,
+        int? storageAccountNumber,
+        CancellationToken cancellationToken = default
+    )
+    {
         string instanceGuid = instance.Id;
         string blobVersionId = await _dataRepository.CreateBlobVersionId(
             Guid.Parse(instanceGuid),
@@ -200,133 +245,24 @@ public class DataService : IDataService
             BlobVersionId = blobVersionId,
         };
 
-        DataElementWriteResult createdDataElement;
-        try
-        {
-            createdDataElement = await _dataRepository.Create(
-                dataElement,
-                instanceInternalId,
-                cancellationToken,
-                expectedInstanceVersion,
-                expectedProcessStateVersion
-            );
-        }
-        catch (Exception exception)
-        {
-            if (IndicatesDefiniteRollback(exception))
-            {
-                await DeleteAllocatedBlobVersion(
-                    _blobRepository,
-                    _dataRepository,
-                    instance.Org,
-                    options.DataElementId,
-                    blobStoragePath,
-                    blobVersionId,
-                    storageAccountNumber
-                );
-            }
-
-            throw;
-        }
-
-        return new DataUploadResult(
-            createdDataElement.DataElement,
-            blobTimestamp,
-            createdDataElement.Versions
-        );
+        return new StagedDataElementBlob(dataElement, blobTimestamp);
     }
 
     /// <inheritdoc/>
-    public async Task<DataElementInternal> DeleteImmediately(
+    public Task DeleteStagedDataElementBlob(
         InstanceInternal instance,
         DataElementInternal dataElement,
-        int? storageAccountNumber,
-        int? expectedInstanceVersion = null,
-        int? expectedProcessStateVersion = null
-    )
-    {
-        Guid instanceGuid = Guid.Parse(dataElement.InstanceGuid);
-        Guid dataElementId = Guid.Parse(dataElement.Id);
-        DateTime deletedTime = DateTime.UtcNow;
-        DeleteStatus deleteStatus = new() { IsHardDeleted = true, HardDeleted = deletedTime };
-        DataElementInternal markedDataElement = null;
-        try
-        {
-            DataElementWriteResult markedDataElementResult = await _dataRepository.Update(
-                instanceGuid,
-                dataElementId,
-                new Dictionary<string, object>
-                {
-                    { "/deleteStatus", deleteStatus },
-                    { "/lastChanged", deletedTime },
-                    { "/lastChangedBy", dataElement.LastChangedBy },
-                },
-                new DataElementUpdateContext
-                {
-                    ExpectedInstanceVersion = expectedInstanceVersion,
-                    ExpectedProcessStateVersion = expectedProcessStateVersion,
-                }
-            );
-            markedDataElement = markedDataElementResult.DataElement;
-        }
-        catch (RepositoryException exception)
-            when (exception.StatusCodeSuggestion == HttpStatusCode.NotFound)
-        {
-            // A concurrent delete may have removed the metadata after the caller read it.
-            // Blob and metadata deletion below are idempotent and should still be attempted.
-        }
-
-        IReadOnlyList<BlobVersionReferencesInternal> blobVersions =
-            await _dataRepository.ReadBlobVersions(dataElementId) ?? [];
-
-        if (blobVersions.Count > 0)
-        {
-            foreach (BlobVersionReferencesInternal blobVersion in blobVersions)
-            {
-                foreach (string versionId in blobVersion.BlobVersionIds)
-                {
-                    await _blobRepository.DeleteBlob(
-                        blobVersion.BlobStorageOrg,
-                        BlobRepository.GetVersionedBlobPath(
-                            blobVersion.AppId,
-                            blobVersion.InstanceGuid.ToString(),
-                            versionId
-                        ),
-                        blobVersion.StorageAccountNumber
-                    );
-                }
-            }
-
-            string legacyBlobStoragePath = DataElementHelper.DataFileName(
-                instance.AppId,
-                instanceGuid.ToString(),
-                dataElementId.ToString()
-            );
-            await _blobRepository.DeleteBlob(
-                instance.Org,
-                legacyBlobStoragePath,
-                storageAccountNumber
-            );
-        }
-        else
-        {
-            await _blobRepository.DeleteBlob(
-                instance.Org,
-                dataElement.BlobStoragePath,
-                storageAccountNumber
-            );
-        }
-
-        DataElementInternal deletedDataElement = markedDataElement ?? dataElement;
-        await _dataRepository.Delete(deletedDataElement);
-        await _instanceEventService.DispatchEvent(
-            InstanceEventType.Deleted,
-            instance,
-            deletedDataElement
+        int? storageAccountNumber
+    ) =>
+        DeleteAllocatedBlobVersion(
+            _blobRepository,
+            _dataRepository,
+            instance.Org,
+            Guid.Parse(dataElement.Id),
+            dataElement.BlobStoragePath,
+            dataElement.BlobVersionId,
+            storageAccountNumber
         );
-
-        return deletedDataElement;
-    }
 
     /// <inheritdoc/>
     public async Task CleanupDeletedDataElementBlobs(

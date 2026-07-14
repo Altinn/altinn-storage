@@ -1292,6 +1292,8 @@ public class DataController : ControllerBase
             return Forbid();
         }
 
+        DateTime deletedTime = DateTime.UtcNow;
+        dataElement.LastChanged = deletedTime;
         dataElement.LastChangedBy = User.GetUserOrOrgNo();
 
         if (delay)
@@ -1303,31 +1305,58 @@ public class DataController : ControllerBase
                 );
             }
 
-            return await InitiateDelayedDelete(instance, dataElement, preconditions);
+            return await InitiateDelayedDelete(
+                instanceGuid,
+                instance,
+                dataElement,
+                preconditions,
+                cancellationToken
+            );
         }
 
         try
         {
-            await _dataService.DeleteImmediately(
+            InstanceEvent deletedEvent = _instanceEventService.BuildInstanceEvent(
+                InstanceEventType.Deleted,
+                instance,
+                dataElement
+            );
+            InstanceMutationCommit mutation = new(
+                [],
+                [],
+                [new InstanceMutationDataElementDelete(dataElement, IgnoreLock: true)],
+                instance,
+                [],
+                preconditions.InstanceVersion,
+                preconditions.ProcessStateVersion,
+                InstanceEvents: [deletedEvent],
+                LastChanged: deletedTime,
+                LastChangedBy: dataElement.LastChangedBy
+            );
+
+            InstanceMutationApplyResult applyResult = await _instanceMutationRepository.Apply(
+                instanceGuid,
+                instance.InternalId,
+                mutation,
+                cancellationToken
+            );
+
+            await _dataService.CleanupDeletedDataElementBlobs(
                 instance,
                 dataElement,
                 application.StorageAccountNumber,
-                preconditions.InstanceVersion,
-                preconditions.ProcessStateVersion
+                CancellationToken.None
             );
-            InstanceInternal updatedInstance = await _instanceRepository.GetOne(
-                instanceGuid,
-                false,
-                cancellationToken
-            );
-            if (updatedInstance is not null)
-            {
-                VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
-            }
+
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, applyResult.Instance);
         }
         catch (StorageVersionMismatchException exception)
         {
             return VersionPreconditionHelper.VersionMismatch(Response, exception);
+        }
+        catch (RepositoryException exception) when (exception.StatusCodeSuggestion.HasValue)
+        {
+            return StatusCode((int)exception.StatusCodeSuggestion.Value, exception.Message);
         }
 
         return Ok(dataElement.ToApiModel());
@@ -3014,32 +3043,49 @@ public class DataController : ControllerBase
     }
 
     private async Task<ActionResult<DataElement>> InitiateDelayedDelete(
+        Guid instanceGuid,
         InstanceInternal instance,
         DataElementInternal dataElement,
-        VersionPreconditions preconditions
+        VersionPreconditions preconditions,
+        CancellationToken cancellationToken
     )
     {
-        DateTime deletedTime = DateTime.UtcNow;
-
+        DateTime deletedTime = dataElement.LastChanged.Value;
         DeleteStatus deleteStatus = new() { IsHardDeleted = true, HardDeleted = deletedTime };
 
-        DataElementWriteResult updatedDataElementResult;
+        InstanceMutationApplyResult applyResult;
         try
         {
-            updatedDataElementResult = await _dataRepository.Update(
-                Guid.Parse(dataElement.InstanceGuid),
-                Guid.Parse(dataElement.Id),
-                new Dictionary<string, object>()
-                {
-                    { "/deleteStatus", deleteStatus },
-                    { "/lastChanged", deletedTime },
-                    { "/lastChangedBy", dataElement.LastChangedBy },
-                },
-                new DataElementUpdateContext
-                {
-                    ExpectedInstanceVersion = preconditions.InstanceVersion,
-                    ExpectedProcessStateVersion = preconditions.ProcessStateVersion,
-                }
+            InstanceEvent deletedEvent = _instanceEventService.BuildInstanceEvent(
+                InstanceEventType.Deleted,
+                instance,
+                dataElement
+            );
+            InstanceMutationCommit mutation = new(
+                [],
+                [
+                    new InstanceMutationDataElementUpdate(
+                        Guid.Parse(dataElement.Id),
+                        new Dictionary<string, object> { ["/deleteStatus"] = deleteStatus },
+                        null,
+                        IgnoreLock: true
+                    ),
+                ],
+                [],
+                instance,
+                [],
+                preconditions.InstanceVersion,
+                preconditions.ProcessStateVersion,
+                InstanceEvents: [deletedEvent],
+                LastChanged: deletedTime,
+                LastChangedBy: dataElement.LastChangedBy
+            );
+
+            applyResult = await _instanceMutationRepository.Apply(
+                instanceGuid,
+                instance.InternalId,
+                mutation,
+                cancellationToken
             );
         }
         catch (StorageVersionMismatchException exception)
@@ -3051,12 +3097,14 @@ public class DataController : ControllerBase
             return StatusCode((int)exception.StatusCodeSuggestion.Value, exception.Message);
         }
 
-        await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, instance, dataElement);
-        VersionPreconditionHelper.WriteVersionResponseHeaders(
-            Response,
-            updatedDataElementResult.Versions
-        );
-        return Ok(updatedDataElementResult.DataElement.ToApiModel());
+        InstanceInternal updatedInstance = applyResult.Instance;
+        DataElementInternal updatedDataElement =
+            updatedInstance.Data?.FirstOrDefault(element => element.Id == dataElement.Id)
+            ?? throw new InvalidOperationException(
+                "Delayed-delete apply result did not include the updated data element."
+            );
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
+        return Ok(updatedDataElement.ToApiModel());
     }
 
     private async Task<(DataType DataType, ActionResult ErrorMessage)> GetDataTypeAsync(

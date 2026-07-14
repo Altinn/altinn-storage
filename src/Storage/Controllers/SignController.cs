@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
+using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -50,6 +51,13 @@ public class SignController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(Request.Headers);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
         if (
             string.IsNullOrEmpty(signRequest?.Signee?.UserId)
             && signRequest?.Signee?.SystemUserId is null
@@ -68,18 +76,34 @@ public class SignController : ControllerBase
             return Unauthorized();
         }
 
-        (bool created, ServiceError serviceError) = await _signingService.CreateSignDocument(
-            instanceGuid,
-            signRequest,
-            performedBy,
-            cancellationToken
-        );
-
-        if (created)
+        SignDocumentCreateResult result;
+        try
         {
+            result = await _signingService.CreateSignDocument(
+                instanceGuid,
+                signRequest,
+                performedBy,
+                cancellationToken,
+                preconditions.InstanceVersion,
+                preconditions.ProcessStateVersion
+            );
+        }
+        catch (StorageVersionMismatchException exception)
+        {
+            return VersionPreconditionHelper.VersionMismatch(Response, exception);
+        }
+        catch (RepositoryException exception) when (exception.StatusCodeSuggestion.HasValue)
+        {
+            return StatusCode((int)exception.StatusCodeSuggestion.Value, exception.Message);
+        }
+
+        if (result.Created)
+        {
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, result.Versions);
             return StatusCode(201, "SignDocument is created");
         }
 
+        ServiceError serviceError = result.ServiceError;
         return Problem(serviceError.ErrorMessage, null, serviceError.ErrorCode);
     }
 }

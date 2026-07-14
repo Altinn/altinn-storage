@@ -12,6 +12,8 @@ using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
+using Altinn.Platform.Storage.Helpers;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
@@ -50,8 +52,10 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         string token,
         string? instanceId = null,
         IInstanceRepository? instanceRepository = null,
-        IInstanceAndEventsRepository? instanceAndEventsRepository = null,
+        IInstanceMutationRepository? instanceMutationRepository = null,
         IProcessDataCleanupService? processDataCleanupService = null,
+        IDataService? dataService = null,
+        IApplicationService? applicationService = null,
         Action<ProcessState>? configure = null,
         string? deleteGeneratedElements = null
     )
@@ -82,8 +86,10 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
 
         HttpClient client = GetTestClient(
             instanceRepository,
-            instanceAndEventsRepository,
-            processDataCleanupService: processDataCleanupService
+            instanceMutationRepository,
+            processDataCleanupService: processDataCleanupService,
+            dataService: dataService,
+            applicationService: applicationService
         );
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -573,8 +579,6 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         testInstance.Id = $"{testInstance.InstanceOwner.PartyId}/{testInstance.Id}";
 
         Mock<IInstanceRepository> repositoryMock = new Mock<IInstanceRepository>();
-        Mock<IInstanceAndEventsRepository> batchRepositoryMock =
-            new Mock<IInstanceAndEventsRepository>();
         repositoryMock
             .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
             .ReturnsAsync(InstanceInternalTestFactory.Create(testInstance, [], InternalId: 0));
@@ -591,19 +595,6 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
             .ReturnsAsync(
                 (InstanceInternal i, List<string> _, CancellationToken _, int? _, int? _) => i
             );
-        batchRepositoryMock
-            .Setup(ir =>
-                ir.Update(
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<List<string>>(),
-                    It.IsAny<List<InstanceEvent>>(),
-                    It.IsAny<CancellationToken>()
-                )
-            )
-            .ReturnsAsync(
-                (InstanceInternal i, List<string> _, List<InstanceEvent> _, CancellationToken _) =>
-                    i
-            );
 
         // Act
         using HttpResponseMessage response = await SendUpdateRequest(
@@ -611,7 +602,6 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
             token: token,
             instanceId: "1337/377efa97-80ee-4cc6-8d48-09de12cc273d",
             instanceRepository: repositoryMock.Object,
-            instanceAndEventsRepository: batchRepositoryMock.Object,
             configure: state =>
             {
                 state.Started = DateTime.Parse("2020-04-29T13:53:01.7020218Z");
@@ -628,6 +618,10 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
             JsonConvert.DeserializeObject<Instance>(responseContent)
             ?? throw new Exception("Failed to deserialize response content");
         Assert.True(actual.Status.IsArchived);
+        repositoryMock.Verify(
+            ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()),
+            Times.Once
+        );
     }
 
     /// <summary>
@@ -675,13 +669,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         Mock<IProcessDataCleanupService> cleanupMock = new();
         cleanupMock
             .Setup(c =>
-                c.CleanupGeneratedFromTask(
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<string>(),
-                    It.IsAny<CancellationToken>()
-                )
+                c.GetGeneratedFromTaskDataElements(It.IsAny<InstanceInternal>(), It.IsAny<string>())
             )
-            .ReturnsAsync(0);
+            .Returns([]);
 
         // Act
         using HttpResponseMessage response = await SendUpdateRequest(
@@ -703,10 +693,289 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         cleanupMock.Verify(
-            c =>
-                c.CleanupGeneratedFromTask(
+            c => c.GetGeneratedFromTaskDataElements(It.IsAny<InstanceInternal>(), "Task_2"),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task PutInstanceAndEvents_GeneratedDataCleanup_CleansDeletedBlobsAfterCommit()
+    {
+        // Arrange
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        DataElementInternal staleDataElement = new DataElement
+        {
+            Id = Guid.NewGuid().ToString(),
+        }.FromApiModel("old-version");
+        Mock<IProcessDataCleanupService> cleanupMock = new();
+        cleanupMock
+            .Setup(c => c.GetGeneratedFromTaskDataElements(It.IsAny<InstanceInternal>(), "Task_2"))
+            .Returns([staleDataElement]);
+
+        bool committed = false;
+        InstanceMutationCommit? capturedMutation = null;
+        Mock<IInstanceMutationRepository> mutationRepositoryMock = new();
+        mutationRepositoryMock
+            .Setup(r =>
+                r.Apply(
+                    It.IsAny<Guid>(),
+                    It.IsAny<long>(),
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .Callback<Guid, long, InstanceMutationCommit, CancellationToken>(
+                (_, _, mutation, _) =>
+                {
+                    capturedMutation = mutation;
+                    committed = true;
+                }
+            )
+            .ReturnsAsync(
+                (Guid _, long _, InstanceMutationCommit mutation, CancellationToken _) =>
+                    new InstanceMutationApplyResult(false, [], mutation.InstanceUpdates)
+            );
+
+        Mock<IDataService> dataServiceMock = new();
+        dataServiceMock
+            .Setup(d =>
+                d.CleanupDeletedDataElementBlobs(
                     It.IsAny<InstanceInternal>(),
-                    "Task_2",
+                    staleDataElement,
+                    null,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .Callback(() => Assert.True(committed))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint: true,
+            token: token,
+            instanceId: "1337/20a1353e-91cf-44d6-8ff7-f68993638ffe",
+            instanceMutationRepository: mutationRepositoryMock.Object,
+            processDataCleanupService: cleanupMock.Object,
+            dataService: dataServiceMock.Object,
+            configure: state =>
+            {
+                state.CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_2",
+                    AltinnTaskType = "data",
+                    FlowType = "CompleteCurrentMoveToNext",
+                };
+            }
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(capturedMutation);
+        Assert.Contains(
+            capturedMutation.InstanceEvents,
+            instanceEvent =>
+                instanceEvent.EventType == InstanceEventType.Deleted.ToString()
+                && instanceEvent.DataId == staleDataElement.Id.ToString()
+        );
+        dataServiceMock.Verify(
+            d =>
+                d.CleanupDeletedDataElementBlobs(
+                    It.IsAny<InstanceInternal>(),
+                    staleDataElement,
+                    null,
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task PutInstanceAndEvents_PostCommitBlobCleanupThrows_Returns500WithoutVersionHeaders()
+    {
+        // Arrange
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        DataElementInternal staleDataElement = new DataElement
+        {
+            Id = Guid.NewGuid().ToString(),
+        }.FromApiModel("old-version");
+        Mock<IProcessDataCleanupService> cleanupMock = new();
+        cleanupMock
+            .Setup(c => c.GetGeneratedFromTaskDataElements(It.IsAny<InstanceInternal>(), "Task_2"))
+            .Returns([staleDataElement]);
+
+        Mock<IInstanceMutationRepository> mutationRepositoryMock = new();
+        mutationRepositoryMock
+            .Setup(r =>
+                r.Apply(
+                    It.IsAny<Guid>(),
+                    It.IsAny<long>(),
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                (Guid _, long _, InstanceMutationCommit mutation, CancellationToken _) =>
+                    new InstanceMutationApplyResult(false, [], mutation.InstanceUpdates)
+            );
+
+        Mock<IDataService> dataServiceMock = new();
+        dataServiceMock
+            .Setup(d =>
+                d.CleanupDeletedDataElementBlobs(
+                    It.IsAny<InstanceInternal>(),
+                    staleDataElement,
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(new InvalidOperationException("physical blob cleanup failed"));
+
+        // Act
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint: true,
+            token: token,
+            instanceId: "1337/20a1353e-91cf-44d6-8ff7-f68993638ffe",
+            instanceMutationRepository: mutationRepositoryMock.Object,
+            processDataCleanupService: cleanupMock.Object,
+            dataService: dataServiceMock.Object,
+            configure: state =>
+            {
+                state.CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_2",
+                    AltinnTaskType = "data",
+                    FlowType = "CompleteCurrentMoveToNext",
+                };
+            }
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.False(response.Headers.Contains(StorageHeaders.InstanceVersion));
+        Assert.False(response.Headers.Contains(StorageHeaders.ProcessStateVersion));
+    }
+
+    [Fact]
+    public async Task PutInstanceAndEvents_ResponseIsBuiltFromApplySnapshot()
+    {
+        // Arrange
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        DateTime snapshotLastChanged = new(2030, 1, 2, 3, 4, 5, DateTimeKind.Utc);
+        Mock<IInstanceMutationRepository> mutationRepositoryMock = new();
+        mutationRepositoryMock
+            .Setup(r =>
+                r.Apply(
+                    It.IsAny<Guid>(),
+                    It.IsAny<long>(),
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                (Guid _, long _, InstanceMutationCommit mutation, CancellationToken _) =>
+                {
+                    InstanceInternal snapshot = mutation
+                        .InstanceUpdates.ToApiModel()
+                        .FromApiModel();
+                    snapshot.LastChanged = snapshotLastChanged;
+                    snapshot.Versions = new StorageVersions(9, 12);
+                    return new InstanceMutationApplyResult(false, [], snapshot);
+                }
+            );
+
+        // Act
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint: true,
+            token: token,
+            instanceId: "1337/20a1353e-91cf-44d6-8ff7-f68993638ffe",
+            instanceMutationRepository: mutationRepositoryMock.Object,
+            configure: state =>
+            {
+                state.CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_2",
+                    AltinnTaskType = "data",
+                    FlowType = "CompleteCurrentMoveToNext",
+                };
+            }
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        string responseContent = await response.Content.ReadAsStringAsync();
+        Instance actual =
+            JsonConvert.DeserializeObject<Instance>(responseContent)
+            ?? throw new Exception("Failed to deserialize response content");
+        Assert.NotNull(actual.LastChanged);
+        Assert.Equal(snapshotLastChanged, actual.LastChanged.Value.ToUniversalTime());
+        Assert.Equal(
+            "9",
+            Assert.Single(response.Headers.GetValues(StorageHeaders.InstanceVersion))
+        );
+        Assert.Equal(
+            "12",
+            Assert.Single(response.Headers.GetValues(StorageHeaders.ProcessStateVersion))
+        );
+    }
+
+    [Fact]
+    public async Task PutInstanceAndEvents_PostCommitApplicationLookupThrows_StillReturnsOkAndRunsCleanup()
+    {
+        // Arrange
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        DataElementInternal staleDataElement = new DataElement
+        {
+            Id = Guid.NewGuid().ToString(),
+        }.FromApiModel("old-version");
+        Mock<IProcessDataCleanupService> cleanupMock = new();
+        cleanupMock
+            .Setup(c => c.GetGeneratedFromTaskDataElements(It.IsAny<InstanceInternal>(), "Task_2"))
+            .Returns([staleDataElement]);
+
+        Mock<IApplicationService> applicationServiceMock = new();
+        applicationServiceMock
+            .Setup(a => a.GetApplicationOrErrorAsync(It.IsAny<string>()))
+            .ThrowsAsync(new InvalidOperationException("lookup failed"));
+
+        Mock<IDataService> dataServiceMock = new();
+        dataServiceMock
+            .Setup(d =>
+                d.CleanupDeletedDataElementBlobs(
+                    It.IsAny<InstanceInternal>(),
+                    staleDataElement,
+                    null,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .Returns(Task.CompletedTask);
+
+        // Act
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint: true,
+            token: token,
+            instanceId: "1337/20a1353e-91cf-44d6-8ff7-f68993638ffe",
+            processDataCleanupService: cleanupMock.Object,
+            dataService: dataServiceMock.Object,
+            applicationService: applicationServiceMock.Object,
+            configure: state =>
+            {
+                state.CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_2",
+                    AltinnTaskType = "data",
+                    FlowType = "CompleteCurrentMoveToNext",
+                };
+            }
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        dataServiceMock.Verify(
+            d =>
+                d.CleanupDeletedDataElementBlobs(
+                    It.IsAny<InstanceInternal>(),
+                    staleDataElement,
+                    null,
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -725,13 +994,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         Mock<IProcessDataCleanupService> cleanupMock = new();
         cleanupMock
             .Setup(c =>
-                c.CleanupGeneratedFromTask(
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<string>(),
-                    It.IsAny<CancellationToken>()
-                )
+                c.GetGeneratedFromTaskDataElements(It.IsAny<InstanceInternal>(), It.IsAny<string>())
             )
-            .ReturnsAsync(0);
+            .Returns([]);
 
         // Act
         using HttpResponseMessage response = await SendUpdateRequest(
@@ -755,10 +1020,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         cleanupMock.Verify(
             c =>
-                c.CleanupGeneratedFromTask(
+                c.GetGeneratedFromTaskDataElements(
                     It.IsAny<InstanceInternal>(),
-                    It.IsAny<string>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<string>()
                 ),
             Times.Never
         );
@@ -782,13 +1046,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         Mock<IProcessDataCleanupService> cleanupMock = new();
         cleanupMock
             .Setup(c =>
-                c.CleanupGeneratedFromTask(
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<string>(),
-                    It.IsAny<CancellationToken>()
-                )
+                c.GetGeneratedFromTaskDataElements(It.IsAny<InstanceInternal>(), It.IsAny<string>())
             )
-            .ReturnsAsync(0);
+            .Returns([]);
 
         // Act
         using HttpResponseMessage response = await SendUpdateRequest(
@@ -811,12 +1071,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         cleanupMock.Verify(
-            c =>
-                c.CleanupGeneratedFromTask(
-                    It.IsAny<InstanceInternal>(),
-                    "Task_2",
-                    It.IsAny<CancellationToken>()
-                ),
+            c => c.GetGeneratedFromTaskDataElements(It.IsAny<InstanceInternal>(), "Task_2"),
             Times.Once
         );
     }
@@ -838,13 +1093,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         Mock<IProcessDataCleanupService> cleanupMock = new();
         cleanupMock
             .Setup(c =>
-                c.CleanupGeneratedFromTask(
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<string>(),
-                    It.IsAny<CancellationToken>()
-                )
+                c.GetGeneratedFromTaskDataElements(It.IsAny<InstanceInternal>(), It.IsAny<string>())
             )
-            .ReturnsAsync(0);
+            .Returns([]);
 
         // Act
         using HttpResponseMessage response = await SendUpdateRequest(
@@ -868,10 +1119,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         cleanupMock.Verify(
             c =>
-                c.CleanupGeneratedFromTask(
+                c.GetGeneratedFromTaskDataElements(
                     It.IsAny<InstanceInternal>(),
-                    It.IsAny<string>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<string>()
                 ),
             Times.Never
         );
@@ -892,7 +1142,6 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         testInstance.Id = $"{testInstance.InstanceOwner.PartyId}/{testInstance.Id}";
 
         Mock<IInstanceRepository> repositoryMock = new();
-        Mock<IInstanceAndEventsRepository> batchRepositoryMock = new();
         repositoryMock
             .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
             .ReturnsAsync(InstanceInternalTestFactory.Create(testInstance, [], InternalId: 0));
@@ -909,20 +1158,6 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
             .ReturnsAsync(
                 (InstanceInternal i, List<string> _, CancellationToken _, int? _, int? _) => i
             );
-        batchRepositoryMock
-            .Setup(ir =>
-                ir.Update(
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<List<string>>(),
-                    It.IsAny<List<InstanceEvent>>(),
-                    It.IsAny<CancellationToken>()
-                )
-            )
-            .ReturnsAsync(
-                (InstanceInternal i, List<string> _, List<InstanceEvent> _, CancellationToken _) =>
-                    i
-            );
-
         Mock<IProcessDataCleanupService> cleanupMock = new();
 
         // Act
@@ -931,7 +1166,6 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
             token: token,
             instanceId: "1337/377efa97-80ee-4cc6-8d48-09de12cc273d",
             instanceRepository: repositoryMock.Object,
-            instanceAndEventsRepository: batchRepositoryMock.Object,
             processDataCleanupService: cleanupMock.Object,
             configure: state =>
             {
@@ -947,10 +1181,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         cleanupMock.Verify(
             c =>
-                c.CleanupGeneratedFromTask(
+                c.GetGeneratedFromTaskDataElements(
                     It.IsAny<InstanceInternal>(),
-                    It.IsAny<string>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<string>()
                 ),
             Times.Never
         );
@@ -989,10 +1222,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         cleanupMock.Verify(
             c =>
-                c.CleanupGeneratedFromTask(
+                c.GetGeneratedFromTaskDataElements(
                     It.IsAny<InstanceInternal>(),
-                    It.IsAny<string>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<string>()
                 ),
             Times.Never
         );
@@ -1013,13 +1245,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         Mock<IProcessDataCleanupService> cleanupMock = new();
         cleanupMock
             .Setup(c =>
-                c.CleanupGeneratedFromTask(
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<string>(),
-                    It.IsAny<CancellationToken>()
-                )
+                c.GetGeneratedFromTaskDataElements(It.IsAny<InstanceInternal>(), It.IsAny<string>())
             )
-            .ThrowsAsync(new InvalidOperationException("contract violation"));
+            .Throws(new InvalidOperationException("contract violation"));
 
         // Act
         using HttpResponseMessage response = await SendUpdateRequest(
@@ -1146,9 +1374,11 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
 
     private HttpClient GetTestClient(
         IInstanceRepository? instanceRepository = null,
-        IInstanceAndEventsRepository? instanceAndEventsRepository = null,
+        IInstanceMutationRepository? instanceMutationRepository = null,
         bool enableWolverine = false,
-        IProcessDataCleanupService? processDataCleanupService = null
+        IProcessDataCleanupService? processDataCleanupService = null,
+        IDataService? dataService = null,
+        IApplicationService? applicationService = null
     )
     {
         // No setup required for these services. They are not in use by the ApplicationController
@@ -1198,21 +1428,51 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                         services.AddSingleton<IInstanceRepository, InstanceRepositoryMock>();
                     }
 
-                    if (instanceAndEventsRepository != null)
+                    if (instanceMutationRepository != null)
                     {
-                        services.AddSingleton(instanceAndEventsRepository);
+                        services.AddSingleton(instanceMutationRepository);
                     }
                     else
                     {
-                        services.AddSingleton<
-                            IInstanceAndEventsRepository,
-                            InstanceAndEventsRepositoryMock
-                        >();
+                        Mock<IInstanceMutationRepository> mutationRepositoryMock = new();
+                        mutationRepositoryMock
+                            .Setup(repository =>
+                                repository.Apply(
+                                    It.IsAny<Guid>(),
+                                    It.IsAny<long>(),
+                                    It.IsAny<InstanceMutationCommit>(),
+                                    It.IsAny<CancellationToken>()
+                                )
+                            )
+                            .ReturnsAsync(
+                                (
+                                    Guid _,
+                                    long _,
+                                    InstanceMutationCommit mutation,
+                                    CancellationToken _
+                                ) =>
+                                    new InstanceMutationApplyResult(
+                                        false,
+                                        [],
+                                        mutation.InstanceUpdates
+                                    )
+                            );
+                        services.AddSingleton(mutationRepositoryMock.Object);
                     }
 
                     if (processDataCleanupService != null)
                     {
                         services.AddSingleton(processDataCleanupService);
+                    }
+
+                    if (dataService != null)
+                    {
+                        services.AddSingleton(dataService);
+                    }
+
+                    if (applicationService != null)
+                    {
+                        services.AddSingleton(applicationService);
                     }
                 });
             })
