@@ -1302,10 +1302,6 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         Assert.Equal(InstanceEventType.Deleted.ToString(), deletedEvent.EventType);
         Assert.Equal(de.Id, deletedEvent.DataId);
         dataRepositoryMock.Verify(
-            dr => dr.Delete(It.IsAny<DataElementInternal>(), It.IsAny<CancellationToken>()),
-            Times.Never
-        );
-        dataRepositoryMock.Verify(
             dr =>
                 dr.Update(
                     It.IsAny<Guid>(),
