@@ -8,6 +8,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Clients;
@@ -27,6 +28,7 @@ using AltinnCore.Authentication.JwtCookie;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using Newtonsoft.Json;
@@ -909,6 +911,65 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         }
 
         await _testTelemetry.AssertRequestsWithInvalidScopesCountAsync(invalidScopeRequests);
+    }
+
+    /// <summary>
+    /// Test case: An org/service owner requests instances for a different org, triggering a cross-org
+    /// PDP decision, and the authorization service throws while getting the decision.
+    /// Expected: The exception is logged (with the org included) and rethrown, resulting in a 500 response.
+    /// </summary>
+    [Fact]
+    public async Task GetMany_CrossOrgAccess_GetDecisionThrows_LogsErrorAndReturnsInternalServerError()
+    {
+        // Arrange
+        // Caller is authenticated as "ttd" but queries an app belonging to "tdd", forcing a cross-org
+        // PDP decision through AuthorizeCrossOrgAccess.
+        string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
+
+        Exception thrownException = new("PDP is unavailable");
+
+        Mock<IPDP> pdpMock = new();
+        pdpMock
+            .Setup(pdp => pdp.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .ThrowsAsync(thrownException);
+
+        Mock<ILogger<InstancesController>> loggerMock = new();
+
+        HttpClient client = GetTestClient(pdpMock: pdpMock, loggerMock: loggerMock);
+        string token = PrincipalUtil.GetOrgToken(
+            "ttd",
+            scope: "altinn:serviceowner/instances.read"
+        );
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+
+        pdpMock.Verify(
+            pdp => pdp.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()),
+            Times.Once
+        );
+
+        loggerMock.Verify(
+            logger =>
+                logger.Log(
+                    LogLevel.Error,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>(
+                        (v, t) =>
+                            v.ToString()
+                                .Contains(
+                                    "Something went wrong during GetDecisionForRequest for org"
+                                )
+                    ),
+                    thrownException,
+                    It.IsAny<Func<It.IsAnyType, Exception, string>>()
+                ),
+            Times.Once
+        );
     }
 
     /// <summary>
@@ -2525,7 +2586,9 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     private HttpClient GetTestClient(
         Mock<IInstanceRepository> repositoryMock = null,
         Mock<IRegisterService> registerService = null,
-        Mock<IApplicationService> applicationService = null
+        Mock<IApplicationService> applicationService = null,
+        Mock<IPDP> pdpMock = null,
+        Mock<ILogger<InstancesController>> loggerMock = null
     )
     {
         // No setup required for these services. They are not in use by the InstanceController
@@ -2570,6 +2633,17 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                     PartiesWithInstancesClientMock
                 >();
                 services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
+
+                if (pdpMock != null)
+                {
+                    services.AddSingleton(pdpMock.Object);
+                }
+
+                if (loggerMock != null)
+                {
+                    services.AddSingleton(loggerMock.Object);
+                }
+
                 services.AddSingleton<
                     IPostConfigureOptions<JwtCookieOptions>,
                     JwtCookiePostConfigureOptionsStub
