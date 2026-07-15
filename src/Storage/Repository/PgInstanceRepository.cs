@@ -35,7 +35,7 @@ public class PgInstanceRepository : IInstanceRepository
     /// <summary>
     /// SQL for updating an instance.
     /// </summary>
-    internal static readonly string UpdateSql =
+    private static readonly string UpdateSql =
         "select * from storage.updateinstance_v4 (@_alternateid, @_toplevelsimpleprops, @_datavalues,"
         + " @_completeconfirmations, @_presentationtexts, @_status, @_substatus, @_process, @_lastchanged, @_taskid, @_confirmed,"
         + " @_expectedinstanceversion, @_expectedprocessstateversion)";
@@ -665,7 +665,7 @@ public class PgInstanceRepository : IInstanceRepository
     /// <param name="parameters">Parameters</param>
     /// <param name="expectedInstanceVersion">Expected instance version for optimistic concurrency checks.</param>
     /// <param name="expectedProcessStateVersion">Expected process state version for optimistic concurrency checks.</param>
-    internal static void BuildUpdateCommand(
+    private static void BuildUpdateCommand(
         InstanceInternal instance,
         List<string> updateProperties,
         NpgsqlParameterCollection parameters,
@@ -717,7 +717,7 @@ public class PgInstanceRepository : IInstanceRepository
             expectedProcessStateVersion ?? (object)DBNull.Value
         );
 
-    internal static void AddUpdateCommandParameters(
+    private static void AddUpdateCommandParameters(
         InstanceUpdateCommandArguments arguments,
         NpgsqlParameterCollection parameters
     )
@@ -757,7 +757,7 @@ public class PgInstanceRepository : IInstanceRepository
         );
     }
 
-    internal static async Task<InstanceInternal> ReadUpdatedInstanceAsync(
+    private static async Task<InstanceInternal> ReadUpdatedInstanceAsync(
         NpgsqlDataReader reader,
         long instanceInternalId,
         CancellationToken cancellationToken
@@ -787,13 +787,13 @@ public class PgInstanceRepository : IInstanceRepository
         return instance;
     }
 
-    internal static StorageVersions ReadVersionResult(NpgsqlDataReader reader) =>
+    private static StorageVersions ReadVersionResult(NpgsqlDataReader reader) =>
         new(
             reader.GetInt32(reader.GetOrdinal("instanceversion")),
             reader.GetInt32(reader.GetOrdinal("processstateversion"))
         );
 
-    internal static RepositoryException CreateInstanceNotFoundException(string instanceId = null) =>
+    private static RepositoryException CreateInstanceNotFoundException(string instanceId = null) =>
         new(
             instanceId is null
                 ? "Instance was not found."
@@ -801,7 +801,7 @@ public class PgInstanceRepository : IInstanceRepository
             System.Net.HttpStatusCode.NotFound
         );
 
-    internal static UnreachableException CreateMissingUpdateResultException(string functionName) =>
+    private static UnreachableException CreateMissingUpdateResultException(string functionName) =>
         new(
             $"{functionName} returned no result row. The SQL function must return a row with a result code."
         );

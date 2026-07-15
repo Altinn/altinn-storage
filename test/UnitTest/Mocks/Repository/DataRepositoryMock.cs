@@ -90,19 +90,6 @@ public class DataRepositoryMock : IDataRepository
         return Task.FromResult(new DataElementWriteResult(dataElement, versions));
     }
 
-    public Task<bool> Delete(
-        DataElementInternal dataElement,
-        CancellationToken cancellationToken = default
-    )
-    {
-        lock (_stateLock)
-        {
-            _tempRepository.Remove(dataElement.Id);
-        }
-
-        return Task.FromResult(true);
-    }
-
     public Task<bool> DeleteForCleanup(
         DataElementInternal dataElement,
         CancellationToken cancellationToken = default

@@ -3914,11 +3914,6 @@ public class DataControllerUnitTests
             "6",
             fixture.HttpContext.Response.Headers[StorageHeaders.ProcessStateVersion].Single()
         );
-        fixture.DataRepository.Verify(
-            repository =>
-                repository.Delete(It.IsAny<DataElementInternal>(), It.IsAny<CancellationToken>()),
-            Times.Never
-        );
         fixture.InstanceEventService.Verify(
             service =>
                 service.DispatchEvent(
@@ -3981,11 +3976,6 @@ public class DataControllerUnitTests
                 ),
             Times.Never
         );
-        fixture.DataRepository.Verify(
-            repository =>
-                repository.Delete(It.IsAny<DataElementInternal>(), It.IsAny<CancellationToken>()),
-            Times.Never
-        );
     }
 
     [Fact]
@@ -4021,11 +4011,6 @@ public class DataControllerUnitTests
                     It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
-            Times.Never
-        );
-        fixture.DataRepository.Verify(
-            repository =>
-                repository.Delete(It.IsAny<DataElementInternal>(), It.IsAny<CancellationToken>()),
             Times.Never
         );
     }

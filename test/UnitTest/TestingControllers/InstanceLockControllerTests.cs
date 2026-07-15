@@ -549,7 +549,6 @@ public class InstanceLockControllerTest
 
     private HttpClient GetTestClient(
         IInstanceRepository? instanceRepository = null,
-        IInstanceAndEventsRepository? instanceAndEventsRepository = null,
         IInstanceLockRepository? instanceLockRepository = null,
         bool enableWolverine = false
     )
@@ -655,18 +654,6 @@ public class InstanceLockControllerTest
                                 }
                             );
                         services.AddSingleton(instanceRepositoryMock.Object);
-                    }
-
-                    if (instanceAndEventsRepository != null)
-                    {
-                        services.AddSingleton(instanceAndEventsRepository);
-                    }
-                    else
-                    {
-                        services.AddSingleton<
-                            IInstanceAndEventsRepository,
-                            InstanceAndEventsRepositoryMock
-                        >();
                     }
 
                     if (instanceLockRepository != null)

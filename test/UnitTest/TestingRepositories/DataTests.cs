@@ -1327,56 +1327,6 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(1, await CountAttachedBlobVersionRows(blobVersionId));
     }
 
-    [Fact]
-    public async Task DataElement_Delete_VersionedDataElement_DetachesBlobVersionRowsForCleanup()
-    {
-        DataElement element = TestDataUtil.GetDataElement(_dataElement1);
-        element.Id = Guid.NewGuid().ToString();
-        element.InstanceGuid = _instance.Id.Split('/').Last();
-        (DataElement dataElement, string blobVersionId) = await CreateVersionedDataElement(element);
-
-        int versionCountBeforeDelete = await CountBlobVersionRows(blobVersionId);
-        bool deleted = await dataElementFixture.DataRepo.Delete(dataElement.FromApiModel());
-        int dataElementCountAfterDelete = await PostgresUtil.RunCountQuery(
-            $"select count(*) from storage.dataelements where alternateid = '{dataElement.Id}'"
-        );
-        int versionCountAfterDelete = await CountBlobVersionRows(blobVersionId);
-        int detachedVersionCountAfterDelete = await CountDetachedBlobVersionRows(blobVersionId);
-        IReadOnlyList<BlobVersionReferencesInternal> activeBlobVersions =
-            await dataElementFixture.DataRepo.ReadBlobVersions(Guid.Parse(dataElement.Id));
-        IReadOnlyList<BlobVersionReferencesInternal> detachedBlobVersions =
-            await dataElementFixture.DataRepo.ReadDetachedBlobVersions(Guid.Parse(dataElement.Id));
-
-        Assert.True(deleted);
-        Assert.Equal(1, versionCountBeforeDelete);
-        Assert.Equal(0, dataElementCountAfterDelete);
-        Assert.Equal(1, versionCountAfterDelete);
-        Assert.Equal(1, detachedVersionCountAfterDelete);
-        Assert.Empty(activeBlobVersions);
-        BlobVersionReferencesInternal detachedBlobVersion = Assert.Single(detachedBlobVersions);
-        Assert.Equal([blobVersionId], detachedBlobVersion.BlobVersionIds);
-    }
-
-    [Fact]
-    public async Task DataElement_Delete_Change_Instance_Readstatus_Ok()
-    {
-        // Arrange
-        DataElementInternal dataElement = await CreateDataElement();
-        await SetInstanceReadStatus(ReadStatus.Read);
-
-        // Act
-        bool deleted = await dataElementFixture.DataRepo.Delete(dataElement);
-
-        // Assert
-        InstanceInternal instance = await ReadInstance();
-        Assert.True(deleted);
-        Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id)));
-        Assert.Equal(ReadStatus.Unread, instance.Status.ReadStatus);
-        Assert.Equal(dataElement.LastChangedBy, instance.LastChangedBy);
-        Assert.Equal(_frozenTime, instance.LastChanged);
-        Assert.Equal(_frozenTime, await ReadInstanceLastChangedColumn());
-    }
-
     /// <summary>
     /// Test delete and don't change instance read status
     /// </summary>
@@ -1402,26 +1352,6 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(1, versionCountBeforeDelete);
         Assert.Equal(1, versionCountAfterDelete);
         Assert.Equal(1, detachedVersionCountAfterDelete);
-    }
-
-    [Fact]
-    public async Task DataElement_Delete_NoChange_Instance_Readstatus_Ok()
-    {
-        // Arrange
-        DataElementInternal dataElement = await CreateDataElement();
-        await SetInstanceReadStatus(ReadStatus.Unread);
-
-        // Act
-        bool deleted = await dataElementFixture.DataRepo.Delete(dataElement);
-
-        // Assert
-        InstanceInternal instance = await ReadInstance();
-        Assert.True(deleted);
-        Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id)));
-        Assert.Equal(ReadStatus.Unread, instance.Status.ReadStatus);
-        Assert.Equal(dataElement.LastChangedBy, instance.LastChangedBy);
-        Assert.Equal(_frozenTime, instance.LastChanged);
-        Assert.Equal(_frozenTime, await ReadInstanceLastChangedColumn());
     }
 
     /// <summary>

@@ -296,11 +296,6 @@ public class DomainModelContractTests
                 .ReturnType.GetGenericArguments()
                 .Single()
         );
-        Assert.All(
-            methods.Where(method => method.Name == nameof(IDataRepository.Delete)),
-            method =>
-                Assert.Equal(typeof(DataElementInternal), method.GetParameters()[0].ParameterType)
-        );
         Assert.Equal(
             typeof(DataElementInternal),
             Assert
