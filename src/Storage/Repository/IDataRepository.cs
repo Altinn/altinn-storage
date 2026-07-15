@@ -46,17 +46,6 @@ public interface IDataRepository
     );
 
     /// <summary>
-    /// Deletes the data element metadata object permanently and detaches attached blob-version rows.
-    /// </summary>
-    /// <param name="dataElement">the element to delete</param>
-    /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
-    /// <returns>true if delete went well.</returns>
-    Task<bool> Delete(
-        DataElementInternal dataElement,
-        CancellationToken cancellationToken = default
-    );
-
-    /// <summary>
     /// Deletes hard-deleted data element metadata during cleanup and detaches attached blob-version rows.
     /// </summary>
     /// <param name="dataElement">the element to delete</param>

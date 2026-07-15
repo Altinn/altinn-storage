@@ -49,15 +49,6 @@ public class DataRepositoryMock : IDataRepository
         return await Task.FromResult(new DataElementWriteResult(dataElement, versions));
     }
 
-    public async Task<bool> Delete(
-        DataElementInternal dataElement,
-        CancellationToken cancellationToken = default
-    )
-    {
-        _tempRepository.Remove(dataElement.Id);
-        return await Task.FromResult(true);
-    }
-
     public async Task<bool> DeleteForCleanup(
         DataElementInternal dataElement,
         CancellationToken cancellationToken = default

@@ -33,7 +33,6 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     private readonly string _insertSql =
         "select * from storage.insertdataelement_v3 ($1, $2, $3, $4, $5, $6, $7)";
     private readonly string _readSql = "select * from storage.readdataelement_v2($1)";
-    private readonly string _deleteSql = "select * from storage.deletedataelement_v2 ($1, $2, $3)";
     private readonly string _deleteForCleanupSql =
         "select * from storage.deletedataelementforcleanup ($1)";
     private readonly string _deleteForInstanceSql = "select * from storage.deletedataelements ($1)";
@@ -129,21 +128,6 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
             $"Data element {dataElement.Id} was not created.",
             HttpStatusCode.NotFound
         );
-    }
-
-    /// <inheritdoc/>
-    public async Task<bool> Delete(
-        DataElementInternal dataElement,
-        CancellationToken cancellationToken = default
-    )
-    {
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
-        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
-        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.InstanceGuid));
-        pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, dataElement.LastChangedBy);
-
-        int rc = (int)await pgcom.ExecuteScalarAsync(cancellationToken);
-        return rc == 1;
     }
 
     /// <inheritdoc/>

@@ -579,11 +579,6 @@ public class CleanupControllerUnitTests
         Assert.Equal(3, callOrder);
         blobRepositoryMock.VerifyAll();
         dataRepositoryMock.VerifyAll();
-        dataRepositoryMock.Verify(
-            repository =>
-                repository.Delete(deletedDataElement.DataElement, It.IsAny<CancellationToken>()),
-            Times.Never
-        );
     }
 
     [Fact]

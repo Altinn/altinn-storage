@@ -1361,65 +1361,6 @@ public class DataTests : IClassFixture<DataElementFixture>
         Assert.Equal(1, await CountAttachedBlobVersionRows(blobVersionId));
     }
 
-    [Fact]
-    public async Task DataElement_Delete_VersionedDataElement_DetachesBlobVersionRowsForCleanup()
-    {
-        DataElement element = TestDataUtil.GetDataElement(DataElement1);
-        element.Id = Guid.NewGuid().ToString();
-        element.InstanceGuid = _instance.Id.Split('/').Last();
-        (DataElement dataElement, string blobVersionId) = await CreateVersionedDataElement(element);
-
-        int versionCountBeforeDelete = await CountBlobVersionRows(blobVersionId);
-        bool deleted = await _dataElementFixture.DataRepo.Delete(dataElement.FromApiModel());
-        int dataElementCountAfterDelete = await PostgresUtil.RunCountQuery(
-            $"select count(*) from storage.dataelements where alternateid = '{dataElement.Id}'"
-        );
-        int versionCountAfterDelete = await CountBlobVersionRows(blobVersionId);
-        int detachedVersionCountAfterDelete = await CountDetachedBlobVersionRows(blobVersionId);
-        IReadOnlyList<BlobVersionReferencesInternal> activeBlobVersions =
-            await _dataElementFixture.DataRepo.ReadBlobVersions(Guid.Parse(dataElement.Id));
-        IReadOnlyList<BlobVersionReferencesInternal> detachedBlobVersions =
-            await _dataElementFixture.DataRepo.ReadDetachedBlobVersions(Guid.Parse(dataElement.Id));
-
-        Assert.True(deleted);
-        Assert.Equal(1, versionCountBeforeDelete);
-        Assert.Equal(0, dataElementCountAfterDelete);
-        Assert.Equal(1, versionCountAfterDelete);
-        Assert.Equal(1, detachedVersionCountAfterDelete);
-        Assert.Empty(activeBlobVersions);
-        BlobVersionReferencesInternal detachedBlobVersion = Assert.Single(detachedBlobVersions);
-        Assert.Equal([blobVersionId], detachedBlobVersion.BlobVersionIds);
-    }
-
-    [Fact]
-    public async Task DataElement_Delete_Change_Instance_Readstatus_Ok()
-    {
-        // Arrange
-        DataElementInternal dataElement = await CreateDataElement(
-            TestDataUtil.GetDataElement(DataElement1).FromApiModel(),
-            _instanceInternalId
-        );
-        await PostgresUtil.RunSql(
-            "update storage.instances set instance = jsonb_set(instance, '{Status, ReadStatus}', '1') where alternateid = '"
-                + _instance.Id.Split('/').Last()
-                + "';"
-        );
-
-        // Act
-        bool deleted = await _dataElementFixture.DataRepo.Delete(dataElement);
-
-        // Assert
-        string sql =
-            $"select count(*) from storage.dataelements where alternateid = '{dataElement.Id}'";
-        int dataCount = await PostgresUtil.RunCountQuery(sql);
-        sql =
-            $"select count(*) from storage.instances where alternateid = '{_instance.Id.Split('/').Last()}' and instance -> 'Status' ->> 'ReadStatus' = '0'"
-            + $" and lastchanged between now() - make_interval(secs => 2) and now() and instance -> 'LastChangedBy' = '\"{dataElement.LastChangedBy}\"'";
-        int instanceCount = await PostgresUtil.RunCountQuery(sql);
-        Assert.Equal(0, dataCount);
-        Assert.Equal(1, instanceCount);
-    }
-
     /// <summary>
     /// Test delete and don't change instance read status
     /// </summary>
@@ -1445,35 +1386,6 @@ public class DataTests : IClassFixture<DataElementFixture>
         Assert.Equal(1, versionCountBeforeDelete);
         Assert.Equal(1, versionCountAfterDelete);
         Assert.Equal(1, detachedVersionCountAfterDelete);
-    }
-
-    [Fact]
-    public async Task DataElement_Delete_NoChange_Instance_Readstatus_Ok()
-    {
-        // Arrange
-        DataElementInternal dataElement = await CreateDataElement(
-            TestDataUtil.GetDataElement(DataElement1).FromApiModel(),
-            _instanceInternalId
-        );
-        await PostgresUtil.RunSql(
-            "update storage.instances set instance = jsonb_set(instance, '{Status, ReadStatus}', '0') where alternateid = '"
-                + _instance.Id.Split('/').Last()
-                + "';"
-        );
-
-        // Act
-        bool deleted = await _dataElementFixture.DataRepo.Delete(dataElement);
-
-        // Assert
-        string sql =
-            $"select count(*) from storage.dataelements where alternateid = '{dataElement.Id}'";
-        int dataCount = await PostgresUtil.RunCountQuery(sql);
-        sql =
-            $"select count(*) from storage.instances where alternateid = '{_instance.Id.Split('/').Last()}' and instance -> 'Status' ->> 'ReadStatus' = '0'"
-            + $" and lastchanged between now() - make_interval(secs => 2) and now() and instance -> 'LastChangedBy' = '\"{dataElement.LastChangedBy}\"'";
-        int instanceCount = await PostgresUtil.RunCountQuery(sql);
-        Assert.Equal(0, dataCount);
-        Assert.Equal(1, instanceCount);
     }
 
     /// <summary>
