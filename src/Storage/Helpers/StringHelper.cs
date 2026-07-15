@@ -41,6 +41,6 @@ public static class StringHelper
             return value;
         }
 
-        return new string(value.RemoveNewlines().Where(c => !char.IsControl(c)).ToArray());
+        return new string(value.Where(c => !char.IsControl(c)).ToArray());
     }
 }
