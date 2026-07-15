@@ -29,7 +29,7 @@ public static class StringHelper
     }
 
     /// <summary>
-    /// Cleans a string so it is safe to use in logs, mitigating log injection/forging
+    /// Cleans a string, so it is safe to use in logs, mitigating log injection/forging
     /// by removing newline and other control characters from user-controlled input.
     /// </summary>
     /// <param name="value">The string to clean.</param>
@@ -41,9 +41,6 @@ public static class StringHelper
             return value;
         }
 
-        return new string(value
-            .RemoveNewlines()
-            .Where(c => !char.IsControl(c))
-            .ToArray());
+        return new string(value.RemoveNewlines().Where(c => !char.IsControl(c)).ToArray());
     }
 }
