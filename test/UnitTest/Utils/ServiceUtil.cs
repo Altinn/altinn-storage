@@ -15,19 +15,8 @@ public static class ServiceUtil
 {
     private static readonly Lazy<ServiceProvider> _serviceProvider = new(BuildServiceProvider);
 
-    public static List<object> GetServices(
-        List<Type> interfaceTypes,
-        Dictionary<string, string> envVariables = null
-    )
+    public static List<object> GetServices(List<Type> interfaceTypes)
     {
-        if (envVariables != null)
-        {
-            foreach (var item in envVariables)
-            {
-                Environment.SetEnvironmentVariable(item.Key, item.Value);
-            }
-        }
-
         ServiceProvider serviceProvider = _serviceProvider.Value;
 
         List<object> outputServices = new();
