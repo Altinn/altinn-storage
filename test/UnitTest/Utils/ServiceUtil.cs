@@ -13,15 +13,22 @@ namespace Altinn.Platform.Storage.UnitTest.Utils;
 
 public static class ServiceUtil
 {
-    private static readonly object _lock = new();
-    private static ServiceProvider _serviceProvider;
+    private static readonly Lazy<ServiceProvider> _serviceProvider = new(BuildServiceProvider);
 
     public static List<object> GetServices(
         List<Type> interfaceTypes,
         Dictionary<string, string> envVariables = null
     )
     {
-        ServiceProvider serviceProvider = GetServiceProvider(envVariables);
+        if (envVariables != null)
+        {
+            foreach (var item in envVariables)
+            {
+                Environment.SetEnvironmentVariable(item.Key, item.Value);
+            }
+        }
+
+        ServiceProvider serviceProvider = _serviceProvider.Value;
 
         List<object> outputServices = new();
         foreach (Type interfaceType in interfaceTypes)
@@ -39,7 +46,7 @@ public static class ServiceUtil
     /// </summary>
     public static NpgsqlDataSource GetSharedDataSource()
     {
-        return GetServiceProvider(null).GetRequiredService<NpgsqlDataSource>();
+        return _serviceProvider.Value.GetRequiredService<NpgsqlDataSource>();
     }
 
     public static string GetAppsettingsPath()
@@ -47,47 +54,23 @@ public static class ServiceUtil
         return "appsettings.unittest.json";
     }
 
-    private static ServiceProvider GetServiceProvider(Dictionary<string, string> envVariables)
+    private static ServiceProvider BuildServiceProvider()
     {
-        if (_serviceProvider != null)
-        {
-            return _serviceProvider;
-        }
+        var config = new ConfigurationBuilder()
+            .AddJsonFile(GetAppsettingsPath())
+            .AddEnvironmentVariables()
+            .Build();
 
-        lock (_lock)
-        {
-            if (_serviceProvider != null)
-            {
-                return _serviceProvider;
-            }
+        WebApplication.CreateBuilder().Build().SetUpPostgreSql(true, config);
 
-            if (envVariables != null)
-            {
-                foreach (var item in envVariables)
-                {
-                    Environment.SetEnvironmentVariable(item.Key, item.Value);
-                }
-            }
+        IServiceCollection services = new ServiceCollection();
 
-            var builder = new ConfigurationBuilder()
-                .AddJsonFile(GetAppsettingsPath())
-                .AddEnvironmentVariables();
+        services.AddLogging();
+        services.AddPostgresRepositories(config);
+        services.AddMemoryCache();
 
-            var config = builder.Build();
+        services.Configure<GeneralSettings>(config.GetSection("GeneralSettings"));
 
-            WebApplication.CreateBuilder().Build().SetUpPostgreSql(true, config);
-
-            IServiceCollection services = new ServiceCollection();
-
-            services.AddLogging();
-            services.AddPostgresRepositories(config);
-            services.AddMemoryCache();
-
-            services.Configure<GeneralSettings>(config.GetSection("GeneralSettings"));
-
-            _serviceProvider = services.BuildServiceProvider();
-        }
-
-        return _serviceProvider;
+        return services.BuildServiceProvider();
     }
 }
