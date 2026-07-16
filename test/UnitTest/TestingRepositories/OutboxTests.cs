@@ -10,7 +10,6 @@ using Altinn.Platform.Storage.Messages;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Extensions;
 using Altinn.Platform.Storage.UnitTest.Utils;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -207,12 +206,12 @@ public class OutboxTests
 
         var config = builder.Build();
 
-        WebApplication.CreateBuilder().Build().SetUpPostgreSql(true, config);
-
         IServiceCollection services = new ServiceCollection();
 
         services.AddLogging();
-        services.AddPostgresRepositories(config);
+
+        services.AddSingleton(ServiceUtil.GetSharedDataSource());
+        services.AddRepositoryImplementations();
         services.AddMemoryCache();
 
         Mock<IHttpContextAccessor> httpContextAccessor = new Mock<IHttpContextAccessor>(
