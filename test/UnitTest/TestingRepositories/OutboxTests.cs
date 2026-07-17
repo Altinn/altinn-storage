@@ -19,6 +19,7 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingRepositories;
 
+[Collection("StoragePostgreSQL")]
 public class OutboxTests
 {
     public OutboxTests()
@@ -189,9 +190,7 @@ public class OutboxTests
 
     private static NpgsqlConnection GetConnection()
     {
-        NpgsqlDataSource dataSource = (NpgsqlDataSource)
-            ServiceUtil.GetServices([typeof(NpgsqlDataSource)])[0]!;
-        return dataSource.OpenConnection();
+        return ServiceUtil.GetSharedDataSource().OpenConnection();
     }
 
     private static List<object> GetServices(
