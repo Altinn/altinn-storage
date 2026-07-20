@@ -734,7 +734,7 @@ public class DataController : ControllerBase
         if (instanceOwnerPartyId == 0 || Request.Body == null)
         {
             return BadRequest(
-                "Missing parameter values: instanceId, datafile or attach1ed file content cannot be empty"
+                "Missing parameter values: instanceId, datafile or attached file content cannot be empty"
             );
         }
 
