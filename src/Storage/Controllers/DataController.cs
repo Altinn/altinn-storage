@@ -709,6 +709,177 @@ public class DataController : ControllerBase
     }
 
     /// <summary>
+    /// Overwrites an existing data element's content and locks it in a single call, closing the race
+    /// where a clean write and the lock happen as separate requests.
+    /// </summary>
+    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
+    [HttpPut("data/{dataGuid:guid}/finalize")]
+    [DisableFormValueModelBinding]
+    [RequestSizeLimit(RequestSizeLimit)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    [Produces("application/json")]
+    public async Task<ActionResult<DataElement>> FinalizeData(
+        int instanceOwnerPartyId,
+        Guid instanceGuid,
+        Guid dataGuid,
+        CancellationToken cancellationToken,
+        [FromQuery(Name = "refs")] List<Guid> refs = null,
+        [FromQuery(Name = "generatedFromTask")] string generatedFromTask = null
+    )
+    {
+        if (instanceOwnerPartyId == 0 || Request.Body == null)
+        {
+            return BadRequest(
+                "Missing parameter values: instanceId, datafile or attach1ed file content cannot be empty"
+            );
+        }
+
+        (Instance instance, _, ActionResult instanceError) = await GetInstanceAsync(
+            instanceGuid,
+            instanceOwnerPartyId,
+            false,
+            cancellationToken
+        );
+        if (instance == null)
+        {
+            return instanceError;
+        }
+
+        (Application application, ActionResult applicationError) = await GetApplicationAsync(
+            instance.AppId,
+            instance.Org,
+            cancellationToken
+        );
+        if (application == null)
+        {
+            return applicationError;
+        }
+
+        (DataElement dataElement, ActionResult dataElementError) = await GetDataElementAsync(
+            instanceGuid,
+            dataGuid,
+            cancellationToken
+        );
+        if (dataElement == null)
+        {
+            return dataElementError;
+        }
+
+        (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(
+            instance,
+            dataElement.DataType,
+            application,
+            cancellationToken
+        );
+        if (dataTypeDefinition == null)
+        {
+            return dataTypeError;
+        }
+
+        if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
+        {
+            return Forbid();
+        }
+
+        if (dataElement.Locked)
+        {
+            return Conflict($"Data element {dataGuid} is locked and cannot be updated");
+        }
+
+        string blobStoragePathName = DataElementHelper.DataFileName(
+            instance.AppId,
+            instanceGuid.ToString(),
+            dataGuid.ToString()
+        );
+
+        if (!string.Equals(dataElement.BlobStoragePath, blobStoragePathName))
+        {
+            return StatusCode(500, "Storage url does not match with instance metadata");
+        }
+
+        var streamAndDataElement = await ReadRequestAndCreateDataElementAsync(
+            Request,
+            dataElement.DataType,
+            refs,
+            generatedFromTask,
+            instance
+        );
+        Stream theStream = streamAndDataElement.Stream;
+        DataElement updatedData = streamAndDataElement.DataElement;
+
+        if (theStream == null)
+        {
+            return BadRequest("No data found in request body");
+        }
+
+        DateTime changedTime = DateTime.UtcNow;
+
+        (long blobSize, DateTimeOffset blobTimestamp) = await _blobRepository.WriteBlob(
+            instance.Org,
+            theStream,
+            blobStoragePathName,
+            application.StorageAccountNumber
+        );
+
+        if (blobSize <= 0)
+        {
+            return UnprocessableEntity("Could not process attached file");
+        }
+
+        FileScanResult scanResult = dataTypeDefinition.EnableFileScan
+            ? FileScanResult.Pending
+            : FileScanResult.NotApplicable;
+
+        var updatedProperties = new Dictionary<string, object>()
+        {
+            { "/contentType", updatedData.ContentType },
+            { "/filename", HttpUtility.UrlDecode(updatedData.Filename) },
+            { "/lastChangedBy", User.GetUserOrOrgNo() },
+            { "/lastChanged", changedTime },
+            { "/refs", updatedData.Refs },
+            { "/references", updatedData.References },
+            { "/size", blobSize },
+            { "/fileScanResult", scanResult },
+            { "/locked", true },
+        };
+
+        if (User.GetOrg() == instance.Org)
+        {
+            updatedProperties.Add("/isRead", false);
+        }
+
+        DataElement updatedElement = await _dataRepository.Update(
+            instanceGuid,
+            dataGuid,
+            updatedProperties,
+            cancellationToken
+        );
+
+        updatedElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
+
+        await _dataService.StartFileScan(
+            instance,
+            dataTypeDefinition,
+            dataElement,
+            blobTimestamp,
+            application.StorageAccountNumber,
+            CancellationToken.None
+        );
+
+        await _instanceEventService.DispatchEvent(
+            InstanceEventType.Saved,
+            instance,
+            updatedElement
+        );
+
+        return Ok(updatedElement);
+    }
+
+    /// <summary>
     /// Replaces the existing metadata for a data element with the new data element.
     /// </summary>
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>

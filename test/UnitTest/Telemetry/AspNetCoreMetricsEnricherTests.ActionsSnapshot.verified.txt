@@ -2,6 +2,7 @@
   ActionsToValidate: [
     Altinn.Platform.Storage.Controllers.DataController.CreateAndUploadData (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.DataController.Delete (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.DataController.FinalizeData (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.DataController.Get (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.DataController.GetMany (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.DataController.OverwriteData (Altinn.Platform.Storage),
@@ -30,6 +31,11 @@
       altinn:serviceowner/instances.write
     ],
     Altinn.Platform.Storage.Controllers.DataController.Delete (Altinn.Platform.Storage): [
+      altinn:instances.write,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.write
+    ],
+    Altinn.Platform.Storage.Controllers.DataController.FinalizeData (Altinn.Platform.Storage): [
       altinn:instances.write,
       altinn:portal/enduser,
       altinn:serviceowner/instances.write

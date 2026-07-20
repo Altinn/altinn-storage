@@ -131,6 +131,96 @@ public class DataControllerUnitTests
     }
 
     [Fact]
+    public async Task FinalizeData_LocksElementAndVerifyDataRepositoryUpdateInput()
+    {
+        // Arrange
+        List<string> expectedPropertiesForPatch =
+        [
+            "/contentType",
+            "/filename",
+            "/lastChangedBy",
+            "/lastChanged",
+            "/refs",
+            "/size",
+            "/fileScanResult",
+            "/references",
+            "/locked",
+        ];
+
+        (DataController testController, Mock<IDataRepository> dataRepositoryMock) =
+            GetTestController(expectedPropertiesForPatch, true);
+
+        // Act
+        var result = await testController.FinalizeData(
+            _instanceOwnerPartyId,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.True(result.Result is OkObjectResult { StatusCode: StatusCodes.Status200OK });
+        dataRepositoryMock.Verify(
+            d =>
+                d.Update(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.Is<Dictionary<string, object>>(p =>
+                        VerifyPropertyListInput(
+                            expectedPropertiesForPatch.Count,
+                            expectedPropertiesForPatch,
+                            p
+                        ) && (bool)p["/locked"]
+                    ),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task FinalizeData_LockedElement_ReturnsConflict()
+    {
+        // Arrange
+        (DataController testController, Mock<IDataRepository> dataRepositoryMock) =
+            GetTestController([], true);
+        dataRepositoryMock
+            .Setup(d => d.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                (Guid instanceGuid, Guid dataElementId, CancellationToken cancellationToken) =>
+                    new DataElement
+                    {
+                        Id = dataElementId.ToString(),
+                        InstanceGuid = instanceGuid.ToString(),
+                        DataType = _dataType,
+                        Locked = true,
+                        BlobStoragePath = $"ttd/apps-test/{instanceGuid}/data/{dataElementId}",
+                    }
+            );
+
+        // Act
+        var result = await testController.FinalizeData(
+            _instanceOwnerPartyId,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.IsType<ConflictObjectResult>(result.Result);
+        dataRepositoryMock.Verify(
+            d =>
+                d.Update(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<Dictionary<string, object>>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
     public async Task Update_VerifyDataRepositoryUpdateInput()
     {
         // Arrange
