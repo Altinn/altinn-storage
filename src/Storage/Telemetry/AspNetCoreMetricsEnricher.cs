@@ -74,6 +74,7 @@ internal sealed class AspNetCoreMetricsEnricher(ILogger<AspNetCoreMetricsEnriche
         feature.Tags.Add(new KeyValuePair<string, object?>("client.id", clientId));
         feature.Tags.Add(new KeyValuePair<string, object?>("client.consumer.id", consumerId));
 
+        Console.WriteLine("Before if that uses AllowdScopesKey");
         if (
             context.ActionDescriptor.Properties.TryGetValue(
                 AllowedScopesKey,
@@ -81,6 +82,7 @@ internal sealed class AspNetCoreMetricsEnricher(ILogger<AspNetCoreMetricsEnriche
             ) && user.Identity?.IsAuthenticated is true
         )
         {
+            Console.WriteLine("Inside if that uses AllowdScopesKey");
             Debug.Assert(allowedScopesObj is FrozenSet<string>);
             FrozenSet<string> allowedScopes = (FrozenSet<string>)allowedScopesObj!;
             ValidateScope(allowedScopes, feature, context.HttpContext);
@@ -171,13 +173,24 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
     private static readonly FrozenSet<string> _manuallyIncludeActions = FrozenSet.Create<string>(
         StringComparer.Ordinal,
         "Altinn.Platform.Storage.Controllers.DataLockController.Unlock (Altinn.Platform.Storage)",
+        "Altinn.Platform.Storage.Controllers.InstancesController.Delete (Altinn.Platform.Storage)",
         "Altinn.Platform.Storage.Controllers.InstancesController.GetInstances (Altinn.Platform.Storage)",
         "Altinn.Platform.Storage.Controllers.InstancesController.Get (Altinn.Platform.Storage)",
         "Altinn.Platform.Storage.Controllers.InstancesController.GetByGuid (Altinn.Platform.Storage)",
         "Altinn.Platform.Storage.Controllers.InstancesController.Post (Altinn.Platform.Storage)",
+        "Altinn.Platform.Storage.Controllers.InstancesController.UpdateReadStatus (Altinn.Platform.Storage)",
         "Altinn.Platform.Storage.Controllers.InstancesController.UpdateSubstatus (Altinn.Platform.Storage)",
+        "Altinn.Platform.Storage.Controllers.InstanceEventsController.Post (Altinn.Platform.Storage)",
+        "Altinn.Platform.Storage.Controllers.InstanceEventsController.GetOne (Altinn.Platform.Storage)",
+        "Altinn.Platform.Storage.Controllers.InstanceEventsController.Get (Altinn.Platform.Storage)",
         "Altinn.Platform.Storage.Controllers.DataController.Get (Altinn.Platform.Storage)",
         "Altinn.Platform.Storage.Controllers.DataController.GetMany (Altinn.Platform.Storage)",
+        "Altinn.Platform.Storage.Controllers.DataController.Delete (Altinn.Platform.Storage)",
+        "Altinn.Platform.Storage.Controllers.DataController.CreateAndUploadData (Altinn.Platform.Storage)",
+        "Altinn.Platform.Storage.Controllers.DataController.OverwriteData (Altinn.Platform.Storage)",
+        "Altinn.Platform.Storage.Controllers.DataController.Update (Altinn.Platform.Storage)",
+        "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstanceEvents (Altinn.Platform.Storage)",
+        "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.Undelete (Altinn.Platform.Storage)",
         "Altinn.Platform.Storage.Controllers.ProcessController.PutInstanceAndEvents (Altinn.Platform.Storage)",
         "Altinn.Platform.Storage.Controllers.ProcessController.PutProcess (Altinn.Platform.Storage)"
     );
@@ -226,6 +239,7 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
             );
             if (isManuallyIncluded)
             {
+                Console.WriteLine($"Manually included action: {action.DisplayName}");
                 ProcessAction(action, authorizePolicy);
                 continue;
             }
@@ -252,10 +266,7 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
         FrozenSet<string> scopes;
         if (authorizePolicy is not null)
         {
-            scopes =
-                authorizePolicy == AuthzConstants.POLICY_INSTANCE_READ
-                    ? _acceptedReadScopes
-                    : _acceptedWriteScopes;
+            scopes = _acceptedWriteScopes;
         }
         else
         {
@@ -266,10 +277,14 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
                 && httpMethodAttr.HttpMethods.Any(m => _readHttpMethods.Contains(m))
             )
             {
+                Console.WriteLine($"Action {action.DisplayName} has read policy. Read");
                 scopes = _acceptedReadScopes;
             }
             else
             {
+                Console.WriteLine(
+                    $"Action {action.DisplayName} does not have an authorize policy. Write"
+                );
                 scopes = _acceptedWriteScopes;
             }
         }

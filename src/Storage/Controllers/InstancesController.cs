@@ -648,7 +648,7 @@ public class InstancesController : ControllerBase
     /// <param name="hard">if true hard delete will take place. if false, the instance gets its status.softDelete attribute set to current date and time.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>Information from the deleted instance.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_DELETE)]
+    [Authorize]
     [HttpDelete("{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -666,7 +666,12 @@ public class InstancesController : ControllerBase
         Instance instance;
 
         (instance, _) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
-
+        if (
+            await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "delete") is false
+        )
+        {
+            return Forbid();
+        }
         if (instance == null)
         {
             return NotFound(
@@ -833,7 +838,7 @@ public class InstancesController : ControllerBase
     /// <param name="status">The updated read status.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>Returns the updated instance.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
+    [Authorize]
     [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/readstatus")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -857,6 +862,11 @@ public class InstancesController : ControllerBase
             true,
             cancellationToken
         );
+
+        if (!await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read"))
+        {
+            return Forbid();
+        }
 
         List<string> updateProperties =
         [

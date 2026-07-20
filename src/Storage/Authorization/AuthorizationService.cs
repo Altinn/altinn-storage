@@ -15,6 +15,8 @@ using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -34,6 +36,7 @@ namespace Altinn.Platform.Storage.Authorization;
 /// <param name="memoryCache">The memory cache</param>
 /// <param name="pepSettings">The settings for pep</param>
 public class AuthorizationService(
+    IHttpContextAccessor httpContextAccessor,
     IPDP pdp,
     IClaimsPrincipalProvider claimsPrincipalProvider,
     ILogger<AuthorizationService> logger,
@@ -42,6 +45,7 @@ public class AuthorizationService(
     IOptions<PepSettings> pepSettings
 ) : IAuthorization
 {
+    private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
     private readonly IPDP _pdp = pdp;
     private readonly IClaimsPrincipalProvider _claimsPrincipalProvider = claimsPrincipalProvider;
     private readonly ILogger<AuthorizationService> _logger = logger;
@@ -229,43 +233,46 @@ public class AuthorizationService(
     /// <inheritdoc />
     public async Task<bool> AuthorizeEnrichedInstanceAction(Instance instance, string action)
     {
-        string org = instance.Org;
-        string app = instance.AppId.Split('/')[1];
-        int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
-
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
-        Guid instanceGuid = Guid.Parse(instance.Id.Split('/')[1]);
+        RouteData routeData = _httpContextAccessor.HttpContext?.GetRouteData();
         XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
-            org,
-            app,
+            routeData?.Values["app"] as string,
+            routeData?.Values["org"] as string,
             user,
             action,
-            instanceOwnerPartyId,
-            instanceGuid
+            int.Parse(routeData.Values["instanceOwnerPartyId"] as string),
+            Guid.Parse(routeData.Values["instanceGuid"] as string)
         );
-
-        EnrichXacmlJsonRequest(request, instance);
-
-        string cacheKey = GetCacheKeyForDecisionRequest(request);
-        if (!_memoryCache.TryGetValue(cacheKey, out XacmlJsonResponse response))
+        XacmlJsonResponse response;
+        if (instance is not null)
         {
-            response = await _pdp.GetDecisionForRequest(request);
+            EnrichXacmlJsonRequest(request, instance);
 
-            if (response?.Response is not null)
+            string cacheKey = GetCacheKeyForDecisionRequest(request);
+            if (!_memoryCache.TryGetValue(cacheKey, out response))
             {
-                _memoryCache.Set(
-                    cacheKey,
-                    response,
-                    new MemoryCacheEntryOptions()
-                        .SetPriority(CacheItemPriority.High)
-                        .SetAbsoluteExpiration(
-                            new TimeSpan(0, _pepSettings.PdpDecisionCachingTimeout, 0)
-                        )
-                );
+                response = await _pdp.GetDecisionForRequest(request);
+
+                if (response?.Response is not null)
+                {
+                    _memoryCache.Set(
+                        cacheKey,
+                        response,
+                        new MemoryCacheEntryOptions()
+                            .SetPriority(CacheItemPriority.High)
+                            .SetAbsoluteExpiration(
+                                new TimeSpan(0, _pepSettings.PdpDecisionCachingTimeout, 0)
+                            )
+                    );
+                }
             }
         }
+        else
+        {
+            response = await _pdp.GetDecisionForRequest(request);
+        }
 
-        if (response?.Response == null)
+        if (response?.Response is null)
         {
             _logger.LogInformation(
                 "// Authorization Helper // AuthorizeEnrichedInstanceAction failed for request: {request}.",

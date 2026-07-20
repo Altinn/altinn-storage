@@ -92,7 +92,7 @@ public class DataController : ControllerBase
     /// <param name="delay">A boolean to indicate if the delete should be immediate or delayed following Altinn's business logic</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>The metadata of the deleted data element.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
+    [Authorize]
     [HttpDelete("data/{dataGuid:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -112,6 +112,10 @@ public class DataController : ControllerBase
             false,
             cancellationToken
         );
+        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "write") is false)
+        {
+            return Forbid();
+        }
         if (instance == null)
         {
             return instanceError;
@@ -411,7 +415,7 @@ public class DataController : ControllerBase
     /// <param name="refs">An optional array of data element references.</param>
     /// <param name="generatedFromTask">An optional id of the task the data element was generated from</param>
     /// <returns>The metadata of the new data element.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
+    [Authorize]
     [HttpPost("data")]
     [DisableFormValueModelBinding]
     [RequestSizeLimit(RequestSizeLimit)]
@@ -436,6 +440,10 @@ public class DataController : ControllerBase
 
         (Instance instance, long instanceInternalId, ActionResult instanceError) =
             await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false, cancellationToken);
+        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "write") is false)
+        {
+            return Forbid();
+        }
         if (instance == null)
         {
             return instanceError;
@@ -542,7 +550,7 @@ public class DataController : ControllerBase
     /// <param name="refs">An optional array of data element references.</param>
     /// <param name="generatedFromTask">An optional id of the task the data element was generated from</param>
     /// <returns>The metadata of the updated data element.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
+    [Authorize]
     [HttpPut("data/{dataGuid}")]
     [DisableFormValueModelBinding]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -573,6 +581,10 @@ public class DataController : ControllerBase
             false,
             cancellationToken
         );
+        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "write") is false)
+        {
+            return Forbid();
+        }
         if (instance == null)
         {
             return instanceError;
@@ -717,7 +729,7 @@ public class DataController : ControllerBase
     /// <param name="dataElement">The new metadata for the data element.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>The updated data element.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
+    [Authorize]
     [HttpPut("dataelements/{dataGuid}")]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -745,6 +757,10 @@ public class DataController : ControllerBase
             false,
             cancellationToken
         );
+        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "write") is false)
+        {
+            return Forbid();
+        }
         if (instance == null)
         {
             return instanceError;
