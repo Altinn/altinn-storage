@@ -28,7 +28,11 @@
       "Bash(gh search prs:*)",
 
       "Bash(dotnet build:*)",
-      "Bash(dotnet restore:*)"
+      "Bash(dotnet restore:*)",
+      "Bash(dotnet tool restore:*)",
+      "Bash(dotnet test:*)",
+      "Bash(dotnet csharpier format:*)",
+      "Bash(dotnet csharpier check:*)"
     ]
   }
 }
