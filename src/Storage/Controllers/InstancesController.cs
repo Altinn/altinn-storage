@@ -1243,7 +1243,9 @@ public class InstancesController : ControllerBase
     /// Applies default values to the query parameters that are not explicitly set by the caller:
     /// sort order, Altinn main version filtering, and page size.
     /// </summary>
-    private static InstanceQueryParameters ApplyQueryDefaults(InstanceQueryParameters queryParameters)
+    private static InstanceQueryParameters ApplyQueryDefaults(
+        InstanceQueryParameters queryParameters
+    )
     {
         if (string.IsNullOrEmpty(queryParameters.SortBy))
         {
@@ -1255,13 +1257,14 @@ public class InstancesController : ControllerBase
         {
             if (queryParameters.A3Ref.Length != 12)
             {
-                throw new ArgumentException("The A3 reference needs to be exactly 12 characters long.");
+                throw new ArgumentException(
+                    "The A3 reference needs to be exactly 12 characters long."
+                );
             }
 
             queryParameters.MainVersionInclude = 3;
             queryParameters.MainVersionExclude = null;
         }
-
         // The A2 archive reference only exists on migrated Altinn 2 instances, so a query for it
         // must target altinn main version 2 (this also enables the partial index on the reference).
         else if (!string.IsNullOrEmpty(queryParameters.DataValuesA2ArchRef))
@@ -1270,7 +1273,10 @@ public class InstancesController : ControllerBase
             queryParameters.MainVersionExclude = null;
         }
         // Default is to exclude migrated altinn 1 and 2 instances
-        else if (queryParameters.MainVersionExclude == null && queryParameters.MainVersionInclude == null)
+        else if (
+            queryParameters.MainVersionExclude == null
+            && queryParameters.MainVersionInclude == null
+        )
         {
             queryParameters.MainVersionInclude = 3;
         }
