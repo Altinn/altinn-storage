@@ -8,7 +8,6 @@
       "Bash(tree:*)",
       "Bash(rg:*)",
       "Bash(sed:*)",
-      "Bash(awk:*)",
       "Bash(head:*)",
       "Bash(tail:*)",
       "Bash(wc:*)",
