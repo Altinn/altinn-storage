@@ -22,8 +22,8 @@ using Microsoft.Extensions.Logging;
 namespace Altinn.Platform.Storage.Telemetry;
 
 /// <summary>
-/// Enriches the 'http.server.request.duration' metric
-/// to indicate how many requests are made to an authorized endpoint without proper scopes.
+/// Enriches the 'http.server.request.duration' metric with client.id and client.consumer.id tags
+/// and invalid_scopes to indicate how many requests are made to an authorized endpoint without proper scopes.
 /// </summary>
 internal sealed class AspNetCoreMetricsEnricher(ILogger<AspNetCoreMetricsEnricher> logger)
     : IAsyncActionFilter
