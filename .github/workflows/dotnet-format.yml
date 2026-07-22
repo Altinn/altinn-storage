@@ -2,6 +2,11 @@ name: Verify dotnet format
 
 on:
   pull_request:
+    paths:
+      - '.github/workflows/dotnet-format.yml'
+      - 'src/**'
+      - 'test/Altinn.Platform.Storage.Interface.Tests/**'
+      - 'test/UnitTest/**'
 permissions:
   contents: read
 
