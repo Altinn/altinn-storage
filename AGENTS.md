@@ -8,7 +8,7 @@ Altinn Storage is the platform component that stores application **instances**, 
 
 Altinn Storage's backend is built using the following technologies:
 
-- .NET 9 (ASP.NET Core Web API)
+- .NET 10 (ASP.NET Core Web API)
 - PostgreSQL, accessed via Npgsql calling **versioned stored functions/procedures** (no ORM)
 - Yuniql for database migrations (applied on application startup)
 - WolverineFx with Azure Service Bus for messaging, using an outbox pattern
