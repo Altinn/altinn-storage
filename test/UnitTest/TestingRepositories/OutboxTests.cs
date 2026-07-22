@@ -10,7 +10,6 @@ using Altinn.Platform.Storage.Messages;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Extensions;
 using Altinn.Platform.Storage.UnitTest.Utils;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +19,7 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingRepositories;
 
+[Collection("StoragePostgreSQL")]
 public class OutboxTests
 {
     public OutboxTests()
@@ -54,7 +54,8 @@ public class OutboxTests
     {
         var cmdObj = CreateCommand(Guid.NewGuid().ToString());
 
-        await GetRepo().Insert(cmdObj, GetConnection());
+        await using var connection = GetConnection();
+        await GetRepo().Insert(cmdObj, connection);
 
         string sql = $"select count(*) from storage.outbox";
         int count = await PostgresUtil.RunCountQuery(sql);
@@ -69,8 +70,10 @@ public class OutboxTests
         var first = CreateCommand(sharedId, created: now, evt: InstanceEventType.Saved);
         var second = CreateCommand(sharedId, created: now, evt: InstanceEventType.Deleted);
 
-        await GetRepo().Insert(first, GetConnection());
-        await GetRepo().Insert(second, GetConnection());
+        var repo = GetRepo();
+        await using var connection = GetConnection();
+        await repo.Insert(first, connection);
+        await repo.Insert(second, connection);
 
         string sql = $"select count(*) from storage.outbox";
         int count = await PostgresUtil.RunCountQuery(sql);
@@ -94,10 +97,12 @@ public class OutboxTests
             evt: InstanceEventType.Created
         );
 
-        await GetRepo().Insert(first, GetConnection());
-        await GetRepo().Insert(second, GetConnection());
-        await GetRepo().Insert(third, GetConnection());
-        var dps = await GetRepo().Poll(10);
+        var repo = GetRepo();
+        await using var connection = GetConnection();
+        await repo.Insert(first, connection);
+        await repo.Insert(second, connection);
+        await repo.Insert(third, connection);
+        var dps = await repo.Poll(10);
 
         Assert.Equal(2, dps.Count);
     }
@@ -107,8 +112,10 @@ public class OutboxTests
     {
         var cmdObj = CreateCommand(Guid.NewGuid().ToString());
 
-        await GetRepo().Insert(cmdObj, GetConnection());
-        await GetRepo().Delete(Guid.Parse(cmdObj.InstanceId));
+        var repo = GetRepo();
+        await using var connection = GetConnection();
+        await repo.Insert(cmdObj, connection);
+        await repo.Delete(Guid.Parse(cmdObj.InstanceId));
 
         string sql = $"select count(*) from storage.outbox";
         int count = await PostgresUtil.RunCountQuery(sql);
@@ -122,20 +129,19 @@ public class OutboxTests
         var holder = Guid.NewGuid();
         var holder2 = Guid.NewGuid();
 
+        var repo = GetRepo();
+
         // First acquire
-        var ok1 = await GetRepo()
-            .TryAcquireLeaseAsync(resource, holder, DateTime.UtcNow.AddSeconds(2));
+        var ok1 = await repo.TryAcquireLeaseAsync(resource, holder, DateTime.UtcNow.AddSeconds(2));
         Assert.True(ok1);
 
         // Second acquire by different holder before expiry should fail
-        var ok2 = await GetRepo()
-            .TryAcquireLeaseAsync(resource, holder2, DateTime.UtcNow.AddSeconds(2));
+        var ok2 = await repo.TryAcquireLeaseAsync(resource, holder2, DateTime.UtcNow.AddSeconds(2));
         Assert.False(ok2);
 
         // Wait until expired
         await Task.Delay(2100);
-        var ok3 = await GetRepo()
-            .TryAcquireLeaseAsync(resource, holder2, DateTime.UtcNow.AddSeconds(2));
+        var ok3 = await repo.TryAcquireLeaseAsync(resource, holder2, DateTime.UtcNow.AddSeconds(2));
         Assert.True(ok3);
     }
 
@@ -145,17 +151,20 @@ public class OutboxTests
         var resource = "r2";
         var holder = Guid.NewGuid();
 
-        var ok1 = await GetRepo()
-            .TryAcquireLeaseAsync(resource, holder, DateTime.UtcNow.AddSeconds(1));
+        var repo = GetRepo();
+
+        var ok1 = await repo.TryAcquireLeaseAsync(resource, holder, DateTime.UtcNow.AddSeconds(1));
         Assert.True(ok1);
 
-        var renewed = await GetRepo()
-            .RenewLeaseAsync(resource, holder, DateTime.UtcNow.AddSeconds(3));
+        var renewed = await repo.RenewLeaseAsync(resource, holder, DateTime.UtcNow.AddSeconds(3));
         Assert.True(renewed);
 
         // Should still block other holder
-        var other = await GetRepo()
-            .TryAcquireLeaseAsync(resource, Guid.NewGuid(), DateTime.UtcNow.AddSeconds(1));
+        var other = await repo.TryAcquireLeaseAsync(
+            resource,
+            Guid.NewGuid(),
+            DateTime.UtcNow.AddSeconds(1)
+        );
         Assert.False(other);
     }
 
@@ -165,16 +174,21 @@ public class OutboxTests
         var resource = "r3";
         var holder = Guid.NewGuid();
 
+        var repo = GetRepo();
+
         Assert.True(
-            await GetRepo().TryAcquireLeaseAsync(resource, holder, DateTime.UtcNow.AddSeconds(5))
+            await repo.TryAcquireLeaseAsync(resource, holder, DateTime.UtcNow.AddSeconds(5))
         );
 
-        var released = await GetRepo().ReleaseLeaseAsync(resource, holder);
+        var released = await repo.ReleaseLeaseAsync(resource, holder);
         Assert.True(released);
 
         // Now acquisition by someone else should succeed immediately
-        var ok = await GetRepo()
-            .TryAcquireLeaseAsync(resource, Guid.NewGuid(), DateTime.UtcNow.AddSeconds(2));
+        var ok = await repo.TryAcquireLeaseAsync(
+            resource,
+            Guid.NewGuid(),
+            DateTime.UtcNow.AddSeconds(2)
+        );
         Assert.True(ok);
     }
 
@@ -190,9 +204,7 @@ public class OutboxTests
 
     private static NpgsqlConnection GetConnection()
     {
-        NpgsqlDataSource dataSource = (NpgsqlDataSource)
-            ServiceUtil.GetServices([typeof(NpgsqlDataSource)])[0]!;
-        return dataSource.OpenConnection();
+        return ServiceUtil.GetSharedDataSource().OpenConnection();
     }
 
     private static List<object> GetServices(
@@ -207,12 +219,12 @@ public class OutboxTests
 
         var config = builder.Build();
 
-        WebApplication.CreateBuilder().Build().SetUpPostgreSql(true, config);
-
         IServiceCollection services = new ServiceCollection();
 
         services.AddLogging();
-        services.AddPostgresRepositories(config);
+
+        services.AddSingleton(ServiceUtil.GetSharedDataSource());
+        services.AddRepositoryImplementations();
         services.AddMemoryCache();
 
         Mock<IHttpContextAccessor> httpContextAccessor = new Mock<IHttpContextAccessor>(
