@@ -13,7 +13,6 @@ jobs:
     outputs:
       failed-AT22: ${{ steps.set-failure.outputs.AT22 }}
       failed-AT23: ${{ steps.set-failure.outputs.AT23 }}
-      #failed-AT24: ${{ steps.set-failure.outputs.AT24 }}
     environment: ${{ matrix.environment }}
     runs-on: ubuntu-latest
     permissions:
@@ -90,8 +89,6 @@ jobs:
             output: failed-AT22
           - environment: AT23
             output: failed-AT23
-          #- environment: AT24
-          #  output: failed-AT24
     runs-on: ubuntu-latest
     steps:
       - name: Send notification
