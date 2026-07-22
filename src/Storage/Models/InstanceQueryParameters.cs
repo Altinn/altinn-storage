@@ -50,6 +50,7 @@ public class InstanceQueryParameters
     private const string _continueIndexParameterName = "_continue_idx";
     private const string _lastChangedIndexParameterName = "_lastChanged_idx";
     private const string _includeDataElements = "includeDataElements";
+    private const string _a3RefParameterName = "A3Ref";
 
     /// <summary>
     /// The organization identifier.
@@ -205,6 +206,12 @@ public class InstanceQueryParameters
     public bool IncludeDataElements { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets the A3 reference.
+    /// </summary>
+    [FromQuery(Name = _a3RefParameterName)]
+    public string A3Ref { get; set; }
+
+    /// <summary>
     /// Gets or sets an array of application identifiers.
     /// </summary>
     internal string[] AppIds { get; set; }
@@ -267,6 +274,7 @@ public class InstanceQueryParameters
         AddParamIfNotEmpty(postgresParams, _appIdsParameterName, AppIds);
         AddParamIfNotEmpty(postgresParams, _currentTaskParameterName, ProcessCurrentTask);
         AddParamIfNotEmpty(postgresParams, _dataValuesA2ArchRefParameterName, DataValuesA2ArchRef);
+        AddParamIfNotEmpty(postgresParams, _a3RefParameterName, A3Ref);
         AddParamIfNotEmpty(
             postgresParams,
             _instanceOwnerPartyIdsParameterName,

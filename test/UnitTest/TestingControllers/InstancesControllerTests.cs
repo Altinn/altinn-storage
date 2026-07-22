@@ -1310,6 +1310,72 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         irm.VerifyAll();
     }
 
+    /// <summary>
+    /// Test case: Get instances filtering on the A3 reference.
+    /// Expected: A3Ref is forwarded and the query targets altinn main version 3.
+    /// </summary>
+    [Fact]
+    public async Task GetMany_A3RefProvided_TargetsMainVersion3()
+    {
+        // Arrange
+        Mock<IInstanceRepository> irm = new();
+        irm.Setup(irm =>
+                irm.GetInstancesFromQuery(
+                    It.Is<InstanceQueryParameters>(e =>
+                        e.A3Ref == "b7fe18ccff30" && e.MainVersionInclude == 3
+                    ),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(new InstanceQueryResponse { Instances = new() });
+
+        string requestUri = $"{BasePath}?instanceOwner.partyId=1337&A3Ref=b7fe18ccff30";
+
+        HttpClient client = GetTestClient(irm);
+        string token = PrincipalUtil.GetToken(3, 1337);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        irm.VerifyAll();
+    }
+
+    /// <summary>
+    /// Test case: Get instances filtering on an A3 reference of the wrong length.
+    /// Expected: A 400 Bad Request is returned and the repository is never queried.
+    /// </summary>
+    [Theory]
+    [InlineData("b7fe18cc")]
+    [InlineData("b7fe18ccff3012")]
+    public async Task GetMany_A3RefInvalidLength_ReturnsBadRequest(string a3Ref)
+    {
+        // Arrange
+        Mock<IInstanceRepository> irm = new();
+
+        string requestUri = $"{BasePath}?instanceOwner.partyId=1337&A3Ref={a3Ref}";
+
+        HttpClient client = GetTestClient(irm);
+        string token = PrincipalUtil.GetToken(3, 1337);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        irm.Verify(
+            r =>
+                r.GetInstancesFromQuery(
+                    It.IsAny<InstanceQueryParameters>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
     [Fact]
     public async Task GetMany_ContainsContinuationToken_CorrectContTokenInSelfLink()
     {

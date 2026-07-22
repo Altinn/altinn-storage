@@ -1,4 +1,5 @@
-CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v7(
+CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v8(
+    _a3_reference TEXT DEFAULT NULL,
     _appId TEXT DEFAULT NULL,
     _appIds TEXT[] DEFAULT NULL,
     _archiveReference TEXT DEFAULT NULL,
@@ -56,7 +57,7 @@ CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v7(
     )
     RETURNS TABLE (id BIGINT, instance JSONB, element JSONB)
     LANGUAGE 'plpgsql'
-    
+
 AS $BODY$
 BEGIN
     IF _sort_ascending IS NULL THEN
@@ -68,12 +69,13 @@ BEGIN
     (
         SELECT i.id, i.instance, i.lastchanged FROM storage.instances i
         WHERE 1 = 1
-            AND (_confirmed IS NULL OR _confirmed = confirmed)            
+            AND (_a3_reference IS NULL OR right(i.alternateid::text, 12) = lower(_a3_reference))
+            AND (_confirmed IS NULL OR _confirmed = confirmed)
             AND (_continue_idx <= 0 OR
                 (_continue_idx > 0 AND _sort_ascending = true  AND (i.lastchanged > _lastChanged_idx OR (i.lastchanged = _lastChanged_idx AND i.id > _continue_idx))) OR
                 (_continue_idx > 0 AND _sort_ascending = false AND (i.lastchanged < _lastChanged_idx OR (i.lastchanged = _lastChanged_idx AND i.id < _continue_idx))))
             AND (_appId IS NULL OR i.appid = _appId)
-            AND (_archiveReference IS NULL OR i.instance ->> 'Id' like '%' || _archiveReference)		
+            AND (_archiveReference IS NULL OR i.instance ->> 'Id' like '%' || _archiveReference)
             AND (_created_gte IS NULL OR i.created >= _created_gte)
             AND (_created_gt  IS NULL OR i.created >  _created_gt)
             AND (_created_lte IS NULL OR i.created <= _created_lte)
@@ -109,11 +111,11 @@ BEGIN
             AND (_process_ended_eq  IS NULL OR i.instance -> 'Process' ->> 'Ended' =  _process_ended_eq)
             AND (_process_isComplete IS NULL OR (_process_isComplete = TRUE AND i.instance -> 'Process' -> 'Ended' IS NOT NULL) OR (_process_isComplete = FALSE AND i.instance -> 'Process' -> 'CurrentTask' IS NOT NULL))
             AND (_search_string IS NULL OR (i.appid = ANY(_appIds) OR (EXISTS (SELECT value FROM jsonb_each_text(i.instance -> 'PresentationTexts') WHERE value ilike _search_string))))
-            AND ((_status_isActiveOrSoftDeleted IS NULL OR _status_isActiveOrSoftDeleted = false) OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = false OR (i.instance -> 'Status' -> 'IsSoftDeleted')::boolean = true))           
+            AND ((_status_isActiveOrSoftDeleted IS NULL OR _status_isActiveOrSoftDeleted = false) OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = false OR (i.instance -> 'Status' -> 'IsSoftDeleted')::boolean = true))
             AND (_status_isArchived IS NULL OR  (i.instance -> 'Status' -> 'IsArchived')::boolean = _status_isArchived)
-            AND ((_status_isArchivedOrSoftDeleted IS NULL OR _status_isArchivedOrSoftDeleted = false) OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = true OR (i.instance -> 'Status' -> 'IsSoftDeleted')::boolean = true))                
+            AND ((_status_isArchivedOrSoftDeleted IS NULL OR _status_isArchivedOrSoftDeleted = false) OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = true OR (i.instance -> 'Status' -> 'IsSoftDeleted')::boolean = true))
             AND (_status_isHardDeleted IS NULL OR  (i.instance -> 'Status' -> 'IsHardDeleted')::boolean = _status_isHardDeleted)
-            AND (_status_isSoftDeleted IS NULL OR  (i.instance -> 'Status' -> 'IsSoftDeleted')::boolean = _status_isSoftDeleted)                     
+            AND (_status_isSoftDeleted IS NULL OR  (i.instance -> 'Status' -> 'IsSoftDeleted')::boolean = _status_isSoftDeleted)
             AND (_visibleAfter_gte IS NULL OR i.instance ->> 'VisibleAfter' >= _visibleAfter_gte)
             AND (_visibleAfter_gt  IS NULL OR i.instance ->> 'VisibleAfter' >  _visibleAfter_gt)
             AND (_visibleAfter_lte IS NULL OR i.instance ->> 'VisibleAfter' <= _visibleAfter_lte)

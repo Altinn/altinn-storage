@@ -280,9 +280,20 @@ public class InstancesController : ControllerBase
             queryParameters.SortBy = "desc:lastChanged";
         }
 
+        // The A3 reference is only available on Altinn 3 instances, this enables the partial index on the reference.
+        if (!string.IsNullOrEmpty(queryParameters.A3Ref))
+        {
+            if (queryParameters.A3Ref.Length != 12)
+            {
+                return BadRequest("The A3 reference needs to be exactly 12 characters long.");
+            }
+
+            queryParameters.MainVersionInclude = 3;
+            queryParameters.MainVersionExclude = null;
+        }
         // The A2 archive reference only exists on migrated Altinn 2 instances, so a query for it
         // must target altinn main version 2 (this also enables the partial index on the reference).
-        if (!string.IsNullOrEmpty(queryParameters.DataValuesA2ArchRef))
+        else if (!string.IsNullOrEmpty(queryParameters.DataValuesA2ArchRef))
         {
             queryParameters.MainVersionInclude = 2;
             queryParameters.MainVersionExclude = null;
