@@ -479,33 +479,6 @@ public class InstanceQueryParameters
     }
 
     /// <summary>
-    /// Applies default values to the query parameters that are not explicitly set by the caller:
-    /// sort order, Altinn main version filtering and page size.
-    /// </summary>
-    public void ApplyQueryDefaults()
-    {
-        if (string.IsNullOrEmpty(SortBy))
-        {
-            SortBy = "desc:lastChanged";
-        }
-
-        // The A2 archive reference only exists on migrated Altinn 2 instances, so a query for it
-        // must target altinn main version 2 (this also enables the partial index on the reference).
-        if (!string.IsNullOrEmpty(DataValuesA2ArchRef))
-        {
-            MainVersionInclude = 2;
-            MainVersionExclude = null;
-        }
-        // Default is to exclude migrated altinn 1 and 2 instances
-        else if (MainVersionExclude == null && MainVersionInclude == null)
-        {
-            MainVersionInclude = 3;
-        }
-
-        Size ??= 100;
-    }
-
-    /// <summary>
     /// Parses and validates the <see cref="InstanceOwnerIdentifier"/> into a person or organisation number.
     /// </summary>
     /// <returns>

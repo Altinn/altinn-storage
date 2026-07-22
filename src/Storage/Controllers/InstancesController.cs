@@ -140,7 +140,14 @@ public class InstancesController : ControllerBase
             return hardDeleteResult;
         }
 
-        queryParameters.ApplyQueryDefaults();
+        try
+        {
+            queryParameters = ApplyQueryDefaults(queryParameters);
+        }
+        catch (ArgumentException e)
+        {
+            return BadRequest(e.Message);
+        }
 
         return await ExecuteQueryAndBuildResponse(
             queryParameters,
@@ -1230,6 +1237,47 @@ public class InstancesController : ControllerBase
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Applies default values to the query parameters that are not explicitly set by the caller:
+    /// sort order, Altinn main version filtering, and page size.
+    /// </summary>
+    private static InstanceQueryParameters ApplyQueryDefaults(InstanceQueryParameters queryParameters)
+    {
+        if (string.IsNullOrEmpty(queryParameters.SortBy))
+        {
+            queryParameters.SortBy = "desc:lastChanged";
+        }
+
+        // The A3 reference is only available on Altinn 3 instances, this enables the partial index on the reference.
+        if (!string.IsNullOrEmpty(queryParameters.A3Ref))
+        {
+            if (queryParameters.A3Ref.Length != 12)
+            {
+                throw new ArgumentException("The A3 reference needs to be exactly 12 characters long.");
+            }
+
+            queryParameters.MainVersionInclude = 3;
+            queryParameters.MainVersionExclude = null;
+        }
+
+        // The A2 archive reference only exists on migrated Altinn 2 instances, so a query for it
+        // must target altinn main version 2 (this also enables the partial index on the reference).
+        else if (!string.IsNullOrEmpty(queryParameters.DataValuesA2ArchRef))
+        {
+            queryParameters.MainVersionInclude = 2;
+            queryParameters.MainVersionExclude = null;
+        }
+        // Default is to exclude migrated altinn 1 and 2 instances
+        else if (queryParameters.MainVersionExclude == null && queryParameters.MainVersionInclude == null)
+        {
+            queryParameters.MainVersionInclude = 3;
+        }
+
+        queryParameters.Size ??= 100;
+
+        return queryParameters;
     }
 
     private static void FilterOutDeletedDataElements(Instance instance)
