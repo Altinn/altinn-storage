@@ -109,206 +109,66 @@ public class InstancesController : ControllerBase
             );
         }
 
-        string orgClaim = User.GetOrg();
-        int? userId = User.GetUserId();
-        SystemUserClaim systemUser = User.GetSystemUser();
         bool hasSyncAdapterScope = _authorizationService.UserHasRequiredScope(
             _generalSettings.InstanceSyncAdapterScope
         );
 
-        if (orgClaim != null)
+        if (await AuthorizeCaller(queryParameters, hasSyncAdapterScope) is { } authResult)
         {
-            if (
-                !hasSyncAdapterScope
-                && !_authorizationService.UserHasRequiredScope(_generalSettings.InstanceReadScope)
-            )
-            {
-                return Forbid();
-            }
-
-            if (
-                string.IsNullOrEmpty(queryParameters.Org)
-                && string.IsNullOrEmpty(queryParameters.AppId)
-            )
-            {
-                return BadRequest("Org or AppId must be defined.");
-            }
-
-            if (string.IsNullOrEmpty(queryParameters.Org))
-            {
-                queryParameters.Org = queryParameters.AppId.Split('/')[0];
-            }
-
-            if (
-                !hasSyncAdapterScope
-                && !orgClaim.Equals(
-                    queryParameters.Org,
-                    StringComparison.InvariantCultureIgnoreCase
-                )
-            )
-            {
-                if (string.IsNullOrEmpty(queryParameters.AppId))
-                {
-                    return BadRequest("AppId must be defined.");
-                }
-
-                var appId = ValidateAppId(queryParameters.AppId).Split("/")[1];
-
-                XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
-                    queryParameters.Org,
-                    appId,
-                    HttpContext.User,
-                    "read"
-                );
-                XacmlJsonResponse response = await _authorizationService.GetDecisionForRequest(
-                    request
-                );
-
-                if (!DecisionHelper.ValidatePdpDecision(response?.Response, HttpContext.User))
-                {
-                    return Forbid();
-                }
-            }
-        }
-        else if (userId is not null || systemUser is not null)
-        {
-            if (
-                queryParameters.InstanceOwnerPartyId == null
-                && string.IsNullOrEmpty(queryParameters.InstanceOwnerIdentifier)
-            )
-            {
-                return BadRequest(
-                    "Either InstanceOwnerPartyId or InstanceOwnerIdentifier need to be defined."
-                );
-            }
-        }
-        else
-        {
-            return BadRequest();
+            return authResult;
         }
 
-        if (!string.IsNullOrEmpty(queryParameters.InstanceOwnerIdentifier))
+        if (await ResolvePartyFromIdentifier(queryParameters) is { } identifierResult)
         {
-            (string instanceOwnerIdType, string instanceOwnerIdValue) =
-                InstanceHelper.GetIdentifierFromInstanceOwnerIdentifier(
-                    queryParameters.InstanceOwnerIdentifier
-                );
-
-            if (
-                string.IsNullOrEmpty(instanceOwnerIdType)
-                || string.IsNullOrEmpty(instanceOwnerIdValue)
-            )
-            {
-                return BadRequest("Invalid InstanceOwnerIdentifier.");
-            }
-
-            string orgNo = null;
-            string person = null;
-
-            if (Enum.TryParse(instanceOwnerIdType, true, out PartyType partyType))
-            {
-                switch (partyType)
-                {
-                    case PartyType.Person:
-                        if (
-                            !InstanceOwnerIdRegExHelper
-                                .ElevenDigitRegex()
-                                .IsMatch(instanceOwnerIdValue)
-                        )
-                        {
-                            return BadRequest("Person number needs to be exactly 11 digits.");
-                        }
-
-                        person = instanceOwnerIdValue;
-                        break;
-
-                    case PartyType.Organisation:
-                        if (
-                            !InstanceOwnerIdRegExHelper
-                                .NineDigitRegex()
-                                .IsMatch(instanceOwnerIdValue)
-                        )
-                        {
-                            return BadRequest("Organization number needs to be exactly 9 digits.");
-                        }
-
-                        orgNo = instanceOwnerIdValue;
-                        break;
-                }
-            }
-
-            queryParameters.InstanceOwnerPartyId = await _registerService.PartyLookup(
-                person,
-                orgNo
-            );
-
-            if (queryParameters.InstanceOwnerPartyId < 0)
-            {
-                return Ok(new QueryResponse<Instance> { Instances = [] });
-            }
+            return identifierResult;
         }
 
-        string selfContinuationToken = null;
-        if (!string.IsNullOrEmpty(queryParameters.ContinuationToken))
-        {
-            selfContinuationToken = queryParameters.ContinuationToken;
-            queryParameters.ContinuationToken = HttpUtility.UrlDecode(
-                queryParameters.ContinuationToken
-            );
-        }
+        string selfContinuationToken = NormalizeContinuationToken(queryParameters);
 
         bool appOwnerOrSyncAdapterRequestingInstances =
             hasSyncAdapterScope || User.HasServiceOwnerScope();
 
-        // filter out hard deleted instances if it isn't the appOwner or the sync adapter requesting instances
-        if (!appOwnerOrSyncAdapterRequestingInstances)
-        {
-            if (queryParameters.IsHardDeleted.HasValue && queryParameters.IsHardDeleted.Value)
-            {
-                return new QueryResponse<Instance>()
-                {
-                    Instances = [],
-                    Self = BuildRequestLink(selfContinuationToken),
-                };
-            }
-
-            queryParameters.IsHardDeleted = false;
-        }
-
-        if (string.IsNullOrEmpty(queryParameters.SortBy))
-        {
-            queryParameters.SortBy = "desc:lastChanged";
-        }
-
-        // The A3 reference is only available on Altinn 3 instances, this enables the partial index on the reference.
-        if (!string.IsNullOrEmpty(queryParameters.A3Ref))
-        {
-            if (queryParameters.A3Ref.Length != 12)
-            {
-                return BadRequest("The A3 reference needs to be exactly 12 characters long.");
-            }
-
-            queryParameters.MainVersionInclude = 3;
-            queryParameters.MainVersionExclude = null;
-        }
-        // The A2 archive reference only exists on migrated Altinn 2 instances, so a query for it
-        // must target altinn main version 2 (this also enables the partial index on the reference).
-        else if (!string.IsNullOrEmpty(queryParameters.DataValuesA2ArchRef))
-        {
-            queryParameters.MainVersionInclude = 2;
-            queryParameters.MainVersionExclude = null;
-        }
-        // Default is to exclude migrated altinn 1 and 2 instances
-        else if (
-            queryParameters.MainVersionExclude == null
-            && queryParameters.MainVersionInclude == null
+        if (
+            ApplyHardDeleteFilter(
+                queryParameters,
+                appOwnerOrSyncAdapterRequestingInstances,
+                selfContinuationToken
+            ) is
+            { } hardDeleteResult
         )
         {
-            queryParameters.MainVersionInclude = 3;
+            return hardDeleteResult;
         }
 
-        queryParameters.Size ??= 100;
+        try
+        {
+            queryParameters = ApplyQueryDefaults(queryParameters);
+        }
+        catch (ArgumentException e)
+        {
+            return BadRequest(e.Message);
+        }
 
+        return await ExecuteQueryAndBuildResponse(
+            queryParameters,
+            appOwnerOrSyncAdapterRequestingInstances,
+            selfContinuationToken,
+            cancellationToken
+        );
+    }
+
+    /// <summary>
+    /// Executes the instance query against the repository, applies end-user visibility and
+    /// authorization filtering when required, and builds the paged <see cref="QueryResponse{T}"/>
+    /// with self and next links.
+    /// </summary>
+    private async Task<ActionResult<QueryResponse<Instance>>> ExecuteQueryAndBuildResponse(
+        InstanceQueryParameters queryParameters,
+        bool appOwnerOrSyncAdapterRequestingInstances,
+        string selfContinuationToken,
+        CancellationToken cancellationToken
+    )
+    {
         try
         {
             InstanceQueryResponse result = await _instanceRepository.GetInstancesFromQuery(
@@ -1151,6 +1011,279 @@ public class InstancesController : ControllerBase
         };
 
         return createdInstance;
+    }
+
+    /// <summary>
+    /// Authorizes the caller for the requested query and validates that the required identifying
+    /// parameters are present. Handles three cases: an org/service owner (scope and org/appId
+    /// checks, including a cross-org PDP decision), an end user or system user (must identify an
+    /// instance owner), and any other caller (rejected).
+    /// </summary>
+    /// <returns>
+    /// <c>null</c> when the caller is authorized and processing should continue; otherwise an
+    /// <see cref="ActionResult"/> the caller must return immediately.
+    /// </returns>
+    private async Task<ActionResult> AuthorizeCaller(
+        InstanceQueryParameters queryParameters,
+        bool hasSyncAdapterScope
+    )
+    {
+        string orgClaim = User.GetOrg();
+
+        if (orgClaim != null)
+        {
+            return await AuthorizeOrgCaller(queryParameters, hasSyncAdapterScope, orgClaim);
+        }
+
+        if (User.GetUserId() is not null || User.GetSystemUser() is not null)
+        {
+            if (
+                queryParameters.InstanceOwnerPartyId == null
+                && string.IsNullOrEmpty(queryParameters.InstanceOwnerIdentifier)
+            )
+            {
+                return BadRequest(
+                    "Either InstanceOwnerPartyId or InstanceOwnerIdentifier need to be defined."
+                );
+            }
+
+            return null;
+        }
+
+        return BadRequest();
+    }
+
+    /// <summary>
+    /// Authorizes an org/service owner caller, resolving the org from the query parameters and
+    /// verifying scope and cross-org access.
+    /// </summary>
+    /// <returns>
+    /// <c>null</c> when access is granted and processing should continue; otherwise an
+    /// <see cref="ActionResult"/> the caller must return immediately.
+    /// </returns>
+    private async Task<ActionResult> AuthorizeOrgCaller(
+        InstanceQueryParameters queryParameters,
+        bool hasSyncAdapterScope,
+        string orgClaim
+    )
+    {
+        if (
+            !hasSyncAdapterScope
+            && !_authorizationService.UserHasRequiredScope(_generalSettings.InstanceReadScope)
+        )
+        {
+            return Forbid();
+        }
+
+        if (
+            string.IsNullOrEmpty(queryParameters.Org) && string.IsNullOrEmpty(queryParameters.AppId)
+        )
+        {
+            return BadRequest("Org or AppId must be defined.");
+        }
+
+        if (string.IsNullOrEmpty(queryParameters.Org))
+        {
+            queryParameters.Org = queryParameters.AppId.Split('/')[0];
+        }
+
+        if (
+            !hasSyncAdapterScope
+            && !orgClaim.Equals(queryParameters.Org, StringComparison.InvariantCultureIgnoreCase)
+        )
+        {
+            return await AuthorizeCrossOrgAccess(queryParameters);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Runs a PDP decision to authorize an org/service owner reading instances belonging to a
+    /// different org than the one in its claim.
+    /// </summary>
+    /// <returns>
+    /// <c>null</c> when access is granted and processing should continue; otherwise an
+    /// <see cref="ActionResult"/> the caller must return immediately.
+    /// </returns>
+    private async Task<ActionResult> AuthorizeCrossOrgAccess(
+        InstanceQueryParameters queryParameters
+    )
+    {
+        if (string.IsNullOrEmpty(queryParameters.AppId))
+        {
+            return BadRequest("AppId must be defined.");
+        }
+
+        var appId = ValidateAppId(queryParameters.AppId).Split("/")[1];
+
+        XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
+            queryParameters.Org,
+            appId,
+            HttpContext.User,
+            "read"
+        );
+        XacmlJsonResponse response;
+        try
+        {
+            response = await _authorizationService.GetDecisionForRequest(request);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Something went wrong during GetDecisionForRequest for org: {Org}",
+                queryParameters.Org.Clean()
+            );
+            throw;
+        }
+
+        if (!DecisionHelper.ValidatePdpDecision(response?.Response, HttpContext.User))
+        {
+            return Forbid();
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Decodes the continuation token in <paramref name="queryParameters"/> for use against the
+    /// repository, returning the original (still URL-encoded) token so it can be echoed back in
+    /// the response self link.
+    /// </summary>
+    private static string NormalizeContinuationToken(InstanceQueryParameters queryParameters)
+    {
+        if (string.IsNullOrEmpty(queryParameters.ContinuationToken))
+        {
+            return null;
+        }
+
+        string selfContinuationToken = queryParameters.ContinuationToken;
+        queryParameters.ContinuationToken = HttpUtility.UrlDecode(
+            queryParameters.ContinuationToken
+        );
+
+        return selfContinuationToken;
+    }
+
+    /// <summary>
+    /// Applies hard-delete visibility rules for callers that are neither the app owner nor the
+    /// sync adapter: such callers may never see hard deleted instances.
+    /// </summary>
+    /// <returns>
+    /// <c>null</c> when processing should continue; otherwise an empty result the caller must
+    /// return immediately (when the caller explicitly requested hard deleted instances).
+    /// </returns>
+    private OkObjectResult ApplyHardDeleteFilter(
+        InstanceQueryParameters queryParameters,
+        bool appOwnerOrSyncAdapterRequestingInstances,
+        string selfContinuationToken
+    )
+    {
+        // filter out hard deleted instances if it isn't the appOwner or the sync adapter requesting instances
+        if (!appOwnerOrSyncAdapterRequestingInstances)
+        {
+            if (queryParameters.IsHardDeleted.HasValue && queryParameters.IsHardDeleted.Value)
+            {
+                return Ok(
+                    new QueryResponse<Instance>()
+                    {
+                        Instances = [],
+                        Self = BuildRequestLink(selfContinuationToken),
+                    }
+                );
+            }
+
+            queryParameters.IsHardDeleted = false;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Resolves <see cref="InstanceQueryParameters.InstanceOwnerPartyId"/> from the
+    /// <see cref="InstanceQueryParameters.InstanceOwnerIdentifier"/> when present.
+    /// </summary>
+    /// <returns>
+    /// <c>null</c> when processing should continue; otherwise an <see cref="ActionResult"/> the
+    /// caller must return immediately (a bad request for an invalid identifier, or an empty
+    /// result when the party could not be found).
+    /// </returns>
+    private async Task<ActionResult> ResolvePartyFromIdentifier(
+        InstanceQueryParameters queryParameters
+    )
+    {
+        if (string.IsNullOrEmpty(queryParameters.InstanceOwnerIdentifier))
+        {
+            return null;
+        }
+
+        InstanceOwnerIdentifierParseResult parseResult =
+            queryParameters.ParseInstanceOwnerIdentifier();
+
+        if (!parseResult.IsValid)
+        {
+            return BadRequest(parseResult.ErrorMessage);
+        }
+
+        queryParameters.InstanceOwnerPartyId = await _registerService.PartyLookup(
+            parseResult.Person,
+            parseResult.OrgNo
+        );
+
+        if (queryParameters.InstanceOwnerPartyId < 0)
+        {
+            return Ok(new QueryResponse<Instance> { Instances = [] });
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Applies default values to the query parameters that are not explicitly set by the caller:
+    /// sort order, Altinn main version filtering, and page size.
+    /// </summary>
+    private static InstanceQueryParameters ApplyQueryDefaults(
+        InstanceQueryParameters queryParameters
+    )
+    {
+        if (string.IsNullOrEmpty(queryParameters.SortBy))
+        {
+            queryParameters.SortBy = "desc:lastChanged";
+        }
+
+        // The A3 reference is only available on Altinn 3 instances, this enables the partial index on the reference.
+        if (!string.IsNullOrEmpty(queryParameters.A3Ref))
+        {
+            if (queryParameters.A3Ref.Length != 12)
+            {
+                throw new ArgumentException(
+                    "The A3 reference needs to be exactly 12 characters long."
+                );
+            }
+
+            queryParameters.MainVersionInclude = 3;
+            queryParameters.MainVersionExclude = null;
+        }
+        // The A2 archive reference only exists on migrated Altinn 2 instances, so a query for it
+        // must target altinn main version 2 (this also enables the partial index on the reference).
+        else if (!string.IsNullOrEmpty(queryParameters.DataValuesA2ArchRef))
+        {
+            queryParameters.MainVersionInclude = 2;
+            queryParameters.MainVersionExclude = null;
+        }
+        // Default is to exclude migrated altinn 1 and 2 instances
+        else if (
+            queryParameters.MainVersionExclude == null
+            && queryParameters.MainVersionInclude == null
+        )
+        {
+            queryParameters.MainVersionInclude = 3;
+        }
+
+        queryParameters.Size ??= 100;
+
+        return queryParameters;
     }
 
     private static void FilterOutDeletedDataElements(Instance instance)

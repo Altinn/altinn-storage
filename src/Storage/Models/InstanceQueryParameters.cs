@@ -477,4 +477,85 @@ public class InstanceQueryParameters
     {
         return "_" + queryParameter.Replace(".", "_");
     }
+
+    /// <summary>
+    /// Parses and validates the <see cref="InstanceOwnerIdentifier"/> into a person or organisation number.
+    /// </summary>
+    /// <returns>
+    /// A result indicating whether the identifier is valid. When valid, exactly one of
+    /// <see cref="InstanceOwnerIdentifierParseResult.Person"/> or
+    /// <see cref="InstanceOwnerIdentifierParseResult.OrgNo"/> may be set (both may be null for
+    /// party types that are neither person nor organisation). When invalid,
+    /// <see cref="InstanceOwnerIdentifierParseResult.ErrorMessage"/> describes the problem.
+    /// </returns>
+    public InstanceOwnerIdentifierParseResult ParseInstanceOwnerIdentifier()
+    {
+        (string instanceOwnerIdType, string instanceOwnerIdValue) =
+            InstanceHelper.GetIdentifierFromInstanceOwnerIdentifier(InstanceOwnerIdentifier);
+
+        if (string.IsNullOrEmpty(instanceOwnerIdType) || string.IsNullOrEmpty(instanceOwnerIdValue))
+        {
+            return new InstanceOwnerIdentifierParseResult(
+                false,
+                null,
+                null,
+                "Invalid InstanceOwnerIdentifier."
+            );
+        }
+
+        string orgNo = null;
+        string person = null;
+
+        if (Enum.TryParse(instanceOwnerIdType, true, out PartyType partyType))
+        {
+            switch (partyType)
+            {
+                case PartyType.Person:
+                    if (
+                        !InstanceOwnerIdRegExHelper.ElevenDigitRegex().IsMatch(instanceOwnerIdValue)
+                    )
+                    {
+                        return new InstanceOwnerIdentifierParseResult(
+                            false,
+                            null,
+                            null,
+                            "Person number needs to be exactly 11 digits."
+                        );
+                    }
+
+                    person = instanceOwnerIdValue;
+                    break;
+
+                case PartyType.Organisation:
+                    if (!InstanceOwnerIdRegExHelper.NineDigitRegex().IsMatch(instanceOwnerIdValue))
+                    {
+                        return new InstanceOwnerIdentifierParseResult(
+                            false,
+                            null,
+                            null,
+                            "Organization number needs to be exactly 9 digits."
+                        );
+                    }
+
+                    orgNo = instanceOwnerIdValue;
+                    break;
+            }
+        }
+
+        return new InstanceOwnerIdentifierParseResult(true, person, orgNo, null);
+    }
 }
+
+/// <summary>
+/// The result of parsing an <see cref="InstanceQueryParameters.InstanceOwnerIdentifier"/> value.
+/// </summary>
+/// <param name="IsValid">Whether the identifier was valid.</param>
+/// <param name="Person">The person number, when the identifier refers to a person; otherwise null.</param>
+/// <param name="OrgNo">The organisation number, when the identifier refers to an organisation; otherwise null.</param>
+/// <param name="ErrorMessage">A description of the validation failure, when <paramref name="IsValid"/> is false; otherwise null.</param>
+public readonly record struct InstanceOwnerIdentifierParseResult(
+    bool IsValid,
+    string Person,
+    string OrgNo,
+    string ErrorMessage
+);
