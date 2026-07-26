@@ -33,6 +33,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     private const string NotFoundResult = "not_found";
     private const string ResultColumn = "result";
     private const string UpdatedElementColumn = "updatedElement";
+    private const string CurrentProcessStatusColumn = "currentprocessstatus";
 
     private readonly string _insertSql =
         "select * from storage.insertdataelement_v3 ($1, $2, $3, $4, $5, $6, $7)";
@@ -120,6 +121,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
                     "process_state_version_mismatch" => CreateProcessStateVersionMismatchException(
                         reader
                     ),
+                    "process_status_conflict" => CreateProcessStatusConflictException(reader),
                     _ => new UnreachableException(
                         $"Unexpected data element create result '{result}'."
                     ),
@@ -384,6 +386,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
                     "process_state_version_mismatch" => CreateProcessStateVersionMismatchException(
                         reader
                     ),
+                    "process_status_conflict" => CreateProcessStatusConflictException(reader),
                     _ => new UnreachableException(
                         $"Unexpected data element update result '{result}'."
                     ),
@@ -475,19 +478,19 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
                 ResultColumn,
                 cancellationToken
             );
-            if (result == NotFoundResult)
-            {
-                throw new RepositoryException(
-                    $"Data element {dataElementId} was not found.",
-                    HttpStatusCode.NotFound
-                );
-            }
-
             if (result != "ok")
             {
-                throw new UnreachableException(
-                    $"Unexpected data element lock status update result '{result}'."
-                );
+                throw result switch
+                {
+                    NotFoundResult => new RepositoryException(
+                        $"Data element {dataElementId} was not found.",
+                        HttpStatusCode.NotFound
+                    ),
+                    "process_status_conflict" => CreateProcessStatusConflictException(reader),
+                    _ => new UnreachableException(
+                        $"Unexpected data element lock status update result '{result}'."
+                    ),
+                };
             }
 
             DataElementInternal updatedElement = await ReadDataElementAsync(
@@ -586,6 +589,10 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
             versions.ProcessStateVersion
         );
     }
+
+    private static ProcessStatusConflictException CreateProcessStatusConflictException(
+        NpgsqlDataReader reader
+    ) => new(reader.GetFieldValue<string>(reader.GetOrdinal(CurrentProcessStatusColumn)));
 
     private static object ToBlobVersion(string blobVersionId)
     {

@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -102,6 +103,8 @@ public class SigningService : ISigningService
                 currentVersions.ProcessStateVersion
             );
         }
+
+        ProcessStatusHelper.EnsureExpectedStatus(instance);
 
         Application app = await _applicationRepository.FindOne(
             instance.AppId,
@@ -221,7 +224,7 @@ public class SigningService : ISigningService
                 instance,
                 [],
                 expectedInstanceVersion,
-                expectedProcessStateVersion,
+                currentVersions.ProcessStateVersion,
                 instanceEvents,
                 LastChanged: signDocument.SignedTime,
                 LastChangedBy: performedBy

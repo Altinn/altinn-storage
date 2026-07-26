@@ -11,6 +11,8 @@ using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Extensions;
 using Altinn.Platform.Storage.UnitTest.Utils;
+using Npgsql;
+using NpgsqlTypes;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingRepositories;
@@ -22,6 +24,17 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     {
         Instance,
         ProcessState,
+    }
+
+    public enum InstanceUpdateShape
+    {
+        Status,
+        Substatus,
+        PresentationTexts,
+        DataValues,
+        CompleteConfirmations,
+        Process,
+        ProcessAndStatus,
     }
 
     private readonly InstanceFixture _instanceFixture;
@@ -79,6 +92,53 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Assert.Equal(expectedStorageId, persistedInstance.Id);
     }
 
+    [Theory]
+    [InlineData(null, "<absent>")]
+    [InlineData(ProcessStatus.Idle, "\"idle\"")]
+    [InlineData(ProcessStatus.Processing, "\"processing\"")]
+    [InlineData("future-status", "\"future-status\"")]
+    public async Task Instance_Create_PreservesProcessStatusPayload(
+        string suppliedStatus,
+        string expectedStoredRepresentation
+    )
+    {
+        InstanceInternal input = TestData.Instance_1_1.Clone().FromApiModel();
+        input.Id = Guid.NewGuid().ToString();
+        input.Process = new ProcessState
+        {
+            Status = suppliedStatus,
+            StartEvent = "creation-start",
+            EndEvent = "creation-end",
+            CurrentTask = new ProcessElementInfo
+            {
+                ElementId = "Task_Creation",
+                AltinnTaskType = "data",
+            },
+        };
+
+        InstanceInternal created = await _instanceFixture.InstanceRepo.Create(
+            input,
+            CancellationToken.None
+        );
+        InstanceInternal persisted = await _instanceFixture.InstanceRepo.GetOne(
+            Guid.Parse(created.Id),
+            false,
+            CancellationToken.None
+        );
+
+        Assert.Same(input, created);
+        Assert.Equal(suppliedStatus, created.Process.Status);
+        Assert.Equal(suppliedStatus, persisted.Process.Status);
+        Assert.Equal("creation-start", created.Process.StartEvent);
+        Assert.Equal("creation-end", persisted.Process.EndEvent);
+        Assert.Equal("Task_Creation", created.Process.CurrentTask.ElementId);
+        Assert.Equal("Task_Creation", persisted.Process.CurrentTask.ElementId);
+        Assert.Equal(
+            expectedStoredRepresentation,
+            await ReadStoredProcessStatusRepresentation(Guid.Parse(created.Id))
+        );
+    }
+
     [Fact]
     public async Task Instance_Create_GeneratesIdAndHydratesInternalStateOnlyOnRead()
     {
@@ -117,6 +177,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             newInstance,
             CancellationToken.None
         );
+        StorageVersions versionsBefore = newInstance.Versions;
         newInstance.Process.CurrentTask.ElementId = "Task_2";
         newInstance.Process.CurrentTask.Name = "After update";
         newInstance.Process.StartEvent = null;
@@ -152,6 +213,17 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Assert.Null(newInstance.Process.StartEvent);
         Assert.Equal(newInstance.LastChanged, updatedInstance.LastChanged);
         Assert.Equal(newInstance.LastChangedBy, updatedInstance.LastChangedBy);
+        Assert.Equal(
+            new StorageVersions(
+                versionsBefore.InstanceVersion + 1,
+                versionsBefore.ProcessStateVersion + 1
+            ),
+            updatedInstance.Versions
+        );
+        Assert.Equal(
+            "<absent>",
+            await ReadStoredProcessStatusRepresentation(Guid.Parse(updatedInstance.Id))
+        );
     }
 
     [Fact]
@@ -252,6 +324,352 @@ public class InstanceTests : IClassFixture<InstanceFixture>
 
         Assert.Equal(instance.Versions.InstanceVersion, exception.CurrentInstanceVersion);
         Assert.Equal(instance.Versions.ProcessStateVersion, exception.CurrentProcessStateVersion);
+    }
+
+    [Theory]
+    [InlineData(InstanceUpdateShape.Status, ProcessStatus.Processing)]
+    [InlineData(InstanceUpdateShape.Substatus, ProcessStatus.Processing)]
+    [InlineData(InstanceUpdateShape.PresentationTexts, ProcessStatus.Processing)]
+    [InlineData(InstanceUpdateShape.DataValues, ProcessStatus.Processing)]
+    [InlineData(InstanceUpdateShape.CompleteConfirmations, ProcessStatus.Processing)]
+    [InlineData(InstanceUpdateShape.Process, ProcessStatus.Processing)]
+    [InlineData(InstanceUpdateShape.ProcessAndStatus, ProcessStatus.Processing)]
+    [InlineData(InstanceUpdateShape.Status, "future-status")]
+    [InlineData(InstanceUpdateShape.Status, "IDLE")]
+    [InlineData(InstanceUpdateShape.Status, " idle ")]
+    public async Task Instance_Update_NonIdleProcessStatus_ConflictsWithoutMutationOrVersionBump(
+        InstanceUpdateShape updateShape,
+        string currentProcessStatus
+    )
+    {
+        InstanceInternal instance = await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone().FromApiModel(),
+            CancellationToken.None
+        );
+        Guid instanceGuid = Guid.Parse(instance.Id);
+        await SetStoredProcessStatus(instanceGuid, currentProcessStatus);
+        instance = await _instanceFixture.InstanceRepo.GetOne(
+            instanceGuid,
+            false,
+            CancellationToken.None
+        );
+        List<string> updateProperties = PrepareInstanceUpdate(instance, updateShape);
+        string storedBefore = await ReadStoredInstanceJson(instanceGuid);
+        StorageVersions versionsBefore = await ReadStoredVersions(instanceGuid);
+
+        ProcessStatusConflictException exception =
+            await Assert.ThrowsAsync<ProcessStatusConflictException>(() =>
+                _instanceFixture.InstanceRepo.Update(
+                    instance,
+                    updateProperties,
+                    CancellationToken.None
+                )
+            );
+
+        Assert.Equal(currentProcessStatus, exception.CurrentProcessStatus);
+        Assert.Equal(storedBefore, await ReadStoredInstanceJson(instanceGuid));
+        Assert.Equal(versionsBefore, await ReadStoredVersions(instanceGuid));
+    }
+
+    [Fact]
+    public async Task Instance_Update_StaleInstanceVersionWinsBeforeProcessStatusConflict()
+    {
+        InstanceInternal instance = await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone().FromApiModel(),
+            CancellationToken.None
+        );
+        Guid instanceGuid = Guid.Parse(instance.Id);
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        instance.LastChanged = DateTime.UtcNow;
+
+        InstanceVersionMismatchException exception =
+            await Assert.ThrowsAsync<InstanceVersionMismatchException>(() =>
+                _instanceFixture.InstanceRepo.Update(
+                    instance,
+                    [nameof(instance.LastChanged)],
+                    CancellationToken.None,
+                    expectedInstanceVersion: instance.Versions.InstanceVersion + 1
+                )
+            );
+
+        Assert.Equal(
+            instance.Versions,
+            new StorageVersions(
+                exception.CurrentInstanceVersion,
+                exception.CurrentProcessStateVersion
+            )
+        );
+        Assert.Equal(ProcessStatus.Processing, await ReadStoredProcessStatus(instanceGuid));
+    }
+
+    [Theory]
+    [InlineData(null, "<absent>")]
+    [InlineData(ProcessStatus.Idle, "\"idle\"")]
+    [InlineData("future-status", "\"future-status\"")]
+    public async Task Instance_Update_Process_PersistsStatusPayload(
+        string suppliedStatus,
+        string expectedStoredRepresentation
+    )
+    {
+        InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
+        instance.Process.Status = ProcessStatus.Idle;
+        instance = await _instanceFixture.InstanceRepo.Create(instance, CancellationToken.None);
+        await SetStoredProcessStatus(Guid.Parse(instance.Id), ProcessStatus.Idle);
+        instance.Process = new ProcessState
+        {
+            Status = suppliedStatus,
+            CurrentTask = new ProcessElementInfo { ElementId = "Task_Normalized" },
+        };
+        instance.LastChanged = DateTime.UtcNow;
+
+        InstanceInternal result = await _instanceFixture.InstanceRepo.Update(
+            instance,
+            [nameof(instance.Process), nameof(instance.LastChanged)],
+            CancellationToken.None
+        );
+
+        Assert.Equal(suppliedStatus, result.Process.Status);
+        Assert.Equal(
+            expectedStoredRepresentation,
+            await ReadStoredProcessStatusRepresentation(Guid.Parse(instance.Id))
+        );
+    }
+
+    [Fact]
+    public async Task Instance_Update_IdleToProcessingWithoutVersionPreconditions_PersistsAndBumpsBothVersions()
+    {
+        InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
+        instance.Process.Status = ProcessStatus.Idle;
+        instance = await _instanceFixture.InstanceRepo.Create(instance, CancellationToken.None);
+        StorageVersions previousVersions = instance.Versions;
+        instance.Process = new ProcessState
+        {
+            Status = ProcessStatus.Processing,
+            CurrentTask = new ProcessElementInfo { ElementId = "Task_Processing" },
+        };
+        instance.LastChanged = DateTime.UtcNow;
+
+        InstanceInternal result = await _instanceFixture.InstanceRepo.Update(
+            instance,
+            [nameof(instance.Process), nameof(instance.LastChanged)],
+            CancellationToken.None
+        );
+        InstanceInternal persisted = await _instanceFixture.InstanceRepo.GetOne(
+            Guid.Parse(instance.Id),
+            false,
+            CancellationToken.None
+        );
+
+        StorageVersions expectedVersions = new(
+            previousVersions.InstanceVersion + 1,
+            previousVersions.ProcessStateVersion + 1
+        );
+        Assert.Equal(ProcessStatus.Processing, result.Process.Status);
+        Assert.Equal(expectedVersions, result.Versions);
+        Assert.Equal(ProcessStatus.Processing, persisted.Process.Status);
+        Assert.Equal(expectedVersions, persisted.Versions);
+        Assert.Equal(
+            "\"processing\"",
+            await ReadStoredProcessStatusRepresentation(Guid.Parse(instance.Id))
+        );
+    }
+
+    [Fact]
+    public async Task Instance_Update_DataValuesAndProcess_DoesNotApplyProcessThroughTopLevelProperties()
+    {
+        InstanceInternal instance = await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone().FromApiModel(),
+            CancellationToken.None
+        );
+        Guid instanceGuid = Guid.Parse(instance.Id);
+        StorageVersions versionsBefore = instance.Versions;
+        string originalTaskId = instance.Process.CurrentTask.ElementId;
+        instance.DataValues["combined-update"] = "applied";
+        instance.Process = new ProcessState
+        {
+            Status = ProcessStatus.Processing,
+            CurrentTask = new ProcessElementInfo { ElementId = "Task_Smuggled" },
+        };
+        instance.LastChanged = DateTime.UtcNow;
+
+        InstanceInternal result = await _instanceFixture.InstanceRepo.Update(
+            instance,
+            [nameof(instance.DataValues), nameof(instance.Process), nameof(instance.LastChanged)],
+            CancellationToken.None
+        );
+
+        Assert.Equal("applied", result.DataValues["combined-update"]);
+        Assert.Equal(originalTaskId, result.Process.CurrentTask.ElementId);
+        Assert.Null(result.Process.Status);
+        Assert.Equal(
+            new StorageVersions(
+                versionsBefore.InstanceVersion + 1,
+                versionsBefore.ProcessStateVersion
+            ),
+            result.Versions
+        );
+        Assert.Equal(result.Versions, await ReadStoredVersions(instanceGuid));
+        Assert.Equal("<absent>", await ReadStoredProcessStatusRepresentation(instanceGuid));
+    }
+
+    [Theory]
+    [InlineData("status-absent", "<absent>")]
+    [InlineData("status-null", "null")]
+    [InlineData("process-absent", "<absent>")]
+    [InlineData("process-null", "<absent>")]
+    [InlineData("process-string", "<absent>")]
+    public async Task Instance_Update_Process_ReplacesPersistedStatusRepresentation(
+        string persistedRepresentation,
+        string _
+    )
+    {
+        InstanceInternal instance = await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone().FromApiModel(),
+            CancellationToken.None
+        );
+        Guid instanceGuid = Guid.Parse(instance.Id);
+        await SetStoredProcessRepresentation(instanceGuid, persistedRepresentation);
+        instance.Process = new ProcessState
+        {
+            Status = ProcessStatus.Processing,
+            CurrentTask = new ProcessElementInfo { ElementId = "Task_Representation" },
+        };
+
+        InstanceInternal result = await _instanceFixture.InstanceRepo.Update(
+            instance,
+            [nameof(instance.Process)],
+            CancellationToken.None
+        );
+
+        Assert.Equal("Task_Representation", result.Process.CurrentTask.ElementId);
+        Assert.Equal(
+            $"\"{ProcessStatus.Processing}\"",
+            await ReadStoredProcessStatusRepresentation(instanceGuid)
+        );
+    }
+
+    [Fact]
+    public async Task Instance_UpdateReadStatus_ProcessingStatus_RemainsExemptWithoutVersionBump()
+    {
+        InstanceInternal instance = await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone().FromApiModel(),
+            CancellationToken.None
+        );
+        Guid instanceGuid = Guid.Parse(instance.Id);
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        instance = await _instanceFixture.InstanceRepo.GetOne(
+            instanceGuid,
+            false,
+            CancellationToken.None
+        );
+        StorageVersions versionsBefore = instance.Versions;
+        instance.Status.ReadStatus = ReadStatus.Read;
+
+        InstanceInternal result = await _instanceFixture.InstanceRepo.UpdateReadStatus(
+            instance,
+            CancellationToken.None
+        );
+
+        Assert.Equal(ReadStatus.Read, result.Status.ReadStatus);
+        Assert.Equal(versionsBefore, result.Versions);
+        Assert.Equal(versionsBefore, await ReadStoredVersions(instanceGuid));
+        Assert.Equal(ProcessStatus.Processing, await ReadStoredProcessStatus(instanceGuid));
+    }
+
+    [Fact]
+    public async Task Instance_Update_RacingProcessingTransition_SerializesAndDoesNotMutate()
+    {
+        InstanceInternal instance = await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone().FromApiModel(),
+            CancellationToken.None
+        );
+        Guid instanceGuid = Guid.Parse(instance.Id);
+        string originalLastChangedBy = instance.LastChangedBy;
+        instance.LastChanged = DateTime.UtcNow;
+        instance.LastChangedBy = "racing-instance-update";
+        StorageVersions versionsBefore = instance.Versions;
+
+        await using NpgsqlConnection gateConnection =
+            await _instanceFixture.DataSource.OpenConnectionAsync();
+        await using NpgsqlTransaction gateTransaction =
+            await gateConnection.BeginTransactionAsync();
+        await using (
+            NpgsqlCommand lockCommand = new(
+                "select 1 from storage.instances where alternateid = $1 for update",
+                gateConnection,
+                gateTransaction
+            )
+        )
+        {
+            lockCommand.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
+            Assert.Equal(1, Convert.ToInt32(await lockCommand.ExecuteScalarAsync()));
+
+            Task<InstanceInternal> updateTask = _instanceFixture.InstanceRepo.Update(
+                instance,
+                [nameof(instance.LastChanged), nameof(instance.LastChangedBy)],
+                CancellationToken.None
+            );
+
+            try
+            {
+                await WaitForBlockedDatabaseCalls("storage.updateinstance_v4", expectedCount: 1);
+            }
+            catch
+            {
+                await gateTransaction.RollbackAsync();
+                try
+                {
+                    await updateTask;
+                }
+                catch
+                {
+                    // Observe the task before propagating the synchronization failure.
+                }
+
+                throw;
+            }
+
+            await using NpgsqlCommand transitionCommand = new(
+                """
+                update storage.instances
+                set instance = jsonb_set(
+                        instance,
+                        '{Process}',
+                        (case
+                            when jsonb_typeof(instance -> 'Process') = 'object'
+                            then instance -> 'Process'
+                            else '{}'::jsonb
+                        end) || jsonb_build_object('Status', 'processing')
+                    ),
+                    instance_version = instance_version + 1,
+                    process_state_version = process_state_version + 1
+                where alternateid = $1
+                """,
+                gateConnection,
+                gateTransaction
+            );
+            transitionCommand.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
+            Assert.Equal(1, await transitionCommand.ExecuteNonQueryAsync());
+            await gateTransaction.CommitAsync();
+
+            ProcessStatusConflictException exception =
+                await Assert.ThrowsAsync<ProcessStatusConflictException>(() => updateTask);
+
+            Assert.Equal(ProcessStatus.Processing, exception.CurrentProcessStatus);
+            InstanceInternal stored = await _instanceFixture.InstanceRepo.GetOne(
+                instanceGuid,
+                false,
+                CancellationToken.None
+            );
+            Assert.Equal(originalLastChangedBy, stored.LastChangedBy);
+            Assert.Equal(
+                new StorageVersions(
+                    versionsBefore.InstanceVersion + 1,
+                    versionsBefore.ProcessStateVersion + 1
+                ),
+                stored.Versions
+            );
+        }
     }
 
     /// <summary>
@@ -2116,6 +2534,168 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         return instance;
     }
 
+    private static List<string> PrepareInstanceUpdate(
+        InstanceInternal instance,
+        InstanceUpdateShape updateShape
+    )
+    {
+        instance.LastChanged = DateTime.UtcNow;
+        instance.LastChangedBy = "blocked-instance-update";
+        List<string> updateProperties =
+        [
+            nameof(instance.LastChanged),
+            nameof(instance.LastChangedBy),
+        ];
+
+        switch (updateShape)
+        {
+            case InstanceUpdateShape.Status:
+                instance.Status.IsSoftDeleted = true;
+                instance.Status.SoftDeleted = DateTime.UtcNow;
+                updateProperties.Add(nameof(instance.Status));
+                updateProperties.Add(nameof(instance.Status.IsSoftDeleted));
+                updateProperties.Add(nameof(instance.Status.SoftDeleted));
+                break;
+            case InstanceUpdateShape.Substatus:
+                instance.Status.Substatus = new Substatus { Label = "blocked-substatus" };
+                updateProperties.Add(nameof(instance.Status.Substatus));
+                break;
+            case InstanceUpdateShape.PresentationTexts:
+                instance.PresentationTexts = new Dictionary<string, string>
+                {
+                    ["blocked-presentation"] = "value",
+                };
+                updateProperties.Add(nameof(instance.PresentationTexts));
+                break;
+            case InstanceUpdateShape.DataValues:
+                instance.DataValues = new Dictionary<string, string>
+                {
+                    ["blocked-data-value"] = "value",
+                };
+                updateProperties.Add(nameof(instance.DataValues));
+                break;
+            case InstanceUpdateShape.CompleteConfirmations:
+                instance.CompleteConfirmations =
+                [
+                    new CompleteConfirmation
+                    {
+                        StakeholderId = "blocked-stakeholder",
+                        ConfirmedOn = DateTime.UtcNow,
+                    },
+                ];
+                updateProperties.Add(nameof(instance.CompleteConfirmations));
+                break;
+            case InstanceUpdateShape.Process:
+                instance.Process = new ProcessState
+                {
+                    CurrentTask = new ProcessElementInfo { ElementId = "Task_Blocked" },
+                };
+                updateProperties.Add(nameof(instance.Process));
+                break;
+            case InstanceUpdateShape.ProcessAndStatus:
+                instance.Process = new ProcessState
+                {
+                    CurrentTask = new ProcessElementInfo { ElementId = "Task_Blocked" },
+                };
+                instance.Status.IsArchived = true;
+                instance.Status.Archived = DateTime.UtcNow;
+                updateProperties.Add(nameof(instance.Process));
+                updateProperties.Add(nameof(instance.Status));
+                updateProperties.Add(nameof(instance.Status.IsArchived));
+                updateProperties.Add(nameof(instance.Status.Archived));
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(updateShape), updateShape, null);
+        }
+
+        return updateProperties;
+    }
+
+    private static Task SetStoredProcessRepresentation(Guid instanceGuid, string representation)
+    {
+        string instanceUpdate = representation switch
+        {
+            "status-absent" =>
+                "jsonb_set(instance, '{Process}', CASE WHEN jsonb_typeof(instance -> 'Process') = 'object' THEN (instance -> 'Process') - 'Status' ELSE '{}'::jsonb END)",
+            "status-null" =>
+                "jsonb_set(instance, '{Process}', (CASE WHEN jsonb_typeof(instance -> 'Process') = 'object' THEN instance -> 'Process' ELSE '{}'::jsonb END) || '{\"Status\":null}'::jsonb)",
+            "process-absent" => "instance - 'Process'",
+            "process-null" => "jsonb_set(instance, '{Process}', 'null'::jsonb)",
+            "process-string" => "jsonb_set(instance, '{Process}', '\"legacy\"'::jsonb)",
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(representation),
+                representation,
+                "Unknown process representation."
+            ),
+        };
+
+        return PostgresUtil.RunSql(
+            $"update storage.instances set instance = {instanceUpdate} where alternateid = '{instanceGuid}'"
+        );
+    }
+
+    private static Task SetStoredProcessStatus(Guid instanceGuid, string status) =>
+        PostgresUtil.RunSql(
+            $"update storage.instances set instance = jsonb_set(instance, '{{Process}}', (CASE WHEN jsonb_typeof(instance -> 'Process') = 'object' THEN instance -> 'Process' ELSE '{{}}'::jsonb END) || jsonb_build_object('Status', '{status}')) where alternateid = '{instanceGuid}'"
+        );
+
+    private static Task<string> ReadStoredProcessStatus(Guid instanceGuid) =>
+        PostgresUtil.RunQuery<string>(
+            $"select coalesce(instance -> 'Process' ->> 'Status', '{ProcessStatus.Idle}') from storage.instances where alternateid = '{instanceGuid}'"
+        );
+
+    private static Task<string> ReadStoredProcessStatusRepresentation(Guid instanceGuid) =>
+        PostgresUtil.RunQuery<string>(
+            $"select case when jsonb_typeof(instance -> 'Process') = 'object' and (instance -> 'Process') ? 'Status' then (instance -> 'Process' -> 'Status')::text else '<absent>' end from storage.instances where alternateid = '{instanceGuid}'"
+        );
+
+    private static Task<string> ReadStoredInstanceJson(Guid instanceGuid) =>
+        PostgresUtil.RunQuery<string>(
+            $"select instance::text from storage.instances where alternateid = '{instanceGuid}'"
+        );
+
+    private static async Task<StorageVersions> ReadStoredVersions(Guid instanceGuid) =>
+        new(
+            await PostgresUtil.RunQuery<int>(
+                $"select instance_version from storage.instances where alternateid = '{instanceGuid}'"
+            ),
+            await PostgresUtil.RunQuery<int>(
+                $"select process_state_version from storage.instances where alternateid = '{instanceGuid}'"
+            )
+        );
+
+    private async Task WaitForBlockedDatabaseCalls(string queryFragment, int expectedCount)
+    {
+        await using NpgsqlConnection observerConnection =
+            await _instanceFixture.DataSource.OpenConnectionAsync();
+        await using NpgsqlCommand command = new(
+            """
+            select count(*)::int
+            from pg_stat_activity activity
+            where activity.pid <> pg_backend_pid()
+                and activity.datname = current_database()
+                and activity.state = 'active'
+                and activity.wait_event_type = 'Lock'
+                and position($1 in activity.query) > 0
+            """,
+            observerConnection
+        );
+        command.Parameters.AddWithValue(NpgsqlDbType.Text, queryFragment);
+
+        DateTime timeoutAt = DateTime.UtcNow.AddSeconds(10);
+        while (Convert.ToInt32(await command.ExecuteScalarAsync()) < expectedCount)
+        {
+            if (DateTime.UtcNow >= timeoutAt)
+            {
+                throw new TimeoutException(
+                    $"Timed out waiting for {expectedCount} calls containing '{queryFragment}' to wait on PostgreSQL locks."
+                );
+            }
+
+            await Task.Delay(10);
+        }
+    }
+
     private static InstanceQueryParameters GetDateQueryParams(string fromYear, string toYear)
     {
         return new InstanceQueryParameters
@@ -2159,13 +2739,21 @@ public class InstanceFixture
 
     public IDataRepository DataRepo { get; set; }
 
+    public NpgsqlDataSource DataSource { get; set; }
+
     public InstanceFixture()
     {
         var serviceList = ServiceUtil.GetServices(
-            new List<Type>() { typeof(IInstanceRepository), typeof(IDataRepository) }
+            new List<Type>()
+            {
+                typeof(IInstanceRepository),
+                typeof(IDataRepository),
+                typeof(NpgsqlDataSource),
+            }
         );
         InstanceRepo = (IInstanceRepository)
             serviceList.First(i => i.GetType() == typeof(PgInstanceRepository));
         DataRepo = (IDataRepository)serviceList.First(i => i.GetType() == typeof(PgDataRepository));
+        DataSource = serviceList.OfType<NpgsqlDataSource>().Single();
     }
 }

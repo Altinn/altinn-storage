@@ -63,6 +63,7 @@ public class DataLockController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
     public async Task<ActionResult<DataElement>> Lock(
         int instanceOwnerPartyId,
@@ -112,6 +113,10 @@ public class DataLockController : ControllerBase
             DataElement response = updatedDataElement.DataElement.ToApiModel();
             return Created(response.Id, response);
         }
+        catch (ProcessStatusConflictException e)
+        {
+            return Conflict(e.Message);
+        }
         catch (RepositoryException e)
         {
             return e.StatusCodeSuggestion != null
@@ -134,6 +139,7 @@ public class DataLockController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
     public async Task<ActionResult<DataElement>> Unlock(
         int instanceOwnerPartyId,
@@ -175,6 +181,10 @@ public class DataLockController : ControllerBase
                 updatedDataElement.Versions
             );
             return Ok(updatedDataElement.DataElement.ToApiModel());
+        }
+        catch (ProcessStatusConflictException e)
+        {
+            return Conflict(e.Message);
         }
         catch (RepositoryException e)
         {

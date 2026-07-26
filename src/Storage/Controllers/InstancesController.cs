@@ -393,6 +393,16 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        if (
+            instance.Process?.Status is not null
+            && !ProcessStatusHelper.IsSupported(instance.Process.Status)
+        )
+        {
+            return BadRequest(
+                $"process.status must be absent, '{ProcessStatus.Idle}', or '{ProcessStatus.Processing}' when creating an instance."
+            );
+        }
+
         if (string.IsNullOrWhiteSpace(instance.InstanceOwner.PartyId))
         {
             return BadRequest("Cannot create an instance without an instanceOwner.PartyId.");
@@ -550,6 +560,7 @@ public class InstancesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> Delete(
         int instanceOwnerPartyId,
@@ -645,6 +656,10 @@ public class InstancesController : ControllerBase
         {
             return VersionPreconditionHelper.VersionMismatch(Response, e);
         }
+        catch (ProcessStatusConflictException e)
+        {
+            return Conflict(e.Message);
+        }
         catch (Exception e)
         {
             _logger.LogError(
@@ -675,6 +690,7 @@ public class InstancesController : ControllerBase
     [HttpPost("{instanceOwnerPartyId:int}/{instanceGuid:guid}/complete")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> AddCompleteConfirmation(
         [FromRoute] int instanceOwnerPartyId,
@@ -735,6 +751,10 @@ public class InstancesController : ControllerBase
         catch (StorageVersionMismatchException e)
         {
             return VersionPreconditionHelper.VersionMismatch(Response, e);
+        }
+        catch (ProcessStatusConflictException e)
+        {
+            return Conflict(e.Message);
         }
         catch (Exception e)
         {
@@ -846,6 +866,7 @@ public class InstancesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> UpdateSubstatus(
         [FromRoute] int instanceOwnerPartyId,
@@ -916,6 +937,10 @@ public class InstancesController : ControllerBase
         {
             return VersionPreconditionHelper.VersionMismatch(Response, e);
         }
+        catch (ProcessStatusConflictException e)
+        {
+            return Conflict(e.Message);
+        }
         catch (Exception e)
         {
             _logger.LogError(
@@ -951,6 +976,7 @@ public class InstancesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Consumes("application/json")]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> UpdatePresentationTexts(
@@ -1021,6 +1047,10 @@ public class InstancesController : ControllerBase
         {
             return VersionPreconditionHelper.VersionMismatch(Response, e);
         }
+        catch (ProcessStatusConflictException e)
+        {
+            return Conflict(e.Message);
+        }
 
         VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
         return updatedInstance.ToApiModel();
@@ -1040,6 +1070,7 @@ public class InstancesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Consumes("application/json")]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> UpdateDataValues(
@@ -1106,6 +1137,10 @@ public class InstancesController : ControllerBase
         catch (StorageVersionMismatchException e)
         {
             return VersionPreconditionHelper.VersionMismatch(Response, e);
+        }
+        catch (ProcessStatusConflictException e)
+        {
+            return Conflict(e.Message);
         }
 
         VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);

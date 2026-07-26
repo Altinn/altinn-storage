@@ -115,15 +115,15 @@ public class DataController : ControllerBase
     /// Unknown, duplicate, or missing file parts are rejected with 400 Bad Request.
     /// </summary>
     /// <remarks>
-    /// Process-state, presentation-text, data-value, per-data-type write and delete-instance
-    /// authorization is evaluated against the current instance snapshot before idempotent replay
-    /// is admitted. Update and delete operations whose data elements no longer exist skip the
-    /// pre-replay write check and are validated after replay admission instead. Replayed responses
-    /// use the instance snapshot returned by the applying transaction. Process-state mutations on
-    /// instances without a current task, and delete-instance mutations the application prevents
-    /// from deletion, are rejected after replay admission. Delete-instance mutations check
-    /// instance existence before delete authorization, so a missing instance returns 404 before a
-    /// possible delete-policy 403.
+    /// After the endpoint's outer <c>InstanceWrite</c> policy admits the request, idempotent replay
+    /// is checked before process-state, presentation-text, data-value, per-data-type write, and
+    /// delete-instance authorization. An admitted replay is a no-op and uses the instance snapshot
+    /// returned by replay admission. For non-replays, operation-specific authorization is evaluated
+    /// against the controller's instance snapshot; data-element update and delete references missing
+    /// from that snapshot are rejected by later plan validation. Process-state mutations on instances
+    /// without a current task, and delete-instance mutations the application prevents from deletion,
+    /// are rejected after replay admission. Delete-instance mutations check instance existence before
+    /// delete authorization, so a missing instance returns 404 before a possible delete-policy 403.
     /// </remarks>
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance that should be mutated.</param>
@@ -178,13 +178,23 @@ public class DataController : ControllerBase
             return requestError;
         }
 
+        BadRequestObjectResult processStatusError = ValidateProcessStatusTransition(
+            mutationRequest
+        );
+        if (processStatusError is not null)
+        {
+            return processStatusError;
+        }
+
         if (!HasMutationOperations(mutationRequest))
         {
             return BadRequest("The mutation request must contain at least one operation.");
         }
 
         BadRequestObjectResult deleteInstanceRequestError = ValidateDeleteInstanceRequest(
-            mutationRequest
+            mutationRequest,
+            preconditions,
+            idempotencyKey
         );
         if (deleteInstanceRequestError is not null)
         {
@@ -212,6 +222,8 @@ public class DataController : ControllerBase
             return instanceError;
         }
 
+        StorageVersions snapshotVersions = instance.Versions;
+
         (Application application, ActionResult applicationError) = await GetApplicationAsync(
             instance.AppId,
             instance.Org,
@@ -227,21 +239,10 @@ public class DataController : ControllerBase
             e => e
         );
 
-        ActionResult authorizationError = await AuthorizeMutationRequest(
-            mutationRequest,
-            instance,
-            existingDataElementsById,
-            application
-        );
-        if (authorizationError is not null)
-        {
-            return authorizationError;
-        }
-
         ActionResult<InstanceMutationResponse> replayResponse =
             await TryBuildReplayMutationResponse(
                 instanceGuid,
-                instance,
+                snapshotVersions,
                 preconditions,
                 idempotencyKey,
                 cancellationToken
@@ -249,6 +250,34 @@ public class DataController : ControllerBase
         if (replayResponse is not null)
         {
             return replayResponse;
+        }
+
+        if (
+            preconditions.InstanceVersion is not null
+            && preconditions.InstanceVersion != snapshotVersions.InstanceVersion
+        )
+        {
+            return VersionPreconditionHelper.VersionMismatch(
+                Response,
+                new InstanceVersionMismatchException(
+                    snapshotVersions.InstanceVersion,
+                    snapshotVersions.ProcessStateVersion
+                )
+            );
+        }
+
+        if (
+            preconditions.ProcessStateVersion is not null
+            && preconditions.ProcessStateVersion != snapshotVersions.ProcessStateVersion
+        )
+        {
+            return VersionPreconditionHelper.VersionMismatch(
+                Response,
+                new ProcessStateVersionMismatchException(
+                    snapshotVersions.InstanceVersion,
+                    snapshotVersions.ProcessStateVersion
+                )
+            );
         }
 
         if (
@@ -260,6 +289,17 @@ public class DataController : ControllerBase
             // (ended or not-started process). Checked after replay admission so idempotent
             // retries of a process-ending mutation still replay.
             return Forbid();
+        }
+
+        ActionResult authorizationError = await AuthorizeMutationRequest(
+            mutationRequest,
+            instance,
+            existingDataElementsById,
+            application
+        );
+        if (authorizationError is not null)
+        {
+            return authorizationError;
         }
 
         if (mutationRequest.DeleteInstance is not null)
@@ -282,6 +322,7 @@ public class DataController : ControllerBase
                 existingDataElementsById,
                 application,
                 preconditions,
+                snapshotVersions.ProcessStateVersion,
                 idempotencyKey,
                 cancellationToken
             );
@@ -310,7 +351,7 @@ public class DataController : ControllerBase
 
     private async Task<ActionResult<InstanceMutationResponse>> TryBuildReplayMutationResponse(
         Guid instanceGuid,
-        InstanceInternal currentInstanceInternal,
+        StorageVersions currentVersions,
         VersionPreconditions preconditions,
         Guid? idempotencyKey,
         CancellationToken cancellationToken
@@ -319,8 +360,7 @@ public class DataController : ControllerBase
         if (
             idempotencyKey is null
             || preconditions.InstanceVersion is null
-            || preconditions.InstanceVersion.Value
-                == currentInstanceInternal.Versions.InstanceVersion
+            || preconditions.InstanceVersion.Value == currentVersions.InstanceVersion
         )
         {
             return null;
@@ -332,8 +372,8 @@ public class DataController : ControllerBase
                 await _instanceMutationRepository.TryReplayAdmission(
                     instanceGuid,
                     preconditions.InstanceVersion.Value,
-                    currentInstanceInternal.Versions.InstanceVersion,
-                    currentInstanceInternal.Versions.ProcessStateVersion,
+                    currentVersions.InstanceVersion,
+                    currentVersions.ProcessStateVersion,
                     idempotencyKey.Value,
                     cancellationToken
                 );
@@ -516,6 +556,7 @@ public class DataController : ControllerBase
         Dictionary<Guid, DataElementInternal> existingDataElementsById,
         Application application,
         VersionPreconditions preconditions,
+        int snapshotProcessStateVersion,
         Guid? idempotencyKey,
         CancellationToken cancellationToken
     )
@@ -526,6 +567,11 @@ public class DataController : ControllerBase
 
         try
         {
+            ProcessStatusHelper.EnsureExpectedStatus(
+                instance,
+                mutationRequest.ExpectedProcessStatus
+            );
+
             ActionResult validationError = await ValidateMutationPlan(
                 mutationRequest,
                 multipartReader,
@@ -569,6 +615,7 @@ public class DataController : ControllerBase
                 instance,
                 mutationUpdates,
                 preconditions,
+                snapshotProcessStateVersion,
                 idempotencyKey,
                 stagedByPartName
             );
@@ -603,6 +650,26 @@ public class DataController : ControllerBase
             );
 
             return (null, StatusCode(StatusCodes.Status412PreconditionFailed, exception.Message));
+        }
+        catch (ProcessStatusConflictException exception)
+        {
+            await CleanupStagedBlobs(blobStaging);
+            return (
+                null,
+                new JsonResult(
+                    new ProblemDetails
+                    {
+                        Detail = exception.Message,
+                        Status = StatusCodes.Status409Conflict,
+                        Title = "Process status conflict",
+                        Type = "process_status_conflict",
+                    }
+                )
+                {
+                    ContentType = "application/problem+json",
+                    StatusCode = StatusCodes.Status409Conflict,
+                }
+            );
         }
         catch (RepositoryException exception) when (exception.StatusCodeSuggestion.HasValue)
         {
@@ -1197,6 +1264,7 @@ public class DataController : ControllerBase
         InstanceInternal instance,
         MutationInstanceUpdates mutationUpdates,
         VersionPreconditions preconditions,
+        int snapshotProcessStateVersion,
         Guid? idempotencyKey,
         IReadOnlyDictionary<string, StagedFileContent> stagedByPartName
     )
@@ -1224,6 +1292,7 @@ public class DataController : ControllerBase
         return work.Build(
             mutationUpdates,
             preconditions,
+            snapshotProcessStateVersion,
             idempotencyKey,
             (eventType, dataElement) =>
                 _instanceEventService.BuildInstanceEvent(
@@ -1367,6 +1436,8 @@ public class DataController : ControllerBase
 
         try
         {
+            ProcessStatusHelper.EnsureExpectedStatus(instance);
+
             InstanceEvent deletedEvent = _instanceEventService.BuildInstanceEvent(
                 InstanceEventType.Deleted,
                 instance,
@@ -1668,6 +1739,7 @@ public class DataController : ControllerBase
     [RequestSizeLimit(RequestSizeLimit)]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
     public async Task<ActionResult<DataElement>> CreateAndUploadData(
         [FromRoute] int instanceOwnerPartyId,
@@ -2131,6 +2203,7 @@ public class DataController : ControllerBase
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
     public async Task<ActionResult<DataElement>> Update(
         int instanceOwnerPartyId,
@@ -2548,7 +2621,34 @@ public class DataController : ControllerBase
         || request.ProcessState?.State is not null
         || request.ProcessState?.Events?.Count > 0;
 
-    private BadRequestObjectResult ValidateDeleteInstanceRequest(InstanceMutationRequest request)
+    private BadRequestObjectResult ValidateProcessStatusTransition(InstanceMutationRequest request)
+    {
+        if (
+            request.ExpectedProcessStatus is not null
+            && !ProcessStatusHelper.IsSupported(request.ExpectedProcessStatus)
+        )
+        {
+            return BadRequest(
+                $"expectedProcessStatus must be '{ProcessStatus.Idle}' or '{ProcessStatus.Processing}'."
+            );
+        }
+
+        string processStatus = request.ProcessState?.State?.Status;
+        if (processStatus is not null && !ProcessStatusHelper.IsSupported(processStatus))
+        {
+            return BadRequest(
+                $"processState.state.status must be '{ProcessStatus.Idle}' or '{ProcessStatus.Processing}'."
+            );
+        }
+
+        return null;
+    }
+
+    private BadRequestObjectResult ValidateDeleteInstanceRequest(
+        InstanceMutationRequest request,
+        VersionPreconditions preconditions,
+        Guid? idempotencyKey
+    )
     {
         if (request.DeleteInstance is null)
         {
@@ -2560,15 +2660,21 @@ public class DataController : ControllerBase
             return BadRequest("deleteInstance.hard must be true.");
         }
 
-        if (
+        bool hasUnrelatedMutationOperations =
             request.CreateDataElements?.Count > 0
             || request.UpdateDataElements?.Count > 0
-            || request.DeleteDataElements?.Count > 0
             || request.DataValues?.Count > 0
-            || request.PresentationTexts?.Count > 0
-            || request.ProcessState?.State is not null
-            || request.ProcessState?.Events?.Count > 0
-        )
+            || request.PresentationTexts?.Count > 0;
+        bool isStandaloneDelete =
+            !hasUnrelatedMutationOperations
+            && request.DeleteDataElements?.Count is not > 0
+            && request.ProcessState?.State is null
+            && request.ProcessState?.Events?.Count is not > 0
+            && request.ExpectedProcessStatus is null or ProcessStatus.Idle;
+        bool isTerminalWorkflowDelete =
+            !hasUnrelatedMutationOperations
+            && IsTerminalWorkflowDeleteInstanceRequest(request, preconditions, idempotencyKey);
+        if (!isStandaloneDelete && !isTerminalWorkflowDelete)
         {
             return BadRequest(
                 "deleteInstance cannot be combined with other aggregate mutation operations."
@@ -2576,6 +2682,26 @@ public class DataController : ControllerBase
         }
 
         return null;
+    }
+
+    private static bool IsTerminalWorkflowDeleteInstanceRequest(
+        InstanceMutationRequest request,
+        VersionPreconditions preconditions,
+        Guid? idempotencyKey
+    )
+    {
+        // The process-ending workflow save is the only mixed hard-delete mutation. Its ended
+        // process state, status handoff, version fences, and retry identity make it distinct
+        // from an ordinary client combining deletion with unrelated aggregate operations.
+        ProcessState processState = request.ProcessState?.State;
+        return processState?.Ended is not null
+            && processState.CurrentTask is null
+            && !string.IsNullOrWhiteSpace(processState.EndEvent)
+            && processState.Status == ProcessStatus.Idle
+            && request.ExpectedProcessStatus == ProcessStatus.Processing
+            && preconditions.InstanceVersion is not null
+            && preconditions.ProcessStateVersion is not null
+            && idempotencyKey is not null;
     }
 
     private async Task<ActionResult> AuthorizeDeleteInstanceMutation(
@@ -3056,6 +3182,7 @@ public class DataController : ControllerBase
         public PreparedMutationWork Build(
             MutationInstanceUpdates mutationUpdates,
             VersionPreconditions preconditions,
+            int snapshotProcessStateVersion,
             Guid? idempotencyKey,
             Func<InstanceEventType, DataElementInternal, InstanceEvent> buildInstanceEvent
         )
@@ -3078,7 +3205,7 @@ public class DataController : ControllerBase
                 mutationUpdates.InstanceUpdates,
                 mutationUpdates.InstanceUpdateProperties,
                 preconditions.InstanceVersion,
-                preconditions.ProcessStateVersion,
+                snapshotProcessStateVersion,
                 instanceEvents,
                 idempotencyKey,
                 mutationUpdates.LastChanged,
@@ -3173,6 +3300,8 @@ public class DataController : ControllerBase
         InstanceMutationApplyResult applyResult;
         try
         {
+            ProcessStatusHelper.EnsureExpectedStatus(instance);
+
             InstanceEvent deletedEvent = _instanceEventService.BuildInstanceEvent(
                 InstanceEventType.Deleted,
                 instance,

@@ -437,6 +437,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
         Assert.Equal(0, dataCount);
         Assert.Equal(0, instanceCount);
+        Assert.Equal(0, await CountAttachedBlobVersionRows(blobVersionId));
     }
 
     [Fact]
@@ -496,6 +497,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
         Assert.Equal(0, dataCount);
         Assert.Equal(0, instanceCount);
+        Assert.Equal(0, await CountAttachedBlobVersionRows(blobVersionId));
     }
 
     [Fact]
@@ -1049,22 +1051,21 @@ public class DataTests(DataElementFixture dataElementFixture)
     }
 
     [Fact]
-    public async Task DataElement_Update_ExpectedBlobVersionMismatch_ThrowsConflictAndDoesNotUpdate()
+    public async Task DataElement_Update_ExpectedBlobVersionMismatch_WinsBeforeProcessStatusConflictWithoutUpdate()
     {
         // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
         string originalContentType = $"original-{Guid.NewGuid()}";
         string newContentType = $"updated-{Guid.NewGuid()}";
         DataElement element = TestDataUtil.GetDataElement(_dataElement1);
         element.Id = Guid.NewGuid().ToString();
-        element.InstanceGuid = _instance.Id.Split('/').Last();
+        element.InstanceGuid = instanceGuid.ToString();
         element.ContentType = originalContentType;
         element.BlobStoragePath = $"ttd/app/{element.InstanceGuid}/data/{element.Id}";
         element.LastChanged = DateTime.UtcNow;
         element.LastChangedBy = "expected-version-test-setup";
-        string currentBlobVersionId = await CreateBlobVersionId(
-            Guid.Parse(element.InstanceGuid),
-            element.Id
-        );
+        string currentBlobVersionId = await CreateBlobVersionId(instanceGuid, element.Id);
+        string replacementBlobVersionId = await CreateBlobVersionId(instanceGuid, element.Id);
         string expectedBlobVersionId = BlobVersionId.Encode(Guid.NewGuid());
         element.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
@@ -1076,14 +1077,27 @@ public class DataTests(DataElementFixture dataElementFixture)
             _instanceInternalId
         );
         DataElement dataElement = createdDataElement.ToApiModel();
+        string replacementBlobStoragePath = BlobRepository.GetVersionedBlobPath(
+            _instance.AppId,
+            element.InstanceGuid,
+            replacementBlobVersionId
+        );
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
 
         // Act
         RepositoryException exception =
             await Assert.ThrowsAsync<DataElementBlobVersionMismatchException>(() =>
                 UpdateDataElement(
-                    Guid.Parse(dataElement.InstanceGuid),
+                    instanceGuid,
                     Guid.Parse(dataElement.Id),
-                    new Dictionary<string, object> { { "/contentType", newContentType } },
+                    new Dictionary<string, object>
+                    {
+                        ["/contentType"] = newContentType,
+                        ["/blobStoragePath"] = replacementBlobStoragePath,
+                        ["/currentBlobVersion"] = replacementBlobVersionId,
+                    },
                     new DataElementUpdateContext
                     {
                         ExpectedCurrentBlobVersion = expectedBlobVersionId,
@@ -1092,7 +1106,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             );
 
         DataElementInternal readElement = await dataElementFixture.DataRepo.Read(
-            Guid.Parse(dataElement.InstanceGuid),
+            instanceGuid,
             Guid.Parse(dataElement.Id)
         );
 
@@ -1100,6 +1114,10 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(HttpStatusCode.Conflict, exception.StatusCodeSuggestion);
         Assert.Equal(originalContentType, readElement.ContentType);
         Assert.Equal(currentBlobVersionId, readElement.BlobVersionId);
+        Assert.Equal(0, await CountAttachedBlobVersionRows(replacementBlobVersionId));
+        Assert.Equal(ProcessStatus.Processing, await ReadStoredProcessStatus(instanceGuid));
+        Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
+        Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
     }
 
     [Fact]
@@ -1141,6 +1159,733 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(HttpStatusCode.Conflict, exception.StatusCodeSuggestion);
         Assert.Equal(currentBlobVersionId, readElement.BlobVersionId);
         Assert.Equal(dataElement.BlobStoragePath, readElement.BlobStoragePath);
+    }
+
+    [Theory]
+    [InlineData("process-absent")]
+    [InlineData("process-null")]
+    [InlineData("status-absent")]
+    [InlineData("status-null")]
+    [InlineData("process-string")]
+    public async Task DataElement_Create_IdleProcessRepresentations_SucceedsAndBumpsInstanceVersion(
+        string processRepresentation
+    )
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        await SetStoredProcessRepresentation(instanceGuid, processRepresentation);
+        int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+        DataElement dataElement = TestDataUtil.GetDataElement(_dataElement3);
+        dataElement.Id = Guid.NewGuid().ToString();
+        dataElement.InstanceGuid = instanceGuid.ToString();
+        dataElement.LastChanged = DateTime.UtcNow;
+        dataElement.LastChangedBy = "process-status-idle-test";
+
+        // Act
+        DataElementWriteResult result = await dataElementFixture.DataRepo.Create(
+            dataElement.FromApiModel(),
+            _instanceInternalId
+        );
+
+        // Assert
+        Assert.Equal(previousInstanceVersion + 1, result.Versions.InstanceVersion);
+        Assert.Equal(previousProcessStateVersion, result.Versions.ProcessStateVersion);
+        Assert.True(await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id)));
+    }
+
+    [Theory]
+    [InlineData(ProcessStatus.Processing)]
+    [InlineData("future-status")]
+    public async Task DataElement_Create_NonIdleProcessStatus_ConflictsWithoutMutationOrVersionBump(
+        string currentStatus
+    )
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        await SetStoredProcessStatus(instanceGuid, currentStatus);
+        int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+        DataElement dataElement = TestDataUtil.GetDataElement(_dataElement3);
+        dataElement.Id = Guid.NewGuid().ToString();
+        dataElement.InstanceGuid = instanceGuid.ToString();
+
+        // Act
+        ProcessStatusConflictException exception =
+            await Assert.ThrowsAsync<ProcessStatusConflictException>(() =>
+                dataElementFixture.DataRepo.Create(dataElement.FromApiModel(), _instanceInternalId)
+            );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Conflict, exception.StatusCodeSuggestion);
+        Assert.Equal(currentStatus, exception.CurrentProcessStatus);
+        Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id)));
+        Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
+        Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
+    }
+
+    [Fact]
+    public async Task DataElement_Create_ProcessingStatusWithUnavailableBlob_ReportsProcessStatusConflictFirst()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        string unavailableBlobVersion = BlobVersionId.Encode(Guid.CreateVersion7());
+        DataElement dataElement = TestDataUtil.GetDataElement(_dataElement3);
+        dataElement.Id = Guid.NewGuid().ToString();
+        dataElement.InstanceGuid = instanceGuid.ToString();
+        dataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+            _instance.AppId,
+            instanceGuid.ToString(),
+            unavailableBlobVersion
+        );
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+
+        // Act
+        ProcessStatusConflictException exception =
+            await Assert.ThrowsAsync<ProcessStatusConflictException>(() =>
+                dataElementFixture.DataRepo.Create(
+                    dataElement.FromApiModel(unavailableBlobVersion),
+                    _instanceInternalId
+                )
+            );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Conflict, exception.StatusCodeSuggestion);
+        Assert.Equal(ProcessStatus.Processing, exception.CurrentProcessStatus);
+        Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id)));
+        Assert.Equal(0, await CountBlobVersionRows(unavailableBlobVersion));
+        Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
+        Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
+    }
+
+    [Fact]
+    public async Task DataElement_Create_BlobVersion_AttachesOnceAndRejectsRepeatedAttachWithoutMutation()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        DataElement dataElement = TestDataUtil.GetDataElement(_dataElement3);
+        dataElement.Id = Guid.NewGuid().ToString();
+        dataElement.InstanceGuid = instanceGuid.ToString();
+        dataElement.LastChanged = DateTime.UtcNow;
+        dataElement.LastChangedBy = "attach-once-test";
+        string blobVersion = await CreateBlobVersionId(instanceGuid, dataElement.Id);
+        dataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+            _instance.AppId,
+            instanceGuid.ToString(),
+            blobVersion
+        );
+
+        // Act
+        DataElementWriteResult result = await dataElementFixture.DataRepo.Create(
+            dataElement.FromApiModel(blobVersion),
+            _instanceInternalId
+        );
+        int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        ProcessStatusConflictException statusException =
+            await Assert.ThrowsAsync<ProcessStatusConflictException>(() =>
+                dataElementFixture.DataRepo.Create(
+                    dataElement.FromApiModel(blobVersion),
+                    _instanceInternalId
+                )
+            );
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Idle);
+        RepositoryException blobException = await Assert.ThrowsAsync<RepositoryException>(() =>
+            dataElementFixture.DataRepo.Create(
+                dataElement.FromApiModel(blobVersion),
+                _instanceInternalId
+            )
+        );
+
+        // Assert
+        Assert.Equal(blobVersion, result.DataElement.BlobVersionId);
+        Assert.Equal(ProcessStatus.Processing, statusException.CurrentProcessStatus);
+        Assert.Equal(HttpStatusCode.Conflict, blobException.StatusCodeSuggestion);
+        Assert.Contains(blobVersion, blobException.Message, StringComparison.Ordinal);
+        Assert.Equal(1, await CountBlobVersionRows(blobVersion));
+        Assert.Equal(1, await CountAttachedBlobVersionRows(blobVersion));
+        Assert.Equal(
+            1,
+            await PostgresUtil.RunCountQuery(
+                $"select count(*) from storage.dataelements where alternateid = '{dataElement.Id}'"
+            )
+        );
+        Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
+        Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
+    }
+
+    [Fact]
+    public async Task DataElement_Create_ProcessingStatusWithAvailableBlob_ConflictsWithoutAttachmentOrVersionBump()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        DataElement dataElement = TestDataUtil.GetDataElement(_dataElement3);
+        dataElement.Id = Guid.NewGuid().ToString();
+        dataElement.InstanceGuid = instanceGuid.ToString();
+        string availableBlobVersion = await CreateBlobVersionId(instanceGuid, dataElement.Id);
+        dataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+            _instance.AppId,
+            instanceGuid.ToString(),
+            availableBlobVersion
+        );
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+
+        // Act
+        ProcessStatusConflictException exception =
+            await Assert.ThrowsAsync<ProcessStatusConflictException>(() =>
+                dataElementFixture.DataRepo.Create(
+                    dataElement.FromApiModel(availableBlobVersion),
+                    _instanceInternalId
+                )
+            );
+
+        // Assert
+        Assert.Equal(ProcessStatus.Processing, exception.CurrentProcessStatus);
+        Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id)));
+        Assert.Equal(0, await CountAttachedBlobVersionRows(availableBlobVersion));
+        Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
+        Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
+    }
+
+    [Fact]
+    public async Task DataElement_Create_StaleInstanceVersionWinsBeforeProcessStatusConflict()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+        DataElement dataElement = TestDataUtil.GetDataElement(_dataElement3);
+        dataElement.Id = Guid.NewGuid().ToString();
+        dataElement.InstanceGuid = instanceGuid.ToString();
+        string availableBlobVersion = await CreateBlobVersionId(instanceGuid, dataElement.Id);
+        dataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+            _instance.AppId,
+            instanceGuid.ToString(),
+            availableBlobVersion
+        );
+
+        // Act
+        InstanceVersionMismatchException exception =
+            await Assert.ThrowsAsync<InstanceVersionMismatchException>(() =>
+                dataElementFixture.DataRepo.Create(
+                    dataElement.FromApiModel(availableBlobVersion),
+                    _instanceInternalId,
+                    expectedInstanceVersion: currentInstanceVersion - 1
+                )
+            );
+
+        // Assert
+        Assert.Equal(currentInstanceVersion, exception.CurrentInstanceVersion);
+        Assert.Equal(currentProcessStateVersion, exception.CurrentProcessStateVersion);
+        Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id)));
+        Assert.Equal(0, await CountAttachedBlobVersionRows(availableBlobVersion));
+        Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
+        Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
+    }
+
+    [Fact]
+    public async Task DataElement_UpdateMetadata_ProcessingStatus_ConflictsWithoutMutationOrVersionBump()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
+        dataElement.Id = Guid.NewGuid().ToString();
+        dataElement.InstanceGuid = instanceGuid.ToString();
+        DataElement createdDataElement = await CreateLegacyDataElement(dataElement);
+        List<KeyValueEntry> replacementMetadata = [new() { Key = "blocked", Value = "metadata" }];
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+
+        // Act
+        ProcessStatusConflictException exception =
+            await Assert.ThrowsAsync<ProcessStatusConflictException>(() =>
+                UpdateDataElement(
+                    instanceGuid,
+                    Guid.Parse(createdDataElement.Id),
+                    new Dictionary<string, object> { ["/metadata"] = replacementMetadata }
+                )
+            );
+
+        // Assert
+        DataElementInternal storedDataElement = await dataElementFixture.DataRepo.Read(
+            instanceGuid,
+            Guid.Parse(createdDataElement.Id)
+        );
+        Assert.Equal(ProcessStatus.Processing, exception.CurrentProcessStatus);
+        Assert.NotEqual(
+            JsonSerializer.Serialize(replacementMetadata),
+            JsonSerializer.Serialize(storedDataElement.Metadata)
+        );
+        Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
+        Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
+    }
+
+    [Fact]
+    public async Task DataElement_UpdateContent_ProcessingStatus_ConflictsWithoutBlobAttachOrVersionBump()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
+        dataElement.Id = Guid.NewGuid().ToString();
+        dataElement.InstanceGuid = instanceGuid.ToString();
+        (DataElement createdDataElement, string currentBlobVersion) =
+            await CreateVersionedDataElement(dataElement);
+        string replacementBlobVersion = await CreateBlobVersionId(
+            instanceGuid,
+            createdDataElement.Id
+        );
+        string replacementStoragePath = BlobRepository.GetVersionedBlobPath(
+            _instance.AppId,
+            instanceGuid.ToString(),
+            replacementBlobVersion
+        );
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+
+        // Act
+        ProcessStatusConflictException exception =
+            await Assert.ThrowsAsync<ProcessStatusConflictException>(() =>
+                UpdateDataElement(
+                    instanceGuid,
+                    Guid.Parse(createdDataElement.Id),
+                    new Dictionary<string, object>
+                    {
+                        ["/contentType"] = "blocked/content",
+                        ["/blobStoragePath"] = replacementStoragePath,
+                        ["/currentBlobVersion"] = replacementBlobVersion,
+                    },
+                    new DataElementUpdateContext
+                    {
+                        EnforceLockCheck = true,
+                        ExpectedCurrentBlobVersion = currentBlobVersion,
+                    }
+                )
+            );
+
+        // Assert
+        DataElementInternal storedDataElement = await dataElementFixture.DataRepo.Read(
+            instanceGuid,
+            Guid.Parse(createdDataElement.Id)
+        );
+        Assert.Equal(ProcessStatus.Processing, exception.CurrentProcessStatus);
+        Assert.Equal(currentBlobVersion, storedDataElement.BlobVersionId);
+        Assert.NotEqual("blocked/content", storedDataElement.ContentType);
+        Assert.Equal(0, await CountAttachedBlobVersionRows(replacementBlobVersion));
+        Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
+        Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
+    }
+
+    [Fact]
+    public async Task DataElement_UpdateContent_ProcessingStatusWithUnavailableBlob_ReportsProcessStatusConflictFirst()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
+        dataElement.Id = Guid.NewGuid().ToString();
+        dataElement.InstanceGuid = instanceGuid.ToString();
+        (DataElement createdDataElement, string currentBlobVersion) =
+            await CreateVersionedDataElement(dataElement);
+        string unavailableBlobVersion = BlobVersionId.Encode(Guid.CreateVersion7());
+        string unavailableStoragePath = BlobRepository.GetVersionedBlobPath(
+            _instance.AppId,
+            instanceGuid.ToString(),
+            unavailableBlobVersion
+        );
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+
+        // Act
+        ProcessStatusConflictException exception =
+            await Assert.ThrowsAsync<ProcessStatusConflictException>(() =>
+                UpdateDataElement(
+                    instanceGuid,
+                    Guid.Parse(createdDataElement.Id),
+                    new Dictionary<string, object>
+                    {
+                        ["/contentType"] = "blocked/unavailable-content",
+                        ["/blobStoragePath"] = unavailableStoragePath,
+                        ["/currentBlobVersion"] = unavailableBlobVersion,
+                    },
+                    new DataElementUpdateContext
+                    {
+                        EnforceLockCheck = true,
+                        ExpectedCurrentBlobVersion = currentBlobVersion,
+                    }
+                )
+            );
+
+        // Assert
+        DataElementInternal storedDataElement = await dataElementFixture.DataRepo.Read(
+            instanceGuid,
+            Guid.Parse(createdDataElement.Id)
+        );
+        Assert.Equal(HttpStatusCode.Conflict, exception.StatusCodeSuggestion);
+        Assert.Equal(ProcessStatus.Processing, exception.CurrentProcessStatus);
+        Assert.Equal(currentBlobVersion, storedDataElement.BlobVersionId);
+        Assert.NotEqual("blocked/unavailable-content", storedDataElement.ContentType);
+        Assert.Equal(0, await CountBlobVersionRows(unavailableBlobVersion));
+        Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
+        Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
+    }
+
+    [Fact]
+    public async Task DataElement_Update_BlobVersion_AttachesOnceAndRejectsRepeatedAttachWithoutMutation()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
+        dataElement.Id = Guid.NewGuid().ToString();
+        dataElement.InstanceGuid = instanceGuid.ToString();
+        (DataElement createdDataElement, string currentBlobVersion) =
+            await CreateVersionedDataElement(dataElement);
+        string replacementBlobVersion = await CreateBlobVersionId(
+            instanceGuid,
+            createdDataElement.Id
+        );
+        string replacementStoragePath = BlobRepository.GetVersionedBlobPath(
+            _instance.AppId,
+            instanceGuid.ToString(),
+            replacementBlobVersion
+        );
+
+        // Act
+        DataElementInternal updatedDataElement = await UpdateDataElement(
+            instanceGuid,
+            Guid.Parse(createdDataElement.Id),
+            new Dictionary<string, object>
+            {
+                ["/blobStoragePath"] = replacementStoragePath,
+                ["/currentBlobVersion"] = replacementBlobVersion,
+            },
+            new DataElementUpdateContext { ExpectedCurrentBlobVersion = currentBlobVersion }
+        );
+        int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        ProcessStatusConflictException statusException =
+            await Assert.ThrowsAsync<ProcessStatusConflictException>(() =>
+                UpdateDataElement(
+                    instanceGuid,
+                    Guid.Parse(createdDataElement.Id),
+                    new Dictionary<string, object>
+                    {
+                        ["/contentType"] = "must/not/commit",
+                        ["/currentBlobVersion"] = replacementBlobVersion,
+                    },
+                    new DataElementUpdateContext
+                    {
+                        ExpectedCurrentBlobVersion = replacementBlobVersion,
+                    }
+                )
+            );
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Idle);
+        RepositoryException blobException = await Assert.ThrowsAsync<RepositoryException>(() =>
+            UpdateDataElement(
+                instanceGuid,
+                Guid.Parse(createdDataElement.Id),
+                new Dictionary<string, object>
+                {
+                    ["/contentType"] = "must/not/commit",
+                    ["/currentBlobVersion"] = replacementBlobVersion,
+                },
+                new DataElementUpdateContext { ExpectedCurrentBlobVersion = replacementBlobVersion }
+            )
+        );
+
+        // Assert
+        DataElementInternal storedDataElement = await dataElementFixture.DataRepo.Read(
+            instanceGuid,
+            Guid.Parse(createdDataElement.Id)
+        );
+        Assert.Equal(replacementBlobVersion, updatedDataElement.BlobVersionId);
+        Assert.Equal(ProcessStatus.Processing, statusException.CurrentProcessStatus);
+        Assert.Equal(HttpStatusCode.Conflict, blobException.StatusCodeSuggestion);
+        Assert.Equal(replacementBlobVersion, storedDataElement.BlobVersionId);
+        Assert.NotEqual("must/not/commit", storedDataElement.ContentType);
+        Assert.Equal(1, await CountBlobVersionRows(replacementBlobVersion));
+        Assert.Equal(1, await CountAttachedBlobVersionRows(replacementBlobVersion));
+        Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
+        Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
+    }
+
+    [Fact]
+    public async Task DataElement_Update_StaleInstanceVersionWinsBeforeProcessStatusConflict()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
+        dataElement.Id = Guid.NewGuid().ToString();
+        dataElement.InstanceGuid = instanceGuid.ToString();
+        (DataElement createdDataElement, string currentBlobVersion) =
+            await CreateVersionedDataElement(dataElement);
+        string replacementBlobVersion = await CreateBlobVersionId(
+            instanceGuid,
+            createdDataElement.Id
+        );
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+
+        // Act
+        InstanceVersionMismatchException exception =
+            await Assert.ThrowsAsync<InstanceVersionMismatchException>(() =>
+                UpdateDataElement(
+                    instanceGuid,
+                    Guid.Parse(createdDataElement.Id),
+                    new Dictionary<string, object>
+                    {
+                        ["/contentType"] = "must/not/commit",
+                        ["/currentBlobVersion"] = replacementBlobVersion,
+                    },
+                    new DataElementUpdateContext
+                    {
+                        ExpectedCurrentBlobVersion = currentBlobVersion,
+                        ExpectedInstanceVersion = currentInstanceVersion - 1,
+                    }
+                )
+            );
+
+        // Assert
+        DataElementInternal storedDataElement = await dataElementFixture.DataRepo.Read(
+            instanceGuid,
+            Guid.Parse(createdDataElement.Id)
+        );
+        Assert.Equal(currentInstanceVersion, exception.CurrentInstanceVersion);
+        Assert.Equal(currentProcessStateVersion, exception.CurrentProcessStateVersion);
+        Assert.Equal(currentBlobVersion, storedDataElement.BlobVersionId);
+        Assert.NotEqual("must/not/commit", storedDataElement.ContentType);
+        Assert.Equal(0, await CountAttachedBlobVersionRows(replacementBlobVersion));
+        Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
+        Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task DataElement_UpdateLockStatus_Idle_SucceedsWithoutBumpingVersions(bool locked)
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
+        dataElement.Id = Guid.NewGuid().ToString();
+        dataElement.InstanceGuid = instanceGuid.ToString();
+        dataElement.Locked = !locked;
+        DataElement createdDataElement = await CreateLegacyDataElement(dataElement);
+        int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+
+        // Act
+        DataElementWriteResult result = await dataElementFixture.DataRepo.UpdateLockStatus(
+            instanceGuid,
+            Guid.Parse(createdDataElement.Id),
+            locked
+        );
+
+        // Assert
+        Assert.Equal(locked, result.DataElement.Locked);
+        Assert.Equal(previousInstanceVersion, result.Versions.InstanceVersion);
+        Assert.Equal(previousProcessStateVersion, result.Versions.ProcessStateVersion);
+        Assert.Equal(previousInstanceVersion, await ReadInstanceVersion(instanceGuid));
+        Assert.Equal(previousProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
+    }
+
+    [Theory]
+    [InlineData(true, ProcessStatus.Processing)]
+    [InlineData(false, "future-status")]
+    public async Task DataElement_UpdateLockStatus_NonIdleStatus_ConflictsWithoutMutation(
+        bool locked,
+        string currentStatus
+    )
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
+        dataElement.Id = Guid.NewGuid().ToString();
+        dataElement.InstanceGuid = instanceGuid.ToString();
+        dataElement.Locked = !locked;
+        DataElement createdDataElement = await CreateLegacyDataElement(dataElement);
+        await SetStoredProcessStatus(instanceGuid, currentStatus);
+        int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+
+        // Act
+        ProcessStatusConflictException exception =
+            await Assert.ThrowsAsync<ProcessStatusConflictException>(() =>
+                dataElementFixture.DataRepo.UpdateLockStatus(
+                    instanceGuid,
+                    Guid.Parse(createdDataElement.Id),
+                    locked
+                )
+            );
+
+        // Assert
+        DataElementInternal storedDataElement = await dataElementFixture.DataRepo.Read(
+            instanceGuid,
+            Guid.Parse(createdDataElement.Id)
+        );
+        Assert.Equal(currentStatus, exception.CurrentProcessStatus);
+        Assert.Equal(!locked, storedDataElement.Locked);
+        Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
+        Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
+    }
+
+    [Fact]
+    public async Task DataElement_UpdateReadStatus_ProcessingStatus_RemainsExemptAndDoesNotBumpVersions()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
+        dataElement.Id = Guid.NewGuid().ToString();
+        dataElement.InstanceGuid = instanceGuid.ToString();
+        dataElement.IsRead = false;
+        DataElement createdDataElement = await CreateLegacyDataElement(dataElement);
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+
+        // Act
+        DataElementWriteResult result = await dataElementFixture.DataRepo.UpdateReadStatus(
+            instanceGuid,
+            Guid.Parse(createdDataElement.Id),
+            true
+        );
+
+        // Assert
+        Assert.True(result.DataElement.IsRead);
+        Assert.Equal(currentInstanceVersion, result.Versions.InstanceVersion);
+        Assert.Equal(currentProcessStateVersion, result.Versions.ProcessStateVersion);
+        Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
+        Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
+    }
+
+    [Fact]
+    public async Task DataElement_UpdateFileScanStatus_ProcessingStatus_RemainsExemptAndDoesNotBumpVersions()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
+        dataElement.Id = Guid.NewGuid().ToString();
+        dataElement.InstanceGuid = instanceGuid.ToString();
+        dataElement.FileScanResult = FileScanResult.Pending;
+        (DataElement createdDataElement, string currentBlobVersion) =
+            await CreateVersionedDataElement(dataElement);
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+
+        // Act
+        DataElementWriteResult result = await dataElementFixture.DataRepo.UpdateFileScanStatus(
+            instanceGuid,
+            Guid.Parse(createdDataElement.Id),
+            new FileScanStatus
+            {
+                FileScanResult = FileScanResult.Clean,
+                BlobVersionId = currentBlobVersion,
+            }
+        );
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(FileScanResult.Clean, result.DataElement.FileScanResult);
+        Assert.Equal(currentInstanceVersion, result.Versions.InstanceVersion);
+        Assert.Equal(currentProcessStateVersion, result.Versions.ProcessStateVersion);
+        Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
+        Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
+    }
+
+    [Fact]
+    public async Task DataElement_Create_RacingProcessingTransition_SerializesAndDoesNotMutate()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        DataElementInternal dataElement = await PrepareAggregateCreateDataElement(instanceGuid);
+        int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+
+        await using NpgsqlConnection gateConnection =
+            await dataElementFixture.DataSource.OpenConnectionAsync();
+        await using NpgsqlTransaction gateTransaction =
+            await gateConnection.BeginTransactionAsync();
+        await using (
+            NpgsqlCommand lockCommand = new(
+                "select 1 from storage.instances where alternateid = $1 for update",
+                gateConnection,
+                gateTransaction
+            )
+        )
+        {
+            lockCommand.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
+            Assert.Equal(1, Convert.ToInt32(await lockCommand.ExecuteScalarAsync()));
+
+            Task<DataElementWriteResult> createTask = dataElementFixture.DataRepo.Create(
+                dataElement,
+                _instanceInternalId
+            );
+
+            try
+            {
+                await WaitForBlockedDatabaseCalls("storage.insertdataelement_v3", expectedCount: 1);
+            }
+            catch
+            {
+                await gateTransaction.RollbackAsync();
+                try
+                {
+                    await createTask;
+                }
+                catch
+                {
+                    // Observe the task before propagating the synchronization failure.
+                }
+
+                throw;
+            }
+
+            await using NpgsqlCommand transitionCommand = new(
+                """
+                update storage.instances
+                set instance = jsonb_set(
+                        instance,
+                        '{Process}',
+                        (case
+                            when jsonb_typeof(instance -> 'Process') = 'object'
+                            then instance -> 'Process'
+                            else '{}'::jsonb
+                        end) || jsonb_build_object('Status', 'processing')
+                    ),
+                    instance_version = instance_version + 1,
+                    process_state_version = process_state_version + 1
+                where alternateid = $1
+                """,
+                gateConnection,
+                gateTransaction
+            );
+            transitionCommand.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
+            Assert.Equal(1, await transitionCommand.ExecuteNonQueryAsync());
+            await gateTransaction.CommitAsync();
+
+            ProcessStatusConflictException exception =
+                await Assert.ThrowsAsync<ProcessStatusConflictException>(() => createTask);
+
+            // Assert
+            Assert.Equal(ProcessStatus.Processing, exception.CurrentProcessStatus);
+            Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id)));
+            Assert.Equal(0, await CountAttachedBlobVersionRows(dataElement.BlobVersionId));
+            Assert.Equal(previousInstanceVersion + 1, await ReadInstanceVersion(instanceGuid));
+            Assert.Equal(
+                previousProcessStateVersion + 1,
+                await ReadProcessStateVersion(instanceGuid)
+            );
+        }
     }
 
     [Fact]
@@ -1769,7 +2514,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     }
 
     [Fact]
-    public async Task AggregateMutation_DeleteInstanceRetryOnHardDeletedInstance_ReplaysAndDoesNotDuplicateDeletedEvent()
+    public async Task AggregateMutation_DeleteInstanceRetryOnHardDeletedInstance_ReplayAdmissionAndApplySucceed()
     {
         // Arrange
         Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
@@ -1797,15 +2542,14 @@ public class DataTests(DataElementFixture dataElementFixture)
                 _instanceInternalId,
                 firstMutation
             );
-        RepositoryException replayException = await Assert.ThrowsAsync<RepositoryException>(() =>
-            dataElementFixture.InstanceMutationRepo.TryReplayAdmission(
+        InstanceMutationApplyResult replayAdmission =
+            await dataElementFixture.InstanceMutationRepo.TryReplayAdmission(
                 instanceGuid,
                 previousInstanceVersion,
                 firstResult.Instance.Versions.InstanceVersion,
                 firstResult.Instance.Versions.ProcessStateVersion,
                 idempotencyKey
-            )
-        );
+            );
         InstanceMutationApplyResult retryResult =
             await dataElementFixture.InstanceMutationRepo.Apply(
                 instanceGuid,
@@ -1820,11 +2564,9 @@ public class DataTests(DataElementFixture dataElementFixture)
 
         // Assert
         Assert.False(firstResult.Replayed);
-        Assert.Equal(HttpStatusCode.NotFound, replayException.StatusCodeSuggestion);
-        Assert.Equal(
-            $"Instance {instanceGuid} is deleted and cannot be modified.",
-            replayException.Message
-        );
+        Assert.True(replayAdmission.Replayed);
+        Assert.Equal(firstResult.Instance.Versions, replayAdmission.Instance.Versions);
+        Assert.True(replayAdmission.Instance.Status.IsHardDeleted);
         Assert.True(retryResult.Replayed);
         Assert.Equal(firstResult.Instance.Versions, retryResult.Instance.Versions);
         Assert.True(updatedInternal.Status.IsHardDeleted);
@@ -1835,6 +2577,221 @@ public class DataTests(DataElementFixture dataElementFixture)
             1,
             await CountInstanceEvents(instanceGuid, InstanceEventType.Deleted.ToString())
         );
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AggregateMutation_TerminalHardDelete_CommitsEndedIdleDeleteAndCleanupAtomically(
+        bool deleteDataElement
+    )
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        DataElement dataElement = null;
+        string blobVersionId = null;
+        if (deleteDataElement)
+        {
+            (dataElement, blobVersionId) = await CreateVersionedDataElement(
+                TestDataUtil.GetDataElement(_dataElement2)
+            );
+        }
+
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+        Guid idempotencyKey = Guid.NewGuid();
+        DateTime processEnded = new(2026, 6, 7, 8, 9, 10, DateTimeKind.Utc);
+        DateTime deletedAt = new(2026, 6, 7, 8, 9, 11, DateTimeKind.Utc);
+        InstanceMutationCommit mutation = CreateTerminalDeleteInstanceMutation(
+            processEnded,
+            deletedAt,
+            previousInstanceVersion,
+            previousProcessStateVersion,
+            idempotencyKey,
+            dataElement
+        );
+
+        // Act
+        InstanceMutationApplyResult firstResult =
+            await dataElementFixture.InstanceMutationRepo.Apply(
+                instanceGuid,
+                _instanceInternalId,
+                mutation
+            );
+        InstanceMutationApplyResult replayAdmission =
+            await dataElementFixture.InstanceMutationRepo.TryReplayAdmission(
+                instanceGuid,
+                previousInstanceVersion,
+                firstResult.Instance.Versions.InstanceVersion,
+                firstResult.Instance.Versions.ProcessStateVersion,
+                idempotencyKey
+            );
+        InstanceMutationApplyResult replayResult =
+            await dataElementFixture.InstanceMutationRepo.Apply(
+                instanceGuid,
+                _instanceInternalId,
+                mutation
+            );
+        InstanceInternal persistedInstance = await dataElementFixture.InstanceRepo.GetOne(
+            instanceGuid,
+            false,
+            CancellationToken.None
+        );
+        using JsonDocument rawInstance = JsonDocument.Parse(
+            await ReadStoredInstanceJson(instanceGuid)
+        );
+
+        // Assert
+        Assert.False(firstResult.Replayed);
+        Assert.True(replayAdmission.Replayed);
+        Assert.Equal(firstResult.Instance.Versions, replayAdmission.Instance.Versions);
+        Assert.True(replayAdmission.Instance.Status.IsHardDeleted);
+        Assert.Equal(ProcessStatus.Idle, replayAdmission.Instance.Process.Status);
+        Assert.True(replayResult.Replayed);
+        Assert.Equal(firstResult.Instance.Versions, replayResult.Instance.Versions);
+        Assert.Equal(previousInstanceVersion + 1, firstResult.Instance.Versions.InstanceVersion);
+        Assert.Equal(
+            previousProcessStateVersion + 1,
+            firstResult.Instance.Versions.ProcessStateVersion
+        );
+        Assert.Equal(ProcessStatus.Idle, firstResult.Instance.Process.Status);
+        Assert.Equal(processEnded, firstResult.Instance.Process.Ended);
+        Assert.Equal("EndEvent_1", firstResult.Instance.Process.EndEvent);
+        Assert.Null(firstResult.Instance.Process.CurrentTask);
+        Assert.True(firstResult.Instance.Status.IsHardDeleted);
+        Assert.True(firstResult.Instance.Status.IsSoftDeleted);
+        Assert.Equal(deletedAt, firstResult.Instance.Status.HardDeleted);
+        Assert.Equal(deletedAt, firstResult.Instance.Status.SoftDeleted);
+        Assert.Equal(processEnded, firstResult.Instance.Status.Archived);
+        Assert.True(firstResult.Instance.Status.IsArchived);
+        Assert.Equal(firstResult.Instance.Versions, persistedInstance.Versions);
+        Assert.Equal(ProcessStatus.Idle, persistedInstance.Process.Status);
+        Assert.Equal(processEnded, persistedInstance.Process.Ended);
+        Assert.Equal("EndEvent_1", persistedInstance.Process.EndEvent);
+        Assert.Null(persistedInstance.Process.CurrentTask);
+        Assert.True(persistedInstance.Status.IsHardDeleted);
+        Assert.Equal(1, await CountInstanceRowsWithNullTask(instanceGuid));
+
+        JsonElement rawProcess = rawInstance.RootElement.GetProperty("Process");
+        JsonElement rawStatus = rawInstance.RootElement.GetProperty("Status");
+        Assert.Equal(ProcessStatus.Idle, rawProcess.GetProperty("Status").GetString());
+        Assert.Equal(processEnded, rawProcess.GetProperty("Ended").GetDateTime());
+        Assert.Equal("EndEvent_1", rawProcess.GetProperty("EndEvent").GetString());
+        Assert.False(rawProcess.TryGetProperty("CurrentTask", out _));
+        Assert.True(rawStatus.GetProperty("IsHardDeleted").GetBoolean());
+        Assert.True(rawStatus.GetProperty("IsSoftDeleted").GetBoolean());
+
+        Assert.Equal(
+            1,
+            await CountInstanceEvents(instanceGuid, InstanceEventType.process_EndEvent.ToString())
+        );
+        Assert.Equal(
+            deleteDataElement ? 2 : 1,
+            await CountInstanceEvents(instanceGuid, InstanceEventType.Deleted.ToString())
+        );
+        Assert.Equal(1, await CountIdempotencyRecords(idempotencyKey));
+        if (deleteDataElement)
+        {
+            Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id)));
+            Assert.Equal(1, await CountDetachedBlobVersionRows(blobVersionId));
+        }
+    }
+
+    [Theory]
+    [InlineData("instance-version")]
+    [InlineData("process-state-version")]
+    [InlineData("process-status")]
+    [InlineData("element-locked")]
+    public async Task AggregateMutation_TerminalHardDelete_FailureRollsBackEntireMutation(
+        string failure
+    )
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        (DataElement dataElement, string blobVersionId) = await CreateVersionedDataElement(
+            TestDataUtil.GetDataElement(_dataElement2)
+        );
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        if (failure == "element-locked")
+        {
+            await SetDataElementLocked(instanceGuid, dataElement.Id, locked: true);
+        }
+
+        int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+        string previousInstanceJson = await ReadStoredInstanceJson(instanceGuid);
+        Guid idempotencyKey = Guid.NewGuid();
+        InstanceMutationCommit mutation = CreateTerminalDeleteInstanceMutation(
+            new DateTime(2026, 6, 7, 8, 9, 10, DateTimeKind.Utc),
+            new DateTime(2026, 6, 7, 8, 9, 11, DateTimeKind.Utc),
+            failure == "instance-version" ? currentInstanceVersion - 1 : currentInstanceVersion,
+            failure == "process-state-version"
+                ? currentProcessStateVersion - 1
+                : currentProcessStateVersion,
+            idempotencyKey,
+            dataElement
+        );
+        if (failure == "process-status")
+        {
+            mutation = mutation with
+            {
+                ExpectedInstanceVersion = null,
+                ExpectedProcessStateVersion = null,
+            };
+        }
+
+        // Act
+        Exception exception = await Record.ExceptionAsync(() =>
+            dataElementFixture.InstanceMutationRepo.Apply(
+                instanceGuid,
+                _instanceInternalId,
+                mutation
+            )
+        );
+
+        // Assert
+        switch (failure)
+        {
+            case "instance-version":
+                Assert.IsType<InstanceVersionMismatchException>(exception);
+                break;
+            case "process-state-version":
+                Assert.IsType<ProcessStateVersionMismatchException>(exception);
+                break;
+            case "process-status":
+                ProcessStatusConflictException statusException =
+                    Assert.IsType<ProcessStatusConflictException>(exception);
+                Assert.Equal(ProcessStatus.Processing, statusException.CurrentProcessStatus);
+                break;
+            case "element-locked":
+                RepositoryException lockedException = Assert.IsType<RepositoryException>(exception);
+                Assert.Equal(HttpStatusCode.Conflict, lockedException.StatusCodeSuggestion);
+                Assert.Contains("locked", lockedException.Message, StringComparison.Ordinal);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(
+                    nameof(failure),
+                    failure,
+                    "Unknown terminal mutation failure."
+                );
+        }
+
+        Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
+        Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
+        Assert.Equal(previousInstanceJson, await ReadStoredInstanceJson(instanceGuid));
+        Assert.Equal(ProcessStatus.Processing, await ReadStoredProcessStatus(instanceGuid));
+        Assert.True(await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id)));
+        Assert.Equal(1, await CountAttachedBlobVersionRows(blobVersionId));
+        Assert.Equal(
+            0,
+            await CountInstanceEvents(instanceGuid, InstanceEventType.process_EndEvent.ToString())
+        );
+        Assert.Equal(
+            0,
+            await CountInstanceEvents(instanceGuid, InstanceEventType.Deleted.ToString())
+        );
+        Assert.Equal(0, await CountIdempotencyRecords(idempotencyKey));
     }
 
     [Fact]
@@ -2329,6 +3286,572 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(processEnded, updatedInstanceInternal.Status.Archived);
         Assert.Equal("aggregate-process-end", updatedInstanceInternal.LastChangedBy);
         Assert.Equal("Task_Archive", await ReadInstanceTaskId(instanceGuid));
+    }
+
+    [Theory]
+    [InlineData("status-absent")]
+    [InlineData("status-null")]
+    [InlineData("process-absent")]
+    [InlineData("process-null")]
+    public async Task AggregateMutation_AcquireFromIdleWithoutProcessStateVersionFence_SetsProcessingAndBumpsBothVersions(
+        string idleRepresentation
+    )
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        await SetStoredProcessRepresentation(instanceGuid, idleRepresentation);
+        int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+        Guid idempotencyKey = Guid.NewGuid();
+        InstanceMutationCommit mutation = new(
+            [],
+            [],
+            [],
+            new InstanceInternal
+            {
+                Id = _instance.Id,
+                Process = new ProcessState { Status = ProcessStatus.Processing },
+            },
+            [nameof(InstanceInternal.Process)],
+            previousInstanceVersion,
+            null,
+            IdempotencyKey: idempotencyKey
+        );
+
+        // Act
+        InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
+            instanceGuid,
+            _instanceInternalId,
+            mutation
+        );
+
+        // Assert
+        Assert.False(result.Replayed);
+        Assert.Equal(ProcessStatus.Processing, result.Instance.Process.Status);
+        Assert.Equal(previousInstanceVersion + 1, result.Instance.Versions.InstanceVersion);
+        Assert.Equal(previousProcessStateVersion + 1, result.Instance.Versions.ProcessStateVersion);
+        Assert.Equal(ProcessStatus.Processing, await ReadStoredProcessStatus(instanceGuid));
+    }
+
+    [Theory]
+    [InlineData(ProcessStatus.Processing)]
+    [InlineData("future-status")]
+    public async Task AggregateMutation_NonIdleWithoutVersionFences_ReturnsConflictWithCurrentStatus(
+        string currentStatus
+    )
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        await SetStoredProcessStatus(instanceGuid, currentStatus);
+        int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+        InstanceMutationCommit mutation = new(
+            [],
+            [],
+            [],
+            new InstanceInternal { Id = _instance.Id },
+            [],
+            null,
+            null
+        );
+
+        // Act
+        ProcessStatusConflictException exception =
+            await Assert.ThrowsAsync<ProcessStatusConflictException>(() =>
+                dataElementFixture.InstanceMutationRepo.Apply(
+                    instanceGuid,
+                    _instanceInternalId,
+                    mutation
+                )
+            );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Conflict, exception.StatusCodeSuggestion);
+        Assert.Equal(currentStatus, exception.CurrentProcessStatus);
+        Assert.Contains(currentStatus, exception.Message, StringComparison.Ordinal);
+        Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
+        Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
+        Assert.Equal(currentStatus, await ReadStoredProcessStatus(instanceGuid));
+    }
+
+    [Fact]
+    public async Task AggregateMutation_NonIdleWithCurrentProcessStateVersionFence_Applies()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+        InstanceMutationCommit mutation = new(
+            [],
+            [],
+            [],
+            new InstanceInternal
+            {
+                Id = _instance.Id,
+                DataValues = new Dictionary<string, string> { ["fenced-write"] = "applied" },
+            },
+            [nameof(InstanceInternal.DataValues)],
+            currentInstanceVersion,
+            currentProcessStateVersion
+        );
+
+        // Act
+        InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
+            instanceGuid,
+            _instanceInternalId,
+            mutation
+        );
+
+        // Assert
+        Assert.Equal("applied", result.Instance.DataValues["fenced-write"]);
+        Assert.True(await InstanceDataValuesContainsKey(instanceGuid, "fenced-write"));
+        Assert.Equal(currentInstanceVersion + 1, await ReadInstanceVersion(instanceGuid));
+        Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
+    }
+
+    [Fact]
+    public async Task AggregateMutation_NonIdleWithCurrentInstanceVersionFenceOnly_Applies()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+        InstanceMutationCommit mutation = new(
+            [],
+            [],
+            [],
+            new InstanceInternal
+            {
+                Id = _instance.Id,
+                DataValues = new Dictionary<string, string>
+                {
+                    ["instance-version-fenced-write"] = "applied",
+                },
+            },
+            [nameof(InstanceInternal.DataValues)],
+            currentInstanceVersion,
+            null
+        );
+
+        // Act
+        InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
+            instanceGuid,
+            _instanceInternalId,
+            mutation
+        );
+
+        // Assert
+        Assert.Equal("applied", result.Instance.DataValues["instance-version-fenced-write"]);
+        Assert.True(
+            await InstanceDataValuesContainsKey(instanceGuid, "instance-version-fenced-write")
+        );
+        Assert.Equal(currentInstanceVersion + 1, await ReadInstanceVersion(instanceGuid));
+        Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
+        Assert.Equal(ProcessStatus.Processing, await ReadStoredProcessStatus(instanceGuid));
+    }
+
+    [Fact]
+    public async Task AggregateMutation_NonIdleWithStaleProcessStateVersionFence_ReturnsPreconditionFailed()
+    {
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+        InstanceMutationCommit mutation = new(
+            [],
+            [],
+            [],
+            new InstanceInternal
+            {
+                Id = _instance.Id,
+                DataValues = new Dictionary<string, string> { ["stale-fenced-write"] = "blocked" },
+            },
+            [nameof(InstanceInternal.DataValues)],
+            currentInstanceVersion,
+            currentProcessStateVersion - 1
+        );
+
+        ProcessStateVersionMismatchException exception =
+            await Assert.ThrowsAsync<ProcessStateVersionMismatchException>(() =>
+                dataElementFixture.InstanceMutationRepo.Apply(
+                    instanceGuid,
+                    _instanceInternalId,
+                    mutation
+                )
+            );
+
+        Assert.Equal(HttpStatusCode.PreconditionFailed, exception.StatusCodeSuggestion);
+        Assert.Equal(currentInstanceVersion, exception.CurrentInstanceVersion);
+        Assert.Equal(currentProcessStateVersion, exception.CurrentProcessStateVersion);
+        Assert.False(await InstanceDataValuesContainsKey(instanceGuid, "stale-fenced-write"));
+        Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
+        Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
+        Assert.Equal(ProcessStatus.Processing, await ReadStoredProcessStatus(instanceGuid));
+    }
+
+    [Fact]
+    public async Task AggregateMutation_StaleInstanceVersionWinsBeforeProcessStatusConflict()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+        InstanceMutationCommit mutation = new(
+            [],
+            [],
+            [],
+            new InstanceInternal { Id = _instance.Id },
+            [],
+            currentInstanceVersion - 1,
+            currentProcessStateVersion
+        );
+
+        // Act
+        InstanceVersionMismatchException exception =
+            await Assert.ThrowsAsync<InstanceVersionMismatchException>(() =>
+                dataElementFixture.InstanceMutationRepo.Apply(
+                    instanceGuid,
+                    _instanceInternalId,
+                    mutation
+                )
+            );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.PreconditionFailed, exception.StatusCodeSuggestion);
+        Assert.Equal(currentInstanceVersion, exception.CurrentInstanceVersion);
+        Assert.Equal(ProcessStatus.Processing, await ReadStoredProcessStatus(instanceGuid));
+    }
+
+    [Fact]
+    public async Task AggregateMutation_ProcessingPayload_KeepsStatusAndBumpsBothVersions()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+        InstanceMutationCommit mutation = new(
+            [],
+            [],
+            [],
+            new InstanceInternal
+            {
+                Id = _instance.Id,
+                Process = new ProcessState
+                {
+                    Status = ProcessStatus.Processing,
+                    CurrentTask = new ProcessElementInfo { ElementId = "Task_Keep" },
+                },
+            },
+            [nameof(InstanceInternal.Process)],
+            previousInstanceVersion,
+            previousProcessStateVersion
+        );
+
+        // Act
+        InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
+            instanceGuid,
+            _instanceInternalId,
+            mutation
+        );
+
+        // Assert
+        Assert.Equal(ProcessStatus.Processing, result.Instance.Process.Status);
+        Assert.Equal("Task_Keep", result.Instance.Process.CurrentTask.ElementId);
+        Assert.Equal(previousInstanceVersion + 1, result.Instance.Versions.InstanceVersion);
+        Assert.Equal(previousProcessStateVersion + 1, result.Instance.Versions.ProcessStateVersion);
+        Assert.Equal(ProcessStatus.Processing, await ReadStoredProcessStatus(instanceGuid));
+    }
+
+    [Fact]
+    public async Task AggregateMutation_ClearStatus_CommitsProcessAndIdleInSameVersionBump()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+        InstanceMutationCommit mutation = new(
+            [],
+            [],
+            [],
+            new InstanceInternal
+            {
+                Id = _instance.Id,
+                Process = new ProcessState
+                {
+                    Status = ProcessStatus.Idle,
+                    CurrentTask = new ProcessElementInfo { ElementId = "Task_Clear" },
+                },
+            },
+            [nameof(InstanceInternal.Process)],
+            previousInstanceVersion,
+            previousProcessStateVersion
+        );
+
+        // Act
+        InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
+            instanceGuid,
+            _instanceInternalId,
+            mutation
+        );
+
+        // Assert
+        Assert.Equal(ProcessStatus.Idle, result.Instance.Process.Status);
+        Assert.Equal("Task_Clear", result.Instance.Process.CurrentTask.ElementId);
+        Assert.Equal(previousInstanceVersion + 1, result.Instance.Versions.InstanceVersion);
+        Assert.Equal(previousProcessStateVersion + 1, result.Instance.Versions.ProcessStateVersion);
+        Assert.Equal(ProcessStatus.Idle, await ReadStoredProcessStatus(instanceGuid));
+    }
+
+    [Fact]
+    public async Task AggregateMutation_ProcessPayloadWithoutStatus_ClearsProcessing()
+    {
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
+        int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+        InstanceMutationCommit mutation = new(
+            [],
+            [],
+            [],
+            new InstanceInternal
+            {
+                Id = _instance.Id,
+                Process = new ProcessState
+                {
+                    CurrentTask = new ProcessElementInfo { ElementId = "Task_Missing_Status" },
+                },
+            },
+            [nameof(InstanceInternal.Process)],
+            previousInstanceVersion,
+            previousProcessStateVersion
+        );
+
+        InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
+            instanceGuid,
+            _instanceInternalId,
+            mutation
+        );
+
+        Assert.Null(result.Instance.Process.Status);
+        Assert.Equal(ProcessStatus.Idle, await ReadStoredProcessStatus(instanceGuid));
+        Assert.Equal(previousInstanceVersion + 1, result.Instance.Versions.InstanceVersion);
+        Assert.Equal(previousProcessStateVersion + 1, result.Instance.Versions.ProcessStateVersion);
+    }
+
+    [Fact]
+    public async Task AggregateMutation_AcquireReplaySucceedsUntilInstanceAdvances()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        await SetStoredProcessRepresentation(instanceGuid, "status-absent");
+        int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+        Guid acquireKey = Guid.NewGuid();
+        InstanceMutationCommit acquireMutation = new(
+            [],
+            [],
+            [],
+            new InstanceInternal
+            {
+                Id = _instance.Id,
+                Process = new ProcessState { Status = ProcessStatus.Processing },
+            },
+            [nameof(InstanceInternal.Process)],
+            previousInstanceVersion,
+            previousProcessStateVersion,
+            IdempotencyKey: acquireKey
+        );
+
+        // Act
+        InstanceMutationApplyResult firstResult =
+            await dataElementFixture.InstanceMutationRepo.Apply(
+                instanceGuid,
+                _instanceInternalId,
+                acquireMutation
+            );
+        InstanceMutationApplyResult replayResult =
+            await dataElementFixture.InstanceMutationRepo.Apply(
+                instanceGuid,
+                _instanceInternalId,
+                acquireMutation
+            );
+        InstanceMutationCommit laterMutation = new(
+            [],
+            [],
+            [],
+            new InstanceInternal
+            {
+                Id = _instance.Id,
+                Process = new ProcessState
+                {
+                    Status = ProcessStatus.Processing,
+                    CurrentTask = new ProcessElementInfo { ElementId = "Task_Later" },
+                },
+            },
+            [nameof(InstanceInternal.Process)],
+            firstResult.Instance.Versions.InstanceVersion,
+            firstResult.Instance.Versions.ProcessStateVersion,
+            IdempotencyKey: Guid.NewGuid()
+        );
+        InstanceMutationApplyResult laterResult =
+            await dataElementFixture.InstanceMutationRepo.Apply(
+                instanceGuid,
+                _instanceInternalId,
+                laterMutation
+            );
+        InstanceVersionMismatchException staleReplayException =
+            await Assert.ThrowsAsync<InstanceVersionMismatchException>(() =>
+                dataElementFixture.InstanceMutationRepo.Apply(
+                    instanceGuid,
+                    _instanceInternalId,
+                    acquireMutation
+                )
+            );
+
+        // Assert
+        Assert.False(firstResult.Replayed);
+        Assert.True(replayResult.Replayed);
+        Assert.Equal(firstResult.Instance.Versions, replayResult.Instance.Versions);
+        Assert.False(laterResult.Replayed);
+        Assert.Equal(
+            firstResult.Instance.Versions.InstanceVersion + 1,
+            laterResult.Instance.Versions.InstanceVersion
+        );
+        Assert.Equal(
+            firstResult.Instance.Versions.ProcessStateVersion + 1,
+            laterResult.Instance.Versions.ProcessStateVersion
+        );
+        Assert.Equal(
+            laterResult.Instance.Versions.InstanceVersion,
+            staleReplayException.CurrentInstanceVersion
+        );
+        Assert.Equal(ProcessStatus.Processing, await ReadStoredProcessStatus(instanceGuid));
+    }
+
+    [Fact]
+    public async Task AggregateMutation_ConcurrentAcquire_CommitsExactlyOnce()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        await SetStoredProcessRepresentation(instanceGuid, "status-absent");
+        int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+        Guid firstIdempotencyKey = Guid.NewGuid();
+        Guid secondIdempotencyKey = Guid.NewGuid();
+        InstanceMutationCommit firstMutation = new(
+            [],
+            [],
+            [],
+            new InstanceInternal
+            {
+                Id = _instance.Id,
+                Process = new ProcessState { Status = ProcessStatus.Processing },
+            },
+            [nameof(InstanceInternal.Process)],
+            previousInstanceVersion,
+            previousProcessStateVersion,
+            IdempotencyKey: firstIdempotencyKey
+        );
+        InstanceMutationCommit secondMutation = firstMutation with
+        {
+            IdempotencyKey = secondIdempotencyKey,
+        };
+
+        await using NpgsqlConnection gateConnection =
+            await dataElementFixture.DataSource.OpenConnectionAsync();
+        await using NpgsqlTransaction gateTransaction =
+            await gateConnection.BeginTransactionAsync();
+        await using (
+            NpgsqlCommand lockCommand = new(
+                "select 1 from storage.instances where alternateid = $1 for update",
+                gateConnection,
+                gateTransaction
+            )
+        )
+        {
+            lockCommand.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
+            Assert.Equal(1, Convert.ToInt32(await lockCommand.ExecuteScalarAsync()));
+
+            Task<InstanceMutationApplyResult> firstTask =
+                dataElementFixture.InstanceMutationRepo.Apply(
+                    instanceGuid,
+                    _instanceInternalId,
+                    firstMutation
+                );
+            Task<InstanceMutationApplyResult> secondTask =
+                dataElementFixture.InstanceMutationRepo.Apply(
+                    instanceGuid,
+                    _instanceInternalId,
+                    secondMutation
+                );
+
+            try
+            {
+                await WaitForBlockedAggregateMutations(expectedCount: 2);
+            }
+            catch
+            {
+                await gateTransaction.RollbackAsync();
+                try
+                {
+                    await Task.WhenAll(firstTask, secondTask);
+                }
+                catch
+                {
+                    // Observe both tasks before propagating the synchronization failure.
+                }
+
+                throw;
+            }
+
+            await gateTransaction.CommitAsync();
+
+            InstanceMutationApplyResult firstResult = null;
+            Exception firstException = await Record.ExceptionAsync(async () =>
+            {
+                firstResult = await firstTask;
+            });
+            InstanceMutationApplyResult secondResult = null;
+            Exception secondException = await Record.ExceptionAsync(async () =>
+            {
+                secondResult = await secondTask;
+            });
+
+            // Assert
+            Assert.Equal(
+                1,
+                new[] { firstResult, secondResult }.Count(result => result is not null)
+            );
+            Assert.Equal(
+                1,
+                new[] { firstException, secondException }.Count(exception => exception is not null)
+            );
+            InstanceVersionMismatchException losingException =
+                Assert.IsType<InstanceVersionMismatchException>(firstException ?? secondException);
+            Assert.Equal(previousInstanceVersion + 1, losingException.CurrentInstanceVersion);
+
+            InstanceMutationApplyResult winningResult = firstResult ?? secondResult;
+            Assert.False(winningResult.Replayed);
+            Guid winningIdempotencyKey = firstResult is not null
+                ? firstIdempotencyKey
+                : secondIdempotencyKey;
+            Guid losingIdempotencyKey = firstResult is null
+                ? firstIdempotencyKey
+                : secondIdempotencyKey;
+            Assert.Equal(ProcessStatus.Processing, await ReadStoredProcessStatus(instanceGuid));
+            Assert.Equal(previousInstanceVersion + 1, await ReadInstanceVersion(instanceGuid));
+            Assert.Equal(
+                previousProcessStateVersion + 1,
+                await ReadProcessStateVersion(instanceGuid)
+            );
+            Assert.Equal(1, await CountIdempotencyRecords(winningIdempotencyKey));
+            Assert.Equal(0, await CountIdempotencyRecords(losingIdempotencyKey));
+        }
     }
 
     [Fact]
@@ -3497,6 +5020,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                 status: new JsonObject { ["IsArchived"] = true, ["Archived"] = archived },
                 process: new JsonObject
                 {
+                    ["Status"] = ProcessStatus.Processing,
                     ["CurrentTask"] = new JsonObject { ["ElementId"] = "Task_10" },
                 },
                 taskId: "Task_10",
@@ -3535,6 +5059,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.True(updatedInstance.Status.IsArchived);
         Assert.Equal(archived, updatedInstance.Status.Archived);
         Assert.Equal("Task_10", updatedInstance.Process.CurrentTask.ElementId);
+        Assert.Equal(ProcessStatus.Processing, updatedInstance.Process.Status);
         Assert.Equal("Task_10", await ReadInstanceTaskId(instanceGuid));
         Assert.True(await ReadInstanceConfirmed(instanceGuid));
         Assert.Equal(
@@ -5969,6 +7494,103 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
     }
 
+    private InstanceMutationCommit CreateTerminalDeleteInstanceMutation(
+        DateTime processEnded,
+        DateTime deletedAt,
+        int expectedInstanceVersion,
+        int expectedProcessStateVersion,
+        Guid idempotencyKey,
+        DataElement dataElement = null
+    )
+    {
+        ProcessState endedProcess = new()
+        {
+            Ended = processEnded,
+            EndEvent = "EndEvent_1",
+            CurrentTask = null,
+            Status = ProcessStatus.Idle,
+        };
+        List<InstanceEvent> events =
+        [
+            new()
+            {
+                EventType = InstanceEventType.process_EndEvent.ToString(),
+                InstanceId = _instance.Id,
+                InstanceOwnerPartyId = _instance.InstanceOwner.PartyId,
+                ProcessInfo = endedProcess,
+                Created = processEnded,
+            },
+            new()
+            {
+                EventType = InstanceEventType.Deleted.ToString(),
+                InstanceId = _instance.Id,
+                InstanceOwnerPartyId = _instance.InstanceOwner.PartyId,
+                ProcessInfo = endedProcess,
+                Created = deletedAt,
+            },
+        ];
+        List<InstanceMutationDataElementDelete> deleteDataElements = [];
+        if (dataElement is not null)
+        {
+            deleteDataElements.Add(
+                new InstanceMutationDataElementDelete(dataElement.FromApiModel(), IgnoreLock: false)
+            );
+            events.Add(
+                new InstanceEvent
+                {
+                    EventType = InstanceEventType.Deleted.ToString(),
+                    InstanceId = _instance.Id,
+                    InstanceOwnerPartyId = _instance.InstanceOwner.PartyId,
+                    DataId = dataElement.Id,
+                    ProcessInfo = endedProcess,
+                    Created = deletedAt,
+                }
+            );
+        }
+
+        return new InstanceMutationCommit(
+            [],
+            [],
+            deleteDataElements,
+            new InstanceInternal
+            {
+                Id = _instance.Id,
+                AppId = _instance.AppId,
+                Org = _instance.Org,
+                InstanceOwner = _instance.InstanceOwner,
+                Created = _instance.Created,
+                Process = endedProcess,
+                Status = new InstanceStatus
+                {
+                    IsArchived = true,
+                    Archived = processEnded,
+                    IsHardDeleted = true,
+                    IsSoftDeleted = true,
+                    HardDeleted = deletedAt,
+                    SoftDeleted = deletedAt,
+                },
+                LastChanged = deletedAt,
+                LastChangedBy = "1337",
+            },
+            [
+                nameof(InstanceInternal.Process),
+                nameof(InstanceInternal.Status),
+                nameof(InstanceStatus.IsArchived),
+                nameof(InstanceStatus.Archived),
+                nameof(InstanceStatus.IsSoftDeleted),
+                nameof(InstanceStatus.SoftDeleted),
+                nameof(InstanceStatus.IsHardDeleted),
+                nameof(InstanceStatus.HardDeleted),
+            ],
+            expectedInstanceVersion,
+            expectedProcessStateVersion,
+            events,
+            idempotencyKey,
+            deletedAt,
+            "1337"
+        );
+    }
+
     private static Task<DateTime> ReadInstanceLastChangedColumn(Guid instanceGuid)
     {
         return PostgresUtil.RunQuery<DateTime>(
@@ -5987,6 +7609,20 @@ public class DataTests(DataElementFixture dataElementFixture)
     {
         return PostgresUtil.RunCountQuery(
             $"select count(*) from storage.instance_mutation_idempotency where idempotency_key = '{idempotencyKey}'"
+        );
+    }
+
+    private static Task<int> CountInstanceRowsWithNullTask(Guid instanceGuid)
+    {
+        return PostgresUtil.RunCountQuery(
+            $"select count(*) from storage.instances where alternateid = '{instanceGuid}' and taskid is null"
+        );
+    }
+
+    private static Task<string> ReadStoredInstanceJson(Guid instanceGuid)
+    {
+        return PostgresUtil.RunQuery<string>(
+            $"select instance::text from storage.instances where alternateid = '{instanceGuid}'"
         );
     }
 
@@ -6107,6 +7743,80 @@ public class DataTests(DataElementFixture dataElementFixture)
             _instance.Org,
             null
         );
+    }
+
+    private static Task SetStoredProcessRepresentation(Guid instanceGuid, string representation)
+    {
+        string instanceUpdate = representation switch
+        {
+            "status-absent" =>
+                "jsonb_set(instance, '{Process}', CASE WHEN jsonb_typeof(instance -> 'Process') = 'object' THEN (instance -> 'Process') - 'Status' ELSE '{}'::jsonb END)",
+            "status-null" =>
+                "jsonb_set(instance, '{Process}', (CASE WHEN jsonb_typeof(instance -> 'Process') = 'object' THEN instance -> 'Process' ELSE '{}'::jsonb END) || '{\"Status\":null}'::jsonb)",
+            "process-absent" => "instance - 'Process'",
+            "process-null" => "jsonb_set(instance, '{Process}', 'null'::jsonb)",
+            "process-string" => "jsonb_set(instance, '{Process}', '\"legacy\"'::jsonb)",
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(representation),
+                representation,
+                "Unknown process representation."
+            ),
+        };
+
+        return PostgresUtil.RunSql(
+            $"update storage.instances set instance = {instanceUpdate} where alternateid = '{instanceGuid}'"
+        );
+    }
+
+    private static Task SetStoredProcessStatus(Guid instanceGuid, string status)
+    {
+        return PostgresUtil.RunSql(
+            $"update storage.instances set instance = jsonb_set(instance, '{{Process}}', (CASE WHEN jsonb_typeof(instance -> 'Process') = 'object' THEN instance -> 'Process' ELSE '{{}}'::jsonb END) || jsonb_build_object('Status', '{status}')) where alternateid = '{instanceGuid}'"
+        );
+    }
+
+    private static Task<string> ReadStoredProcessStatus(Guid instanceGuid)
+    {
+        return PostgresUtil.RunQuery<string>(
+            $"select coalesce(instance -> 'Process' ->> 'Status', '{ProcessStatus.Idle}') from storage.instances where alternateid = '{instanceGuid}'"
+        );
+    }
+
+    private async Task WaitForBlockedAggregateMutations(int expectedCount)
+    {
+        await WaitForBlockedDatabaseCalls("storage.applyinstancemutation", expectedCount);
+    }
+
+    private async Task WaitForBlockedDatabaseCalls(string queryFragment, int expectedCount)
+    {
+        await using NpgsqlConnection observerConnection =
+            await dataElementFixture.DataSource.OpenConnectionAsync();
+        await using NpgsqlCommand command = new(
+            """
+            select count(*)::int
+            from pg_stat_activity activity
+            where activity.pid <> pg_backend_pid()
+                and activity.datname = current_database()
+                and activity.state = 'active'
+                and activity.wait_event_type = 'Lock'
+                and position($1 in activity.query) > 0
+            """,
+            observerConnection
+        );
+        command.Parameters.AddWithValue(NpgsqlDbType.Text, queryFragment);
+
+        DateTime timeoutAt = DateTime.UtcNow.AddSeconds(10);
+        while (Convert.ToInt32(await command.ExecuteScalarAsync()) < expectedCount)
+        {
+            if (DateTime.UtcNow >= timeoutAt)
+            {
+                throw new TimeoutException(
+                    $"Timed out waiting for {expectedCount} calls containing '{queryFragment}' to wait on PostgreSQL locks."
+                );
+            }
+
+            await Task.Delay(10);
+        }
     }
 
     private static Task<int> ReadInstanceVersion(Guid instanceGuid)

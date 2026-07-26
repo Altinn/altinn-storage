@@ -118,6 +118,16 @@ public class MigrationController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        if (
+            instance.Process?.Status is not null
+            && !ProcessStatusHelper.IsSupported(instance.Process.Status)
+        )
+        {
+            return BadRequest(
+                $"process.status must be absent, '{ProcessStatus.Idle}', or '{ProcessStatus.Processing}' when creating an instance."
+            );
+        }
+
         InstanceInternal storedInstance;
         try
         {
@@ -221,6 +231,7 @@ public class MigrationController : ControllerBase
     [DisableFormValueModelBinding]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [Produces("application/json")]
     [DisableRequestSizeLimit]
@@ -260,18 +271,21 @@ public class MigrationController : ControllerBase
         }
 
         DataElementInternal storedDataElement;
+        Guid dataElementId = Guid.Empty;
+        bool hasBlob = false;
+        string blobOrg = null;
+        string blobVersionId = null;
+        string blobStoragePath = null;
         try
         {
-            string dataElementId = Guid.NewGuid().ToString();
-            bool hasBlob = Request.ContentLength > 0 || dataType == "binary-data";
-            string blobOrg = $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}";
-            string blobVersionId;
-            string blobStoragePath;
+            dataElementId = Guid.NewGuid();
+            hasBlob = Request.ContentLength > 0 || dataType == "binary-data";
+            blobOrg = $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}";
             if (hasBlob)
             {
                 blobVersionId = await _dataRepository.CreateBlobVersionId(
                     instanceGuid,
-                    Guid.Parse(dataElementId),
+                    dataElementId,
                     instance.AppId,
                     blobOrg,
                     app.StorageAccountNumber,
@@ -299,7 +313,7 @@ public class MigrationController : ControllerBase
 
             DataElementInternal dataElement = new()
             {
-                Id = dataElementId,
+                Id = dataElementId.ToString(),
                 Created = created,
                 CreatedBy = instance.CreatedBy,
                 DataType = dataType,
@@ -360,7 +374,7 @@ public class MigrationController : ControllerBase
                         _blobRepository,
                         _dataRepository,
                         blobOrg,
-                        Guid.Parse(dataElementId),
+                        dataElementId,
                         blobStoragePath,
                         blobVersionId,
                         app.StorageAccountNumber
@@ -377,6 +391,23 @@ public class MigrationController : ControllerBase
             storedDataElement = storedDataElementResult.DataElement;
 
             return Created((string)null, storedDataElement.ToApiModel());
+        }
+        catch (ProcessStatusConflictException storageException)
+        {
+            if (hasBlob && dataElementId != Guid.Empty)
+            {
+                await DataService.DeleteAllocatedBlobVersion(
+                    _blobRepository,
+                    _dataRepository,
+                    blobOrg,
+                    dataElementId,
+                    blobStoragePath,
+                    blobVersionId,
+                    app.StorageAccountNumber
+                );
+            }
+
+            return Conflict(storageException.Message);
         }
         catch (Exception storageException)
         {

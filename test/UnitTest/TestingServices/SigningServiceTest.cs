@@ -108,6 +108,33 @@ public class SigningServiceTest
         Assert.Equal(fixture.CapturedCreateOptions.Created, fixture.CapturedMutation.LastChanged);
     }
 
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData(null, 11)]
+    [InlineData(7, null)]
+    [InlineData(7, 11)]
+    public async Task CreateSignDocument_ApplyUsesSnapshotProcessStateVersionAndPreservesClientInstanceVersion(
+        int? expectedInstanceVersion,
+        int? expectedProcessStateVersion
+    )
+    {
+        SigningFixture fixture = CreateSigningFixture();
+
+        SignDocumentCreateResult result = await fixture.Sut.CreateSignDocument(
+            fixture.InstanceGuid,
+            fixture.SignRequest,
+            "1337",
+            CancellationToken.None,
+            expectedInstanceVersion,
+            expectedProcessStateVersion
+        );
+
+        Assert.True(result.Created);
+        Assert.NotNull(fixture.CapturedMutation);
+        Assert.Equal(expectedInstanceVersion, fixture.CapturedMutation.ExpectedInstanceVersion);
+        Assert.Equal(11, fixture.CapturedMutation.ExpectedProcessStateVersion);
+    }
+
     [Fact]
     public async Task CreateSignDocument_SigningSuccessful_ResultVersionsComeFromApplySnapshot()
     {
@@ -322,6 +349,48 @@ public class SigningServiceTest
                     It.IsAny<Stream>(),
                     It.IsAny<DataElementCreateOptions>(),
                     It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task CreateSignDocument_ProcessingInstance_ReturnsConflictBeforeStagingOrApply()
+    {
+        SigningFixture fixture = CreateSigningFixture();
+        fixture.Instance.Process.Status = ProcessStatus.Processing;
+
+        ProcessStatusConflictException exception =
+            await Assert.ThrowsAsync<ProcessStatusConflictException>(() =>
+                fixture.Sut.CreateSignDocument(
+                    fixture.InstanceGuid,
+                    fixture.SignRequest,
+                    "1337",
+                    CancellationToken.None,
+                    7,
+                    11
+                )
+            );
+
+        Assert.Equal(ProcessStatus.Processing, exception.CurrentProcessStatus);
+        fixture.DataService.Verify(
+            service =>
+                service.StageDataElementBlob(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<Stream>(),
+                    It.IsAny<DataElementCreateOptions>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+        fixture.MutationRepository.Verify(
+            repository =>
+                repository.Apply(
+                    It.IsAny<Guid>(),
+                    It.IsAny<long>(),
+                    It.IsAny<InstanceMutationCommit>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never

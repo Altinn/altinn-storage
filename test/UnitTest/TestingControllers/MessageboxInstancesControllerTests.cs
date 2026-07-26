@@ -20,6 +20,7 @@ using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
+using Altinn.Platform.Storage.UnitTest.Extensions;
 using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Mocks;
 using Altinn.Platform.Storage.UnitTest.Mocks.Authentication;
@@ -27,11 +28,13 @@ using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
 using AltinnCore.Authentication.JwtCookie;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
 using Newtonsoft.Json;
@@ -47,6 +50,12 @@ public class MessageBoxInstancesControllerTests(
     TestApplicationFactory<MessageBoxInstancesController> factory
 ) : IClassFixture<TestApplicationFactory<MessageBoxInstancesController>>
 {
+    public enum GuardedMessageBoxUpdateRoute
+    {
+        Undelete,
+        Delete,
+    }
+
     private readonly TestApplicationFactory<MessageBoxInstancesController> _factory = factory;
 
     private const string BasePath = "/storage/api/v1";
@@ -1844,6 +1853,80 @@ public class MessageBoxInstancesControllerTests(
 
         // Assert
         Assert.Equal(largeNumberOfEvents.Count, actual.Count);
+    }
+
+    [Theory]
+    [InlineData(GuardedMessageBoxUpdateRoute.Undelete)]
+    [InlineData(GuardedMessageBoxUpdateRoute.Delete)]
+    public async Task VersionBumpingInstanceUpdate_ProcessStatusConflict_ReturnsConflictWithoutEvent(
+        GuardedMessageBoxUpdateRoute route
+    )
+    {
+        const string currentStatus = "future-status";
+        const int partyId = 1337;
+        Guid instanceGuid = Guid.NewGuid();
+        Instance instance = TestData.Instance_1_1.Clone();
+        instance.Id = $"{partyId}/{instanceGuid}";
+        instance.Status ??= new InstanceStatus();
+        instance.Status.IsSoftDeleted = route == GuardedMessageBoxUpdateRoute.Undelete;
+        InstanceInternal internalInstance = InstanceInternalTestFactory.Create(
+            instance,
+            [],
+            InternalId: 42,
+            versions: new StorageVersions(7, 11)
+        );
+        Mock<IInstanceRepository> repository = new();
+        repository
+            .Setup(instanceRepository =>
+                instanceRepository.GetOne(instanceGuid, false, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(internalInstance);
+        repository
+            .Setup(instanceRepository =>
+                instanceRepository.Update(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<List<string>>(),
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
+                )
+            )
+            .ThrowsAsync(new ProcessStatusConflictException(currentStatus));
+        Mock<IInstanceEventRepository> instanceEventRepository = new(MockBehavior.Strict);
+        Mock<IApplicationService> applicationService = new();
+        applicationService
+            .Setup(service => service.GetApplicationOrErrorAsync(internalInstance.AppId))
+            .ReturnsAsync((new Application { Id = internalInstance.AppId }, null));
+        MessageBoxInstancesController controller = new(
+            repository.Object,
+            instanceEventRepository.Object,
+            Mock.Of<ITextRepository>(),
+            Mock.Of<IApplicationRepository>(),
+            Mock.Of<IAuthorization>(),
+            applicationService.Object,
+            NullLogger<MessageBoxInstancesController>.Instance
+        )
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
+        };
+
+        ActionResult result =
+            route == GuardedMessageBoxUpdateRoute.Undelete
+                ? await controller.Undelete(partyId, instanceGuid, CancellationToken.None)
+                : await controller.Delete(
+                    instanceGuid,
+                    partyId,
+                    hard: false,
+                    CancellationToken.None
+                );
+
+        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result);
+        Assert.Contains(
+            currentStatus,
+            Assert.IsType<string>(conflict.Value),
+            StringComparison.Ordinal
+        );
+        instanceEventRepository.VerifyNoOtherCalls();
     }
 
     private static MessageBoxQueryModel GetMessageBoxQueryModel(int instanceOwnerPartyId)

@@ -89,6 +89,7 @@ public class ProcessController : ControllerBase
     [HttpPut]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> PutProcess(
@@ -105,6 +106,12 @@ public class ProcessController : ControllerBase
             return preconditionError;
         }
 
+        BadRequestObjectResult? processStatusError = ValidateProcessStatus(processState);
+        if (processStatusError is not null)
+        {
+            return processStatusError;
+        }
+
         InstanceInternal existingInstance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
@@ -114,6 +121,35 @@ public class ProcessController : ControllerBase
         if (existingInstance is null)
         {
             return NotFound();
+        }
+
+        StorageVersions currentVersions = existingInstance.Versions;
+        if (
+            preconditions.InstanceVersion is not null
+            && preconditions.InstanceVersion != currentVersions.InstanceVersion
+        )
+        {
+            return VersionPreconditionHelper.VersionMismatch(
+                Response,
+                new InstanceVersionMismatchException(
+                    currentVersions.InstanceVersion,
+                    currentVersions.ProcessStateVersion
+                )
+            );
+        }
+
+        if (
+            preconditions.ProcessStateVersion is not null
+            && preconditions.ProcessStateVersion != currentVersions.ProcessStateVersion
+        )
+        {
+            return VersionPreconditionHelper.VersionMismatch(
+                Response,
+                new ProcessStateVersionMismatchException(
+                    currentVersions.InstanceVersion,
+                    currentVersions.ProcessStateVersion
+                )
+            );
         }
 
         if (!await _processAuthorizer.AuthorizeProcessNext(existingInstance, processState))
@@ -131,12 +167,16 @@ public class ProcessController : ControllerBase
                 updateProperties,
                 cancellationToken,
                 preconditions.InstanceVersion,
-                preconditions.ProcessStateVersion
+                currentVersions.ProcessStateVersion
             );
         }
         catch (StorageVersionMismatchException e)
         {
             return VersionPreconditionHelper.VersionMismatch(Response, e);
+        }
+        catch (ProcessStatusConflictException e)
+        {
+            return Conflict(e.Message);
         }
 
         if (processState?.CurrentTask?.AltinnTaskType == "signing")
@@ -174,6 +214,7 @@ public class ProcessController : ControllerBase
     [HttpPut("instanceandevents")]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces("application/json")]
@@ -192,6 +233,19 @@ public class ProcessController : ControllerBase
             return preconditionError;
         }
 
+        if (processStateUpdate?.State is null)
+        {
+            return BadRequest("Invalid instance state");
+        }
+
+        BadRequestObjectResult? processStatusError = ValidateProcessStatus(
+            processStateUpdate.State
+        );
+        if (processStatusError is not null)
+        {
+            return processStatusError;
+        }
+
         InstanceInternal existingInstance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
@@ -201,6 +255,44 @@ public class ProcessController : ControllerBase
         if (existingInstance is null)
         {
             return NotFound();
+        }
+
+        StorageVersions currentVersions = existingInstance.Versions;
+        if (
+            preconditions.InstanceVersion is not null
+            && preconditions.InstanceVersion != currentVersions.InstanceVersion
+        )
+        {
+            return VersionPreconditionHelper.VersionMismatch(
+                Response,
+                new InstanceVersionMismatchException(
+                    currentVersions.InstanceVersion,
+                    currentVersions.ProcessStateVersion
+                )
+            );
+        }
+
+        if (
+            preconditions.ProcessStateVersion is not null
+            && preconditions.ProcessStateVersion != currentVersions.ProcessStateVersion
+        )
+        {
+            return VersionPreconditionHelper.VersionMismatch(
+                Response,
+                new ProcessStateVersionMismatchException(
+                    currentVersions.InstanceVersion,
+                    currentVersions.ProcessStateVersion
+                )
+            );
+        }
+
+        try
+        {
+            ProcessStatusHelper.EnsureExpectedStatus(existingInstance);
+        }
+        catch (ProcessStatusConflictException exception)
+        {
+            return Conflict(exception.Message);
         }
 
         foreach (InstanceEvent instanceEvent in processStateUpdate.Events ?? [])
@@ -231,10 +323,6 @@ public class ProcessController : ControllerBase
         }
 
         ProcessState processState = processStateUpdate.State;
-        if (processState is null)
-        {
-            return BadRequest("Invalid instance state");
-        }
 
         if (!await _processAuthorizer.AuthorizeProcessNext(existingInstance, processState))
         {
@@ -298,7 +386,7 @@ public class ProcessController : ControllerBase
                 existingInstance,
                 updateProperties,
                 preconditions.InstanceVersion,
-                preconditions.ProcessStateVersion,
+                currentVersions.ProcessStateVersion,
                 processStateUpdate.Events
             );
 
@@ -458,6 +546,19 @@ public class ProcessController : ControllerBase
         existingInstance.Process = processState;
         existingInstance.LastChangedBy = User.GetUserOrOrgNo();
         existingInstance.LastChanged = DateTime.UtcNow;
+    }
+
+    private BadRequestObjectResult? ValidateProcessStatus(ProcessState? processState)
+    {
+        string? processStatus = processState?.Status;
+        if (processStatus is not null && !ProcessStatusHelper.IsSupported(processStatus))
+        {
+            return BadRequest(
+                $"status must be '{ProcessStatus.Idle}' or '{ProcessStatus.Processing}'."
+            );
+        }
+
+        return null;
     }
 
     internal static bool ValidateInstanceEventUserObject(

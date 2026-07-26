@@ -1,9 +1,11 @@
 #nullable disable
 
+using System;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
@@ -349,6 +351,46 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
         HttpResponseMessage response = await client.DeleteAsync($"{dataPathWithData}");
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(true, ProcessStatus.Processing)]
+    [InlineData(false, "future-status")]
+    public async Task LockStatus_ProcessStatusConflict_ReturnsConflictWithCurrentStatus(
+        bool lockData,
+        string currentProcessStatus
+    )
+    {
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dccc/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
+        Mock<IDataRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(repository =>
+                repository.UpdateLockStatus(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(new ProcessStatusConflictException(currentProcessStatus));
+
+        HttpClient client = GetTestClient(repositoryMock);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1337, 500004, 3)
+        );
+
+        HttpResponseMessage response = lockData
+            ? await client.PutAsync(dataPathWithData, null)
+            : await client.DeleteAsync(dataPathWithData);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains(
+            currentProcessStatus,
+            await response.Content.ReadAsStringAsync(),
+            StringComparison.Ordinal
+        );
     }
 
     private static void AssertDataLockHasCorrectStatus(

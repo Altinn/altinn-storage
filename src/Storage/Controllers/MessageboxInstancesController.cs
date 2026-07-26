@@ -16,6 +16,7 @@ using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
@@ -290,6 +291,7 @@ public class MessageBoxInstancesController : ControllerBase
     /// <returns>True if the instance was restored.</returns>
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_DELETE)]
     [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/undelete")]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult> Undelete(
         int instanceOwnerPartyId,
         Guid instanceGuid,
@@ -342,8 +344,15 @@ public class MessageBoxInstancesController : ControllerBase
                 },
             };
 
-            await _instanceRepository.Update(instance, updateProperties, cancellationToken);
-            await _instanceEventRepository.InsertInstanceEvent(instanceEvent, instance);
+            try
+            {
+                await _instanceRepository.Update(instance, updateProperties, cancellationToken);
+                await _instanceEventRepository.InsertInstanceEvent(instanceEvent, instance);
+            }
+            catch (ProcessStatusConflictException e)
+            {
+                return Conflict(e.Message);
+            }
 
             return Ok(true);
         }
@@ -362,6 +371,7 @@ public class MessageBoxInstancesController : ControllerBase
     /// DELETE /instances/{instanceId}?instanceOwnerPartyId={instanceOwnerPartyId}?hard={bool}
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_DELETE)]
     [HttpDelete("{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult> Delete(
         Guid instanceGuid,
         int instanceOwnerPartyId,
@@ -447,8 +457,15 @@ public class MessageBoxInstancesController : ControllerBase
             },
         };
 
-        await _instanceRepository.Update(instance, updateProperties, cancellationToken);
-        await _instanceEventRepository.InsertInstanceEvent(instanceEvent, instance);
+        try
+        {
+            await _instanceRepository.Update(instance, updateProperties, cancellationToken);
+            await _instanceEventRepository.InsertInstanceEvent(instanceEvent, instance);
+        }
+        catch (ProcessStatusConflictException e)
+        {
+            return Conflict(e.Message);
+        }
 
         return Ok(true);
     }

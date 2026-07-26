@@ -943,6 +943,81 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         InstanceMutationAsserts.VerifyApplyNever(mutationRepositoryMock);
     }
 
+    [Fact]
+    public async Task CommitMutation_RepositoryConflicts_OnlyProcessStatusUsesProblemDetailsResponse()
+    {
+        InstanceInternal storedInstance = CreateMutationInstance(
+            new ProcessState
+            {
+                Started = new DateTime(2026, 7, 10, 8, 0, 0, DateTimeKind.Utc),
+                StartEvent = "StartEvent_1",
+                CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_1",
+                    AltinnTaskType = "data",
+                },
+            },
+            status: null
+        );
+        Mock<IInstanceRepository> instanceRepositoryMock = CreateMutationInstanceRepository(
+            storedInstance
+        );
+        Mock<IInstanceMutationRepository> mutationRepositoryMock = new();
+        mutationRepositoryMock
+            .SetupSequence(repository =>
+                repository.Apply(
+                    Guid.Parse(SensitiveDataApp.InstanceGuid),
+                    storedInstance.InternalId,
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(new ProcessStatusConflictException(ProcessStatus.Processing))
+            .ThrowsAsync(new RepositoryException("unrelated conflict", HttpStatusCode.Conflict));
+        HttpClient client = GetTestClient(
+            bearerAuthToken: PrincipalUtil.GetOrgToken("ttd"),
+            mutationRepositoryMock: mutationRepositoryMock,
+            instanceRepositoryMock: instanceRepositoryMock
+        );
+        InstanceMutationRequest request = new()
+        {
+            DataValues = new Dictionary<string, string> { ["value"] = "updated" },
+        };
+
+        HttpResponseMessage response = await client.PostAsync(
+            $"{SensitiveDataApp.GetInstanceUrl()}/mutations",
+            JsonContent.Create(request, options: _serializerOptions)
+        );
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        using JsonDocument responseBody = JsonDocument.Parse(
+            await response.Content.ReadAsStreamAsync()
+        );
+        Assert.Equal(
+            "process_status_conflict",
+            responseBody.RootElement.GetProperty("type").GetString()
+        );
+        Assert.Equal(
+            (int)HttpStatusCode.Conflict,
+            responseBody.RootElement.GetProperty("status").GetInt32()
+        );
+        Assert.Contains(
+            ProcessStatus.Processing,
+            responseBody.RootElement.GetProperty("detail").GetString(),
+            StringComparison.Ordinal
+        );
+
+        HttpResponseMessage unrelatedResponse = await client.PostAsync(
+            $"{SensitiveDataApp.GetInstanceUrl()}/mutations",
+            JsonContent.Create(request, options: _serializerOptions)
+        );
+
+        Assert.Equal(HttpStatusCode.Conflict, unrelatedResponse.StatusCode);
+        Assert.Equal("application/json", unrelatedResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("\"unrelated conflict\"", await unrelatedResponse.Content.ReadAsStringAsync());
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
