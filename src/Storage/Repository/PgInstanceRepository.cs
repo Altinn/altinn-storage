@@ -25,6 +25,7 @@ namespace Altinn.Platform.Storage.Repository;
 public class PgInstanceRepository : IInstanceRepository
 {
     private const string ElementColumn = "element";
+    private const string CurrentProcessStatusColumn = "currentprocessstatus";
     private const string _readSqlFilteredInitial =
         "select * from storage.readinstancefromquery_v9 (";
     private readonly string _deleteSql = "select * from storage.deleteinstance ($1)";
@@ -772,6 +773,9 @@ public class PgInstanceRepository : IInstanceRepository
                 "instance_version_mismatch" => CreateInstanceVersionMismatchException(reader),
                 "process_state_version_mismatch" => CreateProcessStateVersionMismatchException(
                     reader
+                ),
+                "process_status_conflict" => new ProcessStatusConflictException(
+                    reader.GetFieldValue<string>(reader.GetOrdinal(CurrentProcessStatusColumn))
                 ),
                 _ => new UnreachableException($"Unexpected instance update result '{result}'."),
             };

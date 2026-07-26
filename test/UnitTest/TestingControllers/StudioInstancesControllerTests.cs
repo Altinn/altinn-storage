@@ -957,6 +957,62 @@ public class StudioInstancesControllerTests
     }
 
     [Fact]
+    public async Task DeleteInstance_ProcessStatusConflict_ReturnsConflictWithCurrentStatus()
+    {
+        const string currentStatus = "future-status";
+        Guid instanceGuid = Guid.NewGuid();
+        Instance instance = new()
+        {
+            Id = $"1337/{instanceGuid}",
+            InstanceOwner = new InstanceOwner { PartyId = "1337" },
+            AppId = "ttd/app",
+            Org = "ttd",
+        };
+        Mock<IInstanceRepository> instanceRepository = new();
+        instanceRepository
+            .Setup(repository =>
+                repository.GetOne(instanceGuid, false, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(InstanceInternalTestFactory.Create(instance, [], InternalId: 1));
+        instanceRepository
+            .Setup(repository =>
+                repository.Update(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<List<string>>(),
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    null
+                )
+            )
+            .ThrowsAsync(new ProcessStatusConflictException(currentStatus));
+        Mock<IApplicationService> applicationService = new();
+        applicationService
+            .Setup(service => service.GetApplicationOrErrorAsync(instance.AppId))
+            .ReturnsAsync((new Application(), null));
+        Mock<IOrganisationService> organisationService = new();
+        organisationService
+            .Setup(service => service.GetOrgNumber(instance.Org, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("991825827");
+
+        HttpClient client = GetAuthenticatedClient(
+            instanceRepository: instanceRepository.Object,
+            applicationService: applicationService.Object,
+            organisationService: organisationService.Object
+        );
+
+        HttpResponseMessage response = await client.DeleteAsync(
+            $"{BasePath}/{instance.Org}/app/{instanceGuid}"
+        );
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains(
+            currentStatus,
+            await response.Content.ReadAsStringAsync(),
+            StringComparison.Ordinal
+        );
+    }
+
+    [Fact]
     public async Task DeleteInstance_ReturnsNoContent()
     {
         // Arrange

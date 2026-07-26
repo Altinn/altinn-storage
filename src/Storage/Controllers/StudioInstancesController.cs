@@ -167,6 +167,7 @@ public class StudioInstancesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult> DeleteInstance(
         [FromRoute] string org,
@@ -247,6 +248,10 @@ public class StudioInstancesController : ControllerBase
             );
 
             return NoContent();
+        }
+        catch (ProcessStatusConflictException e)
+        {
+            return Conflict(e.Message);
         }
         catch (Exception e)
         {

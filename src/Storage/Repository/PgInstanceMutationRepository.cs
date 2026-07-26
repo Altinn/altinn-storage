@@ -109,11 +109,8 @@ public sealed class PgInstanceMutationRepository(
             );
         }
 
-        if (instance.Status?.IsHardDeleted == true)
-        {
-            throw CreateInstanceHardDeletedException(instanceGuid);
-        }
-
+        // Replay admission has already proved that this is the produced version for the original
+        // mutation. The snapshot may therefore legitimately be hard-deleted by that mutation.
         EnsureReplaySnapshotMatchesAdmission(
             instance,
             currentInstanceVersion,
@@ -737,6 +734,9 @@ public sealed class PgInstanceMutationRepository(
                 RequireCurrentInstanceVersion(error, exception),
                 RequireCurrentProcessStateVersion(error, exception)
             ),
+            "process_status_conflict" => new ProcessStatusConflictException(
+                RequireCurrentProcessStatus(error, exception)
+            ),
             "idempotency_key_instance_mismatch" => new RepositoryException(
                 "Idempotency key was already used for another instance.",
                 HttpStatusCode.Conflict
@@ -794,6 +794,7 @@ public sealed class PgInstanceMutationRepository(
                 ReadRequiredString(message.RootElement, "code", exception),
                 ReadNullableInt32(message.RootElement, "currentInstanceVersion", exception),
                 ReadNullableInt32(message.RootElement, "currentProcessStateVersion", exception),
+                ReadNullableString(message.RootElement, "currentProcessStatus", exception),
                 ReadNullableString(message.RootElement, "dataElementId", exception)
             );
         }
@@ -897,6 +898,16 @@ public sealed class PgInstanceMutationRepository(
             "Aggregate mutation SQL error MESSAGE was missing currentProcessStateVersion."
         );
 
+    private static string RequireCurrentProcessStatus(
+        ApplyMutationError error,
+        PostgresException exception
+    ) =>
+        error.CurrentProcessStatus
+        ?? throw CreateApplyMutationContractException(
+            exception,
+            "Aggregate mutation SQL error MESSAGE was missing currentProcessStatus."
+        );
+
     private static UnreachableException CreateApplyMutationContractException(
         PostgresException exception,
         string message
@@ -906,6 +917,7 @@ public sealed class PgInstanceMutationRepository(
         string Code,
         int? CurrentInstanceVersion,
         int? CurrentProcessStateVersion,
+        string CurrentProcessStatus,
         string DataElementId
     );
 

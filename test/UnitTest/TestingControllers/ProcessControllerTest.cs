@@ -25,6 +25,8 @@ using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
 using AltinnCore.Authentication.JwtCookie;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -56,8 +58,11 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         IProcessDataCleanupService? processDataCleanupService = null,
         IDataService? dataService = null,
         IApplicationService? applicationService = null,
+        IProcessAuthorizer? processAuthorizer = null,
         Action<ProcessState>? configure = null,
-        string? deleteGeneratedElements = null
+        string? deleteGeneratedElements = null,
+        int? expectedInstanceVersion = null,
+        int? expectedProcessStateVersion = null
     )
     {
         instanceId ??= "1337/20b1353e-91cf-44d6-8ff7-f68993638ffe";
@@ -89,9 +94,29 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
             instanceMutationRepository,
             processDataCleanupService: processDataCleanupService,
             dataService: dataService,
-            applicationService: applicationService
+            applicationService: applicationService,
+            processAuthorizer: processAuthorizer
         );
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        if (expectedInstanceVersion is not null)
+        {
+            client.DefaultRequestHeaders.Add(
+                StorageHeaders.IfInstanceVersionMatch,
+                expectedInstanceVersion.Value.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture
+                )
+            );
+        }
+
+        if (expectedProcessStateVersion is not null)
+        {
+            client.DefaultRequestHeaders.Add(
+                StorageHeaders.IfProcessStateVersionMatch,
+                expectedProcessStateVersion.Value.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture
+                )
+            );
+        }
 
         // Act
         return await client.PutAsync(requestUri, jsonString);
@@ -260,6 +285,555 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    [Theory]
+    [InlineData(false, null)]
+    [InlineData(false, 7)]
+    [InlineData(true, null)]
+    [InlineData(true, 7)]
+    public async Task PutProcess_WriteUsesSnapshotProcessStateVersionAndPreservesClientInstanceVersion(
+        bool useInstanceAndEventsEndpoint,
+        int? expectedInstanceVersion
+    )
+    {
+        // Arrange
+        const int instanceVersion = 7;
+        const int processStateVersion = 11;
+        Guid instanceGuid = new("20a1353e-91cf-44d6-8ff7-f68993638ffe");
+        InstanceInternal snapshot = CreateVersionedInstanceSnapshot(
+            instanceGuid,
+            new StorageVersions(instanceVersion, processStateVersion)
+        );
+        Mock<IInstanceRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(repository =>
+                repository.GetOne(instanceGuid, true, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(snapshot);
+        repositoryMock
+            .Setup(repository =>
+                repository.Update(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<List<string>>(),
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<int?>()
+                )
+            )
+            .ReturnsAsync(snapshot);
+        Mock<IInstanceMutationRepository> mutationRepositoryMock = new();
+        mutationRepositoryMock
+            .Setup(repository =>
+                repository.Apply(
+                    instanceGuid,
+                    snapshot.InternalId,
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(new InstanceMutationApplyResult(false, [], snapshot));
+        Mock<IProcessAuthorizer> processAuthorizerMock = new();
+        processAuthorizerMock
+            .Setup(authorizer =>
+                authorizer.AuthorizeProcessNext(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<ProcessState>()
+                )
+            )
+            .ReturnsAsync(true);
+
+        // Act
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint,
+            PrincipalUtil.GetToken(3, 1337, 3),
+            $"1337/{instanceGuid}",
+            repositoryMock.Object,
+            mutationRepositoryMock.Object,
+            processAuthorizer: processAuthorizerMock.Object,
+            expectedInstanceVersion: expectedInstanceVersion
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Times expectedUpdateCalls = useInstanceAndEventsEndpoint ? Times.Never() : Times.Once();
+        repositoryMock.Verify(
+            repository =>
+                repository.Update(
+                    snapshot,
+                    It.IsAny<List<string>>(),
+                    It.IsAny<CancellationToken>(),
+                    It.Is<int?>(value => value == expectedInstanceVersion),
+                    processStateVersion
+                ),
+            expectedUpdateCalls
+        );
+        Times expectedApplyCalls = useInstanceAndEventsEndpoint ? Times.Once() : Times.Never();
+        mutationRepositoryMock.Verify(
+            repository =>
+                repository.Apply(
+                    instanceGuid,
+                    snapshot.InternalId,
+                    It.Is<InstanceMutationCommit>(mutation =>
+                        mutation.ExpectedInstanceVersion == expectedInstanceVersion
+                        && mutation.ExpectedProcessStateVersion == processStateVersion
+                    ),
+                    It.IsAny<CancellationToken>()
+                ),
+            expectedApplyCalls
+        );
+    }
+
+    [Theory]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    [InlineData(true, true, true)]
+    public async Task PutProcess_MismatchingClientVersionFastFailsBeforeAuthorizationAndWrite(
+        bool useInstanceAndEventsEndpoint,
+        bool instanceVersionMismatch,
+        bool processStateVersionMismatch
+    )
+    {
+        // Arrange
+        const int instanceVersion = 7;
+        const int processStateVersion = 11;
+        Guid instanceGuid = new("20a1353e-91cf-44d6-8ff7-f68993638ffe");
+        InstanceInternal snapshot = CreateVersionedInstanceSnapshot(
+            instanceGuid,
+            new StorageVersions(instanceVersion, processStateVersion)
+        );
+        Mock<IInstanceRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(repository =>
+                repository.GetOne(instanceGuid, true, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(snapshot);
+        Mock<IInstanceMutationRepository> mutationRepositoryMock = new();
+        Mock<IProcessAuthorizer> processAuthorizerMock = new();
+
+        // Act
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint,
+            PrincipalUtil.GetToken(3, 1337, 3),
+            $"1337/{instanceGuid}",
+            repositoryMock.Object,
+            mutationRepositoryMock.Object,
+            processAuthorizer: processAuthorizerMock.Object,
+            expectedInstanceVersion: instanceVersionMismatch ? instanceVersion - 1 : null,
+            expectedProcessStateVersion: processStateVersionMismatch
+                ? processStateVersion - 1
+                : null
+        );
+
+        // Assert
+        await AssertVersionMismatchResponse(
+            response,
+            instanceVersionMismatch
+                ? "instance_version_mismatch"
+                : "process_state_version_mismatch",
+            instanceVersion,
+            processStateVersion
+        );
+        processAuthorizerMock.Verify(
+            authorizer =>
+                authorizer.AuthorizeProcessNext(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<ProcessState>()
+                ),
+            Times.Never
+        );
+        repositoryMock.Verify(
+            repository =>
+                repository.Update(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<List<string>>(),
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<int?>()
+                ),
+            Times.Never
+        );
+        mutationRepositoryMock.Verify(
+            repository =>
+                repository.Apply(
+                    It.IsAny<Guid>(),
+                    It.IsAny<long>(),
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PutProcess_WriteTimeProcessStateVersionMismatchReturnsExistingProblemDetails(
+        bool useInstanceAndEventsEndpoint
+    )
+    {
+        // Arrange
+        const int currentInstanceVersion = 9;
+        const int currentProcessStateVersion = 12;
+        Guid instanceGuid = new("20a1353e-91cf-44d6-8ff7-f68993638ffe");
+        InstanceInternal snapshot = CreateVersionedInstanceSnapshot(
+            instanceGuid,
+            new StorageVersions(7, 11)
+        );
+        ProcessStateVersionMismatchException exception = new(
+            currentInstanceVersion,
+            currentProcessStateVersion
+        );
+        Mock<IInstanceRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(repository =>
+                repository.GetOne(instanceGuid, true, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(snapshot);
+        repositoryMock
+            .Setup(repository =>
+                repository.Update(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<List<string>>(),
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<int?>()
+                )
+            )
+            .ThrowsAsync(exception);
+        Mock<IInstanceMutationRepository> mutationRepositoryMock = new();
+        mutationRepositoryMock
+            .Setup(repository =>
+                repository.Apply(
+                    It.IsAny<Guid>(),
+                    It.IsAny<long>(),
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(exception);
+        Mock<IProcessAuthorizer> processAuthorizerMock = new();
+        processAuthorizerMock
+            .Setup(authorizer =>
+                authorizer.AuthorizeProcessNext(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<ProcessState>()
+                )
+            )
+            .ReturnsAsync(true);
+
+        // Act
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint,
+            PrincipalUtil.GetToken(3, 1337, 3),
+            $"1337/{instanceGuid}",
+            repositoryMock.Object,
+            mutationRepositoryMock.Object,
+            processAuthorizer: processAuthorizerMock.Object
+        );
+
+        // Assert
+        await AssertVersionMismatchResponse(
+            response,
+            "process_state_version_mismatch",
+            currentInstanceVersion,
+            currentProcessStateVersion
+        );
+    }
+
+    [Theory]
+    [InlineData(false, null)]
+    [InlineData(false, 11)]
+    [InlineData(true, null)]
+    [InlineData(true, 11)]
+    public async Task PutProcess_ProcessingStatusReachesWriteWithOrWithoutClientProcessStateVersion(
+        bool useInstanceAndEventsEndpoint,
+        int? expectedProcessStateVersion
+    )
+    {
+        Guid instanceGuid = new("20a1353e-91cf-44d6-8ff7-f68993638ffe");
+        InstanceInternal snapshot = CreateVersionedInstanceSnapshot(
+            instanceGuid,
+            new StorageVersions(7, 11)
+        );
+        snapshot.Process ??= new ProcessState();
+        snapshot.Process.Status = ProcessStatus.Idle;
+        Mock<IInstanceRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(repository =>
+                repository.GetOne(instanceGuid, true, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(snapshot);
+        repositoryMock
+            .Setup(repository =>
+                repository.Update(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<List<string>>(),
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<int?>()
+                )
+            )
+            .ReturnsAsync(
+                (InstanceInternal instance, List<string> _, CancellationToken _, int? _, int? _) =>
+                    instance
+            );
+        Mock<IInstanceMutationRepository> mutationRepositoryMock = new();
+        mutationRepositoryMock
+            .Setup(repository =>
+                repository.Apply(
+                    instanceGuid,
+                    snapshot.InternalId,
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                (Guid _, long _, InstanceMutationCommit mutation, CancellationToken _) =>
+                    new InstanceMutationApplyResult(false, [], mutation.InstanceUpdates)
+            );
+        Mock<IProcessAuthorizer> processAuthorizerMock = new();
+        processAuthorizerMock
+            .Setup(authorizer =>
+                authorizer.AuthorizeProcessNext(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<ProcessState>()
+                )
+            )
+            .ReturnsAsync(true);
+
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint,
+            PrincipalUtil.GetToken(3, 1337, 3),
+            $"1337/{instanceGuid}",
+            repositoryMock.Object,
+            mutationRepositoryMock.Object,
+            processAuthorizer: processAuthorizerMock.Object,
+            configure: state => state.Status = ProcessStatus.Processing,
+            expectedProcessStateVersion: expectedProcessStateVersion
+        );
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Instance responseInstance =
+            JsonConvert.DeserializeObject<Instance>(await response.Content.ReadAsStringAsync())
+            ?? throw new Exception("Failed to deserialize response instance");
+        Assert.Equal(ProcessStatus.Processing, responseInstance.Process.Status);
+        repositoryMock.Verify(
+            repository =>
+                repository.Update(
+                    It.Is<InstanceInternal>(instance =>
+                        instance.Process.Status == ProcessStatus.Processing
+                    ),
+                    It.Is<List<string>>(properties =>
+                        properties.Contains(nameof(InstanceInternal.Process))
+                    ),
+                    It.IsAny<CancellationToken>(),
+                    null,
+                    11
+                ),
+            useInstanceAndEventsEndpoint ? Times.Never() : Times.Once()
+        );
+        mutationRepositoryMock.Verify(
+            repository =>
+                repository.Apply(
+                    instanceGuid,
+                    snapshot.InternalId,
+                    It.Is<InstanceMutationCommit>(mutation =>
+                        mutation.InstanceUpdates.Process.Status == ProcessStatus.Processing
+                        && mutation.ExpectedProcessStateVersion == 11
+                    ),
+                    It.IsAny<CancellationToken>()
+                ),
+            useInstanceAndEventsEndpoint ? Times.Once() : Times.Never()
+        );
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PutProcess_ProcessingStatusWithStaleProcessStateVersionFence_ReturnsPreconditionFailed(
+        bool useInstanceAndEventsEndpoint
+    )
+    {
+        Guid instanceGuid = new("20a1353e-91cf-44d6-8ff7-f68993638ffe");
+        InstanceInternal snapshot = CreateVersionedInstanceSnapshot(
+            instanceGuid,
+            new StorageVersions(7, 11)
+        );
+        Mock<IInstanceRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(repository =>
+                repository.GetOne(instanceGuid, true, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(snapshot);
+        Mock<IInstanceMutationRepository> mutationRepositoryMock = new();
+
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint,
+            PrincipalUtil.GetToken(3, 1337, 3),
+            $"1337/{instanceGuid}",
+            repositoryMock.Object,
+            mutationRepositoryMock.Object,
+            configure: state => state.Status = ProcessStatus.Processing,
+            expectedProcessStateVersion: 10
+        );
+
+        await AssertVersionMismatchResponse(
+            response,
+            "process_state_version_mismatch",
+            currentInstanceVersion: 7,
+            currentProcessStateVersion: 11
+        );
+        mutationRepositoryMock.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PutProcess_UnknownStatus_ReturnsBadRequestBeforeRead(
+        bool useInstanceAndEventsEndpoint
+    )
+    {
+        Mock<IInstanceRepository> repositoryMock = new();
+
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint,
+            PrincipalUtil.GetToken(3, 1337, 3),
+            instanceRepository: repositoryMock.Object,
+            configure: state => state.Status = "future-status",
+            expectedProcessStateVersion: 11
+        );
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(
+            "must be 'idle' or 'processing'",
+            await response.Content.ReadAsStringAsync(),
+            StringComparison.Ordinal
+        );
+        repositoryMock.Verify(
+            repository =>
+                repository.GetOne(
+                    It.IsAny<Guid>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task PutInstanceAndEvents_DefaultExpectedStatusWhileProcessing_ReturnsConflictBeforeApply()
+    {
+        Guid instanceGuid = new("20a1353e-91cf-44d6-8ff7-f68993638ffe");
+        InstanceInternal snapshot = CreateVersionedInstanceSnapshot(
+            instanceGuid,
+            new StorageVersions(7, 11)
+        );
+        snapshot.Process ??= new ProcessState();
+        snapshot.Process.Status = ProcessStatus.Processing;
+        Mock<IInstanceRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(repository =>
+                repository.GetOne(instanceGuid, true, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(snapshot);
+        Mock<IInstanceMutationRepository> mutationRepositoryMock = new();
+
+        using HttpResponseMessage response = await SendUpdateRequest(
+            true,
+            PrincipalUtil.GetToken(3, 1337, 3),
+            $"1337/{instanceGuid}",
+            repositoryMock.Object,
+            mutationRepositoryMock.Object
+        );
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains(
+            ProcessStatus.Processing,
+            await response.Content.ReadAsStringAsync(),
+            StringComparison.Ordinal
+        );
+        mutationRepositoryMock.Verify(
+            repository =>
+                repository.Apply(
+                    It.IsAny<Guid>(),
+                    It.IsAny<long>(),
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PutProcess_ProcessStatusConflictReturnsConflictWithCurrentStatus(
+        bool useInstanceAndEventsEndpoint
+    )
+    {
+        const string currentStatus = "future-status";
+        Guid instanceGuid = new("20a1353e-91cf-44d6-8ff7-f68993638ffe");
+        InstanceInternal snapshot = CreateVersionedInstanceSnapshot(
+            instanceGuid,
+            new StorageVersions(7, 11)
+        );
+        Mock<IInstanceRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(repository =>
+                repository.GetOne(instanceGuid, true, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(snapshot);
+        repositoryMock
+            .Setup(repository =>
+                repository.Update(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<List<string>>(),
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<int?>()
+                )
+            )
+            .ThrowsAsync(new ProcessStatusConflictException(currentStatus));
+        Mock<IInstanceMutationRepository> mutationRepositoryMock = new();
+        mutationRepositoryMock
+            .Setup(repository =>
+                repository.Apply(
+                    It.IsAny<Guid>(),
+                    It.IsAny<long>(),
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(new ProcessStatusConflictException(currentStatus));
+        Mock<IProcessAuthorizer> processAuthorizerMock = new();
+        processAuthorizerMock
+            .Setup(authorizer =>
+                authorizer.AuthorizeProcessNext(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<ProcessState>()
+                )
+            )
+            .ReturnsAsync(true);
+
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint,
+            PrincipalUtil.GetToken(3, 1337, 3),
+            $"1337/{instanceGuid}",
+            repositoryMock.Object,
+            mutationRepositoryMock.Object,
+            processAuthorizer: processAuthorizerMock.Object
+        );
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains(
+            currentStatus,
+            await response.Content.ReadAsStringAsync(),
+            StringComparison.Ordinal
+        );
+    }
+
     /// <summary>
     /// Test case: User is Authorized
     /// Expected: Returns status ok.
@@ -295,7 +869,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                     It.IsAny<List<string>>(),
                     It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    1
                 )
             )
             .ReturnsAsync(InstanceInternalTestFactory.Create(testInstance, [], InternalId: 0));
@@ -356,7 +930,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                     It.IsAny<List<string>>(),
                     It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    1
                 )
             )
             .ReturnsAsync(InstanceInternalTestFactory.Create(testInstance, [], InternalId: 0));
@@ -417,7 +991,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                     It.IsAny<List<string>>(),
                     It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    1
                 )
             )
             .ReturnsAsync(InstanceInternalTestFactory.Create(testInstance, [], InternalId: 0));
@@ -478,7 +1052,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                     It.IsAny<List<string>>(),
                     It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    1
                 )
             )
             .ReturnsAsync(InstanceInternalTestFactory.Create(testInstance, [], InternalId: 0));
@@ -589,7 +1163,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                     It.IsAny<List<string>>(),
                     It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    1
                 )
             )
             .ReturnsAsync(
@@ -1152,7 +1726,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                     It.IsAny<List<string>>(),
                     It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    1
                 )
             )
             .ReturnsAsync(
@@ -1372,13 +1946,48 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         Assert.False(result);
     }
 
+    private static InstanceInternal CreateVersionedInstanceSnapshot(
+        Guid instanceGuid,
+        StorageVersions versions
+    )
+    {
+        Instance instance = TestDataUtil.GetInstance(instanceGuid);
+        instance.Id = $"{instance.InstanceOwner.PartyId}/{instance.Id}";
+        return InstanceInternalTestFactory.Create(instance, [], InternalId: 42, versions: versions);
+    }
+
+    private static async Task AssertVersionMismatchResponse(
+        HttpResponseMessage response,
+        string expectedProblemType,
+        int currentInstanceVersion,
+        int currentProcessStateVersion
+    )
+    {
+        Assert.Equal(HttpStatusCode.PreconditionFailed, response.StatusCode);
+        Assert.Equal(
+            currentInstanceVersion.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            Assert.Single(response.Headers.GetValues(StorageHeaders.InstanceVersion))
+        );
+        Assert.Equal(
+            currentProcessStateVersion.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            Assert.Single(response.Headers.GetValues(StorageHeaders.ProcessStateVersion))
+        );
+        ProblemDetails problem =
+            JsonConvert.DeserializeObject<ProblemDetails>(
+                await response.Content.ReadAsStringAsync()
+            ) ?? throw new Exception("Failed to deserialize response content");
+        Assert.Equal(StatusCodes.Status412PreconditionFailed, problem.Status);
+        Assert.Equal(expectedProblemType, problem.Type);
+    }
+
     private HttpClient GetTestClient(
         IInstanceRepository? instanceRepository = null,
         IInstanceMutationRepository? instanceMutationRepository = null,
         bool enableWolverine = false,
         IProcessDataCleanupService? processDataCleanupService = null,
         IDataService? dataService = null,
-        IApplicationService? applicationService = null
+        IApplicationService? applicationService = null,
+        IProcessAuthorizer? processAuthorizer = null
     )
     {
         // No setup required for these services. They are not in use by the ApplicationController
@@ -1473,6 +2082,11 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                     if (applicationService != null)
                     {
                         services.AddSingleton(applicationService);
+                    }
+
+                    if (processAuthorizer != null)
+                    {
+                        services.AddSingleton(processAuthorizer);
                     }
                 });
             })

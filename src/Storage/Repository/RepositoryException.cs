@@ -80,6 +80,30 @@ public class DataElementBlobVersionMismatchException : RepositoryException
 }
 
 /// <summary>
+/// Exception thrown when the persisted process status does not match the mutation precondition.
+/// </summary>
+public sealed class ProcessStatusConflictException : RepositoryException
+{
+    /// <summary>
+    /// Creates a process-status conflict carrying the current persisted status.
+    /// </summary>
+    /// <param name="currentProcessStatus">Current persisted process status.</param>
+    public ProcessStatusConflictException(string currentProcessStatus)
+        : base(
+            $"Process status did not match expected status. Current status: '{currentProcessStatus}'.",
+            HttpStatusCode.Conflict
+        )
+    {
+        CurrentProcessStatus = currentProcessStatus;
+    }
+
+    /// <summary>
+    /// Current persisted process status.
+    /// </summary>
+    public string CurrentProcessStatus { get; }
+}
+
+/// <summary>
 /// Exception thrown when a supplied storage-owned version precondition does not match.
 /// </summary>
 public abstract class StorageVersionMismatchException : RepositoryException

@@ -349,6 +349,66 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
         );
     }
 
+    [Fact]
+    public async Task SignRequest_ProcessStatusConflict_ReturnsConflictWithCurrentStatus()
+    {
+        const int instanceOwnerPartyId = 1600;
+        const string instanceGuid = "1916cd18-3b8e-46f8-aeaf-4bc3397ddd55";
+        string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/sign";
+        Mock<ISigningService> signingService = new();
+        signingService
+            .Setup(service =>
+                service.CreateSignDocument(
+                    It.IsAny<Guid>(),
+                    It.IsAny<SignRequest>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<int?>()
+                )
+            )
+            .ThrowsAsync(new ProcessStatusConflictException(ProcessStatus.Processing));
+        HttpClient client = GetTestClient(signingService);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(10016, instanceOwnerPartyId, 2)
+        );
+        SignRequest signRequest = new()
+        {
+            SignatureDocumentDataType = "sign-data-type",
+            DataElementSignatures =
+            [
+                new DataElementSignature
+                {
+                    DataElementId = Guid.NewGuid().ToString(),
+                    Signed = true,
+                },
+            ],
+            Signee = new Signee { UserId = "1337", PersonNumber = "22117612345" },
+        };
+
+        HttpResponseMessage response = await client.PostAsJsonAsync(requestUri, signRequest);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains(
+            ProcessStatus.Processing,
+            await response.Content.ReadAsStringAsync(),
+            StringComparison.Ordinal
+        );
+        signingService.Verify(
+            service =>
+                service.CreateSignDocument(
+                    Guid.Parse(instanceGuid),
+                    It.IsAny<SignRequest>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<int?>()
+                ),
+            Times.Once
+        );
+    }
+
     private HttpClient GetTestClient(Mock<ISigningService> instanceServiceMock = null)
     {
         // No setup required for these services. They are not in use by the InstanceController

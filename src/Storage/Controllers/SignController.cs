@@ -43,6 +43,7 @@ public class SignController : ControllerBase
     [HttpPost("{instanceOwnerPartyId:int}/{instanceGuid:guid}/sign")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
     public async Task<ActionResult> Sign(
         [FromRoute] int instanceOwnerPartyId,
@@ -91,6 +92,10 @@ public class SignController : ControllerBase
         catch (StorageVersionMismatchException exception)
         {
             return VersionPreconditionHelper.VersionMismatch(Response, exception);
+        }
+        catch (ProcessStatusConflictException exception)
+        {
+            return Conflict(exception.Message);
         }
         catch (RepositoryException exception) when (exception.StatusCodeSuggestion.HasValue)
         {

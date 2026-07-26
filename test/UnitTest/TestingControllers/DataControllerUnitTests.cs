@@ -174,6 +174,7 @@ public class DataControllerUnitTests
             InternalId: 123L,
             versions: new StorageVersions(13, 9)
         );
+        instanceInternal.Process = new ProcessState { Status = ProcessStatus.Processing };
         AggregateMutationFixture fixture = CreateAggregateMutationFixture(
             instanceGuid,
             instanceInternal,
@@ -204,6 +205,7 @@ public class DataControllerUnitTests
             fixture.HttpContext,
             $$"""
             {
+              "expectedProcessStatus": "idle",
               "updateDataElements": [
                 {
                   "dataElementId": "{{deletedDataElementId}}",
@@ -301,6 +303,245 @@ public class DataControllerUnitTests
             repository => repository.GetOne(instanceGuid, true, It.IsAny<CancellationToken>()),
             Times.Once
         );
+    }
+
+    [Theory]
+    [InlineData(false, null)]
+    [InlineData(false, 7)]
+    [InlineData(true, null)]
+    [InlineData(true, 7)]
+    public async Task CommitMutation_WriteUsesSnapshotProcessStateVersionAndPreservesClientInstanceVersion(
+        bool includesProcessState,
+        int? expectedInstanceVersion
+    )
+    {
+        const int instanceVersion = 7;
+        const int processStateVersion = 3;
+        Guid instanceGuid = Guid.NewGuid();
+        InstanceMutationCommit capturedMutation = null;
+        InstanceInternal snapshot = CreateAggregateInstanceInternal(
+            instanceGuid,
+            [],
+            new StorageVersions(instanceVersion, processStateVersion)
+        );
+        if (includesProcessState)
+        {
+            snapshot.Process = new ProcessState
+            {
+                CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_1",
+                    AltinnTaskType = "data",
+                },
+            };
+        }
+
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            snapshot,
+            CreateAggregateApplication(),
+            includesProcessState
+                ? """
+                {
+                  "processState": {
+                    "state": {
+                      "currentTask": {
+                        "elementId": "Task_2",
+                        "altinnTaskType": "data"
+                      }
+                    }
+                  }
+                }
+                """
+                : """
+                {
+                  "dataValues": {
+                    "status": "updated"
+                  }
+                }
+                """
+        );
+        if (expectedInstanceVersion is not null)
+        {
+            fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] =
+                expectedInstanceVersion.Value.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture
+                );
+        }
+
+        SetupCapturingMutationRepository(
+            fixture,
+            instanceGuid,
+            mutation => capturedMutation = mutation
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.NotNull(capturedMutation);
+        Assert.Equal(expectedInstanceVersion, capturedMutation.ExpectedInstanceVersion);
+        Assert.Equal(processStateVersion, capturedMutation.ExpectedProcessStateVersion);
+    }
+
+    [Theory]
+    [InlineData(
+        """{"processState":{"state":{"status":"processing","currentTask":{"elementId":"Task_2"}}}}""",
+        ProcessStatus.Idle,
+        ProcessStatus.Processing
+    )]
+    [InlineData(
+        """{"expectedProcessStatus":"processing","processState":{"state":{"status":"idle","currentTask":{"elementId":"Task_2"}}}}""",
+        ProcessStatus.Processing,
+        ProcessStatus.Idle
+    )]
+    public async Task CommitMutation_ProcessStatus_IsCarriedInProcessPayload(
+        string mutationJson,
+        string currentProcessStatus,
+        string payloadProcessStatus
+    )
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        InstanceMutationCommit capturedMutation = null;
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, [], new StorageVersions(7, 3)),
+            CreateAggregateApplication(),
+            mutationJson
+        );
+        fixture.InstanceInternal.Process = new ProcessState
+        {
+            Status = currentProcessStatus,
+            CurrentTask = new ProcessElementInfo { ElementId = "Task_1" },
+        };
+        fixture.HttpContext.Request.Headers[StorageHeaders.IfProcessStateVersionMatch] = "3";
+        SetupCapturingMutationRepository(
+            fixture,
+            instanceGuid,
+            mutation => capturedMutation = mutation
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.NotNull(capturedMutation);
+        Assert.Equal(payloadProcessStatus, capturedMutation.InstanceUpdates.Process.Status);
+        Assert.Equal(3, capturedMutation.ExpectedProcessStateVersion);
+    }
+
+    [Fact]
+    public async Task CommitMutation_ProcessingPayloadWithStaleProcessStateVersionFence_ReturnsPreconditionFailed()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, [], new StorageVersions(7, 3)),
+            CreateAggregateApplication(),
+            """{"processState":{"state":{"status":"processing","currentTask":{"elementId":"Task_2"}}}}"""
+        );
+        fixture.HttpContext.Request.Headers[StorageHeaders.IfProcessStateVersionMatch] = "2";
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        ObjectResult preconditionFailed = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status412PreconditionFailed, preconditionFailed.StatusCode);
+        ProblemDetails problem = Assert.IsType<ProblemDetails>(preconditionFailed.Value);
+        Assert.Equal("process_state_version_mismatch", problem.Type);
+        Assert.Equal(
+            "7",
+            fixture.HttpContext.Response.Headers[StorageHeaders.InstanceVersion].Single()
+        );
+        Assert.Equal(
+            "3",
+            fixture.HttpContext.Response.Headers[StorageHeaders.ProcessStateVersion].Single()
+        );
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+    }
+
+    [Theory]
+    [InlineData("""{"expectedProcessStatus":"future","dataValues":{"value":"update"}}""")]
+    [InlineData("""{"processState":{"state":{"status":"future"}}}""")]
+    public async Task CommitMutation_UnsupportedTransitionStatus_ReturnsBadRequestBeforeReads(
+        string mutationJson
+    )
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, []),
+            CreateAggregateApplication(),
+            mutationJson
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Contains("must be 'idle' or 'processing'", badRequest.Value.ToString());
+        fixture.InstanceRepository.Verify(
+            repository =>
+                repository.GetOne(
+                    It.IsAny<Guid>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+    }
+
+    [Fact]
+    public async Task CommitMutation_ProcessingPayloadWithoutClientProcessStateVersion_AppliesWithSnapshotFence()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        InstanceMutationCommit capturedMutation = null;
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, [], new StorageVersions(7, 3)),
+            CreateAggregateApplication(),
+            """{"processState":{"state":{"status":"processing","currentTask":{"elementId":"Task_2"}}}}"""
+        );
+        fixture.InstanceInternal.Process = new ProcessState
+        {
+            Status = ProcessStatus.Idle,
+            CurrentTask = new ProcessElementInfo { ElementId = "Task_1" },
+        };
+        SetupCapturingMutationRepository(
+            fixture,
+            instanceGuid,
+            mutation => capturedMutation = mutation,
+            mutation =>
+                CreateApplyResult(fixture.InstanceInternal, mutation, new StorageVersions(8, 4))
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(result.Result);
+        InstanceMutationResponse response = Assert.IsType<InstanceMutationResponse>(ok.Value);
+        Assert.Equal(ProcessStatus.Processing, response.Instance.Process.Status);
+        Assert.Equal("8", fixture.HttpContext.Response.Headers[StorageHeaders.InstanceVersion]);
+        Assert.Equal("4", fixture.HttpContext.Response.Headers[StorageHeaders.ProcessStateVersion]);
+        Assert.NotNull(capturedMutation);
+        Assert.Equal(3, capturedMutation.ExpectedProcessStateVersion);
+        Assert.Equal(ProcessStatus.Processing, capturedMutation.InstanceUpdates.Process.Status);
     }
 
     [Fact]
@@ -1135,7 +1376,7 @@ public class DataControllerUnitTests
     }
 
     [Fact]
-    public async Task CommitMutation_DeleteInstanceHard_WhenHardIsFalse_ReturnsBadRequestBeforeInstanceFetch()
+    public async Task CommitMutation_DeleteInstanceTerminalWorkflowCommit_WhenHardIsFalse_ReturnsBadRequestBeforeInstanceFetch()
     {
         Guid instanceGuid = Guid.NewGuid();
         AggregateMutationFixture fixture = CreateAggregateMutationFixture(
@@ -1144,12 +1385,24 @@ public class DataControllerUnitTests
             CreateAggregateApplication(),
             """
             {
+              "expectedProcessStatus": "processing",
+              "processState": {
+                "state": {
+                  "status": "idle",
+                  "ended": "2026-06-07T08:09:10Z",
+                  "endEvent": "EndEvent_1"
+                }
+              },
               "deleteInstance": {
                 "hard": false
               }
             }
             """
         );
+        fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] = "12";
+        fixture.HttpContext.Request.Headers[StorageHeaders.IfProcessStateVersionMatch] = "8";
+        fixture.HttpContext.Request.Headers[StorageHeaders.IdempotencyKey] = Guid.NewGuid()
+            .ToString();
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
@@ -1181,10 +1434,12 @@ public class DataControllerUnitTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
+    [InlineData(false, null)]
+    [InlineData(true, null)]
+    [InlineData(false, ProcessStatus.Idle)]
     public async Task CommitMutation_DeleteInstanceHard_AppliesStatusMarkerAndDeletedEvent(
-        bool hasCurrentStatus
+        bool hasCurrentStatus,
+        string expectedProcessStatus
     )
     {
         Guid instanceGuid = Guid.NewGuid();
@@ -1210,17 +1465,27 @@ public class DataControllerUnitTests
             }
             : null;
         instanceInternal.Status = originalStatus;
+        string mutationJson = expectedProcessStatus is null
+            ? """
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  }
+                }
+                """
+            : $$"""
+                {
+                  "expectedProcessStatus": "{{expectedProcessStatus}}",
+                  "deleteInstance": {
+                    "hard": true
+                  }
+                }
+                """;
         AggregateMutationFixture fixture = CreateAggregateMutationFixture(
             instanceGuid,
             instanceInternal,
             CreateAggregateApplication(),
-            """
-            {
-              "deleteInstance": {
-                "hard": true
-              }
-            }
-            """
+            mutationJson
         );
         fixture
             .InstanceEventService.Setup(service =>
@@ -1328,6 +1593,257 @@ public class DataControllerUnitTests
         );
     }
 
+    [Fact]
+    public async Task CommitMutation_DeleteInstanceHard_WithExpectedProcessingButNoTerminalState_ReturnsBadRequest()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        InstanceInternal instanceInternal = CreateAggregateInstanceInternal(instanceGuid, []);
+        instanceInternal.Process = new ProcessState { Status = ProcessStatus.Processing };
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            instanceInternal,
+            CreateAggregateApplication(),
+            """
+            {
+              "expectedProcessStatus": "processing",
+              "deleteInstance": {
+                "hard": true
+              }
+            }
+            """
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Equal(
+            "deleteInstance cannot be combined with other aggregate mutation operations.",
+            badRequest.Value
+        );
+        fixture.InstanceRepository.Verify(
+            repository =>
+                repository.GetOne(
+                    It.IsAny<Guid>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CommitMutation_DeleteInstanceTerminalWorkflowCommit_AppliesAtomicTerminalMutation(
+        bool deleteDataElement
+    )
+    {
+        const int instanceVersion = 12;
+        const int processStateVersion = 8;
+        Guid instanceGuid = Guid.NewGuid();
+        Guid idempotencyKey = Guid.NewGuid();
+        Guid dataElementId = Guid.NewGuid();
+        DateTime processEnded = new(2026, 6, 7, 8, 9, 10, DateTimeKind.Utc);
+        DataElementInternal dataElement = new DataElement
+        {
+            Id = dataElementId.ToString(),
+            InstanceGuid = instanceGuid.ToString(),
+            DataType = _dataType,
+        }.FromApiModel(null);
+        InstanceInternal instanceInternal = CreateAggregateInstanceInternal(
+            instanceGuid,
+            deleteDataElement ? [dataElement] : [],
+            new StorageVersions(instanceVersion, processStateVersion)
+        );
+        instanceInternal.Process = new ProcessState
+        {
+            Status = ProcessStatus.Processing,
+            CurrentTask = new ProcessElementInfo { ElementId = "Task_1" },
+        };
+        string mutationJson = deleteDataElement
+            ? $$"""
+                {
+                  "expectedProcessStatus": "processing",
+                  "processState": {
+                    "state": {
+                      "status": "idle",
+                      "ended": "{{processEnded:O}}",
+                      "endEvent": "EndEvent_1"
+                    },
+                    "events": [
+                      {
+                        "eventType": "process_EndEvent",
+                        "instanceId": "555/{{instanceGuid}}",
+                        "user": {
+                          "userId": 200001
+                        }
+                      }
+                    ]
+                  },
+                  "deleteDataElements": [
+                    {
+                      "dataElementId": "{{dataElementId}}"
+                    }
+                  ],
+                  "deleteInstance": {
+                    "hard": true
+                  }
+                }
+                """
+            : $$"""
+                {
+                  "expectedProcessStatus": "processing",
+                  "processState": {
+                    "state": {
+                      "status": "idle",
+                      "ended": "{{processEnded:O}}",
+                      "endEvent": "EndEvent_1"
+                    },
+                    "events": [
+                      {
+                        "eventType": "process_EndEvent",
+                        "instanceId": "555/{{instanceGuid}}",
+                        "user": {
+                          "userId": 200001
+                        }
+                      }
+                    ]
+                  },
+                  "deleteInstance": {
+                    "hard": true
+                  }
+                }
+                """;
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            instanceInternal,
+            CreateAggregateApplication(),
+            mutationJson
+        );
+        fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] =
+            instanceVersion.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        fixture.HttpContext.Request.Headers[StorageHeaders.IfProcessStateVersionMatch] =
+            processStateVersion.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        fixture.HttpContext.Request.Headers[StorageHeaders.IdempotencyKey] =
+            idempotencyKey.ToString();
+        fixture
+            .InstanceEventService.Setup(service =>
+                service.BuildInstanceEvent(InstanceEventType.Deleted, It.IsAny<InstanceInternal>())
+            )
+            .Returns(
+                (InstanceEventType eventType, InstanceInternal instance) =>
+                    new InstanceEvent
+                    {
+                        EventType = eventType.ToString(),
+                        InstanceId = instance.Id,
+                        InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
+                    }
+            );
+        fixture
+            .InstanceEventService.Setup(service =>
+                service.BuildInstanceEvent(
+                    InstanceEventType.Deleted,
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<DataElementInternal>()
+                )
+            )
+            .Returns(
+                (
+                    InstanceEventType eventType,
+                    InstanceInternal instance,
+                    DataElementInternal element
+                ) => BuildDataElementEvent(eventType, instance, element)
+            );
+        InstanceMutationCommit capturedMutation = null;
+        SetupCapturingMutationRepository(
+            fixture,
+            instanceGuid,
+            mutation => capturedMutation = mutation,
+            mutation =>
+            {
+                InstanceMutationApplyResult result = CreateApplyResult(
+                    instanceInternal,
+                    mutation,
+                    new StorageVersions(instanceVersion + 1, processStateVersion + 1)
+                );
+                return result;
+            }
+        );
+
+        ActionResult<InstanceMutationResponse> actionResult = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(actionResult.Result);
+        InstanceMutationResponse response = Assert.IsType<InstanceMutationResponse>(ok.Value);
+        Assert.False(response.Replayed);
+        Assert.True(response.Instance.Status.IsHardDeleted);
+        Assert.True(response.Instance.Status.IsSoftDeleted);
+        Assert.Equal(ProcessStatus.Idle, response.Instance.Process.Status);
+        Assert.Equal(processEnded, response.Instance.Process.Ended);
+        Assert.Equal("EndEvent_1", response.Instance.Process.EndEvent);
+        Assert.Null(response.Instance.Process.CurrentTask);
+        Assert.Equal(
+            (instanceVersion + 1).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            fixture.HttpContext.Response.Headers[StorageHeaders.InstanceVersion].Single()
+        );
+        Assert.Equal(
+            (processStateVersion + 1).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            fixture.HttpContext.Response.Headers[StorageHeaders.ProcessStateVersion].Single()
+        );
+
+        Assert.NotNull(capturedMutation);
+        Assert.Equal(instanceVersion, capturedMutation.ExpectedInstanceVersion);
+        Assert.Equal(processStateVersion, capturedMutation.ExpectedProcessStateVersion);
+        Assert.Equal(idempotencyKey, capturedMutation.IdempotencyKey);
+        Assert.Equal(ProcessStatus.Idle, capturedMutation.InstanceUpdates.Process.Status);
+        Assert.Equal(processEnded, capturedMutation.InstanceUpdates.Process.Ended);
+        Assert.Equal("EndEvent_1", capturedMutation.InstanceUpdates.Process.EndEvent);
+        Assert.Null(capturedMutation.InstanceUpdates.Process.CurrentTask);
+        Assert.True(capturedMutation.InstanceUpdates.Status.IsHardDeleted);
+        Assert.Contains(
+            nameof(InstanceInternal.Process),
+            capturedMutation.InstanceUpdateProperties
+        );
+        Assert.Contains(nameof(InstanceInternal.Status), capturedMutation.InstanceUpdateProperties);
+        Assert.Contains(
+            capturedMutation.InstanceEvents,
+            instanceEvent =>
+                instanceEvent.EventType == InstanceEventType.process_EndEvent.ToString()
+        );
+        Assert.Contains(
+            capturedMutation.InstanceEvents,
+            instanceEvent =>
+                instanceEvent.EventType == InstanceEventType.Deleted.ToString()
+                && instanceEvent.DataId is null
+        );
+        Assert.Equal(deleteDataElement ? 1 : 0, capturedMutation.DeleteDataElements.Count);
+        Assert.Equal(
+            deleteDataElement ? 1 : 0,
+            capturedMutation.InstanceEvents.Count(instanceEvent =>
+                instanceEvent.EventType == InstanceEventType.Deleted.ToString()
+                && instanceEvent.DataId == dataElementId.ToString()
+            )
+        );
+        fixture.DataService.Verify(
+            service =>
+                service.CleanupDeletedDataElementBlobs(
+                    It.IsAny<InstanceInternal>(),
+                    dataElement,
+                    7,
+                    It.IsAny<CancellationToken>()
+                ),
+            deleteDataElement ? Times.Once() : Times.Never()
+        );
+    }
+
 #pragma warning disable xUnit1026 // operationName provides a stable display label for each theory row.
     [Theory]
     [MemberData(nameof(DeleteInstanceCombinationRequests))]
@@ -1376,6 +1892,83 @@ public class DataControllerUnitTests
         );
     }
 #pragma warning restore xUnit1026
+
+    [Theory]
+    [MemberData(nameof(InvalidTerminalDeleteInstanceRequests))]
+    public async Task CommitMutation_DeleteInstanceTerminalWorkflowCommit_WhenShapeIsInvalid_ReturnsBadRequest(
+        string mutationJson
+    )
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, []),
+            CreateAggregateApplication(),
+            mutationJson
+        );
+        fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] = "12";
+        fixture.HttpContext.Request.Headers[StorageHeaders.IfProcessStateVersionMatch] = "8";
+        fixture.HttpContext.Request.Headers[StorageHeaders.IdempotencyKey] = Guid.NewGuid()
+            .ToString();
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Equal(
+            "deleteInstance cannot be combined with other aggregate mutation operations.",
+            badRequest.Value
+        );
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+    }
+
+    [Theory]
+    [InlineData(StorageHeaders.IfInstanceVersionMatch)]
+    [InlineData(StorageHeaders.IfProcessStateVersionMatch)]
+    [InlineData(StorageHeaders.IdempotencyKey)]
+    public async Task CommitMutation_DeleteInstanceTerminalWorkflowCommit_WhenWorkflowHeaderIsMissing_ReturnsBadRequest(
+        string missingHeader
+    )
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, []),
+            CreateAggregateApplication(),
+            """
+            {
+              "expectedProcessStatus": "processing",
+              "processState": {
+                "state": {
+                  "status": "idle",
+                  "ended": "2026-06-07T08:09:10Z",
+                  "endEvent": "EndEvent_1"
+                }
+              },
+              "deleteInstance": {
+                "hard": true
+                }
+            }
+            """
+        );
+        fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] = "12";
+        fixture.HttpContext.Request.Headers[StorageHeaders.IfProcessStateVersionMatch] = "8";
+        fixture.HttpContext.Request.Headers[StorageHeaders.IdempotencyKey] = Guid.NewGuid()
+            .ToString();
+        fixture.HttpContext.Request.Headers.Remove(missingHeader);
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+    }
 
     public static TheoryData<string, string> DeleteInstanceCombinationRequests()
     {
@@ -1490,13 +2083,167 @@ public class DataControllerUnitTests
         };
     }
 
+    public static TheoryData<string> InvalidTerminalDeleteInstanceRequests()
+    {
+        const string endedState = """
+            "processState": {
+              "state": {
+                "status": "idle",
+                "ended": "2026-06-07T08:09:10Z",
+                "endEvent": "EndEvent_1"
+              }
+            }
+            """;
+        return new()
+        {
+            {
+                $$"""
+                    {
+                      {{endedState}},
+                      "deleteInstance": { "hard": true }
+                    }
+                    """
+            },
+            {
+                $$"""
+                    {
+                      "expectedProcessStatus": "idle",
+                      {{endedState}},
+                      "deleteInstance": { "hard": true }
+                    }
+                    """
+            },
+            {
+                $$"""
+                    {
+                      "expectedProcessStatus": "processing",
+                      "processState": {
+                        "state": {
+                          "ended": "2026-06-07T08:09:10Z",
+                          "endEvent": "EndEvent_1"
+                        }
+                      },
+                      "deleteInstance": { "hard": true }
+                    }
+                    """
+            },
+            {
+                $$"""
+                    {
+                      "expectedProcessStatus": "processing",
+                      "processState": {
+                        "state": {
+                          "status": "processing",
+                          "ended": "2026-06-07T08:09:10Z",
+                          "endEvent": "EndEvent_1"
+                        }
+                      },
+                      "deleteInstance": { "hard": true }
+                    }
+                    """
+            },
+            {
+                """
+                    {
+                      "expectedProcessStatus": "processing",
+                      "processState": {
+                        "state": {
+                          "status": "idle",
+                          "endEvent": "EndEvent_1"
+                        }
+                      },
+                      "deleteInstance": { "hard": true }
+                    }
+                    """
+            },
+            {
+                """
+                    {
+                      "expectedProcessStatus": "processing",
+                      "processState": {
+                        "state": {
+                          "status": "idle",
+                          "ended": "2026-06-07T08:09:10Z",
+                          "endEvent": "EndEvent_1",
+                          "currentTask": {
+                            "elementId": "Task_1"
+                          }
+                        }
+                      },
+                      "deleteInstance": { "hard": true }
+                    }
+                    """
+            },
+            {
+                """
+                    {
+                      "expectedProcessStatus": "processing",
+                      "processState": {
+                        "state": {
+                          "status": "idle",
+                          "ended": "2026-06-07T08:09:10Z"
+                        }
+                      },
+                      "deleteInstance": { "hard": true }
+                    }
+                    """
+            },
+            {
+                $$"""
+                    {
+                      "expectedProcessStatus": "processing",
+                      {{endedState}},
+                      "dataValues": {
+                        "unrelated": "update"
+                      },
+                      "deleteInstance": { "hard": true }
+                    }
+                    """
+            },
+            {
+                $$"""
+                    {
+                      "expectedProcessStatus": "processing",
+                      {{endedState}},
+                      "createDataElements": [
+                        {
+                          "dataType": "attachment",
+                          "contentPartName": "attachment"
+                        }
+                      ],
+                      "deleteInstance": { "hard": true }
+                    }
+                    """
+            },
+            {
+                $$"""
+                    {
+                      "expectedProcessStatus": "processing",
+                      {{endedState}},
+                      "updateDataElements": [
+                        {
+                          "dataElementId": "11111111-1111-1111-1111-111111111111",
+                          "locked": true
+                        }
+                      ],
+                      "deleteInstance": { "hard": true }
+                    }
+                    """
+            },
+        };
+    }
+
     [Fact]
-    public async Task CommitMutation_DeleteInstanceHard_WhenIdempotencyReplaysAfterMarker_ReturnsInstanceDeleted()
+    public async Task CommitMutation_DeleteInstanceTerminalWorkflowCommit_WhenIdempotencyReplaysAfterHardDelete_ReturnsOriginalResult()
     {
         Guid instanceGuid = Guid.NewGuid();
         Guid idempotencyKey = Guid.Parse("33333333-3333-3333-3333-333333333333");
         DateTime deletedAt = DateTime.UtcNow;
-        InstanceInternal instanceInternal = CreateAggregateInstanceInternal(instanceGuid, []);
+        InstanceInternal instanceInternal = CreateAggregateInstanceInternal(
+            instanceGuid,
+            [],
+            new StorageVersions(13, 9)
+        );
         instanceInternal.Status = new InstanceStatus
         {
             IsHardDeleted = true,
@@ -1504,12 +2251,26 @@ public class DataControllerUnitTests
             HardDeleted = deletedAt,
             SoftDeleted = deletedAt,
         };
+        instanceInternal.Process = new ProcessState
+        {
+            Status = ProcessStatus.Idle,
+            Ended = deletedAt,
+            EndEvent = "EndEvent_1",
+        };
         AggregateMutationFixture fixture = CreateAggregateMutationFixture(
             instanceGuid,
             instanceInternal,
             CreateAggregateApplication(),
             """
             {
+              "expectedProcessStatus": "processing",
+              "processState": {
+                "state": {
+                  "status": "idle",
+                  "ended": "2026-06-07T08:09:10Z",
+                  "endEvent": "EndEvent_1"
+                }
+              },
               "deleteInstance": {
                 "hard": true
               }
@@ -1518,24 +2279,20 @@ public class DataControllerUnitTests
         );
         fixture.HttpContext.Request.Headers[StorageHeaders.IdempotencyKey] =
             idempotencyKey.ToString();
-        fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] = "10";
+        fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] = "12";
+        fixture.HttpContext.Request.Headers[StorageHeaders.IfProcessStateVersionMatch] = "8";
         fixture
             .MutationRepository.Setup(repository =>
                 repository.TryReplayAdmission(
                     instanceGuid,
-                    10,
-                    1,
-                    1,
+                    12,
+                    13,
+                    9,
                     idempotencyKey,
                     It.IsAny<CancellationToken>()
                 )
             )
-            .ThrowsAsync(
-                new RepositoryException(
-                    $"Instance {instanceGuid} is deleted and cannot be modified.",
-                    HttpStatusCode.NotFound
-                )
-            );
+            .ReturnsAsync(new InstanceMutationApplyResult(true, [], instanceInternal));
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
@@ -1543,22 +2300,42 @@ public class DataControllerUnitTests
             CancellationToken.None
         );
 
-        ObjectResult objectResult = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status404NotFound, objectResult.StatusCode);
-        Assert.Equal(
-            $"Instance {instanceGuid} is deleted and cannot be modified.",
-            objectResult.Value
-        );
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(result.Result);
+        InstanceMutationResponse response = Assert.IsType<InstanceMutationResponse>(ok.Value);
+        Assert.True(response.Replayed);
+        Assert.True(response.Instance.Status.IsHardDeleted);
+        Assert.Equal(ProcessStatus.Idle, response.Instance.Process.Status);
+        Assert.Equal("EndEvent_1", response.Instance.Process.EndEvent);
         fixture.MutationRepository.Verify(
             repository =>
-                repository.Apply(
-                    It.IsAny<Guid>(),
-                    It.IsAny<long>(),
-                    It.IsAny<InstanceMutationCommit>(),
+                repository.TryReplayAdmission(
+                    instanceGuid,
+                    12,
+                    13,
+                    9,
+                    idempotencyKey,
                     It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+        fixture.PolicyAuthorizationService.Verify(
+            service =>
+                service.AuthorizeAsync(
+                    It.IsAny<ClaimsPrincipal>(),
+                    It.IsAny<object>(),
+                    AuthzConstants.POLICY_INSTANCE_DELETE
                 ),
             Times.Never
         );
+        fixture.ProcessAuthorizer.Verify(
+            authorizer =>
+                authorizer.AuthorizeProcessNext(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<ProcessState>()
+                ),
+            Times.Never
+        );
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
 
     [Fact]
@@ -1981,7 +2758,7 @@ public class DataControllerUnitTests
     }
 
     [Fact]
-    public async Task CommitMutation_UpdateWriteActionNotAuthorized_ForbidsBeforeReplayAdmission()
+    public async Task CommitMutation_IdempotentReplay_ReturnsBeforeCurrentAuthorization()
     {
         Guid instanceGuid = Guid.NewGuid();
         Guid dataElementId = Guid.NewGuid();
@@ -2009,13 +2786,34 @@ public class DataControllerUnitTests
                   "dataElementId": "{{dataElementId}}",
                   "tags": ["blocked-update"]
                 }
-              ]
+              ],
+              "dataValues": {
+                "status": "retry"
+              }
             }
             """
         );
+        fixture
+            .ProcessAuthorizer.Setup(authorizer =>
+                authorizer.AuthorizeDataValuesUpdate(It.IsAny<InstanceInternal>())
+            )
+            .ReturnsAsync(false);
         fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] = "12";
+        fixture.HttpContext.Request.Headers[StorageHeaders.IfProcessStateVersionMatch] = "8";
         fixture.HttpContext.Request.Headers[StorageHeaders.IdempotencyKey] =
             idempotencyKey.ToString();
+        fixture
+            .MutationRepository.Setup(repository =>
+                repository.TryReplayAdmission(
+                    instanceGuid,
+                    12,
+                    13,
+                    9,
+                    idempotencyKey,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(new InstanceMutationApplyResult(true, [], fixture.InstanceInternal));
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
@@ -2023,19 +2821,276 @@ public class DataControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.IsType<ForbidResult>(result.Result);
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(result.Result);
+        InstanceMutationResponse response = Assert.IsType<InstanceMutationResponse>(ok.Value);
+        Assert.True(response.Replayed);
         fixture.MutationRepository.Verify(
             repository =>
                 repository.TryReplayAdmission(
+                    instanceGuid,
+                    12,
+                    13,
+                    9,
+                    idempotencyKey,
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+        fixture.ProcessAuthorizer.Verify(
+            authorizer => authorizer.AuthorizeDataValuesUpdate(It.IsAny<InstanceInternal>()),
+            Times.Never
+        );
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+    }
+
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task CommitMutation_MismatchingClientVersionFastFailsBeforeAuthorizationAndWork(
+        bool instanceVersionMismatch,
+        bool processStateVersionMismatch
+    )
+    {
+        const int instanceVersion = 7;
+        const int processStateVersion = 3;
+        Guid instanceGuid = Guid.NewGuid();
+        InstanceInternal snapshot = CreateAggregateInstanceInternal(
+            instanceGuid,
+            [],
+            new StorageVersions(instanceVersion, processStateVersion)
+        );
+        snapshot.Process = new ProcessState
+        {
+            CurrentTask = new ProcessElementInfo { ElementId = "Task_1", AltinnTaskType = "data" },
+        };
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            snapshot,
+            CreateAggregateApplication(),
+            """
+            {
+              "createDataElements": [
+                {
+                  "dataType": "attachment",
+                  "contentPartName": "attachment"
+                }
+              ],
+              "dataValues": {
+                "summary": "ready"
+              },
+              "presentationTexts": {
+                "summary": "ready"
+              },
+              "processState": {
+                "state": {
+                  "currentTask": {
+                    "elementId": "Task_2",
+                    "altinnTaskType": "data"
+                  }
+                }
+              }
+            }
+            """,
+            CreateFormFile("attachment")
+        );
+        fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] = (
+            instanceVersionMismatch ? instanceVersion - 1 : instanceVersion
+        ).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        fixture.HttpContext.Request.Headers[StorageHeaders.IfProcessStateVersionMatch] = (
+            processStateVersionMismatch ? processStateVersion - 1 : processStateVersion
+        ).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        ObjectResult preconditionFailed = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status412PreconditionFailed, preconditionFailed.StatusCode);
+        ProblemDetails problem = Assert.IsType<ProblemDetails>(preconditionFailed.Value);
+        Assert.Equal(
+            instanceVersionMismatch
+                ? "instance_version_mismatch"
+                : "process_state_version_mismatch",
+            problem.Type
+        );
+        Assert.Equal(
+            instanceVersion.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            fixture.HttpContext.Response.Headers[StorageHeaders.InstanceVersion].Single()
+        );
+        Assert.Equal(
+            processStateVersion.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            fixture.HttpContext.Response.Headers[StorageHeaders.ProcessStateVersion].Single()
+        );
+        fixture.ProcessAuthorizer.Verify(
+            authorizer =>
+                authorizer.AuthorizeProcessNext(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<ProcessState>()
+                ),
+            Times.Never
+        );
+        fixture.ProcessAuthorizer.Verify(
+            authorizer => authorizer.AuthorizePresentationTextsUpdate(It.IsAny<InstanceInternal>()),
+            Times.Never
+        );
+        fixture.ProcessAuthorizer.Verify(
+            authorizer => authorizer.AuthorizeDataValuesUpdate(It.IsAny<InstanceInternal>()),
+            Times.Never
+        );
+        fixture.DataRepository.Verify(
+            repository =>
+                repository.CreateBlobVersionId(
                     It.IsAny<Guid>(),
-                    It.IsAny<int>(),
-                    It.IsAny<int>(),
-                    It.IsAny<int>(),
                     It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
         );
+        fixture.BlobRepository.Verify(
+            repository =>
+                repository.WriteBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<Stream>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>()
+                ),
+            Times.Never
+        );
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+    }
+
+    [Fact]
+    public async Task CommitMutation_WriteTimeProcessStateVersionMismatchReturnsExistingProblemDetails()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, [], new StorageVersions(7, 3)),
+            CreateAggregateApplication(),
+            """
+            {
+              "dataValues": {
+                "status": "updated"
+              }
+            }
+            """
+        );
+        fixture
+            .MutationRepository.Setup(repository =>
+                repository.Apply(
+                    instanceGuid,
+                    fixture.InstanceInternal.InternalId,
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(new ProcessStateVersionMismatchException(9, 5));
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        ObjectResult preconditionFailed = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status412PreconditionFailed, preconditionFailed.StatusCode);
+        ProblemDetails problem = Assert.IsType<ProblemDetails>(preconditionFailed.Value);
+        Assert.Equal("process_state_version_mismatch", problem.Type);
+        Assert.Equal(
+            "9",
+            fixture.HttpContext.Response.Headers[StorageHeaders.InstanceVersion].Single()
+        );
+        Assert.Equal(
+            "5",
+            fixture.HttpContext.Response.Headers[StorageHeaders.ProcessStateVersion].Single()
+        );
+    }
+
+    [Fact]
+    public async Task CommitMutation_RepositoryProcessStatusConflict_ReturnsConflictWithCurrentStatus()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, [], new StorageVersions(7, 3)),
+            CreateAggregateApplication(),
+            """{"dataValues":{"value":"updated"}}"""
+        );
+        fixture
+            .MutationRepository.Setup(repository =>
+                repository.Apply(
+                    instanceGuid,
+                    fixture.InstanceInternal.InternalId,
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(new ProcessStatusConflictException(ProcessStatus.Processing));
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        JsonResult conflict = Assert.IsType<JsonResult>(result.Result);
+        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
+        Assert.Equal("application/problem+json", conflict.ContentType);
+        ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
+        Assert.Equal(StatusCodes.Status409Conflict, problem.Status);
+        Assert.Equal("process_status_conflict", problem.Type);
+        Assert.Equal("Process status conflict", problem.Title);
+        Assert.Contains(ProcessStatus.Processing, problem.Detail, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(ProcessStatus.Processing, null)]
+    [InlineData(ProcessStatus.Idle, ProcessStatus.Processing)]
+    public async Task CommitMutation_ExpectedProcessStatusMismatch_ReturnsConflictBeforeApply(
+        string currentProcessStatus,
+        string expectedProcessStatus
+    )
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        InstanceInternal instance = CreateAggregateInstanceInternal(
+            instanceGuid,
+            [],
+            new StorageVersions(7, 3)
+        );
+        instance.Process = new ProcessState { Status = currentProcessStatus };
+        string mutationJson = expectedProcessStatus is null
+            ? """{"dataValues":{"value":"updated"}}"""
+            : $$"""
+                {
+                  "expectedProcessStatus": "{{expectedProcessStatus}}",
+                  "dataValues": {
+                    "value": "updated"
+                  }
+                }
+                """;
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            instance,
+            CreateAggregateApplication(),
+            mutationJson
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        JsonResult conflict = Assert.IsType<JsonResult>(result.Result);
+        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
+        ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
+        Assert.Contains(currentProcessStatus, problem.Detail, StringComparison.Ordinal);
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
 
@@ -2726,8 +3781,12 @@ public class DataControllerUnitTests
         );
     }
 
-    [Fact]
-    public async Task CommitMutation_WhenAggregateApplyFailsAfterStaging_CleansUpAndRunsNoPostCommitWork()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CommitMutation_WhenAggregateApplyFailsAfterStaging_CleansUpAndRunsNoPostCommitWork(
+        bool processStatusConflict
+    )
     {
         Guid instanceGuid = Guid.NewGuid();
         string allocatedBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
@@ -2783,7 +3842,11 @@ public class DataControllerUnitTests
                     It.IsAny<CancellationToken>()
                 )
             )
-            .ThrowsAsync(new RepositoryException("event insert failed", HttpStatusCode.Conflict));
+            .ThrowsAsync(
+                processStatusConflict
+                    ? new ProcessStatusConflictException(ProcessStatus.Processing)
+                    : new RepositoryException("event insert failed", HttpStatusCode.Conflict)
+            );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
@@ -2791,8 +3854,18 @@ public class DataControllerUnitTests
             CancellationToken.None
         );
 
-        ObjectResult objectResult = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status409Conflict, objectResult.StatusCode);
+        if (processStatusConflict)
+        {
+            JsonResult conflict = Assert.IsType<JsonResult>(result.Result);
+            ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
+            Assert.Equal("process_status_conflict", problem.Type);
+        }
+        else
+        {
+            ObjectResult genericConflict = Assert.IsType<ObjectResult>(result.Result);
+            Assert.Equal(StatusCodes.Status409Conflict, genericConflict.StatusCode);
+            Assert.Equal("event insert failed", Assert.IsType<string>(genericConflict.Value));
+        }
         fixture.BlobRepository.Verify(
             repository =>
                 repository.DeleteBlob(
@@ -4099,6 +5172,42 @@ public class DataControllerUnitTests
         );
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Delete_ProcessStatusAdmissionMismatch_ReturnsConflictBeforeApply(bool delay)
+    {
+        ImmediateDeleteFixture fixture = CreateImmediateDeleteFixture();
+        fixture.InstanceInternal.Process = new ProcessState { Status = ProcessStatus.Processing };
+
+        ActionResult<DataElement> result = await fixture.Sut.Delete(
+            fixture.InstanceOwnerPartyId,
+            fixture.InstanceGuid,
+            fixture.DataElementId,
+            delay,
+            CancellationToken.None
+        );
+
+        ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
+        Assert.Contains(
+            ProcessStatus.Processing,
+            Assert.IsType<string>(conflict.Value),
+            StringComparison.Ordinal
+        );
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+        fixture.DataService.Verify(
+            service =>
+                service.CleanupDeletedDataElementBlobs(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<DataElementInternal>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
     [Fact]
     public async Task Delete_DelayedDelete_UsesCallerTimestampAndReturnsApplySnapshotElement()
     {
@@ -5000,6 +6109,58 @@ public class DataControllerUnitTests
     }
 
     [Fact]
+    public async Task Update_ProcessStatusConflict_ReturnsConflictWithCurrentStatus()
+    {
+        // Arrange
+        List<string> expectedPropertiesForPatch =
+        [
+            "/locked",
+            "/refs",
+            "/references",
+            "/tags",
+            "/userDefinedMetadata",
+            "/metadata",
+            "/deleteStatus",
+            "/lastChanged",
+            "/lastChangedBy",
+        ];
+
+        (DataController testController, _, _) = GetTestController(
+            expectedPropertiesForPatch,
+            includeRequestBody: true,
+            repositoryExceptionOnUpdate: new ProcessStatusConflictException(
+                ProcessStatus.Processing
+            )
+        );
+        Guid instanceGuid = Guid.NewGuid();
+        Guid dataElementId = Guid.NewGuid();
+        DataElement input = new()
+        {
+            Id = dataElementId.ToString(),
+            InstanceGuid = instanceGuid.ToString(),
+            DataType = _dataType,
+        };
+
+        // Act
+        ActionResult<DataElement> result = await testController.Update(
+            _instanceOwnerPartyId,
+            instanceGuid,
+            dataElementId,
+            input,
+            CancellationToken.None
+        );
+
+        // Assert
+        ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
+        Assert.Contains(
+            ProcessStatus.Processing,
+            Assert.IsType<string>(conflict.Value),
+            StringComparison.Ordinal
+        );
+    }
+
+    [Fact]
     public async Task Delete_Delayed_DoesNotUseLegacyRepositoryUpdate()
     {
         // Arrange
@@ -5413,6 +6574,48 @@ public class DataControllerUnitTests
     }
 
     [Fact]
+    public async Task CreateAndUploadData_ProcessStatusConflict_ReturnsConflictWithCurrentStatus()
+    {
+        // Arrange
+        (DataController testController, _, _) = GetTestController(
+            [],
+            includeRequestBody: true,
+            configureDataService: dataService =>
+                dataService
+                    .Setup(service =>
+                        service.UploadDataAndCreateDataElement(
+                            It.IsAny<InstanceInternal>(),
+                            It.IsAny<Stream>(),
+                            It.IsAny<DataElementCreateOptions>(),
+                            It.IsAny<long>(),
+                            It.IsAny<int?>(),
+                            It.IsAny<CancellationToken>(),
+                            It.IsAny<int?>(),
+                            It.IsAny<int?>()
+                        )
+                    )
+                    .ThrowsAsync(new ProcessStatusConflictException(ProcessStatus.Processing))
+        );
+
+        // Act
+        ActionResult<DataElement> result = await testController.CreateAndUploadData(
+            _instanceOwnerPartyId,
+            Guid.NewGuid(),
+            _dataType,
+            CancellationToken.None
+        );
+
+        // Assert
+        ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
+        Assert.Contains(
+            ProcessStatus.Processing,
+            Assert.IsType<string>(conflict.Value),
+            StringComparison.Ordinal
+        );
+    }
+
+    [Fact]
     public async Task OverwriteData_UpdateMetadataThrows_DoesNotDeleteExplicitVersionBlob()
     {
         // Arrange
@@ -5505,6 +6708,56 @@ public class DataControllerUnitTests
         dataRepositoryMock.Verify(
             d =>
                 d.DeleteBlobVersion(
+                    It.IsAny<Guid>(),
+                    allocatedBlobVersionId,
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task OverwriteData_ProcessStatusConflict_ReturnsCurrentStatusAndDeletesAllocatedBlob()
+    {
+        // Arrange
+        string allocatedBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        (
+            DataController testController,
+            Mock<IDataRepository> dataRepositoryMock,
+            Mock<IBlobRepository> blobRepositoryMock
+        ) = GetTestController(
+            _expectedPropertiesForOverwrite,
+            includeRequestBody: true,
+            repositoryExceptionOnUpdate: new ProcessStatusConflictException(
+                ProcessStatus.Processing
+            ),
+            blobVersionId: "existing-version-id",
+            allocatedBlobVersionId: allocatedBlobVersionId
+        );
+
+        // Act
+        ActionResult<DataElement> result = await testController.OverwriteData(
+            _instanceOwnerPartyId,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            CancellationToken.None
+        );
+
+        // Assert
+        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
+        Assert.Contains(
+            ProcessStatus.Processing,
+            Assert.IsType<string>(conflict.Value),
+            StringComparison.Ordinal
+        );
+        blobRepositoryMock.Verify(
+            repository =>
+                repository.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            Times.Once
+        );
+        dataRepositoryMock.Verify(
+            repository =>
+                repository.DeleteBlobVersion(
                     It.IsAny<Guid>(),
                     allocatedBlobVersionId,
                     It.IsAny<CancellationToken>()

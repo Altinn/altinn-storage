@@ -445,6 +445,28 @@ public class PgInstanceMutationRepositoryTests
     }
 
     [Fact]
+    public void CreateApplyMutationException_ProcessStatusConflict_ReturnsTypedConflictWithCurrentStatus()
+    {
+        Guid instanceGuid = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        PostgresException postgresException = new(
+            """{"code":"process_status_conflict","currentInstanceVersion":12,"currentProcessStateVersion":4,"currentProcessStatus":"future-status"}""",
+            "ERROR",
+            "ERROR",
+            "AM001"
+        );
+
+        ProcessStatusConflictException exception = Assert.IsType<ProcessStatusConflictException>(
+            PgInstanceMutationRepository.CreateApplyMutationException(
+                instanceGuid,
+                postgresException
+            )
+        );
+        Assert.Equal(HttpStatusCode.Conflict, exception.StatusCodeSuggestion);
+        Assert.Equal("future-status", exception.CurrentProcessStatus);
+        Assert.Contains("future-status", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ReplaySnapshotVersionDrift_ReturnsVersionMismatchWithActualSnapshotVersions()
     {
         InstanceInternal instance = InstanceInternalTestFactory.Create(

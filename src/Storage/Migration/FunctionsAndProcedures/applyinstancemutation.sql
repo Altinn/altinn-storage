@@ -26,6 +26,7 @@ AS $BODY$
 DECLARE
     _currentinstanceversion INT;
     _currentprocessstateversion INT;
+    _currentprocessstatus TEXT;
     _replaycreateddataelementids TEXT[];
     _committedcreateddataelementids TEXT[];
     _updatedids UUID[];
@@ -53,6 +54,8 @@ BEGIN
             NULL::INT,
             NULL::INT);
     END IF;
+
+    _currentprocessstatus := COALESCE(_composedinstance -> 'Process' ->> 'Status', 'idle');
 
     _createelements := COALESCE(_createelements, '[]'::JSONB);
     _updateelements := COALESCE(_updateelements, '[]'::JSONB);
@@ -118,6 +121,18 @@ BEGIN
             'process_state_version_mismatch',
             _currentinstanceversion,
             _currentprocessstateversion);
+    END IF;
+
+    IF _currentprocessstatus <> 'idle'
+        AND _expectedinstanceversion IS NULL
+        AND _expectedprocessstateversion IS NULL
+    THEN
+        CALL storage.raiseinstancemutationerror(
+            'process_status_conflict',
+            _currentinstanceversion,
+            _currentprocessstateversion,
+            NULL::UUID,
+            _currentprocessstatus);
     END IF;
 
     IF COALESCE((_composedinstance -> 'Status' ->> 'IsHardDeleted')::BOOLEAN, FALSE)
