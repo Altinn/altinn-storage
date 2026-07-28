@@ -283,18 +283,6 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services
         .AddAuthorizationBuilder()
         .AddPolicy(
-            AuthzConstants.POLICY_INSTANCE_READ,
-            policy => policy.Requirements.Add(new AppAccessRequirement("read"))
-        )
-        .AddPolicy(
-            AuthzConstants.POLICY_INSTANCE_WRITE,
-            policy => policy.Requirements.Add(new AppAccessRequirement("write"))
-        )
-        .AddPolicy(
-            AuthzConstants.POLICY_INSTANCE_DELETE,
-            policy => policy.Requirements.Add(new AppAccessRequirement("delete"))
-        )
-        .AddPolicy(
             AuthzConstants.POLICY_INSTANCE_COMPLETE,
             policy => policy.Requirements.Add(new AppAccessRequirement("complete"))
         )
