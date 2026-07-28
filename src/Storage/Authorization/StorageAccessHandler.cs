@@ -1,5 +1,4 @@
 using System;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
@@ -81,12 +80,6 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
         AppAccessRequirement requirement
     )
     {
-        if (IsValidSyncAdapterRequest(requirement))
-        {
-            context.Succeed(requirement);
-            return;
-        }
-
         RouteData? routeData = _httpContextAccessor.HttpContext?.GetRouteData();
         string? instanceGuidString = routeData?.Values["instanceGuid"]?.ToString();
         if (instanceGuidString is null)
@@ -121,7 +114,7 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
         if (instance is not null)
         {
             AuthorizationService.EnrichXacmlJsonRequest(request, instance);
-            response = await GetDecisionForRequest(request);
+            response = await _authorizationService.GetDecisionForRequestWithCache(request);
         }
         else
         {
@@ -140,78 +133,5 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
 
         context.Succeed(requirement);
         await Task.CompletedTask;
-    }
-
-    private async Task<XacmlJsonResponse?> GetDecisionForRequest(XacmlJsonRequestRoot request)
-    {
-        string cacheKey = GetCacheKeyForDecisionRequest(request);
-
-        if (!_memoryCache.TryGetValue(cacheKey, out XacmlJsonResponse? response))
-        {
-            // Key not in cache, so get decisin from PDP.
-            response = await _pdp.GetDecisionForRequest(request);
-
-            // Set the cache options
-            MemoryCacheEntryOptions cacheEntryOptions = new MemoryCacheEntryOptions()
-                .SetPriority(CacheItemPriority.High)
-                .SetAbsoluteExpiration(new TimeSpan(0, _pepSettings.PdpDecisionCachingTimeout, 0));
-
-            _memoryCache.Set(cacheKey, response, cacheEntryOptions);
-        }
-
-        return response;
-    }
-
-    /// <summary>
-    /// This method creates a unique cache key based on all relevant attributes in a decision request
-    /// </summary>
-    /// <param name="request">The decision requonst</param>
-    /// <returns>The cache key</returns>
-    private static string GetCacheKeyForDecisionRequest(XacmlJsonRequestRoot request)
-    {
-        StringBuilder resourceKey = new StringBuilder();
-        foreach (XacmlJsonCategory category in request.Request.Resource)
-        {
-            foreach (XacmlJsonAttribute atr in category.Attribute)
-            {
-                resourceKey.Append(atr.AttributeId + ":" + atr.Value + ";");
-            }
-        }
-
-        StringBuilder subjectKey = new StringBuilder();
-        foreach (XacmlJsonCategory category in request.Request.AccessSubject)
-        {
-            foreach (XacmlJsonAttribute atr in category.Attribute)
-            {
-                subjectKey.Append(atr.AttributeId + ":" + atr.Value + ";");
-            }
-        }
-
-        StringBuilder actionKey = new StringBuilder();
-        foreach (XacmlJsonCategory category in request.Request.Action)
-        {
-            foreach (XacmlJsonAttribute atr in category.Attribute)
-            {
-                actionKey.Append(atr.AttributeId + ":" + atr.Value + ";");
-            }
-        }
-
-        return subjectKey.ToString() + actionKey.ToString() + resourceKey.ToString();
-    }
-
-    private bool IsValidSyncAdapterRequest(AppAccessRequirement requirement)
-    {
-        if (
-            requirement.ActionType != "read"
-            && requirement.ActionType != "write"
-            && requirement.ActionType != "delete"
-        )
-        {
-            return false;
-        }
-
-        return _authorizationService.UserHasRequiredScope([
-            _generalSettings.InstanceSyncAdapterScope,
-        ]);
     }
 }

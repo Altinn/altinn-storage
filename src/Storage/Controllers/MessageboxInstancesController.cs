@@ -241,7 +241,12 @@ public class MessageBoxInstancesController : ControllerBase
         [FromRoute] Guid instanceGuid
     )
     {
-        if (!await _authorizationService.AuthorizeEnrichedInstanceAction(null, "read"))
+        var (instance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            CancellationToken.None
+        );
+        if (!await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read"))
         {
             return Forbid();
         }

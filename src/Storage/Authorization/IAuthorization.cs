@@ -66,4 +66,11 @@ public interface IAuthorization
     /// <param name="xacmlJsonRequest">The Xacml Json Request</param>
     /// <returns>The Xacml Json response contains the result of the request</returns>
     public Task<XacmlJsonResponse> GetDecisionForRequest(XacmlJsonRequestRoot xacmlJsonRequest);
+
+    /// <summary>
+    /// Gets the response from cache if exists, else sends in a request and get response with result of the request from PDP
+    /// </summary>
+    /// <param name="xacmlJsonRequest">The Xacml Json Request</param>
+    /// <returns>The Xacml Json response contains the result of the request</returns>
+    public Task<XacmlJsonResponse> GetDecisionForRequestWithCache(XacmlJsonRequestRoot request);
 }

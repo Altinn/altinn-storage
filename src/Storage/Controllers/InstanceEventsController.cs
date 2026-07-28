@@ -74,22 +74,21 @@ public class InstanceEventsController : ControllerBase
 
         instanceEvent.Created = instanceEvent.Created?.ToUniversalTime() ?? DateTime.UtcNow;
 
-        Instance? instance = null;
-        if (_wolverineSettings.EnableSending)
-        {
-            (instance, _) = await _instanceRepository.GetOne(
-                instanceGuid,
-                false,
-                CancellationToken.None
-            );
-        }
+        var (instance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            CancellationToken.None
+        );
 
         if (!await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read"))
         {
             return Forbid();
         }
 
-        InstanceEvent result = await _repository.InsertInstanceEvent(instanceEvent, instance);
+        InstanceEvent result = await _repository.InsertInstanceEvent(
+            instanceEvent,
+            _wolverineSettings.EnableSending ? instance : null
+        );
         if (result == null)
         {
             return BadRequest("Unable to write new instance event to database");
@@ -116,7 +115,12 @@ public class InstanceEventsController : ControllerBase
         Guid eventGuid
     )
     {
-        if (!await _authorizationService.AuthorizeEnrichedInstanceAction(null, "read"))
+        var (instance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            CancellationToken.None
+        );
+        if (!await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read"))
         {
             return Forbid();
         }
@@ -160,7 +164,12 @@ public class InstanceEventsController : ControllerBase
         [FromQuery] string? to
     )
     {
-        if (!await _authorizationService.AuthorizeEnrichedInstanceAction(null, "read"))
+        var (instance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            CancellationToken.None
+        );
+        if (!await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read"))
         {
             return Forbid();
         }

@@ -233,6 +233,10 @@ public class AuthorizationService(
     /// <inheritdoc />
     public async Task<bool> AuthorizeEnrichedInstanceAction(Instance instance, string action)
     {
+        if (IsValidSyncAdapterRequest(action))
+        {
+            return true;
+        }
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
         RouteData routeData = _httpContextAccessor.HttpContext?.GetRouteData();
         XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
@@ -247,25 +251,7 @@ public class AuthorizationService(
         if (instance is not null)
         {
             EnrichXacmlJsonRequest(request, instance);
-
-            string cacheKey = GetCacheKeyForDecisionRequest(request);
-            if (!_memoryCache.TryGetValue(cacheKey, out response))
-            {
-                response = await _pdp.GetDecisionForRequest(request);
-
-                if (response?.Response is not null)
-                {
-                    _memoryCache.Set(
-                        cacheKey,
-                        response,
-                        new MemoryCacheEntryOptions()
-                            .SetPriority(CacheItemPriority.High)
-                            .SetAbsoluteExpiration(
-                                new TimeSpan(0, _pepSettings.PdpDecisionCachingTimeout, 0)
-                            )
-                    );
-                }
-            }
+            response = await GetDecisionForRequestWithCache(request);
         }
         else
         {
@@ -407,6 +393,29 @@ public class AuthorizationService(
     )
     {
         return await _pdp.GetDecisionForRequest(xacmlJsonRequest);
+    }
+
+    /// <inheritdoc />
+    public async Task<XacmlJsonResponse> GetDecisionForRequestWithCache(
+        XacmlJsonRequestRoot request
+    )
+    {
+        string cacheKey = GetCacheKeyForDecisionRequest(request);
+
+        if (!_memoryCache.TryGetValue(cacheKey, out XacmlJsonResponse? response))
+        {
+            // Key not in cache, so get decisin from PDP.
+            response = await _pdp.GetDecisionForRequest(request);
+
+            // Set the cache options
+            MemoryCacheEntryOptions cacheEntryOptions = new MemoryCacheEntryOptions()
+                .SetPriority(CacheItemPriority.High)
+                .SetAbsoluteExpiration(new TimeSpan(0, _pepSettings.PdpDecisionCachingTimeout, 0));
+
+            _memoryCache.Set(cacheKey, response, cacheEntryOptions);
+        }
+
+        return response;
     }
 
     /// <summary>
@@ -766,5 +775,15 @@ public class AuthorizationService(
         }
 
         return subjectKey.ToString() + actionKey.ToString() + resourceKey.ToString();
+    }
+
+    private bool IsValidSyncAdapterRequest(string action)
+    {
+        if (action != "read" && action != "write" && action != "delete")
+        {
+            return false;
+        }
+
+        return UserHasRequiredScope([_settings.InstanceSyncAdapterScope]);
     }
 }
