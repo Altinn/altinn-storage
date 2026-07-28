@@ -29,6 +29,7 @@ namespace Altinn.Platform.Storage.Authorization;
 /// <remarks>
 /// Initializes a new instance of the <see cref="AuthorizationService"/> class.
 /// </remarks>
+/// <param name="httpContextAccessor">Accessor for the current <see cref="Microsoft.AspNetCore.Http.HttpContext"/>.</param>
 /// <param name="pdp">Policy decision point</param>
 /// <param name="claimsPrincipalProvider">A service providing access to the current <see cref="ClaimsPrincipal"/>.</param>
 /// <param name="logger">The logger</param>

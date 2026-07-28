@@ -72,5 +72,7 @@ public interface IAuthorization
     /// </summary>
     /// <param name="xacmlJsonRequest">The Xacml Json Request</param>
     /// <returns>The Xacml Json response contains the result of the request</returns>
-    public Task<XacmlJsonResponse> GetDecisionForRequestWithCache(XacmlJsonRequestRoot request);
+    public Task<XacmlJsonResponse> GetDecisionForRequestWithCache(
+        XacmlJsonRequestRoot xacmlJsonRequest
+    );
 }
