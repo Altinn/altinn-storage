@@ -239,13 +239,18 @@ public class AuthorizationService(
         }
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
         RouteData routeData = _httpContextAccessor.HttpContext?.GetRouteData();
+        int.TryParse(
+            routeData?.Values["instanceOwnerPartyId"] as string,
+            out var instanceOwnerPartyId
+        );
+        Guid.TryParse(routeData?.Values["instanceGuid"] as string, out var instanceGuid);
         XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
             routeData?.Values["app"] as string,
             routeData?.Values["org"] as string,
             user,
             action,
-            int.Parse(routeData.Values["instanceOwnerPartyId"] as string),
-            Guid.Parse(routeData.Values["instanceGuid"] as string)
+            instanceOwnerPartyId,
+            instanceGuid
         );
         XacmlJsonResponse response;
         if (instance is not null)
@@ -402,17 +407,17 @@ public class AuthorizationService(
     {
         string cacheKey = GetCacheKeyForDecisionRequest(request);
 
-        if (!_memoryCache.TryGetValue(cacheKey, out XacmlJsonResponse? response))
+        if (!_memoryCache.TryGetValue(cacheKey, out XacmlJsonResponse response))
         {
-            // Key not in cache, so get decisin from PDP.
+            // Key not in cache, so get decision from PDP.
             response = await _pdp.GetDecisionForRequest(request);
 
             // Set the cache options
             MemoryCacheEntryOptions cacheEntryOptions = new MemoryCacheEntryOptions()
                 .SetPriority(CacheItemPriority.High)
                 .SetAbsoluteExpiration(new TimeSpan(0, _pepSettings.PdpDecisionCachingTimeout, 0));
-
-            _memoryCache.Set(cacheKey, response, cacheEntryOptions);
+            if (response != null)
+                _memoryCache.Set(cacheKey, response, cacheEntryOptions);
         }
 
         return response;
