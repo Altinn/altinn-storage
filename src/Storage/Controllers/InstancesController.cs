@@ -400,10 +400,7 @@ public class InstancesController : ControllerBase
                 return Ok(instance);
             }
 
-            if (
-                await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read")
-                is false
-            )
+            if (await _authorizationService.AuthorizeInstanceRequest(instance, "read") is false)
             {
                 return Forbid();
             }
@@ -457,10 +454,7 @@ public class InstancesController : ControllerBase
                 return Ok(instance);
             }
 
-            if (
-                await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read")
-                is false
-            )
+            if (await _authorizationService.AuthorizeInstanceRequest(instance, "read") is false)
             {
                 return Forbid();
             }
@@ -666,9 +660,7 @@ public class InstancesController : ControllerBase
         Instance instance;
 
         (instance, _) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
-        if (
-            await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "delete") is false
-        )
+        if (await _authorizationService.AuthorizeInstanceRequest(instance, "delete") is false)
         {
             return Forbid();
         }
@@ -863,7 +855,7 @@ public class InstancesController : ControllerBase
             cancellationToken
         );
 
-        if (!await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read"))
+        if (!await _authorizationService.AuthorizeInstanceRequest(instance, "read"))
         {
             return Forbid();
         }

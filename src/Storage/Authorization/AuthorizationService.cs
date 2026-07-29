@@ -232,7 +232,7 @@ public class AuthorizationService(
     }
 
     /// <inheritdoc />
-    public async Task<bool> AuthorizeEnrichedInstanceAction(Instance instance, string action)
+    public async Task<bool> AuthorizeInstanceRequest(Instance instance, string action)
     {
         if (IsValidSyncAdapterRequest(action))
         {
@@ -267,7 +267,7 @@ public class AuthorizationService(
         if (response?.Response is null)
         {
             _logger.LogInformation(
-                "// Authorization Helper // AuthorizeEnrichedInstanceAction failed for request: {request}.",
+                "// Authorization Helper // AuthorizeInstanceRequest failed for request: {request}.",
                 JsonSerializer.Serialize(request)
             );
             return false;
@@ -417,7 +417,7 @@ public class AuthorizationService(
             MemoryCacheEntryOptions cacheEntryOptions = new MemoryCacheEntryOptions()
                 .SetPriority(CacheItemPriority.High)
                 .SetAbsoluteExpiration(new TimeSpan(0, _pepSettings.PdpDecisionCachingTimeout, 0));
-            if (response != null)
+            if (response?.Response is not null)
                 _memoryCache.Set(cacheKey, response, cacheEntryOptions);
         }
 

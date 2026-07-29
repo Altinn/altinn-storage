@@ -80,7 +80,7 @@ public class InstanceEventsController : ControllerBase
             CancellationToken.None
         );
 
-        if (!await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read"))
+        if (!await _authorizationService.AuthorizeInstanceRequest(instance, "read"))
         {
             return Forbid();
         }
@@ -120,7 +120,7 @@ public class InstanceEventsController : ControllerBase
             false,
             CancellationToken.None
         );
-        if (!await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read"))
+        if (!await _authorizationService.AuthorizeInstanceRequest(instance, "read"))
         {
             return Forbid();
         }
@@ -169,7 +169,7 @@ public class InstanceEventsController : ControllerBase
             false,
             CancellationToken.None
         );
-        if (!await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read"))
+        if (!await _authorizationService.AuthorizeInstanceRequest(instance, "read"))
         {
             return Forbid();
         }

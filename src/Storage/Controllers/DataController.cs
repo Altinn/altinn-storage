@@ -112,7 +112,7 @@ public class DataController : ControllerBase
             false,
             cancellationToken
         );
-        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "write") is false)
+        if (await _authorizationService.AuthorizeInstanceRequest(instance, "write") is false)
         {
             return Forbid();
         }
@@ -233,7 +233,7 @@ public class DataController : ControllerBase
             return instanceError;
         }
 
-        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read") is false)
+        if (await _authorizationService.AuthorizeInstanceRequest(instance, "read") is false)
         {
             return Forbid();
         }
@@ -392,7 +392,7 @@ public class DataController : ControllerBase
             return instanceError;
         }
 
-        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read") is false)
+        if (await _authorizationService.AuthorizeInstanceRequest(instance, "read") is false)
         {
             return Forbid();
         }
@@ -440,7 +440,7 @@ public class DataController : ControllerBase
 
         (Instance instance, long instanceInternalId, ActionResult instanceError) =
             await GetInstanceAsync(instanceGuid, instanceOwnerPartyId, false, cancellationToken);
-        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "write") is false)
+        if (await _authorizationService.AuthorizeInstanceRequest(instance, "write") is false)
         {
             return Forbid();
         }
@@ -581,7 +581,7 @@ public class DataController : ControllerBase
             false,
             cancellationToken
         );
-        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "write") is false)
+        if (await _authorizationService.AuthorizeInstanceRequest(instance, "write") is false)
         {
             return Forbid();
         }
@@ -757,7 +757,7 @@ public class DataController : ControllerBase
             false,
             cancellationToken
         );
-        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "write") is false)
+        if (await _authorizationService.AuthorizeInstanceRequest(instance, "write") is false)
         {
             return Forbid();
         }

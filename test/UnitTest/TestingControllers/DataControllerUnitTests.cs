@@ -426,7 +426,7 @@ public class DataControllerUnitTests
         );
 
         authorizationServiceMock
-            .Setup(a => a.AuthorizeEnrichedInstanceAction(It.IsAny<Instance>(), It.IsAny<string>()))
+            .Setup(a => a.AuthorizeInstanceRequest(It.IsAny<Instance>(), It.IsAny<string>()))
             .ReturnsAsync(true);
 
         Mock<HttpContext> httpContextMock = new();

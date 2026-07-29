@@ -338,7 +338,7 @@ public class AuthorizationServiceTest
     }
 
     // ---------------------------------------------------------------------
-    // AuthorizeEnrichedInstanceAction / GetDecisionForRequestWithCache
+    // AuthorizeInstanceRequest / GetDecisionForRequestWithCache
     // These cover the logic moved out of StorageAccessHandler (PR #1054):
     // the sync-adapter bypass, the enriched/cached PDP path and the direct
     // (null-instance) PDP path.
@@ -349,7 +349,7 @@ public class AuthorizationServiceTest
     [InlineData("read")]
     [InlineData("write")]
     [InlineData("delete")]
-    public async Task AuthorizeEnrichedInstanceAction_SyncAdapterScope_ReadWriteDelete_ReturnsTrueWithoutCallingPdp(
+    public async Task AuthorizeInstanceRequest_SyncAdapterScope_ReadWriteDelete_ReturnsTrueWithoutCallingPdp(
         string action
     )
     {
@@ -365,7 +365,7 @@ public class AuthorizationServiceTest
         );
 
         // Act
-        bool result = await sut.AuthorizeEnrichedInstanceAction(CreateInstance(), action);
+        bool result = await sut.AuthorizeInstanceRequest(CreateInstance(), action);
 
         // Assert - the sync adapter bypasses the PDP entirely
         Assert.True(result);
@@ -375,7 +375,7 @@ public class AuthorizationServiceTest
     [Theory]
     [InlineData("complete")]
     [InlineData("sign")]
-    public async Task AuthorizeEnrichedInstanceAction_SyncAdapterScope_OtherAction_DoesNotBypass(
+    public async Task AuthorizeInstanceRequest_SyncAdapterScope_OtherAction_DoesNotBypass(
         string action
     )
     {
@@ -394,7 +394,7 @@ public class AuthorizationServiceTest
         );
 
         // Act
-        bool result = await sut.AuthorizeEnrichedInstanceAction(CreateInstance(), action);
+        bool result = await sut.AuthorizeInstanceRequest(CreateInstance(), action);
 
         // Assert
         Assert.False(result);
@@ -402,7 +402,7 @@ public class AuthorizationServiceTest
     }
 
     [Fact]
-    public async Task AuthorizeEnrichedInstanceAction_NoSyncAdapterScope_ReadWriteDeleteAction_CallsPdp()
+    public async Task AuthorizeInstanceRequest_NoSyncAdapterScope_ReadWriteDeleteAction_CallsPdp()
     {
         // Arrange - a read/write/delete action without the sync adapter scope
         // must not bypass; the decision comes from the PDP.
@@ -419,7 +419,7 @@ public class AuthorizationServiceTest
         );
 
         // Act
-        bool result = await sut.AuthorizeEnrichedInstanceAction(CreateInstance(), "write");
+        bool result = await sut.AuthorizeInstanceRequest(CreateInstance(), "write");
 
         // Assert
         Assert.True(result);
@@ -427,7 +427,7 @@ public class AuthorizationServiceTest
     }
 
     [Fact]
-    public async Task AuthorizeEnrichedInstanceAction_PdpReturnsDeny_ReturnsFalse()
+    public async Task AuthorizeInstanceRequest_PdpReturnsDeny_ReturnsFalse()
     {
         // Arrange
         Mock<IPDP> pdp = new();
@@ -443,14 +443,14 @@ public class AuthorizationServiceTest
         );
 
         // Act
-        bool result = await sut.AuthorizeEnrichedInstanceAction(CreateInstance(), "read");
+        bool result = await sut.AuthorizeInstanceRequest(CreateInstance(), "read");
 
         // Assert
         Assert.False(result);
     }
 
     [Fact]
-    public async Task AuthorizeEnrichedInstanceAction_PdpReturnsNull_ReturnsFalse()
+    public async Task AuthorizeInstanceRequest_PdpReturnsNull_ReturnsFalse()
     {
         // Arrange - a null response from the PDP is treated as "not authorized".
         Mock<IPDP> pdp = new();
@@ -466,14 +466,14 @@ public class AuthorizationServiceTest
         );
 
         // Act
-        bool result = await sut.AuthorizeEnrichedInstanceAction(CreateInstance(), "read");
+        bool result = await sut.AuthorizeInstanceRequest(CreateInstance(), "read");
 
         // Assert
         Assert.False(result);
     }
 
     [Fact]
-    public async Task AuthorizeEnrichedInstanceAction_NullInstance_CallsPdpDirectly()
+    public async Task AuthorizeInstanceRequest_NullInstance_CallsPdpDirectly()
     {
         // Arrange - endpoints such as InstanceEvents pass a null instance, which
         // skips enrichment/caching and goes straight to the PDP.
@@ -490,7 +490,7 @@ public class AuthorizationServiceTest
         );
 
         // Act
-        bool result = await sut.AuthorizeEnrichedInstanceAction(null, "read");
+        bool result = await sut.AuthorizeInstanceRequest(null, "read");
 
         // Assert
         Assert.True(result);
