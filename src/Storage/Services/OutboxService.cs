@@ -52,56 +52,73 @@ public class OutboxService(
             using var scope = serviceProvider.CreateScope();
             var outbox = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
             DateTime leaseExpiry = DateTime.UtcNow.AddSeconds(_wolverineSettings.LeaseSecs);
-            if (!await outbox.TryAcquireLeaseAsync(_outboxResource, _podId, leaseExpiry))
+            if (await outbox.TryAcquireLeaseAsync(_outboxResource, _podId, leaseExpiry))
+            {
+                var messageBus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+                await PollWhileHoldingLease(messageBus, outbox, leaseExpiry, stoppingToken);
+            }
+            else
             {
                 await Task.Delay(
                     TimeSpan.FromSeconds(_wolverineSettings.TryGettingPollMasterIntervalSecs),
                     stoppingToken
                 );
             }
-            else
+        }
+    }
+
+    private async Task PollWhileHoldingLease(
+        IMessageBus messageBus,
+        IOutboxRepository outbox,
+        DateTime leaseExpiry,
+        CancellationToken stoppingToken
+    )
+    {
+        _logger.LogInformation("OutboxService with id {PodId} got lease", _podId);
+        try
+        {
+            while (!stoppingToken.IsCancellationRequested)
             {
-                _logger.LogInformation("OutboxService with id {PodId} got lease", _podId);
-                var messageBus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
-                while (!stoppingToken.IsCancellationRequested)
+                List<SyncInstanceToDialogportenCommand> dps = [];
+                try
                 {
-                    List<SyncInstanceToDialogportenCommand> dps = [];
-                    try
-                    {
-                        dps = await outbox.Poll(_wolverineSettings.PollMaxSize);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Outbox polling");
-                        await Task.Delay(
-                            TimeSpan.FromMilliseconds(_wolverineSettings.PollErrorDelayMs),
-                            stoppingToken
-                        );
-                    }
+                    dps = await outbox.Poll(_wolverineSettings.PollMaxSize);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Outbox polling");
+                    await Task.Delay(
+                        TimeSpan.FromMilliseconds(_wolverineSettings.PollErrorDelayMs),
+                        stoppingToken
+                    );
+                }
 
-                    await PublishAndDeletePolledMessages(messageBus, outbox, dps, stoppingToken);
+                await PublishAndDeletePolledMessages(messageBus, outbox, dps, stoppingToken);
 
-                    if (
-                        dps.Count < _wolverineSettings.PollMaxSize
-                        && !stoppingToken.IsCancellationRequested
-                    )
-                    {
-                        await Task.Delay(_wolverineSettings.PollIdleTimeMs, stoppingToken);
-                    }
+                if (
+                    dps.Count < _wolverineSettings.PollMaxSize
+                    && !stoppingToken.IsCancellationRequested
+                )
+                {
+                    await Task.Delay(_wolverineSettings.PollIdleTimeMs, stoppingToken);
+                }
 
-                    if (
-                        DateTime.UtcNow
-                        > leaseExpiry.AddSeconds(-_wolverineSettings.LeaseSecs * 0.2)
-                    )
+                if (DateTime.UtcNow > leaseExpiry.AddSeconds(-_wolverineSettings.LeaseSecs * 0.2))
+                {
+                    leaseExpiry = DateTime.UtcNow.AddSeconds(_wolverineSettings.LeaseSecs);
+                    if (!await outbox.RenewLeaseAsync(_outboxResource, _podId, leaseExpiry))
                     {
-                        leaseExpiry = DateTime.UtcNow.AddSeconds(_wolverineSettings.LeaseSecs);
-                        if (!await outbox.RenewLeaseAsync(_outboxResource, _podId, leaseExpiry))
-                        {
-                            break;
-                        }
+                        break;
                     }
                 }
             }
+        }
+        finally
+        {
+            // Holder scoped: a no-op if the lease was already lost, and releasing one we still
+            // hold saves the next pod waiting for it to expire.
+            await outbox.ReleaseLeaseAsync(_outboxResource, _podId);
+            _logger.LogInformation("OutboxService with id {PodId} released lease", _podId);
         }
     }
 
@@ -152,29 +169,6 @@ public class OutboxService(
                     );
                 }
             }
-        }
-    }
-
-    /// <summary>
-    /// Stops the background service.
-    /// </summary>
-    /// <param name="cancellationToken">Token to signal cancellation.</param>
-    /// <remarks>
-    /// Release the lease
-    /// </remarks>
-    public override async Task StopAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            // Let BackgroundService cancel ExecuteAsync and wait for the polling loop to stop before releasing the lease.
-            await base.StopAsync(cancellationToken);
-        }
-        finally
-        {
-            using var scope = serviceProvider.CreateScope();
-            var outbox = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
-            await outbox.ReleaseLeaseAsync(_outboxResource, _podId);
-            _logger.LogInformation("OutboxService with id {PodId} is shutting down", _podId);
         }
     }
 }
