@@ -31,6 +31,7 @@ public class ProcessController : ControllerBase
     private readonly IProcessAuthorizer _processAuthorizer;
     private readonly IInstanceEventService _instanceEventService;
     private readonly IProcessDataCleanupService _processDataCleanupService;
+    private readonly IAuthorization _authorizationService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ProcessController"/> class
@@ -42,6 +43,7 @@ public class ProcessController : ControllerBase
     /// <param name="processAuthorizer">the process authorizer</param>
     /// <param name="instanceEventService">the instance event service</param>
     /// <param name="processDataCleanupService">the process data cleanup service</param>
+    /// <param name="authorizationService">the authorization service</param>
     public ProcessController(
         IInstanceRepository instanceRepository,
         IInstanceEventRepository instanceEventRepository,
@@ -49,7 +51,8 @@ public class ProcessController : ControllerBase
         IOptions<GeneralSettings> generalsettings,
         IProcessAuthorizer processAuthorizer,
         IInstanceEventService instanceEventService,
-        IProcessDataCleanupService processDataCleanupService
+        IProcessDataCleanupService processDataCleanupService,
+        IAuthorization authorizationService
     )
     {
         _instanceRepository = instanceRepository;
@@ -59,6 +62,7 @@ public class ProcessController : ControllerBase
         _processAuthorizer = processAuthorizer;
         _instanceEventService = instanceEventService;
         _processDataCleanupService = processDataCleanupService;
+        _authorizationService = authorizationService;
     }
 
     /// <summary>
@@ -230,7 +234,7 @@ public class ProcessController : ControllerBase
     /// <param name="instanceGuid">The id of the instance whos process history to retrieve.</param>
     /// <returns>Returns a list of the process events.</returns>
     [HttpGet("history")]
-    [Authorize(Policy = "InstanceRead")]
+    [Authorize]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [Produces("application/json")]
     public async Task<ActionResult<ProcessHistoryList>> GetProcessHistory(
@@ -238,6 +242,17 @@ public class ProcessController : ControllerBase
         [FromRoute] Guid instanceGuid
     )
     {
+        (Instance instance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            CancellationToken.None
+        );
+
+        if (!await _authorizationService.AuthorizeInstanceRequest(instance, "read"))
+        {
+            return Forbid();
+        }
+
         string[] eventTypes = Enum.GetNames<InstanceEventType>()
             .Where(x => x.StartsWith("process"))
             .ToArray();

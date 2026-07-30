@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
+using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
@@ -1586,7 +1587,7 @@ public class MessageBoxInstancesControllerTests(
     public async Task GetMessageBoxInstanceEvents_AllEventTypesIncludedInSearch()
     {
         // Arrange
-        string[] extepctedEventTypes =
+        string[] expectedEventTypes =
         {
             "Created",
             "Deleted",
@@ -1603,7 +1604,7 @@ public class MessageBoxInstancesControllerTests(
             .Setup(rm =>
                 rm.ListInstanceEvents(
                     It.IsAny<string>(),
-                    It.Is<string[]>(eventTypes => !extepctedEventTypes.Except(eventTypes).Any()),
+                    It.Is<string[]>(eventTypes => !expectedEventTypes.Except(eventTypes).Any()),
                     It.IsAny<DateTime?>(),
                     It.IsAny<DateTime?>()
                 )
@@ -1611,11 +1612,14 @@ public class MessageBoxInstancesControllerTests(
             .ReturnsAsync(new List<InstanceEvent>());
 
         var sut = new MessageBoxInstancesController(
-            null,
+            Mock.Of<IInstanceRepository>(),
             repoMock.Object,
             null,
             null,
-            null,
+            Mock.Of<IAuthorization>(a =>
+                a.AuthorizeInstanceRequest(It.IsAny<Instance>(), It.IsAny<string>())
+                == Task.FromResult(true)
+            ),
             null,
             null
         );
@@ -1671,11 +1675,14 @@ public class MessageBoxInstancesControllerTests(
             .ReturnsAsync(eventList);
 
         var sut = new MessageBoxInstancesController(
-            null,
+            Mock.Of<IInstanceRepository>(),
             repoMock.Object,
             null,
             null,
-            null,
+            Mock.Of<IAuthorization>(a =>
+                a.AuthorizeInstanceRequest(It.IsAny<Instance>(), It.IsAny<string>())
+                == Task.FromResult(true)
+            ),
             null,
             null
         );
@@ -1725,11 +1732,14 @@ public class MessageBoxInstancesControllerTests(
             .ReturnsAsync(largeNumberOfEvents);
 
         var sut = new MessageBoxInstancesController(
-            null,
+            Mock.Of<IInstanceRepository>(),
             repoMock.Object,
             null,
             null,
-            null,
+            Mock.Of<IAuthorization>(a =>
+                a.AuthorizeInstanceRequest(It.IsAny<Instance>(), It.IsAny<string>())
+                == Task.FromResult(true)
+            ),
             null,
             null
         );

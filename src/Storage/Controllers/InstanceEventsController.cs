@@ -65,15 +65,6 @@ public class InstanceEventsController : ControllerBase
         [FromBody] InstanceEvent instanceEvent
     )
     {
-        if (instanceEvent?.InstanceId == null)
-        {
-            return BadRequest(
-                "Missing parameter values: instance event must exist and instanceId must be set"
-            );
-        }
-
-        instanceEvent.Created = instanceEvent.Created?.ToUniversalTime() ?? DateTime.UtcNow;
-
         var (instance, _) = await _instanceRepository.GetOne(
             instanceGuid,
             false,
@@ -84,6 +75,15 @@ public class InstanceEventsController : ControllerBase
         {
             return Forbid();
         }
+
+        if (instanceEvent?.InstanceId == null)
+        {
+            return BadRequest(
+                "Missing parameter values: instance event must exist and instanceId must be set"
+            );
+        }
+
+        instanceEvent.Created = instanceEvent.Created?.ToUniversalTime() ?? DateTime.UtcNow;
 
         InstanceEvent result = await _repository.InsertInstanceEvent(
             instanceEvent,

@@ -18,7 +18,6 @@
     Altinn.Platform.Storage.Controllers.InstancesController.Post (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstancesController.UpdateReadStatus (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstancesController.UpdateSubstatus (Altinn.Platform.Storage),
-    Altinn.Platform.Storage.Controllers.ProcessController.GetProcessHistory (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.ProcessController.PutInstanceAndEvents (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.ProcessController.PutProcess (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.SignController.Sign (Altinn.Platform.Storage)
@@ -70,9 +69,9 @@
       altinn:serviceowner/instances.read
     ],
     Altinn.Platform.Storage.Controllers.InstanceEventsController.Post (Altinn.Platform.Storage): [
-      altinn:instances.read,
+      altinn:instances.write,
       altinn:portal/enduser,
-      altinn:serviceowner/instances.read
+      altinn:serviceowner/instances.write
     ],
     Altinn.Platform.Storage.Controllers.InstancesController.AddCompleteConfirmation (Altinn.Platform.Storage): [
       altinn:instances.write,
@@ -105,19 +104,14 @@
       altinn:serviceowner/instances.write
     ],
     Altinn.Platform.Storage.Controllers.InstancesController.UpdateReadStatus (Altinn.Platform.Storage): [
-      altinn:instances.read,
+      altinn:instances.write,
       altinn:portal/enduser,
-      altinn:serviceowner/instances.read
+      altinn:serviceowner/instances.write
     ],
     Altinn.Platform.Storage.Controllers.InstancesController.UpdateSubstatus (Altinn.Platform.Storage): [
       altinn:instances.write,
       altinn:portal/enduser,
       altinn:serviceowner/instances.write
-    ],
-    Altinn.Platform.Storage.Controllers.ProcessController.GetProcessHistory (Altinn.Platform.Storage): [
-      altinn:instances.read,
-      altinn:portal/enduser,
-      altinn:serviceowner/instances.read
     ],
     Altinn.Platform.Storage.Controllers.ProcessController.PutInstanceAndEvents (Altinn.Platform.Storage): [
       altinn:instances.write,
@@ -177,6 +171,7 @@
     Altinn.Platform.Storage.Controllers.MigrationController.CreateXsl (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.MigrationController.ProxyGeneratePdf (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.ProcessController.GetForAuth (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.ProcessController.GetProcessHistory (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.SblBridgeController.RegisterAltinn3CorrespondenceRecipient (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.SblBridgeController.SyncAltinn3CorrespondenceEvent (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.StudioInstancesController.GetInstances (Altinn.Platform.Storage),

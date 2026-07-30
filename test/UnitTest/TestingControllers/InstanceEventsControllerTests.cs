@@ -51,11 +51,11 @@ public class InstanceEventsControllerTests
         string token = PrincipalUtil.GetToken(3, 1337);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        InstanceEvent instance = new InstanceEvent { InstanceId = null };
+        InstanceEvent instanceEvent = new InstanceEvent { InstanceId = null };
 
         // Act
         JsonContent content = JsonContent.Create(
-            instance,
+            instanceEvent,
             new MediaTypeHeaderValue("application/json")
         );
         HttpResponseMessage response = await client.PostAsync(requestUri, content);
@@ -78,14 +78,14 @@ public class InstanceEventsControllerTests
         string token = PrincipalUtil.GetToken(3, 1337);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        InstanceEvent instance = new InstanceEvent
+        InstanceEvent instanceEvent = new InstanceEvent
         {
             InstanceId = "3c42ee2a-9464-42a8-a976-16eb926bd20a",
         };
 
         // Act
         JsonContent content = JsonContent.Create(
-            instance,
+            instanceEvent,
             new MediaTypeHeaderValue("application/json")
         );
         HttpResponseMessage response = await client.PostAsync(requestUri, content);
@@ -110,14 +110,14 @@ public class InstanceEventsControllerTests
         string token = PrincipalUtil.GetToken(3, 1337);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        InstanceEvent instance = new InstanceEvent
+        InstanceEvent instanceEvent = new InstanceEvent
         {
             InstanceId = "3c42ee2a-9464-42a8-a976-16eb926bd20a",
         };
 
         // Act
         JsonContent content = JsonContent.Create(
-            instance,
+            instanceEvent,
             new MediaTypeHeaderValue("application/json")
         );
         HttpResponseMessage response = await client.PostAsync(requestUri, content);
@@ -141,12 +141,12 @@ public class InstanceEventsControllerTests
         string token = PrincipalUtil.GetToken(3, 1337, 0);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        InstanceEvent instance = new InstanceEvent();
+        InstanceEvent instanceEvent = new InstanceEvent();
 
         // Act
         HttpResponseMessage response = await client.PostAsync(
             requestUri,
-            JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"))
+            JsonContent.Create(instanceEvent, new MediaTypeHeaderValue("application/json"))
         );
 
         if (response.StatusCode.Equals(HttpStatusCode.InternalServerError))
@@ -174,12 +174,12 @@ public class InstanceEventsControllerTests
         string token = PrincipalUtil.GetToken(-1, 1);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        InstanceEvent instance = new InstanceEvent();
+        InstanceEvent instanceEvent = new InstanceEvent();
 
         // Act
         HttpResponseMessage response = await client.PostAsync(
             requestUri,
-            JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"))
+            JsonContent.Create(instanceEvent, new MediaTypeHeaderValue("application/json"))
         );
 
         // Assert
