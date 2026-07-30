@@ -163,38 +163,90 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
         "altinn:serviceowner/instances.write"
     );
 
-    private static readonly FrozenSet<string> _readHttpMethods = FrozenSet.Create<string>(
-        StringComparer.OrdinalIgnoreCase,
-        "GET",
-        "HEAD"
-    );
+    private enum RequiredScope
+    {
+        Read,
+        Write,
+    }
 
-    private static readonly FrozenSet<string> _manuallyIncludeActions = FrozenSet.Create<string>(
-        StringComparer.Ordinal,
-        "Altinn.Platform.Storage.Controllers.DataLockController.Unlock (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.InstancesController.Delete (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.InstancesController.GetInstances (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.InstancesController.Get (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.InstancesController.GetByGuid (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.InstancesController.Post (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.InstancesController.UpdateReadStatus (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.InstancesController.UpdateSubstatus (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.InstancesController.AddCompleteConfirmation (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.InstanceEventsController.Post (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.InstanceEventsController.GetOne (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.InstanceEventsController.Get (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.DataController.Get (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.DataController.GetMany (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.DataController.Delete (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.DataController.CreateAndUploadData (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.DataController.OverwriteData (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.DataController.Update (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstanceEvents (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.Undelete (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.ProcessController.PutInstanceAndEvents (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.ProcessController.PutProcess (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.SignController.Sign (Altinn.Platform.Storage)"
-    );
+    /// <summary>
+    /// Actions to include in scope validation together with the access level they require.
+    /// The key is the action's <see cref="ControllerActionDescriptor.DisplayName"/>.
+    /// </summary>
+    private static readonly FrozenDictionary<string, RequiredScope> _manuallyIncludeActions =
+        new Dictionary<string, RequiredScope>(StringComparer.Ordinal)
+        {
+            [
+                "Altinn.Platform.Storage.Controllers.DataLockController.Unlock (Altinn.Platform.Storage)"
+            ] = RequiredScope.Write,
+            [
+                "Altinn.Platform.Storage.Controllers.InstancesController.Delete (Altinn.Platform.Storage)"
+            ] = RequiredScope.Write,
+            [
+                "Altinn.Platform.Storage.Controllers.InstancesController.GetInstances (Altinn.Platform.Storage)"
+            ] = RequiredScope.Read,
+            [
+                "Altinn.Platform.Storage.Controllers.InstancesController.Get (Altinn.Platform.Storage)"
+            ] = RequiredScope.Read,
+            [
+                "Altinn.Platform.Storage.Controllers.InstancesController.GetByGuid (Altinn.Platform.Storage)"
+            ] = RequiredScope.Read,
+            [
+                "Altinn.Platform.Storage.Controllers.InstancesController.Post (Altinn.Platform.Storage)"
+            ] = RequiredScope.Write,
+            [
+                "Altinn.Platform.Storage.Controllers.InstancesController.UpdateReadStatus (Altinn.Platform.Storage)"
+            ] = RequiredScope.Read,
+            [
+                "Altinn.Platform.Storage.Controllers.InstancesController.UpdateSubstatus (Altinn.Platform.Storage)"
+            ] = RequiredScope.Write,
+            [
+                "Altinn.Platform.Storage.Controllers.InstancesController.AddCompleteConfirmation (Altinn.Platform.Storage)"
+            ] = RequiredScope.Write,
+            [
+                "Altinn.Platform.Storage.Controllers.InstanceEventsController.Post (Altinn.Platform.Storage)"
+            ] = RequiredScope.Read,
+            [
+                "Altinn.Platform.Storage.Controllers.InstanceEventsController.GetOne (Altinn.Platform.Storage)"
+            ] = RequiredScope.Read,
+            [
+                "Altinn.Platform.Storage.Controllers.InstanceEventsController.Get (Altinn.Platform.Storage)"
+            ] = RequiredScope.Read,
+            ["Altinn.Platform.Storage.Controllers.DataController.Get (Altinn.Platform.Storage)"] =
+                RequiredScope.Read,
+            [
+                "Altinn.Platform.Storage.Controllers.DataController.GetMany (Altinn.Platform.Storage)"
+            ] = RequiredScope.Read,
+            [
+                "Altinn.Platform.Storage.Controllers.DataController.Delete (Altinn.Platform.Storage)"
+            ] = RequiredScope.Write,
+            [
+                "Altinn.Platform.Storage.Controllers.DataController.CreateAndUploadData (Altinn.Platform.Storage)"
+            ] = RequiredScope.Write,
+            [
+                "Altinn.Platform.Storage.Controllers.DataController.OverwriteData (Altinn.Platform.Storage)"
+            ] = RequiredScope.Write,
+            [
+                "Altinn.Platform.Storage.Controllers.DataController.Update (Altinn.Platform.Storage)"
+            ] = RequiredScope.Write,
+            [
+                "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstanceEvents (Altinn.Platform.Storage)"
+            ] = RequiredScope.Read,
+            [
+                "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.Undelete (Altinn.Platform.Storage)"
+            ] = RequiredScope.Write,
+            [
+                "Altinn.Platform.Storage.Controllers.ProcessController.GetProcessHistory (Altinn.Platform.Storage)"
+            ] = RequiredScope.Read,
+            [
+                "Altinn.Platform.Storage.Controllers.ProcessController.PutInstanceAndEvents (Altinn.Platform.Storage)"
+            ] = RequiredScope.Write,
+            [
+                "Altinn.Platform.Storage.Controllers.ProcessController.PutProcess (Altinn.Platform.Storage)"
+            ] = RequiredScope.Write,
+            ["Altinn.Platform.Storage.Controllers.SignController.Sign (Altinn.Platform.Storage)"] =
+                RequiredScope.Write,
+        }.ToFrozenDictionary();
 
     private static readonly FrozenSet<string> _manuallyExcludeActions = FrozenSet.Create<string>(
         StringComparer.Ordinal,
@@ -235,13 +287,14 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
             var authorizeAttr = (AuthorizeAttribute?)
                 action.EndpointMetadata.FirstOrDefault(m => m is AuthorizeAttribute);
             var authorizePolicy = authorizeAttr?.Policy;
-            var isManuallyIncluded = _manuallyIncludeActions.Contains(
-                action.DisplayName ?? string.Empty
-            );
-            if (isManuallyIncluded)
+            if (
+                _manuallyIncludeActions.TryGetValue(
+                    action.DisplayName ?? string.Empty,
+                    out RequiredScope requiredScope
+                )
+            )
             {
-                Console.WriteLine($"Manually included action: {action.DisplayName}");
-                ProcessAction(action, authorizePolicy);
+                ProcessAction(action, ScopesFor(requiredScope));
                 continue;
             }
 
@@ -252,7 +305,7 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
             );
             if (authorizeAttrHasInstancePolicy && !hasAllowAnonymousAttr)
             {
-                ProcessAction(action, authorizePolicy);
+                ProcessAction(action, _acceptedWriteScopes);
             }
             else
             {
@@ -261,38 +314,15 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
         }
     }
 
-    private void ProcessAction(ControllerActionDescriptor action, string? authorizePolicy)
+    private void ProcessAction(ControllerActionDescriptor action, FrozenSet<string> scopes)
     {
         Debug.Assert(_actionsToValidate is not null);
-        FrozenSet<string> scopes;
-        if (authorizePolicy is not null)
-        {
-            scopes = _acceptedWriteScopes;
-        }
-        else
-        {
-            var httpMethodAttr = (HttpMethodAttribute?)
-                action.EndpointMetadata.FirstOrDefault(m => m is HttpMethodAttribute);
-            if (
-                httpMethodAttr is not null
-                && httpMethodAttr.HttpMethods.Any(m => _readHttpMethods.Contains(m))
-            )
-            {
-                Console.WriteLine($"Action {action.DisplayName} has read policy. Read");
-                scopes = _acceptedReadScopes;
-            }
-            else
-            {
-                Console.WriteLine(
-                    $"Action {action.DisplayName} does not have an authorize policy. Write"
-                );
-                scopes = _acceptedWriteScopes;
-            }
-        }
-
         action.Properties[AspNetCoreMetricsEnricher.AllowedScopesKey] = scopes;
         _actionsToValidate.Add(action);
     }
+
+    private static FrozenSet<string> ScopesFor(RequiredScope requiredScope) =>
+        requiredScope == RequiredScope.Read ? _acceptedReadScopes : _acceptedWriteScopes;
 }
 
 /// <summary>
