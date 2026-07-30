@@ -400,7 +400,13 @@ public class InstancesController : ControllerBase
                 return Ok(instance);
             }
 
-            if (await _authorizationService.AuthorizeInstanceRequest(instance, "read") is false)
+            if (
+                await _authorizationService.AuthorizeInstanceRequest(
+                    instance,
+                    AuthorizationActions.Read
+                )
+                is false
+            )
             {
                 return Forbid();
             }
@@ -454,7 +460,13 @@ public class InstancesController : ControllerBase
                 return Ok(instance);
             }
 
-            if (await _authorizationService.AuthorizeInstanceRequest(instance, "read") is false)
+            if (
+                await _authorizationService.AuthorizeInstanceRequest(
+                    instance,
+                    AuthorizationActions.Read
+                )
+                is false
+            )
             {
                 return Forbid();
             }
@@ -660,7 +672,13 @@ public class InstancesController : ControllerBase
         Instance instance;
 
         (instance, _) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
-        if (await _authorizationService.AuthorizeInstanceRequest(instance, "delete") is false)
+        if (
+            await _authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Delete
+            )
+            is false
+        )
         {
             return Forbid();
         }
@@ -774,7 +792,12 @@ public class InstancesController : ControllerBase
             cancellationToken
         );
 
-        if (!await _authorizationService.AuthorizeInstanceRequest(instance, "complete"))
+        if (
+            !await _authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Complete
+            )
+        )
         {
             return Forbid();
         }
@@ -860,7 +883,12 @@ public class InstancesController : ControllerBase
             cancellationToken
         );
 
-        if (!await _authorizationService.AuthorizeInstanceRequest(instance, "read"))
+        if (
+            !await _authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Read
+            )
+        )
         {
             return Forbid();
         }

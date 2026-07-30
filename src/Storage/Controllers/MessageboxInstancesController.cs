@@ -246,7 +246,12 @@ public class MessageBoxInstancesController : ControllerBase
             false,
             CancellationToken.None
         );
-        if (!await _authorizationService.AuthorizeInstanceRequest(instance, "read"))
+        if (
+            !await _authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Read
+            )
+        )
         {
             return Forbid();
         }
@@ -311,7 +316,13 @@ public class MessageBoxInstancesController : ControllerBase
             false,
             cancellationToken
         );
-        if (await _authorizationService.AuthorizeInstanceRequest(instance, "delete") is false)
+        if (
+            await _authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Delete
+            )
+            is false
+        )
         {
             return Forbid();
         }
@@ -389,7 +400,13 @@ public class MessageBoxInstancesController : ControllerBase
             false,
             cancellationToken
         );
-        if (await _authorizationService.AuthorizeInstanceRequest(instance, "delete") is false)
+        if (
+            await _authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Delete
+            )
+            is false
+        )
         {
             return Forbid();
         }

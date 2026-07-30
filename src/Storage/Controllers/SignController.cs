@@ -68,7 +68,12 @@ public class SignController : ControllerBase
             cancellationToken
         );
 
-        if (!await _authorizationService.AuthorizeInstanceRequest(instance, "sign"))
+        if (
+            !await _authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Sign
+            )
+        )
         {
             return Forbid();
         }

@@ -248,7 +248,12 @@ public class ProcessController : ControllerBase
             CancellationToken.None
         );
 
-        if (!await _authorizationService.AuthorizeInstanceRequest(instance, "read"))
+        if (
+            !await _authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Read
+            )
+        )
         {
             return Forbid();
         }

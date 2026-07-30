@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Microsoft.Extensions.Options;
 
@@ -58,11 +59,11 @@ public class ProcessAuthorizer : IProcessAuthorizer
             null => [],
             "data" or "feedback" or "pdf" or "eFormidling" or "fiksArkiv" or "subformPdf" =>
             [
-                "write",
+                AuthorizationActions.Write,
             ],
-            "payment" => ["pay", "write"],
+            "payment" => ["pay", AuthorizationActions.Write],
             "confirmation" => ["confirm"],
-            "signing" => ["sign", "write"],
+            "signing" => [AuthorizationActions.Sign, AuthorizationActions.Write],
             _ => [taskType],
         };
     }
@@ -83,11 +84,11 @@ public class ProcessAuthorizer : IProcessAuthorizer
         string? altinnTaskType = instance.Process?.CurrentTask?.AltinnTaskType;
 
         List<string> actions = instance.Process?.CurrentTask is null
-            ? ["write"]
+            ? [AuthorizationActions.Write]
             : GetActionsThatAllowProcessNextForTaskType(altinnTaskType);
 
         // we don't know if this is an abandon flow, so we include "reject" as a fallback.
-        actions.Add("reject");
+        actions.Add(AuthorizationActions.Reject);
 
         foreach (string action in actions)
         {
@@ -112,7 +113,11 @@ public class ProcessAuthorizer : IProcessAuthorizer
 
         if (nextProcessState.CurrentTask?.FlowType == "AbandonCurrentMoveToNext")
         {
-            return await _authorizationService.AuthorizeInstanceAction(instance, "reject", taskId);
+            return await _authorizationService.AuthorizeInstanceAction(
+                instance,
+                AuthorizationActions.Reject,
+                taskId
+            );
         }
 
         if (
