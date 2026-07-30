@@ -20,11 +20,11 @@ namespace Altinn.Platform.Storage.Repository;
 /// <remarks>
 /// Initializes a new instance of the <see cref="PgA2Repository"/> class.
 /// </remarks>
-/// <param name="dataSource">The npgsql data source.</param>
+/// <param name="connections">Opens connections, retrying transient open failures.</param>
 /// <param name="outboxRepository">The outbox repository.</param>
 /// <param name="wolverineSettings">Wolverine settings</param>
 public class PgA2Repository(
-    NpgsqlDataSource dataSource,
+    INpgsqlConnectionOpener connections,
     IOutboxRepository outboxRepository,
     IOptions<WolverineSettings> wolverineSettings
 ) : IA2Repository
@@ -57,7 +57,7 @@ public class PgA2Repository(
     private static readonly string _deleteMigrationStateSql =
         "call storage.deletemigrationstate (@_instanceguid)";
 
-    private readonly NpgsqlDataSource _dataSource = dataSource;
+    private readonly INpgsqlConnectionOpener _connections = connections;
 
     /// <inheritdoc/>
     public async Task CreateXsl(
@@ -71,7 +71,9 @@ public class PgA2Repository(
         bool isPortrait
     )
     {
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertXslSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _insertXslSql;
         pgcom.Parameters.AddWithValue("_org", NpgsqlDbType.Text, org);
         pgcom.Parameters.AddWithValue("_app", NpgsqlDbType.Text, app);
         pgcom.Parameters.AddWithValue("_lformid", NpgsqlDbType.Integer, lformId);
@@ -87,7 +89,9 @@ public class PgA2Repository(
     /// <inheritdoc/>
     public async Task CreateCodelist(string name, string language, int version, string codelist)
     {
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertCodelistSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _insertCodelistSql;
         pgcom.Parameters.AddWithValue("_name", NpgsqlDbType.Text, name);
         pgcom.Parameters.AddWithValue("_language", NpgsqlDbType.Text, language);
         pgcom.Parameters.AddWithValue("_version", NpgsqlDbType.Integer, version);
@@ -99,7 +103,9 @@ public class PgA2Repository(
     /// <inheritdoc/>
     public async Task CreateImage(string name, byte[] image)
     {
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertImageSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _insertImageSql;
         pgcom.Parameters.AddWithValue("_name", NpgsqlDbType.Text, name);
         pgcom.Parameters.AddWithValue("_image", NpgsqlDbType.Bytea, image);
 
@@ -117,7 +123,9 @@ public class PgA2Repository(
     {
         List<(string Xsl, bool IsPortraitl)> xsls = [];
 
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readXslSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _readXslSql;
 
         // Loop until language match
         foreach (string languageToTry in GetOrderedLanguages(language))
@@ -154,7 +162,9 @@ public class PgA2Repository(
     {
         byte[] image = null;
 
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readImageSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _readImageSql;
         pgcom.Parameters.AddWithValue("_name", NpgsqlDbType.Text, name);
 
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
@@ -173,7 +183,9 @@ public class PgA2Repository(
         string language = preferredLanguage;
         int retriesLeft = preferredLanguage != "nb" ? 2 : 1;
 
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readCodelistSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _readCodelistSql;
         pgcom.Parameters.AddWithValue("_name", NpgsqlDbType.Text, name);
 
         while (codelist == null && retriesLeft > 0)
@@ -194,7 +206,9 @@ public class PgA2Repository(
     /// <inheritdoc/>
     public async Task CreateA1MigrationState(int a1ArchiveReference)
     {
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertA1MigrationStateSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _insertA1MigrationStateSql;
         pgcom.Parameters.AddWithValue(
             "_a1archivereference",
             NpgsqlDbType.Bigint,
@@ -207,7 +221,9 @@ public class PgA2Repository(
     /// <inheritdoc/>
     public async Task CreateA2MigrationState(int a2ArchiveReference)
     {
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertA2MigrationStateSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _insertA2MigrationStateSql;
         pgcom.Parameters.AddWithValue(
             "_a2archivereference",
             NpgsqlDbType.Bigint,
@@ -220,9 +236,9 @@ public class PgA2Repository(
     /// <inheritdoc/>
     public async Task UpdateStartA1MigrationState(int a1ArchiveReference, string instanceGuid)
     {
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(
-            _updateA1MigrationStateStartedSql
-        );
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _updateA1MigrationStateStartedSql;
         pgcom.Parameters.AddWithValue(
             "_a1archivereference",
             NpgsqlDbType.Bigint,
@@ -236,9 +252,9 @@ public class PgA2Repository(
     /// <inheritdoc/>
     public async Task UpdateStartA2MigrationState(int a2ArchiveReference, string instanceGuid)
     {
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(
-            _updateA2MigrationStateStartedSql
-        );
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _updateA2MigrationStateStartedSql;
         pgcom.Parameters.AddWithValue(
             "_a2archivereference",
             NpgsqlDbType.Bigint,
@@ -253,7 +269,7 @@ public class PgA2Repository(
     public async Task UpdateCompleteMigrationState(Instance instance)
     {
         string instanceId = instance.Id.Split('/')[^1];
-        await using var connection = await _dataSource.OpenConnectionAsync();
+        await using var connection = await _connections.OpenAsync();
         await using var tx = await connection.BeginTransactionAsync();
         await using NpgsqlCommand pgcom = new(_updateMigrationStateCompletedSql, connection);
         pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, new Guid(instanceId));
@@ -285,7 +301,7 @@ public class PgA2Repository(
         }
 
         string instanceId = instance.Id.Split('/')[^1];
-        await using var connection = await _dataSource.OpenConnectionAsync();
+        await using var connection = await _connections.OpenAsync();
         SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
             instance.AppId,
             instance.InstanceOwner.PartyId,
@@ -301,7 +317,9 @@ public class PgA2Repository(
     /// <inheritdoc/>
     public async Task DeleteMigrationState(string instanceGuid)
     {
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteMigrationStateSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _deleteMigrationStateSql;
         pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, new Guid(instanceGuid));
 
         await pgcom.ExecuteNonQueryAsync();
@@ -311,7 +329,9 @@ public class PgA2Repository(
     public async Task<string> GetA1MigrationInstanceId(int a1ArchiveReference)
     {
         string instanceId = null;
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readA1MigrationStateSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _readA1MigrationStateSql;
         pgcom.Parameters.AddWithValue(
             "_a1archivereference",
             NpgsqlDbType.Bigint,
@@ -333,7 +353,9 @@ public class PgA2Repository(
     public async Task<string> GetA2MigrationInstanceId(int a2ArchiveReference)
     {
         string instanceId = null;
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readA2MigrationStateSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _readA2MigrationStateSql;
         pgcom.Parameters.AddWithValue(
             "_a2archivereference",
             NpgsqlDbType.Bigint,

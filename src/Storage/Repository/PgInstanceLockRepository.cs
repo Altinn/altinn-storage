@@ -13,7 +13,7 @@ namespace Altinn.Platform.Storage.Repository;
 /// <summary>
 /// Represents an implementation of <see cref="IInstanceLockRepository"/>.
 /// </summary>
-public class PgInstanceLockRepository(NpgsqlDataSource dataSource) : IInstanceLockRepository
+public class PgInstanceLockRepository(INpgsqlConnectionOpener connections) : IInstanceLockRepository
 {
     private const int _lockSecretSizeBytes = 20;
 
@@ -28,9 +28,10 @@ public class PgInstanceLockRepository(NpgsqlDataSource dataSource) : IInstanceLo
         var lockSecret = RandomNumberGenerator.GetBytes(_lockSecretSizeBytes);
         var lockSecretHash = SHA256.HashData(lockSecret);
 
-        await using var npgsqlCommand = dataSource.CreateCommand(
-            "CALL storage.acquireinstancelock(@instanceinternalid, @ttl, @lockedby, @secrethash, @result, @id);"
-        );
+        await using var conn = await connections.OpenAsync(cancellationToken);
+        await using var npgsqlCommand = conn.CreateCommand();
+        npgsqlCommand.CommandText =
+            "CALL storage.acquireinstancelock(@instanceinternalid, @ttl, @lockedby, @secrethash, @result, @id);";
         npgsqlCommand.Parameters.AddWithValue(
             "instanceinternalid",
             NpgsqlDbType.Bigint,
@@ -79,9 +80,10 @@ public class PgInstanceLockRepository(NpgsqlDataSource dataSource) : IInstanceLo
     {
         var lockSecretHash = SHA256.HashData(lockToken.Secret);
 
-        await using var npgsqlCommand = dataSource.CreateCommand(
-            "CALL storage.updateinstancelock(@id, @instanceinternalid, @ttl, @secrethash, @result);"
-        );
+        await using var conn = await connections.OpenAsync(cancellationToken);
+        await using var npgsqlCommand = conn.CreateCommand();
+        npgsqlCommand.CommandText =
+            "CALL storage.updateinstancelock(@id, @instanceinternalid, @ttl, @secrethash, @result);";
 
         npgsqlCommand.Parameters.AddWithValue("id", NpgsqlDbType.Bigint, lockToken.Id);
         npgsqlCommand.Parameters.AddWithValue(
@@ -119,8 +121,9 @@ public class PgInstanceLockRepository(NpgsqlDataSource dataSource) : IInstanceLo
     /// <inheritdoc/>
     public async Task<InstanceLock?> Get(long lockId, CancellationToken cancellationToken = default)
     {
-        await using var npgsqlCommand = dataSource.CreateCommand(
-            """
+        await using var conn = await connections.OpenAsync(cancellationToken);
+        await using var npgsqlCommand = conn.CreateCommand();
+        npgsqlCommand.CommandText = """
             SELECT
                 id,
                 instanceinternalid,
@@ -130,8 +133,7 @@ public class PgInstanceLockRepository(NpgsqlDataSource dataSource) : IInstanceLo
                 lockedby
             FROM storage.instancelocks
             WHERE id = @id;
-            """
-        );
+            """;
         npgsqlCommand.Parameters.AddWithValue("id", NpgsqlDbType.Bigint, lockId);
 
         await using NpgsqlDataReader reader = await npgsqlCommand.ExecuteReaderAsync(

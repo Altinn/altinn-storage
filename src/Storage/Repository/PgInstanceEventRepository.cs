@@ -18,10 +18,10 @@ namespace Altinn.Platform.Storage.Repository;
 /// <remarks>
 /// Initializes a new instance of the <see cref="PgInstanceEventRepository"/> class.
 /// </remarks>
-/// <param name="dataSource">The npgsql data source.</param>
+/// <param name="connections">Opens connections, retrying transient open failures.</param>
 /// <param name="outboxRepository">The outbox repository</param>
 public class PgInstanceEventRepository(
-    NpgsqlDataSource dataSource,
+    INpgsqlConnectionOpener connections,
     IOutboxRepository outboxRepository = null
 ) : IInstanceEventRepository
 {
@@ -31,7 +31,7 @@ public class PgInstanceEventRepository(
     private readonly string _filterSql =
         "select * from storage.filterinstanceevent($1, $2, $3, $4)";
 
-    private readonly NpgsqlDataSource _dataSource = dataSource;
+    private readonly INpgsqlConnectionOpener _connections = connections;
 
     /// <inheritdoc/>
     public async Task<InstanceEvent> InsertInstanceEvent(
@@ -41,7 +41,7 @@ public class PgInstanceEventRepository(
     {
         instanceEvent.Id ??= Guid.NewGuid();
 
-        await using var connection = await _dataSource.OpenConnectionAsync();
+        await using var connection = await _connections.OpenAsync();
         await using var tx = await connection.BeginTransactionAsync();
         await using NpgsqlCommand pgcom = new(_insertSql, connection);
         pgcom.Parameters.AddWithValue(
@@ -75,7 +75,9 @@ public class PgInstanceEventRepository(
     public async Task<InstanceEvent> GetOneEvent(string instanceId, Guid eventGuid)
     {
         InstanceEvent instanceEvent = null;
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _readSql;
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, eventGuid);
 
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
@@ -96,7 +98,9 @@ public class PgInstanceEventRepository(
     )
     {
         List<InstanceEvent> events = [];
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_filterSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _filterSql;
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceId.Split('/').Last()));
         pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, fromDateTime ?? DateTime.MinValue);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, toDateTime ?? DateTime.MaxValue);
@@ -119,7 +123,9 @@ public class PgInstanceEventRepository(
     /// <inheritdoc/>
     public async Task<int> DeleteAllInstanceEvents(string instanceId)
     {
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _deleteSql;
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceId.Split('/').Last()));
 
         int rc = (int)await pgcom.ExecuteScalarAsync();

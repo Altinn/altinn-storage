@@ -40,18 +40,18 @@ public class PgTextRepository : ITextRepository
 
     private readonly IMemoryCache _memoryCache;
     private readonly MemoryCacheEntryOptions _cacheEntryOptions;
-    private readonly NpgsqlDataSource _dataSource;
+    private readonly INpgsqlConnectionOpener _connections;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PgTextRepository"/> class
     /// </summary>
     /// <param name="generalSettings">the general settings</param>
     /// <param name="memoryCache">the memory cache</param>
-    /// <param name="dataSource">The npgsql data source.</param>
+    /// <param name="connections">Opens connections, retrying transient open failures.</param>
     public PgTextRepository(
         IOptions<GeneralSettings> generalSettings,
         IMemoryCache memoryCache,
-        NpgsqlDataSource dataSource
+        INpgsqlConnectionOpener connections
     )
     {
         _memoryCache = memoryCache;
@@ -60,7 +60,7 @@ public class PgTextRepository : ITextRepository
             .SetAbsoluteExpiration(
                 new TimeSpan(0, 0, generalSettings.Value.TextResourceCacheLifeTimeInSeconds)
             );
-        _dataSource = dataSource;
+        _connections = connections;
     }
 
     /// <inheritdoc/>
@@ -70,7 +70,9 @@ public class PgTextRepository : ITextRepository
         string cacheKey = $"tid:{GetTextId(org, app, language)}";
         if (!_memoryCache.TryGetValue(cacheKey, out TextResource textResource))
         {
-            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSql);
+            await using NpgsqlConnection conn = await _connections.OpenAsync();
+            await using NpgsqlCommand pgcom = conn.CreateCommand();
+            pgcom.CommandText = _readSql;
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, org);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, app);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, language);
@@ -128,20 +130,27 @@ public class PgTextRepository : ITextRepository
         ValidateArguments(org, app, textResource.Language);
 
         int applicationInternalId;
-        await using NpgsqlCommand pgcomReadApp = _dataSource.CreateCommand(_readAppSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcomReadApp = conn.CreateCommand();
+        pgcomReadApp.CommandText = _readAppSql;
         pgcomReadApp.Parameters.AddWithValue(NpgsqlDbType.Text, app);
         pgcomReadApp.Parameters.AddWithValue(NpgsqlDbType.Text, org);
-        await using NpgsqlDataReader reader = await pgcomReadApp.ExecuteReaderAsync();
-        if (await reader.ReadAsync())
+
+        // Scoped so the reader is closed before the next command runs on the same connection.
+        await using (NpgsqlDataReader reader = await pgcomReadApp.ExecuteReaderAsync())
         {
-            applicationInternalId = await reader.GetFieldValueAsync<int>("id");
-        }
-        else
-        {
-            throw new ArgumentException("App not found");
+            if (await reader.ReadAsync())
+            {
+                applicationInternalId = await reader.GetFieldValueAsync<int>("id");
+            }
+            else
+            {
+                throw new ArgumentException("App not found");
+            }
         }
 
-        await using NpgsqlCommand pgcomRead = _dataSource.CreateCommand(_createSql);
+        await using NpgsqlCommand pgcomRead = conn.CreateCommand();
+        pgcomRead.CommandText = _createSql;
         pgcomRead.Parameters.AddWithValue(NpgsqlDbType.Text, org);
         pgcomRead.Parameters.AddWithValue(NpgsqlDbType.Text, app);
         pgcomRead.Parameters.AddWithValue(NpgsqlDbType.Text, textResource.Language);
@@ -158,7 +167,9 @@ public class PgTextRepository : ITextRepository
     {
         ValidateArguments(org, app, textResource.Language);
 
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _updateSql;
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, org);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, app);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, textResource.Language);
@@ -173,7 +184,9 @@ public class PgTextRepository : ITextRepository
     {
         ValidateArguments(org, app, language);
 
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _deleteSql;
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, org);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, app);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, language);

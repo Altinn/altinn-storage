@@ -21,8 +21,8 @@ namespace Altinn.Platform.Storage.Repository;
 /// Initializes a new instance of the <see cref="PgDataRepository"/> class.
 /// </remarks>
 /// <param name="logger">The logger to use when writing to logs.</param>
-/// <param name="dataSource">The npgsql data source.</param>
-public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource dataSource)
+/// <param name="connections">Opens connections, retrying transient open failures.</param>
+public class PgDataRepository(ILogger<PgDataRepository> logger, INpgsqlConnectionOpener connections)
     : IDataRepository
 {
     private readonly string _insertSql =
@@ -35,7 +35,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     private readonly string _existsSql = "select * from storage.readdataelementexists($1)";
 
     private readonly ILogger<PgDataRepository> _logger = logger;
-    private readonly NpgsqlDataSource _dataSource = dataSource;
+    private readonly INpgsqlConnectionOpener _connections = connections;
 
     /// <inheritdoc/>
     public async Task<DataElement> Create(
@@ -45,7 +45,9 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     )
     {
         dataElement.Id ??= Guid.NewGuid().ToString();
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync(cancellationToken);
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _insertSql;
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Bigint, instanceInternalId);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.InstanceGuid));
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
@@ -69,7 +71,9 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         CancellationToken cancellationToken = default
     )
     {
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync(cancellationToken);
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _deleteSql;
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.InstanceGuid));
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, dataElement.LastChangedBy);
@@ -86,7 +90,9 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     {
         try
         {
-            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteForInstanceSql);
+            await using NpgsqlConnection conn = await _connections.OpenAsync(cancellationToken);
+            await using NpgsqlCommand pgcom = conn.CreateCommand();
+            pgcom.CommandText = _deleteForInstanceSql;
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceId));
 
             await pgcom.ExecuteScalarAsync(cancellationToken);
@@ -111,7 +117,9 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     )
     {
         DataElement dataElement = null;
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync(cancellationToken);
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _readSql;
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
 
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
@@ -220,7 +228,9 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
             LastChanged = element.LastChanged,
             LastChangedBy = element.LastChangedBy,
         };
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync(cancellationToken);
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _updateSql;
 
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
@@ -263,7 +273,9 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     )
     {
         bool? result = null;
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_existsSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync(cancellationToken);
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _existsSql;
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
 
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);

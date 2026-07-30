@@ -11,7 +11,7 @@ namespace Altinn.Platform.Storage.Repository;
 /// <summary>
 /// Implementation of <see cref="IMetricsRepository"/>
 /// </summary>
-public class PgMetricsRepository(NpgsqlDataSource dataSource) : IMetricsRepository
+public class PgMetricsRepository(INpgsqlConnectionOpener connections) : IMetricsRepository
 {
     private const string _getDailyInstanceMetric =
         "SELECT * FROM storage.get_instance_metrics($1, $2, $3)";
@@ -24,8 +24,10 @@ public class PgMetricsRepository(NpgsqlDataSource dataSource) : IMetricsReposito
     {
         DailyMetrics<DailyInstanceMetricsRecord> metrics = new() { DateTime = dateTime };
 
-        await using NpgsqlCommand pgcom = dataSource.CreateCommand(_getDailyInstanceMetric);
-        pgcom.CommandTimeout = 900; // 15 minutes
+        await using NpgsqlConnection conn = await connections.OpenAsync(cancellationToken);
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _getDailyInstanceMetric;
+        pgcom.CommandTimeout = 300; // 5 minutes
 
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Integer, dateTime.Day);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Integer, dateTime.Month);

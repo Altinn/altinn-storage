@@ -47,17 +47,20 @@ public class PgInstanceRepository : IInstanceRepository
         "select * from storage.readinstancenoelements ($1)";
 
     private readonly ILogger<PgInstanceRepository> _logger;
-    private readonly NpgsqlDataSource _dataSource;
+    private readonly INpgsqlConnectionOpener _connections;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PgInstanceRepository"/> class.
     /// </summary>
     /// <param name="logger">The logger to use when writing to logs.</param>
-    /// <param name="dataSource">The npgsql data source.</param>
-    public PgInstanceRepository(ILogger<PgInstanceRepository> logger, NpgsqlDataSource dataSource)
+    /// <param name="connections">Opens connections, retrying transient open failures.</param>
+    public PgInstanceRepository(
+        ILogger<PgInstanceRepository> logger,
+        INpgsqlConnectionOpener connections
+    )
     {
         _logger = logger;
-        _dataSource = dataSource;
+        _connections = connections;
 
         for (int i = 1; i <= _paramTypes.Count; i++)
         {
@@ -83,7 +86,9 @@ public class PgInstanceRepository : IInstanceRepository
         instance.Id ??= Guid.NewGuid().ToString();
         ToInternal(instance);
         instance.Data = null;
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync(cancellationToken);
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _insertSql;
         pgcom.Parameters.AddWithValue(
             "_partyid",
             NpgsqlDbType.Bigint,
@@ -130,7 +135,9 @@ public class PgInstanceRepository : IInstanceRepository
     public async Task<bool> Delete(Instance instance, CancellationToken cancellationToken)
     {
         ToInternal(instance);
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync(cancellationToken);
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _deleteSql;
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instance.Id));
 
         int rc = (int)await pgcom.ExecuteScalarAsync(cancellationToken);
@@ -191,7 +198,9 @@ public class PgInstanceRepository : IInstanceRepository
     {
         List<Instance> instances = [];
 
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readDeletedSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync(cancellationToken);
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _readDeletedSql;
         pgcom.CommandTimeout = 600; // 10 minutes
         await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken))
         {
@@ -227,7 +236,9 @@ public class PgInstanceRepository : IInstanceRepository
         List<DataElement> elements = [];
         try
         {
-            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readDeletedElementsSql);
+            await using NpgsqlConnection conn = await _connections.OpenAsync(cancellationToken);
+            await using NpgsqlCommand pgcom = conn.CreateCommand();
+            pgcom.CommandText = _readDeletedElementsSql;
             pgcom.CommandTimeout = 600; // 10 minutes
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
             long previousId = -1;
@@ -364,7 +375,9 @@ public class PgInstanceRepository : IInstanceRepository
         DateTime lastChanged = DateTime.MinValue;
         InstanceQueryResponse queryResponse = new() { Count = 0, Instances = [] };
 
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSqlFiltered);
+        await using NpgsqlConnection conn = await _connections.OpenAsync(cancellationToken);
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _readSqlFiltered;
 
         Dictionary<string, object> postgresParams = queryParams.GeneratePostgreSQLParameters();
         postgresParams.Add("_includeElements", includeDataelements);
@@ -444,9 +457,9 @@ public class PgInstanceRepository : IInstanceRepository
         List<DataElement> instanceData = [];
         long instanceInternalId = 0;
 
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(
-            includeElements ? _readSql : _readSqlNoElements
-        );
+        await using NpgsqlConnection conn = await _connections.OpenAsync(cancellationToken);
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = includeElements ? _readSql : _readSqlNoElements;
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
 
         await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken))
@@ -504,7 +517,9 @@ public class PgInstanceRepository : IInstanceRepository
 
         ToInternal(instance);
         instance.Data = null;
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(UpdateSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync(cancellationToken);
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = UpdateSql;
         BuildUpdateCommand(instance, updateProperties, pgcom.Parameters);
 
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);

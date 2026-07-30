@@ -46,6 +46,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddRepositoryImplementations(this IServiceCollection services)
     {
         return services
+            .AddSingleton<INpgsqlConnectionOpener, NpgsqlConnectionOpener>()
             .AddSingleton<IApplicationRepository, PgApplicationRepository>()
             .AddSingleton<ITextRepository, PgTextRepository>()
             .AddSingleton<IDataRepository, PgDataRepository>()

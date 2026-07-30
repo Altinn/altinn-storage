@@ -22,12 +22,12 @@ namespace Altinn.Platform.Storage.Repository;
 /// Initializes a new instance of the <see cref="PgOutboxRepository"/> class.
 /// </remarks>
 /// <param name="wolverineSettings">the wolverine settings</param>
-/// <param name="dataSource">The npgsql data source.</param>
+/// <param name="connections">Opens connections, retrying transient open failures.</param>
 /// <param name="logger">The logger.</param>
 /// <param name="contextAccessor">HttpContextAccessor.</param>
 public class PgOutboxRepository(
     IOptions<WolverineSettings> wolverineSettings,
-    NpgsqlDataSource dataSource,
+    INpgsqlConnectionOpener connections,
     ILogger<PgOutboxRepository> logger,
     IHttpContextAccessor contextAccessor = null
 ) : IOutboxRepository
@@ -122,7 +122,9 @@ public class PgOutboxRepository(
     /// <inheritdoc/>
     public async Task Delete(Guid instanceId)
     {
-        await using NpgsqlCommand pgcom = dataSource.CreateCommand(_deleteSql);
+        await using NpgsqlConnection conn = await connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _deleteSql;
         pgcom.Parameters.AddWithValue("_instanceid", NpgsqlDbType.Uuid, instanceId);
         await pgcom.ExecuteNonQueryAsync();
     }
@@ -131,7 +133,9 @@ public class PgOutboxRepository(
     public async Task<List<SyncInstanceToDialogportenCommand>> Poll(int maxRows)
     {
         List<SyncInstanceToDialogportenCommand> dps = [];
-        await using NpgsqlCommand pgcom = dataSource.CreateCommand(_pollSql);
+        await using NpgsqlConnection conn = await connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _pollSql;
 
         pgcom.Parameters.AddWithValue("_maxrows", NpgsqlDbType.Integer, maxRows);
 
@@ -162,7 +166,9 @@ public class PgOutboxRepository(
     {
         try
         {
-            await using NpgsqlCommand pgcom = dataSource.CreateCommand(_acquireLeaseSql);
+            await using NpgsqlConnection conn = await connections.OpenAsync();
+            await using NpgsqlCommand pgcom = conn.CreateCommand();
+            pgcom.CommandText = _acquireLeaseSql;
             pgcom.Parameters.AddWithValue("_resource", NpgsqlDbType.Text, resource);
             pgcom.Parameters.AddWithValue("_holder", NpgsqlDbType.Uuid, holder);
             pgcom.Parameters.AddWithValue("_expiresAt", NpgsqlDbType.TimestampTz, leaseExpires);
@@ -181,7 +187,9 @@ public class PgOutboxRepository(
     {
         try
         {
-            await using NpgsqlCommand pgcom = dataSource.CreateCommand(_renewLeaseSql);
+            await using NpgsqlConnection conn = await connections.OpenAsync();
+            await using NpgsqlCommand pgcom = conn.CreateCommand();
+            pgcom.CommandText = _renewLeaseSql;
             pgcom.Parameters.AddWithValue("_resource", NpgsqlDbType.Text, resource);
             pgcom.Parameters.AddWithValue("_holder", NpgsqlDbType.Uuid, holder);
             pgcom.Parameters.AddWithValue("_expiresAt", NpgsqlDbType.TimestampTz, leaseExpires);
@@ -200,7 +208,9 @@ public class PgOutboxRepository(
     {
         try
         {
-            await using NpgsqlCommand pgcom = dataSource.CreateCommand(_releaseLeaseSql);
+            await using NpgsqlConnection conn = await connections.OpenAsync();
+            await using NpgsqlCommand pgcom = conn.CreateCommand();
+            pgcom.CommandText = _releaseLeaseSql;
             pgcom.Parameters.AddWithValue("_resource", NpgsqlDbType.Text, resource);
             pgcom.Parameters.AddWithValue("_holder", NpgsqlDbType.Uuid, holder);
 

@@ -40,21 +40,21 @@ public class PgApplicationRepository : IApplicationRepository
     private readonly MemoryCacheEntryOptions _cacheEntryOptionsTitles;
     private readonly MemoryCacheEntryOptions _cacheEntryOptionsMetadata;
     private readonly string _cacheKey = "allAppTitles";
-    private readonly NpgsqlDataSource _dataSource;
+    private readonly INpgsqlConnectionOpener _connections;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PgApplicationRepository"/> class.
     /// </summary>
     /// <param name="generalSettings">the general settings</param>
     /// <param name="memoryCache">the memory cache</param>
-    /// <param name="dataSource">The npgsql data source.</param>
+    /// <param name="connections">Opens connections, retrying transient open failures.</param>
     public PgApplicationRepository(
         IOptions<GeneralSettings> generalSettings,
         IMemoryCache memoryCache,
-        NpgsqlDataSource dataSource
+        INpgsqlConnectionOpener connections
     )
     {
-        _dataSource = dataSource;
+        _connections = connections;
         _memoryCache = memoryCache;
         _cacheEntryOptionsTitles = new MemoryCacheEntryOptions()
             .SetPriority(CacheItemPriority.High)
@@ -73,7 +73,9 @@ public class PgApplicationRepository : IApplicationRepository
     {
         List<Application> applications = [];
 
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _readSql;
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
@@ -88,7 +90,9 @@ public class PgApplicationRepository : IApplicationRepository
     {
         List<Application> applications = [];
 
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readByOrgSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _readByOrgSql;
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, org);
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
         while (await reader.ReadAsync())
@@ -109,7 +113,9 @@ public class PgApplicationRepository : IApplicationRepository
         string cacheKey = $"aid:{appId}";
         if (!_memoryCache.TryGetValue(cacheKey, out Application application))
         {
-            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readByIdSql);
+            await using NpgsqlConnection conn = await _connections.OpenAsync(cancellationToken);
+            await using NpgsqlCommand pgcom = conn.CreateCommand();
+            pgcom.CommandText = _readByIdSql;
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, GetAppFromAppId(appId));
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, org);
             await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
@@ -133,7 +139,9 @@ public class PgApplicationRepository : IApplicationRepository
     /// <inheritdoc/>
     public async Task<Application> Create(Application item)
     {
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_createSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _createSql;
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, GetAppFromAppId(item.Id));
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, item.Org);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, item);
@@ -148,7 +156,9 @@ public class PgApplicationRepository : IApplicationRepository
     /// <inheritdoc/>
     public async Task<Application> Update(Application item)
     {
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _updateSql;
 
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, GetAppFromAppId(item.Id));
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, item.Org);
@@ -165,7 +175,9 @@ public class PgApplicationRepository : IApplicationRepository
     /// <inheritdoc/>
     public async Task<bool> Delete(string appId, string org)
     {
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteSql);
+        await using NpgsqlConnection conn = await _connections.OpenAsync();
+        await using NpgsqlCommand pgcom = conn.CreateCommand();
+        pgcom.CommandText = _deleteSql;
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, GetAppFromAppId(appId));
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, org);
 

@@ -20,7 +20,7 @@ namespace Altinn.Platform.Storage.Repository;
 public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
 {
     private readonly ILogger<PgInstanceAndEventsRepository> _logger;
-    private readonly NpgsqlDataSource _dataSource;
+    private readonly INpgsqlConnectionOpener _connections;
     private readonly IInstanceRepository _instanceRepository;
     private readonly IOutboxRepository _outboxRepository;
 
@@ -30,18 +30,18 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
     /// Initializes a new instance of the <see cref="PgInstanceAndEventsRepository"/> class.
     /// </summary>
     /// <param name="logger">The logger to use when writing to logs.</param>
-    /// <param name="dataSource">The npgsql data source.</param>
+    /// <param name="connections">Opens connections, retrying transient open failures.</param>
     /// <param name="instanceRepository">Instance repo</param>
     /// <param name="outboxRepository">Outbox repo</param>
     public PgInstanceAndEventsRepository(
         ILogger<PgInstanceAndEventsRepository> logger,
-        NpgsqlDataSource dataSource,
+        INpgsqlConnectionOpener connections,
         IInstanceRepository instanceRepository,
         IOutboxRepository outboxRepository = null
     )
     {
         _logger = logger;
-        _dataSource = dataSource;
+        _connections = connections;
         _instanceRepository = instanceRepository;
         _outboxRepository = outboxRepository;
     }
@@ -75,7 +75,7 @@ public class PgInstanceAndEventsRepository : IInstanceAndEventsRepository
         PgInstanceRepository.ToInternal(instance);
         instance.Data = null;
 
-        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var connection = await _connections.OpenAsync(cancellationToken);
         await using var tx = await connection.BeginTransactionAsync(cancellationToken);
 
         try

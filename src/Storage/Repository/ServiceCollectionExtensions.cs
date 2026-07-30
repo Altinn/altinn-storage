@@ -34,6 +34,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IOutboxRepository, PgOutboxRepository>()
             .AddSingleton<IInstanceLockRepository, PgInstanceLockRepository>()
             .AddSingleton<IMetricsRepository, PgMetricsRepository>()
+            .AddSingleton<INpgsqlConnectionOpener, NpgsqlConnectionOpener>()
             .AddNpgsqlDataSource(
                 connectionString,
                 builder =>
