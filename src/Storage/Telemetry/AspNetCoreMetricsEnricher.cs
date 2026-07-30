@@ -179,6 +179,7 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
         "Altinn.Platform.Storage.Controllers.InstancesController.Post (Altinn.Platform.Storage)",
         "Altinn.Platform.Storage.Controllers.InstancesController.UpdateReadStatus (Altinn.Platform.Storage)",
         "Altinn.Platform.Storage.Controllers.InstancesController.UpdateSubstatus (Altinn.Platform.Storage)",
+        "Altinn.Platform.Storage.Controllers.InstancesController.AddCompleteConfirmation (Altinn.Platform.Storage)",
         "Altinn.Platform.Storage.Controllers.InstanceEventsController.Post (Altinn.Platform.Storage)",
         "Altinn.Platform.Storage.Controllers.InstanceEventsController.GetOne (Altinn.Platform.Storage)",
         "Altinn.Platform.Storage.Controllers.InstanceEventsController.Get (Altinn.Platform.Storage)",
@@ -191,7 +192,8 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
         "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstanceEvents (Altinn.Platform.Storage)",
         "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.Undelete (Altinn.Platform.Storage)",
         "Altinn.Platform.Storage.Controllers.ProcessController.PutInstanceAndEvents (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.ProcessController.PutProcess (Altinn.Platform.Storage)"
+        "Altinn.Platform.Storage.Controllers.ProcessController.PutProcess (Altinn.Platform.Storage)",
+        "Altinn.Platform.Storage.Controllers.SignController.Sign (Altinn.Platform.Storage)"
     );
 
     private static readonly FrozenSet<string> _manuallyExcludeActions = FrozenSet.Create<string>(

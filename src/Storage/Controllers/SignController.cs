@@ -3,9 +3,11 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
+using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -21,14 +23,24 @@ namespace Altinn.Platform.Storage.Controllers;
 public class SignController : ControllerBase
 {
     private readonly ISigningService _signingService;
+    private readonly IInstanceRepository _instanceRepository;
+    private readonly IAuthorization _authorizationService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SignController"/> class
     /// </summary>
     /// <param name="signingService">An instance service with instance related business logic.</param>
-    public SignController(ISigningService signingService)
+    /// <param name="instanceRepository">the instance repository handler</param>
+    /// <param name="authorizationService">the authorization service</param>
+    public SignController(
+        ISigningService signingService,
+        IInstanceRepository instanceRepository,
+        IAuthorization authorizationService
+    )
     {
         _signingService = signingService;
+        _instanceRepository = instanceRepository;
+        _authorizationService = authorizationService;
     }
 
     /// <summary>
@@ -38,7 +50,7 @@ public class SignController : ControllerBase
     /// <param name="instanceGuid">The guid of the instance.</param>
     /// <param name="signRequest">Sign request containing data element ids and sign status.</param>
     /// <param name="cancellationToken">CancellationToken</param>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_SIGN)]
+    [Authorize]
     [HttpPost("{instanceOwnerPartyId:int}/{instanceGuid:guid}/sign")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -50,6 +62,17 @@ public class SignController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(
+            instanceGuid,
+            true,
+            cancellationToken
+        );
+
+        if (!await _authorizationService.AuthorizeInstanceRequest(instance, "sign"))
+        {
+            return Forbid();
+        }
+
         if (
             string.IsNullOrEmpty(signRequest?.Signee?.UserId)
             && signRequest?.Signee?.SystemUserId is null
@@ -69,7 +92,8 @@ public class SignController : ControllerBase
         }
 
         (bool created, ServiceError serviceError) = await _signingService.CreateSignDocument(
-            instanceGuid,
+            instance,
+            instanceInternalId,
             signRequest,
             performedBy,
             cancellationToken

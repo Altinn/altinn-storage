@@ -50,22 +50,15 @@ public class SigningServiceTest
     public async Task CreateSignDocument_SigningSuccessful_SignedEventDispatched(Signee signee)
     {
         // Arrange
-        var instanceRepositoryMock = new Mock<IInstanceRepository>();
-        instanceRepositoryMock
-            .Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(
-                (
-                    new Instance()
-                    {
-                        InstanceOwner = new(),
-                        Process = new ProcessState
-                        {
-                            CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" },
-                        },
-                    },
-                    0
-                )
-            );
+        var instance = new Instance()
+        {
+            Id = "123/" + Guid.NewGuid(),
+            InstanceOwner = new(),
+            Process = new ProcessState
+            {
+                CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" },
+            },
+        };
 
         var applicationServiceMock = new Mock<IApplicationService>();
         applicationServiceMock
@@ -121,7 +114,6 @@ public class SigningServiceTest
         var loggerMock = new Mock<ILogger<SigningService>>();
 
         var service = new SigningService(
-            instanceRepositoryMock.Object,
             dataServiceMock.Object,
             applicationServiceMock.Object,
             instanceEventServiceMock.Object,
@@ -149,7 +141,8 @@ public class SigningServiceTest
             ? signee.UserId
             : signee.OrganisationNumber;
         (bool created, ServiceError serviceError) = await service.CreateSignDocument(
-            Guid.NewGuid(),
+            instance,
+            0,
             signRequest,
             performedBy,
             It.IsAny<CancellationToken>()
@@ -158,7 +151,6 @@ public class SigningServiceTest
         // Assert
         Assert.True(created);
         Assert.Null(serviceError);
-        instanceRepositoryMock.VerifyAll();
         applicationServiceMock.VerifyAll();
         dataServiceMock.VerifyAll();
         instanceEventServiceMock.VerifyAll();
@@ -184,7 +176,6 @@ public class SigningServiceTest
 
         DataElement oldSignatureDataElement = new() { DataType = signatureDataType };
 
-        var instanceRepositoryMock = new Mock<IInstanceRepository>();
         var instance = new Instance()
         {
             Id = instanceId,
@@ -199,10 +190,6 @@ public class SigningServiceTest
             },
             Data = [oldSignatureDataElement],
         };
-
-        instanceRepositoryMock
-            .Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((instance, 0));
 
         var applicationServiceMock = new Mock<IApplicationService>();
         applicationServiceMock
@@ -280,7 +267,6 @@ public class SigningServiceTest
         var loggerMock = new Mock<ILogger<SigningService>>();
 
         var service = new SigningService(
-            instanceRepositoryMock.Object,
             dataServiceMock.Object,
             applicationServiceMock.Object,
             instanceEventServiceMock.Object,
@@ -308,7 +294,8 @@ public class SigningServiceTest
             ? signee.UserId
             : signee.OrganisationNumber;
         (bool created, ServiceError serviceError) = await service.CreateSignDocument(
-            Guid.NewGuid(),
+            instance,
+            0,
             signRequest,
             performedBy,
             It.IsAny<CancellationToken>()
@@ -317,7 +304,6 @@ public class SigningServiceTest
         // Assert
         Assert.True(created);
         Assert.Null(serviceError);
-        instanceRepositoryMock.VerifyAll();
         applicationServiceMock.VerifyAll();
         dataServiceMock.VerifyAll();
         instanceEventServiceMock.VerifyAll();
@@ -336,11 +322,6 @@ public class SigningServiceTest
     public async Task CreateSignDocument_SigningFailed_InstanceNotExists()
     {
         // Arrange
-        var instanceRepositoryMock = new Mock<IInstanceRepository>();
-        instanceRepositoryMock
-            .Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(((Instance)null, 0));
-
         var applicationServiceMock = new Mock<IApplicationService>();
         var dataServiceMock = new Mock<IDataService>();
         var instanceEventServiceMock = new Mock<IInstanceEventService>();
@@ -357,7 +338,6 @@ public class SigningServiceTest
         var loggerMock = new Mock<ILogger<SigningService>>();
 
         var service = new SigningService(
-            instanceRepositoryMock.Object,
             dataServiceMock.Object,
             applicationServiceMock.Object,
             instanceEventServiceMock.Object,
@@ -368,7 +348,8 @@ public class SigningServiceTest
 
         // Act
         (bool created, ServiceError serviceError) = await service.CreateSignDocument(
-            Guid.NewGuid(),
+            null,
+            0,
             new SignRequest(),
             "1337",
             It.IsAny<CancellationToken>()
@@ -377,29 +358,21 @@ public class SigningServiceTest
         // Assert
         Assert.False(created);
         Assert.Equal(404, serviceError.ErrorCode);
-        instanceRepositoryMock.VerifyAll();
     }
 
     [Fact]
     public async Task CreateSignDocument_SigningFailed_InvalidDatatype()
     {
         // Arrange
-        var instanceRepositoryMock = new Mock<IInstanceRepository>();
-        instanceRepositoryMock
-            .Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(
-                (
-                    new Instance()
-                    {
-                        InstanceOwner = new(),
-                        Process = new ProcessState
-                        {
-                            CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" },
-                        },
-                    },
-                    0
-                )
-            );
+        var instance = new Instance()
+        {
+            Id = "123/" + Guid.NewGuid(),
+            InstanceOwner = new(),
+            Process = new ProcessState
+            {
+                CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" },
+            },
+        };
 
         var applicationServiceMock = new Mock<IApplicationService>();
         applicationServiceMock
@@ -438,7 +411,6 @@ public class SigningServiceTest
         var loggerMock = new Mock<ILogger<SigningService>>();
 
         var service = new SigningService(
-            instanceRepositoryMock.Object,
             dataServiceMock.Object,
             applicationServiceMock.Object,
             instanceEventServiceMock.Object,
@@ -449,7 +421,8 @@ public class SigningServiceTest
 
         // Act
         (bool created, ServiceError serviceError) = await service.CreateSignDocument(
-            Guid.NewGuid(),
+            instance,
+            0,
             new SignRequest(),
             "1337",
             It.IsAny<CancellationToken>()
@@ -458,7 +431,6 @@ public class SigningServiceTest
         // Assert
         Assert.False(created);
         Assert.Equal(404, serviceError.ErrorCode);
-        instanceRepositoryMock.VerifyAll();
         applicationServiceMock.VerifyAll();
     }
 
@@ -467,22 +439,15 @@ public class SigningServiceTest
     public async Task CreateSignDocument_SigningFailed_DataElementNotExists(Signee signee)
     {
         // Arrange
-        var instanceRepositoryMock = new Mock<IInstanceRepository>();
-        instanceRepositoryMock
-            .Setup(rm => rm.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(
-                (
-                    new Instance()
-                    {
-                        InstanceOwner = new(),
-                        Process = new ProcessState
-                        {
-                            CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" },
-                        },
-                    },
-                    0
-                )
-            );
+        var instance = new Instance()
+        {
+            Id = "123/" + Guid.NewGuid(),
+            InstanceOwner = new(),
+            Process = new ProcessState
+            {
+                CurrentTask = new ProcessElementInfo { AltinnTaskType = "CurrentTask" },
+            },
+        };
 
         var applicationServiceMock = new Mock<IApplicationService>();
         applicationServiceMock
@@ -532,7 +497,6 @@ public class SigningServiceTest
         var loggerMock = new Mock<ILogger<SigningService>>();
 
         var service = new SigningService(
-            instanceRepositoryMock.Object,
             dataServiceMock.Object,
             applicationServiceMock.Object,
             instanceEventServiceMock.Object,
@@ -560,7 +524,8 @@ public class SigningServiceTest
             ? signee.UserId
             : signee.OrganisationNumber;
         (bool created, ServiceError serviceError) = await service.CreateSignDocument(
-            Guid.NewGuid(),
+            instance,
+            0,
             signRequest,
             performedBy,
             It.IsAny<CancellationToken>()
@@ -569,7 +534,6 @@ public class SigningServiceTest
         // Assert
         Assert.False(created);
         Assert.Equal(404, serviceError.ErrorCode);
-        instanceRepositoryMock.VerifyAll();
         applicationServiceMock.VerifyAll();
         dataServiceMock.VerifyAll();
     }

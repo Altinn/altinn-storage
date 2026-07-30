@@ -79,7 +79,8 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
         instanceServiceMock
             .Setup(ism =>
                 ism.CreateSignDocument(
-                    It.IsAny<Guid>(),
+                    It.IsAny<Instance>(),
+                    It.IsAny<long>(),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
                     It.IsAny<CancellationToken>()
@@ -180,7 +181,8 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
         instanceServiceMock
             .Setup(ism =>
                 ism.CreateSignDocument(
-                    It.IsAny<Guid>(),
+                    It.IsAny<Instance>(),
+                    It.IsAny<long>(),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
                     It.IsAny<CancellationToken>()

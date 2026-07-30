@@ -1611,6 +1611,35 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
     /// <summary>
     /// Scenario:
+    ///   A user without the required role calls the complete operation.
+    /// Result:
+    ///   The inline authorization denies the request and returns status Forbidden.
+    /// </summary>
+    [Fact]
+    public async Task AddCompleteConfirmation_UserNotAuthorized_ReturnsForbidden()
+    {
+        // Arrange
+        int instanceOwnerPartyId = 1337;
+        string instanceGuid = "2f7fa5ce-e878-4e1f-a241-8c0eb1a83eab";
+        string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/complete";
+
+        HttpClient client = GetTestClient();
+
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            new StringContent(string.Empty)
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Scenario:
     ///   A stakeholder calls the complete operation to indicate that they consider the instance as completed, but
     ///   they have already done so from before. The API makes no changes and return the original instancee.
     /// Result:

@@ -757,7 +757,7 @@ public class InstancesController : ControllerBase
     /// <param name="instanceGuid">The id of the instance to confirm as complete.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>Returns a list of the process events.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_COMPLETE)]
+    [Authorize]
     [HttpPost("{instanceOwnerPartyId:int}/{instanceGuid:guid}/complete")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [Produces("application/json")]
@@ -773,6 +773,11 @@ public class InstancesController : ControllerBase
             true,
             cancellationToken
         );
+
+        if (!await _authorizationService.AuthorizeInstanceRequest(instance, "complete"))
+        {
+            return Forbid();
+        }
 
         string org = User.GetOrg();
 

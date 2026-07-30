@@ -34,7 +34,7 @@ public interface IAuthorization
     /// is provided the XACML request is enriched with the instance's process context (current task
     /// or end event) and the decision is cached.
     /// </summary>
-    /// <param name="instance">The instance to authorize against, or null when it has not been loaded.</param>
+    /// <param name="instance">The instance to authorize against, or null when no instance exist.</param>
     /// <param name="action">The action to authorize, e.g. "read", "write" or "delete".</param>
     /// <returns>true if the user is authorized.</returns>
     public Task<bool> AuthorizeInstanceRequest(Instance instance, string action);

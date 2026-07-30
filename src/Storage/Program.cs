@@ -283,14 +283,6 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services
         .AddAuthorizationBuilder()
         .AddPolicy(
-            AuthzConstants.POLICY_INSTANCE_COMPLETE,
-            policy => policy.Requirements.Add(new AppAccessRequirement("complete"))
-        )
-        .AddPolicy(
-            AuthzConstants.POLICY_INSTANCE_SIGN,
-            policy => policy.Requirements.Add(new AppAccessRequirement("sign"))
-        )
-        .AddPolicy(
             AuthzConstants.POLICY_SCOPE_APPDEPLOY,
             policy => policy.Requirements.Add(new ScopeAccessRequirement("altinn:appdeploy"))
         )
@@ -338,7 +330,6 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddSingleton<IPDP, PDPAppSI>();
     services.AddSingleton<IFileScanQueueClient, FileScanQueueClient>();
 
-    services.AddTransient<IAuthorizationHandler, StorageAccessHandler>();
     services.AddTransient<IAuthorizationHandler, ScopeAccessHandler>();
     services.AddTransient<IAuthorizationHandler, ClaimAccessHandler>();
     services.AddTransient<IAuthorization, AuthorizationService>();
