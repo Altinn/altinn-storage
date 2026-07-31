@@ -7,14 +7,12 @@ using System.Security.Claims;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Altinn.AccessManagement.Core.Models;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -73,7 +71,6 @@ internal sealed class AspNetCoreMetricsEnricher(ILogger<AspNetCoreMetricsEnriche
         feature.Tags.Add(new KeyValuePair<string, object?>("client.id", clientId));
         feature.Tags.Add(new KeyValuePair<string, object?>("client.consumer.id", consumerId));
 
-        Console.WriteLine("Before if that uses AllowdScopesKey");
         if (
             context.ActionDescriptor.Properties.TryGetValue(
                 AllowedScopesKey,
@@ -81,7 +78,6 @@ internal sealed class AspNetCoreMetricsEnricher(ILogger<AspNetCoreMetricsEnriche
             ) && user.Identity?.IsAuthenticated is true
         )
         {
-            Console.WriteLine("Inside if that uses AllowdScopesKey");
             Debug.Assert(allowedScopesObj is FrozenSet<string>);
             FrozenSet<string> allowedScopes = (FrozenSet<string>)allowedScopesObj!;
             ValidateScope(allowedScopes, feature, context.HttpContext);
@@ -284,9 +280,6 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
                 continue;
             }
 
-            var authorizeAttr = (AuthorizeAttribute?)
-                action.EndpointMetadata.FirstOrDefault(m => m is AuthorizeAttribute);
-            var authorizePolicy = authorizeAttr?.Policy;
             if (
                 _manuallyIncludeActions.TryGetValue(
                     action.DisplayName ?? string.Empty,
@@ -298,19 +291,8 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
                 continue;
             }
 
-            var authorizeAttrHasInstancePolicy =
-                authorizePolicy?.Contains("Instance", StringComparison.Ordinal) is true;
-            var hasAllowAnonymousAttr = action.EndpointMetadata.Any(m =>
-                m is AllowAnonymousAttribute
-            );
-            if (authorizeAttrHasInstancePolicy && !hasAllowAnonymousAttr)
-            {
-                ProcessAction(action, _acceptedWriteScopes);
-            }
-            else
-            {
-                _actionsNotValidated.Add(action);
-            }
+            // Actions are scope-validated only when explicitly listed in _manuallyIncludeActions.
+            _actionsNotValidated.Add(action);
         }
     }
 
