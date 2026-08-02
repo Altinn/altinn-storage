@@ -1,6 +1,5 @@
 ﻿{
   ActionsToValidate: [
-    Altinn.Platform.Storage.Controllers.DataController.CommitMutation (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.DataController.CreateAndUploadData (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.DataController.Delete (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.DataController.Get (Altinn.Platform.Storage),
@@ -11,6 +10,7 @@
     Altinn.Platform.Storage.Controllers.InstanceEventsController.Get (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstanceEventsController.GetOne (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstanceEventsController.Post (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.InstanceMutationsController.CommitMutation (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstancesController.AddCompleteConfirmation (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstancesController.Delete (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstancesController.Get (Altinn.Platform.Storage),
@@ -25,11 +25,6 @@
     Altinn.Platform.Storage.Controllers.SignController.Sign (Altinn.Platform.Storage)
   ],
   ScopesToValidate: {
-    Altinn.Platform.Storage.Controllers.DataController.CommitMutation (Altinn.Platform.Storage): [
-      altinn:instances.write,
-      altinn:portal/enduser,
-      altinn:serviceowner/instances.write
-    ],
     Altinn.Platform.Storage.Controllers.DataController.CreateAndUploadData (Altinn.Platform.Storage): [
       altinn:instances.write,
       altinn:portal/enduser,
@@ -79,6 +74,11 @@
       altinn:instances.read,
       altinn:portal/enduser,
       altinn:serviceowner/instances.read
+    ],
+    Altinn.Platform.Storage.Controllers.InstanceMutationsController.CommitMutation (Altinn.Platform.Storage): [
+      altinn:instances.write,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.write
     ],
     Altinn.Platform.Storage.Controllers.InstancesController.AddCompleteConfirmation (Altinn.Platform.Storage): [
       altinn:instances.write,
