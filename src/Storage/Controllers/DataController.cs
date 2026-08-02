@@ -423,7 +423,7 @@ public class DataController : ControllerBase
                 return BadRequest("Instance ID in InstanceEvent does not match the Instance ID");
             }
 
-            instanceEvent.Created = instanceEvent.Created?.ToUniversalTime() ?? DateTime.UtcNow;
+            instanceEvent.Created ??= DateTime.UtcNow;
         }
 
         return null;

@@ -651,18 +651,17 @@ public sealed class PgInstanceMutationRepository(
         object value
     ) => parameters.AddWithValue(type, value ?? DBNull.Value);
 
-    private static DateTime NormalizePayloadTimestamp(DateTime value)
+    internal static DateTime NormalizePayloadTimestamp(DateTime value)
     {
-        if (value.Kind != DateTimeKind.Utc)
+        DateTime utc = value.Kind switch
         {
-            throw new ArgumentException(
-                "Aggregate mutation payload timestamps must be UTC.",
-                nameof(value)
-            );
-        }
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc),
+        };
 
         return new DateTime(
-            (value.Ticks / TimeSpan.TicksPerMicrosecond) * TimeSpan.TicksPerMicrosecond,
+            (utc.Ticks / TimeSpan.TicksPerMicrosecond) * TimeSpan.TicksPerMicrosecond,
             DateTimeKind.Utc
         );
     }
