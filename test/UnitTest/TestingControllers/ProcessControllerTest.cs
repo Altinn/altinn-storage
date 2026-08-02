@@ -62,7 +62,8 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         Action<ProcessState>? configure = null,
         string? deleteGeneratedElements = null,
         int? expectedInstanceVersion = null,
-        int? expectedProcessStateVersion = null
+        int? expectedProcessStateVersion = null,
+        Action<ProcessStateUpdate>? configureUpdate = null
     )
     {
         instanceId ??= "1337/20b1353e-91cf-44d6-8ff7-f68993638ffe";
@@ -74,6 +75,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
             ProcessStateUpdate update = new();
             ProcessState state = update.State = new();
             configure?.Invoke(state);
+            configureUpdate?.Invoke(update);
             jsonString = JsonContent.Create(update, new MediaTypeHeaderValue("application/json"));
         }
         else
@@ -647,6 +649,147 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                 ),
             useInstanceAndEventsEndpoint ? Times.Once() : Times.Never()
         );
+    }
+
+    [Fact]
+    public async Task PutInstanceAndEvents_ClientTimestampsWithoutOffset_ReachRepositoryUnshifted()
+    {
+        Guid instanceGuid = new("20a1353e-91cf-44d6-8ff7-f68993638ffe");
+        DateTime clientTimestamp = new(2026, 5, 6, 7, 8, 9, DateTimeKind.Unspecified);
+        InstanceInternal snapshot = CreateVersionedInstanceSnapshot(
+            instanceGuid,
+            new StorageVersions(7, 11)
+        );
+        Mock<IInstanceRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(repository =>
+                repository.GetOne(instanceGuid, true, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(snapshot);
+        InstanceMutationCommit? capturedMutation = null;
+        Mock<IInstanceMutationRepository> mutationRepositoryMock = new();
+        mutationRepositoryMock
+            .Setup(repository =>
+                repository.Apply(
+                    instanceGuid,
+                    snapshot.InternalId,
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                (Guid _, long _, InstanceMutationCommit mutation, CancellationToken _) =>
+                {
+                    capturedMutation = mutation;
+                    return new InstanceMutationApplyResult(false, [], mutation.InstanceUpdates);
+                }
+            );
+        Mock<IProcessAuthorizer> processAuthorizerMock = new();
+        processAuthorizerMock
+            .Setup(authorizer =>
+                authorizer.AuthorizeProcessNext(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<ProcessState>()
+                )
+            )
+            .ReturnsAsync(true);
+
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint: true,
+            PrincipalUtil.GetToken(3, 1337, 3),
+            $"1337/{instanceGuid}",
+            repositoryMock.Object,
+            mutationRepositoryMock.Object,
+            processAuthorizer: processAuthorizerMock.Object,
+            configure: state => state.Started = clientTimestamp,
+            configureUpdate: update =>
+                update.Events = [
+                    new InstanceEvent
+                    {
+                        InstanceId = $"1337/{instanceGuid}",
+                        EventType = InstanceEventType.Saved.ToString(),
+                        Created = clientTimestamp,
+                        User = new PlatformUser { UserId = 3 },
+                    },
+                ]
+        );
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(capturedMutation);
+        DateTime? capturedStarted = capturedMutation.InstanceUpdates.Process.Started;
+        Assert.Equal(clientTimestamp, capturedStarted);
+        Assert.Equal(DateTimeKind.Unspecified, capturedStarted!.Value.Kind);
+        InstanceEvent capturedEvent = Assert.Single(capturedMutation.InstanceEvents);
+        Assert.Equal(clientTimestamp, capturedEvent.Created);
+        Assert.Equal(DateTimeKind.Unspecified, capturedEvent.Created!.Value.Kind);
+    }
+
+    [Fact]
+    public async Task PutInstanceAndEvents_EventWithoutCreated_GetsServerAssignedUtcTimestamp()
+    {
+        Guid instanceGuid = new("20a1353e-91cf-44d6-8ff7-f68993638ffe");
+        InstanceInternal snapshot = CreateVersionedInstanceSnapshot(
+            instanceGuid,
+            new StorageVersions(7, 11)
+        );
+        Mock<IInstanceRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(repository =>
+                repository.GetOne(instanceGuid, true, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(snapshot);
+        InstanceMutationCommit? capturedMutation = null;
+        Mock<IInstanceMutationRepository> mutationRepositoryMock = new();
+        mutationRepositoryMock
+            .Setup(repository =>
+                repository.Apply(
+                    instanceGuid,
+                    snapshot.InternalId,
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                (Guid _, long _, InstanceMutationCommit mutation, CancellationToken _) =>
+                {
+                    capturedMutation = mutation;
+                    return new InstanceMutationApplyResult(false, [], mutation.InstanceUpdates);
+                }
+            );
+        Mock<IProcessAuthorizer> processAuthorizerMock = new();
+        processAuthorizerMock
+            .Setup(authorizer =>
+                authorizer.AuthorizeProcessNext(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<ProcessState>()
+                )
+            )
+            .ReturnsAsync(true);
+        DateTime before = DateTime.UtcNow;
+
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint: true,
+            PrincipalUtil.GetToken(3, 1337, 3),
+            $"1337/{instanceGuid}",
+            repositoryMock.Object,
+            mutationRepositoryMock.Object,
+            processAuthorizer: processAuthorizerMock.Object,
+            configureUpdate: update =>
+                update.Events = [
+                    new InstanceEvent
+                    {
+                        InstanceId = $"1337/{instanceGuid}",
+                        EventType = InstanceEventType.Saved.ToString(),
+                        User = new PlatformUser { UserId = 3 },
+                    },
+                ]
+        );
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(capturedMutation);
+        InstanceEvent capturedEvent = Assert.Single(capturedMutation.InstanceEvents);
+        Assert.Equal(DateTimeKind.Utc, capturedEvent.Created!.Value.Kind);
+        Assert.InRange(capturedEvent.Created.Value, before, DateTime.UtcNow);
     }
 
     [Theory]

@@ -319,7 +319,7 @@ public class ProcessController : ControllerBase
                 return BadRequest("Instance ID in InstanceEvent does not match the Instance ID");
             }
 
-            instanceEvent.Created = instanceEvent.Created?.ToUniversalTime() ?? DateTime.UtcNow;
+            instanceEvent.Created ??= DateTime.UtcNow;
         }
 
         ProcessState processState = processStateUpdate.State;

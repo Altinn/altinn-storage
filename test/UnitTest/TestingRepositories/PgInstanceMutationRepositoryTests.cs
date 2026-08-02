@@ -385,6 +385,334 @@ public class PgInstanceMutationRepositoryTests
         Assert.Equal("substatus-description", substatus.GetProperty("Description").GetString());
     }
 
+    [Fact]
+    public void NormalizePayloadTimestamp_UtcKind_TruncatesToPostgresMicroseconds()
+    {
+        DateTime value = UtcWithExtraTicks(2026, 5, 6, 7, 8, 9, 123, 7);
+
+        DateTime normalized = PgInstanceMutationRepository.NormalizePayloadTimestamp(value);
+
+        Assert.Equal(DateTimeKind.Utc, normalized.Kind);
+        Assert.Equal(value.AddTicks(-7), normalized);
+    }
+
+    [Fact]
+    public void NormalizePayloadTimestamp_UnspecifiedKind_IsReadAsUtcWithoutShiftingTheWallClock()
+    {
+        DateTime value = WithKind(DateTimeKind.Unspecified, 9, 123, 7);
+
+        DateTime normalized = PgInstanceMutationRepository.NormalizePayloadTimestamp(value);
+
+        Assert.Equal(DateTimeKind.Utc, normalized.Kind);
+        Assert.Equal(value.AddTicks(-7).TimeOfDay, normalized.TimeOfDay);
+        Assert.Equal(value.Date, normalized.Date);
+    }
+
+    [Fact]
+    public void NormalizePayloadTimestamp_LocalKind_PreservesTheInstant()
+    {
+        DateTime value = WithKind(DateTimeKind.Local, 9, 123, 7);
+
+        DateTime normalized = PgInstanceMutationRepository.NormalizePayloadTimestamp(value);
+
+        Assert.Equal(DateTimeKind.Utc, normalized.Kind);
+        Assert.Equal(value.ToUniversalTime().AddTicks(-7), normalized);
+    }
+
+    [Theory]
+    [InlineData(DateTimeKind.Unspecified)]
+    [InlineData(DateTimeKind.Local)]
+    public void BuildInstanceUpdatesPayload_NonUtcKindTimestamps_WritesUtcTimestamps(
+        DateTimeKind kind
+    )
+    {
+        Guid instanceGuid = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        DateTime created = WithKind(kind, 1, 123, 1);
+        DateTime dueBefore = WithKind(kind, 2, 234, 2);
+        DateTime visibleAfter = WithKind(kind, 3, 345, 3);
+        DateTime archived = WithKind(kind, 4, 456, 4);
+        DateTime softDeleted = WithKind(kind, 5, 567, 5);
+        DateTime hardDeleted = WithKind(kind, 6, 678, 6);
+        DateTime processStarted = WithKind(kind, 7, 789, 7);
+        DateTime processEnded = WithKind(kind, 8, 890, 8);
+        DateTime taskStarted = WithKind(kind, 9, 901, 9);
+        DateTime taskEnded = WithKind(kind, 10, 12, 1);
+        DateTime confirmedOn = WithKind(kind, 11, 123, 2);
+
+        InstanceMutationCommit mutation = new(
+            [],
+            [],
+            [],
+            new InstanceInternal
+            {
+                Id = instanceGuid.ToString(),
+                AppId = "ttd/app",
+                Org = "ttd",
+                InstanceOwner = new InstanceOwner { PartyId = "5000" },
+                Created = created,
+                DueBefore = dueBefore,
+                VisibleAfter = visibleAfter,
+                Status = new InstanceStatus
+                {
+                    Archived = archived,
+                    SoftDeleted = softDeleted,
+                    HardDeleted = hardDeleted,
+                },
+                Process = new ProcessState
+                {
+                    Started = processStarted,
+                    Ended = processEnded,
+                    CurrentTask = new ProcessElementInfo
+                    {
+                        ElementId = "Task_1",
+                        Started = taskStarted,
+                        Ended = taskEnded,
+                    },
+                },
+                CompleteConfirmations =
+                [
+                    new CompleteConfirmation { StakeholderId = "ttd", ConfirmedOn = confirmedOn },
+                ],
+            },
+            [
+                nameof(InstanceInternal.Created),
+                nameof(InstanceInternal.DueBefore),
+                nameof(InstanceInternal.VisibleAfter),
+                nameof(InstanceInternal.Status),
+                nameof(InstanceStatus.Archived),
+                nameof(InstanceStatus.SoftDeleted),
+                nameof(InstanceStatus.HardDeleted),
+                nameof(InstanceInternal.Process),
+                nameof(InstanceInternal.CompleteConfirmations),
+            ],
+            null,
+            null
+        );
+
+        string payload = PgInstanceMutationRepository.BuildInstanceUpdatesPayload(mutation);
+
+        using JsonDocument document = JsonDocument.Parse(payload);
+        JsonElement root = AssertObject(document.RootElement);
+
+        JsonElement topLevelSimpleProps = AssertObjectProperty(root, "toplevelsimpleprops");
+        AssertUtcJsonTimestamp(topLevelSimpleProps, "Created", created);
+        AssertUtcJsonTimestamp(topLevelSimpleProps, "DueBefore", dueBefore);
+        AssertUtcJsonTimestamp(topLevelSimpleProps, "VisibleAfter", visibleAfter);
+
+        JsonElement status = AssertObjectProperty(root, "status");
+        AssertUtcJsonTimestamp(status, "Archived", archived);
+        AssertUtcJsonTimestamp(status, "SoftDeleted", softDeleted);
+        AssertUtcJsonTimestamp(status, "HardDeleted", hardDeleted);
+
+        JsonElement process = AssertObjectProperty(root, "process");
+        AssertUtcJsonTimestamp(process, "Started", processStarted);
+        AssertUtcJsonTimestamp(process, "Ended", processEnded);
+        JsonElement currentTask = AssertObjectProperty(process, "CurrentTask");
+        AssertUtcJsonTimestamp(currentTask, "Started", taskStarted);
+        AssertUtcJsonTimestamp(currentTask, "Ended", taskEnded);
+
+        JsonElement confirmation = root.GetProperty("completeconfirmations")[0];
+        AssertUtcJsonTimestamp(confirmation, "ConfirmedOn", confirmedOn);
+    }
+
+    [Fact]
+    public void BuildInstanceUpdatesPayload_DefaultConfirmedOn_WritesUtcTimestamp()
+    {
+        Guid instanceGuid = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        InstanceMutationCommit mutation = new(
+            [],
+            [],
+            [],
+            new InstanceInternal
+            {
+                Id = instanceGuid.ToString(),
+                AppId = "ttd/app",
+                Org = "ttd",
+                InstanceOwner = new InstanceOwner { PartyId = "5000" },
+                CompleteConfirmations = [new CompleteConfirmation { StakeholderId = "ttd" }],
+            },
+            [nameof(InstanceInternal.CompleteConfirmations)],
+            null,
+            null
+        );
+
+        string payload = PgInstanceMutationRepository.BuildInstanceUpdatesPayload(mutation);
+
+        using JsonDocument document = JsonDocument.Parse(payload);
+        JsonElement confirmation = document
+            .RootElement.GetProperty("completeconfirmations")[0]
+            .GetProperty("ConfirmedOn");
+        Assert.EndsWith("Z", confirmation.GetString(), StringComparison.Ordinal);
+        Assert.Equal(default, confirmation.GetDateTime());
+    }
+
+    [Fact]
+    public void BuildEventsPayload_UnspecifiedKindTimestamp_WritesTheWallClockWithZuluSuffix()
+    {
+        Guid instanceGuid = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        InstanceMutationCommit mutation = new(
+            [],
+            [],
+            [],
+            new InstanceInternal
+            {
+                Id = instanceGuid.ToString(),
+                AppId = "ttd/app",
+                Org = "ttd",
+                InstanceOwner = new InstanceOwner { PartyId = "5000" },
+            },
+            [],
+            null,
+            null,
+            [
+                new InstanceEvent
+                {
+                    EventType = InstanceEventType.Saved.ToString(),
+                    Created = WithKind(DateTimeKind.Unspecified, 9, 123, 4567),
+                },
+            ]
+        );
+
+        string payload = PgInstanceMutationRepository.BuildEventsPayload(instanceGuid, mutation);
+
+        using JsonDocument document = JsonDocument.Parse(payload);
+        Assert.Equal(
+            "2026-05-06T07:08:09.123456Z",
+            AssertSingleArrayItem(document.RootElement).GetProperty("Created").GetString()
+        );
+    }
+
+    [Theory]
+    [InlineData(DateTimeKind.Unspecified)]
+    [InlineData(DateTimeKind.Local)]
+    public void BuildEventsPayload_NonUtcKindTimestamps_WritesUtcTimestamps(DateTimeKind kind)
+    {
+        Guid instanceGuid = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        DateTime eventCreated = WithKind(kind, 1, 123, 1);
+        DateTime processStarted = WithKind(kind, 2, 234, 2);
+        DateTime processEnded = WithKind(kind, 3, 345, 3);
+        DateTime taskStarted = WithKind(kind, 4, 456, 4);
+        DateTime taskEnded = WithKind(kind, 5, 567, 5);
+
+        InstanceMutationCommit mutation = new(
+            [],
+            [],
+            [],
+            new InstanceInternal
+            {
+                Id = instanceGuid.ToString(),
+                AppId = "ttd/app",
+                Org = "ttd",
+                InstanceOwner = new InstanceOwner { PartyId = "5000" },
+            },
+            [],
+            null,
+            null,
+            [
+                new InstanceEvent
+                {
+                    EventType = InstanceEventType.Saved.ToString(),
+                    Created = eventCreated,
+                    ProcessInfo = new ProcessState
+                    {
+                        Started = processStarted,
+                        Ended = processEnded,
+                        CurrentTask = new ProcessElementInfo
+                        {
+                            ElementId = "Task_1",
+                            Started = taskStarted,
+                            Ended = taskEnded,
+                        },
+                    },
+                },
+            ]
+        );
+
+        string payload = PgInstanceMutationRepository.BuildEventsPayload(instanceGuid, mutation);
+
+        using JsonDocument document = JsonDocument.Parse(payload);
+        JsonElement savedEvent = AssertSingleArrayItem(document.RootElement);
+        AssertUtcJsonTimestamp(savedEvent, "Created", eventCreated);
+        JsonElement processInfo = AssertObjectProperty(savedEvent, "ProcessInfo");
+        AssertUtcJsonTimestamp(processInfo, "Started", processStarted);
+        AssertUtcJsonTimestamp(processInfo, "Ended", processEnded);
+        JsonElement currentTask = AssertObjectProperty(processInfo, "CurrentTask");
+        AssertUtcJsonTimestamp(currentTask, "Started", taskStarted);
+        AssertUtcJsonTimestamp(currentTask, "Ended", taskEnded);
+    }
+
+    [Theory]
+    [InlineData(DateTimeKind.Unspecified)]
+    [InlineData(DateTimeKind.Local)]
+    public void BuildCreateElementsPayload_NonUtcKindTimestamps_WritesUtcTimestamps(
+        DateTimeKind kind
+    )
+    {
+        Guid createElementId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        DateTime created = WithKind(kind, 1, 123, 1);
+        DateTime hardDeleted = WithKind(kind, 2, 234, 2);
+
+        string payload = PgInstanceMutationRepository.BuildCreateElementsPayload([
+            new DataElement
+            {
+                Id = createElementId.ToString(),
+                DataType = "main",
+                Created = created,
+                DeleteStatus = new DeleteStatus { IsHardDeleted = true, HardDeleted = hardDeleted },
+            }.FromApiModel(null),
+        ]);
+
+        using JsonDocument document = JsonDocument.Parse(payload);
+        JsonElement element = AssertObjectProperty(
+            AssertSingleArrayItem(document.RootElement),
+            "element"
+        );
+        AssertUtcJsonTimestamp(element, "Created", created);
+        AssertUtcJsonTimestamp(
+            AssertObjectProperty(element, "DeleteStatus"),
+            "HardDeleted",
+            hardDeleted
+        );
+    }
+
+    [Theory]
+    [InlineData(DateTimeKind.Unspecified)]
+    [InlineData(DateTimeKind.Local)]
+    public void BuildOutboxPayload_NonUtcKindInstanceCreated_WritesUtcTimestamp(DateTimeKind kind)
+    {
+        Guid instanceGuid = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        DateTime created = WithKind(kind, 1, 123, 1);
+
+        InstanceMutationCommit mutation = new(
+            [],
+            [],
+            [],
+            new InstanceInternal
+            {
+                Id = instanceGuid.ToString(),
+                AppId = "ttd/app",
+                Org = "ttd",
+                InstanceOwner = new InstanceOwner { PartyId = "5000" },
+                Created = created,
+            },
+            [],
+            null,
+            null,
+            [
+                new InstanceEvent
+                {
+                    EventType = InstanceEventType.Saved.ToString(),
+                    Created = created,
+                },
+            ]
+        );
+
+        string payload = InvokeOutboxPayload(instanceGuid, mutation);
+
+        using JsonDocument document = JsonDocument.Parse(payload);
+        AssertUtcJsonTimestamp(document.RootElement, "instancecreated", created);
+    }
+
     [Theory]
     [InlineData("[]")]
     [InlineData("\"text\"")]
@@ -624,4 +952,24 @@ public class PgInstanceMutationRepositoryTests
             (value.Ticks / TimeSpan.TicksPerMicrosecond) * TimeSpan.TicksPerMicrosecond,
             DateTimeKind.Utc
         );
+
+    private static DateTime WithKind(DateTimeKind kind, int second, int millisecond, int ticks) =>
+        new DateTime(2026, 5, 6, 7, 8, second, millisecond, kind).AddTicks(ticks);
+
+    private static void AssertUtcJsonTimestamp(
+        JsonElement element,
+        string propertyName,
+        DateTime written
+    )
+    {
+        JsonElement property = element.GetProperty(propertyName);
+        Assert.EndsWith("Z", property.GetString(), StringComparison.Ordinal);
+
+        DateTime expected = Normalize(
+            written.Kind == DateTimeKind.Local
+                ? written.ToUniversalTime()
+                : DateTime.SpecifyKind(written, DateTimeKind.Utc)
+        );
+        Assert.Equal(expected, property.GetDateTime());
+    }
 }
