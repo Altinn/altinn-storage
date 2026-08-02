@@ -622,7 +622,10 @@ public class PgInstanceRepository : IInstanceRepository
     {
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateReadStatusSql);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceInternal.Id));
-        pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, instanceInternal.Status);
+        pgcom.Parameters.AddWithValue(
+            NpgsqlDbType.Integer,
+            (int)instanceInternal.Status.ReadStatus
+        );
 
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken))

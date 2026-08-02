@@ -577,6 +577,81 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     }
 
     [Fact]
+    public async Task Instance_UpdateReadStatus_StaleStatusSnapshot_KeepsOtherStatusFields()
+    {
+        InstanceInternal instance = await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone().FromApiModel(),
+            CancellationToken.None
+        );
+        Guid instanceGuid = Guid.Parse(instance.Id);
+        instance = await _instanceFixture.InstanceRepo.GetOne(
+            instanceGuid,
+            false,
+            CancellationToken.None
+        );
+        DateTime archived = new(2026, 8, 2, 10, 0, 0, DateTimeKind.Utc);
+        DateTime softDeleted = new(2026, 8, 2, 10, 5, 0, DateTimeKind.Utc);
+        await PostgresUtil.RunSql(
+            $"update storage.instances set instance = jsonb_set(instance, '{{Status}}', instance -> 'Status' || '{{\"IsArchived\": true, \"Archived\": \"{archived:o}\", \"IsSoftDeleted\": true, \"SoftDeleted\": \"{softDeleted:o}\", \"Substatus\": {{\"Label\": \"sent-to-signing\", \"Description\": \"waiting\"}}}}'::jsonb) where alternateid = '{instanceGuid}'"
+        );
+        instance.Status.ReadStatus = ReadStatus.Unread;
+
+        InstanceInternal result = await _instanceFixture.InstanceRepo.UpdateReadStatus(
+            instance,
+            CancellationToken.None
+        );
+
+        Assert.Equal(ReadStatus.Unread, result.Status.ReadStatus);
+        Assert.True(result.Status.IsArchived);
+        Assert.Equal(archived, result.Status.Archived);
+        Assert.True(result.Status.IsSoftDeleted);
+        Assert.Equal(softDeleted, result.Status.SoftDeleted);
+        Assert.Equal("sent-to-signing", result.Status.Substatus.Label);
+        Assert.Equal("waiting", result.Status.Substatus.Description);
+    }
+
+    [Theory]
+    [InlineData("status-null")]
+    [InlineData("status-absent")]
+    public async Task Instance_UpdateReadStatus_StatusNotAnObject_WritesReadStatusOnly(
+        string representation
+    )
+    {
+        InstanceInternal instance = await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone().FromApiModel(),
+            CancellationToken.None
+        );
+        Guid instanceGuid = Guid.Parse(instance.Id);
+        string instanceUpdate = representation switch
+        {
+            "status-null" => "jsonb_set(instance, '{Status}', 'null'::jsonb)",
+            "status-absent" => "instance - 'Status'",
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(representation),
+                representation,
+                "Unknown status representation."
+            ),
+        };
+        await PostgresUtil.RunSql(
+            $"update storage.instances set instance = {instanceUpdate} where alternateid = '{instanceGuid}'"
+        );
+        instance.Status = new InstanceStatus { ReadStatus = ReadStatus.Read };
+
+        InstanceInternal result = await _instanceFixture.InstanceRepo.UpdateReadStatus(
+            instance,
+            CancellationToken.None
+        );
+
+        Assert.Equal(ReadStatus.Read, result.Status.ReadStatus);
+        Assert.Equal(
+            "{\"ReadStatus\": 1}",
+            await PostgresUtil.RunQuery<string>(
+                $"select (instance -> 'Status')::text from storage.instances where alternateid = '{instanceGuid}'"
+            )
+        );
+    }
+
+    [Fact]
     public async Task Instance_Update_RacingProcessingTransition_SerializesAndDoesNotMutate()
     {
         InstanceInternal instance = await _instanceFixture.InstanceRepo.Create(
