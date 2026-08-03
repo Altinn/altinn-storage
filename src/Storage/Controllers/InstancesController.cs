@@ -158,7 +158,7 @@ public class InstancesController : ControllerBase
                     queryParameters.Org,
                     appId,
                     HttpContext.User,
-                    "read"
+                    AuthorizationActions.Read
                 );
                 XacmlJsonResponse response = await _authorizationService.GetDecisionForRequest(
                     request
@@ -390,6 +390,11 @@ public class InstancesController : ControllerBase
                 cancellationToken
             );
 
+            if (instance is null)
+            {
+                return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}");
+            }
+
             if (
                 await _authorizationService.AuthorizeInstanceRequest(
                     instance,
@@ -444,6 +449,11 @@ public class InstancesController : ControllerBase
                 true,
                 cancellationToken
             );
+
+            if (instance is null)
+            {
+                return NotFound($"Unable to find instance {instanceGuid}");
+            }
 
             if (
                 await _authorizationService.AuthorizeInstanceRequest(
@@ -525,7 +535,7 @@ public class InstancesController : ControllerBase
                 appInfo.Org,
                 appInfo.Id.Split('/')[1],
                 HttpContext.User,
-                "instantiate",
+                AuthorizationActions.Instantiate,
                 instanceOwnerPartyId,
                 null
             );

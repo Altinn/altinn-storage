@@ -387,8 +387,11 @@ public class AuthorizationService(
 
         if (!string.IsNullOrWhiteSpace(contextScope))
         {
+            // A null or empty required scope must never match: null would throw in Contains and
+            // empty would match any scope, silently granting access on a misconfiguration.
             return requiredScope.Exists(scope =>
-                contextScope.Contains(scope, StringComparison.InvariantCultureIgnoreCase)
+                !string.IsNullOrEmpty(scope)
+                && contextScope.Contains(scope, StringComparison.InvariantCultureIgnoreCase)
             );
         }
 
@@ -398,6 +401,13 @@ public class AuthorizationService(
     /// <inheritdoc />
     public bool UserHasRequiredScope(string requiredScope)
     {
+        // A null or empty required scope must never match: null would throw in Contains and
+        // empty would match any scope, silently granting access on a misconfiguration.
+        if (string.IsNullOrEmpty(requiredScope))
+        {
+            return false;
+        }
+
         var contextScope = GetContextScope();
 
         if (!string.IsNullOrWhiteSpace(contextScope))

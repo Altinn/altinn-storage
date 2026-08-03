@@ -297,8 +297,10 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
         _actionsToValidate.Add(action);
     }
 
-    private static FrozenSet<string> ScopesFor(RequiredScope requiredScope) =>
-        requiredScope == RequiredScope.Read ? _acceptedReadScopes : _acceptedWriteScopes;
+    private static FrozenSet<string> ScopesFor(RequiredScope requiredScope)
+    {
+        return requiredScope == RequiredScope.Read ? _acceptedReadScopes : _acceptedWriteScopes;
+    }
 }
 
 /// <summary>

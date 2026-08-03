@@ -167,6 +167,46 @@ public class AuthorizationServiceTest
         Assert.False(actual);
     }
 
+    [Fact]
+    public void UserHasRequiredScope_EmptyRequiredScope_ReturnsFalse()
+    {
+        // Arrange - a user that actually has a scope claim
+        var identity = new ClaimsIdentity("AuthenticationTypes.Federation");
+        identity.AddClaim(
+            new Claim(
+                "urn:altinn:scope",
+                "altinn:some.scope",
+                ClaimValueTypes.String,
+                "maskinporten"
+            )
+        );
+        _claimsPrincipalProviderMock.Setup(c => c.GetUser()).Returns(new ClaimsPrincipal(identity));
+
+        // Act & Assert - an empty required scope must not match every scope
+        Assert.False(_authzService.UserHasRequiredScope(new List<string> { string.Empty }));
+        Assert.False(_authzService.UserHasRequiredScope(string.Empty));
+    }
+
+    [Fact]
+    public void UserHasRequiredScope_NullRequiredScope_ReturnsFalse()
+    {
+        // Arrange - a user that actually has a scope claim
+        var identity = new ClaimsIdentity("AuthenticationTypes.Federation");
+        identity.AddClaim(
+            new Claim(
+                "urn:altinn:scope",
+                "altinn:some.scope",
+                ClaimValueTypes.String,
+                "maskinporten"
+            )
+        );
+        _claimsPrincipalProviderMock.Setup(c => c.GetUser()).Returns(new ClaimsPrincipal(identity));
+
+        // Act & Assert - a null required scope must not throw and must not match
+        Assert.False(_authzService.UserHasRequiredScope(new List<string> { null }));
+        Assert.False(_authzService.UserHasRequiredScope((string)null));
+    }
+
     /// <summary>
     /// Test case: Send attributes and creates multiple request out of it
     /// Expected: All values sent in will be created to attributes
@@ -602,8 +642,8 @@ public class AuthorizationServiceTest
     private static XacmlJsonRequestRoot CreateSampleRequest()
     {
         return DecisionHelper.CreateDecisionRequest(
-            App,
             Org,
+            App,
             CreateUserClaims(1),
             "read",
             1000,
