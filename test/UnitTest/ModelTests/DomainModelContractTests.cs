@@ -131,8 +131,8 @@ public class DomainModelContractTests
         AssertPropertyNames(
             apiProperties,
             domainProperties,
-            apiOnly: ["SelfLinks", "ContentEtag"],
-            domainOnly: ["BlobVersionId"]
+            apiOnly: ["SelfLinks"],
+            domainOnly: []
         );
         AssertMatchingTypes(apiProperties, domainProperties, new Dictionary<string, Type>());
         AssertJsonIgnoredProperties<DataElementInternal>("BlobVersionId");
@@ -203,7 +203,7 @@ public class DomainModelContractTests
     }
 
     [Fact]
-    public void DataElementToApiModel_MapsCompleteIndependentApiValueAndKeepsStorageStateOut()
+    public void DataElementToApiModel_MapsCompleteIndependentApiValueAndCopiesBlobVersionVerbatim()
     {
         DataElementInternal domain = DomainModelContractTestData.CreateDomainDataElement();
         DataElement expected = DomainModelContractTestData.CreateApiDataElement();
@@ -214,7 +214,7 @@ public class DomainModelContractTests
 
         AssertNewtonsoftJsonEqual(JsonConvert.SerializeObject(expected), actualJson);
         Assert.Null(actual.SelfLinks);
-        Assert.DoesNotContain("blobVersionId", actualJson, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(domain.BlobVersionId, actual.BlobVersionId);
         Assert.Equal("api-content-version", domain.BlobVersionId);
         Assert.Same(domain.Refs, actual.Refs);
         Assert.Same(domain.Tags, actual.Tags);
@@ -242,7 +242,7 @@ public class DomainModelContractTests
             actualJson
         );
         Assert.Equal("mapped-blob-version", actual.BlobVersionId);
-        Assert.Equal("\"api-content-version\"", api.ContentEtag);
+        Assert.Equal("api-content-version", api.BlobVersionId);
         Assert.DoesNotContain(nameof(DataElementInternal.BlobVersionId), actualJson);
         Assert.DoesNotContain("SelfLinks", PublicProperties<DataElementInternal>().Keys);
         Assert.Same(api.Refs, actual.Refs);
@@ -258,19 +258,17 @@ public class DomainModelContractTests
         Assert.Equal("shared-change", actual.Metadata[0].Value);
     }
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    public void DataElementToApiModel_WithoutBlobVersion_OmitsContentEtag(string blobVersionId)
+    [Fact]
+    public void DataElementToApiModel_WithoutBlobVersion_OmitsBlobVersionId()
     {
         DataElementInternal domain = DomainModelContractTestData.CreateDomainDataElement();
-        domain.BlobVersionId = blobVersionId;
+        domain.BlobVersionId = null;
 
         DataElement actual = domain.ToApiModel();
         string json = JsonConvert.SerializeObject(actual);
 
-        Assert.Null(actual.ContentEtag);
-        Assert.DoesNotContain("contentEtag", json, StringComparison.Ordinal);
+        Assert.Null(actual.BlobVersionId);
+        Assert.DoesNotContain("blobVersionId", json, StringComparison.Ordinal);
     }
 
     [Fact]

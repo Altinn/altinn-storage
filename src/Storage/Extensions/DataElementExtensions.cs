@@ -28,7 +28,7 @@ internal static class DataElementExtensions
             BlobStoragePath = dataElement.BlobStoragePath,
             Size = dataElement.Size,
             ContentHash = dataElement.ContentHash,
-            ContentEtag = BlobVersionId.ToContentEtag(dataElement.BlobVersionId),
+            BlobVersionId = dataElement.BlobVersionId,
             Locked = dataElement.Locked,
             Refs = dataElement.Refs,
             IsRead = dataElement.IsRead,

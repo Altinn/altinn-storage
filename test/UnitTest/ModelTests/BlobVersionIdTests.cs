@@ -68,25 +68,25 @@ public class BlobVersionIdTests
     [Theory]
     [InlineData(null)]
     [InlineData("")]
-    public void ToContentEtag_WithoutBlobVersionId_ReturnsNull(string? blobVersionId)
+    public void ToETag_WithoutBlobVersionId_ReturnsNull(string? blobVersionId)
     {
-        Assert.Null(BlobVersionId.ToContentEtag(blobVersionId));
+        Assert.Null(BlobVersionId.ToETag(blobVersionId));
     }
 
     [Fact]
-    public void ToContentEtag_WithBlobVersionId_ReturnsQuotedValue()
+    public void ToETag_WithBlobVersionId_ReturnsQuotedValue()
     {
         const string blobVersionId = "EREREREREREREREREREREQ";
 
-        Assert.Equal($"\"{blobVersionId}\"", BlobVersionId.ToContentEtag(blobVersionId));
+        Assert.Equal($"\"{blobVersionId}\"", BlobVersionId.ToETag(blobVersionId));
     }
 
     [Fact]
-    public void TryParseContentEtag_WithValidStrongEtag_ReturnsBlobVersionId()
+    public void TryParseETag_WithValidStrongEtag_ReturnsBlobVersionId()
     {
         const string blobVersionId = "EREREREREREREREREREREQ";
 
-        bool parsed = BlobVersionId.TryParseContentEtag($"\"{blobVersionId}\"", out string? actual);
+        bool parsed = BlobVersionId.TryParseETag($"\"{blobVersionId}\"", out string? actual);
 
         Assert.True(parsed);
         Assert.Equal(blobVersionId, actual);
@@ -108,9 +108,9 @@ public class BlobVersionIdTests
     [InlineData("\"ERERERERER\u0001EREREREREREQ\"")]
     [InlineData("\"ERERERERERERERERERERE!\"")]
     [InlineData("\"ERERERERERERERERERERE\"")]
-    public void TryParseContentEtag_WithInvalidValue_ReturnsFalse(string? etag)
+    public void TryParseETag_WithInvalidValue_ReturnsFalse(string? etag)
     {
-        bool parsed = BlobVersionId.TryParseContentEtag(etag, out string? blobVersionId);
+        bool parsed = BlobVersionId.TryParseETag(etag, out string? blobVersionId);
 
         Assert.False(parsed);
         Assert.Null(blobVersionId);

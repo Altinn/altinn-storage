@@ -63,7 +63,7 @@ public sealed class DomainModelNpgsqlContractTests : IClassFixture<DomainModelNp
             .AsObject();
 
         Assert.True(apiJson.Remove("SelfLinks"));
-        Assert.True(apiJson.Remove("ContentEtag"));
+        Assert.True(apiJson.Remove("BlobVersionId"));
         DomainModelContractTests.AssertSystemTextJsonEqual(
             DomainModelContractTestData.ExpectedDataElementDatabaseJson,
             domainJson

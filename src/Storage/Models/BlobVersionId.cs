@@ -59,15 +59,12 @@ internal static class BlobVersionId
         }
     }
 
-    public static string? ToContentEtag(string? blobVersionId)
+    public static string? ToETag(string? blobVersionId)
     {
         return string.IsNullOrEmpty(blobVersionId) ? null : $"\"{blobVersionId}\"";
     }
 
-    public static bool TryParseContentEtag(
-        string? etag,
-        [NotNullWhen(true)] out string? blobVersionId
-    )
+    public static bool TryParseETag(string? etag, [NotNullWhen(true)] out string? blobVersionId)
     {
         blobVersionId = null;
         if (etag is not { Length: >= 2 } || etag[0] != '"' || etag[^1] != '"')

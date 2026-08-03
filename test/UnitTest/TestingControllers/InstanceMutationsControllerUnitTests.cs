@@ -186,10 +186,7 @@ public class InstanceMutationsControllerUnitTests
         Assert.Equal(instance.Id, response.Instance.Id);
         Assert.NotNull(response.Instance.SelfLinks?.Platform);
         Assert.True(response.Replayed);
-        Assert.Equal(
-            $"\"{replayedBlobVersionId}\"",
-            Assert.Single(response.Instance.Data).ContentEtag
-        );
+        Assert.Equal(replayedBlobVersionId, Assert.Single(response.Instance.Data).BlobVersionId);
         Assert.Equal(
             "13",
             fixture.HttpContext.Response.Headers[StorageHeaders.InstanceVersion].Single()
@@ -906,9 +903,7 @@ public class InstanceMutationsControllerUnitTests
                 {
                   "dataElementId": "{{dataElementId}}",
                   "contentPartName": "updated",
-                  "expectedCurrentBlobVersion": "\"{{BlobVersionId.Encode(
-                Guid.CreateVersion7()
-            )}}\""
+                  "expectedCurrentBlobVersion": "{{BlobVersionId.Encode(Guid.CreateVersion7())}}"
                 }
               ]
             }
@@ -2499,12 +2494,12 @@ public class InstanceMutationsControllerUnitTests
             capturedMutation.CreateDataElements,
             createdDataElement =>
                 Assert.Equal(
-                    $"\"{createdDataElement.BlobVersionId}\"",
+                    createdDataElement.BlobVersionId,
                     response
                         .Instance.Data.Single(dataElement =>
                             dataElement.Id == createdDataElement.Id
                         )
-                        .ContentEtag
+                        .BlobVersionId
                 )
         );
         Assert.False(
@@ -2622,7 +2617,11 @@ public class InstanceMutationsControllerUnitTests
 
     [Theory]
     [InlineData("EREREREREREREREREREREQ", "EREREREREREREREREREREQ", null)]
-    [InlineData("\"EREREREREREREREREREREQ\"", "EREREREREREREREREREREQ", null)]
+    [InlineData(
+        "\"EREREREREREREREREREREQ\"",
+        null,
+        "expectedCurrentBlobVersion must identify a blob version id."
+    )]
     [InlineData(
         "W/\"EREREREREREREREREREREQ\"",
         null,
