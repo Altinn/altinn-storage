@@ -120,7 +120,7 @@ public class InstanceMutationsController : ControllerBase
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance that should be mutated.</param>
     /// <param name="cancellationToken">CancellationToken</param>
-    /// <returns>The updated instance, including current content ETags on its data elements.</returns>
+    /// <returns>The updated instance, including current blob version ids on its data elements.</returns>
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
     [HttpPost]
     [DisableFormValueModelBinding]
@@ -1903,43 +1903,12 @@ public class InstanceMutationsController : ControllerBase
         }
 
         string blobVersionId = expectedCurrentBlobVersion.Trim();
-        if (blobVersionId.StartsWith('"'))
+        if (!BlobVersionId.TryDecode(blobVersionId, out _))
         {
-            if (
-                !EntityTagHeaderValue.TryParseList(
-                    [blobVersionId],
-                    out IList<EntityTagHeaderValue> ifMatch
-                )
-                || ifMatch.Count != 1
-                || ifMatch[0].IsWeak
-                || ifMatch[0].Equals(EntityTagHeaderValue.Any)
-            )
-            {
-                return (
-                    null,
-                    BadRequest(
-                        "expectedCurrentBlobVersion must be a blob version id or one strong ETag."
-                    )
-                );
-            }
-
-            if (!BlobVersionId.TryParseContentEtag(ifMatch[0].Tag.Value, out blobVersionId))
-            {
-                return (
-                    null,
-                    BadRequest("expectedCurrentBlobVersion must identify a blob version id.")
-                );
-            }
-        }
-        else
-        {
-            if (!BlobVersionId.TryDecode(blobVersionId, out _))
-            {
-                return (
-                    null,
-                    BadRequest("expectedCurrentBlobVersion must identify a blob version id.")
-                );
-            }
+            return (
+                null,
+                BadRequest("expectedCurrentBlobVersion must identify a blob version id.")
+            );
         }
 
         return (blobVersionId, null);

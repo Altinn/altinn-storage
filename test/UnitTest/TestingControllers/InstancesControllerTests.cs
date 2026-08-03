@@ -1326,7 +1326,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                     Filename = "payload.json",
                     ContentType = "application/json",
                     Size = 42,
-                    ContentEtag = "\"visible-content-version\"",
+                    BlobVersionId = "visible-content-version",
                     Tags = ["visible"],
                 },
             ],
@@ -1337,7 +1337,11 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         );
         Assert.Equal($"1337/{instanceId}", publicInstance.Value<string>("id"));
         Assert.Equal("preserved", publicInstance["dataValues"].Value<string>("nested"));
-        Assert.Null(publicInstance.SelectToken("$..blobVersionId"));
+        Assert.DoesNotContain(
+            "must-not-leak-either",
+            publicInstance.ToString(),
+            StringComparison.Ordinal
+        );
         Assert.Equal(2, authorizedInstance.Data.Count);
         repository.VerifyAll();
         authorization.Verify(

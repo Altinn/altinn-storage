@@ -1701,7 +1701,7 @@ public class DataControllerUnitTests
         // Assert
         var createdResult = Assert.IsType<CreatedResult>(result.Result);
         var createdElement = Assert.IsType<DataElement>(createdResult.Value);
-        Assert.DoesNotContain("blobVersionId", JsonSerializer.Serialize(createdElement));
+        Assert.Equal(allocatedBlobVersionId, createdElement.BlobVersionId);
         Assert.EndsWith(
             $"/data-elements/{allocatedBlobVersionId}",
             createdElement.BlobStoragePath,
