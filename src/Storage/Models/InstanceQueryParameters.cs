@@ -50,6 +50,7 @@ public class InstanceQueryParameters
     private const string _continueIndexParameterName = "_continue_idx";
     private const string _lastChangedIndexParameterName = "_lastChanged_idx";
     private const string _includeDataElements = "includeDataElements";
+    private const string _a3RefParameterName = "A3Ref";
 
     /// <summary>
     /// The organization identifier.
@@ -205,6 +206,12 @@ public class InstanceQueryParameters
     public bool IncludeDataElements { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets the A3 reference.
+    /// </summary>
+    [FromQuery(Name = _a3RefParameterName)]
+    public string A3Ref { get; set; }
+
+    /// <summary>
     /// Gets or sets an array of application identifiers.
     /// </summary>
     internal string[] AppIds { get; set; }
@@ -267,6 +274,7 @@ public class InstanceQueryParameters
         AddParamIfNotEmpty(postgresParams, _appIdsParameterName, AppIds);
         AddParamIfNotEmpty(postgresParams, _currentTaskParameterName, ProcessCurrentTask);
         AddParamIfNotEmpty(postgresParams, _dataValuesA2ArchRefParameterName, DataValuesA2ArchRef);
+        AddParamIfNotEmpty(postgresParams, _a3RefParameterName, A3Ref);
         AddParamIfNotEmpty(
             postgresParams,
             _instanceOwnerPartyIdsParameterName,
@@ -469,4 +477,85 @@ public class InstanceQueryParameters
     {
         return "_" + queryParameter.Replace(".", "_");
     }
+
+    /// <summary>
+    /// Parses and validates the <see cref="InstanceOwnerIdentifier"/> into a person or organisation number.
+    /// </summary>
+    /// <returns>
+    /// A result indicating whether the identifier is valid. When valid, exactly one of
+    /// <see cref="InstanceOwnerIdentifierParseResult.Person"/> or
+    /// <see cref="InstanceOwnerIdentifierParseResult.OrgNo"/> may be set (both may be null for
+    /// party types that are neither person nor organisation). When invalid,
+    /// <see cref="InstanceOwnerIdentifierParseResult.ErrorMessage"/> describes the problem.
+    /// </returns>
+    public InstanceOwnerIdentifierParseResult ParseInstanceOwnerIdentifier()
+    {
+        (string instanceOwnerIdType, string instanceOwnerIdValue) =
+            InstanceHelper.GetIdentifierFromInstanceOwnerIdentifier(InstanceOwnerIdentifier);
+
+        if (string.IsNullOrEmpty(instanceOwnerIdType) || string.IsNullOrEmpty(instanceOwnerIdValue))
+        {
+            return new InstanceOwnerIdentifierParseResult(
+                false,
+                null,
+                null,
+                "Invalid InstanceOwnerIdentifier."
+            );
+        }
+
+        string orgNo = null;
+        string person = null;
+
+        if (Enum.TryParse(instanceOwnerIdType, true, out PartyType partyType))
+        {
+            switch (partyType)
+            {
+                case PartyType.Person:
+                    if (
+                        !InstanceOwnerIdRegExHelper.ElevenDigitRegex().IsMatch(instanceOwnerIdValue)
+                    )
+                    {
+                        return new InstanceOwnerIdentifierParseResult(
+                            false,
+                            null,
+                            null,
+                            "Person number needs to be exactly 11 digits."
+                        );
+                    }
+
+                    person = instanceOwnerIdValue;
+                    break;
+
+                case PartyType.Organisation:
+                    if (!InstanceOwnerIdRegExHelper.NineDigitRegex().IsMatch(instanceOwnerIdValue))
+                    {
+                        return new InstanceOwnerIdentifierParseResult(
+                            false,
+                            null,
+                            null,
+                            "Organization number needs to be exactly 9 digits."
+                        );
+                    }
+
+                    orgNo = instanceOwnerIdValue;
+                    break;
+            }
+        }
+
+        return new InstanceOwnerIdentifierParseResult(true, person, orgNo, null);
+    }
 }
+
+/// <summary>
+/// The result of parsing an <see cref="InstanceQueryParameters.InstanceOwnerIdentifier"/> value.
+/// </summary>
+/// <param name="IsValid">Whether the identifier was valid.</param>
+/// <param name="Person">The person number, when the identifier refers to a person; otherwise null.</param>
+/// <param name="OrgNo">The organisation number, when the identifier refers to an organisation; otherwise null.</param>
+/// <param name="ErrorMessage">A description of the validation failure, when <paramref name="IsValid"/> is false; otherwise null.</param>
+public readonly record struct InstanceOwnerIdentifierParseResult(
+    bool IsValid,
+    string Person,
+    string OrgNo,
+    string ErrorMessage
+);

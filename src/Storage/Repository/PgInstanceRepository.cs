@@ -25,7 +25,7 @@ namespace Altinn.Platform.Storage.Repository;
 public class PgInstanceRepository : IInstanceRepository
 {
     private const string _readSqlFilteredInitial =
-        "select * from storage.readinstancefromquery_v7 (";
+        "select * from storage.readinstancefromquery_v8 (";
     private readonly string _deleteSql = "select * from storage.deleteinstance ($1)";
     private readonly string _insertSql =
         "call storage.insertinstance_v3 (@_partyid, @_alternateid, @_instance, @_created, @_lastchanged,"
@@ -628,6 +628,7 @@ public class PgInstanceRepository : IInstanceRepository
     private static readonly Dictionary<string, NpgsqlDbType> _paramTypes = new()
     {
         // This dictionary should be sorted alphabetically by key to match the sorted parameter list to the db function
+        { "_A3Ref", NpgsqlDbType.Text },
         { "_appId", NpgsqlDbType.Text },
         { "_appIds", NpgsqlDbType.Text | NpgsqlDbType.Array },
         { "_archiveReference", NpgsqlDbType.Text },
