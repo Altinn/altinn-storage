@@ -238,29 +238,47 @@ public class AuthorizationService(
         {
             return true;
         }
+
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
-        RouteData routeData = _httpContextAccessor.HttpContext?.GetRouteData();
-        int.TryParse(
-            routeData?.Values["instanceOwnerPartyId"] as string,
-            out var instanceOwnerPartyId
-        );
-        Guid.TryParse(routeData?.Values["instanceGuid"] as string, out var instanceGuid);
-        XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
-            routeData?.Values["app"] as string,
-            routeData?.Values["org"] as string,
-            user,
-            action,
-            instanceOwnerPartyId,
-            instanceGuid
-        );
+
+        XacmlJsonRequestRoot request;
         XacmlJsonResponse response;
         if (instance is not null)
         {
+            // Derive the resource (org/app/party/instance) from the instance itself.
+            // EnrichXacmlJsonRequest replaces Request.Resource, but building it correctly
+            // here keeps the request valid independently of enrichment.
+            request = DecisionHelper.CreateDecisionRequest(
+                instance.Org,
+                instance.AppId.Split('/')[1],
+                user,
+                action,
+                int.Parse(instance.InstanceOwner.PartyId),
+                Guid.Parse(instance.Id.Split('/')[1])
+            );
             EnrichXacmlJsonRequest(request, instance);
             response = await GetDecisionForRequestWithCache(request);
         }
         else
         {
+            // No instance to derive the resource from (e.g. it does not exist): build the request
+            // from the route values instead. org/app are included when the route provides them and
+            // are null otherwise; a request lacking the resource context is denied by the PDP.
+            RouteData routeData = _httpContextAccessor.HttpContext?.GetRouteData();
+            int.TryParse(
+                routeData?.Values["instanceOwnerPartyId"] as string,
+                out var instanceOwnerPartyId
+            );
+            Guid.TryParse(routeData?.Values["instanceGuid"] as string, out var instanceGuid);
+
+            request = DecisionHelper.CreateDecisionRequest(
+                routeData?.Values["org"] as string,
+                routeData?.Values["app"] as string,
+                user,
+                action,
+                instanceOwnerPartyId,
+                instanceGuid
+            );
             response = await _pdp.GetDecisionForRequest(request);
         }
 

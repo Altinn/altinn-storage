@@ -391,16 +391,6 @@ public class InstancesController : ControllerBase
             );
 
             if (
-                _authorizationService.UserHasRequiredScope([
-                    _generalSettings.InstanceSyncAdapterScope,
-                ])
-            )
-            {
-                instance.SetPlatformSelfLinks(_storageBaseAndHost);
-                return Ok(instance);
-            }
-
-            if (
                 await _authorizationService.AuthorizeInstanceRequest(
                     instance,
                     AuthorizationActions.Read
@@ -411,7 +401,12 @@ public class InstancesController : ControllerBase
                 return Forbid();
             }
 
-            if (User.GetOrg() != instance.Org)
+            if (
+                User.GetOrg() != instance.Org
+                && !_authorizationService.UserHasRequiredScope([
+                    _generalSettings.InstanceSyncAdapterScope,
+                ])
+            )
             {
                 FilterOutDeletedDataElements(instance);
             }
@@ -451,16 +446,6 @@ public class InstancesController : ControllerBase
             );
 
             if (
-                _authorizationService.UserHasRequiredScope([
-                    _generalSettings.InstanceSyncAdapterScope,
-                ])
-            )
-            {
-                instance.SetPlatformSelfLinks(_storageBaseAndHost);
-                return Ok(instance);
-            }
-
-            if (
                 await _authorizationService.AuthorizeInstanceRequest(
                     instance,
                     AuthorizationActions.Read
@@ -471,7 +456,12 @@ public class InstancesController : ControllerBase
                 return Forbid();
             }
 
-            if (User.GetOrg() != instance.Org)
+            if (
+                User.GetOrg() != instance.Org
+                && !_authorizationService.UserHasRequiredScope([
+                    _generalSettings.InstanceSyncAdapterScope,
+                ])
+            )
             {
                 FilterOutDeletedDataElements(instance);
             }

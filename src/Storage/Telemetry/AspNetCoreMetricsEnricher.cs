@@ -226,12 +226,6 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
                 "Altinn.Platform.Storage.Controllers.DataController.Update (Altinn.Platform.Storage)"
             ] = RequiredScope.Write,
             [
-                "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstanceEvents (Altinn.Platform.Storage)"
-            ] = RequiredScope.Read,
-            [
-                "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.Undelete (Altinn.Platform.Storage)"
-            ] = RequiredScope.Write,
-            [
                 "Altinn.Platform.Storage.Controllers.ProcessController.GetProcessHistory (Altinn.Platform.Storage)"
             ] = RequiredScope.Read,
             [
