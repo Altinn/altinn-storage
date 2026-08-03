@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine3.23@sha256:93efcdfe43fb46a2cf7543477c7de0c649e137726a06e90ae35ba655c3d56996 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine3.24@sha256:979da27fc87dc255f4675b7642556cdcba9307459f8891f85f3cc26edcd7e766 AS build
 
 COPY src/Storage ./Storage
 COPY src/DbTools ./DbTools
@@ -8,14 +8,14 @@ WORKDIR DbTools/
 RUN dotnet build ./DbTools.csproj -c Release -o /app_tools
 
 # Comment in the following line for local development
-# RUN mkdir -p /DbTools/bin/Debug/net9.0 && cp /app_tools/DbTools /DbTools/bin/Debug/net9.0/DbTools
+# RUN mkdir -p /DbTools/bin/Debug/net10.0 && cp /app_tools/DbTools /DbTools/bin/Debug/net10.0/DbTools
 
 WORKDIR ../Storage/
 
 RUN dotnet build ./Altinn.Platform.Storage.csproj -c Release -o /app_output
 RUN dotnet publish ./Altinn.Platform.Storage.csproj -c Release -o /app_output
 
-FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine3.23@sha256:16094fe6451d8f6fe48989915f75cea0ee9d7daddc65931f426140c47ddadcd9 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine3.24@sha256:eb7c0c9ef04479bfff191036f6b8959a7d6bac983bd7160c6b8b84b20d3ad0e7 AS final
 EXPOSE 5010
 WORKDIR /app
 COPY --from=build /app_output .

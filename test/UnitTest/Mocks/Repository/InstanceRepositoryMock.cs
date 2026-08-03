@@ -124,6 +124,15 @@ public class InstanceRepositoryMock : IInstanceRepository
             );
         }
 
+        if (!string.IsNullOrEmpty(queryParams.A3Ref))
+        {
+            instances.RemoveAll(i =>
+                i.Id == null
+                || i.Id.Length < 12
+                || !i.Id[^12..].Equals(queryParams.A3Ref, StringComparison.OrdinalIgnoreCase)
+            );
+        }
+
         if (queryParams.IsArchived.HasValue)
         {
             instances.RemoveAll(i => i.Status.IsArchived != queryParams.IsArchived);

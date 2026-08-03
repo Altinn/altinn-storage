@@ -1,3 +1,4 @@
+using System;
 using System.Text.Json.Serialization;
 
 namespace Altinn.Platform.Storage.Models.Metrics;
@@ -37,4 +38,10 @@ public record DailyInstanceMetricsRecord
     /// </summary>
     [JsonPropertyName("resourceTitle")]
     public string ResourceTitle { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the date and time of the record.
+    /// </summary>
+    [JsonPropertyName("dateTime")]
+    public DateTime DateTime { get; set; }
 }

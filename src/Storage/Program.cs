@@ -32,14 +32,13 @@ using Azure.Monitor.OpenTelemetry.Exporter;
 using Azure.Security.KeyVault.Secrets;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using Npgsql;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
@@ -340,6 +339,8 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddTransient<ISigningService, SigningService>();
     services.AddTransient<IInstanceEventService, InstanceEventService>();
     services.AddTransient<IProcessDataCleanupService, ProcessDataCleanupService>();
+    services.AddTransient<IOrganisationService, OrganisationService>();
+    services.AddTransient<IMetricsService, MetricsService>();
     services.AddSingleton<IApplicationService, ApplicationService>();
     services.AddSingleton<IA2OndemandFormattingService, A2OndemandFormattingService>();
 
@@ -347,7 +348,9 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddHttpClient<ICorrespondenceClient, CorrespondenceClient>();
     services.AddHttpClient<IOnDemandClient, OnDemandClient>();
     services.AddHttpClient<IPdfGeneratorClient, PdfGeneratorClient>();
-    services.AddHttpClient<IMetricsService, MetricsService>();
+    services.AddHttpClient<IOrganisationRepository, AltinnCdnOrganisationRepository>(client =>
+        client.Timeout = TimeSpan.FromSeconds(30)
+    );
 
     // Add Swagger support (Swashbuckle)
     services.AddSwaggerGen(c =>
@@ -364,22 +367,16 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
                 Type = SecuritySchemeType.ApiKey,
             }
         );
-        c.AddSecurityRequirement(
-            new OpenApiSecurityRequirement
+        c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+        {
             {
-                {
-                    new OpenApiSecurityScheme
-                    {
-                        Reference = new OpenApiReference
-                        {
-                            Id = JwtCookieDefaults.AuthenticationScheme,
-                            Type = ReferenceType.SecurityScheme,
-                        },
-                    },
-                    Array.Empty<string>()
-                },
-            }
-        );
+                new OpenApiSecuritySchemeReference(
+                    JwtCookieDefaults.AuthenticationScheme,
+                    document
+                ),
+                []
+            },
+        });
         try
         {
             c.IncludeXmlComments(GetXmlCommentsPathForControllers());

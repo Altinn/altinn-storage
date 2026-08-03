@@ -317,7 +317,7 @@ public class ContentOnDemandController : Controller
     /// <param name="singlePageNr">optional filter for a single page number</param>
     /// <returns>The formatted content</returns>
     [HttpGet("formdatahtml/{singlepagenr?}")]
-    public async Task<(Stream Html, PrintViewXslBEList Views)> GetFormdataAsHtml(
+    public async Task<Stream> GetFormdataAsHtml(
         [FromRoute] string org,
         [FromRoute] string app,
         [FromRoute] Guid instanceGuid,
@@ -327,7 +327,7 @@ public class ContentOnDemandController : Controller
         [FromRoute(Name = "singlepagenr")] int singlePageNr = -1
     )
     {
-        return await GetFormdataAsHtmlStream(
+        (Stream html, _) = await GetFormdataAsHtmlStream(
             app,
             instanceGuid,
             dataGuid,
@@ -336,6 +336,7 @@ public class ContentOnDemandController : Controller
             cancellationToken,
             singlePageNr
         );
+        return html;
     }
 
     /// <summary>

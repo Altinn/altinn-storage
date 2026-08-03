@@ -2,6 +2,11 @@ name: Verify dotnet format
 
 on:
   pull_request:
+    paths:
+      - '.github/workflows/dotnet-format.yml'
+      - 'src/**'
+      - 'test/Altinn.Platform.Storage.Interface.Tests/**'
+      - 'test/UnitTest/**'
 permissions:
   contents: read
 
@@ -10,11 +15,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
     - name: Setup .NET
-      uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: 10.0.x
     - name: Install csharpier
       run: dotnet tool restore
     - name: Run csharpier
