@@ -377,14 +377,6 @@ public class AuthorizationServiceTest
         Assert.Equal(expected, actual);
     }
 
-    // ---------------------------------------------------------------------
-    // AuthorizeInstanceRequest / GetDecisionForRequestWithCache
-    // These cover the logic moved out of StorageAccessHandler (PR #1054):
-    // the sync-adapter bypass, the enriched/cached PDP path and the direct
-    // (null-instance) PDP path.
-    // ---------------------------------------------------------------------
-    private const string SyncAdapterScope = "altinn:storage/instances.syncadapter";
-
     [Theory]
     [InlineData("read")]
     [InlineData("write")]
@@ -397,7 +389,7 @@ public class AuthorizationServiceTest
         Mock<IPDP> pdp = new();
         _claimsPrincipalProviderMock
             .Setup(c => c.GetUser())
-            .Returns(CreateUserWithScope(SyncAdapterScope));
+            .Returns(CreateUserWithScope("altinn:storage/instances.syncadapter"));
         AuthorizationService sut = CreateAuthorizationService(
             pdp.Object,
             _claimsPrincipalProviderMock.Object,
@@ -426,7 +418,7 @@ public class AuthorizationServiceTest
             .ReturnsAsync(CreatePdpResponse("Deny"));
         _claimsPrincipalProviderMock
             .Setup(c => c.GetUser())
-            .Returns(CreateUserWithScope(SyncAdapterScope));
+            .Returns(CreateUserWithScope("altinn:storage/instances.syncadapter"));
         AuthorizationService sut = CreateAuthorizationService(
             pdp.Object,
             _claimsPrincipalProviderMock.Object,
@@ -598,7 +590,12 @@ public class AuthorizationServiceTest
             pdp,
             claimsPrincipalProvider,
             Mock.Of<ILogger<AuthorizationService>>(),
-            Options.Create(new GeneralSettings { InstanceSyncAdapterScope = SyncAdapterScope }),
+            Options.Create(
+                new GeneralSettings
+                {
+                    InstanceSyncAdapterScope = "altinn:storage/instances.syncadapter",
+                }
+            ),
             memoryCache ?? new MemoryCache(new MemoryCacheOptions()),
             Options.Create(new PepSettings { PdpDecisionCachingTimeout = 5 })
         );
@@ -635,7 +632,7 @@ public class AuthorizationServiceTest
     {
         return new XacmlJsonResponse
         {
-            Response = new List<XacmlJsonResult> { new XacmlJsonResult { Decision = decision } },
+            Response = new List<XacmlJsonResult> { new() { Decision = decision } },
         };
     }
 

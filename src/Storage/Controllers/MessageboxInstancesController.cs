@@ -246,6 +246,7 @@ public class MessageBoxInstancesController : ControllerBase
             false,
             CancellationToken.None
         );
+
         if (
             !await _authorizationService.AuthorizeInstanceRequest(
                 instance,
@@ -316,6 +317,7 @@ public class MessageBoxInstancesController : ControllerBase
             false,
             cancellationToken
         );
+
         if (
             await _authorizationService.AuthorizeInstanceRequest(
                 instance,
@@ -326,6 +328,7 @@ public class MessageBoxInstancesController : ControllerBase
         {
             return Forbid();
         }
+
         if (instance == null)
         {
             return NotFound(
@@ -400,6 +403,7 @@ public class MessageBoxInstancesController : ControllerBase
             false,
             cancellationToken
         );
+
         if (
             await _authorizationService.AuthorizeInstanceRequest(
                 instance,
@@ -410,6 +414,7 @@ public class MessageBoxInstancesController : ControllerBase
         {
             return Forbid();
         }
+
         if (instance == null)
         {
             return NotFound(

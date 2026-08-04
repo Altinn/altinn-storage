@@ -6,7 +6,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
-using Altinn.AccessManagement.Core.Models;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Helpers;
 using Altinn.Platform.Storage.Authorization;
@@ -540,9 +539,12 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        Instance instance;
+        (Instance instance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            cancellationToken
+        );
 
-        (instance, _) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
         if (
             await _authorizationService.AuthorizeInstanceRequest(
                 instance,
@@ -553,6 +555,7 @@ public class InstancesController : ControllerBase
         {
             return Forbid();
         }
+
         if (instance == null)
         {
             return NotFound(
