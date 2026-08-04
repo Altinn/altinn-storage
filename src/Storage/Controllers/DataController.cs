@@ -112,6 +112,7 @@ public class DataController : ControllerBase
             false,
             cancellationToken
         );
+
         if (
             await _authorizationService.AuthorizeInstanceRequest(
                 instance,
@@ -122,6 +123,7 @@ public class DataController : ControllerBase
         {
             return Forbid();
         }
+
         if (instance == null)
         {
             return instanceError;
