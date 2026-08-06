@@ -51,8 +51,6 @@ using Yuniql.PostgreSql;
 
 ILogger logger;
 
-string vaultApplicationInsightsKey = "ApplicationInsights--InstrumentationKey";
-
 string applicationInsightsConnectionString = string.Empty;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -146,12 +144,9 @@ async Task ConnectToKeyVaultAndSetApplicationInsights(ConfigurationManager confi
         try
         {
             KeyVaultSecret keyVaultSecret = await client.GetSecretAsync(
-                vaultApplicationInsightsKey
+                "ApplicationInsights--ConnectionString"
             );
-            applicationInsightsConnectionString = string.Format(
-                "InstrumentationKey={0}",
-                keyVaultSecret.Value
-            );
+            applicationInsightsConnectionString = keyVaultSecret.Value;
         }
         catch (Exception vaultException)
         {
