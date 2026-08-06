@@ -14,14 +14,14 @@ CREATE TABLE storage.dataelementblobversions (
 TABLESPACE pg_default;
 
 CREATE INDEX dataelementblobversions_dataelementid
-ON storage.dataelementblobversions(dataelementid, created);
+ON storage.dataelementblobversions(dataelementid);
 
 CREATE INDEX dataelementblobversions_attached_instance
-ON storage.dataelementblobversions(instanceguid, created)
+ON storage.dataelementblobversions(instanceguid)
 WHERE attached = true;
 
 CREATE INDEX dataelementblobversions_unattached
-ON storage.dataelementblobversions(created, instanceguid)
+ON storage.dataelementblobversions(created)
 WHERE attached = false;
 
 GRANT SELECT,INSERT,UPDATE,REFERENCES,DELETE,TRUNCATE,TRIGGER ON ALL TABLES IN SCHEMA storage TO platform_storage;
