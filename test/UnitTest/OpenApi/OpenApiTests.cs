@@ -33,6 +33,27 @@ public class OpenApiTests(TestApplicationFactory<Program> factory)
         await Verifier.VerifyJson(parsedDoc, _verifySettings);
     }
 
+    [Fact]
+    public async Task VerifyPublicDocSwagger()
+    {
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/swagger/v1/swagger.json");
+        var swaggerJson = await response.Content.ReadAsStringAsync();
+        // output.WriteLine(swaggerJson);
+        response.EnsureSuccessStatusCode();
+        var readResult = OpenApiDocument.Parse(swaggerJson);
+        Assert.NotNull(readResult.Diagnostic);
+        Assert.Empty(readResult.Diagnostic.Errors);
+        Assert.NotNull(readResult.Document);
+        var document = readResult.Document;
+        // document.Info.Version = ""; // This includes the nuget version
+        var parsedDoc = await document.SerializeAsJsonAsync(
+            readResult.Diagnostic.SpecificationVersion
+        );
+        await Verifier.VerifyJson(parsedDoc, _verifySettings);
+    }
+
     private static VerifySettings _verifySettings
     {
         get
