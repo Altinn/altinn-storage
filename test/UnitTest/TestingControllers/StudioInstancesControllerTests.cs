@@ -926,16 +926,6 @@ public class StudioInstancesControllerTests
         var client = _factory
             .WithWebHostBuilder(builder =>
             {
-                IConfiguration configuration = new ConfigurationBuilder()
-                    .AddJsonFile(ServiceUtil.GetAppsettingsPath())
-                    .Build();
-                builder.ConfigureAppConfiguration(
-                    (hostingContext, config) =>
-                    {
-                        config.AddConfiguration(configuration);
-                    }
-                );
-
                 builder.ConfigureTestServices(services =>
                 {
                     services.AddSingleton(instanceRepository);
