@@ -4,8 +4,18 @@
     "title": "Altinn Platform Storage",
     "version": "v1"
   },
+  "servers": [
+    {
+      "url": "https://platform.tt02.altinn.no/storage/api/v1",
+      "description": "Altinn Platform Storage API for TT02"
+    },
+    {
+      "url": "https://platform.altinn.no/storage/api/v1",
+      "description": "Altinn Platform Storage API for Production"
+    }
+  ],
   "paths": {
-    "/storage/api/v1/applications": {
+    "/applications": {
       "get": {
         "tags": [
           "Applications"
@@ -73,7 +83,7 @@
         }
       }
     },
-    "/storage/api/v1/applications/{org}": {
+    "/applications/{org}": {
       "get": {
         "tags": [
           "Applications"
@@ -114,7 +124,7 @@
         }
       }
     },
-    "/storage/api/v1/applications/{org}/{app}": {
+    "/applications/{org}/{app}": {
       "get": {
         "tags": [
           "Applications"
@@ -308,7 +318,7 @@
         }
       }
     },
-    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/data/{dataGuid}": {
+    "/instances/{instanceOwnerPartyId}/{instanceGuid}/data/{dataGuid}": {
       "delete": {
         "tags": [
           "Data"
@@ -561,7 +571,7 @@
         }
       }
     },
-    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/dataelements": {
+    "/instances/{instanceOwnerPartyId}/{instanceGuid}/dataelements": {
       "get": {
         "tags": [
           "Data"
@@ -613,7 +623,7 @@
         }
       }
     },
-    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/data": {
+    "/instances/{instanceOwnerPartyId}/{instanceGuid}/data": {
       "post": {
         "tags": [
           "Data"
@@ -693,7 +703,7 @@
         }
       }
     },
-    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/dataelements/{dataGuid}": {
+    "/instances/{instanceOwnerPartyId}/{instanceGuid}/dataelements/{dataGuid}": {
       "put": {
         "tags": [
           "Data"
@@ -765,7 +775,7 @@
         }
       }
     },
-    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/dataelements/{dataGuid}/filescanstatus": {
+    "/instances/{instanceOwnerPartyId}/{instanceGuid}/dataelements/{dataGuid}/filescanstatus": {
       "put": {
         "tags": [
           "Data"
@@ -828,7 +838,7 @@
         }
       }
     },
-    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/data/{dataGuid}/lock": {
+    "/instances/{instanceOwnerPartyId}/{instanceGuid}/data/{dataGuid}/lock": {
       "put": {
         "tags": [
           "DataLock"
@@ -1000,7 +1010,7 @@
         }
       }
     },
-    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/events": {
+    "/instances/{instanceOwnerPartyId}/{instanceGuid}/events": {
       "post": {
         "tags": [
           "InstanceEvents"
@@ -1139,7 +1149,7 @@
         }
       }
     },
-    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/events/{eventGuid}": {
+    "/instances/{instanceOwnerPartyId}/{instanceGuid}/events/{eventGuid}": {
       "get": {
         "tags": [
           "InstanceEvents"
@@ -1201,7 +1211,7 @@
         }
       }
     },
-    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/lock": {
+    "/instances/{instanceOwnerPartyId}/{instanceGuid}/lock": {
       "post": {
         "tags": [
           "InstanceLock"
@@ -1384,7 +1394,7 @@
         }
       }
     },
-    "/storage/api/v1/instances": {
+    "/instances": {
       "get": {
         "tags": [
           "Instances"
@@ -1703,7 +1713,7 @@
         }
       }
     },
-    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}": {
+    "/instances/{instanceOwnerPartyId}/{instanceGuid}": {
       "get": {
         "tags": [
           "Instances"
@@ -1836,7 +1846,7 @@
         }
       }
     },
-    "/storage/api/v1/instances/{instanceGuid}": {
+    "/instances/{instanceGuid}": {
       "get": {
         "tags": [
           "Instances"
@@ -1878,7 +1888,7 @@
         }
       }
     },
-    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/complete": {
+    "/instances/{instanceOwnerPartyId}/{instanceGuid}/complete": {
       "post": {
         "tags": [
           "Instances"
@@ -1921,7 +1931,7 @@
         }
       }
     },
-    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/readstatus": {
+    "/instances/{instanceOwnerPartyId}/{instanceGuid}/readstatus": {
       "put": {
         "tags": [
           "Instances"
@@ -1981,7 +1991,7 @@
         }
       }
     },
-    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/substatus": {
+    "/instances/{instanceOwnerPartyId}/{instanceGuid}/substatus": {
       "put": {
         "tags": [
           "Instances"
@@ -2058,7 +2068,7 @@
         }
       }
     },
-    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/presentationtexts": {
+    "/instances/{instanceOwnerPartyId}/{instanceGuid}/presentationtexts": {
       "put": {
         "tags": [
           "Instances"
@@ -2130,7 +2140,7 @@
         }
       }
     },
-    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/datavalues": {
+    "/instances/{instanceOwnerPartyId}/{instanceGuid}/datavalues": {
       "put": {
         "tags": [
           "Instances"
@@ -2202,7 +2212,7 @@
         }
       }
     },
-    "/storage/api/v1/sbl/instances/search": {
+    "/sbl/instances/search": {
       "post": {
         "tags": [
           "MessageBoxInstances"
@@ -2240,7 +2250,7 @@
         }
       }
     },
-    "/storage/api/v1/sbl/instances/{instanceOwnerPartyId}/{instanceGuid}": {
+    "/sbl/instances/{instanceOwnerPartyId}/{instanceGuid}": {
       "get": {
         "tags": [
           "MessageBoxInstances"
@@ -2324,7 +2334,7 @@
         }
       }
     },
-    "/storage/api/v1/sbl/instances/{instanceOwnerPartyId}/{instanceGuid}/events": {
+    "/sbl/instances/{instanceOwnerPartyId}/{instanceGuid}/events": {
       "get": {
         "tags": [
           "MessageBoxInstances"
@@ -2359,7 +2369,7 @@
         }
       }
     },
-    "/storage/api/v1/sbl/instances/{instanceOwnerPartyId}/{instanceGuid}/undelete": {
+    "/sbl/instances/{instanceOwnerPartyId}/{instanceGuid}/undelete": {
       "put": {
         "tags": [
           "MessageBoxInstances"
@@ -2394,7 +2404,7 @@
         }
       }
     },
-    "/storage/api/v1/metrics/instances": {
+    "/metrics/instances": {
       "get": {
         "tags": [
           "Metrics"
@@ -2430,7 +2440,7 @@
         }
       }
     },
-    "/storage/api/v1/migration/instance": {
+    "/migration/instance": {
       "post": {
         "tags": [
           "Migration"
@@ -2463,7 +2473,7 @@
         }
       }
     },
-    "/storage/api/v1/migration/dataelement/{instanceGuid}": {
+    "/migration/dataelement/{instanceGuid}": {
       "post": {
         "tags": [
           "Migration"
@@ -2566,7 +2576,7 @@
         }
       }
     },
-    "/storage/api/v1/migration/instanceevents": {
+    "/migration/instanceevents": {
       "post": {
         "tags": [
           "Migration"
@@ -2605,7 +2615,7 @@
         }
       }
     },
-    "/storage/api/v1/migration/application": {
+    "/migration/application": {
       "post": {
         "tags": [
           "Migration"
@@ -2638,7 +2648,7 @@
         }
       }
     },
-    "/storage/api/v1/migration/text/{org}/{app}/{language}/{key}": {
+    "/migration/text/{org}/{app}/{language}/{key}": {
       "post": {
         "tags": [
           "Migration"
@@ -2699,7 +2709,7 @@
         }
       }
     },
-    "/storage/api/v1/migration/policy/{org}/{app}": {
+    "/migration/policy/{org}/{app}": {
       "post": {
         "tags": [
           "Migration"
@@ -2735,7 +2745,7 @@
         }
       }
     },
-    "/storage/api/v1/migration/codelist/{name}/{language}/{version}": {
+    "/migration/codelist/{name}/{language}/{version}": {
       "post": {
         "tags": [
           "Migration"
@@ -2778,7 +2788,7 @@
         }
       }
     },
-    "/storage/api/v1/migration/pdfimage": {
+    "/migration/pdfimage": {
       "post": {
         "tags": [
           "Migration"
@@ -2791,7 +2801,7 @@
         }
       }
     },
-    "/storage/api/v1/migration/xsl/{org}/{app}/{lformid}/{pagenumber}/{language}/{xsltype}/{isportrait}": {
+    "/migration/xsl/{org}/{app}/{lformid}/{pagenumber}/{language}/{xsltype}/{isportrait}": {
       "post": {
         "tags": [
           "Migration"
@@ -2872,7 +2882,7 @@
         }
       }
     },
-    "/storage/api/v1/migration/delete/{instanceGuid}": {
+    "/migration/delete/{instanceGuid}": {
       "post": {
         "tags": [
           "Migration"
@@ -2907,7 +2917,7 @@
         }
       }
     },
-    "/storage/api/v1/migration/pdfproxy": {
+    "/migration/pdfproxy": {
       "post": {
         "tags": [
           "Migration"
@@ -2953,7 +2963,7 @@
         }
       }
     },
-    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/process": {
+    "/instances/{instanceOwnerPartyId}/{instanceGuid}/process": {
       "put": {
         "tags": [
           "Process"
@@ -3015,7 +3025,7 @@
         }
       }
     },
-    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/process/instanceandevents": {
+    "/instances/{instanceOwnerPartyId}/{instanceGuid}/process/instanceandevents": {
       "put": {
         "tags": [
           "Process"
@@ -3095,7 +3105,7 @@
         }
       }
     },
-    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/process/history": {
+    "/instances/{instanceOwnerPartyId}/{instanceGuid}/process/history": {
       "get": {
         "tags": [
           "Process"
@@ -3137,7 +3147,7 @@
         }
       }
     },
-    "/storage/api/v1/sblbridge/correspondencerecipient": {
+    "/sblbridge/correspondencerecipient": {
       "post": {
         "tags": [
           "SblBridge"
@@ -3196,7 +3206,7 @@
         "deprecated": true
       }
     },
-    "/storage/api/v1/sblbridge/synccorrespondenceevent": {
+    "/sblbridge/synccorrespondenceevent": {
       "post": {
         "tags": [
           "SblBridge"
@@ -3261,7 +3271,7 @@
         "deprecated": true
       }
     },
-    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/sign": {
+    "/instances/{instanceOwnerPartyId}/{instanceGuid}/sign": {
       "post": {
         "tags": [
           "Sign"
@@ -3331,7 +3341,7 @@
         }
       }
     },
-    "/storage/api/v1/studio/instances/{org}/{app}": {
+    "/studio/instances/{org}/{app}": {
       "get": {
         "tags": [
           "StudioInstances"
@@ -3476,7 +3486,7 @@
         }
       }
     },
-    "/storage/api/v1/studio/instances/{org}/{app}/{instanceGuid}": {
+    "/studio/instances/{org}/{app}/{instanceGuid}": {
       "get": {
         "tags": [
           "StudioInstances"
@@ -3620,7 +3630,7 @@
         }
       }
     },
-    "/storage/api/v1/applications/{org}/{app}/texts": {
+    "/applications/{org}/{app}/texts": {
       "post": {
         "tags": [
           "Texts"
@@ -3695,7 +3705,7 @@
         }
       }
     },
-    "/storage/api/v1/applications/{org}/{app}/texts/{language}": {
+    "/applications/{org}/{app}/texts/{language}": {
       "get": {
         "tags": [
           "Texts"

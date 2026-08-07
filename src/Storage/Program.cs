@@ -372,6 +372,22 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddSwaggerGen(c =>
     {
         c.SwaggerDoc("v1", new OpenApiInfo { Title = "Altinn Platform Storage", Version = "v1" });
+        c.AddServer(
+            new()
+            {
+                Url = "https://platform.tt02.altinn.no/storage/api/v1",
+                Description = "Altinn Platform Storage API for TT02",
+            }
+        );
+        c.AddServer(
+            new()
+            {
+                Url = "https://platform.altinn.no/storage/api/v1",
+                Description = "Altinn Platform Storage API for Production",
+            }
+        );
+        c.AddDocumentFilterInstance(new RemoveStorageBasePathFilter());
+
         c.AddSecurityDefinition(
             JwtCookieDefaults.AuthenticationScheme,
             new OpenApiSecurityScheme
