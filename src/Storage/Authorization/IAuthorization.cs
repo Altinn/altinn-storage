@@ -28,12 +28,16 @@ public interface IAuthorization
     public Task<bool> AuthorizeInstanceAction(Instance instance, string action, string task = null);
 
     /// <summary>
-    /// Authorizes a read action on an instance, enriching the XACML request with full instance context
-    /// including current task and end event. Prefer this over AuthorizeInstanceAction when the full
-    /// instance is available and process state context is needed.
+    /// Authorizes the current HTTP request to perform <paramref name="action"/> on the instance
+    /// identified by the request's route values. Callers with the sync adapter scope are authorized
+    /// directly for read/write/delete without contacting the PDP. When <paramref name="instance"/>
+    /// is provided the XACML request is enriched with the instance's process context (current task
+    /// or end event) and the decision is cached.
     /// </summary>
+    /// <param name="instance">The instance to authorize against, or null when no instance exist.</param>
+    /// <param name="action">The action to authorize, e.g. "read", "write" or "delete".</param>
     /// <returns>true if the user is authorized.</returns>
-    public Task<bool> AuthorizeEnrichedInstanceAction(Instance instance, string action);
+    public Task<bool> AuthorizeInstanceRequest(Instance instance, string action);
 
     /// <summary>
     /// Authorizes that the user has one or more of the actions on an instance.
@@ -66,4 +70,13 @@ public interface IAuthorization
     /// <param name="xacmlJsonRequest">The Xacml Json Request</param>
     /// <returns>The Xacml Json response contains the result of the request</returns>
     public Task<XacmlJsonResponse> GetDecisionForRequest(XacmlJsonRequestRoot xacmlJsonRequest);
+
+    /// <summary>
+    /// Gets the response from cache if exists, else sends in a request and get response with result of the request from PDP
+    /// </summary>
+    /// <param name="xacmlJsonRequest">The Xacml Json Request</param>
+    /// <returns>The Xacml Json response contains the result of the request</returns>
+    public Task<XacmlJsonResponse> GetDecisionForRequestWithCache(
+        XacmlJsonRequestRoot xacmlJsonRequest
+    );
 }

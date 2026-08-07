@@ -6,7 +6,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
-using Altinn.AccessManagement.Core.Models;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Helpers;
 using Altinn.Platform.Storage.Authorization;
@@ -261,25 +260,28 @@ public class InstancesController : ControllerBase
                 cancellationToken
             );
 
-            if (
-                _authorizationService.UserHasRequiredScope([
-                    _generalSettings.InstanceSyncAdapterScope,
-                ])
-            )
+            if (instance is null)
             {
-                instance.SetPlatformSelfLinks(_storageBaseAndHost);
-                return Ok(instance);
+                return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}");
             }
 
             if (
-                await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read")
+                await _authorizationService.AuthorizeInstanceRequest(
+                    instance,
+                    AuthorizationActions.Read
+                )
                 is false
             )
             {
                 return Forbid();
             }
 
-            if (User.GetOrg() != instance.Org)
+            if (
+                User.GetOrg() != instance.Org
+                && !_authorizationService.UserHasRequiredScope([
+                    _generalSettings.InstanceSyncAdapterScope,
+                ])
+            )
             {
                 FilterOutDeletedDataElements(instance);
             }
@@ -318,25 +320,28 @@ public class InstancesController : ControllerBase
                 cancellationToken
             );
 
-            if (
-                _authorizationService.UserHasRequiredScope([
-                    _generalSettings.InstanceSyncAdapterScope,
-                ])
-            )
+            if (instance is null)
             {
-                instance.SetPlatformSelfLinks(_storageBaseAndHost);
-                return Ok(instance);
+                return NotFound($"Unable to find instance {instanceGuid}");
             }
 
             if (
-                await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read")
+                await _authorizationService.AuthorizeInstanceRequest(
+                    instance,
+                    AuthorizationActions.Read
+                )
                 is false
             )
             {
                 return Forbid();
             }
 
-            if (User.GetOrg() != instance.Org)
+            if (
+                User.GetOrg() != instance.Org
+                && !_authorizationService.UserHasRequiredScope([
+                    _generalSettings.InstanceSyncAdapterScope,
+                ])
+            )
             {
                 FilterOutDeletedDataElements(instance);
             }
@@ -400,7 +405,7 @@ public class InstancesController : ControllerBase
                 appInfo.Org,
                 appInfo.Id.Split('/')[1],
                 HttpContext.User,
-                "instantiate",
+                AuthorizationActions.Instantiate,
                 instanceOwnerPartyId,
                 null
             );
@@ -519,7 +524,7 @@ public class InstancesController : ControllerBase
     /// <param name="hard">if true hard delete will take place. if false, the instance gets its status.softDelete attribute set to current date and time.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>Information from the deleted instance.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_DELETE)]
+    [Authorize]
     [HttpDelete("{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -534,9 +539,22 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        Instance instance;
+        (Instance instance, _) = await _instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            cancellationToken
+        );
 
-        (instance, _) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
+        if (
+            await _authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Delete
+            )
+            is false
+        )
+        {
+            return Forbid();
+        }
 
         if (instance == null)
         {
@@ -631,7 +649,7 @@ public class InstancesController : ControllerBase
     /// <param name="instanceGuid">The id of the instance to confirm as complete.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>Returns a list of the process events.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_COMPLETE)]
+    [Authorize]
     [HttpPost("{instanceOwnerPartyId:int}/{instanceGuid:guid}/complete")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [Produces("application/json")]
@@ -647,6 +665,16 @@ public class InstancesController : ControllerBase
             true,
             cancellationToken
         );
+
+        if (
+            !await _authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Complete
+            )
+        )
+        {
+            return Forbid();
+        }
 
         string org = User.GetOrg();
 
@@ -704,7 +732,7 @@ public class InstancesController : ControllerBase
     /// <param name="status">The updated read status.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>Returns the updated instance.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
+    [Authorize]
     [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/readstatus")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -728,6 +756,16 @@ public class InstancesController : ControllerBase
             true,
             cancellationToken
         );
+
+        if (
+            !await _authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Read
+            )
+        )
+        {
+            return Forbid();
+        }
 
         List<string> updateProperties =
         [

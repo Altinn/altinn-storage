@@ -15,6 +15,8 @@ using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -27,6 +29,7 @@ namespace Altinn.Platform.Storage.Authorization;
 /// <remarks>
 /// Initializes a new instance of the <see cref="AuthorizationService"/> class.
 /// </remarks>
+/// <param name="httpContextAccessor">Accessor for the current <see cref="Microsoft.AspNetCore.Http.HttpContext"/>.</param>
 /// <param name="pdp">Policy decision point</param>
 /// <param name="claimsPrincipalProvider">A service providing access to the current <see cref="ClaimsPrincipal"/>.</param>
 /// <param name="logger">The logger</param>
@@ -34,6 +37,7 @@ namespace Altinn.Platform.Storage.Authorization;
 /// <param name="memoryCache">The memory cache</param>
 /// <param name="pepSettings">The settings for pep</param>
 public class AuthorizationService(
+    IHttpContextAccessor httpContextAccessor,
     IPDP pdp,
     IClaimsPrincipalProvider claimsPrincipalProvider,
     ILogger<AuthorizationService> logger,
@@ -42,6 +46,7 @@ public class AuthorizationService(
     IOptions<PepSettings> pepSettings
 ) : IAuthorization
 {
+    private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
     private readonly IPDP _pdp = pdp;
     private readonly IClaimsPrincipalProvider _claimsPrincipalProvider = claimsPrincipalProvider;
     private readonly ILogger<AuthorizationService> _logger = logger;
@@ -70,20 +75,20 @@ public class AuthorizationService(
         }
 
         SortedList<string, MessageBoxInstance> authorizedInstanceList = [];
-        List<string> actionTypes = ["read"];
+        List<string> actionTypes = [AuthorizationActions.Read];
         if (_settings.AuthorizeA2ListInstancesWrite || keyAccessMode)
         {
-            actionTypes.Add("write");
+            actionTypes.Add(AuthorizationActions.Write);
         }
 
         if (_settings.AuthorizeA2ListInstancesDelete || keyAccessMode)
         {
-            actionTypes.Add("delete");
+            actionTypes.Add(AuthorizationActions.Delete);
         }
 
         if (keyAccessMode)
         {
-            actionTypes.Add("instantiate");
+            actionTypes.Add(AuthorizationActions.Instantiate);
         }
 
         if (
@@ -96,7 +101,7 @@ public class AuthorizationService(
             )
         )
         {
-            actionTypes.Add("sign");
+            actionTypes.Add(AuthorizationActions.Sign);
         }
 
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
@@ -152,19 +157,19 @@ public class AuthorizationService(
 
                 switch (actiontype)
                 {
-                    case "write":
+                    case AuthorizationActions.Write:
                         authorizedMessageBoxInstance.AuthorizedForWrite = true;
                         break;
-                    case "delete":
+                    case AuthorizationActions.Delete:
                         authorizedMessageBoxInstance.AllowDelete = true;
                         break;
-                    case "instantiate":
+                    case AuthorizationActions.Instantiate:
                         authorizedMessageBoxInstance.AllowNewCopy = true;
                         break;
-                    case "sign":
+                    case AuthorizationActions.Sign:
                         authorizedMessageBoxInstance.AuthorizedForSign = true;
                         break;
-                    case "read":
+                    case AuthorizationActions.Read:
                         break;
                 }
             }
@@ -227,48 +232,60 @@ public class AuthorizationService(
     }
 
     /// <inheritdoc />
-    public async Task<bool> AuthorizeEnrichedInstanceAction(Instance instance, string action)
+    public async Task<bool> AuthorizeInstanceRequest(Instance instance, string action)
     {
-        string org = instance.Org;
-        string app = instance.AppId.Split('/')[1];
-        int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
-
-        ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
-        Guid instanceGuid = Guid.Parse(instance.Id.Split('/')[1]);
-        XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
-            org,
-            app,
-            user,
-            action,
-            instanceOwnerPartyId,
-            instanceGuid
-        );
-
-        EnrichXacmlJsonRequest(request, instance);
-
-        string cacheKey = GetCacheKeyForDecisionRequest(request);
-        if (!_memoryCache.TryGetValue(cacheKey, out XacmlJsonResponse response))
+        if (IsValidSyncAdapterRequest(action))
         {
-            response = await _pdp.GetDecisionForRequest(request);
-
-            if (response?.Response is not null)
-            {
-                _memoryCache.Set(
-                    cacheKey,
-                    response,
-                    new MemoryCacheEntryOptions()
-                        .SetPriority(CacheItemPriority.High)
-                        .SetAbsoluteExpiration(
-                            new TimeSpan(0, _pepSettings.PdpDecisionCachingTimeout, 0)
-                        )
-                );
-            }
+            return true;
         }
 
-        if (response?.Response == null)
+        ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
+
+        XacmlJsonRequestRoot request;
+        XacmlJsonResponse response;
+        if (instance is not null)
+        {
+            // Derive the resource (org/app/party/instance) from the instance itself.
+            // EnrichXacmlJsonRequest replaces Request.Resource, but building it correctly
+            // here keeps the request valid independently of enrichment.
+            request = DecisionHelper.CreateDecisionRequest(
+                instance.Org,
+                instance.AppId.Split('/')[1],
+                user,
+                action,
+                int.Parse(instance.InstanceOwner.PartyId),
+                Guid.Parse(instance.Id.Split('/')[1])
+            );
+            EnrichXacmlJsonRequest(request, instance);
+            response = await GetDecisionForRequestWithCache(request);
+        }
+        else
+        {
+            // No instance to derive the resource from (e.g. it does not exist): build the request
+            // from the route values instead. org/app are included when the route provides them and
+            // are null otherwise; a request lacking the resource context is denied by the PDP.
+            RouteData routeData = _httpContextAccessor.HttpContext?.GetRouteData();
+            int.TryParse(
+                routeData?.Values["instanceOwnerPartyId"] as string,
+                out var instanceOwnerPartyId
+            );
+            Guid.TryParse(routeData?.Values["instanceGuid"] as string, out var instanceGuid);
+
+            request = DecisionHelper.CreateDecisionRequest(
+                routeData?.Values["org"] as string,
+                routeData?.Values["app"] as string,
+                user,
+                action,
+                instanceOwnerPartyId,
+                instanceGuid
+            );
+            response = await _pdp.GetDecisionForRequest(request);
+        }
+
+        if (response?.Response is null)
         {
             _logger.LogInformation(
-                "// Authorization Helper // AuthorizeEnrichedInstanceAction failed for request: {request}.",
+                "// Authorization Helper // AuthorizeInstanceRequest failed for request: {request}.",
                 JsonSerializer.Serialize(request)
             );
             return false;
@@ -325,7 +342,7 @@ public class AuthorizationService(
         }
 
         List<Instance> authorizedInstanceList = new();
-        List<string> actionTypes = new() { "read" };
+        List<string> actionTypes = new() { AuthorizationActions.Read };
 
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
         XacmlJsonRequestRoot xacmlJsonRequest = CreateMultiDecisionRequest(
@@ -370,8 +387,11 @@ public class AuthorizationService(
 
         if (!string.IsNullOrWhiteSpace(contextScope))
         {
+            // A null or empty required scope must never match: null would throw in Contains and
+            // empty would match any scope, silently granting access on a misconfiguration.
             return requiredScope.Exists(scope =>
-                contextScope.Contains(scope, StringComparison.InvariantCultureIgnoreCase)
+                !string.IsNullOrEmpty(scope)
+                && contextScope.Contains(scope, StringComparison.InvariantCultureIgnoreCase)
             );
         }
 
@@ -381,6 +401,13 @@ public class AuthorizationService(
     /// <inheritdoc />
     public bool UserHasRequiredScope(string requiredScope)
     {
+        // A null or empty required scope must never match: null would throw in Contains and
+        // empty would match any scope, silently granting access on a misconfiguration.
+        if (string.IsNullOrEmpty(requiredScope))
+        {
+            return false;
+        }
+
         var contextScope = GetContextScope();
 
         if (!string.IsNullOrWhiteSpace(contextScope))
@@ -400,6 +427,29 @@ public class AuthorizationService(
     )
     {
         return await _pdp.GetDecisionForRequest(xacmlJsonRequest);
+    }
+
+    /// <inheritdoc />
+    public async Task<XacmlJsonResponse> GetDecisionForRequestWithCache(
+        XacmlJsonRequestRoot request
+    )
+    {
+        string cacheKey = GetCacheKeyForDecisionRequest(request);
+
+        if (!_memoryCache.TryGetValue(cacheKey, out XacmlJsonResponse response))
+        {
+            // Key not in cache, so get decision from PDP.
+            response = await _pdp.GetDecisionForRequest(request);
+
+            // Set the cache options
+            MemoryCacheEntryOptions cacheEntryOptions = new MemoryCacheEntryOptions()
+                .SetPriority(CacheItemPriority.High)
+                .SetAbsoluteExpiration(new TimeSpan(0, _pepSettings.PdpDecisionCachingTimeout, 0));
+            if (response?.Response is not null)
+                _memoryCache.Set(cacheKey, response, cacheEntryOptions);
+        }
+
+        return response;
     }
 
     /// <summary>
@@ -759,5 +809,19 @@ public class AuthorizationService(
         }
 
         return subjectKey.ToString() + actionKey.ToString() + resourceKey.ToString();
+    }
+
+    private bool IsValidSyncAdapterRequest(string action)
+    {
+        if (
+            action != AuthorizationActions.Read
+            && action != AuthorizationActions.Write
+            && action != AuthorizationActions.Delete
+        )
+        {
+            return false;
+        }
+
+        return UserHasRequiredScope([_settings.InstanceSyncAdapterScope]);
     }
 }
