@@ -1,17 +1,17 @@
 ﻿{
   "openapi": "3.0.4",
   "info": {
-    "title": "Altinn Platform Storage",
+    "title": "Altinn Platform Storage - complete",
     "version": "v1"
   },
   "servers": [
     {
       "url": "https://platform.tt02.altinn.no/storage/api/v1",
-      "description": "Altinn Platform Storage API for TT02"
+      "description": "T02"
     },
     {
       "url": "https://platform.altinn.no/storage/api/v1",
-      "description": "Altinn Platform Storage API for Production"
+      "description": "Production"
     }
   ],
   "paths": {

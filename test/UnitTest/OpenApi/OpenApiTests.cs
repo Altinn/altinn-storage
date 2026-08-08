@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.OpenApi;
 using Altinn.Platform.Storage.UnitTest.Fixture;
 using Argon;
 using Microsoft.OpenApi;
@@ -17,7 +18,9 @@ public class OpenApiTests(TestApplicationFactory<Program> factory)
     {
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync("/swagger/v1/swagger.json");
+        var response = await client.GetAsync(
+            $"/swagger/{SwaggerExtensions.CompleteSwaggerDocName}/swagger.json"
+        );
         var swaggerJson = await response.Content.ReadAsStringAsync();
         // output.WriteLine(swaggerJson);
         response.EnsureSuccessStatusCode();
@@ -38,7 +41,9 @@ public class OpenApiTests(TestApplicationFactory<Program> factory)
     {
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync("/swagger/v1/swagger.json");
+        var response = await client.GetAsync(
+            $"/swagger/{SwaggerExtensions.V1PublicSwaggerDocName}/swagger.json"
+        );
         var swaggerJson = await response.Content.ReadAsStringAsync();
         // output.WriteLine(swaggerJson);
         response.EnsureSuccessStatusCode();
