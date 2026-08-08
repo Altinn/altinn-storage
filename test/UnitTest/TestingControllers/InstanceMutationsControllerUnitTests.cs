@@ -353,8 +353,8 @@ public class InstanceMutationsControllerUnitTests
     )]
     public async Task CommitMutation_ProcessStatus_IsCarriedInProcessPayload(
         string mutationJson,
-        string currentProcessStatus,
-        string payloadProcessStatus
+        ProcessStatus currentProcessStatus,
+        ProcessStatus payloadProcessStatus
     )
     {
         Guid instanceGuid = Guid.NewGuid();
@@ -444,7 +444,7 @@ public class InstanceMutationsControllerUnitTests
         );
 
         BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
-        Assert.Contains("must be 'idle' or 'processing'", badRequest.Value.ToString());
+        Assert.Contains("Unable to parse mutation request JSON", badRequest.Value.ToString());
         fixture.InstanceRepository.Verify(
             repository =>
                 repository.GetOne(
@@ -1382,7 +1382,7 @@ public class InstanceMutationsControllerUnitTests
     [InlineData(false, ProcessStatus.Idle)]
     public async Task CommitMutation_DeleteInstanceHard_AppliesStatusMarkerAndDeletedEvent(
         bool hasCurrentStatus,
-        string expectedProcessStatus
+        ProcessStatus? expectedProcessStatus
     )
     {
         Guid instanceGuid = Guid.NewGuid();
@@ -1418,7 +1418,7 @@ public class InstanceMutationsControllerUnitTests
                 """
             : $$"""
                 {
-                  "expectedProcessStatus": "{{expectedProcessStatus}}",
+                  "expectedProcessStatus": {{JsonSerializer.Serialize(expectedProcessStatus)}},
                   "deleteInstance": {
                     "hard": true
                   }
@@ -2992,15 +2992,15 @@ public class InstanceMutationsControllerUnitTests
         Assert.Equal(StatusCodes.Status409Conflict, problem.Status);
         Assert.Equal("process_status_conflict", problem.Type);
         Assert.Equal("Process status conflict", problem.Title);
-        Assert.Contains(ProcessStatus.Processing, problem.Detail, StringComparison.Ordinal);
+        Assert.Contains("processing", problem.Detail, StringComparison.Ordinal);
     }
 
     [Theory]
     [InlineData(ProcessStatus.Processing, null)]
     [InlineData(ProcessStatus.Idle, ProcessStatus.Processing)]
     public async Task CommitMutation_ExpectedProcessStatusMismatch_ReturnsConflictBeforeApply(
-        string currentProcessStatus,
-        string expectedProcessStatus
+        ProcessStatus currentProcessStatus,
+        ProcessStatus? expectedProcessStatus
     )
     {
         Guid instanceGuid = Guid.NewGuid();
@@ -3014,7 +3014,7 @@ public class InstanceMutationsControllerUnitTests
             ? """{"dataValues":{"value":"updated"}}"""
             : $$"""
                 {
-                  "expectedProcessStatus": "{{expectedProcessStatus}}",
+                  "expectedProcessStatus": {{JsonSerializer.Serialize(expectedProcessStatus)}},
                   "dataValues": {
                     "value": "updated"
                   }
@@ -3036,7 +3036,11 @@ public class InstanceMutationsControllerUnitTests
         JsonResult conflict = Assert.IsType<JsonResult>(result.Result);
         Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
         ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
-        Assert.Contains(currentProcessStatus, problem.Detail, StringComparison.Ordinal);
+        Assert.Contains(
+            currentProcessStatus.ToString().ToLowerInvariant(),
+            problem.Detail,
+            StringComparison.Ordinal
+        );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
 

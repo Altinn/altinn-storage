@@ -1114,7 +1114,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(originalContentType, readElement.ContentType);
         Assert.Equal(currentBlobVersionId, readElement.BlobVersionId);
         Assert.Equal(0, await CountAttachedBlobVersionRows(replacementBlobVersionId));
-        Assert.Equal(ProcessStatus.Processing, await ReadStoredProcessStatus(instanceGuid));
+        Assert.Equal("processing", await ReadStoredProcessStatus(instanceGuid));
         Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
         Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
     }
@@ -1195,9 +1195,8 @@ public class DataTests(DataElementFixture dataElementFixture)
 
     [Theory]
     [InlineData(ProcessStatus.Processing)]
-    [InlineData("future-status")]
     public async Task DataElement_Create_NonIdleProcessStatus_ConflictsWithoutMutationOrVersionBump(
-        string currentStatus
+        ProcessStatus currentStatus
     )
     {
         // Arrange
@@ -1699,10 +1698,10 @@ public class DataTests(DataElementFixture dataElementFixture)
 
     [Theory]
     [InlineData(true, ProcessStatus.Processing)]
-    [InlineData(false, "future-status")]
+    [InlineData(false, ProcessStatus.Processing)]
     public async Task DataElement_UpdateLockStatus_NonIdleStatus_ConflictsWithoutMutation(
         bool locked,
-        string currentStatus
+        ProcessStatus currentStatus
     )
     {
         // Arrange
@@ -2668,7 +2667,7 @@ public class DataTests(DataElementFixture dataElementFixture)
 
         JsonElement rawProcess = rawInstance.RootElement.GetProperty("Process");
         JsonElement rawStatus = rawInstance.RootElement.GetProperty("Status");
-        Assert.Equal(ProcessStatus.Idle, rawProcess.GetProperty("Status").GetString());
+        Assert.Equal("idle", rawProcess.GetProperty("Status").GetString());
         Assert.Equal(processEnded, rawProcess.GetProperty("Ended").GetDateTime());
         Assert.Equal("EndEvent_1", rawProcess.GetProperty("EndEvent").GetString());
         Assert.False(rawProcess.TryGetProperty("CurrentTask", out _));
@@ -2773,7 +2772,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
         Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
         Assert.Equal(previousInstanceJson, await ReadStoredInstanceJson(instanceGuid));
-        Assert.Equal(ProcessStatus.Processing, await ReadStoredProcessStatus(instanceGuid));
+        Assert.Equal("processing", await ReadStoredProcessStatus(instanceGuid));
         Assert.True(await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id)));
         Assert.Equal(1, await CountAttachedBlobVersionRows(blobVersionId));
         Assert.Equal(
@@ -3323,14 +3322,13 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(ProcessStatus.Processing, result.Instance.Process.Status);
         Assert.Equal(previousInstanceVersion + 1, result.Instance.Versions.InstanceVersion);
         Assert.Equal(previousProcessStateVersion + 1, result.Instance.Versions.ProcessStateVersion);
-        Assert.Equal(ProcessStatus.Processing, await ReadStoredProcessStatus(instanceGuid));
+        Assert.Equal("processing", await ReadStoredProcessStatus(instanceGuid));
     }
 
     [Theory]
     [InlineData(ProcessStatus.Processing)]
-    [InlineData("future-status")]
     public async Task AggregateMutation_NonIdleWithoutVersionFences_ReturnsConflictWithCurrentStatus(
-        string currentStatus
+        ProcessStatus currentStatus
     )
     {
         // Arrange
@@ -3361,10 +3359,17 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Assert
         Assert.Equal(HttpStatusCode.Conflict, exception.StatusCodeSuggestion);
         Assert.Equal(currentStatus, exception.CurrentProcessStatus);
-        Assert.Contains(currentStatus, exception.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            currentStatus.ToString().ToLowerInvariant(),
+            exception.Message,
+            StringComparison.Ordinal
+        );
         Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
         Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
-        Assert.Equal(currentStatus, await ReadStoredProcessStatus(instanceGuid));
+        Assert.Equal(
+            currentStatus.ToString().ToLowerInvariant(),
+            await ReadStoredProcessStatus(instanceGuid)
+        );
     }
 
     [Fact]
@@ -3442,7 +3447,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
         Assert.Equal(currentInstanceVersion + 1, await ReadInstanceVersion(instanceGuid));
         Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
-        Assert.Equal(ProcessStatus.Processing, await ReadStoredProcessStatus(instanceGuid));
+        Assert.Equal("processing", await ReadStoredProcessStatus(instanceGuid));
     }
 
     [Fact]
@@ -3481,7 +3486,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.False(await InstanceDataValuesContainsKey(instanceGuid, "stale-fenced-write"));
         Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
         Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
-        Assert.Equal(ProcessStatus.Processing, await ReadStoredProcessStatus(instanceGuid));
+        Assert.Equal("processing", await ReadStoredProcessStatus(instanceGuid));
     }
 
     [Fact]
@@ -3515,7 +3520,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Assert
         Assert.Equal(HttpStatusCode.PreconditionFailed, exception.StatusCodeSuggestion);
         Assert.Equal(currentInstanceVersion, exception.CurrentInstanceVersion);
-        Assert.Equal(ProcessStatus.Processing, await ReadStoredProcessStatus(instanceGuid));
+        Assert.Equal("processing", await ReadStoredProcessStatus(instanceGuid));
     }
 
     [Fact]
@@ -3556,7 +3561,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal("Task_Keep", result.Instance.Process.CurrentTask.ElementId);
         Assert.Equal(previousInstanceVersion + 1, result.Instance.Versions.InstanceVersion);
         Assert.Equal(previousProcessStateVersion + 1, result.Instance.Versions.ProcessStateVersion);
-        Assert.Equal(ProcessStatus.Processing, await ReadStoredProcessStatus(instanceGuid));
+        Assert.Equal("processing", await ReadStoredProcessStatus(instanceGuid));
     }
 
     [Fact]
@@ -3597,7 +3602,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal("Task_Clear", result.Instance.Process.CurrentTask.ElementId);
         Assert.Equal(previousInstanceVersion + 1, result.Instance.Versions.InstanceVersion);
         Assert.Equal(previousProcessStateVersion + 1, result.Instance.Versions.ProcessStateVersion);
-        Assert.Equal(ProcessStatus.Idle, await ReadStoredProcessStatus(instanceGuid));
+        Assert.Equal("idle", await ReadStoredProcessStatus(instanceGuid));
     }
 
     [Fact]
@@ -3631,7 +3636,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
 
         Assert.Null(result.Instance.Process.Status);
-        Assert.Equal(ProcessStatus.Idle, await ReadStoredProcessStatus(instanceGuid));
+        Assert.Equal("idle", await ReadStoredProcessStatus(instanceGuid));
         Assert.Equal(previousInstanceVersion + 1, result.Instance.Versions.InstanceVersion);
         Assert.Equal(previousProcessStateVersion + 1, result.Instance.Versions.ProcessStateVersion);
     }
@@ -3723,7 +3728,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             laterResult.Instance.Versions.InstanceVersion,
             staleReplayException.CurrentInstanceVersion
         );
-        Assert.Equal(ProcessStatus.Processing, await ReadStoredProcessStatus(instanceGuid));
+        Assert.Equal("processing", await ReadStoredProcessStatus(instanceGuid));
     }
 
     [Fact]
@@ -3836,7 +3841,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             Guid losingIdempotencyKey = firstResult is null
                 ? firstIdempotencyKey
                 : secondIdempotencyKey;
-            Assert.Equal(ProcessStatus.Processing, await ReadStoredProcessStatus(instanceGuid));
+            Assert.Equal("processing", await ReadStoredProcessStatus(instanceGuid));
             Assert.Equal(previousInstanceVersion + 1, await ReadInstanceVersion(instanceGuid));
             Assert.Equal(
                 previousProcessStateVersion + 1,
@@ -5013,7 +5018,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                 status: new JsonObject { ["IsArchived"] = true, ["Archived"] = archived },
                 process: new JsonObject
                 {
-                    ["Status"] = ProcessStatus.Processing,
+                    ["Status"] = "processing",
                     ["CurrentTask"] = new JsonObject { ["ElementId"] = "Task_10" },
                 },
                 taskId: "Task_10",
@@ -7761,17 +7766,17 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
     }
 
-    private static Task SetStoredProcessStatus(Guid instanceGuid, string status)
+    private static Task SetStoredProcessStatus(Guid instanceGuid, ProcessStatus status)
     {
         return PostgresUtil.RunSql(
-            $"update storage.instances set instance = jsonb_set(instance, '{{Process}}', (CASE WHEN jsonb_typeof(instance -> 'Process') = 'object' THEN instance -> 'Process' ELSE '{{}}'::jsonb END) || jsonb_build_object('Status', '{status}')) where alternateid = '{instanceGuid}'"
+            $"update storage.instances set instance = jsonb_set(instance, '{{Process}}', (CASE WHEN jsonb_typeof(instance -> 'Process') = 'object' THEN instance -> 'Process' ELSE '{{}}'::jsonb END) || jsonb_build_object('Status', '{JsonSerializer.Serialize(status)}'::jsonb)) where alternateid = '{instanceGuid}'"
         );
     }
 
     private static Task<string> ReadStoredProcessStatus(Guid instanceGuid)
     {
         return PostgresUtil.RunQuery<string>(
-            $"select coalesce(instance -> 'Process' ->> 'Status', '{ProcessStatus.Idle}') from storage.instances where alternateid = '{instanceGuid}'"
+            $"select coalesce(instance -> 'Process' ->> 'Status', 'idle') from storage.instances where alternateid = '{instanceGuid}'"
         );
     }
 

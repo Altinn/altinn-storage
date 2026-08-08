@@ -28,6 +28,7 @@ internal static class DomainModelContractTestData
           "DueBefore": "2024-04-05T06:07:08Z",
           "VisibleAfter": "2024-04-01T02:03:04Z",
           "Process": {
+            "Status": "processing",
             "Started": "2024-02-01T01:02:03Z",
             "StartEvent": "StartEvent_1",
             "CurrentTask": {
@@ -248,6 +249,7 @@ internal static class DomainModelContractTestData
           "dueBefore": "2024-04-05T06:07:08Z",
           "visibleAfter": "2024-04-01T02:03:04Z",
           "process": {
+            "status": "processing",
             "started": "2024-02-01T01:02:03Z",
             "startEvent": "StartEvent_1",
             "currentTask": {
@@ -510,6 +512,7 @@ internal static class DomainModelContractTestData
     private static ProcessState CreateProcessState() =>
         new()
         {
+            Status = ProcessStatus.Processing,
             Started = Utc(2024, 2, 1, 1, 2, 3),
             StartEvent = "StartEvent_1",
             CurrentTask = CreateProcessElementInfo(),

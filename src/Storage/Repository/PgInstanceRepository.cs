@@ -782,7 +782,9 @@ public class PgInstanceRepository : IInstanceRepository
                     reader
                 ),
                 "process_status_conflict" => new ProcessStatusConflictException(
-                    reader.GetFieldValue<string>(reader.GetOrdinal(CurrentProcessStatusColumn))
+                    ProcessStatusHelper.ParsePersistedStatus(
+                        reader.GetFieldValue<string>(reader.GetOrdinal(CurrentProcessStatusColumn))
+                    )
                 ),
                 _ => new UnreachableException($"Unexpected instance update result '{result}'."),
             };

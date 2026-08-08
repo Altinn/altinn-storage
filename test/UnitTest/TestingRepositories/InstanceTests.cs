@@ -2,10 +2,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
@@ -95,9 +98,8 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     [InlineData(null, "<absent>")]
     [InlineData(ProcessStatus.Idle, "\"idle\"")]
     [InlineData(ProcessStatus.Processing, "\"processing\"")]
-    [InlineData("future-status", "\"future-status\"")]
     public async Task Instance_Create_PreservesProcessStatusPayload(
-        string suppliedStatus,
+        ProcessStatus? suppliedStatus,
         string expectedStoredRepresentation
     )
     {
@@ -331,12 +333,9 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     [InlineData(InstanceUpdateShape.CompleteConfirmations, ProcessStatus.Processing)]
     [InlineData(InstanceUpdateShape.Process, ProcessStatus.Processing)]
     [InlineData(InstanceUpdateShape.ProcessAndStatus, ProcessStatus.Processing)]
-    [InlineData(InstanceUpdateShape.Status, "future-status")]
-    [InlineData(InstanceUpdateShape.Status, "IDLE")]
-    [InlineData(InstanceUpdateShape.Status, " idle ")]
     public async Task Instance_Update_NonIdleProcessStatus_ConflictsWithoutMutationOrVersionBump(
         InstanceUpdateShape updateShape,
-        string currentProcessStatus
+        ProcessStatus currentProcessStatus
     )
     {
         InstanceInternal instance = await _instanceFixture.InstanceRepo.Create(
@@ -364,6 +363,48 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             );
 
         Assert.Equal(currentProcessStatus, exception.CurrentProcessStatus);
+        Assert.Equal(storedBefore, await ReadStoredInstanceJson(instanceGuid));
+        Assert.Equal(versionsBefore, await ReadStoredVersions(instanceGuid));
+    }
+
+    [Theory]
+    [InlineData("\"IDLE\"")]
+    [InlineData("\" idle \"")]
+    public async Task Instance_Update_StoredProcessStatusInNonCanonicalCasing_ConflictsWithoutMutationOrVersionBump(
+        string storedStatusJson
+    ) =>
+        await AssertStoredProcessStatusBlocksUpdate<ProcessStatusConflictException>(
+            storedStatusJson
+        );
+
+    [Theory]
+    [InlineData("\"future-status\"")]
+    [InlineData("99")]
+    public async Task Instance_Update_UndeclaredStoredProcessStatus_FailsClosedWithoutMutationOrVersionBump(
+        string storedStatusJson
+    ) => await AssertStoredProcessStatusBlocksUpdate<UnreachableException>(storedStatusJson);
+
+    private async Task AssertStoredProcessStatusBlocksUpdate<TException>(string storedStatusJson)
+        where TException : Exception
+    {
+        InstanceInternal instance = await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone().FromApiModel(),
+            CancellationToken.None
+        );
+        Guid instanceGuid = instance.Id;
+        await SetStoredProcessStatusRepresentation(instanceGuid, storedStatusJson);
+        instance.LastChanged = DateTime.UtcNow;
+        string storedBefore = await ReadStoredInstanceJson(instanceGuid);
+        StorageVersions versionsBefore = await ReadStoredVersions(instanceGuid);
+
+        await Assert.ThrowsAsync<TException>(() =>
+            _instanceFixture.InstanceRepo.Update(
+                instance,
+                [nameof(instance.LastChanged)],
+                CancellationToken.None
+            )
+        );
+
         Assert.Equal(storedBefore, await ReadStoredInstanceJson(instanceGuid));
         Assert.Equal(versionsBefore, await ReadStoredVersions(instanceGuid));
     }
@@ -396,15 +437,14 @@ public class InstanceTests : IClassFixture<InstanceFixture>
                 exception.CurrentProcessStateVersion
             )
         );
-        Assert.Equal(ProcessStatus.Processing, await ReadStoredProcessStatus(instanceGuid));
+        Assert.Equal("processing", await ReadStoredProcessStatus(instanceGuid));
     }
 
     [Theory]
     [InlineData(null, "<absent>")]
     [InlineData(ProcessStatus.Idle, "\"idle\"")]
-    [InlineData("future-status", "\"future-status\"")]
     public async Task Instance_Update_Process_PersistsStatusPayload(
-        string suppliedStatus,
+        ProcessStatus? suppliedStatus,
         string expectedStoredRepresentation
     )
     {
@@ -536,10 +576,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         );
 
         Assert.Equal("Task_Representation", result.Process.CurrentTask.ElementId);
-        Assert.Equal(
-            $"\"{ProcessStatus.Processing}\"",
-            await ReadStoredProcessStatusRepresentation(instanceGuid)
-        );
+        Assert.Equal("\"processing\"", await ReadStoredProcessStatusRepresentation(instanceGuid));
     }
 
     [Fact]
@@ -567,7 +604,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Assert.Equal(ReadStatus.Read, result.Status.ReadStatus);
         Assert.Equal(versionsBefore, result.Versions);
         Assert.Equal(versionsBefore, await ReadStoredVersions(instanceGuid));
-        Assert.Equal(ProcessStatus.Processing, await ReadStoredProcessStatus(instanceGuid));
+        Assert.Equal("processing", await ReadStoredProcessStatus(instanceGuid));
     }
 
     [Fact]
@@ -2701,14 +2738,22 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         );
     }
 
-    private static Task SetStoredProcessStatus(Guid instanceGuid, string status) =>
+    private static Task SetStoredProcessStatus(Guid instanceGuid, ProcessStatus status) =>
         PostgresUtil.RunSql(
-            $"update storage.instances set instance = jsonb_set(instance, '{{Process}}', (CASE WHEN jsonb_typeof(instance -> 'Process') = 'object' THEN instance -> 'Process' ELSE '{{}}'::jsonb END) || jsonb_build_object('Status', '{status}')) where alternateid = '{instanceGuid}'"
+            $"update storage.instances set instance = jsonb_set(instance, '{{Process}}', (CASE WHEN jsonb_typeof(instance -> 'Process') = 'object' THEN instance -> 'Process' ELSE '{{}}'::jsonb END) || jsonb_build_object('Status', '{JsonSerializer.Serialize(status)}'::jsonb)) where alternateid = '{instanceGuid}'"
         );
 
     private static Task<string> ReadStoredProcessStatus(Guid instanceGuid) =>
         PostgresUtil.RunQuery<string>(
-            $"select coalesce(instance -> 'Process' ->> 'Status', '{ProcessStatus.Idle}') from storage.instances where alternateid = '{instanceGuid}'"
+            $"select coalesce(instance -> 'Process' ->> 'Status', 'idle') from storage.instances where alternateid = '{instanceGuid}'"
+        );
+
+    private static Task SetStoredProcessStatusRepresentation(
+        Guid instanceGuid,
+        string statusJson
+    ) =>
+        PostgresUtil.RunSql(
+            $"update storage.instances set instance = jsonb_set(instance, '{{Process}}', (CASE WHEN jsonb_typeof(instance -> 'Process') = 'object' THEN instance -> 'Process' ELSE '{{}}'::jsonb END) || jsonb_build_object('Status', '{statusJson}'::jsonb)) where alternateid = '{instanceGuid}'"
         );
 
     private static Task<string> ReadStoredProcessStatusRepresentation(Guid instanceGuid) =>

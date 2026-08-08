@@ -1,5 +1,8 @@
 #nullable disable
 
+using System;
+using System.Diagnostics;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
@@ -23,10 +26,10 @@ internal static class ProcessStatusHelper
     /// </exception>
     public static void EnsureExpectedStatus(
         InstanceInternal instance,
-        string expectedProcessStatus = null
+        ProcessStatus? expectedProcessStatus = null
     )
     {
-        string currentProcessStatus = instance.Process?.Status ?? ProcessStatus.Idle;
+        ProcessStatus currentProcessStatus = instance.Process?.Status ?? ProcessStatus.Idle;
         expectedProcessStatus ??= ProcessStatus.Idle;
 
         if (currentProcessStatus != expectedProcessStatus)
@@ -36,8 +39,16 @@ internal static class ProcessStatusHelper
     }
 
     /// <summary>
-    /// Returns whether a process status is part of the currently supported wire contract.
+    /// Parses a process status as it is persisted in the instance JSONB and reported back by the SQL
+    /// layer. A status Storage cannot represent is refused; anything else Enum.TryParse maps to a
+    /// declared status is taken, including casing and numeric forms the write paths cannot persist.
     /// </summary>
-    public static bool IsSupported(string processStatus) =>
-        processStatus is ProcessStatus.Idle or ProcessStatus.Processing;
+    /// <param name="processStatus">The persisted status value.</param>
+    public static ProcessStatus ParsePersistedStatus(string processStatus) =>
+        Enum.TryParse(processStatus, ignoreCase: true, out ProcessStatus status)
+        && Enum.IsDefined(status)
+            ? status
+            : throw new UnreachableException(
+                $"Persisted process status '{processStatus}' is not a known process status."
+            );
 }

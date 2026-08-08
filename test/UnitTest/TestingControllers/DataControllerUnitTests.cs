@@ -359,7 +359,7 @@ public class DataControllerUnitTests
         ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
         Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
         Assert.Contains(
-            ProcessStatus.Processing,
+            "processing",
             Assert.IsType<string>(conflict.Value),
             StringComparison.Ordinal
         );
@@ -1322,7 +1322,7 @@ public class DataControllerUnitTests
         ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
         Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
         Assert.Contains(
-            ProcessStatus.Processing,
+            "processing",
             Assert.IsType<string>(conflict.Value),
             StringComparison.Ordinal
         );
@@ -1777,7 +1777,7 @@ public class DataControllerUnitTests
         ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
         Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
         Assert.Contains(
-            ProcessStatus.Processing,
+            "processing",
             Assert.IsType<string>(conflict.Value),
             StringComparison.Ordinal
         );
@@ -1914,7 +1914,7 @@ public class DataControllerUnitTests
         // Assert
         ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
         Assert.Contains(
-            ProcessStatus.Processing,
+            "processing",
             Assert.IsType<string>(conflict.Value),
             StringComparison.Ordinal
         );

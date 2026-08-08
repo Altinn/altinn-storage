@@ -773,7 +773,7 @@ public class PgInstanceMutationRepositoryTests
     {
         Guid instanceGuid = Guid.NewGuid();
         PostgresException postgresException = new(
-            """{"code":"process_status_conflict","currentInstanceVersion":12,"currentProcessStateVersion":4,"currentProcessStatus":"future-status"}""",
+            """{"code":"process_status_conflict","currentInstanceVersion":12,"currentProcessStateVersion":4,"currentProcessStatus":"processing"}""",
             "ERROR",
             "ERROR",
             "AM001"
@@ -786,8 +786,8 @@ public class PgInstanceMutationRepositoryTests
             )
         );
         Assert.Equal(HttpStatusCode.Conflict, exception.StatusCodeSuggestion);
-        Assert.Equal("future-status", exception.CurrentProcessStatus);
-        Assert.Contains("future-status", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(ProcessStatus.Processing, exception.CurrentProcessStatus);
+        Assert.Contains("processing", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]

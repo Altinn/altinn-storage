@@ -118,16 +118,6 @@ public class MigrationController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        if (
-            instance.Process?.Status is not null
-            && !ProcessStatusHelper.IsSupported(instance.Process.Status)
-        )
-        {
-            return BadRequest(
-                $"process.status must be absent, '{ProcessStatus.Idle}', or '{ProcessStatus.Processing}' when creating an instance."
-            );
-        }
-
         InstanceInternal storedInstance;
         try
         {

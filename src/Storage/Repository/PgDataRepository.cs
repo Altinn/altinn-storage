@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -592,7 +593,12 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
 
     private static ProcessStatusConflictException CreateProcessStatusConflictException(
         NpgsqlDataReader reader
-    ) => new(reader.GetFieldValue<string>(reader.GetOrdinal(CurrentProcessStatusColumn)));
+    ) =>
+        new(
+            ProcessStatusHelper.ParsePersistedStatus(
+                reader.GetFieldValue<string>(reader.GetOrdinal(CurrentProcessStatusColumn))
+            )
+        );
 
     private static object ToBlobVersion(string blobVersionId)
     {
