@@ -202,7 +202,7 @@ public class InstanceMutationsControllerUnitTests
     public async Task CommitMutation_IdempotencyKeyWithMatchingVersion_SkipsReplayAdmissionAndUsesApplySnapshot()
     {
         Guid instanceGuid = Guid.NewGuid();
-        Guid idempotencyKey = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        Guid idempotencyKey = Guid.NewGuid();
         InstanceMutationCommit capturedMutation = null;
         AggregateMutationFixture fixture = CreateAggregateMutationFixture(
             instanceGuid,
@@ -762,7 +762,7 @@ public class InstanceMutationsControllerUnitTests
                     _org,
                     BlobRepository.GetVersionedBlobPath(
                         _appId,
-                        instanceGuid.ToString(),
+                        instanceGuid,
                         allocatedBlobVersionId
                     ),
                     7
@@ -879,7 +879,7 @@ public class InstanceMutationsControllerUnitTests
             DataType = _dataType,
             BlobStoragePath = BlobRepository.GetVersionedBlobPath(
                 _appId,
-                instanceGuid.ToString(),
+                instanceGuid,
                 currentBlobVersionId
             ),
         };
@@ -970,11 +970,7 @@ public class InstanceMutationsControllerUnitTests
             repository =>
                 repository.DeleteBlob(
                     _org,
-                    BlobRepository.GetVersionedBlobPath(
-                        _appId,
-                        instanceGuid.ToString(),
-                        createdBlobVersionId
-                    ),
+                    BlobRepository.GetVersionedBlobPath(_appId, instanceGuid, createdBlobVersionId),
                     7
                 ),
             Times.Once
@@ -983,11 +979,7 @@ public class InstanceMutationsControllerUnitTests
             repository =>
                 repository.DeleteBlob(
                     _org,
-                    BlobRepository.GetVersionedBlobPath(
-                        _appId,
-                        instanceGuid.ToString(),
-                        updatedBlobVersionId
-                    ),
+                    BlobRepository.GetVersionedBlobPath(_appId, instanceGuid, updatedBlobVersionId),
                     7
                 ),
             Times.Once
@@ -1078,7 +1070,7 @@ public class InstanceMutationsControllerUnitTests
                     _org,
                     BlobRepository.GetVersionedBlobPath(
                         _appId,
-                        instanceGuid.ToString(),
+                        instanceGuid,
                         allocatedBlobVersionId
                     ),
                     7
@@ -1447,7 +1439,7 @@ public class InstanceMutationsControllerUnitTests
                     new InstanceEvent
                     {
                         EventType = eventType.ToString(),
-                        InstanceId = instance.Id,
+                        InstanceId = instance.Id.ToString(),
                         InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
                     }
             );
@@ -1691,7 +1683,7 @@ public class InstanceMutationsControllerUnitTests
                     new InstanceEvent
                     {
                         EventType = eventType.ToString(),
-                        InstanceId = instance.Id,
+                        InstanceId = instance.Id.ToString(),
                         InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
                     }
             );
@@ -2188,7 +2180,7 @@ public class InstanceMutationsControllerUnitTests
     public async Task CommitMutation_DeleteInstanceTerminalWorkflowCommit_WhenIdempotencyReplaysAfterHardDelete_ReturnsOriginalResult()
     {
         Guid instanceGuid = Guid.NewGuid();
-        Guid idempotencyKey = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        Guid idempotencyKey = Guid.NewGuid();
         DateTime deletedAt = DateTime.UtcNow;
         InstanceInternal instanceInternal = CreateAggregateInstanceInternal(
             instanceGuid,
@@ -2342,7 +2334,7 @@ public class InstanceMutationsControllerUnitTests
         DataElementInternal createdDataElement = Assert.Single(capturedMutation.CreateDataElements);
         Assert.Equal(InstanceEventType.Created.ToString(), createdEvent.EventType);
         Assert.Equal(createdDataElement.Id.ToString(), createdEvent.DataId);
-        Assert.False(string.IsNullOrEmpty(createdDataElement.Id));
+        Assert.NotEqual(Guid.Empty, createdDataElement.Id);
         Assert.Empty(createdDataElement.References);
         Assert.Null(createdDataElement.LastChanged);
         Assert.Null(createdDataElement.LastChangedBy);
@@ -2395,21 +2387,20 @@ public class InstanceMutationsControllerUnitTests
 
         Assert.IsType<OkObjectResult>(result.Result);
         DataElementInternal createdDataElement = Assert.Single(capturedMutation.CreateDataElements);
-        Assert.NotEqual(callerSuppliedDataElementId.ToString(), createdDataElement.Id);
-        Assert.False(string.IsNullOrEmpty(createdDataElement.Id));
+        Assert.NotEqual(callerSuppliedDataElementId, createdDataElement.Id);
+        Assert.NotEqual(Guid.Empty, createdDataElement.Id);
         Assert.True(createdDataElement.Locked);
     }
 
     [Fact]
     public async Task CommitMutation_CreateDataElements_ReturnsGeneratedIdsInRequestOrderAndSnapshot()
     {
-        Guid instanceGuid = Guid.Parse("aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee");
+        Guid instanceGuid = Guid.NewGuid();
         Guid callerSuppliedFirstId = Guid.NewGuid();
         Guid callerSuppliedSecondId = Guid.NewGuid();
         InstanceMutationCommit capturedMutation = null;
         InstanceInternal updatedInstanceInternal = null;
         InstanceInternal instanceInternal = CreateAggregateInstanceInternal(instanceGuid, []);
-        instanceInternal.Id = instanceGuid.ToString().ToUpperInvariant();
         AggregateMutationFixture fixture = CreateAggregateMutationFixture(
             instanceGuid,
             instanceInternal,
@@ -2473,7 +2464,7 @@ public class InstanceMutationsControllerUnitTests
         Assert.Equal(2, createdIds.Select(Guid.Parse).Distinct().Count());
         Assert.All(
             capturedMutation.CreateDataElements,
-            dataElement => Assert.Equal(instanceGuid.ToString(), dataElement.InstanceGuid)
+            dataElement => Assert.Equal(instanceGuid, dataElement.InstanceGuid)
         );
         fixture.MutationRepository.Verify(
             repository =>
@@ -2497,7 +2488,7 @@ public class InstanceMutationsControllerUnitTests
                     createdDataElement.BlobVersionId,
                     response
                         .Instance.Data.Single(dataElement =>
-                            dataElement.Id == createdDataElement.Id
+                            dataElement.Id == createdDataElement.Id.ToString()
                         )
                         .BlobVersionId
                 )
@@ -2552,7 +2543,7 @@ public class InstanceMutationsControllerUnitTests
                 service.BuildInstanceEvent(
                     InstanceEventType.Saved,
                     It.IsAny<InstanceInternal>(),
-                    It.Is<DataElementInternal>(element => element.Id == dataElementId.ToString())
+                    It.Is<DataElementInternal>(element => element.Id == dataElementId)
                 )
             )
             .Returns(
@@ -2589,7 +2580,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<DataType>(),
                     It.Is<DataElementInternal>(element =>
-                        element.Id == dataElementId.ToString()
+                        element.Id == dataElementId
                         && element.ContentType == "text/plain"
                         && element.Filename == "attachment.txt"
                         && element.Size == 12
@@ -3827,7 +3818,7 @@ public class InstanceMutationsControllerUnitTests
                     _org,
                     BlobRepository.GetVersionedBlobPath(
                         _appId,
-                        instanceGuid.ToString(),
+                        instanceGuid,
                         allocatedBlobVersionId
                     ),
                     7
@@ -3909,7 +3900,7 @@ public class InstanceMutationsControllerUnitTests
                     _org,
                     BlobRepository.GetVersionedBlobPath(
                         _appId,
-                        instanceGuid.ToString(),
+                        instanceGuid,
                         allocatedBlobVersionId
                     ),
                     7
@@ -4026,11 +4017,7 @@ public class InstanceMutationsControllerUnitTests
             repository =>
                 repository.DeleteBlob(
                     _org,
-                    BlobRepository.GetVersionedBlobPath(
-                        _appId,
-                        instanceGuid.ToString(),
-                        firstBlobVersionId
-                    ),
+                    BlobRepository.GetVersionedBlobPath(_appId, instanceGuid, firstBlobVersionId),
                     7
                 ),
             Times.Once
@@ -4039,11 +4026,7 @@ public class InstanceMutationsControllerUnitTests
             repository =>
                 repository.DeleteBlob(
                     _org,
-                    BlobRepository.GetVersionedBlobPath(
-                        _appId,
-                        instanceGuid.ToString(),
-                        secondBlobVersionId
-                    ),
+                    BlobRepository.GetVersionedBlobPath(_appId, instanceGuid, secondBlobVersionId),
                     7
                 ),
             Times.Once
@@ -4624,7 +4607,7 @@ public class InstanceMutationsControllerUnitTests
                 service.BuildInstanceEvent(
                     InstanceEventType.Deleted,
                     It.IsAny<InstanceInternal>(),
-                    It.Is<DataElementInternal>(element => element.Id == dataElementId.ToString())
+                    It.Is<DataElementInternal>(element => element.Id == dataElementId)
                 )
             )
             .Returns(
@@ -4639,7 +4622,7 @@ public class InstanceMutationsControllerUnitTests
                 service.DispatchEvent(
                     InstanceEventType.Deleted,
                     It.IsAny<InstanceInternal>(),
-                    It.Is<DataElementInternal>(element => element.Id == dataElementId.ToString())
+                    It.Is<DataElementInternal>(element => element.Id == dataElementId)
                 )
             )
             .Callback(() => postCommitDeletedEventDispatched = true)
@@ -4678,7 +4661,7 @@ public class InstanceMutationsControllerUnitTests
         InstanceMutationDataElementDelete capturedDelete = Assert.Single(
             capturedMutation.DeleteDataElements
         );
-        Assert.Equal(dataElementId.ToString(), capturedDelete.DataElement.Id);
+        Assert.Equal(dataElementId, capturedDelete.DataElement.Id);
         Assert.False(capturedDelete.IgnoreLock);
         bool hasTransactionalDeletedEvent =
             capturedMutation?.InstanceEvents?.Any(e =>
@@ -4738,7 +4721,7 @@ public class InstanceMutationsControllerUnitTests
                 service.BuildInstanceEvent(
                     InstanceEventType.Deleted,
                     It.IsAny<InstanceInternal>(),
-                    It.Is<DataElementInternal>(element => element.Id == dataElementId.ToString())
+                    It.Is<DataElementInternal>(element => element.Id == dataElementId)
                 )
             )
             .Returns(new InstanceEvent { EventType = InstanceEventType.Deleted.ToString() });
@@ -4771,7 +4754,7 @@ public class InstanceMutationsControllerUnitTests
         InstanceMutationDataElementDelete capturedDelete = Assert.Single(
             capturedMutation.DeleteDataElements
         );
-        Assert.Equal(dataElementId.ToString(), capturedDelete.DataElement.Id);
+        Assert.Equal(dataElementId, capturedDelete.DataElement.Id);
         Assert.True(capturedDelete.IgnoreLock);
     }
 

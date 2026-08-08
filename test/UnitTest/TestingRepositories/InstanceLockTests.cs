@@ -44,7 +44,7 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
         instance = await _fixture.InstanceRepo.Create(instance, CancellationToken.None);
         InstanceInternal instanceInternal = await _fixture.InstanceRepo.GetOne(
-            Guid.Parse(instance.Id),
+            instance.Id,
             false,
             CancellationToken.None
         );
@@ -138,7 +138,7 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
         instance = await _fixture.InstanceRepo.Create(instance, CancellationToken.None);
         InstanceInternal instanceInternal = await _fixture.InstanceRepo.GetOne(
-            Guid.Parse(instance.Id),
+            instance.Id,
             false,
             CancellationToken.None
         );
@@ -250,7 +250,7 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
         instance = await _fixture.InstanceRepo.Create(instance, CancellationToken.None);
         InstanceInternal instanceInternal = await _fixture.InstanceRepo.GetOne(
-            Guid.Parse(instance.Id),
+            instance.Id,
             false,
             CancellationToken.None
         );
@@ -346,7 +346,7 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
         instance = await _fixture.InstanceRepo.Create(instance, CancellationToken.None);
         InstanceInternal instanceInternal = await _fixture.InstanceRepo.GetOne(
-            Guid.Parse(instance.Id),
+            instance.Id,
             false,
             CancellationToken.None
         );
@@ -393,7 +393,7 @@ public class InstanceLockTests(InstanceLockFixture fixture)
         InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
         instance = await _fixture.InstanceRepo.Create(instance, CancellationToken.None);
         InstanceInternal instanceInternal = await _fixture.InstanceRepo.GetOne(
-            Guid.Parse(instance.Id),
+            instance.Id,
             false,
             CancellationToken.None
         );

@@ -78,7 +78,7 @@ public class SimpleDataElement
     {
         return new SimpleDataElement()
         {
-            Id = dataElement.Id,
+            Id = dataElement.Id.ToString(),
             DataType = dataElement.DataType,
             ContentType = dataElement.ContentType,
             Size = dataElement.Size,

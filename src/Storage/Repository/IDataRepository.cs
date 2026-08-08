@@ -59,10 +59,10 @@ public interface IDataRepository
     /// <summary>
     /// Deletes the data elements metadata for an instance permanently and detaches attached blob-version rows.
     /// </summary>
-    /// <param name="instanceId">the parent instance id of the data elements to delete</param>
+    /// <param name="instanceGuid">the parent instance id of the data elements to delete</param>
     /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
     /// <returns>true if delete went well.</returns>
-    Task<bool> DeleteForInstance(string instanceId, CancellationToken cancellationToken = default);
+    Task<bool> DeleteForInstance(Guid instanceGuid, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Updates the data element with the properties provided in the dictionary

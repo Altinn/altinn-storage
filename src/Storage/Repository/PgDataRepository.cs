@@ -74,15 +74,15 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         int? expectedProcessStateVersion = null
     )
     {
-        if (string.IsNullOrEmpty(dataElement.Id))
+        if (dataElement.Id == Guid.Empty)
         {
-            dataElement.Id = Guid.NewGuid().ToString();
+            dataElement.Id = Guid.NewGuid();
         }
 
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Bigint, instanceInternalId);
-        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.InstanceGuid));
-        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElement.InstanceGuid);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElement.Id);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Jsonb, dataElement);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, ToBlobVersion(dataElement.BlobVersionId));
         pgcom.Parameters.AddWithValue(
@@ -150,7 +150,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     )
     {
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteForCleanupSql);
-        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(dataElement.Id));
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElement.Id);
 
         int rc = (int)await pgcom.ExecuteScalarAsync(cancellationToken);
         return rc == 1;
@@ -158,14 +158,14 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
 
     /// <inheritdoc/>
     public async Task<bool> DeleteForInstance(
-        string instanceId,
+        Guid instanceGuid,
         CancellationToken cancellationToken = default
     )
     {
         try
         {
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteForInstanceSql);
-            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceId));
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
 
             await pgcom.ExecuteScalarAsync(cancellationToken);
             return true;
@@ -174,8 +174,8 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         {
             _logger.LogError(
                 ex,
-                "Error deleting data elements for instance {instanceId}",
-                instanceId
+                "Error deleting data elements for instance {InstanceGuid}",
+                instanceGuid
             );
             return false;
         }

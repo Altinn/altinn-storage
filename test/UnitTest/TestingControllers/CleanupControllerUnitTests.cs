@@ -32,10 +32,9 @@ public class CleanupControllerUnitTests
         Guid instanceGuid = Guid.NewGuid();
         const int storageAccountNumber = 7;
         const int blobStorageAccountNumber = 9;
-        string storageInstanceId = instanceGuid.ToString().ToUpperInvariant();
         InstanceInternal instance = new()
         {
-            Id = storageInstanceId,
+            Id = instanceGuid,
             AppId = "ttd/app",
             Org = "ttd",
             InstanceOwner = new InstanceOwner { PartyId = "1337" },
@@ -108,7 +107,7 @@ public class CleanupControllerUnitTests
                 repository.DeleteDataBlobs(
                     "storage-org",
                     "stored/app",
-                    instanceGuid.ToString(),
+                    instanceGuid,
                     blobStorageAccountNumber,
                     It.IsAny<CancellationToken>()
                 )
@@ -116,7 +115,7 @@ public class CleanupControllerUnitTests
             .ReturnsAsync(true);
         dataRepositoryMock
             .Setup(repository =>
-                repository.DeleteForInstance(instanceGuid.ToString(), It.IsAny<CancellationToken>())
+                repository.DeleteForInstance(instanceGuid, It.IsAny<CancellationToken>())
             )
             .ReturnsAsync(true);
 
@@ -135,17 +134,6 @@ public class CleanupControllerUnitTests
         blobRepositoryMock.VerifyAll();
         dataRepositoryMock.VerifyAll();
         instanceRepositoryMock.VerifyAll();
-        blobRepositoryMock.Verify(
-            repository =>
-                repository.DeleteDataBlobs(
-                    instance.Org,
-                    instance.AppId,
-                    instanceGuid.ToString(),
-                    storageAccountNumber,
-                    It.IsAny<CancellationToken>()
-                ),
-            Times.Never
-        );
         blobRepositoryMock.Verify(
             repository =>
                 repository.DeleteBlobsIfExists(
@@ -182,7 +170,7 @@ public class CleanupControllerUnitTests
         const int blobStorageAccountNumber = 9;
         InstanceInternal instance = new()
         {
-            Id = instanceGuid.ToString(),
+            Id = instanceGuid,
             AppId = "ttd/app",
             Org = "ttd",
             InstanceOwner = new InstanceOwner { PartyId = "1337" },
@@ -245,7 +233,7 @@ public class CleanupControllerUnitTests
                 repository.DeleteDataBlobs(
                     "storage-org",
                     "stored/app",
-                    instanceGuid.ToString(),
+                    instanceGuid,
                     blobStorageAccountNumber,
                     It.IsAny<CancellationToken>()
                 )
@@ -268,7 +256,7 @@ public class CleanupControllerUnitTests
         instanceRepositoryMock.VerifyAll();
         dataRepositoryMock.Verify(
             repository =>
-                repository.DeleteForInstance(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+                repository.DeleteForInstance(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
             Times.Never
         );
         instanceRepositoryMock.Verify(
@@ -278,15 +266,14 @@ public class CleanupControllerUnitTests
     }
 
     [Fact]
-    public async Task CleanupInstancesForApp_ConsumesDomainPagesAndStorageFormatIdDirectly()
+    public async Task CleanupInstancesForApp_PagesThroughDomainQueryResultsUntilExhausted()
     {
         using CancellationTokenSource cancellationTokenSource = new();
-        Guid instanceGuid = Guid.Parse("01234567-89ab-cdef-0123-456789abcdef");
-        string uppercaseStorageId = instanceGuid.ToString().ToUpperInvariant();
+        Guid instanceGuid = Guid.NewGuid();
         const int storageAccountNumber = 7;
         InstanceInternal instance = new()
         {
-            Id = uppercaseStorageId,
+            Id = instanceGuid,
             AppId = "ttd/app",
             Org = "ttd",
             InstanceOwner = new() { PartyId = "1337" },
@@ -335,7 +322,7 @@ public class CleanupControllerUnitTests
                 repository.DeleteDataBlobs(
                     instance.Org,
                     instance.AppId,
-                    uppercaseStorageId,
+                    instanceGuid,
                     storageAccountNumber,
                     CancellationToken.None
                 )
@@ -343,7 +330,7 @@ public class CleanupControllerUnitTests
             .ReturnsAsync(true);
         dataRepositoryMock
             .Setup(repository =>
-                repository.DeleteForInstance(instanceGuid.ToString(), cancellationTokenSource.Token)
+                repository.DeleteForInstance(instanceGuid, cancellationTokenSource.Token)
             )
             .ReturnsAsync(true);
         CleanupController controller = CreateController(
@@ -427,7 +414,7 @@ public class CleanupControllerUnitTests
             InstanceGuid = instanceGuid.ToString(),
             BlobStoragePath = BlobRepository.GetVersionedBlobPath(
                 "stored/app",
-                instanceGuid.ToString(),
+                instanceGuid,
                 secondBlobVersionId
             ),
         };
@@ -456,16 +443,8 @@ public class CleanupControllerUnitTests
         Mock<IDataRepository> dataRepositoryMock = new();
         string[] expectedBlobStoragePaths =
         [
-            BlobRepository.GetVersionedBlobPath(
-                "stored/app",
-                instanceGuid.ToString(),
-                firstBlobVersionId
-            ),
-            BlobRepository.GetVersionedBlobPath(
-                "stored/app",
-                instanceGuid.ToString(),
-                secondBlobVersionId
-            ),
+            BlobRepository.GetVersionedBlobPath("stored/app", instanceGuid, firstBlobVersionId),
+            BlobRepository.GetVersionedBlobPath("stored/app", instanceGuid, secondBlobVersionId),
         ];
         int callOrder = 0;
 
@@ -634,16 +613,8 @@ public class CleanupControllerUnitTests
         );
         string[] expectedBlobStoragePaths =
         [
-            BlobRepository.GetVersionedBlobPath(
-                "ttd/app",
-                instanceGuid.ToString(),
-                firstBlobVersionId
-            ),
-            BlobRepository.GetVersionedBlobPath(
-                "ttd/app",
-                instanceGuid.ToString(),
-                secondBlobVersionId
-            ),
+            BlobRepository.GetVersionedBlobPath("ttd/app", instanceGuid, firstBlobVersionId),
+            BlobRepository.GetVersionedBlobPath("ttd/app", instanceGuid, secondBlobVersionId),
         ];
         int callOrder = 0;
 

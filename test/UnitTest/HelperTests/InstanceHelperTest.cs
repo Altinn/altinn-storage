@@ -25,7 +25,7 @@ public class InstanceHelperTest
     public void ConvertToMessageBoxInstance_TC01()
     {
         // Arrange
-        string instanceGuid = Guid.NewGuid().ToString();
+        Guid instanceGuid = Guid.NewGuid();
         InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
         instance.Id = instanceGuid;
 
@@ -33,7 +33,7 @@ public class InstanceHelperTest
         MessageBoxInstance actual = InstanceHelper.ConvertToMessageBoxInstance(instance);
 
         // Assert
-        Assert.Equal(instanceGuid, actual.Id);
+        Assert.Equal(instanceGuid.ToString(), actual.Id);
         Assert.Equal(2, actual.DataValues.Count);
     }
 

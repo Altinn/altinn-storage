@@ -151,19 +151,19 @@ public class MigrationController : ControllerBase
                 );
             }
 
-            string instanceId = isA1
+            Guid? existingInstanceGuid = isA1
                 ? await _a2Repository.GetA1MigrationInstanceId(a1ArchiveReference)
                 : await _a2Repository.GetA2MigrationInstanceId(a2ArchiveReference);
-            if (instanceId != null)
+            if (existingInstanceGuid is { } instanceGuid)
             {
                 storedInstance = await _instanceRepository.GetOne(
-                    Guid.Parse(instanceId),
+                    instanceGuid,
                     false,
                     cancellationToken
                 );
                 bool hasDialog = storedInstance?.DataValues?.ContainsKey("dialog.id") ?? false;
 
-                await CleanupOldMigrationInternal(instanceId, cancellationToken);
+                await CleanupOldMigrationInternal(instanceGuid, cancellationToken);
 
                 if (hasDialog)
                 {
@@ -293,7 +293,7 @@ public class MigrationController : ControllerBase
                 );
                 blobStoragePath = BlobRepository.GetVersionedBlobPath(
                     instance.AppId,
-                    instanceGuid.ToString(),
+                    instanceGuid,
                     blobVersionId
                 );
             }
@@ -313,11 +313,11 @@ public class MigrationController : ControllerBase
 
             DataElementInternal dataElement = new()
             {
-                Id = dataElementId.ToString(),
+                Id = dataElementId,
                 Created = created,
                 CreatedBy = instance.CreatedBy,
                 DataType = dataType,
-                InstanceGuid = instanceGuid.ToString(),
+                InstanceGuid = instanceGuid,
                 IsRead = true,
                 LastChanged = lastChanged,
                 LastChangedBy = instance.LastChangedBy,
@@ -725,7 +725,7 @@ public class MigrationController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        if (!await CleanupOldMigrationInternal(instanceGuid.ToString(), cancellationToken))
+        if (!await CleanupOldMigrationInternal(instanceGuid, cancellationToken))
         {
             return BadRequest();
         }
@@ -752,12 +752,12 @@ public class MigrationController : ControllerBase
     }
 
     private async Task<bool> CleanupOldMigrationInternal(
-        string instanceId,
+        Guid instanceGuid,
         CancellationToken cancellationToken
     )
     {
         InstanceInternal instance = await _instanceRepository.GetOne(
-            new Guid(instanceId),
+            instanceGuid,
             false,
             cancellationToken
         );
@@ -783,18 +783,17 @@ public class MigrationController : ControllerBase
             instance.Org = "ttd";
         }
 
-        instance.Id = instanceId;
         await _blobRepository.DeleteDataBlobs(
             instance.Org,
             instance.AppId,
-            instance.Id,
+            instanceGuid,
             app.StorageAccountNumber,
             CancellationToken.None
         );
-        await _dataRepository.DeleteForInstance(instanceId);
-        await _instanceEventRepository.DeleteAllInstanceEvents(instanceId);
-        await _instanceRepository.Delete(Guid.Parse(instance.Id), cancellationToken);
-        await _a2Repository.DeleteMigrationState(instanceId);
+        await _dataRepository.DeleteForInstance(instanceGuid);
+        await _instanceEventRepository.DeleteAllInstanceEvents(instanceGuid);
+        await _instanceRepository.Delete(instanceGuid, cancellationToken);
+        await _a2Repository.DeleteMigrationState(instanceGuid);
 
         return true;
     }

@@ -95,7 +95,7 @@ public class ContentOnDemandControllerTests
     {
         return new InstanceInternal
         {
-            Id = $"{_instanceOwnerPartyId}/{_instanceGuid}",
+            Id = _instanceGuid,
             AppId = $"{_org}/{_app}",
             Org = _org,
             InstanceOwner = new InstanceOwner { PartyId = _instanceOwnerPartyId.ToString() },
@@ -103,14 +103,14 @@ public class ContentOnDemandControllerTests
             [
                 new DataElementInternal
                 {
-                    Id = _htmlDataGuid.ToString(),
+                    Id = _htmlDataGuid,
                     DataType = "ref-data-as-html",
                     BlobStoragePath = "ondemand/formdatahtml",
                     Metadata = [new KeyValueEntry { Key = "formid", Value = "1000" }],
                 },
                 new DataElementInternal
                 {
-                    Id = "3a1b2f4c-7a1e-4b25-9f0f-0d6a0f3a5b21",
+                    Id = new Guid("3a1b2f4c-7a1e-4b25-9f0f-0d6a0f3a5b21"),
                     DataType = "a2-xml",
                     Metadata =
                     [

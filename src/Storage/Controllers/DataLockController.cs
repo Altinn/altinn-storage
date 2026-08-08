@@ -88,9 +88,7 @@ public class DataLockController : ControllerBase
             return Forbid();
         }
 
-        DataElementInternal? dataElement = instance.Data.FirstOrDefault(d =>
-            Guid.TryParse(d.Id, out Guid id) && id == dataGuid
-        );
+        DataElementInternal? dataElement = instance.Data.FirstOrDefault(d => d.Id == dataGuid);
 
         if (dataElement?.Locked is true)
         {

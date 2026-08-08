@@ -20,8 +20,8 @@ internal static class DataElementExtensions
 
         return new DataElement
         {
-            Id = dataElement.Id,
-            InstanceGuid = dataElement.InstanceGuid,
+            Id = dataElement.Id.ToString(),
+            InstanceGuid = dataElement.InstanceGuid.ToString(),
             DataType = dataElement.DataType,
             Filename = dataElement.Filename,
             ContentType = dataElement.ContentType,
@@ -57,8 +57,10 @@ internal static class DataElementExtensions
 
         return new DataElementInternal
         {
-            Id = dataElement.Id,
-            InstanceGuid = dataElement.InstanceGuid,
+            Id = dataElement.Id is null ? Guid.Empty : Guid.Parse(dataElement.Id),
+            InstanceGuid = dataElement.InstanceGuid is null
+                ? Guid.Empty
+                : Guid.Parse(dataElement.InstanceGuid),
             DataType = dataElement.DataType,
             Filename = dataElement.Filename,
             ContentType = dataElement.ContentType,

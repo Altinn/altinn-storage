@@ -795,7 +795,7 @@ public class DataController : ControllerBase
         );
         string versionedBlobStoragePath = BlobRepository.GetVersionedBlobPath(
             instance.AppId,
-            instanceGuid.ToString(),
+            instanceGuid,
             blobVersionId
         );
 
@@ -1216,7 +1216,7 @@ public class DataController : ControllerBase
                 [],
                 [
                     new InstanceMutationDataElementUpdate(
-                        Guid.Parse(dataElement.Id),
+                        dataElement.Id,
                         new Dictionary<string, object> { ["/deleteStatus"] = deleteStatus },
                         null,
                         IgnoreLock: true
@@ -1300,8 +1300,8 @@ public class DataController : ControllerBase
 
         string legacyBlobStoragePath = DataElementHelper.DataFileName(
             appId,
-            instanceGuid.ToString(),
-            dataGuid.ToString()
+            instanceGuid,
+            dataGuid
         );
         if (string.Equals(blobStoragePath, legacyBlobStoragePath, StringComparison.Ordinal))
         {
@@ -1316,7 +1316,7 @@ public class DataController : ControllerBase
 
         string versionedBlobStoragePath = BlobRepository.GetVersionedBlobPath(
             appId,
-            instanceGuid.ToString(),
+            instanceGuid,
             blobVersionId
         );
         return string.Equals(blobStoragePath, versionedBlobStoragePath, StringComparison.Ordinal);

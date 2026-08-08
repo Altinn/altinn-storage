@@ -987,7 +987,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         );
         Assert.Contains(
             capturedMutation.DeleteDataElements,
-            delete => delete.DataElement.Id == de.Id && delete.IgnoreLock
+            delete => delete.DataElement.Id.ToString() == de.Id && delete.IgnoreLock
         );
         InstanceEvent deletedEvent = Assert.Single(capturedMutation.InstanceEvents);
         Assert.Equal(InstanceEventType.Deleted.ToString(), deletedEvent.EventType);

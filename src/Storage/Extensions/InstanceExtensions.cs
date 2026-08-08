@@ -69,21 +69,22 @@ internal static class InstanceExtensions
         };
     }
 
-    private static string ParseStorageId(Instance instance)
+    private static Guid ParseStorageId(Instance instance)
     {
-        if (instance.Id?.Contains('/', StringComparison.Ordinal) == true)
+        if (instance.Id is null)
         {
-            return instance.Id.Split('/')[1];
+            return Guid.Empty;
         }
 
-        return instance.Id;
+        string[] parts = instance.Id.Split('/');
+        return Guid.Parse(parts.Length > 1 ? parts[1] : parts[0]);
     }
 
     private static string ToApiId(InstanceInternal instance)
     {
         string partyId = instance.InstanceOwner?.PartyId;
-        return !string.IsNullOrWhiteSpace(partyId) && !string.IsNullOrWhiteSpace(instance.Id)
+        return !string.IsNullOrWhiteSpace(partyId) && instance.Id != Guid.Empty
             ? $"{partyId}/{instance.Id}"
-            : instance.Id;
+            : instance.Id.ToString();
     }
 }

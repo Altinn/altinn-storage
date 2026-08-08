@@ -154,7 +154,7 @@ public class SigningServiceTest
                     [],
                     new InstanceInternal
                     {
-                        Id = fixture.InstanceGuid.ToString(),
+                        Id = fixture.InstanceGuid,
                         Versions = new StorageVersions(9, 12),
                     }
                 )
@@ -205,7 +205,7 @@ public class SigningServiceTest
             fixture.CapturedMutation.InstanceEvents.Select(instanceEvent => instanceEvent.EventType)
         );
         Assert.Equal(
-            fixture.OldSignatureDataElements[0].Id,
+            fixture.OldSignatureDataElements[0].Id.ToString(),
             fixture.CapturedMutation.InstanceEvents[1].DataId
         );
         fixture.DataService.Verify(
@@ -726,8 +726,8 @@ public class SigningServiceTest
             oldSignatureDataElements.Add(
                 new DataElementInternal
                 {
-                    Id = Guid.NewGuid().ToString(),
-                    InstanceGuid = instanceGuid.ToString(),
+                    Id = Guid.NewGuid(),
+                    InstanceGuid = instanceGuid,
                     DataType = _signatureDataType,
                     BlobStoragePath = $"org/app/instance/signature-{index}.json",
                 }
@@ -745,7 +745,7 @@ public class SigningServiceTest
 
         InstanceInternal instance = new()
         {
-            Id = instanceGuid.ToString(),
+            Id = instanceGuid,
             AppId = "org/app",
             Org = "org",
             InstanceOwner = new InstanceOwner(),
@@ -763,7 +763,7 @@ public class SigningServiceTest
         };
         DataElementInternal stagedDataElement = new()
         {
-            Id = Guid.NewGuid().ToString(),
+            Id = Guid.NewGuid(),
             BlobStoragePath = "org/app/instance/data-elements/staged",
             BlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7()),
             Locked = true,
@@ -890,7 +890,7 @@ public class SigningServiceTest
                     new InstanceEvent
                     {
                         EventType = InstanceEventType.Deleted.ToString(),
-                        DataId = oldSignatureDataElement.Id,
+                        DataId = oldSignatureDataElement.Id.ToString(),
                     }
                 );
             dataService

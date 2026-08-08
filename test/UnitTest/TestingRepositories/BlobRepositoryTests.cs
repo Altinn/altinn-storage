@@ -22,14 +22,11 @@ public class BlobRepositoryTests
     public void GetVersionedBlobPath_WithVersionId_UsesDataElementsPath()
     {
         string blobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        Guid instanceGuid = Guid.NewGuid();
 
-        string result = BlobRepository.GetVersionedBlobPath(
-            "ttd/app",
-            "instance-guid",
-            blobVersionId
-        );
+        string result = BlobRepository.GetVersionedBlobPath("ttd/app", instanceGuid, blobVersionId);
 
-        Assert.Equal($"ttd/app/instance-guid/data-elements/{blobVersionId}", result);
+        Assert.Equal($"ttd/app/{instanceGuid}/data-elements/{blobVersionId}", result);
     }
 }
 
@@ -118,7 +115,7 @@ public class BlobRepositoryAzuriteTests : IClassFixture<BlobRepositoryAzuriteFix
         bool result = await _fixture.Repository.DeleteDataBlobs(
             BlobRepositoryAzuriteFixture.Org,
             "ttd/app",
-            targetInstanceGuid,
+            new Guid(targetInstanceGuid),
             null
         );
 

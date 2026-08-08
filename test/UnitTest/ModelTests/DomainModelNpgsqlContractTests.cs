@@ -84,7 +84,7 @@ public sealed class DomainModelNpgsqlContractTests : IClassFixture<DomainModelNp
             DomainModelContractTestData.LegacyInstanceJsonWithoutIgnoredKeys
         );
 
-        Assert.Equal("ABCDEF12-3456-4789-ABCD-EF1234567890", withNullKeys.Id);
+        Assert.Equal(new Guid("ABCDEF12-3456-4789-ABCD-EF1234567890"), withNullKeys.Id);
         Assert.Equal("legacy-org", withNullKeys.Org);
         Assert.Null(withNullKeys.AppId);
         Assert.Null(withNullKeys.DueBefore);
@@ -98,7 +98,7 @@ public sealed class DomainModelNpgsqlContractTests : IClassFixture<DomainModelNp
         Assert.Null(withNullKeys.Versions);
         Assert.Equal(0, withNullKeys.InternalId);
 
-        Assert.Equal("mixedCase-Id-Is-Preserved", withoutKeys.Id);
+        Assert.Equal(new Guid("0D5C9F31-7B2E-4A68-9C14-5E8F3A6B7C2D"), withoutKeys.Id);
         Assert.Equal("legacy/app", withoutKeys.AppId);
         Assert.Null(withoutKeys.InstanceOwner);
         Assert.Null(withoutKeys.Status);
@@ -117,8 +117,8 @@ public sealed class DomainModelNpgsqlContractTests : IClassFixture<DomainModelNp
             DomainModelContractTestData.LegacyDataElementJsonWithoutIgnoredKey
         );
 
-        Assert.Equal("legacy-non-guid-data-element-id", withNullKey.Id);
-        Assert.Equal("legacy-non-guid-instance-id", withNullKey.InstanceGuid);
+        Assert.Equal(new Guid("6b0a9d84-3c15-4e27-8f39-2a4b6c8d0e1f"), withNullKey.Id);
+        Assert.Equal(new Guid("3e2f1a0b-9c8d-4e7f-8a6b-5c4d3e2f1a0b"), withNullKey.InstanceGuid);
         Assert.Null(withNullKey.Filename);
         Assert.Null(withNullKey.BlobStoragePath);
         Assert.True(withNullKey.IsRead);
@@ -131,8 +131,8 @@ public sealed class DomainModelNpgsqlContractTests : IClassFixture<DomainModelNp
         Assert.Equal(RelationType.GeneratedFrom, withNullKey.References[0].Relation);
         Assert.Equal(ReferenceType.Task, withNullKey.References[0].ValueType);
         Assert.Null(withNullKey.BlobVersionId);
-        Assert.Equal(DomainModelContractTestData.DataElementGuid, withoutKey.Id);
-        Assert.Equal(DomainModelContractTestData.InstanceGuid, withoutKey.InstanceGuid);
+        Assert.Equal(DomainModelContractTestData.DataElementGuid, withoutKey.Id.ToString());
+        Assert.Equal(DomainModelContractTestData.InstanceGuid, withoutKey.InstanceGuid.ToString());
         Assert.Null(withoutKey.DataType);
         Assert.Null(withoutKey.Filename);
         Assert.True(withoutKey.IsRead);
@@ -140,10 +140,9 @@ public sealed class DomainModelNpgsqlContractTests : IClassFixture<DomainModelNp
     }
 
     [Fact]
-    public async Task StringInstanceId_PreservesLegacyCasingInsteadOfChangingArchiveMatching()
+    public async Task GuidInstanceId_NormalizesLegacyCasingSoArchiveMatchingApplies()
     {
-        const string legacyId = "ABCDEF12-3456-4789-ABCD-EF1234567890";
-        InstanceInternal domain = new() { Id = legacyId };
+        InstanceInternal domain = new() { Id = new Guid("ABCDEF12-3456-4789-ABCD-EF1234567890") };
         InstanceQueryParameters query = new() { ArchiveReference = "EF1234567890" };
         string normalizedArchiveReference = (string)
             query.GeneratePostgreSQLParameters()["_archiveReference"];
@@ -156,9 +155,9 @@ public sealed class DomainModelNpgsqlContractTests : IClassFixture<DomainModelNp
         await using NpgsqlDataReader reader = await command.ExecuteReaderAsync();
 
         Assert.True(await reader.ReadAsync());
-        Assert.Equal(legacyId, reader.GetString(0));
+        Assert.Equal("abcdef12-3456-4789-abcd-ef1234567890", reader.GetString(0));
         Assert.Equal("ef1234567890", normalizedArchiveReference);
-        Assert.False(reader.GetBoolean(1));
+        Assert.True(reader.GetBoolean(1));
     }
 
     private async Task<string> SerializeThroughNpgsql<T>(T value)

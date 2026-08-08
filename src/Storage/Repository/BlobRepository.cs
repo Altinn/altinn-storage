@@ -235,7 +235,7 @@ public class BlobRepository(
     public async Task<bool> DeleteDataBlobs(
         string org,
         string appId,
-        string instanceGuid,
+        Guid instanceGuid,
         int? storageAccountNumber,
         CancellationToken cancellationToken = default
     )
@@ -278,7 +278,7 @@ public class BlobRepository(
         return true;
     }
 
-    internal static string GetVersionedBlobPath(string appId, string instanceGuid, string versionId)
+    internal static string GetVersionedBlobPath(string appId, Guid instanceGuid, string versionId)
     {
         return $"{appId}/{instanceGuid}/data-elements/{versionId}";
     }

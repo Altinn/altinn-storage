@@ -86,7 +86,7 @@ public class StudioInstancesControllerTests
     public async Task GetInstances_ReturnsOk()
     {
         // Arrange
-        const string uppercaseStorageId = "01234567-89AB-CDEF-0123-456789ABCDEF";
+        Guid storageId = new("01234567-89ab-cdef-0123-456789abcdef");
         var instanceRepositoryMock = new Mock<IInstanceRepository>();
         instanceRepositoryMock
             .Setup(ir =>
@@ -104,7 +104,7 @@ public class StudioInstancesControllerTests
                     {
                         new InstanceInternal
                         {
-                            Id = uppercaseStorageId,
+                            Id = storageId,
                             InstanceOwner = new() { PartyId = "1337" },
                             AppId = "ttd/app",
                             Org = "ttd",
@@ -136,7 +136,7 @@ public class StudioInstancesControllerTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         string content = await response.Content.ReadAsStringAsync();
         Assert.Equal(
-            $"{{\"count\":1,\"self\":null,\"next\":null,\"instances\":[{{\"id\":\"{uppercaseStorageId}\",\"org\":\"ttd\",\"app\":\"app\",\"isRead\":true,\"currentTaskId\":\"Task_1\",\"currentTaskName\":\"Review\",\"completedAt\":\"2026-01-04T05:06:07+00:00\",\"archivedAt\":\"2026-01-05T06:07:08+00:00\",\"softDeletedAt\":null,\"hardDeletedAt\":null,\"confirmedAt\":null,\"createdAt\":\"2026-01-02T03:04:05+00:00\",\"lastChangedAt\":\"2026-01-03T04:05:06+00:00\"}}]}}",
+            $"{{\"count\":1,\"self\":null,\"next\":null,\"instances\":[{{\"id\":\"{storageId}\",\"org\":\"ttd\",\"app\":\"app\",\"isRead\":true,\"currentTaskId\":\"Task_1\",\"currentTaskName\":\"Review\",\"completedAt\":\"2026-01-04T05:06:07+00:00\",\"archivedAt\":\"2026-01-05T06:07:08+00:00\",\"softDeletedAt\":null,\"hardDeletedAt\":null,\"confirmedAt\":null,\"createdAt\":\"2026-01-02T03:04:05+00:00\",\"lastChangedAt\":\"2026-01-03T04:05:06+00:00\"}}]}}",
             content
         );
         instanceRepositoryMock.VerifyAll();
@@ -251,8 +251,8 @@ public class StudioInstancesControllerTests
                     ContinuationToken = "next/token",
                     Instances =
                     [
-                        CreateListInstance("BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB"),
-                        CreateListInstance("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+                        CreateListInstance(new("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")),
+                        CreateListInstance(new("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")),
                     ],
                 }
             );
@@ -290,7 +290,7 @@ public class StudioInstancesControllerTests
             okResult.Value
         );
         Assert.Equal(
-            ["BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB", "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"],
+            ["bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
             response.Instances.Select(instance => instance.Id)
         );
         Assert.Equal("next%2ftoken", response.Next);
@@ -395,7 +395,7 @@ public class StudioInstancesControllerTests
         var instanceGuid = Guid.Parse("01234567-89ab-cdef-0123-456789abcdef");
         var instance = new InstanceInternal
         {
-            Id = instanceGuid.ToString(),
+            Id = instanceGuid,
             InstanceOwner = new() { PartyId = "1337" },
             AppId = "ttd/app",
             Org = "ttd",
@@ -430,7 +430,7 @@ public class StudioInstancesControllerTests
             [
                 new()
                 {
-                    Id = "11111111-2222-3333-4444-555555555555",
+                    Id = new Guid("11111111-2222-3333-4444-555555555555"),
                     DataType = "main",
                     ContentType = "application/json",
                     Size = 123,
@@ -474,7 +474,7 @@ public class StudioInstancesControllerTests
         var instanceGuid = Guid.Parse("31234567-89ab-cdef-0123-456789abcdef");
         var instance = new InstanceInternal
         {
-            Id = instanceGuid.ToString(),
+            Id = instanceGuid,
             InstanceOwner = new() { PartyId = "1337" },
             AppId = "ttd/app",
             Org = "ttd",
@@ -497,40 +497,25 @@ public class StudioInstancesControllerTests
         );
     }
 
-    [Fact]
-    public async Task GetSingleInstance_UppercaseStorageId_PreservesCasing()
-    {
-        var instanceGuid = Guid.Parse("41234567-89ab-cdef-0123-456789abcdef");
-        string uppercaseStorageId = instanceGuid.ToString().ToUpperInvariant();
-        var instance = new InstanceInternal
-        {
-            Id = uppercaseStorageId,
-            InstanceOwner = new() { PartyId = "1337" },
-            AppId = "ttd/app",
-            Org = "ttd",
-            Data = [],
-        };
-        var instanceRepositoryMock = new Mock<IInstanceRepository>();
-        instanceRepositoryMock
-            .Setup(ir => ir.GetOne(instanceGuid, true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(instance);
-        HttpClient client = GetAuthenticatedClient(
-            instanceRepository: instanceRepositoryMock.Object
-        );
-
-        HttpResponseMessage response = await client.GetAsync($"{BasePath}/ttd/app/{instanceGuid}");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        string content = await response.Content.ReadAsStringAsync();
-        var simpleInstanceDetails = JsonConvert.DeserializeObject<SimpleInstanceDetails>(content);
-        Assert.Equal(uppercaseStorageId, simpleInstanceDetails.Id);
-        Assert.Contains($"\"id\":\"{uppercaseStorageId}\"", content);
-    }
-
     [Theory]
-    [InlineData(null, "ttd", "ttd/app", "Instance instance-id is missing InstanceOwner.PartyId.")]
-    [InlineData("1337", null, "ttd/app", "Instance instance-id is missing Org/AppId.")]
-    [InlineData("1337", "ttd", null, "Instance instance-id is missing Org/AppId.")]
+    [InlineData(
+        null,
+        "ttd",
+        "ttd/app",
+        "Instance 51234567-89ab-cdef-0123-456789abcdef is missing InstanceOwner.PartyId."
+    )]
+    [InlineData(
+        "1337",
+        null,
+        "ttd/app",
+        "Instance 51234567-89ab-cdef-0123-456789abcdef is missing Org/AppId."
+    )]
+    [InlineData(
+        "1337",
+        "ttd",
+        null,
+        "Instance 51234567-89ab-cdef-0123-456789abcdef is missing Org/AppId."
+    )]
     [InlineData(
         "1337",
         "ttd",
@@ -546,7 +531,7 @@ public class StudioInstancesControllerTests
     {
         var instance = new InstanceInternal
         {
-            Id = "instance-id",
+            Id = new Guid("51234567-89ab-cdef-0123-456789abcdef"),
             InstanceOwner = new() { PartyId = partyId },
             Org = org,
             AppId = appId,
@@ -1305,7 +1290,7 @@ public class StudioInstancesControllerTests
         return client;
     }
 
-    private static InstanceInternal CreateListInstance(string id) =>
+    private static InstanceInternal CreateListInstance(Guid id) =>
         new()
         {
             Id = id,

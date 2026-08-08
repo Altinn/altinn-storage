@@ -337,13 +337,13 @@ public class AuthorizationServiceTest
     public async Task AuthorizeMessageBoxInstances_DomainBatch_UsesCompositeIdsAndSortedPermitResults()
     {
         InstanceInternal second = CreateMessageBoxDomainInstance(
-            "B45EA5DB-6DD4-4476-B774-BDB2A09DA7EA"
+            new Guid("B45EA5DB-6DD4-4476-B774-BDB2A09DA7EA")
         );
         InstanceInternal first = CreateMessageBoxDomainInstance(
-            "A45EA5DB-6DD4-4476-B774-BDB2A09DA7EA"
+            new Guid("A45EA5DB-6DD4-4476-B774-BDB2A09DA7EA")
         );
         InstanceInternal denied = CreateMessageBoxDomainInstance(
-            "C45EA5DB-6DD4-4476-B774-BDB2A09DA7EA"
+            new Guid("C45EA5DB-6DD4-4476-B774-BDB2A09DA7EA")
         );
         XacmlJsonResponse response = new()
         {
@@ -372,14 +372,17 @@ public class AuthorizationServiceTest
                 .Where(attribute => attribute.AttributeId == "urn:altinn:instance-id")
                 .Select(attribute => attribute.Value)
         );
-        Assert.Equal([first.Id, second.Id], authorized.Select(instance => instance.Id));
-        Assert.DoesNotContain(authorized, instance => instance.Id == denied.Id);
+        Assert.Equal(
+            [first.Id.ToString(), second.Id.ToString()],
+            authorized.Select(instance => instance.Id)
+        );
+        Assert.DoesNotContain(authorized, instance => instance.Id == denied.Id.ToString());
     }
 
     [Fact]
     public async Task AuthorizeInstances_DomainInput_UsesCompositeInstanceId()
     {
-        const string storageId = "A45EA5DB-6DD4-4476-B774-BDB2A09DA7EA";
+        Guid storageId = new("a45ea5db-6dd4-4476-b774-bdb2a09da7ea");
         InstanceInternal instance = CreateDomainInstance(storageId);
         List<XacmlJsonRequestRoot> requests = [];
 
@@ -396,10 +399,18 @@ public class AuthorizationServiceTest
     [Fact]
     public async Task AuthorizeInstances_DomainList_ReturnsOnlyPermittedInstancesInDecisionOrder()
     {
-        InstanceInternal first = CreateDomainInstance("045ea5db-6dd4-4476-b774-bdb2a09da7ea");
-        InstanceInternal second = CreateDomainInstance("145ea5db-6dd4-4476-b774-bdb2a09da7ea");
-        InstanceInternal denied = CreateDomainInstance("245ea5db-6dd4-4476-b774-bdb2a09da7ea");
-        InstanceInternal omitted = CreateDomainInstance("345ea5db-6dd4-4476-b774-bdb2a09da7ea");
+        InstanceInternal first = CreateDomainInstance(
+            new Guid("045ea5db-6dd4-4476-b774-bdb2a09da7ea")
+        );
+        InstanceInternal second = CreateDomainInstance(
+            new Guid("145ea5db-6dd4-4476-b774-bdb2a09da7ea")
+        );
+        InstanceInternal denied = CreateDomainInstance(
+            new Guid("245ea5db-6dd4-4476-b774-bdb2a09da7ea")
+        );
+        InstanceInternal omitted = CreateDomainInstance(
+            new Guid("345ea5db-6dd4-4476-b774-bdb2a09da7ea")
+        );
         XacmlJsonResponse response = new()
         {
             Response =
@@ -438,10 +449,10 @@ public class AuthorizationServiceTest
     }
 
     [Fact]
-    public async Task AuthorizeInstanceAction_NullId_OmitsTask()
+    public async Task AuthorizeInstanceAction_UnsetId_OmitsTask()
     {
         InstanceInternal instance = CreateDomainInstance();
-        instance.Id = null;
+        instance.Id = Guid.Empty;
         List<XacmlJsonRequestRoot> requests = [];
 
         await CreateRequestCapturingService(requests)
@@ -492,8 +503,9 @@ public class AuthorizationServiceTest
     [Fact]
     public async Task AuthorizeEnrichedInstanceAction_EquivalentInputsShareCacheEntry()
     {
-        InstanceInternal first = CreateDomainInstance();
-        InstanceInternal second = CreateDomainInstance();
+        Guid instanceGuid = Guid.NewGuid();
+        InstanceInternal first = CreateDomainInstance(instanceGuid);
+        InstanceInternal second = CreateDomainInstance(instanceGuid);
         List<XacmlJsonRequestRoot> requests = [];
         Mock<IPDP> pdp = new();
         using MemoryCache cache = new(new MemoryCacheOptions());
@@ -570,13 +582,11 @@ public class AuthorizationServiceTest
         );
     }
 
-    private static InstanceInternal CreateDomainInstance(
-        string instanceGuid = "045ea5db-6dd4-4476-b774-bdb2a09da7ea"
-    )
+    private static InstanceInternal CreateDomainInstance(Guid? instanceGuid = null)
     {
         return new InstanceInternal
         {
-            Id = instanceGuid,
+            Id = instanceGuid ?? Guid.NewGuid(),
             InstanceOwner = new InstanceOwner { PartyId = "1000" },
             AppId = $"{Org}/{App}",
             Org = Org,
@@ -588,7 +598,7 @@ public class AuthorizationServiceTest
         };
     }
 
-    private static InstanceInternal CreateMessageBoxDomainInstance(string instanceGuid)
+    private static InstanceInternal CreateMessageBoxDomainInstance(Guid instanceGuid)
     {
         InstanceInternal instance = CreateDomainInstance(instanceGuid);
         instance.Status = new InstanceStatus();
@@ -643,7 +653,7 @@ public class AuthorizationServiceTest
         {
             new InstanceInternal
             {
-                Id = Guid.NewGuid().ToString(),
+                Id = Guid.NewGuid(),
                 Process = new ProcessState
                 {
                     CurrentTask = new ProcessElementInfo { Name = "test_task" },
@@ -655,7 +665,7 @@ public class AuthorizationServiceTest
             },
             new InstanceInternal
             {
-                Id = Guid.NewGuid().ToString(),
+                Id = Guid.NewGuid(),
                 InstanceOwner = new InstanceOwner { PartyId = "1002" },
                 AppId = Org + "/" + App,
                 Org = Org,
@@ -663,7 +673,7 @@ public class AuthorizationServiceTest
             },
             new InstanceInternal
             {
-                Id = Guid.NewGuid().ToString(),
+                Id = Guid.NewGuid(),
                 InstanceOwner = new InstanceOwner { PartyId = "1000" },
                 AppId = Org + "/" + App,
                 Org = Org,

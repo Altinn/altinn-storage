@@ -887,8 +887,8 @@ public class MessageBoxInstancesControllerTests(
     [Fact]
     public async Task Post_Search_DomainResults_ReturnsExactSortedLocalizedHttpJson()
     {
-        const string firstId = "A45EA5DB-6DD4-4476-B774-BDB2A09DA7EA";
-        const string secondId = "B45EA5DB-6DD4-4476-B774-BDB2A09DA7EB";
+        Guid firstId = new("a45ea5db-6dd4-4476-b774-bdb2a09da7ea");
+        Guid secondId = new("b45ea5db-6dd4-4476-b774-bdb2a09da7eb");
         InstanceInternal first = CreateMessageBoxSearchInstance(
             firstId,
             "Alpha case",
@@ -945,7 +945,7 @@ public class MessageBoxInstancesControllerTests(
         string content = await response.Content.ReadAsStringAsync();
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         const string expectedJson =
-            "[{\"id\":\"A45EA5DB-6DD4-4476-B774-BDB2A09DA7EA\",\"instanceOwnerId\":\"1337\",\"org\":\"tdd\",\"appName\":\"endring-av-navn\",\"title\":\"Name change, Alpha case\",\"processCurrentTask\":\"Feedback\",\"createdDateTime\":\"2026-07-11T10:30:00Z\",\"lastChangedBy\":\"20000001\",\"dueDateTime\":\"2026-08-01T12:00:00Z\",\"deleteStatus\":0,\"readStatus\":\"Read\",\"substatus\":{\"label\":\"Application approved\",\"description\":\"Application approved by all instances.\"},\"allowDelete\":true,\"allowNewCopy\":false,\"authorizedForWrite\":true,\"authorizedForSign\":false,\"archivedDateTime\":null,\"deletedDateTime\":null,\"presentationText\":\"Alpha case\",\"dataValues\":{\"case\":\"alpha\"}},{\"id\":\"B45EA5DB-6DD4-4476-B774-BDB2A09DA7EB\",\"instanceOwnerId\":\"1337\",\"org\":\"tdd\",\"appName\":\"endring-av-navn\",\"title\":\"Name change, Beta case\",\"processCurrentTask\":\"Feedback\",\"createdDateTime\":\"2026-07-10T09:15:00Z\",\"lastChangedBy\":\"20000002\",\"dueDateTime\":null,\"deleteStatus\":0,\"readStatus\":\"Unread\",\"substatus\":null,\"allowDelete\":true,\"allowNewCopy\":false,\"authorizedForWrite\":true,\"authorizedForSign\":false,\"archivedDateTime\":null,\"deletedDateTime\":null,\"presentationText\":\"Beta case\",\"dataValues\":null}]";
+            "[{\"id\":\"a45ea5db-6dd4-4476-b774-bdb2a09da7ea\",\"instanceOwnerId\":\"1337\",\"org\":\"tdd\",\"appName\":\"endring-av-navn\",\"title\":\"Name change, Alpha case\",\"processCurrentTask\":\"Feedback\",\"createdDateTime\":\"2026-07-11T10:30:00Z\",\"lastChangedBy\":\"20000001\",\"dueDateTime\":\"2026-08-01T12:00:00Z\",\"deleteStatus\":0,\"readStatus\":\"Read\",\"substatus\":{\"label\":\"Application approved\",\"description\":\"Application approved by all instances.\"},\"allowDelete\":true,\"allowNewCopy\":false,\"authorizedForWrite\":true,\"authorizedForSign\":false,\"archivedDateTime\":null,\"deletedDateTime\":null,\"presentationText\":\"Alpha case\",\"dataValues\":{\"case\":\"alpha\"}},{\"id\":\"b45ea5db-6dd4-4476-b774-bdb2a09da7eb\",\"instanceOwnerId\":\"1337\",\"org\":\"tdd\",\"appName\":\"endring-av-navn\",\"title\":\"Name change, Beta case\",\"processCurrentTask\":\"Feedback\",\"createdDateTime\":\"2026-07-10T09:15:00Z\",\"lastChangedBy\":\"20000002\",\"dueDateTime\":null,\"deleteStatus\":0,\"readStatus\":\"Unread\",\"substatus\":null,\"allowDelete\":true,\"allowNewCopy\":false,\"authorizedForWrite\":true,\"authorizedForSign\":false,\"archivedDateTime\":null,\"deletedDateTime\":null,\"presentationText\":\"Beta case\",\"dataValues\":null}]";
         Assert.Equal(expectedJson, content);
     }
 
@@ -1714,7 +1714,7 @@ public class MessageBoxInstancesControllerTests(
         repoMock
             .Setup(rm =>
                 rm.ListInstanceEvents(
-                    It.IsAny<string>(),
+                    It.IsAny<Guid>(),
                     It.Is<string[]>(eventTypes => !extepctedEventTypes.Except(eventTypes).Any()),
                     It.IsAny<DateTime?>(),
                     It.IsAny<DateTime?>()
@@ -1774,7 +1774,7 @@ public class MessageBoxInstancesControllerTests(
         repoMock
             .Setup(rm =>
                 rm.ListInstanceEvents(
-                    It.IsAny<string>(),
+                    It.IsAny<Guid>(),
                     It.IsAny<string[]>(),
                     It.IsAny<DateTime?>(),
                     It.IsAny<DateTime?>()
@@ -1828,7 +1828,7 @@ public class MessageBoxInstancesControllerTests(
         repoMock
             .Setup(rm =>
                 rm.ListInstanceEvents(
-                    It.IsAny<string>(),
+                    It.IsAny<Guid>(),
                     It.IsAny<string[]>(),
                     It.IsAny<DateTime?>(),
                     It.IsAny<DateTime?>()
@@ -1938,7 +1938,7 @@ public class MessageBoxInstancesControllerTests(
     }
 
     private static InstanceInternal CreateMessageBoxSearchInstance(
-        string id,
+        Guid id,
         string presentationText,
         DateTime created,
         string lastChangedBy

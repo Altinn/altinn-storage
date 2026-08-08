@@ -18,7 +18,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 public class InstanceRepositoryMock : IInstanceRepository
 {
     private const long TestInstanceInternalId = 1;
-    private static readonly Dictionary<string, StorageVersions> _versions = [];
+    private static readonly Dictionary<Guid, StorageVersions> _versions = [];
     private static readonly JsonSerializerOptions _options = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -35,7 +35,7 @@ public class InstanceRepositoryMock : IInstanceRepository
 
         InstanceInternal newInstance = new()
         {
-            Id = instanceGuid.ToString(),
+            Id = instanceGuid,
             AppId = instance.AppId,
             Org = instance.Org,
             InstanceOwner = instance.InstanceOwner,
@@ -118,7 +118,9 @@ public class InstanceRepositoryMock : IInstanceRepository
 
         if (!string.IsNullOrEmpty(queryParams.ArchiveReference))
         {
-            instances.RemoveAll(i => !i.Id.EndsWith(queryParams.ArchiveReference.ToLower()));
+            instances.RemoveAll(i =>
+                !i.Id.ToString().EndsWith(queryParams.ArchiveReference.ToLower())
+            );
         }
 
         if (!string.IsNullOrEmpty(queryParams.DataValuesA2ArchRef))
@@ -133,9 +135,9 @@ public class InstanceRepositoryMock : IInstanceRepository
         if (!string.IsNullOrEmpty(queryParams.A3Ref))
         {
             instances.RemoveAll(i =>
-                i.Id == null
-                || i.Id.Length < 12
-                || !i.Id[^12..].Equals(queryParams.A3Ref, StringComparison.OrdinalIgnoreCase)
+                !i
+                    .Id.ToString()[^12..]
+                    .Equals(queryParams.A3Ref, StringComparison.OrdinalIgnoreCase)
             );
         }
 
@@ -188,7 +190,7 @@ public class InstanceRepositoryMock : IInstanceRepository
         int? expectedProcessStateVersion = null
     )
     {
-        if (instance.Id.Equals("d3b326de-2dd8-49a1-834a-b1d23b11e540"))
+        if (instance.Id == new Guid("d3b326de-2dd8-49a1-834a-b1d23b11e540"))
         {
             return Task.FromResult<InstanceInternal>(null);
         }
@@ -258,7 +260,7 @@ public class InstanceRepositoryMock : IInstanceRepository
             string content = File.ReadAllText(elementPath);
             DataElementInternal dataElement =
                 System.Text.Json.JsonSerializer.Deserialize<DataElementInternal>(content, _options);
-            if (dataElement.InstanceGuid.Contains(instanceGuid.ToString()))
+            if (dataElement.InstanceGuid == instanceGuid)
             {
                 dataElements.Add(dataElement);
             }
@@ -352,11 +354,10 @@ public class InstanceRepositoryMock : IInstanceRepository
 
     private static StorageVersions GetVersions(InstanceInternal instance)
     {
-        string key = instance.Id ?? string.Empty;
-        if (!_versions.TryGetValue(key, out StorageVersions versions))
+        if (!_versions.TryGetValue(instance.Id, out StorageVersions versions))
         {
             versions = new StorageVersions(1, 1);
-            _versions[key] = versions;
+            _versions[instance.Id] = versions;
         }
 
         return versions;
@@ -364,6 +365,6 @@ public class InstanceRepositoryMock : IInstanceRepository
 
     private static void SetVersions(InstanceInternal instance, StorageVersions versions)
     {
-        _versions[instance.Id ?? string.Empty] = versions;
+        _versions[instance.Id] = versions;
     }
 }

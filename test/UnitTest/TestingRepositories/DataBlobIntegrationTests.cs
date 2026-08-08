@@ -48,7 +48,7 @@ public class DataBlobIntegrationTests
             .InstanceRepo.Create(instance, CancellationToken.None)
             .Result;
         _instanceInternal = _dataElementFixture
-            .InstanceRepo.GetOne(Guid.Parse(createdInstance.Id), false, CancellationToken.None)
+            .InstanceRepo.GetOne(createdInstance.Id, false, CancellationToken.None)
             .Result;
         _instanceInternalId = _instanceInternal.InternalId;
     }
@@ -96,7 +96,7 @@ public class DataBlobIntegrationTests
         );
 
         DataElementInternal readDataElement = await _dataElementFixture.DataRepo.Read(
-            Guid.Parse(createdDataElement.InstanceGuid),
+            createdDataElement.InstanceGuid,
             dataElementId,
             CancellationToken.None
         );
@@ -114,7 +114,7 @@ public class DataBlobIntegrationTests
         Assert.Single(await _dataElementFixture.DataRepo.ReadBlobVersions(dataElementId));
 
         // Act delete
-        Guid instanceGuid = Guid.Parse(createdDataElement.InstanceGuid);
+        Guid instanceGuid = createdDataElement.InstanceGuid;
         InstanceMutationCommit mutation = new(
             [],
             [],
@@ -148,7 +148,7 @@ public class DataBlobIntegrationTests
         // Assert delete
         Assert.Null(
             await _dataElementFixture.DataRepo.Read(
-                Guid.Parse(createdDataElement.InstanceGuid),
+                createdDataElement.InstanceGuid,
                 dataElementId,
                 CancellationToken.None
             )

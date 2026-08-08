@@ -31,7 +31,7 @@ public static class InstanceHelper
         {
             CreatedDateTime = createdDateTime,
             DueDateTime = instance.DueBefore,
-            Id = instance.Id,
+            Id = instance.Id.ToString(),
             InstanceOwnerId = instance.InstanceOwner.PartyId,
             LastChangedBy = FindLastChanged(instance).LastChangedBy,
             Org = instance.Org,

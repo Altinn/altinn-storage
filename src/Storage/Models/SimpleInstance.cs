@@ -116,7 +116,7 @@ public class SimpleInstance
 
         return new SimpleInstance()
         {
-            Id = instance.Id,
+            Id = instance.Id.ToString(),
             Org = instance.Org,
             App = instance.AppId.Substring(orgPrefix.Length),
             IsRead =

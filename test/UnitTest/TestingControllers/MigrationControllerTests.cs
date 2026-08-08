@@ -77,13 +77,16 @@ public class MigrationControllerTests : IClassFixture<InstanceFixture>
         Mock<IA2Repository> a2Repository = new();
         a2Repository
             .Setup(repository => repository.GetA2MigrationInstanceId(A2ArchiveReference))
-            .ReturnsAsync((string)null);
+            .ReturnsAsync((Guid?)null);
         a2Repository
             .Setup(repository => repository.CreateA2MigrationState(A2ArchiveReference))
             .Returns(Task.CompletedTask);
         a2Repository
             .Setup(repository =>
-                repository.UpdateStartA2MigrationState(A2ArchiveReference, expectedStorageId)
+                repository.UpdateStartA2MigrationState(
+                    A2ArchiveReference,
+                    Guid.Parse(expectedStorageId)
+                )
             )
             .Returns(Task.CompletedTask);
         using MemoryCache memoryCache = new(new MemoryCacheOptions());
@@ -104,7 +107,7 @@ public class MigrationControllerTests : IClassFixture<InstanceFixture>
             false,
             CancellationToken.None
         );
-        Assert.Equal(expectedStorageId, persisted.Id);
+        Assert.Equal(expectedStorageId, persisted.Id.ToString());
         Assert.Equal(processStatus, persisted.Process.Status);
         Assert.Equal("migration-process-preserved", persisted.Process.CurrentTask.Name);
         Assert.Equal(
@@ -157,7 +160,7 @@ public class MigrationControllerTests : IClassFixture<InstanceFixture>
         Guid instanceGuid = Guid.NewGuid();
         string allocatedBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
         InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
-        instance.Id = $"{instance.InstanceOwner.PartyId}/{instanceGuid}";
+        instance.Id = instanceGuid;
         instance.InternalId = 42;
         instance.AppId = "a2-process-status-test";
         Mock<IInstanceRepository> instanceRepository = new();
@@ -215,7 +218,7 @@ public class MigrationControllerTests : IClassFixture<InstanceFixture>
             .ThrowsAsync(new InvalidOperationException("version cleanup failed"));
         string expectedBlobStoragePath = BlobRepository.GetVersionedBlobPath(
             instance.AppId,
-            instanceGuid.ToString(),
+            instanceGuid,
             allocatedBlobVersionId
         );
         Mock<IBlobRepository> blobRepository = new();

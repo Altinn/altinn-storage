@@ -1,5 +1,6 @@
 #nullable disable
 
+using System;
 using System.IO;
 using System.Threading.Tasks;
 using System.Web;
@@ -19,7 +20,7 @@ public static class DataElementHelper
     /// <summary>
     /// Formats a filename for blob storage.
     /// </summary>
-    public static string DataFileName(string appId, string instanceGuid, string dataElementId)
+    public static string DataFileName(string appId, Guid instanceGuid, Guid dataElementId)
     {
         return $"{appId}/{instanceGuid}/data/{dataElementId}";
     }

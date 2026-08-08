@@ -1,5 +1,6 @@
 #nullable disable
 
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Models;
@@ -72,12 +73,12 @@ public interface IA2Repository
     /// <summary>
     /// Update an a1 migration state
     /// </summary>
-    Task UpdateStartA1MigrationState(int a1ArchiveReference, string instanceGuid);
+    Task UpdateStartA1MigrationState(int a1ArchiveReference, Guid instanceGuid);
 
     /// <summary>
     /// Update an a2 migration state
     /// </summary>
-    Task UpdateStartA2MigrationState(int a2ArchiveReference, string instanceGuid);
+    Task UpdateStartA2MigrationState(int a2ArchiveReference, Guid instanceGuid);
 
     /// <summary>
     /// Update an a1/a2 migration state
@@ -92,17 +93,17 @@ public interface IA2Repository
     /// <summary>
     /// Delete an a1/a2 migration state
     /// </summary>
-    Task DeleteMigrationState(string instanceGuid);
+    Task DeleteMigrationState(Guid instanceGuid);
 
     /// <summary>
     /// Get the instance id of the migration
     /// </summary>
     /// <returns>The instance id of the migration</returns>
-    Task<string> GetA1MigrationInstanceId(int a1ArchiveReference);
+    Task<Guid?> GetA1MigrationInstanceId(int a1ArchiveReference);
 
     /// <summary>
     /// Get the instance id of the migration
     /// </summary>
     /// <returns>The instance id of the migration</returns>
-    Task<string> GetA2MigrationInstanceId(int a2ArchiveReference);
+    Task<Guid?> GetA2MigrationInstanceId(int a2ArchiveReference);
 }

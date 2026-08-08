@@ -35,7 +35,7 @@ public class ContentOnDemandControllerUnitTests
         string expectedBlobVersionId = "2024-01-15T12:00:00.0000000Z";
         string expectedBlobStoragePath = BlobRepository.GetVersionedBlobPath(
             _appId,
-            instanceGuid.ToString(),
+            instanceGuid,
             expectedBlobVersionId
         );
 
@@ -117,7 +117,7 @@ public class ContentOnDemandControllerUnitTests
         const string expectedBlobVersionId = "signature-version-id";
         string expectedBlobStoragePath = BlobRepository.GetVersionedBlobPath(
             _appId,
-            instanceGuid.ToString(),
+            instanceGuid,
             expectedBlobVersionId
         );
 
@@ -126,7 +126,7 @@ public class ContentOnDemandControllerUnitTests
             [
                 new DataElementInternal
                 {
-                    Id = signatureDataGuid.ToString(),
+                    Id = signatureDataGuid,
                     DataType = "signature-data",
                     BlobVersionId = expectedBlobVersionId,
                 },
@@ -167,7 +167,7 @@ public class ContentOnDemandControllerUnitTests
         const string expectedBlobVersionId = "payment-version-id";
         string expectedBlobStoragePath = BlobRepository.GetVersionedBlobPath(
             _appId,
-            instanceGuid.ToString(),
+            instanceGuid,
             expectedBlobVersionId
         );
 
@@ -176,7 +176,7 @@ public class ContentOnDemandControllerUnitTests
             [
                 new DataElementInternal
                 {
-                    Id = paymentDataGuid.ToString(),
+                    Id = paymentDataGuid,
                     DataType = "payment-data",
                     BlobVersionId = expectedBlobVersionId,
                 },
@@ -346,13 +346,13 @@ public class ContentOnDemandControllerUnitTests
         [
             new DataElementInternal
             {
-                Id = htmlDataGuid.ToString(),
+                Id = htmlDataGuid,
                 DataType = "html-data",
                 Metadata = [new KeyValueEntry { Key = "formid", Value = "1234" }],
             },
             new DataElementInternal
             {
-                Id = xmlDataGuid.ToString(),
+                Id = xmlDataGuid,
                 DataType = "xml-data",
                 BlobVersionId = xmlBlobVersionId,
                 Metadata =
@@ -378,14 +378,14 @@ public class ContentOnDemandControllerUnitTests
                 ? $"{_org}/{_app}/{instanceGuid}/data/{dataElement.Id}"
                 : BlobRepository.GetVersionedBlobPath(
                     _appId,
-                    instanceGuid.ToString(),
+                    instanceGuid,
                     dataElement.BlobVersionId
                 );
         }
 
         InstanceInternal instance = new()
         {
-            Id = instanceGuid.ToString(),
+            Id = instanceGuid,
             InstanceOwner = new InstanceOwner { PartyId = "555" },
             Org = _org,
             AppId = _appId,

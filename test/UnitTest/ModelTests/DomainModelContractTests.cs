@@ -109,7 +109,11 @@ public class DomainModelContractTests
         AssertMatchingTypes(
             apiProperties,
             domainProperties,
-            new Dictionary<string, Type> { ["Data"] = typeof(List<DataElementInternal>) }
+            new Dictionary<string, Type>
+            {
+                ["Id"] = typeof(Guid),
+                ["Data"] = typeof(List<DataElementInternal>),
+            }
         );
         AssertJsonIgnoredProperties<InstanceInternal>("Data", "Versions", "InternalId");
         Assert.All(domainProperties.Values, property => Assert.True(property.CanWrite));
@@ -134,7 +138,11 @@ public class DomainModelContractTests
             apiOnly: ["SelfLinks"],
             domainOnly: []
         );
-        AssertMatchingTypes(apiProperties, domainProperties, new Dictionary<string, Type>());
+        AssertMatchingTypes(
+            apiProperties,
+            domainProperties,
+            new Dictionary<string, Type> { ["Id"] = typeof(Guid), ["InstanceGuid"] = typeof(Guid) }
+        );
         AssertJsonIgnoredProperties<DataElementInternal>("BlobVersionId");
         Assert.All(domainProperties.Values, property => Assert.True(property.CanWrite));
         Assert.False(typeof(DataElement).IsAssignableFrom(typeof(DataElementInternal)));
@@ -256,6 +264,46 @@ public class DomainModelContractTests
         Assert.Equal("contract.pdf", actual.Filename);
         api.Metadata[0].Value = "shared-change";
         Assert.Equal("shared-change", actual.Metadata[0].Value);
+    }
+
+    [Fact]
+    public void DataElementFromApiModel_WithAbsentId_LeavesIdUnset()
+    {
+        DataElement api = DomainModelContractTestData.CreateApiDataElement();
+        api.Id = null;
+
+        Assert.Equal(Guid.Empty, api.FromApiModel().Id);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("not-a-guid")]
+    public void DataElementFromApiModel_WithMalformedId_Throws(string id)
+    {
+        DataElement api = DomainModelContractTestData.CreateApiDataElement();
+        api.Id = id;
+
+        Assert.Throws<FormatException>(() => api.FromApiModel());
+    }
+
+    [Fact]
+    public void DataElementFromApiModel_WithAbsentInstanceGuid_LeavesItUnset()
+    {
+        DataElement api = DomainModelContractTestData.CreateApiDataElement();
+        api.InstanceGuid = null;
+
+        Assert.Equal(Guid.Empty, api.FromApiModel().InstanceGuid);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("not-a-guid")]
+    public void DataElementFromApiModel_WithMalformedInstanceGuid_Throws(string instanceGuid)
+    {
+        DataElement api = DomainModelContractTestData.CreateApiDataElement();
+        api.InstanceGuid = instanceGuid;
+
+        Assert.Throws<FormatException>(() => api.FromApiModel());
     }
 
     [Fact]
@@ -418,7 +466,7 @@ public class DomainModelContractTests
             DomainModelContractTestData.ExpectedInstanceDatabaseJson,
             actualJson
         );
-        Assert.Equal(DomainModelContractTestData.InstanceGuid, actual.Id);
+        Assert.Equal(DomainModelContractTestData.InstanceGuid, actual.Id.ToString());
         Assert.Null(actual.Versions);
         Assert.Equal(0, actual.InternalId);
         Assert.NotSame(api.Data, actual.Data);
@@ -444,11 +492,32 @@ public class DomainModelContractTests
 
         InstanceInternal domain = api.FromApiModel();
 
-        Assert.Equal(DomainModelContractTestData.InstanceGuid, domain.Id);
+        Assert.Equal(DomainModelContractTestData.InstanceGuid, domain.Id.ToString());
     }
 
     [Fact]
-    public void InstanceMappings_PreserveNullsAndStorageIdCasing()
+    public void InstanceFromApiModel_WithAbsentId_LeavesIdUnsetSoTheRepositoryGeneratesOne()
+    {
+        Instance api = DomainModelContractTestData.CreateApiInstance(apiFormatId: true);
+        api.Id = null;
+
+        Assert.Equal(Guid.Empty, api.FromApiModel().Id);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("not-a-guid")]
+    [InlineData("1337/not-a-guid")]
+    public void InstanceFromApiModel_WithMalformedId_Throws(string id)
+    {
+        Instance api = DomainModelContractTestData.CreateApiInstance(apiFormatId: true);
+        api.Id = id;
+
+        Assert.Throws<FormatException>(() => api.FromApiModel());
+    }
+
+    [Fact]
+    public void InstanceMappings_PreserveNullsAndNormalizeStorageIdCasing()
     {
         Instance api = new()
         {
@@ -459,43 +528,34 @@ public class DomainModelContractTests
         InstanceInternal domain = api.FromApiModel();
         Instance roundTrip = domain.ToApiModel();
 
-        Assert.Equal(api.Id, domain.Id);
-        Assert.Equal($"42/{api.Id}", roundTrip.Id);
+        Assert.Equal(new Guid(api.Id), domain.Id);
+        Assert.Equal("42/abcdef12-3456-4789-abcd-ef1234567890", roundTrip.Id);
         Assert.Null(domain.Data);
         Assert.Null(roundTrip.Data);
         Assert.Null(roundTrip.SelfLinks);
     }
 
     [Theory]
-    [InlineData(
-        null,
-        "045ea5db-6dd4-4476-b774-bdb2a09da7ea",
-        "045ea5db-6dd4-4476-b774-bdb2a09da7ea"
-    )]
-    [InlineData("", "045ea5db-6dd4-4476-b774-bdb2a09da7ea", "045ea5db-6dd4-4476-b774-bdb2a09da7ea")]
-    [InlineData(
-        "   ",
-        "045ea5db-6dd4-4476-b774-bdb2a09da7ea",
-        "045ea5db-6dd4-4476-b774-bdb2a09da7ea"
-    )]
-    [InlineData("1337", "   ", "   ")]
-    [InlineData(null, "   ", "   ")]
-    [InlineData("   ", "\t", "\t")]
-    [InlineData("1337", null, null)]
-    [InlineData(null, null, null)]
-    public void InstanceToApiModel_WithMissingIdOrOwner_PreservesRawOrNullId(
-        string partyId,
-        string instanceId,
-        string expectedApiId
-    )
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void InstanceToApiModel_WithMissingOwner_PreservesBareStorageId(string partyId)
     {
         InstanceInternal domain = DomainModelContractTestData.CreateDomainInstance();
-        domain.Id = instanceId;
         domain.InstanceOwner = partyId is null ? null : new InstanceOwner { PartyId = partyId };
 
         // Persisted instances normally have both values. Partial service/legacy snapshots keep
-        // their raw or null id rather than gaining a malformed synthetic wire id.
-        Assert.Equal(expectedApiId, domain.ToApiModel().Id);
+        // their bare storage id rather than gaining a malformed synthetic wire id.
+        Assert.Equal(DomainModelContractTestData.InstanceGuid, domain.ToApiModel().Id);
+    }
+
+    [Fact]
+    public void InstanceToApiModel_WithUnsetId_OmitsThePartyPrefix()
+    {
+        InstanceInternal domain = DomainModelContractTestData.CreateDomainInstance();
+        domain.Id = Guid.Empty;
+
+        Assert.Equal(Guid.Empty.ToString(), domain.ToApiModel().Id);
     }
 
     [Theory]

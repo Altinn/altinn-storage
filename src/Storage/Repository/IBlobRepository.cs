@@ -84,7 +84,7 @@ public interface IBlobRepository
     Task<bool> DeleteDataBlobs(
         string org,
         string appId,
-        string instanceGuid,
+        Guid instanceGuid,
         int? storageAccountNumber,
         CancellationToken cancellationToken = default
     );

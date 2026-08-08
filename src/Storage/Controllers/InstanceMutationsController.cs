@@ -227,7 +227,7 @@ public class InstanceMutationsController : ControllerBase
         }
 
         Dictionary<Guid, DataElementInternal> existingDataElementsById = instance.Data.ToDictionary(
-            e => Guid.Parse(e.Id),
+            e => e.Id,
             e => e
         );
 
@@ -614,7 +614,7 @@ public class InstanceMutationsController : ControllerBase
 
             applyAttempted = true;
             InstanceMutationApplyResult applyResult = await _instanceMutationRepository.Apply(
-                new Guid(instance.Id),
+                instance.Id,
                 instance.InternalId,
                 preparedWork.Commit,
                 cancellationToken
@@ -980,7 +980,6 @@ public class InstanceMutationsController : ControllerBase
             return;
         }
 
-        string instanceGuid = new Guid(instance.Id).ToString();
         foreach (PlannedCreateDataElement plannedCreate in plan.CreateDataElements)
         {
             InstanceMutationCreateDataElement create = plannedCreate.Create;
@@ -993,8 +992,8 @@ public class InstanceMutationsController : ControllerBase
 
             DataElementInternal dataElement = new()
             {
-                Id = plannedCreate.DataElementId.ToString(),
-                InstanceGuid = instanceGuid,
+                Id = plannedCreate.DataElementId,
+                InstanceGuid = instance.Id,
                 DataType = create.DataType,
                 ContentType = FirstNonEmpty(create.ContentType, staged.ContentType),
                 CreatedBy = lastChangedBy,
@@ -1772,9 +1771,8 @@ public class InstanceMutationsController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        string instanceGuidStr = instance.Id;
         string blobVersionId = await _dataRepository.CreateBlobVersionId(
-            new Guid(instanceGuidStr),
+            instance.Id,
             dataElementId,
             instance.AppId,
             instance.Org,
@@ -1783,7 +1781,7 @@ public class InstanceMutationsController : ControllerBase
         );
         string versionedBlobStoragePath = BlobRepository.GetVersionedBlobPath(
             instance.AppId,
-            instanceGuidStr,
+            instance.Id,
             blobVersionId
         );
 
