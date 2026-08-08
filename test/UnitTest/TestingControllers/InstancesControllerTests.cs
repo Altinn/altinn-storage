@@ -7,6 +7,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
@@ -18,6 +19,7 @@ using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Helpers;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
@@ -515,7 +517,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     [Theory]
     [InlineData(ProcessStatus.Idle)]
     [InlineData(ProcessStatus.Processing)]
-    public async Task Post_SupportedProcessStatus_IsAccepted(string processStatus)
+    public async Task Post_SupportedProcessStatus_IsAccepted(ProcessStatus processStatus)
     {
         string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
         HttpClient client = GetTestClient();
@@ -540,13 +542,44 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     }
 
     [Theory]
-    [InlineData("future-status")]
-    [InlineData("Idle")]
-    [InlineData("Processing")]
-    [InlineData("idle ")]
-    [InlineData(" processing")]
+    [InlineData("IDLE", ProcessStatus.Idle)]
+    [InlineData("Processing", ProcessStatus.Processing)]
+    public async Task Post_ProcessStatusInNonCanonicalCasing_IsNormalized(
+        string suppliedStatus,
+        ProcessStatus expectedStatus
+    )
+    {
+        string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
+        HttpClient client = GetTestClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
+        StringContent content = new(
+            $$$"""{"instanceOwner":{"partyId":"1337"},"process":{"status":"{{{suppliedStatus}}}"}}""",
+            Encoding.UTF8,
+            "application/json"
+        );
+
+        HttpResponseMessage response = await client.PostAsync(requestUri, content);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Instance createdInstance = await response.Content.ReadFromJsonAsync<Instance>();
+        Assert.Equal(expectedStatus, createdInstance.Process.Status);
+    }
+
+    /// <summary>
+    /// The status is passed as a raw JSON literal so the numeric forms a string enum would otherwise
+    /// accept can be exercised alongside the undeclared string ones.
+    /// </summary>
+    [Theory]
+    [InlineData("\"future-status\"")]
+    [InlineData("\"archived\"")]
+    [InlineData("0")]
+    [InlineData("99")]
+    [InlineData("\"0\"")]
     public async Task Post_UnsupportedProcessStatus_ReturnsBadRequestBeforeCreation(
-        string processStatus
+        string processStatusJson
     )
     {
         string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
@@ -556,22 +589,15 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
             "Bearer",
             PrincipalUtil.GetToken(3, 1337, 3)
         );
-        Instance instance = new()
-        {
-            InstanceOwner = new InstanceOwner { PartyId = "1337" },
-            Process = new ProcessState { Status = processStatus },
-        };
-
-        HttpResponseMessage response = await client.PostAsync(
-            requestUri,
-            JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"))
+        StringContent content = new(
+            $$$"""{"instanceOwner":{"partyId":"1337"},"process":{"status":{{{processStatusJson}}}}}""",
+            Encoding.UTF8,
+            "application/json"
         );
 
+        HttpResponseMessage response = await client.PostAsync(requestUri, content);
+
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        string message = await response.Content.ReadAsStringAsync();
-        Assert.Contains("process.status", message, StringComparison.Ordinal);
-        Assert.Contains(ProcessStatus.Idle, message, StringComparison.Ordinal);
-        Assert.Contains(ProcessStatus.Processing, message, StringComparison.Ordinal);
         repository.VerifyNoOtherCalls();
     }
 
@@ -3035,7 +3061,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         GuardedInstanceUpdateRoute route
     )
     {
-        const string currentStatus = "future-status";
+        const ProcessStatus currentStatus = ProcessStatus.Processing;
         const int partyId = 1337;
         Guid instanceGuid = Guid.NewGuid();
         Instance instance = TestData.Instance_1_1.Clone();
@@ -3151,7 +3177,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
         ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
         Assert.Contains(
-            currentStatus,
+            currentStatus.ToString().ToLowerInvariant(),
             Assert.IsType<string>(conflict.Value),
             StringComparison.Ordinal
         );

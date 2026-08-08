@@ -11,6 +11,7 @@ using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Controllers;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Fixture;
@@ -355,10 +356,10 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
 
     [Theory]
     [InlineData(true, ProcessStatus.Processing)]
-    [InlineData(false, "future-status")]
+    [InlineData(false, ProcessStatus.Processing)]
     public async Task LockStatus_ProcessStatusConflict_ReturnsConflictWithCurrentStatus(
         bool lockData,
-        string currentProcessStatus
+        ProcessStatus currentProcessStatus
     )
     {
         string dataPathWithData =
@@ -387,7 +388,7 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Contains(
-            currentProcessStatus,
+            currentProcessStatus.ToString().ToLowerInvariant(),
             await response.Content.ReadAsStringAsync(),
             StringComparison.Ordinal
         );

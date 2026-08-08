@@ -944,7 +944,7 @@ public class StudioInstancesControllerTests
     [Fact]
     public async Task DeleteInstance_ProcessStatusConflict_ReturnsConflictWithCurrentStatus()
     {
-        const string currentStatus = "future-status";
+        const ProcessStatus currentStatus = ProcessStatus.Processing;
         Guid instanceGuid = Guid.NewGuid();
         Instance instance = new()
         {
@@ -991,7 +991,7 @@ public class StudioInstancesControllerTests
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Contains(
-            currentStatus,
+            currentStatus.ToString().ToLowerInvariant(),
             await response.Content.ReadAsStringAsync(),
             StringComparison.Ordinal
         );

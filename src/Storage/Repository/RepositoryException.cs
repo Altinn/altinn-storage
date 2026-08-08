@@ -2,6 +2,7 @@
 
 using System;
 using System.Net;
+using Altinn.Platform.Storage.Interface.Enums;
 
 namespace Altinn.Platform.Storage.Repository;
 
@@ -88,9 +89,9 @@ public sealed class ProcessStatusConflictException : RepositoryException
     /// Creates a process-status conflict carrying the current persisted status.
     /// </summary>
     /// <param name="currentProcessStatus">Current persisted process status.</param>
-    public ProcessStatusConflictException(string currentProcessStatus)
+    public ProcessStatusConflictException(ProcessStatus currentProcessStatus)
         : base(
-            $"Process status did not match expected status. Current status: '{currentProcessStatus}'.",
+            $"Process status did not match expected status. Current status: '{currentProcessStatus.ToString().ToLowerInvariant()}'.",
             HttpStatusCode.Conflict
         )
     {
@@ -100,7 +101,7 @@ public sealed class ProcessStatusConflictException : RepositoryException
     /// <summary>
     /// Current persisted process status.
     /// </summary>
-    public string CurrentProcessStatus { get; }
+    public ProcessStatus CurrentProcessStatus { get; }
 }
 
 /// <summary>

@@ -106,12 +106,6 @@ public class ProcessController : ControllerBase
             return preconditionError;
         }
 
-        BadRequestObjectResult? processStatusError = ValidateProcessStatus(processState);
-        if (processStatusError is not null)
-        {
-            return processStatusError;
-        }
-
         InstanceInternal existingInstance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
@@ -236,14 +230,6 @@ public class ProcessController : ControllerBase
         if (processStateUpdate?.State is null)
         {
             return BadRequest("Invalid instance state");
-        }
-
-        BadRequestObjectResult? processStatusError = ValidateProcessStatus(
-            processStateUpdate.State
-        );
-        if (processStatusError is not null)
-        {
-            return processStatusError;
         }
 
         InstanceInternal existingInstance = await _instanceRepository.GetOne(
@@ -545,19 +531,6 @@ public class ProcessController : ControllerBase
         existingInstance.Process = processState;
         existingInstance.LastChangedBy = User.GetUserOrOrgNo();
         existingInstance.LastChanged = DateTime.UtcNow;
-    }
-
-    private BadRequestObjectResult? ValidateProcessStatus(ProcessState? processState)
-    {
-        string? processStatus = processState?.Status;
-        if (processStatus is not null && !ProcessStatusHelper.IsSupported(processStatus))
-        {
-            return BadRequest(
-                $"status must be '{ProcessStatus.Idle}' or '{ProcessStatus.Processing}'."
-            );
-        }
-
-        return null;
     }
 
     internal static bool ValidateInstanceEventUserObject(

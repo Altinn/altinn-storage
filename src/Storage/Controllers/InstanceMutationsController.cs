@@ -170,14 +170,6 @@ public class InstanceMutationsController : ControllerBase
             return requestError;
         }
 
-        BadRequestObjectResult processStatusError = ValidateProcessStatusTransition(
-            mutationRequest
-        );
-        if (processStatusError is not null)
-        {
-            return processStatusError;
-        }
-
         if (!HasMutationOperations(mutationRequest))
         {
             return BadRequest("The mutation request must contain at least one operation.");
@@ -1576,29 +1568,6 @@ public class InstanceMutationsController : ControllerBase
         || request.PresentationTexts?.Count > 0
         || request.ProcessState?.State is not null
         || request.ProcessState?.Events?.Count > 0;
-
-    private BadRequestObjectResult ValidateProcessStatusTransition(InstanceMutationRequest request)
-    {
-        if (
-            request.ExpectedProcessStatus is not null
-            && !ProcessStatusHelper.IsSupported(request.ExpectedProcessStatus)
-        )
-        {
-            return BadRequest(
-                $"expectedProcessStatus must be '{ProcessStatus.Idle}' or '{ProcessStatus.Processing}'."
-            );
-        }
-
-        string processStatus = request.ProcessState?.State?.Status;
-        if (processStatus is not null && !ProcessStatusHelper.IsSupported(processStatus))
-        {
-            return BadRequest(
-                $"processState.state.status must be '{ProcessStatus.Idle}' or '{ProcessStatus.Processing}'."
-            );
-        }
-
-        return null;
-    }
 
     private BadRequestObjectResult ValidateDeleteInstanceRequest(
         InstanceMutationRequest request,

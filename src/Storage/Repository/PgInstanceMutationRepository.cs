@@ -11,6 +11,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Messages;
@@ -897,15 +898,16 @@ public sealed class PgInstanceMutationRepository(
             "Aggregate mutation SQL error MESSAGE was missing currentProcessStateVersion."
         );
 
-    private static string RequireCurrentProcessStatus(
+    private static ProcessStatus RequireCurrentProcessStatus(
         ApplyMutationError error,
         PostgresException exception
     ) =>
-        error.CurrentProcessStatus
-        ?? throw CreateApplyMutationContractException(
-            exception,
-            "Aggregate mutation SQL error MESSAGE was missing currentProcessStatus."
-        );
+        error.CurrentProcessStatus is { } currentProcessStatus
+            ? ProcessStatusHelper.ParsePersistedStatus(currentProcessStatus)
+            : throw CreateApplyMutationContractException(
+                exception,
+                "Aggregate mutation SQL error MESSAGE was missing currentProcessStatus."
+            );
 
     private static UnreachableException CreateApplyMutationContractException(
         PostgresException exception,

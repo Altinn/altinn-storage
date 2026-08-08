@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
@@ -62,7 +63,7 @@ public class MigrationControllerTests : IClassFixture<InstanceFixture>
     public async Task CreateInstance_LegacyCompositeId_UsesHistoricalStorageTranslation(
         string incomingId,
         string expectedStorageId,
-        string processStatus,
+        ProcessStatus? processStatus,
         string expectedStoredStatus
     )
     {
@@ -117,41 +118,6 @@ public class MigrationControllerTests : IClassFixture<InstanceFixture>
             )
         );
         a2Repository.VerifyAll();
-    }
-
-    [Theory]
-    [InlineData("future-status")]
-    [InlineData("Idle")]
-    [InlineData("Processing")]
-    [InlineData("idle ")]
-    [InlineData(" processing")]
-    public async Task CreateInstance_UnsupportedProcessStatus_ReturnsBadRequestBeforeMigrationWork(
-        string processStatus
-    )
-    {
-        Instance incoming = TestData.Instance_1_1.Clone();
-        incoming.Process.Status = processStatus;
-        Mock<IA2Repository> a2Repository = new();
-        Mock<IInstanceRepository> instanceRepository = new();
-        using MemoryCache memoryCache = new(new MemoryCacheOptions());
-        MigrationController controller = CreateController(
-            a2Repository.Object,
-            memoryCache,
-            instanceRepository.Object
-        );
-
-        ActionResult<Instance> result = await controller.CreateInstance(
-            incoming,
-            CancellationToken.None
-        );
-
-        BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
-        string message = Assert.IsType<string>(badRequest.Value);
-        Assert.Contains("process.status", message);
-        Assert.Contains(ProcessStatus.Idle, message);
-        Assert.Contains(ProcessStatus.Processing, message);
-        instanceRepository.VerifyNoOtherCalls();
-        a2Repository.VerifyNoOtherCalls();
     }
 
     [Fact]
@@ -265,7 +231,7 @@ public class MigrationControllerTests : IClassFixture<InstanceFixture>
 
         ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
         Assert.Contains(
-            ProcessStatus.Processing,
+            "processing",
             Assert.IsType<string>(conflict.Value),
             StringComparison.Ordinal
         );

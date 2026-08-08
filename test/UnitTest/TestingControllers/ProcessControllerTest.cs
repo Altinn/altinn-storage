@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Common.AccessToken.Services;
@@ -839,21 +840,27 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     )
     {
         Mock<IInstanceRepository> repositoryMock = new();
+        string requestUri =
+            "storage/api/v1/instances/1337/20b1353e-91cf-44d6-8ff7-f68993638ffe/process/";
+        string body = """{"status":"future-status"}""";
+        if (useInstanceAndEventsEndpoint)
+        {
+            requestUri += "instanceandevents/";
+            body = """{"state":{"status":"future-status"}}""";
+        }
 
-        using HttpResponseMessage response = await SendUpdateRequest(
-            useInstanceAndEventsEndpoint,
-            PrincipalUtil.GetToken(3, 1337, 3),
-            instanceRepository: repositoryMock.Object,
-            configure: state => state.Status = "future-status",
-            expectedProcessStateVersion: 11
+        HttpClient client = GetTestClient(repositoryMock.Object);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
+
+        using HttpResponseMessage response = await client.PutAsync(
+            requestUri,
+            new StringContent(body, Encoding.UTF8, "application/json")
         );
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Contains(
-            "must be 'idle' or 'processing'",
-            await response.Content.ReadAsStringAsync(),
-            StringComparison.Ordinal
-        );
         repositoryMock.Verify(
             repository =>
                 repository.GetOne(
@@ -893,7 +900,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Contains(
-            ProcessStatus.Processing,
+            "processing",
             await response.Content.ReadAsStringAsync(),
             StringComparison.Ordinal
         );
@@ -916,7 +923,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         bool useInstanceAndEventsEndpoint
     )
     {
-        const string currentStatus = "future-status";
+        const ProcessStatus currentStatus = ProcessStatus.Processing;
         Guid instanceGuid = new("20a1353e-91cf-44d6-8ff7-f68993638ffe");
         InstanceInternal snapshot = CreateVersionedInstanceSnapshot(
             instanceGuid,
@@ -971,7 +978,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Contains(
-            currentStatus,
+            currentStatus.ToString().ToLowerInvariant(),
             await response.Content.ReadAsStringAsync(),
             StringComparison.Ordinal
         );

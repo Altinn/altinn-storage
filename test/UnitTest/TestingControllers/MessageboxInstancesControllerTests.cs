@@ -16,6 +16,7 @@ using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Helpers;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
@@ -1862,7 +1863,7 @@ public class MessageBoxInstancesControllerTests(
         GuardedMessageBoxUpdateRoute route
     )
     {
-        const string currentStatus = "future-status";
+        const ProcessStatus currentStatus = ProcessStatus.Processing;
         const int partyId = 1337;
         Guid instanceGuid = Guid.NewGuid();
         Instance instance = TestData.Instance_1_1.Clone();
@@ -1922,7 +1923,7 @@ public class MessageBoxInstancesControllerTests(
 
         ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result);
         Assert.Contains(
-            currentStatus,
+            currentStatus.ToString().ToLowerInvariant(),
             Assert.IsType<string>(conflict.Value),
             StringComparison.Ordinal
         );

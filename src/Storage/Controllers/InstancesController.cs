@@ -393,16 +393,6 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        if (
-            instance.Process?.Status is not null
-            && !ProcessStatusHelper.IsSupported(instance.Process.Status)
-        )
-        {
-            return BadRequest(
-                $"process.status must be absent, '{ProcessStatus.Idle}', or '{ProcessStatus.Processing}' when creating an instance."
-            );
-        }
-
         if (string.IsNullOrWhiteSpace(instance.InstanceOwner.PartyId))
         {
             return BadRequest("Cannot create an instance without an instanceOwner.PartyId.");

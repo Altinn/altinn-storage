@@ -126,7 +126,7 @@ public class InstancesControllerCreationIntegrationTests : IClassFixture<Instanc
         ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(updateResult.Result);
         Assert.Equal((int)HttpStatusCode.Conflict, conflict.StatusCode);
         Assert.Contains(
-            ProcessStatus.Processing,
+            "processing",
             Assert.IsType<string>(conflict.Value),
             StringComparison.Ordinal
         );

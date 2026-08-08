@@ -15,6 +15,7 @@ using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Helpers;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
@@ -391,7 +392,7 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Contains(
-            ProcessStatus.Processing,
+            "processing",
             await response.Content.ReadAsStringAsync(),
             StringComparison.Ordinal
         );

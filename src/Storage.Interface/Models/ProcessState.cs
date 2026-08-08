@@ -1,6 +1,7 @@
 #nullable disable
 
 using System;
+using Altinn.Platform.Storage.Interface.Enums;
 using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.Interface.Models;
@@ -20,7 +21,7 @@ public class ProcessState
     [System.Text.Json.Serialization.JsonIgnore(
         Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
     )]
-    public string Status { get; set; }
+    public ProcessStatus? Status { get; set; }
 
     /// <summary>
     /// Gets or sets the date and time for when the process was started.
