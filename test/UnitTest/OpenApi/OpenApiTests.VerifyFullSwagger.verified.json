@@ -15,7 +15,7 @@
     }
   ],
   "paths": {
-    "/applications": {
+    "/storage/api/v1/applications": {
       "get": {
         "tags": [
           "Applications"
@@ -83,7 +83,7 @@
         }
       }
     },
-    "/applications/{org}": {
+    "/storage/api/v1/applications/{org}": {
       "get": {
         "tags": [
           "Applications"
@@ -124,7 +124,7 @@
         }
       }
     },
-    "/applications/{org}/{app}": {
+    "/storage/api/v1/applications/{org}/{app}": {
       "get": {
         "tags": [
           "Applications"
@@ -318,7 +318,7 @@
         }
       }
     },
-    "/instances/{instanceOwnerPartyId}/{instanceGuid}/data/{dataGuid}": {
+    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/data/{dataGuid}": {
       "delete": {
         "tags": [
           "Data"
@@ -571,7 +571,7 @@
         }
       }
     },
-    "/instances/{instanceOwnerPartyId}/{instanceGuid}/dataelements": {
+    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/dataelements": {
       "get": {
         "tags": [
           "Data"
@@ -623,7 +623,7 @@
         }
       }
     },
-    "/instances/{instanceOwnerPartyId}/{instanceGuid}/data": {
+    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/data": {
       "post": {
         "tags": [
           "Data"
@@ -703,7 +703,7 @@
         }
       }
     },
-    "/instances/{instanceOwnerPartyId}/{instanceGuid}/dataelements/{dataGuid}": {
+    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/dataelements/{dataGuid}": {
       "put": {
         "tags": [
           "Data"
@@ -775,7 +775,7 @@
         }
       }
     },
-    "/instances/{instanceOwnerPartyId}/{instanceGuid}/dataelements/{dataGuid}/filescanstatus": {
+    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/dataelements/{dataGuid}/filescanstatus": {
       "put": {
         "tags": [
           "Data"
@@ -838,7 +838,7 @@
         }
       }
     },
-    "/instances/{instanceOwnerPartyId}/{instanceGuid}/data/{dataGuid}/lock": {
+    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/data/{dataGuid}/lock": {
       "put": {
         "tags": [
           "DataLock"
@@ -1010,7 +1010,7 @@
         }
       }
     },
-    "/instances/{instanceOwnerPartyId}/{instanceGuid}/events": {
+    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/events": {
       "post": {
         "tags": [
           "InstanceEvents"
@@ -1149,7 +1149,7 @@
         }
       }
     },
-    "/instances/{instanceOwnerPartyId}/{instanceGuid}/events/{eventGuid}": {
+    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/events/{eventGuid}": {
       "get": {
         "tags": [
           "InstanceEvents"
@@ -1211,7 +1211,7 @@
         }
       }
     },
-    "/instances/{instanceOwnerPartyId}/{instanceGuid}/lock": {
+    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/lock": {
       "post": {
         "tags": [
           "InstanceLock"
@@ -1394,7 +1394,7 @@
         }
       }
     },
-    "/instances": {
+    "/storage/api/v1/instances": {
       "get": {
         "tags": [
           "Instances"
@@ -1713,7 +1713,7 @@
         }
       }
     },
-    "/instances/{instanceOwnerPartyId}/{instanceGuid}": {
+    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}": {
       "get": {
         "tags": [
           "Instances"
@@ -1846,7 +1846,7 @@
         }
       }
     },
-    "/instances/{instanceGuid}": {
+    "/storage/api/v1/instances/{instanceGuid}": {
       "get": {
         "tags": [
           "Instances"
@@ -1888,7 +1888,7 @@
         }
       }
     },
-    "/instances/{instanceOwnerPartyId}/{instanceGuid}/complete": {
+    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/complete": {
       "post": {
         "tags": [
           "Instances"
@@ -1931,7 +1931,7 @@
         }
       }
     },
-    "/instances/{instanceOwnerPartyId}/{instanceGuid}/readstatus": {
+    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/readstatus": {
       "put": {
         "tags": [
           "Instances"
@@ -1991,7 +1991,7 @@
         }
       }
     },
-    "/instances/{instanceOwnerPartyId}/{instanceGuid}/substatus": {
+    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/substatus": {
       "put": {
         "tags": [
           "Instances"
@@ -2068,7 +2068,7 @@
         }
       }
     },
-    "/instances/{instanceOwnerPartyId}/{instanceGuid}/presentationtexts": {
+    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/presentationtexts": {
       "put": {
         "tags": [
           "Instances"
@@ -2140,7 +2140,7 @@
         }
       }
     },
-    "/instances/{instanceOwnerPartyId}/{instanceGuid}/datavalues": {
+    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/datavalues": {
       "put": {
         "tags": [
           "Instances"
@@ -2212,7 +2212,7 @@
         }
       }
     },
-    "/sbl/instances/search": {
+    "/storage/api/v1/sbl/instances/search": {
       "post": {
         "tags": [
           "MessageBoxInstances"
@@ -2250,7 +2250,7 @@
         }
       }
     },
-    "/sbl/instances/{instanceOwnerPartyId}/{instanceGuid}": {
+    "/storage/api/v1/sbl/instances/{instanceOwnerPartyId}/{instanceGuid}": {
       "get": {
         "tags": [
           "MessageBoxInstances"
@@ -2334,7 +2334,7 @@
         }
       }
     },
-    "/sbl/instances/{instanceOwnerPartyId}/{instanceGuid}/events": {
+    "/storage/api/v1/sbl/instances/{instanceOwnerPartyId}/{instanceGuid}/events": {
       "get": {
         "tags": [
           "MessageBoxInstances"
@@ -2369,7 +2369,7 @@
         }
       }
     },
-    "/sbl/instances/{instanceOwnerPartyId}/{instanceGuid}/undelete": {
+    "/storage/api/v1/sbl/instances/{instanceOwnerPartyId}/{instanceGuid}/undelete": {
       "put": {
         "tags": [
           "MessageBoxInstances"
@@ -2404,7 +2404,7 @@
         }
       }
     },
-    "/metrics/instances": {
+    "/storage/api/v1/metrics/instances": {
       "get": {
         "tags": [
           "Metrics"
@@ -2440,7 +2440,7 @@
         }
       }
     },
-    "/migration/instance": {
+    "/storage/api/v1/migration/instance": {
       "post": {
         "tags": [
           "Migration"
@@ -2473,7 +2473,7 @@
         }
       }
     },
-    "/migration/dataelement/{instanceGuid}": {
+    "/storage/api/v1/migration/dataelement/{instanceGuid}": {
       "post": {
         "tags": [
           "Migration"
@@ -2576,7 +2576,7 @@
         }
       }
     },
-    "/migration/instanceevents": {
+    "/storage/api/v1/migration/instanceevents": {
       "post": {
         "tags": [
           "Migration"
@@ -2615,7 +2615,7 @@
         }
       }
     },
-    "/migration/application": {
+    "/storage/api/v1/migration/application": {
       "post": {
         "tags": [
           "Migration"
@@ -2648,7 +2648,7 @@
         }
       }
     },
-    "/migration/text/{org}/{app}/{language}/{key}": {
+    "/storage/api/v1/migration/text/{org}/{app}/{language}/{key}": {
       "post": {
         "tags": [
           "Migration"
@@ -2709,7 +2709,7 @@
         }
       }
     },
-    "/migration/policy/{org}/{app}": {
+    "/storage/api/v1/migration/policy/{org}/{app}": {
       "post": {
         "tags": [
           "Migration"
@@ -2745,7 +2745,7 @@
         }
       }
     },
-    "/migration/codelist/{name}/{language}/{version}": {
+    "/storage/api/v1/migration/codelist/{name}/{language}/{version}": {
       "post": {
         "tags": [
           "Migration"
@@ -2788,7 +2788,7 @@
         }
       }
     },
-    "/migration/pdfimage": {
+    "/storage/api/v1/migration/pdfimage": {
       "post": {
         "tags": [
           "Migration"
@@ -2801,7 +2801,7 @@
         }
       }
     },
-    "/migration/xsl/{org}/{app}/{lformid}/{pagenumber}/{language}/{xsltype}/{isportrait}": {
+    "/storage/api/v1/migration/xsl/{org}/{app}/{lformid}/{pagenumber}/{language}/{xsltype}/{isportrait}": {
       "post": {
         "tags": [
           "Migration"
@@ -2882,7 +2882,7 @@
         }
       }
     },
-    "/migration/delete/{instanceGuid}": {
+    "/storage/api/v1/migration/delete/{instanceGuid}": {
       "post": {
         "tags": [
           "Migration"
@@ -2917,7 +2917,7 @@
         }
       }
     },
-    "/migration/pdfproxy": {
+    "/storage/api/v1/migration/pdfproxy": {
       "post": {
         "tags": [
           "Migration"
@@ -2963,7 +2963,7 @@
         }
       }
     },
-    "/instances/{instanceOwnerPartyId}/{instanceGuid}/process": {
+    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/process": {
       "put": {
         "tags": [
           "Process"
@@ -3025,7 +3025,7 @@
         }
       }
     },
-    "/instances/{instanceOwnerPartyId}/{instanceGuid}/process/instanceandevents": {
+    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/process/instanceandevents": {
       "put": {
         "tags": [
           "Process"
@@ -3105,7 +3105,7 @@
         }
       }
     },
-    "/instances/{instanceOwnerPartyId}/{instanceGuid}/process/history": {
+    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/process/history": {
       "get": {
         "tags": [
           "Process"
@@ -3147,7 +3147,7 @@
         }
       }
     },
-    "/sblbridge/correspondencerecipient": {
+    "/storage/api/v1/sblbridge/correspondencerecipient": {
       "post": {
         "tags": [
           "SblBridge"
@@ -3206,7 +3206,7 @@
         "deprecated": true
       }
     },
-    "/sblbridge/synccorrespondenceevent": {
+    "/storage/api/v1/sblbridge/synccorrespondenceevent": {
       "post": {
         "tags": [
           "SblBridge"
@@ -3271,7 +3271,7 @@
         "deprecated": true
       }
     },
-    "/instances/{instanceOwnerPartyId}/{instanceGuid}/sign": {
+    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/sign": {
       "post": {
         "tags": [
           "Sign"
@@ -3341,7 +3341,7 @@
         }
       }
     },
-    "/studio/instances/{org}/{app}": {
+    "/storage/api/v1/studio/instances/{org}/{app}": {
       "get": {
         "tags": [
           "StudioInstances"
@@ -3486,7 +3486,7 @@
         }
       }
     },
-    "/studio/instances/{org}/{app}/{instanceGuid}": {
+    "/storage/api/v1/studio/instances/{org}/{app}/{instanceGuid}": {
       "get": {
         "tags": [
           "StudioInstances"
@@ -3630,7 +3630,7 @@
         }
       }
     },
-    "/applications/{org}/{app}/texts": {
+    "/storage/api/v1/applications/{org}/{app}/texts": {
       "post": {
         "tags": [
           "Texts"
@@ -3705,7 +3705,7 @@
         }
       }
     },
-    "/applications/{org}/{app}/texts/{language}": {
+    "/storage/api/v1/applications/{org}/{app}/texts/{language}": {
       "get": {
         "tags": [
           "Texts"

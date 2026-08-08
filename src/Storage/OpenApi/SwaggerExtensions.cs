@@ -82,7 +82,7 @@ public static class SwaggerExtensions
                 return true;
             }
         );
-        c.AddDocumentFilterInstance(new RemoveStorageBasePathFilter());
+        c.AddDocumentFilterInstance(new RemoveStorageBasePathFilter(V1PublicSwaggerDocName));
 
         c.AddSecurityDefinition(
             JwtCookieDefaults.AuthenticationScheme,

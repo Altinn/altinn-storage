@@ -1,4 +1,5 @@
 using System;
+using Altinn.Platform.Storage.OpenApi;
 using Microsoft.OpenApi;
 
 namespace Altinn.Platform.Storage.Helpers;
@@ -6,7 +7,9 @@ namespace Altinn.Platform.Storage.Helpers;
 /// <summary>
 /// This class is used to remove the storageBasePath parameter from the swagger documentation
 /// </summary>
-public class RemoveStorageBasePathFilter : Swashbuckle.AspNetCore.SwaggerGen.IDocumentFilter
+/// <param name="documentName">The name of the swagger document to apply this filter to</param>
+public class RemoveStorageBasePathFilter(string documentName)
+    : Swashbuckle.AspNetCore.SwaggerGen.IDocumentFilter
 {
     /// <inheritdoc/>
     public void Apply(
@@ -14,6 +17,10 @@ public class RemoveStorageBasePathFilter : Swashbuckle.AspNetCore.SwaggerGen.IDo
         Swashbuckle.AspNetCore.SwaggerGen.DocumentFilterContext context
     )
     {
+        if (context.DocumentName != documentName)
+        {
+            return;
+        }
         const string prefix = "/storage/api/v1";
 
         OpenApiPaths rewrittenPaths = new OpenApiPaths();
