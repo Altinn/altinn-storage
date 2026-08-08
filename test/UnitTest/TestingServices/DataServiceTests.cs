@@ -73,7 +73,7 @@ public class DataServiceTests
 
         InstanceInternal instance = new()
         {
-            Id = "guid",
+            Id = new Guid("0f9c4e1a-2b3d-4c5e-8f60-718293a4b5c6"),
             InstanceOwner = new InstanceOwner { PartyId = "343243" },
         };
         DataType dataType = new DataType { EnableFileScan = true };
@@ -99,7 +99,9 @@ public class DataServiceTests
             f =>
                 f.EnqueueFileScan(
                     It.Is<string>(content =>
-                        content.Contains("\"instanceId\":\"343243/guid\"")
+                        content.Contains(
+                            "\"instanceId\":\"343243/0f9c4e1a-2b3d-4c5e-8f60-718293a4b5c6\""
+                        )
                         && content.Contains(
                             "\"blobStoragePath\":\"app/instance/data-elements/blob-version-id\""
                         )
@@ -128,7 +130,7 @@ public class DataServiceTests
 
         DataElementInternal dataElement = new DataElementInternal
         {
-            Id = id.ToString(),
+            Id = id,
             BlobStoragePath = blobStoragePath,
             BlobVersionId = blobVersionId,
         };
@@ -211,7 +213,7 @@ public class DataServiceTests
 
         DataElementInternal dataElement = new DataElementInternal
         {
-            Id = Guid.NewGuid().ToString(),
+            Id = Guid.NewGuid(),
             BlobStoragePath = "/ttd/some-app",
         };
 
@@ -291,7 +293,7 @@ public class DataServiceTests
             $"ttd/some-app/{instanceGuid}/data-elements/{allocatedBlobVersionId}";
         InstanceInternal instance = new()
         {
-            Id = instanceGuid.ToString(),
+            Id = instanceGuid,
             AppId = "ttd/some-app",
             Org = "ttd",
         };
@@ -332,8 +334,8 @@ public class DataServiceTests
                 drm.Create(
                     It.Is<DataElementInternal>(de =>
                         de.Size == expectedBlobSize
-                        && de.Id == dataElementId.ToString()
-                        && de.InstanceGuid == instanceGuid.ToString()
+                        && de.Id == dataElementId
+                        && de.InstanceGuid == instanceGuid
                         && de.BlobStoragePath == expectedBlobStoragePath
                         && de.BlobVersionId == allocatedBlobVersionId
                     ),
@@ -353,7 +355,7 @@ public class DataServiceTests
         Guid dataElementId = Guid.NewGuid();
         const int storageAccountNumber = 7;
         InstanceInternal instance = CreateInstance();
-        Guid instanceGuid = Guid.Parse(instance.Id);
+        Guid instanceGuid = instance.Id;
         string expectedBlobStoragePath =
             $"{instance.AppId}/{instanceGuid}/data-elements/{allocatedBlobVersionId}";
         List<string> cleanupCalls = [];
@@ -1184,7 +1186,7 @@ public class DataServiceTests
         string secondBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
         Guid dataElementId = Guid.NewGuid();
         InstanceInternal instance = CreateInstance();
-        Guid instanceGuid = Guid.Parse(instance.Id);
+        Guid instanceGuid = instance.Id;
         using CancellationTokenSource cancellationTokenSource = new();
         Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
         Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
@@ -1245,7 +1247,7 @@ public class DataServiceTests
         DataService dataService = CreateDataService(dataRepositoryMock, blobRepositoryMock);
         DataElementInternal dataElement = new()
         {
-            Id = dataElementId.ToString(),
+            Id = dataElementId,
             BlobVersionId = firstBlobVersionId,
         };
 
@@ -1679,7 +1681,7 @@ public class DataServiceTests
     private static InstanceInternal CreateInstance() =>
         new()
         {
-            Id = Guid.NewGuid().ToString(),
+            Id = Guid.NewGuid(),
             AppId = "ttd/app",
             Org = "ttd",
         };

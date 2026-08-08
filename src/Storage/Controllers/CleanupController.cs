@@ -239,13 +239,10 @@ public class CleanupController(
             DataElementInternal dataElement = deletedDataElement.DataElement;
             try
             {
-                if (
-                    instance == null
-                    || Guid.Parse(instance.Id) != Guid.Parse(dataElement.InstanceGuid)
-                )
+                if (instance == null || instance.Id != dataElement.InstanceGuid)
                 {
                     instance = await instanceRepository.GetOne(
-                        Guid.Parse(dataElement.InstanceGuid),
+                        dataElement.InstanceGuid,
                         false,
                         cancellationToken
                     );
@@ -294,7 +291,7 @@ public class CleanupController(
                             .. blobVersion.BlobVersionIds.Select(versionId =>
                                 BlobRepository.GetVersionedBlobPath(
                                     blobVersion.AppId,
-                                    blobVersion.InstanceGuid.ToString(),
+                                    blobVersion.InstanceGuid,
                                     versionId
                                 )
                             ),
@@ -317,7 +314,7 @@ public class CleanupController(
 
                         string legacyBlobStoragePath = DataElementHelper.DataFileName(
                             blobVersion.AppId,
-                            blobVersion.InstanceGuid.ToString(),
+                            blobVersion.InstanceGuid,
                             dataElement.Id
                         );
                         await blobRepository.DeleteBlob(
@@ -423,7 +420,7 @@ public class CleanupController(
                 !await blobRepository.DeleteDataBlobs(
                     context.BlobStorageOrg,
                     context.AppId,
-                    instanceGuid.ToString(),
+                    instanceGuid,
                     context.StorageAccountNumber,
                     cancellationToken
                 )
@@ -455,7 +452,7 @@ public class CleanupController(
                 .. orphanBlobVersion.BlobVersionIds.Select(versionId =>
                     BlobRepository.GetVersionedBlobPath(
                         orphanBlobVersion.AppId,
-                        orphanBlobVersion.InstanceGuid.ToString(),
+                        orphanBlobVersion.InstanceGuid,
                         versionId
                     )
                 ),
@@ -510,7 +507,6 @@ public class CleanupController(
 
             try
             {
-                Guid instanceGuid = Guid.Parse(instance.Id);
                 Application app = await applicationRepository.FindOne(instance.AppId, instance.Org);
                 blobsNoException = await blobRepository.DeleteDataBlobs(
                     instance.Org,
@@ -523,7 +519,7 @@ public class CleanupController(
                 if (blobsNoException)
                 {
                     blobsNoException = await DeleteVersionedInstanceBlobPrefixesInternal(
-                        instanceGuid,
+                        instance.Id,
                         (instance.Org, instance.AppId, app.StorageAccountNumber),
                         cancellationToken
                     );
@@ -532,7 +528,7 @@ public class CleanupController(
                 if (blobsNoException)
                 {
                     dataElementsNoException = await dataRepository.DeleteForInstance(
-                        instanceGuid.ToString(),
+                        instance.Id,
                         cancellationToken
                     );
                 }
@@ -559,7 +555,7 @@ public class CleanupController(
                     && (!autoDeleteAppIds.Contains(instance.AppId) || instanceEventsNoException)
                 )
                 {
-                    if (await instanceRepository.Delete(instanceGuid, cancellationToken))
+                    if (await instanceRepository.Delete(instance.Id, cancellationToken))
                     {
                         successfullyDeleted += 1;
                     }

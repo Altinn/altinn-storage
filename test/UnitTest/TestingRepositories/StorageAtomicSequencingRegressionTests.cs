@@ -448,7 +448,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
                     {
                         EventType = eventType.ToString(),
                         InstanceId = $"{targetInstance.InstanceOwner.PartyId}/{targetInstance.Id}",
-                        DataId = dataElement.Id,
+                        DataId = dataElement.Id.ToString(),
                         User = new PlatformUser { UserId = 1337 },
                     }
             );
@@ -495,7 +495,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
         );
         string blobStoragePath = BlobRepository.GetVersionedBlobPath(
             instance.AppId,
-            instanceGuid.ToString(),
+            instanceGuid,
             blobVersionId
         );
         blobRepository.Put(
@@ -707,7 +707,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
         public Task<bool> DeleteDataBlobs(
             string org,
             string appId,
-            string instanceGuid,
+            Guid instanceGuid,
             int? storageAccountNumber,
             CancellationToken cancellationToken = default
         )

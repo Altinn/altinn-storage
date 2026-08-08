@@ -65,17 +65,13 @@ public class PgInstanceMutationRepositoryTests
             ],
             [
                 new InstanceMutationDataElementDelete(
-                    new DataElementInternal
-                    {
-                        Id = deleteElementId.ToString(),
-                        LastChangedBy = "3003",
-                    },
+                    new DataElementInternal { Id = deleteElementId, LastChangedBy = "3003" },
                     IgnoreLock: true
                 ),
             ],
             new InstanceInternal
             {
-                Id = instanceGuid.ToString(),
+                Id = instanceGuid,
                 AppId = "ttd/app",
                 Org = "ttd",
                 InstanceOwner = new InstanceOwner { PartyId = "5000" },
@@ -238,7 +234,7 @@ public class PgInstanceMutationRepositoryTests
     [Fact]
     public void BuildInstanceUpdatesPayload_ProcessEndArchive_WritesProcessAndStatusInFlatObject()
     {
-        Guid instanceGuid = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        Guid instanceGuid = Guid.NewGuid();
         DateTime lastChanged = UtcWithExtraTicks(2026, 2, 3, 4, 5, 6, 123, 4);
         DateTime archived = UtcWithExtraTicks(2026, 2, 3, 4, 6, 7, 234, 5);
         DateTime processEnded = UtcWithExtraTicks(2026, 2, 3, 4, 7, 8, 345, 6);
@@ -248,7 +244,7 @@ public class PgInstanceMutationRepositoryTests
             [],
             new InstanceInternal
             {
-                Id = instanceGuid.ToString(),
+                Id = instanceGuid,
                 AppId = "ttd/app",
                 Org = "ttd",
                 InstanceOwner = new InstanceOwner { PartyId = "5000" },
@@ -297,7 +293,7 @@ public class PgInstanceMutationRepositoryTests
     [Fact]
     public void BuildInstanceUpdatesPayload_MultipleBranches_WritesOneFlatObject()
     {
-        Guid instanceGuid = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        Guid instanceGuid = Guid.NewGuid();
         DateTime lastChanged = UtcWithExtraTicks(2026, 3, 4, 5, 6, 7, 123, 4);
         DateTime archived = UtcWithExtraTicks(2026, 3, 4, 5, 7, 8, 234, 5);
         DateTime processStarted = UtcWithExtraTicks(2026, 3, 4, 5, 8, 9, 345, 6);
@@ -308,7 +304,7 @@ public class PgInstanceMutationRepositoryTests
             [],
             new InstanceInternal
             {
-                Id = instanceGuid.ToString(),
+                Id = instanceGuid,
                 AppId = "ttd/app",
                 Org = "ttd",
                 InstanceOwner = new InstanceOwner { PartyId = "5000" },
@@ -426,7 +422,7 @@ public class PgInstanceMutationRepositoryTests
         DateTimeKind kind
     )
     {
-        Guid instanceGuid = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        Guid instanceGuid = Guid.NewGuid();
         DateTime created = WithKind(kind, 1, 123, 1);
         DateTime dueBefore = WithKind(kind, 2, 234, 2);
         DateTime visibleAfter = WithKind(kind, 3, 345, 3);
@@ -445,7 +441,7 @@ public class PgInstanceMutationRepositoryTests
             [],
             new InstanceInternal
             {
-                Id = instanceGuid.ToString(),
+                Id = instanceGuid,
                 AppId = "ttd/app",
                 Org = "ttd",
                 InstanceOwner = new InstanceOwner { PartyId = "5000" },
@@ -518,14 +514,14 @@ public class PgInstanceMutationRepositoryTests
     [Fact]
     public void BuildInstanceUpdatesPayload_DefaultConfirmedOn_WritesUtcTimestamp()
     {
-        Guid instanceGuid = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        Guid instanceGuid = Guid.NewGuid();
         InstanceMutationCommit mutation = new(
             [],
             [],
             [],
             new InstanceInternal
             {
-                Id = instanceGuid.ToString(),
+                Id = instanceGuid,
                 AppId = "ttd/app",
                 Org = "ttd",
                 InstanceOwner = new InstanceOwner { PartyId = "5000" },
@@ -549,14 +545,14 @@ public class PgInstanceMutationRepositoryTests
     [Fact]
     public void BuildEventsPayload_UnspecifiedKindTimestamp_WritesTheWallClockWithZuluSuffix()
     {
-        Guid instanceGuid = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        Guid instanceGuid = Guid.NewGuid();
         InstanceMutationCommit mutation = new(
             [],
             [],
             [],
             new InstanceInternal
             {
-                Id = instanceGuid.ToString(),
+                Id = instanceGuid,
                 AppId = "ttd/app",
                 Org = "ttd",
                 InstanceOwner = new InstanceOwner { PartyId = "5000" },
@@ -587,7 +583,7 @@ public class PgInstanceMutationRepositoryTests
     [InlineData(DateTimeKind.Local)]
     public void BuildEventsPayload_NonUtcKindTimestamps_WritesUtcTimestamps(DateTimeKind kind)
     {
-        Guid instanceGuid = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        Guid instanceGuid = Guid.NewGuid();
         DateTime eventCreated = WithKind(kind, 1, 123, 1);
         DateTime processStarted = WithKind(kind, 2, 234, 2);
         DateTime processEnded = WithKind(kind, 3, 345, 3);
@@ -600,7 +596,7 @@ public class PgInstanceMutationRepositoryTests
             [],
             new InstanceInternal
             {
-                Id = instanceGuid.ToString(),
+                Id = instanceGuid,
                 AppId = "ttd/app",
                 Org = "ttd",
                 InstanceOwner = new InstanceOwner { PartyId = "5000" },
@@ -648,7 +644,7 @@ public class PgInstanceMutationRepositoryTests
         DateTimeKind kind
     )
     {
-        Guid createElementId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        Guid createElementId = Guid.NewGuid();
         DateTime created = WithKind(kind, 1, 123, 1);
         DateTime hardDeleted = WithKind(kind, 2, 234, 2);
 
@@ -680,7 +676,7 @@ public class PgInstanceMutationRepositoryTests
     [InlineData(DateTimeKind.Local)]
     public void BuildOutboxPayload_NonUtcKindInstanceCreated_WritesUtcTimestamp(DateTimeKind kind)
     {
-        Guid instanceGuid = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        Guid instanceGuid = Guid.NewGuid();
         DateTime created = WithKind(kind, 1, 123, 1);
 
         InstanceMutationCommit mutation = new(
@@ -689,7 +685,7 @@ public class PgInstanceMutationRepositoryTests
             [],
             new InstanceInternal
             {
-                Id = instanceGuid.ToString(),
+                Id = instanceGuid,
                 AppId = "ttd/app",
                 Org = "ttd",
                 InstanceOwner = new InstanceOwner { PartyId = "5000" },
@@ -754,7 +750,7 @@ public class PgInstanceMutationRepositoryTests
     [Fact]
     public void CreateApplyMutationException_IdempotencyKeyInstanceMismatch_ReturnsConflict()
     {
-        Guid instanceGuid = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        Guid instanceGuid = Guid.NewGuid();
         PostgresException postgresException = new(
             """{"code":"idempotency_key_instance_mismatch","currentInstanceVersion":12,"currentProcessStateVersion":4}""",
             "ERROR",
@@ -775,7 +771,7 @@ public class PgInstanceMutationRepositoryTests
     [Fact]
     public void CreateApplyMutationException_ProcessStatusConflict_ReturnsTypedConflictWithCurrentStatus()
     {
-        Guid instanceGuid = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        Guid instanceGuid = Guid.NewGuid();
         PostgresException postgresException = new(
             """{"code":"process_status_conflict","currentInstanceVersion":12,"currentProcessStateVersion":4,"currentProcessStatus":"future-status"}""",
             "ERROR",
@@ -819,7 +815,7 @@ public class PgInstanceMutationRepositoryTests
         string code
     )
     {
-        Guid instanceGuid = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        Guid instanceGuid = Guid.NewGuid();
         PostgresException postgresException = new(
             $$"""{"code":"{{code}}","currentInstanceVersion":12,"currentProcessStateVersion":4}""",
             "ERROR",
@@ -841,7 +837,7 @@ public class PgInstanceMutationRepositoryTests
     [Fact]
     public void CreateApplyMutationException_InstanceHardDeleted_ReturnsGeneralNotFoundMessage()
     {
-        Guid instanceGuid = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        Guid instanceGuid = Guid.NewGuid();
         PostgresException postgresException = new(
             """{"code":"instance_hard_deleted","currentInstanceVersion":12,"currentProcessStateVersion":4}""",
             "ERROR",

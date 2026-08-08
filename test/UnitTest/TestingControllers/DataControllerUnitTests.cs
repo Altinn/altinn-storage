@@ -181,7 +181,7 @@ public class DataControllerUnitTests
                     InstanceEventType.Deleted,
                     fixture.InstanceInternal,
                     It.Is<DataElementInternal>(dataElement =>
-                        dataElement.Id == fixture.DataElementId.ToString()
+                        dataElement.Id == fixture.DataElementId
                     )
                 )
             )
@@ -508,7 +508,7 @@ public class DataControllerUnitTests
         Guid dataGuid = Guid.NewGuid();
         string expectedBlobStoragePath = BlobRepository.GetVersionedBlobPath(
             "ttd/apps-test",
-            instanceGuid.ToString(),
+            instanceGuid,
             expectedBlobVersionId
         );
         (DataController testController, _, Mock<IBlobRepository> blobRepositoryMock) =
@@ -2500,7 +2500,7 @@ public class DataControllerUnitTests
                                 ? legacyBlobStoragePath
                                 : BlobRepository.GetVersionedBlobPath(
                                     "ttd/apps-test",
-                                    instanceGuid.ToString(),
+                                    instanceGuid,
                                     blobVersionId
                                 )
                         );
@@ -2654,7 +2654,7 @@ public class DataControllerUnitTests
                     CancellationToken cancellationToken
                 ) =>
                 {
-                    string instanceGuid = instanceInternal.Id;
+                    string instanceGuid = instanceInternal.Id.ToString();
                     DataElement dataElement = new()
                     {
                         Id = options.DataElementId.ToString(),
@@ -2670,7 +2670,7 @@ public class DataControllerUnitTests
                         Size = 123145864564,
                         BlobStoragePath = BlobRepository.GetVersionedBlobPath(
                             instanceInternal.AppId,
-                            instanceGuid,
+                            new Guid(instanceGuid),
                             allocatedBlobVersionId
                         ),
                         FileScanResult = options.FileScanResult,
@@ -2753,16 +2753,14 @@ public class DataControllerUnitTests
                     )
                     {
                         if (
-                            snapshot.Data.All(dataElement =>
-                                dataElement.Id != update.DataElementId.ToString()
-                            )
+                            snapshot.Data.All(dataElement => dataElement.Id != update.DataElementId)
                         )
                         {
                             snapshot.Data.Add(
                                 new DataElementInternal
                                 {
-                                    Id = update.DataElementId.ToString(),
-                                    InstanceGuid = mutatedInstanceGuid.ToString(),
+                                    Id = update.DataElementId,
+                                    InstanceGuid = mutatedInstanceGuid,
                                     DataType = _dataType,
                                 }
                             );
@@ -2999,7 +2997,7 @@ public class DataControllerUnitTests
         {
             string content = File.ReadAllText(elementPath);
             DataElement dataElement = JsonSerializer.Deserialize<DataElement>(content, _options);
-            if (dataElement.InstanceGuid.Contains(instanceGuid.ToString()))
+            if (dataElement.InstanceGuid == instanceGuid.ToString())
             {
                 dataElements.Add(dataElement);
             }

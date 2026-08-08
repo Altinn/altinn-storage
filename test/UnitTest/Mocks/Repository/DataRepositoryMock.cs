@@ -38,14 +38,12 @@ public class DataRepositoryMock : IDataRepository
         int? expectedProcessStateVersion = null
     )
     {
-        string dataElementId = string.IsNullOrEmpty(dataElement.Id)
-            ? Guid.NewGuid().ToString()
-            : dataElement.Id;
-        Guid instanceGuid = new(dataElement.InstanceGuid);
-        _ = new Guid(dataElementId);
+        Guid elementId = dataElement.Id == Guid.Empty ? Guid.NewGuid() : dataElement.Id;
+        string dataElementId = elementId.ToString();
+        Guid instanceGuid = dataElement.InstanceGuid;
         string blobVersionId = ValidateBlobVersionId(dataElement.BlobVersionId);
         DataElementInternal stagedElement = CloneDataElement(dataElement);
-        stagedElement.Id = dataElementId;
+        stagedElement.Id = elementId;
         stagedElement.BlobVersionId = blobVersionId;
 
         StorageVersions versions;
@@ -85,7 +83,7 @@ public class DataRepositoryMock : IDataRepository
             versions = BumpInstanceVersionLocked();
         }
 
-        dataElement.Id = dataElementId;
+        dataElement.Id = elementId;
         dataElement.BlobVersionId = blobVersionId;
         return Task.FromResult(new DataElementWriteResult(dataElement, versions));
     }
@@ -434,7 +432,7 @@ public class DataRepositoryMock : IDataRepository
         Task.FromResult(true);
 
     public Task<bool> DeleteForInstance(
-        string instanceId,
+        Guid instanceGuid,
         CancellationToken cancellationToken = default
     ) => Task.FromResult(true);
 
@@ -646,7 +644,7 @@ public class DataRepositoryMock : IDataRepository
 
         string currentBlobVersion = ValidateBlobVersionId(storedBlobVersion);
         dataElement.BlobVersionId = currentBlobVersion;
-        Guid instanceGuid = new(dataElement.InstanceGuid);
+        Guid instanceGuid = dataElement.InstanceGuid;
         string serializedDataElement = JsonSerializer.Serialize(dataElement, _options);
         lock (_stateLock)
         {

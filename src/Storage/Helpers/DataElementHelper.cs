@@ -21,7 +21,7 @@ public static class DataElementHelper
     /// <summary>
     /// Formats a filename for blob storage.
     /// </summary>
-    public static string DataFileName(string appId, string instanceGuid, string dataElementId)
+    public static string DataFileName(string appId, Guid instanceGuid, Guid dataElementId)
     {
         return $"{appId}/{instanceGuid}/data/{dataElementId}";
     }
@@ -39,7 +39,7 @@ public static class DataElementHelper
             !IsExpectedBlobStoragePath(
                 dataElement.BlobStoragePath,
                 appId,
-                instanceGuid.ToString(),
+                instanceGuid,
                 dataElement.Id
             )
         )
@@ -116,8 +116,8 @@ public static class DataElementHelper
     internal static bool IsExpectedBlobStoragePath(
         string blobStoragePath,
         string appId,
-        string instanceGuid,
-        string dataElementId
+        Guid instanceGuid,
+        Guid dataElementId
     )
     {
         if (string.IsNullOrEmpty(blobStoragePath))

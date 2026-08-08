@@ -69,7 +69,7 @@ public class AuthorizationService(
             return [];
         }
 
-        SortedList<string, MessageBoxInstance> authorizedInstanceList = [];
+        SortedList<Guid, MessageBoxInstance> authorizedInstanceList = [];
         List<string> actionTypes = ["read"];
         if (_settings.AuthorizeA2ListInstancesWrite || keyAccessMode)
         {
@@ -134,14 +134,12 @@ public class AuthorizationService(
                     }
                 }
 
-                InstanceInternal authorizedInstance = instances.First(i =>
-                    i.Id == instanceId.Split('/')[1]
-                );
+                Guid instanceGuid = Guid.Parse(instanceId.Split('/')[1]);
+                InstanceInternal authorizedInstance = instances.First(i => i.Id == instanceGuid);
 
-                string id = authorizedInstance.Id;
                 if (
                     !authorizedInstanceList.TryGetValue(
-                        id,
+                        authorizedInstance.Id,
                         out MessageBoxInstance authorizedMessageBoxInstance
                     )
                 )
@@ -149,7 +147,7 @@ public class AuthorizationService(
                     authorizedMessageBoxInstance = InstanceHelper.ConvertToMessageBoxInstance(
                         authorizedInstance
                     );
-                    authorizedInstanceList[id] = authorizedMessageBoxInstance;
+                    authorizedInstanceList[authorizedInstance.Id] = authorizedMessageBoxInstance;
                 }
 
                 switch (actiontype)
@@ -188,7 +186,7 @@ public class AuthorizationService(
         XacmlJsonRequestRoot request;
 
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
-        if (instance.Id == null)
+        if (instance.Id == Guid.Empty)
         {
             request = DecisionHelper.CreateDecisionRequest(
                 org,
@@ -201,14 +199,13 @@ public class AuthorizationService(
         }
         else
         {
-            Guid instanceGuid = Guid.Parse(instance.Id);
             request = DecisionHelper.CreateDecisionRequest(
                 org,
                 app,
                 user,
                 action,
                 instanceOwnerPartyId,
-                instanceGuid,
+                instance.Id,
                 task
             );
         }
@@ -239,14 +236,13 @@ public class AuthorizationService(
         int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
 
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
-        Guid instanceGuid = Guid.Parse(instance.Id);
         XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
             org,
             app,
             user,
             action,
             instanceOwnerPartyId,
-            instanceGuid
+            instance.Id
         );
 
         EnrichXacmlJsonRequest(request, instance);
@@ -364,7 +360,8 @@ public class AuthorizationService(
                 }
             }
 
-            InstanceInternal instance = instances.Find(i => i.Id == instanceId.Split('/')[1]);
+            Guid instanceGuid = Guid.Parse(instanceId.Split('/')[1]);
+            InstanceInternal instance = instances.Find(i => i.Id == instanceGuid);
             authorizedInstanceList.Add(instance);
         }
 
@@ -538,17 +535,16 @@ public class AuthorizationService(
 
     private static (
         string InstanceId,
-        string InstanceGuid,
+        Guid InstanceGuid,
         string Task,
         string InstanceOwnerPartyId,
         string Org,
         string App
     ) GetInstanceProperties(InstanceInternal instance)
     {
-        string instanceId = instance.Id is null
-            ? null
-            : $"{instance.InstanceOwner.PartyId}/{instance.Id}";
-        string instanceGuid = instance.Id;
+        string instanceId =
+            instance.Id == Guid.Empty ? null : $"{instance.InstanceOwner.PartyId}/{instance.Id}";
+        Guid instanceGuid = instance.Id;
         string task = instance.Process?.CurrentTask?.ElementId;
         string instanceOwnerPartyId = instance.InstanceOwner.PartyId;
         string org = instance.Org;
@@ -651,7 +647,7 @@ public class AuthorizationService(
                     )
                 );
             }
-            else if (!string.IsNullOrEmpty(instanceProps.InstanceGuid))
+            else if (instanceProps.InstanceGuid != Guid.Empty)
             {
                 resourceCategory.Attribute.Add(
                     DecisionHelper.CreateXacmlJsonAttribute(

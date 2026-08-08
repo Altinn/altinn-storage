@@ -26,7 +26,7 @@ public class ProcessDataCleanupServiceTests
         ProcessDataCleanupService target = CreateService();
         InstanceInternal instance = new()
         {
-            Id = "abc",
+            Id = Guid.NewGuid(),
             AppId = _appId,
             Data = null,
         };
@@ -137,7 +137,7 @@ public class ProcessDataCleanupServiceTests
 
     private static DataElementInternal MakeDataElementInternal(params Reference[] references)
     {
-        string dataElementId = Guid.NewGuid().ToString();
+        Guid dataElementId = Guid.NewGuid();
         return new DataElementInternal
         {
             Id = dataElementId,
@@ -151,7 +151,7 @@ public class ProcessDataCleanupServiceTests
     ) =>
         new()
         {
-            Id = "5f857f25-04a4-4c70-913b-cb40e2a65428",
+            Id = new Guid("5f857f25-04a4-4c70-913b-cb40e2a65428"),
             AppId = _appId,
             Org = "ttd",
             Data = dataElements.ToList(),

@@ -15,7 +15,7 @@ public sealed class InstanceInternal
     /// <summary>
     /// Gets or sets the unique instance identifier in storage format.
     /// </summary>
-    public string Id { get; set; }
+    public Guid Id { get; set; }
 
     /// <summary>
     /// Gets or sets the instance owner.

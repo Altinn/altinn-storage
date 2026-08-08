@@ -42,11 +42,11 @@ public class InstanceEventServiceTests
         );
         InstanceInternal instance = new()
         {
-            Id = "test",
+            Id = Guid.NewGuid(),
             InstanceOwner = new InstanceOwner { PartyId = "someId" },
             Process = new ProcessState(),
         };
-        DataElementInternal dataElement = new() { Id = "test" };
+        DataElementInternal dataElement = new() { Id = Guid.NewGuid() };
 
         // Act
         await target.DispatchEvent(eventType, instance, dataElement);
@@ -83,11 +83,11 @@ public class InstanceEventServiceTests
         );
         InstanceInternal instance = new()
         {
-            Id = "test-instance",
+            Id = Guid.NewGuid(),
             InstanceOwner = new InstanceOwner { PartyId = "someId" },
             Process = new ProcessState(),
         };
-        DataElementInternal dataElement = new() { Id = Guid.NewGuid().ToString() };
+        DataElementInternal dataElement = new() { Id = Guid.NewGuid() };
 
         // Act
         InstanceEvent result = target.BuildInstanceEvent(eventType, instance, dataElement);
@@ -127,11 +127,11 @@ public class InstanceEventServiceTests
         );
         InstanceInternal instance = new()
         {
-            Id = "test",
+            Id = Guid.NewGuid(),
             InstanceOwner = new InstanceOwner { PartyId = "someId" },
             Process = new ProcessState(),
         };
-        DataElementInternal dataElement = new() { Id = "test" };
+        DataElementInternal dataElement = new() { Id = Guid.NewGuid() };
 
         // Act and Assert
         InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
@@ -167,11 +167,11 @@ public class InstanceEventServiceTests
         );
         InstanceInternal instance = new()
         {
-            Id = "test",
+            Id = Guid.NewGuid(),
             InstanceOwner = new InstanceOwner { PartyId = "someId" },
             Process = new ProcessState(),
         };
-        DataElementInternal dataElement = new() { Id = "test" };
+        DataElementInternal dataElement = new() { Id = Guid.NewGuid() };
 
         // Act and Assert
         InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(

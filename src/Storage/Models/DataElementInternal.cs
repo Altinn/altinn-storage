@@ -16,12 +16,12 @@ public sealed class DataElementInternal
     /// <summary>
     /// Gets or sets the unique data element identifier.
     /// </summary>
-    public string Id { get; set; }
+    public Guid Id { get; set; }
 
     /// <summary>
     /// Gets or sets the identifier of the owning instance.
     /// </summary>
-    public string InstanceGuid { get; set; }
+    public Guid InstanceGuid { get; set; }
 
     /// <summary>
     /// Gets or sets the data type.

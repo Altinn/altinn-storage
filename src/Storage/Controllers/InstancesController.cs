@@ -511,10 +511,7 @@ public class InstancesController : ControllerBase
                 cancellationToken
             );
             await _instanceEventService.DispatchEvent(InstanceEventType.Created, storedInstance);
-            _logger.LogInformation(
-                "Created instance: {InstanceId}",
-                storedInstance.Id.RemoveNewlines()
-            );
+            _logger.LogInformation("Created instance: {InstanceId}", storedInstance.Id);
             Instance responseInstance = storedInstance.ToApiModel();
             responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
 
@@ -534,10 +531,10 @@ public class InstancesController : ControllerBase
             // compensating action - delete instance
             if (storedInstance != null)
             {
-                await _instanceRepository.Delete(Guid.Parse(storedInstance.Id), cancellationToken);
+                await _instanceRepository.Delete(storedInstance.Id, cancellationToken);
             }
 
-            _logger.LogError("Deleted instance {InstanceId}", storedInstance?.Id.RemoveNewlines());
+            _logger.LogError("Deleted instance {InstanceId}", storedInstance?.Id);
             return StatusCode(
                 500,
                 $"Unable to create {appId} instance for {instance.InstanceOwner?.PartyId} due to {storageException.Message}"

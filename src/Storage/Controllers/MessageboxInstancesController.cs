@@ -242,7 +242,6 @@ public class MessageBoxInstancesController : ControllerBase
         [FromRoute] Guid instanceGuid
     )
     {
-        string instanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
         string[] eventTypes =
         {
             InstanceEventType.Created.ToString(),
@@ -263,13 +262,8 @@ public class MessageBoxInstancesController : ControllerBase
             InstanceEventType.MessageRead.ToString(),
         };
 
-        if (string.IsNullOrEmpty(instanceId))
-        {
-            return BadRequest("Unable to perform query.");
-        }
-
         List<InstanceEvent> allInstanceEvents = await _instanceEventRepository.ListInstanceEvents(
-            instanceId,
+            instanceGuid,
             eventTypes,
             null,
             null

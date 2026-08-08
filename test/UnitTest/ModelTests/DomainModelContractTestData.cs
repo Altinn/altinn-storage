@@ -144,7 +144,7 @@ internal static class DomainModelContractTestData
 
     internal const string LegacyInstanceJsonWithoutIgnoredKeys = """
         {
-          "Id": "mixedCase-Id-Is-Preserved",
+          "Id": "0D5C9F31-7B2E-4A68-9C14-5E8F3A6B7C2D",
           "InstanceOwner": null,
           "AppId": "legacy/app",
           "Org": null,
@@ -155,8 +155,8 @@ internal static class DomainModelContractTestData
 
     internal const string LegacyDataElementJsonWithIgnoredNullKey = """
         {
-          "Id": "legacy-non-guid-data-element-id",
-          "InstanceGuid": "legacy-non-guid-instance-id",
+          "Id": "6b0a9d84-3c15-4e27-8f39-2a4b6c8d0e1f",
+          "InstanceGuid": "3E2F1A0B-9C8D-4E7F-8A6B-5C4D3E2F1A0B",
           "DataType": "legacy-data",
           "Filename": null,
           "ContentType": "text/plain",
@@ -334,7 +334,7 @@ internal static class DomainModelContractTestData
         DataElementInternal dataElement = CreateDomainDataElement();
         return new InstanceInternal
         {
-            Id = InstanceGuid,
+            Id = new Guid(InstanceGuid),
             InstanceOwner = CreateInstanceOwner(),
             AppId = "org/contract-app",
             Org = "org",
@@ -373,8 +373,8 @@ internal static class DomainModelContractTestData
     internal static DataElementInternal CreateDomainDataElement() =>
         new()
         {
-            Id = DataElementGuid,
-            InstanceGuid = InstanceGuid,
+            Id = new Guid(DataElementGuid),
+            InstanceGuid = new Guid(InstanceGuid),
             DataType = "contract-data",
             Filename = "contract.pdf",
             ContentType = "application/pdf",

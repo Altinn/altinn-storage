@@ -255,9 +255,9 @@ public sealed class PgInstanceMutationRepository(
             writer.WriteStartArray();
             foreach (DataElementInternal dataElement in dataElements)
             {
-                if (string.IsNullOrEmpty(dataElement.Id))
+                if (dataElement.Id == Guid.Empty)
                 {
-                    dataElement.Id = Guid.NewGuid().ToString();
+                    dataElement.Id = Guid.NewGuid();
                 }
 
                 if (dataElement.Created is { } created)

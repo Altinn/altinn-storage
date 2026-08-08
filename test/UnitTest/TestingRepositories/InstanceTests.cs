@@ -56,8 +56,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     {
         // Arrange
         InstanceInternal input = TestData.Instance_1_1.Clone().FromApiModel();
-        input.Id = input.Id.ToUpperInvariant();
-        string expectedStorageId = input.Id;
+        Guid expectedStorageId = input.Id;
         input.InternalId = 42;
         input.Versions = new StorageVersions(9, 8);
 
@@ -84,7 +83,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Assert.Equal(false, confirmed);
 
         InstanceInternal persistedInstance = await _instanceFixture.InstanceRepo.GetOne(
-            Guid.Parse(expectedStorageId),
+            expectedStorageId,
             false,
             CancellationToken.None
         );
@@ -103,7 +102,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     )
     {
         InstanceInternal input = TestData.Instance_1_1.Clone().FromApiModel();
-        input.Id = Guid.NewGuid().ToString();
+        input.Id = Guid.NewGuid();
         input.Process = new ProcessState
         {
             Status = suppliedStatus,
@@ -121,7 +120,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             CancellationToken.None
         );
         InstanceInternal persisted = await _instanceFixture.InstanceRepo.GetOne(
-            Guid.Parse(created.Id),
+            created.Id,
             false,
             CancellationToken.None
         );
@@ -135,7 +134,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Assert.Equal("Task_Creation", persisted.Process.CurrentTask.ElementId);
         Assert.Equal(
             expectedStoredRepresentation,
-            await ReadStoredProcessStatusRepresentation(Guid.Parse(created.Id))
+            await ReadStoredProcessStatusRepresentation(created.Id)
         );
     }
 
@@ -143,14 +142,15 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_Create_GeneratesIdAndHydratesInternalStateOnlyOnRead()
     {
         InstanceInternal input = TestData.Instance_1_1.Clone().FromApiModel();
-        input.Id = null;
+        input.Id = Guid.Empty;
 
         InstanceInternal created = await _instanceFixture.InstanceRepo.Create(
             input,
             CancellationToken.None
         );
 
-        Assert.True(Guid.TryParse(created.Id, out Guid generatedId));
+        Guid generatedId = created.Id;
+        Assert.NotEqual(Guid.Empty, generatedId);
         Assert.Equal(0, created.InternalId);
         Assert.Equal(new StorageVersions(1, 1), created.Versions);
 
@@ -220,10 +220,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             ),
             updatedInstance.Versions
         );
-        Assert.Equal(
-            "<absent>",
-            await ReadStoredProcessStatusRepresentation(Guid.Parse(updatedInstance.Id))
-        );
+        Assert.Equal("<absent>", await ReadStoredProcessStatusRepresentation(updatedInstance.Id));
     }
 
     [Fact]
@@ -346,7 +343,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             TestData.Instance_1_1.Clone().FromApiModel(),
             CancellationToken.None
         );
-        Guid instanceGuid = Guid.Parse(instance.Id);
+        Guid instanceGuid = instance.Id;
         await SetStoredProcessStatus(instanceGuid, currentProcessStatus);
         instance = await _instanceFixture.InstanceRepo.GetOne(
             instanceGuid,
@@ -378,7 +375,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             TestData.Instance_1_1.Clone().FromApiModel(),
             CancellationToken.None
         );
-        Guid instanceGuid = Guid.Parse(instance.Id);
+        Guid instanceGuid = instance.Id;
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
         instance.LastChanged = DateTime.UtcNow;
 
@@ -414,7 +411,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
         instance.Process.Status = ProcessStatus.Idle;
         instance = await _instanceFixture.InstanceRepo.Create(instance, CancellationToken.None);
-        await SetStoredProcessStatus(Guid.Parse(instance.Id), ProcessStatus.Idle);
+        await SetStoredProcessStatus(instance.Id, ProcessStatus.Idle);
         instance.Process = new ProcessState
         {
             Status = suppliedStatus,
@@ -431,7 +428,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Assert.Equal(suppliedStatus, result.Process.Status);
         Assert.Equal(
             expectedStoredRepresentation,
-            await ReadStoredProcessStatusRepresentation(Guid.Parse(instance.Id))
+            await ReadStoredProcessStatusRepresentation(instance.Id)
         );
     }
 
@@ -455,7 +452,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             CancellationToken.None
         );
         InstanceInternal persisted = await _instanceFixture.InstanceRepo.GetOne(
-            Guid.Parse(instance.Id),
+            instance.Id,
             false,
             CancellationToken.None
         );
@@ -468,10 +465,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Assert.Equal(expectedVersions, result.Versions);
         Assert.Equal(ProcessStatus.Processing, persisted.Process.Status);
         Assert.Equal(expectedVersions, persisted.Versions);
-        Assert.Equal(
-            "\"processing\"",
-            await ReadStoredProcessStatusRepresentation(Guid.Parse(instance.Id))
-        );
+        Assert.Equal("\"processing\"", await ReadStoredProcessStatusRepresentation(instance.Id));
     }
 
     [Fact]
@@ -481,7 +475,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             TestData.Instance_1_1.Clone().FromApiModel(),
             CancellationToken.None
         );
-        Guid instanceGuid = Guid.Parse(instance.Id);
+        Guid instanceGuid = instance.Id;
         StorageVersions versionsBefore = instance.Versions;
         string originalTaskId = instance.Process.CurrentTask.ElementId;
         instance.DataValues["combined-update"] = "applied";
@@ -527,7 +521,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             TestData.Instance_1_1.Clone().FromApiModel(),
             CancellationToken.None
         );
-        Guid instanceGuid = Guid.Parse(instance.Id);
+        Guid instanceGuid = instance.Id;
         await SetStoredProcessRepresentation(instanceGuid, persistedRepresentation);
         instance.Process = new ProcessState
         {
@@ -555,7 +549,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             TestData.Instance_1_1.Clone().FromApiModel(),
             CancellationToken.None
         );
-        Guid instanceGuid = Guid.Parse(instance.Id);
+        Guid instanceGuid = instance.Id;
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
         instance = await _instanceFixture.InstanceRepo.GetOne(
             instanceGuid,
@@ -583,7 +577,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             TestData.Instance_1_1.Clone().FromApiModel(),
             CancellationToken.None
         );
-        Guid instanceGuid = Guid.Parse(instance.Id);
+        Guid instanceGuid = instance.Id;
         instance = await _instanceFixture.InstanceRepo.GetOne(
             instanceGuid,
             false,
@@ -621,7 +615,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             TestData.Instance_1_1.Clone().FromApiModel(),
             CancellationToken.None
         );
-        Guid instanceGuid = Guid.Parse(instance.Id);
+        Guid instanceGuid = instance.Id;
         string instanceUpdate = representation switch
         {
             "status-null" => "jsonb_set(instance, '{Status}', 'null'::jsonb)",
@@ -658,7 +652,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             TestData.Instance_1_1.Clone().FromApiModel(),
             CancellationToken.None
         );
-        Guid instanceGuid = Guid.Parse(instance.Id);
+        Guid instanceGuid = instance.Id;
         string originalLastChangedBy = instance.LastChangedBy;
         instance.LastChanged = DateTime.UtcNow;
         instance.LastChangedBy = "racing-instance-update";
@@ -1217,7 +1211,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
 
         // Act
         bool deleted = await _instanceFixture.InstanceRepo.Delete(
-            Guid.Parse(newInstance.Id),
+            newInstance.Id,
             CancellationToken.None
         );
 
@@ -1241,8 +1235,8 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             .FromApiModel();
         InstanceInternal input = TestData.Instance_1_1.Clone().FromApiModel();
         string blobVersionId = await _instanceFixture.DataRepo.CreateBlobVersionId(
-            Guid.Parse(data.InstanceGuid),
-            Guid.Parse(data.Id),
+            data.InstanceGuid,
+            data.Id,
             input.AppId,
             input.Org,
             null,
@@ -1258,12 +1252,12 @@ public class InstanceTests : IClassFixture<InstanceFixture>
 
         // Act
         InstanceInternal instanceNoData = await _instanceFixture.InstanceRepo.GetOne(
-            Guid.Parse(instance.Id),
+            instance.Id,
             false,
             CancellationToken.None
         );
         InstanceInternal instanceWithData = await _instanceFixture.InstanceRepo.GetOne(
-            Guid.Parse(instance.Id),
+            instance.Id,
             true,
             CancellationToken.None
         );
@@ -1313,7 +1307,6 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             instances,
             instance =>
             {
-                Assert.DoesNotContain('/', instance.Id);
                 Assert.Null(instance.Data);
                 Assert.Null(instance.Versions);
                 Assert.Equal(0, instance.InternalId);
@@ -1337,21 +1330,21 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         DataElementInternal data3 = TestDataUtil
             .GetDataElement("24bfec2e-c4ce-4e82-8fa9-aa39da329fd5")
             .FromApiModel();
-        data1.InstanceGuid = TestData.Instance_1_1.Id.Split('/').Last();
-        data2.InstanceGuid = TestData.Instance_2_1.Id.Split('/').Last();
-        data3.InstanceGuid = TestData.Instance_3_1.Id.Split('/').Last();
+        data1.InstanceGuid = new Guid(TestData.Instance_1_1.Id.Split('/').Last());
+        data2.InstanceGuid = new Guid(TestData.Instance_2_1.Id.Split('/').Last());
+        data3.InstanceGuid = new Guid(TestData.Instance_3_1.Id.Split('/').Last());
         InstanceInternal instance1 = TestData.Instance_1_1.Clone().FromApiModel();
         string firstVersion = await _instanceFixture.DataRepo.CreateBlobVersionId(
-            Guid.Parse(data1.InstanceGuid),
-            Guid.Parse(data1.Id),
+            data1.InstanceGuid,
+            data1.Id,
             instance1.AppId,
             instance1.Org,
             null,
             CancellationToken.None
         );
         string secondVersion = await _instanceFixture.DataRepo.CreateBlobVersionId(
-            Guid.Parse(data1.InstanceGuid),
-            Guid.Parse(data1.Id),
+            data1.InstanceGuid,
+            data1.Id,
             instance1.AppId,
             instance1.Org,
             null,
@@ -1376,8 +1369,8 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             CancellationToken.None
         );
         await _instanceFixture.DataRepo.Update(
-            Guid.Parse(data1.InstanceGuid),
-            Guid.Parse(data1.Id),
+            data1.InstanceGuid,
+            data1.Id,
             new Dictionary<string, object>() { { "/deleteStatus", new DeleteStatus() } }
         );
         var dataElements2 = await _instanceFixture.InstanceRepo.GetHardDeletedDataElements(
@@ -1392,7 +1385,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             element => element.DataElement.Id == data1.Id
         );
         BlobVersionReferencesInternal blobVersions = Assert.Single(versionedElement.BlobVersions);
-        Assert.Equal(Guid.Parse(data1.InstanceGuid), blobVersions.InstanceGuid);
+        Assert.Equal(data1.InstanceGuid, blobVersions.InstanceGuid);
         Assert.Equal(instance1.AppId, blobVersions.AppId);
         Assert.Equal(instance1.Org, blobVersions.BlobStorageOrg);
         Assert.Equal([firstVersion, secondVersion], blobVersions.BlobVersionIds);
@@ -1435,7 +1428,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         );
         existingDataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
             existingInstance.AppId,
-            existingDataElement.InstanceGuid,
+            new Guid(existingDataElement.InstanceGuid),
             existingVersion
         );
         Guid existingVersionUuid = BlobVersionId.Decode(existingVersion);
@@ -1481,7 +1474,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         );
         dataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
             instance.AppId,
-            dataElement.InstanceGuid,
+            new Guid(dataElement.InstanceGuid),
             secondVersion
         );
         await InsertInstanceAndData(instance, dataElement, secondVersion);
@@ -1500,7 +1493,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         );
         otherDataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
             instance.AppId,
-            otherDataElement.InstanceGuid,
+            new Guid(otherDataElement.InstanceGuid),
             otherVersion
         );
         InstanceInternal instanceInternal = await _instanceFixture.InstanceRepo.GetOne(
@@ -1545,21 +1538,20 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     public async Task Instance_GetInstancesFromQuery_FullyHydratesDomainState()
     {
         InstanceInternal input = TestData.Instance_1_1.Clone().FromApiModel();
-        input.Id = input.Id.ToUpperInvariant();
-        string expectedStorageId = input.Id;
+        Guid expectedStorageId = input.Id;
         await _instanceFixture.InstanceRepo.Create(input, CancellationToken.None);
 
         InstanceInternal persisted = await _instanceFixture.InstanceRepo.GetOne(
-            Guid.Parse(expectedStorageId),
+            expectedStorageId,
             false,
             CancellationToken.None
         );
         DataElement firstInsertedElement = TestDataUtil.GetDataElement(
             "24bfec2e-c4ce-4e82-8fa9-aa39da329fd5"
         );
-        firstInsertedElement.InstanceGuid = expectedStorageId;
+        firstInsertedElement.InstanceGuid = expectedStorageId.ToString();
         string firstBlobVersionId = await _instanceFixture.DataRepo.CreateBlobVersionId(
-            Guid.Parse(expectedStorageId),
+            expectedStorageId,
             Guid.Parse(firstInsertedElement.Id),
             input.AppId,
             input.Org,
@@ -1580,9 +1572,9 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         DataElement secondInsertedElement = TestDataUtil.GetDataElement(
             "1336b773-4ae2-4bdf-9529-d71dfc1c8b43"
         );
-        secondInsertedElement.InstanceGuid = expectedStorageId;
+        secondInsertedElement.InstanceGuid = expectedStorageId.ToString();
         string secondBlobVersionId = await _instanceFixture.DataRepo.CreateBlobVersionId(
-            Guid.Parse(expectedStorageId),
+            expectedStorageId,
             Guid.Parse(secondInsertedElement.Id),
             input.AppId,
             input.Org,
@@ -1612,7 +1604,6 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Assert.Null(result.Exception);
         InstanceInternal instance = Assert.Single(result.Instances);
         Assert.Equal(expectedStorageId, instance.Id);
-        Assert.DoesNotContain('/', instance.Id);
         Assert.Equal(persisted.InternalId, instance.InternalId);
         Assert.NotEqual(0, instance.InternalId);
         Assert.Equal(new StorageVersions(7, 3), instance.Versions);
@@ -1620,13 +1611,13 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             instance.Data,
             element =>
             {
-                Assert.Equal(firstInsertedElement.Id, element.Id);
+                Assert.Equal(firstInsertedElement.Id, element.Id.ToString());
                 Assert.Equal(firstBlobVersionId, element.BlobVersionId);
                 Assert.Equal(firstInsertedElement.BlobStoragePath, element.BlobStoragePath);
             },
             element =>
             {
-                Assert.Equal(secondInsertedElement.Id, element.Id);
+                Assert.Equal(secondInsertedElement.Id, element.Id.ToString());
                 Assert.Equal(secondBlobVersionId, element.BlobVersionId);
             }
         );
@@ -1661,8 +1652,11 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             CancellationToken.None
         );
 
-        Assert.Equal(first.Id.Split('/').Last(), Assert.Single(firstPage.Instances).Id);
-        Assert.Equal(second.Id.Split('/').Last(), Assert.Single(secondPage.Instances).Id);
+        Assert.Equal(first.Id.Split('/').Last(), Assert.Single(firstPage.Instances).Id.ToString());
+        Assert.Equal(
+            second.Id.Split('/').Last(),
+            Assert.Single(secondPage.Instances).Id.ToString()
+        );
         Assert.NotNull(firstPage.ContinuationToken);
         Assert.NotNull(secondPage.ContinuationToken);
         Assert.NotEqual(firstPage.ContinuationToken, secondPage.ContinuationToken);
@@ -1677,7 +1671,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             },
             CancellationToken.None
         );
-        Assert.Equal(third.Id.Split('/').Last(), Assert.Single(filtered.Instances).Id);
+        Assert.Equal(third.Id.Split('/').Last(), Assert.Single(filtered.Instances).Id.ToString());
     }
 
     [Fact]
@@ -1693,11 +1687,11 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         DataElement visibleElement = TestDataUtil.GetDataElement(
             "24bfec2e-c4ce-4e82-8fa9-aa39da329fd5"
         );
-        visibleElement.InstanceGuid = persisted.Id;
+        visibleElement.InstanceGuid = persisted.Id.ToString();
         DataElement deletedElement = TestDataUtil.GetDataElement(
             "1336b773-4ae2-4bdf-9529-d71dfc1c8b43"
         );
-        deletedElement.InstanceGuid = persisted.Id;
+        deletedElement.InstanceGuid = persisted.Id.ToString();
         deletedElement.DeleteStatus = new DeleteStatus
         {
             IsHardDeleted = true,
@@ -1723,12 +1717,14 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Assert.Equal(2, elements.Count);
         Assert.True(
             Assert
-                .Single(elements, element => element.Id == deletedElement.Id)
+                .Single(elements, element => element.Id.ToString() == deletedElement.Id)
                 .DeleteStatus.IsHardDeleted
         );
         Assert.Equal(
             visibleElement.Id,
-            Assert.Single(elements, element => element.DeleteStatus?.IsHardDeleted != true).Id
+            Assert
+                .Single(elements, element => element.DeleteStatus?.IsHardDeleted != true)
+                .Id.ToString()
         );
     }
 
@@ -1874,15 +1870,15 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Assert.Null(contToken3);
         Assert.True(string.CompareOrdinal(contToken1, contToken2) < 0);
         Assert.Equal(
-            instances1.Instances.FirstOrDefault().Id,
+            instances1.Instances.FirstOrDefault().Id.ToString(),
             TestData.Instance_1_1.Id.Split('/').Last()
         );
         Assert.Equal(
-            instances2.Instances.FirstOrDefault().Id,
+            instances2.Instances.FirstOrDefault().Id.ToString(),
             TestData.Instance_1_2.Id.Split('/').Last()
         );
         Assert.Equal(
-            instances3.Instances.FirstOrDefault().Id,
+            instances3.Instances.FirstOrDefault().Id.ToString(),
             TestData.Instance_1_3.Id.Split('/').Last()
         );
     }
@@ -2483,7 +2479,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
 
         // Assert
         string sql =
-            $"select count(*) from storage.instances where alternateid = '{newInstance.Id.Split('/').Last()}'";
+            $"select count(*) from storage.instances where alternateid = '{newInstance.Id}'";
         int count = await PostgresUtil.RunCountQuery(sql);
 
         Assert.Equal(1, count);
@@ -2514,7 +2510,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
 
         // Assert
         string sql =
-            $"select count(*) from storage.instances where alternateid = '{newInstance.Id.Split('/').Last()}'";
+            $"select count(*) from storage.instances where alternateid = '{newInstance.Id}'";
         int count = await PostgresUtil.RunCountQuery(sql);
 
         Assert.Equal(1, count);
@@ -2574,11 +2570,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     {
         instance = await _instanceFixture.InstanceRepo.Create(instance, CancellationToken.None);
         long internalId = (
-            await _instanceFixture.InstanceRepo.GetOne(
-                Guid.Parse(instance.Id),
-                true,
-                CancellationToken.None
-            )
+            await _instanceFixture.InstanceRepo.GetOne(instance.Id, true, CancellationToken.None)
         ).InternalId;
         await _instanceFixture.DataRepo.Create(dataelement, internalId);
         return instance;
@@ -2591,7 +2583,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     )
     {
         InstanceInternal instanceInternal = instance.FromApiModel();
-        instanceInternal.Id = dataelement.InstanceGuid;
+        instanceInternal.Id = new Guid(dataelement.InstanceGuid);
         return await InsertInstanceAndData(
             instanceInternal,
             dataelement.FromApiModel(blobVersionId)

@@ -88,7 +88,7 @@ public class InstanceEventService : IInstanceEventService
         {
             EventType = eventType.ToString(),
             InstanceId = $"{instance.InstanceOwner.PartyId}/{instance.Id}",
-            DataId = dataElement.Id,
+            DataId = dataElement.Id.ToString(),
             InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
             User = new PlatformUser
             {

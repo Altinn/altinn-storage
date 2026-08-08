@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Configuration;
@@ -25,7 +26,7 @@ public class ProcessAuthorizerTests
     ) =>
         new()
         {
-            Id = "500/guid",
+            Id = Guid.NewGuid(),
             Process = new ProcessState
             {
                 CurrentTask = new ProcessElementInfo

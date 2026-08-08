@@ -28,8 +28,8 @@ public class DataElementHelperTests
     {
         // Arrange
         string appId = "ttd/app";
-        string instanceGuid = $"{Guid.NewGuid()}";
-        string dataElementId = $"{Guid.NewGuid()}";
+        Guid instanceGuid = Guid.NewGuid();
+        Guid dataElementId = Guid.NewGuid();
 
         // The blob versioning build encodes the version id as base64url of a v7 guid in
         // canonical byte order, which keeps the encoded id sorted by creation time.
@@ -42,8 +42,8 @@ public class DataElementHelperTests
             .Replace("{otherInstanceGuid}", $"{Guid.NewGuid()}")
             .Replace("{otherDataElementId}", $"{Guid.NewGuid()}")
             .Replace("{appId}", appId)
-            .Replace("{instanceGuid}", instanceGuid)
-            .Replace("{dataElementId}", dataElementId)
+            .Replace("{instanceGuid}", instanceGuid.ToString())
+            .Replace("{dataElementId}", dataElementId.ToString())
             .Replace("{blobVersionId}", blobVersionId);
 
         // Act

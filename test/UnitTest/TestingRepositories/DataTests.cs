@@ -51,7 +51,7 @@ public class DataTests(DataElementFixture dataElementFixture)
 
     private long _instanceInternalId;
     private InstanceInternal _instance;
-    private string _instanceGuid;
+    private Guid _instanceGuid;
 
     public async Task InitializeAsync()
     {
@@ -68,12 +68,12 @@ public class DataTests(DataElementFixture dataElementFixture)
             CancellationToken.None
         );
         _instance = await dataElementFixture.InstanceRepo.GetOne(
-            Guid.Parse(newInstance.Id.Split('/').Last()),
+            newInstance.Id,
             false,
             CancellationToken.None
         );
         _instanceInternalId = _instance.InternalId;
-        _instanceGuid = _instance.Id.Split('/').Last();
+        _instanceGuid = _instance.Id;
     }
 
     public async Task DisposeAsync()
@@ -95,13 +95,13 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Act
         DataElementInternal dataElement = await CreateDataElement(element);
         InstanceInternal instance = await dataElementFixture.InstanceRepo.GetOne(
-            Guid.Parse(dataElement.InstanceGuid),
+            dataElement.InstanceGuid,
             false,
             CancellationToken.None
         );
 
         // Assert
-        Assert.True(await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id)));
+        Assert.True(await dataElementFixture.DataRepo.Exists(dataElement.Id));
         Assert.Equal(ReadStatus.UpdatedSinceLastReview, instance.Status.ReadStatus);
         Assert.Equal(dataElement.LastChangedBy, instance.LastChangedBy);
         Assert.Equal(instance.LastChanged, dataElement.LastChanged);
@@ -123,7 +123,7 @@ public class DataTests(DataElementFixture dataElementFixture)
 
         // Assert
         InstanceInternal instance = await ReadInstance();
-        Assert.True(await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id)));
+        Assert.True(await dataElementFixture.DataRepo.Exists(dataElement.Id));
         Assert.Equal(ReadStatus.Unread, instance.Status.ReadStatus);
         Assert.Equal(dataElement.LastChangedBy, instance.LastChangedBy);
         Assert.Equal(dataElement.LastChanged, instance.LastChanged);
@@ -141,8 +141,8 @@ public class DataTests(DataElementFixture dataElementFixture)
 
         // Act
         DataElementInternal updatedElement = await UpdateDataElement(
-            Guid.Parse(dataElement.InstanceGuid),
-            Guid.Parse(dataElement.Id),
+            dataElement.InstanceGuid,
+            dataElement.Id,
             new Dictionary<string, object> { { "/metadata", _originalEntries } }
         );
 
@@ -166,8 +166,8 @@ public class DataTests(DataElementFixture dataElementFixture)
 
         // Act
         DataElementInternal updatedElement = await UpdateDataElement(
-            Guid.Parse(dataElement.InstanceGuid),
-            Guid.Parse(dataElement.Id),
+            dataElement.InstanceGuid,
+            dataElement.Id,
             new Dictionary<string, object> { { "/metadata", _replacementEntries } }
         );
 
@@ -189,8 +189,8 @@ public class DataTests(DataElementFixture dataElementFixture)
 
         // Act
         DataElementInternal updatedElement = await UpdateDataElement(
-            Guid.Parse(dataElement.InstanceGuid),
-            Guid.Parse(dataElement.Id),
+            dataElement.InstanceGuid,
+            dataElement.Id,
             new Dictionary<string, object> { { "/userDefinedMetadata", _originalEntries } }
         );
 
@@ -214,8 +214,8 @@ public class DataTests(DataElementFixture dataElementFixture)
 
         // Act
         DataElementInternal updatedElement = await UpdateDataElement(
-            Guid.Parse(dataElement.InstanceGuid),
-            Guid.Parse(dataElement.Id),
+            dataElement.InstanceGuid,
+            dataElement.Id,
             new Dictionary<string, object> { { "/userDefinedMetadata", _replacementEntries } }
         );
 
@@ -237,8 +237,8 @@ public class DataTests(DataElementFixture dataElementFixture)
 
         // Act
         DataElementInternal updatedElement = await UpdateDataElement(
-            Guid.Parse(dataElement.InstanceGuid),
-            Guid.Parse(dataElement.Id),
+            dataElement.InstanceGuid,
+            dataElement.Id,
             new Dictionary<string, object> { { "/tags", _originalTags } }
         );
 
@@ -262,8 +262,8 @@ public class DataTests(DataElementFixture dataElementFixture)
 
         // Act
         DataElementInternal updatedElement = await UpdateDataElement(
-            Guid.Parse(dataElement.InstanceGuid),
-            Guid.Parse(dataElement.Id),
+            dataElement.InstanceGuid,
+            dataElement.Id,
             new Dictionary<string, object> { { "/tags", _replacementTags } }
         );
 
@@ -287,8 +287,8 @@ public class DataTests(DataElementFixture dataElementFixture)
 
         // Act
         DataElementInternal updatedElement = await UpdateDataElement(
-            Guid.Parse(dataElement.InstanceGuid),
-            Guid.Parse(dataElement.Id),
+            dataElement.InstanceGuid,
+            dataElement.Id,
             new Dictionary<string, object> { { "/deleteStatus", deleteStatus } }
         );
 
@@ -320,15 +320,15 @@ public class DataTests(DataElementFixture dataElementFixture)
 
         // Act
         DataElementInternal updatedElement = await UpdateDataElement(
-            Guid.Parse(dataElement.InstanceGuid),
-            Guid.Parse(dataElement.Id),
+            dataElement.InstanceGuid,
+            dataElement.Id,
             new Dictionary<string, object> { { "/contentType", _contentType } }
         );
 
         // Assert
         DataElementInternal readElement = await dataElementFixture.DataRepo.Read(
             Guid.Empty,
-            Guid.Parse(dataElement.Id)
+            dataElement.Id
         );
         InstanceInternal instance = await ReadInstance();
         Assert.Equal(_contentType, readElement.ContentType);
@@ -354,8 +354,8 @@ public class DataTests(DataElementFixture dataElementFixture)
 
         // Act
         DataElementInternal updatedElement = await UpdateDataElement(
-            Guid.Parse(_instanceGuid),
-            Guid.Parse(dataElement.Id),
+            _instanceGuid,
+            dataElement.Id,
             new Dictionary<string, object>
             {
                 { "/contentType", _contentType },
@@ -365,7 +365,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             }
         );
         InstanceInternal instance = await dataElementFixture.InstanceRepo.GetOne(
-            Guid.Parse(updatedElement.InstanceGuid),
+            updatedElement.InstanceGuid,
             false,
             CancellationToken.None
         );
@@ -373,7 +373,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Assert
         DataElementInternal readElement = await dataElementFixture.DataRepo.Read(
             Guid.Empty,
-            Guid.Parse(dataElement.Id)
+            dataElement.Id
         );
         Assert.Equal(_contentType, readElement.ContentType);
         Assert.Equal(_contentType, updatedElement.ContentType);
@@ -393,7 +393,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         DateTime lastChanged = DateTime.UtcNow;
         DataElement element = TestDataUtil.GetDataElement(_dataElement3);
         element.Id = Guid.NewGuid().ToString();
-        element.InstanceGuid = _instance.Id.Split('/').Last();
+        element.InstanceGuid = _instance.Id.ToString();
         element.LastChanged = DateTime.UtcNow;
         element.LastChangedBy = "locked-test-setup";
         element.Locked = true;
@@ -415,7 +415,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                         "/blobStoragePath",
                         BlobRepository.GetVersionedBlobPath(
                             _instance.AppId,
-                            dataElement.InstanceGuid,
+                            new Guid(dataElement.InstanceGuid),
                             blobVersionId
                         )
                     },
@@ -449,7 +449,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         DateTime lastChanged = DateTime.UtcNow;
         DataElement element = TestDataUtil.GetDataElement(_dataElement3);
         element.Id = Guid.NewGuid().ToString();
-        element.InstanceGuid = _instance.Id.Split('/').Last();
+        element.InstanceGuid = _instance.Id.ToString();
         element.LastChanged = DateTime.UtcNow;
         element.LastChangedBy = "hard-deleted-test-setup";
         element.DeleteStatus = new DeleteStatus
@@ -475,7 +475,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                         "/blobStoragePath",
                         BlobRepository.GetVersionedBlobPath(
                             _instance.AppId,
-                            dataElement.InstanceGuid,
+                            new Guid(dataElement.InstanceGuid),
                             blobVersionId
                         )
                     },
@@ -506,7 +506,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Arrange
         DataElement element = TestDataUtil.GetDataElement(_dataElement3);
         element.Id = Guid.NewGuid().ToString();
-        element.InstanceGuid = _instance.Id.Split('/').Last();
+        element.InstanceGuid = _instance.Id.ToString();
         element.LastChanged = DateTime.UtcNow;
         element.LastChangedBy = "hard-deleted-instance-create-test-setup";
         string blobVersionId = await CreateBlobVersionId(
@@ -515,7 +515,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
         element.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
-            element.InstanceGuid,
+            new Guid(element.InstanceGuid),
             blobVersionId
         );
         await SetInstanceHardDeleted(Guid.Parse(element.InstanceGuid));
@@ -543,11 +543,11 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Arrange
         DataElement element = TestDataUtil.GetDataElement(_dataElement3);
         element.Id = Guid.NewGuid().ToString();
-        element.InstanceGuid = _instance.Id.Split('/').Last();
+        element.InstanceGuid = _instance.Id.ToString();
         string blobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
         element.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
-            element.InstanceGuid,
+            new Guid(element.InstanceGuid),
             blobVersionId
         );
 
@@ -570,7 +570,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Arrange
         DataElement element = TestDataUtil.GetDataElement(_dataElement3);
         element.Id = Guid.NewGuid().ToString();
-        element.InstanceGuid = _instance.Id.Split('/').Last();
+        element.InstanceGuid = _instance.Id.ToString();
         element.IsRead = false;
         element.LastChanged = DateTime.UtcNow;
         element.LastChangedBy = "hard-deleted-instance-update-test-setup";
@@ -601,7 +601,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Arrange
         DataElement element = TestDataUtil.GetDataElement(_dataElement3);
         element.Id = Guid.NewGuid().ToString();
-        element.InstanceGuid = _instance.Id.Split('/').Last();
+        element.InstanceGuid = _instance.Id.ToString();
         element.IsRead = false;
         element.Locked = true;
         element.LastChanged = DateTime.UtcNow;
@@ -628,7 +628,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Arrange
         DataElement element = TestDataUtil.GetDataElement(_dataElement3);
         element.Id = Guid.NewGuid().ToString();
-        element.InstanceGuid = _instance.Id.Split('/').Last();
+        element.InstanceGuid = _instance.Id.ToString();
         element.IsRead = false;
         element.DeleteStatus = new DeleteStatus
         {
@@ -657,7 +657,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_UpdateReadStatus_ToFalse_UpdatesAggregateReadStatusWithoutBumpingVersions()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instanceGuid);
+        Guid instanceGuid = _instanceGuid;
         DataElement element = TestDataUtil.GetDataElement(_dataElement1);
         element.Id = Guid.NewGuid().ToString();
         element.InstanceGuid = instanceGuid.ToString();
@@ -688,7 +688,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_UpdateReadStatus_ToFalse_WhenOtherElementStillRead_KeepsAggregateReadStatusAndVersions()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instanceGuid);
+        Guid instanceGuid = _instanceGuid;
         DataElement targetElement = TestDataUtil.GetDataElement(_dataElement1);
         targetElement.Id = Guid.NewGuid().ToString();
         targetElement.InstanceGuid = instanceGuid.ToString();
@@ -729,7 +729,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_UpdateReadStatus_ToTrue_DoesNotChangeAggregateReadStatusOrBumpVersions()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instanceGuid);
+        Guid instanceGuid = _instanceGuid;
         DataElement element = TestDataUtil.GetDataElement(_dataElement1);
         element.Id = Guid.NewGuid().ToString();
         element.InstanceGuid = instanceGuid.ToString();
@@ -767,7 +767,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
         element.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
-            element.InstanceGuid,
+            new Guid(element.InstanceGuid),
             blobVersionId
         );
         DataElementInternal createdDataElement = await CreateDataElement(
@@ -806,7 +806,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         string staleBlobVersionId = BlobVersionId.Encode(Guid.NewGuid());
         element.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
-            element.InstanceGuid,
+            new Guid(element.InstanceGuid),
             blobVersionId
         );
         DataElementInternal createdDataElement = await CreateDataElement(
@@ -840,7 +840,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_UpdateFileScanStatus_MissingElement_IsSuccessfulNoOp()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instanceGuid);
+        Guid instanceGuid = _instanceGuid;
         Guid missingDataElementId = Guid.NewGuid();
 
         // Act
@@ -866,7 +866,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Arrange
         DataElement element = TestDataUtil.GetDataElement(_dataElement1);
         element.Id = Guid.NewGuid().ToString();
-        element.InstanceGuid = _instanceGuid;
+        element.InstanceGuid = _instanceGuid.ToString();
         element.FileScanResult = FileScanResult.Pending;
         element.DeleteStatus = new DeleteStatus { IsHardDeleted = true, HardDeleted = _frozenTime };
         string blobVersionId = await CreateBlobVersionId(
@@ -875,7 +875,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
         element.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
-            element.InstanceGuid,
+            new Guid(element.InstanceGuid),
             blobVersionId
         );
         DataElementInternal createdDataElement = await CreateDataElement(
@@ -931,7 +931,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
         element.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
-            element.InstanceGuid,
+            new Guid(element.InstanceGuid),
             currentBlobVersionId
         );
         DataElementInternal createdDataElement = await CreateDataElement(
@@ -969,7 +969,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
         element.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
-            element.InstanceGuid,
+            new Guid(element.InstanceGuid),
             currentBlobVersionId
         );
         DataElementInternal createdDataElement = await CreateDataElement(
@@ -1001,8 +1001,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Arrange
         DataElement element = TestDataUtil.GetDataElement(_dataElement1);
         element.Id = Guid.NewGuid().ToString();
-        element.BlobStoragePath =
-            $"{_instance.AppId}/{_instance.Id.Split('/').Last()}/data/{element.Id}";
+        element.BlobStoragePath = $"{_instance.AppId}/{_instance.Id}/data/{element.Id}";
         string firstVersion = await CreateBlobVersionId(
             Guid.Parse(element.InstanceGuid),
             element.Id
@@ -1013,7 +1012,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
         element.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
-            element.InstanceGuid,
+            new Guid(element.InstanceGuid),
             firstVersion
         );
         DataElementInternal createdDataElement = await CreateDataElement(
@@ -1023,7 +1022,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         DataElement dataElement = createdDataElement.ToApiModel();
         string versionedBlobStoragePath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
-            element.InstanceGuid,
+            new Guid(element.InstanceGuid),
             secondVersion
         );
 
@@ -1054,7 +1053,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_Update_ExpectedBlobVersionMismatch_WinsBeforeProcessStatusConflictWithoutUpdate()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         string originalContentType = $"original-{Guid.NewGuid()}";
         string newContentType = $"updated-{Guid.NewGuid()}";
         DataElement element = TestDataUtil.GetDataElement(_dataElement1);
@@ -1069,7 +1068,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         string expectedBlobVersionId = BlobVersionId.Encode(Guid.NewGuid());
         element.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
-            element.InstanceGuid,
+            new Guid(element.InstanceGuid),
             currentBlobVersionId
         );
         DataElementInternal createdDataElement = await CreateDataElement(
@@ -1079,7 +1078,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         DataElement dataElement = createdDataElement.ToApiModel();
         string replacementBlobStoragePath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
-            element.InstanceGuid,
+            new Guid(element.InstanceGuid),
             replacementBlobVersionId
         );
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
@@ -1126,14 +1125,14 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Arrange
         DataElement element = TestDataUtil.GetDataElement(_dataElement1);
         element.Id = Guid.NewGuid().ToString();
-        element.InstanceGuid = _instance.Id.Split('/').Last();
+        element.InstanceGuid = _instance.Id.ToString();
         (DataElement dataElement, string currentBlobVersionId) = await CreateVersionedDataElement(
             element
         );
         string missingBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
         string missingBlobStoragePath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
-            element.InstanceGuid,
+            new Guid(element.InstanceGuid),
             missingBlobVersionId
         );
 
@@ -1172,7 +1171,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     )
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         await SetStoredProcessRepresentation(instanceGuid, processRepresentation);
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
@@ -1202,7 +1201,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     )
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         await SetStoredProcessStatus(instanceGuid, currentStatus);
         int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
@@ -1228,14 +1227,14 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_Create_ProcessingStatusWithUnavailableBlob_ReportsProcessStatusConflictFirst()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         string unavailableBlobVersion = BlobVersionId.Encode(Guid.CreateVersion7());
         DataElement dataElement = TestDataUtil.GetDataElement(_dataElement3);
         dataElement.Id = Guid.NewGuid().ToString();
         dataElement.InstanceGuid = instanceGuid.ToString();
         dataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
-            instanceGuid.ToString(),
+            instanceGuid,
             unavailableBlobVersion
         );
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
@@ -1264,7 +1263,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_Create_BlobVersion_AttachesOnceAndRejectsRepeatedAttachWithoutMutation()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement dataElement = TestDataUtil.GetDataElement(_dataElement3);
         dataElement.Id = Guid.NewGuid().ToString();
         dataElement.InstanceGuid = instanceGuid.ToString();
@@ -1273,7 +1272,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         string blobVersion = await CreateBlobVersionId(instanceGuid, dataElement.Id);
         dataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
-            instanceGuid.ToString(),
+            instanceGuid,
             blobVersion
         );
 
@@ -1321,14 +1320,14 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_Create_ProcessingStatusWithAvailableBlob_ConflictsWithoutAttachmentOrVersionBump()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement dataElement = TestDataUtil.GetDataElement(_dataElement3);
         dataElement.Id = Guid.NewGuid().ToString();
         dataElement.InstanceGuid = instanceGuid.ToString();
         string availableBlobVersion = await CreateBlobVersionId(instanceGuid, dataElement.Id);
         dataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
-            instanceGuid.ToString(),
+            instanceGuid,
             availableBlobVersion
         );
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
@@ -1356,7 +1355,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_Create_StaleInstanceVersionWinsBeforeProcessStatusConflict()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
         int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
@@ -1366,7 +1365,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         string availableBlobVersion = await CreateBlobVersionId(instanceGuid, dataElement.Id);
         dataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
-            instanceGuid.ToString(),
+            instanceGuid,
             availableBlobVersion
         );
 
@@ -1393,7 +1392,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_UpdateMetadata_ProcessingStatus_ConflictsWithoutMutationOrVersionBump()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
         dataElement.Id = Guid.NewGuid().ToString();
         dataElement.InstanceGuid = instanceGuid.ToString();
@@ -1431,7 +1430,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_UpdateContent_ProcessingStatus_ConflictsWithoutBlobAttachOrVersionBump()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
         dataElement.Id = Guid.NewGuid().ToString();
         dataElement.InstanceGuid = instanceGuid.ToString();
@@ -1443,7 +1442,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
         string replacementStoragePath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
-            instanceGuid.ToString(),
+            instanceGuid,
             replacementBlobVersion
         );
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
@@ -1487,7 +1486,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_UpdateContent_ProcessingStatusWithUnavailableBlob_ReportsProcessStatusConflictFirst()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
         dataElement.Id = Guid.NewGuid().ToString();
         dataElement.InstanceGuid = instanceGuid.ToString();
@@ -1496,7 +1495,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         string unavailableBlobVersion = BlobVersionId.Encode(Guid.CreateVersion7());
         string unavailableStoragePath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
-            instanceGuid.ToString(),
+            instanceGuid,
             unavailableBlobVersion
         );
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
@@ -1541,7 +1540,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_Update_BlobVersion_AttachesOnceAndRejectsRepeatedAttachWithoutMutation()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
         dataElement.Id = Guid.NewGuid().ToString();
         dataElement.InstanceGuid = instanceGuid.ToString();
@@ -1553,7 +1552,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
         string replacementStoragePath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
-            instanceGuid.ToString(),
+            instanceGuid,
             replacementBlobVersion
         );
 
@@ -1621,7 +1620,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_Update_StaleInstanceVersionWinsBeforeProcessStatusConflict()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
         dataElement.Id = Guid.NewGuid().ToString();
         dataElement.InstanceGuid = instanceGuid.ToString();
@@ -1674,7 +1673,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_UpdateLockStatus_Idle_SucceedsWithoutBumpingVersions(bool locked)
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
         dataElement.Id = Guid.NewGuid().ToString();
         dataElement.InstanceGuid = instanceGuid.ToString();
@@ -1707,7 +1706,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     )
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
         dataElement.Id = Guid.NewGuid().ToString();
         dataElement.InstanceGuid = instanceGuid.ToString();
@@ -1742,7 +1741,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_UpdateReadStatus_ProcessingStatus_RemainsExemptAndDoesNotBumpVersions()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
         dataElement.Id = Guid.NewGuid().ToString();
         dataElement.InstanceGuid = instanceGuid.ToString();
@@ -1771,7 +1770,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_UpdateFileScanStatus_ProcessingStatus_RemainsExemptAndDoesNotBumpVersions()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
         dataElement.Id = Guid.NewGuid().ToString();
         dataElement.InstanceGuid = instanceGuid.ToString();
@@ -1806,7 +1805,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_Create_RacingProcessingTransition_SerializesAndDoesNotMutate()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElementInternal dataElement = await PrepareAggregateCreateDataElement(instanceGuid);
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
@@ -1878,7 +1877,7 @@ public class DataTests(DataElementFixture dataElementFixture)
 
             // Assert
             Assert.Equal(ProcessStatus.Processing, exception.CurrentProcessStatus);
-            Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id)));
+            Assert.False(await dataElementFixture.DataRepo.Exists(dataElement.Id));
             Assert.Equal(0, await CountAttachedBlobVersionRows(dataElement.BlobVersionId));
             Assert.Equal(previousInstanceVersion + 1, await ReadInstanceVersion(instanceGuid));
             Assert.Equal(
@@ -1891,7 +1890,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     [Fact]
     public async Task CreateBlobVersionId_CreatesUnattachedUuidV7Rows()
     {
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         Guid dataElementId = Guid.NewGuid();
 
         string firstVersion = await CreateBlobVersionId(instanceGuid, dataElementId.ToString());
@@ -1914,7 +1913,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     [Fact]
     public async Task DeleteOrphanBlobVersions_DeletesExactUnattachedVersions()
     {
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         string firstVersion = await CreateBlobVersionId(instanceGuid);
         string secondVersion = await CreateBlobVersionId(instanceGuid);
         Guid firstVersionUuid = BlobVersionId.Decode(firstVersion);
@@ -1943,7 +1942,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     [Fact]
     public async Task DeleteBlobVersions_DeletesExactUnattachedVersionsForDataElement()
     {
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         Guid dataElementId = Guid.NewGuid();
         Guid otherDataElementId = Guid.NewGuid();
         string firstVersion = await CreateBlobVersionId(instanceGuid, dataElementId.ToString());
@@ -1969,7 +1968,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     {
         DataElement element = TestDataUtil.GetDataElement(_dataElement1);
         element.Id = Guid.NewGuid().ToString();
-        element.InstanceGuid = _instance.Id.Split('/').Last();
+        element.InstanceGuid = _instance.Id.ToString();
         (DataElement dataElement, string blobVersionId) = await CreateVersionedDataElement(element);
 
         int deleted = await dataElementFixture.DataRepo.DeleteBlobVersions(
@@ -1992,7 +1991,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     {
         DataElement element = TestDataUtil.GetDataElement(_dataElement1);
         element.Id = Guid.NewGuid().ToString();
-        element.InstanceGuid = _instance.Id.Split('/').Last();
+        element.InstanceGuid = _instance.Id.ToString();
         (DataElement dataElement, string blobVersionId) = await CreateVersionedDataElement(element);
 
         int deleteCount = await PostgresUtil.RunQuery<int>(
@@ -2039,7 +2038,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Act
         DataElementInternal readDataelement = await dataElementFixture.DataRepo.Read(
             Guid.Empty,
-            Guid.Parse(dataElement.Id)
+            dataElement.Id
         );
 
         // Assert
@@ -2054,7 +2053,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     {
         DataElement element = TestDataUtil.GetDataElement(_dataElement1);
         element.Id = Guid.NewGuid().ToString();
-        element.InstanceGuid = _instance.Id.Split('/').Last();
+        element.InstanceGuid = _instance.Id.ToString();
         (DataElement dataElement, string blobVersionId) = await CreateVersionedDataElement(element);
 
         int versionCountBeforeDelete = await CountBlobVersionRows(blobVersionId);
@@ -2081,7 +2080,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Arrange
         DataElement element = TestDataUtil.GetDataElement(_dataElement1);
         element.Id = Guid.NewGuid().ToString();
-        element.InstanceGuid = _instance.Id.Split('/').Last();
+        element.InstanceGuid = _instance.Id.ToString();
         (DataElement dataElement, string blobVersionId) = await CreateVersionedDataElement(element);
 
         // Act
@@ -2130,12 +2129,10 @@ public class DataTests(DataElementFixture dataElementFixture)
         int firstVersionCountBeforeDelete = await CountBlobVersionRows(firstBlobVersionId);
         int secondVersionCountBeforeDelete = await CountBlobVersionRows(secondBlobVersionId);
 
-        bool deleted = await dataElementFixture.DataRepo.DeleteForInstance(
-            _instance.Id.Split('/').Last()
-        );
+        bool deleted = await dataElementFixture.DataRepo.DeleteForInstance(_instance.Id);
 
         int dataElementCountAfterDelete = await PostgresUtil.RunCountQuery(
-            $"select count(*) from storage.dataelements where instanceguid = '{_instance.Id.Split('/').Last()}'"
+            $"select count(*) from storage.dataelements where instanceguid = '{_instance.Id}'"
         );
         int firstVersionCountAfterDelete = await CountBlobVersionRows(firstBlobVersionId);
         int secondVersionCountAfterDelete = await CountBlobVersionRows(secondBlobVersionId);
@@ -2173,11 +2170,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
-            await UpdateDataElement(
-                Guid.Empty,
-                Guid.Parse(dataElement.Id),
-                tooManyPropertiesDictionary
-            );
+            await UpdateDataElement(Guid.Empty, dataElement.Id, tooManyPropertiesDictionary);
         });
     }
 
@@ -2191,7 +2184,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         DataElementInternal dataElement = await CreateDataElement();
 
         // Act
-        bool result = await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id));
+        bool result = await dataElementFixture.DataRepo.Exists(dataElement.Id);
 
         // Assert
         Assert.True(result);
@@ -2214,7 +2207,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task AggregateMutation_MixedOperations_CommitsAllChanges()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement existing = TestDataUtil.GetDataElement(_dataElement1);
         (existing, string existingVersion) = await CreateVersionedDataElement(existing);
 
@@ -2229,7 +2222,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         string updateVersion = await CreateBlobVersionId(instanceGuid, existing.Id);
         string updateBlobPath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
-            existing.InstanceGuid,
+            new Guid(existing.InstanceGuid),
             updateVersion
         );
 
@@ -2297,9 +2290,9 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(updatedInternal.Versions, applyResult.Instance.Versions);
         Assert.Equal(updatedInternal.Data.Count, applyResult.Instance.Data.Count);
         Assert.Contains(updatedInternal.Data, d => d.Id == toCreate.Id);
-        Assert.DoesNotContain(updatedInternal.Data, d => d.Id == toDelete.Id);
+        Assert.DoesNotContain(updatedInternal.Data, d => d.Id == new Guid(toDelete.Id));
         Assert.Contains(applyResult.Instance.Data, d => d.Id == toCreate.Id);
-        Assert.DoesNotContain(applyResult.Instance.Data, d => d.Id == toDelete.Id);
+        Assert.DoesNotContain(applyResult.Instance.Data, d => d.Id == new Guid(toDelete.Id));
         Assert.Equal(updateVersion, updatedExisting.BlobVersionId);
         Assert.Equal("stored", updatedInternal.DataValues["data-value"]);
         Assert.Equal("shown", updatedInternal.PresentationTexts["presentation"]);
@@ -2309,7 +2302,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task AggregateMutation_DeleteDataElementAndEvent_CommitsDeletedEvent()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement toDelete = TestDataUtil.GetDataElement(_dataElement2);
         (toDelete, _) = await CreateVersionedDataElement(toDelete);
 
@@ -2351,7 +2344,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             true,
             CancellationToken.None
         );
-        Assert.DoesNotContain(updatedInternal.Data, d => d.Id == toDelete.Id);
+        Assert.DoesNotContain(updatedInternal.Data, d => d.Id == new Guid(toDelete.Id));
         Assert.Equal(
             1,
             await CountInstanceEvents(instanceGuid, InstanceEventType.Deleted.ToString())
@@ -2362,7 +2355,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task AggregateMutation_ApplyWithInstanceEvent_WritesOutboxRow()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         await PostgresUtil.RunSql(
             $"delete from storage.outbox where instanceid = '{instanceGuid}'"
         );
@@ -2407,7 +2400,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task AggregateMutation_ApplyWithInstanceEvent_StampsOutboxValidFromAtSqlInsertTime()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         await PostgresUtil.RunSql(
             $"delete from storage.outbox where instanceid = '{instanceGuid}'"
         );
@@ -2473,11 +2466,11 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task AggregateMutation_DeleteDataElementIdempotentReplay_DoesNotDuplicateDeletedEvent()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement toDelete = TestDataUtil.GetDataElement(_dataElement2);
         (toDelete, _) = await CreateVersionedDataElement(toDelete);
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
-        Guid idempotencyKey = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1");
+        Guid idempotencyKey = Guid.NewGuid();
 
         InstanceMutationCommit firstMutation = CreateDeleteMutation(
             toDelete,
@@ -2517,9 +2510,9 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task AggregateMutation_DeleteInstanceRetryOnHardDeletedInstance_ReplayAdmissionAndApplySucceed()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
-        Guid idempotencyKey = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2");
+        Guid idempotencyKey = Guid.NewGuid();
         DateTime deletedAt = new(
             (DateTime.UtcNow.Ticks / TimeSpan.TicksPerMicrosecond) * TimeSpan.TicksPerMicrosecond,
             DateTimeKind.Utc
@@ -2587,7 +2580,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     )
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement dataElement = null;
         string blobVersionId = null;
         if (deleteDataElement)
@@ -2708,7 +2701,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     )
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         (DataElement dataElement, string blobVersionId) = await CreateVersionedDataElement(
             TestDataUtil.GetDataElement(_dataElement2)
         );
@@ -2798,7 +2791,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task AggregateMutation_StaleContentVersion_RollsBackEarlierOperations()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement existing = TestDataUtil.GetDataElement(_dataElement1);
         (existing, string currentVersion) = await CreateVersionedDataElement(existing);
 
@@ -2818,7 +2811,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                     {
                         ["/blobStoragePath"] = BlobRepository.GetVersionedBlobPath(
                             _instance.AppId,
-                            existing.InstanceGuid,
+                            new Guid(existing.InstanceGuid),
                             updateVersion
                         ),
                         ["/currentBlobVersion"] = updateVersion,
@@ -2844,7 +2837,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
 
         // Assert
-        Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(toCreate.Id)));
+        Assert.False(await dataElementFixture.DataRepo.Exists(toCreate.Id));
         DataElementInternal unchangedExisting = await dataElementFixture.DataRepo.Read(
             instanceGuid,
             Guid.Parse(existing.Id)
@@ -2857,7 +2850,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task AggregateMutation_UpdateHardDeletedDataElement_MapsToDataElementNotUpdated()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement hardDeletedElement = TestDataUtil.GetDataElement(_dataElement1);
         hardDeletedElement.DeleteStatus = new DeleteStatus
         {
@@ -2905,7 +2898,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task AggregateMutation_CreateDataElementOnHardDeletedInstance_MapsToInstanceDeleted()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElementInternal toCreate = await PrepareAggregateCreateDataElement(instanceGuid);
         int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
         await SetInstanceHardDeleted(instanceGuid);
@@ -2934,7 +2927,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             $"Instance {instanceGuid} is deleted and cannot be modified.",
             exception.Message
         );
-        Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(toCreate.Id)));
+        Assert.False(await dataElementFixture.DataRepo.Exists(toCreate.Id));
         Assert.Equal(0, await CountAttachedBlobVersionRows(toCreate.BlobVersionId));
     }
 
@@ -2942,11 +2935,11 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task AggregateMutation_IdempotentReplay_ReturnsFirstCommittedBlob()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement existing = TestDataUtil.GetDataElement(_dataElement1);
         (existing, string currentVersion) = await CreateVersionedDataElement(existing);
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
-        Guid idempotencyKey = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3");
+        Guid idempotencyKey = Guid.NewGuid();
 
         string firstUpdateVersion = await CreateBlobVersionId(instanceGuid, existing.Id);
         string retryUpdateVersion = await CreateBlobVersionId(instanceGuid, existing.Id);
@@ -3021,10 +3014,10 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task AggregateMutation_CreateDataElementsIdempotentReplay_ReturnsCreatedDataElementIds()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
-        Guid idempotencyKey = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4");
-        Guid missingIdempotencyKey = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa5");
+        Guid idempotencyKey = Guid.NewGuid();
+        Guid missingIdempotencyKey = Guid.NewGuid();
         DataElementInternal firstCreate = await PrepareAggregateCreateDataElement(instanceGuid);
         DataElementInternal secondCreate = await PrepareAggregateCreateDataElement(instanceGuid);
         DataElementInternal retryFirstCreate = await PrepareAggregateCreateDataElement(
@@ -3116,8 +3109,8 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task AggregateMutation_IdempotencyKeyForDifferentInstance_ReturnsConflict()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
-        Guid idempotencyKey = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa14");
+        Guid instanceGuid = _instance.Id;
+        Guid idempotencyKey = Guid.NewGuid();
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
         await PostgresUtil.RunSql(
@@ -3174,11 +3167,11 @@ public class DataTests(DataElementFixture dataElementFixture)
     {
         // Arrange
         Guid instanceGuid = Guid.NewGuid();
-        Guid expiredKey1 = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa6");
-        Guid expiredKey2 = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa7");
-        Guid expiredKey3 = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa8");
-        Guid boundaryKey = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa9");
-        Guid freshKey = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa10");
+        Guid expiredKey1 = Guid.NewGuid();
+        Guid expiredKey2 = Guid.NewGuid();
+        Guid expiredKey3 = Guid.NewGuid();
+        Guid boundaryKey = Guid.NewGuid();
+        Guid freshKey = Guid.NewGuid();
         DateTime cutoffUtc = new(2026, 1, 2, 12, 0, 0, DateTimeKind.Utc);
         await PostgresUtil.RunSql(
             $"""
@@ -3222,7 +3215,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task AggregateMutation_ProcessEndArchive_CommitsProcessAndStatusInOneInstanceUpdate()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
         DateTime processEnded = new(2026, 5, 6, 7, 8, 9, DateTimeKind.Utc);
@@ -3298,7 +3291,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     )
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         await SetStoredProcessRepresentation(instanceGuid, idleRepresentation);
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
@@ -3341,7 +3334,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     )
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         await SetStoredProcessStatus(instanceGuid, currentStatus);
         int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
@@ -3378,7 +3371,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task AggregateMutation_NonIdleWithCurrentProcessStateVersionFence_Applies()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
         int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
@@ -3414,7 +3407,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task AggregateMutation_NonIdleWithCurrentInstanceVersionFenceOnly_Applies()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
         int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
@@ -3455,7 +3448,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     [Fact]
     public async Task AggregateMutation_NonIdleWithStaleProcessStateVersionFence_ReturnsPreconditionFailed()
     {
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
         int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
@@ -3495,7 +3488,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task AggregateMutation_StaleInstanceVersionWinsBeforeProcessStatusConflict()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
         int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
@@ -3529,7 +3522,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task AggregateMutation_ProcessingPayload_KeepsStatusAndBumpsBothVersions()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
@@ -3570,7 +3563,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task AggregateMutation_ClearStatus_CommitsProcessAndIdleInSameVersionBump()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
@@ -3610,7 +3603,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     [Fact]
     public async Task AggregateMutation_ProcessPayloadWithoutStatus_ClearsProcessing()
     {
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
@@ -3647,7 +3640,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task AggregateMutation_AcquireReplaySucceedsUntilInstanceAdvances()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         await SetStoredProcessRepresentation(instanceGuid, "status-absent");
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
@@ -3737,7 +3730,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task AggregateMutation_ConcurrentAcquire_CommitsExactlyOnce()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         await SetStoredProcessRepresentation(instanceGuid, "status-absent");
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
@@ -3858,12 +3851,12 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task AggregateMutation_IdempotentReplayAfterLaterAggregateUpdate_FailsAsStale()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement existing = TestDataUtil.GetDataElement(_dataElement1);
         (existing, string currentVersion) = await CreateVersionedDataElement(existing);
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
-        Guid idempotencyKey = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa11");
-        Guid laterIdempotencyKey = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa12");
+        Guid idempotencyKey = Guid.NewGuid();
+        Guid laterIdempotencyKey = Guid.NewGuid();
 
         string firstUpdateVersion = await CreateBlobVersionId(instanceGuid, existing.Id);
         InstanceMutationCommit firstMutation = CreateContentUpdateMutation(
@@ -3930,13 +3923,13 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task AggregateMutation_DataAndProcessStateAndEvents_CommitsAtomically()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement existing = TestDataUtil.GetDataElement(_dataElement1);
         (existing, string currentVersion) = await CreateVersionedDataElement(existing);
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
         string updateVersion = await CreateBlobVersionId(instanceGuid, existing.Id);
-        Guid idempotencyKey = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa13");
+        Guid idempotencyKey = Guid.NewGuid();
         var processState = new ProcessState
         {
             CurrentTask = new ProcessElementInfo { ElementId = "Task_2" },
@@ -3950,7 +3943,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                     {
                         ["/blobStoragePath"] = BlobRepository.GetVersionedBlobPath(
                             _instance.AppId,
-                            existing.InstanceGuid,
+                            new Guid(existing.InstanceGuid),
                             updateVersion
                         ),
                         ["/currentBlobVersion"] = updateVersion,
@@ -4010,7 +4003,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_MixedMutationReplayAndOutbox_CommitsAndReplays()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement toUpdate = TestDataUtil.GetDataElement(_dataElement1);
         (toUpdate, _) = await CreateVersionedDataElement(toUpdate);
         DataElement toDelete = TestDataUtil.GetDataElement(_dataElement2);
@@ -4021,8 +4014,8 @@ public class DataTests(DataElementFixture dataElementFixture)
         DataElementInternal firstCreate = await PrepareAggregateCreateDataElement(instanceGuid);
         DataElementInternal secondCreate = await PrepareAggregateCreateDataElement(instanceGuid);
         DateTime instanceLastChanged = new(2026, 5, 6, 7, 9, 10, DateTimeKind.Utc);
-        Guid idempotencyKey = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1");
-        Guid missingIdempotencyKey = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2");
+        Guid idempotencyKey = Guid.NewGuid();
+        Guid missingIdempotencyKey = Guid.NewGuid();
         string[] expectedCreatedIds = [firstCreate.Id.ToString(), secondCreate.Id.ToString()];
 
         string createElements = CreateElementsPayload([firstCreate, secondCreate]);
@@ -4048,7 +4041,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         string events = EventsPayload(
             instanceGuid,
             InstanceEventType.Saved,
-            _instance.Id,
+            _instance.Id.ToString(),
             _instance.InstanceOwner.PartyId
         );
         string outbox = OutboxPayload(_instance.ToApiModel(), 300, InstanceEventType.Saved);
@@ -4147,8 +4140,8 @@ public class DataTests(DataElementFixture dataElementFixture)
             row => row.CurrentBlobVersion == BlobVersionId.Decode(secondCreate.BlobVersionId)
         );
         Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(toDelete.Id)));
-        Assert.True(await dataElementFixture.DataRepo.Exists(Guid.Parse(firstCreate.Id)));
-        Assert.True(await dataElementFixture.DataRepo.Exists(Guid.Parse(secondCreate.Id)));
+        Assert.True(await dataElementFixture.DataRepo.Exists(firstCreate.Id));
+        Assert.True(await dataElementFixture.DataRepo.Exists(secondCreate.Id));
         Assert.Equal(
             "updated",
             await ReadDataElementJsonText(instanceGuid, toUpdate.Id, "SqlMixedElementMarker")
@@ -4181,7 +4174,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             expectedCreatedIds,
             replayed: true
         );
-        Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(retryCreate.Id)));
+        Assert.False(await dataElementFixture.DataRepo.Exists(retryCreate.Id));
         Assert.Equal(
             1,
             await CountInstanceEvents(instanceGuid, InstanceEventType.Saved.ToString())
@@ -4212,7 +4205,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_MultipleCreates_PreservesOrderAndBumpsOnce()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         await SetInstanceReadStatus(instanceGuid, ReadStatus.Read);
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
@@ -4252,11 +4245,11 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
         DataElementInternal createdFirstElement = await dataElementFixture.DataRepo.Read(
             instanceGuid,
-            Guid.Parse(firstCreate.Id)
+            firstCreate.Id
         );
         DataElementInternal createdSecondElement = await dataElementFixture.DataRepo.Read(
             instanceGuid,
-            Guid.Parse(secondCreate.Id)
+            secondCreate.Id
         );
 
         // Assert
@@ -4267,8 +4260,8 @@ public class DataTests(DataElementFixture dataElementFixture)
             previousProcessStateVersion,
             expectedCreatedIds
         );
-        Assert.True(await dataElementFixture.DataRepo.Exists(Guid.Parse(firstCreate.Id)));
-        Assert.True(await dataElementFixture.DataRepo.Exists(Guid.Parse(secondCreate.Id)));
+        Assert.True(await dataElementFixture.DataRepo.Exists(firstCreate.Id));
+        Assert.True(await dataElementFixture.DataRepo.Exists(secondCreate.Id));
         Assert.Equal(1, await CountAttachedBlobVersionRows(firstCreate.BlobVersionId));
         Assert.Equal(1, await CountAttachedBlobVersionRows(secondCreate.BlobVersionId));
         Assert.Equal(producedInstanceVersion, updatedInstance.Versions.InstanceVersion);
@@ -4286,7 +4279,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_CreateWithoutLastChanged_StampsMutationTimestampAndStripsNullActor()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
         DataElementInternal toCreate = await PrepareAggregateCreateDataElement(instanceGuid);
@@ -4312,7 +4305,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
         DataElementInternal createdElement = await dataElementFixture.DataRepo.Read(
             instanceGuid,
-            Guid.Parse(toCreate.Id)
+            toCreate.Id
         );
 
         // Assert
@@ -4321,7 +4314,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(new[] { toCreate.Id.ToString() }, row.CreatedDataElementIds);
         Assert.Equal(previousInstanceVersion + 1, row.InstanceVersion);
         Assert.Equal(previousProcessStateVersion, row.ProcessStateVersion);
-        Assert.True(await dataElementFixture.DataRepo.Exists(Guid.Parse(toCreate.Id)));
+        Assert.True(await dataElementFixture.DataRepo.Exists(toCreate.Id));
         Assert.Equal(1, await CountAttachedBlobVersionRows(toCreate.BlobVersionId));
         Assert.Equal(mutationLastChanged, await ReadInstanceLastChangedColumn(instanceGuid));
         Assert.Equal(mutationLastChanged, createdElement.LastChanged);
@@ -4342,7 +4335,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_MultipleDeletes_PreservesOrderAndBumpsOnce()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement firstDelete = TestDataUtil.GetDataElement(_dataElement1);
         firstDelete.IsRead = true;
         firstDelete.LastChangedBy = "first-sql-delete";
@@ -4396,7 +4389,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_DeleteWithNullLastChangedBy_DoesNotCollapseDocument()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement toDelete = TestDataUtil.GetDataElement(_dataElement1);
         toDelete.IsRead = false;
         toDelete.LastChangedBy = "delete-null-setup";
@@ -4449,7 +4442,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_DeleteOnlyReadElement_SetsAggregateReadStatusUnread()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement toDelete = TestDataUtil.GetDataElement(_dataElement1);
         toDelete.IsRead = true;
         toDelete.LastChangedBy = "only-read-sql-delete";
@@ -4487,7 +4480,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_MultipleUpdates_PreservesOrderAndPerUpdateInstanceEffects()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement firstUpdate = TestDataUtil.GetDataElement(_dataElement1);
         (firstUpdate, _) = await CreateVersionedDataElement(firstUpdate);
         DataElement secondUpdate = TestDataUtil.GetDataElement(_dataElement2);
@@ -4588,7 +4581,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_UpdateReadStatus_UsesFinalStateWhenFalseThenTrue()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement firstUpdate = TestDataUtil.GetDataElement(_dataElement1);
         firstUpdate.IsRead = true;
         firstUpdate = await CreateLegacyDataElement(firstUpdate);
@@ -4647,7 +4640,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_UpdateReadStatus_UsesFinalStateWhenTrueThenFalse()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement elementA = TestDataUtil.GetDataElement(_dataElement1);
         elementA.IsRead = true;
         elementA = await CreateLegacyDataElement(elementA);
@@ -4706,7 +4699,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_FlatInstanceUpdate_ComposesBranchesAndBumpsOnce()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         string seedJson = """
             {
               "DataValues": {
@@ -4833,7 +4826,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_FlatInstanceUpdate_ComplexRootsInTopLevelDoNotOverrideDedicatedBranches()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         string seedJson = """
             {
               "DataValues": {
@@ -5005,7 +4998,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_InstanceUpdateProcessAndStatus_ComposesBranch()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
         DateTime lastChanged = new(2026, 4, 5, 6, 7, 8, DateTimeKind.Utc);
@@ -5088,7 +5081,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task MergeInstanceUpdateSql_InstanceUpdateBranches_MatchUpdateInstanceV4()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DateTime lastChanged = new(2026, 6, 7, 8, 9, 10, DateTimeKind.Utc);
 
         foreach (InstanceUpdateParityCase parityCase in CreateInstanceUpdateParityCases())
@@ -5244,14 +5237,14 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_EventsOnlyIdempotentRetry_ReplaysWithoutDuplicateEvent()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
-        Guid idempotencyKey = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb3");
+        Guid idempotencyKey = Guid.NewGuid();
         string events = EventsPayload(
             instanceGuid,
             InstanceEventType.process_StartTask,
-            _instance.Id,
+            _instance.Id.ToString(),
             _instance.InstanceOwner.PartyId
         );
 
@@ -5282,7 +5275,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             EventsPayload(
                 instanceGuid,
                 InstanceEventType.process_StartTask,
-                _instance.Id,
+                _instance.Id.ToString(),
                 _instance.InstanceOwner.PartyId
             ),
             null
@@ -5326,10 +5319,10 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_OutboxOnlyIdempotentRetry_ReplaysWithoutBumpingVersionsOrUpdatingOutbox()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
-        Guid idempotencyKey = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb4");
+        Guid idempotencyKey = Guid.NewGuid();
         string firstOutbox = OutboxPayload(_instance.ToApiModel(), 600, InstanceEventType.Saved);
         string retryOutbox = OutboxPayload(_instance.ToApiModel(), 0, InstanceEventType.Deleted);
 
@@ -5398,7 +5391,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_UpdateBlobAttachMissingRows_DoesNotValidateAttachCount()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement firstUpdate = TestDataUtil.GetDataElement(_dataElement1);
         (firstUpdate, _) = await CreateVersionedDataElement(firstUpdate);
         DataElement secondUpdate = TestDataUtil.GetDataElement(_dataElement2);
@@ -5456,7 +5449,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_UpdateBlobThenMissing_ReportsMissingTarget()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement toUpdate = TestDataUtil.GetDataElement(_dataElement1);
         (toUpdate, string currentVersion) = await CreateVersionedDataElement(toUpdate);
         string newVersion = await CreateBlobVersionId(instanceGuid, toUpdate.Id);
@@ -5514,7 +5507,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_UpdateBlobVersionMismatch_RollsBackEarlierOperations()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement existing = TestDataUtil.GetDataElement(_dataElement1);
         (existing, string currentVersion) = await CreateVersionedDataElement(existing);
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
@@ -5556,7 +5549,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                 await dataElementFixture.DataRepo.Read(instanceGuid, Guid.Parse(existing.Id))
             ).BlobVersionId
         );
-        Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(toCreate.Id)));
+        Assert.False(await dataElementFixture.DataRepo.Exists(toCreate.Id));
         Assert.Equal(0, await CountAttachedBlobVersionRows(toCreate.BlobVersionId));
         Assert.Equal(previousInstanceVersion, await ReadInstanceVersion(instanceGuid));
     }
@@ -5565,7 +5558,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_CreateBlobAttachMissingRows_DoesNotValidateAttachCount()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElementInternal firstCreate = await PrepareAggregateCreateDataElement(instanceGuid);
         DataElementInternal secondCreate = await PrepareAggregateCreateDataElement(instanceGuid);
         int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
@@ -5595,8 +5588,8 @@ public class DataTests(DataElementFixture dataElementFixture)
             currentProcessStateVersion,
             [firstCreate.Id.ToString(), secondCreate.Id.ToString()]
         );
-        Assert.True(await dataElementFixture.DataRepo.Exists(Guid.Parse(firstCreate.Id)));
-        Assert.True(await dataElementFixture.DataRepo.Exists(Guid.Parse(secondCreate.Id)));
+        Assert.True(await dataElementFixture.DataRepo.Exists(firstCreate.Id));
+        Assert.True(await dataElementFixture.DataRepo.Exists(secondCreate.Id));
         Assert.Equal(0, await CountBlobVersionRows(firstCreate.BlobVersionId));
         Assert.Equal(1, await CountAttachedBlobVersionRows(secondCreate.BlobVersionId));
     }
@@ -5605,7 +5598,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_UpdateValidationRollsBackEarlierCreateWithMissingBlobAttach()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElementInternal toCreate = await PrepareAggregateCreateDataElement(instanceGuid);
         DataElement lockedUpdate = TestDataUtil.GetDataElement(_dataElement1);
         lockedUpdate.Locked = true;
@@ -5641,7 +5634,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             currentProcessStateVersion,
             lockedUpdate.Id
         );
-        Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(toCreate.Id)));
+        Assert.False(await dataElementFixture.DataRepo.Exists(toCreate.Id));
         Assert.True(await dataElementFixture.DataRepo.Exists(Guid.Parse(lockedUpdate.Id)));
         Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
     }
@@ -5650,7 +5643,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_DeleteDataElementNotFound_ReportsFirstDeleteOrdinal()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement missingDelete = TestDataUtil.GetDataElement(_dataElement1);
         missingDelete.Id = Guid.NewGuid().ToString();
         missingDelete.InstanceGuid = instanceGuid.ToString();
@@ -5695,7 +5688,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_DeleteAllowedThenLocked_ReportsLockedTarget()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement allowedDelete = TestDataUtil.GetDataElement(_dataElement1);
         (allowedDelete, string allowedBlobVersionId) = await CreateVersionedDataElement(
             allowedDelete
@@ -5743,7 +5736,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_DeleteAllowedThenMissing_ReportsMissingTarget()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement allowedDelete = TestDataUtil.GetDataElement(_dataElement1);
         (allowedDelete, string allowedBlobVersionId) = await CreateVersionedDataElement(
             allowedDelete
@@ -5788,7 +5781,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_DeleteLockedElement_RaisesAm001LockedAndDoesNotDelete()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement lockedDelete = TestDataUtil.GetDataElement(_dataElement1);
         lockedDelete.Locked = true;
         (lockedDelete, string blobVersionId) = await CreateVersionedDataElement(lockedDelete);
@@ -5832,7 +5825,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_DeleteElementWithIgnoreLock_Deletes(bool locked)
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement toDelete = TestDataUtil.GetDataElement(_dataElement1);
         toDelete.Locked = locked;
         (toDelete, string blobVersionId) = await CreateVersionedDataElement(toDelete);
@@ -5868,7 +5861,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_UnlockThenDeleteLockedElement_Deletes()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement lockedDelete = TestDataUtil.GetDataElement(_dataElement1);
         lockedDelete.Locked = true;
         (lockedDelete, string blobVersionId) = await CreateVersionedDataElement(lockedDelete);
@@ -5922,7 +5915,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_DeleteHardDeletedDataElement_DoesNotTreatHardDeleteFlagAsLock()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement hardDeletedElement = TestDataUtil.GetDataElement(_dataElement1);
         hardDeletedElement.DeleteStatus = new DeleteStatus
         {
@@ -5960,7 +5953,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_DeleteDiagnostics_ReportMissingBeforeLocked()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement lockedDelete = TestDataUtil.GetDataElement(_dataElement1);
         lockedDelete.Locked = true;
         (lockedDelete, string blobVersionId) = await CreateVersionedDataElement(lockedDelete);
@@ -6005,7 +5998,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_UpdateValidationOrdersByOrdinalBeforePriority()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement lockedUpdate = TestDataUtil.GetDataElement(_dataElement1);
         lockedUpdate.Locked = true;
         lockedUpdate = await CreateLegacyDataElement(lockedUpdate);
@@ -6048,7 +6041,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_ExpectedVersionMismatches_RaiseAm001WithCurrentVersions()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
 
@@ -6103,7 +6096,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_LockedElement_RaisesAm001LockedAndDoesNotUpdate()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement lockedElement = TestDataUtil.GetDataElement(_dataElement1);
         lockedElement.Locked = true;
         lockedElement.LastChanged = DateTime.UtcNow;
@@ -6149,7 +6142,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_UnlockLockedElementWithIgnoreLock_Updates()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement lockedElement = TestDataUtil.GetDataElement(_dataElement1);
         lockedElement.Locked = true;
         lockedElement = await CreateLegacyDataElement(lockedElement);
@@ -6190,7 +6183,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_LockedElementWithOmittedIgnoreLock_RaisesAm001Locked()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement lockedElement = TestDataUtil.GetDataElement(_dataElement1);
         lockedElement.Locked = true;
         lockedElement = await CreateLegacyDataElement(lockedElement);
@@ -6237,7 +6230,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_UnknownDataElement_RaisesAm001DataElementNotFound()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         Guid missingDataElementId = Guid.NewGuid();
         int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
@@ -6274,7 +6267,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_UpdateNullElementId_RaisesAm001DataElementNotFound()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
         string updateElements = new JsonArray
@@ -6336,7 +6329,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     )
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         string createElements = null;
         string updateElements = null;
         string deleteElements = null;
@@ -6352,7 +6345,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                 createElements = CreateElementsPayload([toCreate]);
                 assertMutationDidNotApply = async () =>
                 {
-                    Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(toCreate.Id)));
+                    Assert.False(await dataElementFixture.DataRepo.Exists(toCreate.Id));
                     Assert.Equal(0, await CountAttachedBlobVersionRows(toCreate.BlobVersionId));
                 };
                 break;
@@ -6436,7 +6429,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_HardDeletedDataElement_RaisesDistinctCodeAndDoesNotUpdate()
     {
         // Arrange
-        Guid instanceGuid = Guid.Parse(_instance.Id.Split('/').Last());
+        Guid instanceGuid = _instance.Id;
         DataElement hardDeletedElement = TestDataUtil.GetDataElement(_dataElement1);
         hardDeletedElement.Locked = true;
         hardDeletedElement.DeleteStatus = new DeleteStatus
@@ -6720,7 +6713,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             instance.FromApiModel(),
             CancellationToken.None
         );
-        Guid instanceGuid = Guid.Parse(created.Id);
+        Guid instanceGuid = created.Id;
         InstanceInternal instanceInternal = await dataElementFixture.InstanceRepo.GetOne(
             instanceGuid,
             false,
@@ -7334,7 +7327,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         string blobVersionId = await CreateBlobVersionId(instanceGuid, dataElement.Id);
         dataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
-            dataElement.InstanceGuid,
+            new Guid(dataElement.InstanceGuid),
             blobVersionId
         );
 
@@ -7373,7 +7366,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                     {
                         ["/blobStoragePath"] = BlobRepository.GetVersionedBlobPath(
                             _instance.AppId,
-                            existing.InstanceGuid,
+                            new Guid(existing.InstanceGuid),
                             updateVersion
                         ),
                         ["/currentBlobVersion"] = updateVersion,
@@ -7486,7 +7479,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                 new InstanceEvent
                 {
                     EventType = InstanceEventType.Deleted.ToString(),
-                    InstanceId = _instance.Id,
+                    InstanceId = _instance.Id.ToString(),
                     InstanceOwnerPartyId = _instance.InstanceOwner.PartyId,
                 },
             ],
@@ -7515,7 +7508,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             new()
             {
                 EventType = InstanceEventType.process_EndEvent.ToString(),
-                InstanceId = _instance.Id,
+                InstanceId = _instance.Id.ToString(),
                 InstanceOwnerPartyId = _instance.InstanceOwner.PartyId,
                 ProcessInfo = endedProcess,
                 Created = processEnded,
@@ -7523,7 +7516,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             new()
             {
                 EventType = InstanceEventType.Deleted.ToString(),
-                InstanceId = _instance.Id,
+                InstanceId = _instance.Id.ToString(),
                 InstanceOwnerPartyId = _instance.InstanceOwner.PartyId,
                 ProcessInfo = endedProcess,
                 Created = deletedAt,
@@ -7539,7 +7532,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                 new InstanceEvent
                 {
                     EventType = InstanceEventType.Deleted.ToString(),
-                    InstanceId = _instance.Id,
+                    InstanceId = _instance.Id.ToString(),
                     InstanceOwnerPartyId = _instance.InstanceOwner.PartyId,
                     DataId = dataElement.Id,
                     ProcessInfo = endedProcess,
@@ -7636,7 +7629,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     private Task<InstanceInternal> ReadInstance(bool includeElements = false)
     {
         return dataElementFixture.InstanceRepo.GetOne(
-            Guid.Parse(_instanceGuid),
+            _instanceGuid,
             includeElements,
             CancellationToken.None
         );
@@ -7693,7 +7686,7 @@ public class DataTests(DataElementFixture dataElementFixture)
 
     private Task SetInstanceReadStatus(ReadStatus readStatus)
     {
-        return SetInstanceReadStatus(Guid.Parse(_instanceGuid), readStatus);
+        return SetInstanceReadStatus(_instanceGuid, readStatus);
     }
 
     private async Task<DataElement> CreateLegacyDataElement(DataElement dataElement)
@@ -7716,7 +7709,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
         dataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
             _instance.AppId,
-            dataElement.InstanceGuid,
+            new Guid(dataElement.InstanceGuid),
             blobVersionId
         );
         DataElementInternal createdDataElement = await CreateDataElement(

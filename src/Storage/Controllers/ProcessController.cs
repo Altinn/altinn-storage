@@ -462,11 +462,10 @@ public class ProcessController : ControllerBase
         string[] eventTypes = Enum.GetNames<InstanceEventType>()
             .Where(x => x.StartsWith("process"))
             .ToArray();
-        string instanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
         ProcessHistoryList processHistoryList = new ProcessHistoryList();
 
         List<InstanceEvent> processEvents = await _instanceEventRepository.ListInstanceEvents(
-            instanceId,
+            instanceGuid,
             eventTypes,
             null,
             null

@@ -599,7 +599,11 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
             .ReturnsAsync(
                 (InstanceInternal toCreate, CancellationToken _, int _) =>
                 {
-                    toCreate.Id ??= Guid.NewGuid().ToString();
+                    if (toCreate.Id == Guid.Empty)
+                    {
+                        toCreate.Id = Guid.NewGuid();
+                    }
+
                     toCreate.Versions = new StorageVersions(1, 1);
                     return toCreate;
                 }
@@ -1207,7 +1211,9 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     [Fact]
     public async Task GetMany_DomainQuery_AuthorizesThenMapsAndShapesExactPublicInstanceJson()
     {
-        const string instanceId = "A45EA5DB-6DD4-4476-B774-BDB2A09DA7EA";
+        Guid instanceId = Guid.NewGuid();
+        Guid visibleDataId = Guid.NewGuid();
+        Guid deletedDataId = Guid.NewGuid();
         InstanceInternal authorizedInstance = new()
         {
             Id = instanceId,
@@ -1224,7 +1230,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
             [
                 new DataElementInternal
                 {
-                    Id = "visible-data",
+                    Id = visibleDataId,
                     InstanceGuid = instanceId,
                     DataType = "model",
                     Filename = "payload.json",
@@ -1235,7 +1241,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                 },
                 new DataElementInternal
                 {
-                    Id = "deleted-data",
+                    Id = deletedDataId,
                     InstanceGuid = instanceId,
                     DataType = "attachment",
                     DeleteStatus = new DeleteStatus { IsHardDeleted = true },
@@ -1245,7 +1251,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         };
         InstanceInternal deniedInstance = new()
         {
-            Id = "b45ea5db-6dd4-4476-b774-bdb2a09da7ea",
+            Id = new Guid("b45ea5db-6dd4-4476-b774-bdb2a09da7ea"),
             InstanceOwner = new InstanceOwner { PartyId = "1337" },
             AppId = "ttd/domain-query",
             Org = "ttd",
@@ -1320,8 +1326,8 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
             [
                 new DataElement
                 {
-                    Id = "visible-data",
-                    InstanceGuid = instanceId,
+                    Id = visibleDataId.ToString(),
+                    InstanceGuid = instanceId.ToString(),
                     DataType = "model",
                     Filename = "payload.json",
                     ContentType = "application/json",
@@ -1357,7 +1363,8 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         bool syncAdapter
     )
     {
-        const string instanceId = "E45EA5DB-6DD4-4476-B774-BDB2A09DA7EA";
+        Guid instanceId = Guid.NewGuid();
+        Guid hardDeletedDataId = Guid.NewGuid();
         InstanceInternal instance = new()
         {
             Id = instanceId,
@@ -1369,7 +1376,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
             [
                 new DataElementInternal
                 {
-                    Id = "hard-deleted-data",
+                    Id = hardDeletedDataId,
                     InstanceGuid = instanceId,
                     DataType = "attachment",
                     DeleteStatus = new DeleteStatus
@@ -1411,7 +1418,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         JToken responseInstance = Assert.Single((JArray)json["instances"]);
         JToken responseData = Assert.Single((JArray)responseInstance["data"]);
         Assert.Equal($"1337/{instanceId}", responseInstance.Value<string>("id"));
-        Assert.Equal("hard-deleted-data", responseData.Value<string>("id"));
+        Assert.Equal(hardDeletedDataId.ToString(), responseData.Value<string>("id"));
         Assert.True(responseData["deleteStatus"].Value<bool>("isHardDeleted"));
         Assert.NotNull(responseData["selfLinks"].Value<string>("platform"));
         authorization.Verify(

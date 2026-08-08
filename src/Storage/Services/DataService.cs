@@ -65,7 +65,7 @@ public class DataService : IDataService
             FileScanRequest fileScanRequest = new()
             {
                 InstanceId = $"{instance.InstanceOwner.PartyId}/{instance.Id}",
-                DataElementId = dataElement.Id,
+                DataElementId = dataElement.Id.ToString(),
                 Timestamp = blobTimestamp,
                 BlobStoragePath = dataElement.BlobStoragePath,
                 BlobVersionId = dataElement.BlobVersionId,
@@ -179,9 +179,8 @@ public class DataService : IDataService
         CancellationToken cancellationToken = default
     )
     {
-        string instanceGuid = instance.Id;
         string blobVersionId = await _dataRepository.CreateBlobVersionId(
-            Guid.Parse(instanceGuid),
+            instance.Id,
             options.DataElementId,
             instance.AppId,
             instance.Org,
@@ -190,7 +189,7 @@ public class DataService : IDataService
         );
         string blobStoragePath = BlobRepository.GetVersionedBlobPath(
             instance.AppId,
-            instanceGuid,
+            instance.Id,
             blobVersionId
         );
 
@@ -226,8 +225,8 @@ public class DataService : IDataService
 
         DataElementInternal dataElement = new()
         {
-            Id = options.DataElementId.ToString(),
-            InstanceGuid = instanceGuid,
+            Id = options.DataElementId,
+            InstanceGuid = instance.Id,
             DataType = options.DataType,
             ContentType = options.ContentType,
             CreatedBy = options.CreatedBy,
@@ -258,7 +257,7 @@ public class DataService : IDataService
             _blobRepository,
             _dataRepository,
             instance.Org,
-            Guid.Parse(dataElement.Id),
+            dataElement.Id,
             dataElement.BlobStoragePath,
             dataElement.BlobVersionId,
             storageAccountNumber
@@ -272,8 +271,7 @@ public class DataService : IDataService
         CancellationToken cancellationToken = default
     )
     {
-        Guid dataElementId = Guid.Parse(dataElement.Id);
-        await CleanupDetachedBlobVersions(dataElementId, cancellationToken);
+        await CleanupDetachedBlobVersions(dataElement.Id, cancellationToken);
         await DeleteLegacyDataElementBlob(instance, dataElement, storageAccountNumber);
     }
 
@@ -337,7 +335,7 @@ public class DataService : IDataService
                         BlobVersionId: x.id,
                         BlobStoragePath: BlobRepository.GetVersionedBlobPath(
                             x.bv.AppId,
-                            x.bv.InstanceGuid.ToString(),
+                            x.bv.InstanceGuid,
                             x.id
                         )
                     )
@@ -410,14 +408,13 @@ public class DataService : IDataService
         int? storageAccountNumber
     )
     {
-        string instanceGuid = instance.Id;
         string legacyBlobStoragePath =
             string.IsNullOrEmpty(dataElementInternal.BlobVersionId)
             && !string.IsNullOrEmpty(dataElementInternal.BlobStoragePath)
                 ? dataElementInternal.BlobStoragePath
                 : DataElementHelper.DataFileName(
                     instance.AppId,
-                    instanceGuid,
+                    instance.Id,
                     dataElementInternal.Id
                 );
 

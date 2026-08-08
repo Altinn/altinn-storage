@@ -70,7 +70,7 @@ public class BlobRepositoryMock : IBlobRepository
     public Task<bool> DeleteDataBlobs(
         string org,
         string appId,
-        string instanceGuid,
+        Guid instanceGuid,
         int? storageAccountNumber,
         CancellationToken cancellationToken = default
     ) => throw new NotImplementedException();

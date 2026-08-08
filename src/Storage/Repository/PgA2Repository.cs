@@ -218,7 +218,7 @@ public class PgA2Repository(
     }
 
     /// <inheritdoc/>
-    public async Task UpdateStartA1MigrationState(int a1ArchiveReference, string instanceGuid)
+    public async Task UpdateStartA1MigrationState(int a1ArchiveReference, Guid instanceGuid)
     {
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(
             _updateA1MigrationStateStartedSql
@@ -228,13 +228,13 @@ public class PgA2Repository(
             NpgsqlDbType.Bigint,
             a1ArchiveReference
         );
-        pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, new Guid(instanceGuid));
+        pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, instanceGuid);
 
         await pgcom.ExecuteNonQueryAsync();
     }
 
     /// <inheritdoc/>
-    public async Task UpdateStartA2MigrationState(int a2ArchiveReference, string instanceGuid)
+    public async Task UpdateStartA2MigrationState(int a2ArchiveReference, Guid instanceGuid)
     {
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(
             _updateA2MigrationStateStartedSql
@@ -244,7 +244,7 @@ public class PgA2Repository(
             NpgsqlDbType.Bigint,
             a2ArchiveReference
         );
-        pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, new Guid(instanceGuid));
+        pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, instanceGuid);
 
         await pgcom.ExecuteNonQueryAsync();
     }
@@ -255,7 +255,7 @@ public class PgA2Repository(
         await using var connection = await _dataSource.OpenConnectionAsync();
         await using var tx = await connection.BeginTransactionAsync();
         await using NpgsqlCommand pgcom = new(_updateMigrationStateCompletedSql, connection, tx);
-        pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, new Guid(instance.Id));
+        pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, instance.Id);
 
         await pgcom.ExecuteNonQueryAsync();
 
@@ -264,7 +264,7 @@ public class PgA2Repository(
             SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
                 instance.AppId,
                 instance.InstanceOwner.PartyId,
-                instance.Id,
+                instance.Id.ToString(),
                 (DateTime)instance.Created,
                 true,
                 InstanceEventType.Created
@@ -287,7 +287,7 @@ public class PgA2Repository(
         SyncInstanceToDialogportenCommand instanceUpdateCommand = new(
             instance.AppId,
             instance.InstanceOwner.PartyId,
-            instance.Id,
+            instance.Id.ToString(),
             (DateTime)instance.Created,
             true,
             InstanceEventType.Deleted
@@ -299,18 +299,18 @@ public class PgA2Repository(
     }
 
     /// <inheritdoc/>
-    public async Task DeleteMigrationState(string instanceGuid)
+    public async Task DeleteMigrationState(Guid instanceGuid)
     {
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteMigrationStateSql);
-        pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, new Guid(instanceGuid));
+        pgcom.Parameters.AddWithValue("_instanceGuid", NpgsqlDbType.Uuid, instanceGuid);
 
         await pgcom.ExecuteNonQueryAsync();
     }
 
     /// <inheritdoc/>
-    public async Task<string> GetA1MigrationInstanceId(int a1ArchiveReference)
+    public async Task<Guid?> GetA1MigrationInstanceId(int a1ArchiveReference)
     {
-        string instanceId = null;
+        Guid? instanceGuid = null;
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readA1MigrationStateSql);
         pgcom.Parameters.AddWithValue(
             "_a1archivereference",
@@ -321,18 +321,18 @@ public class PgA2Repository(
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
         if (await reader.ReadAsync())
         {
-            instanceId = await reader.IsDBNullAsync("instanceguid")
+            instanceGuid = await reader.IsDBNullAsync("instanceguid")
                 ? null
-                : (await reader.GetFieldValueAsync<Guid>("instanceguid")).ToString();
+                : await reader.GetFieldValueAsync<Guid>("instanceguid");
         }
 
-        return instanceId;
+        return instanceGuid;
     }
 
     /// <inheritdoc/>
-    public async Task<string> GetA2MigrationInstanceId(int a2ArchiveReference)
+    public async Task<Guid?> GetA2MigrationInstanceId(int a2ArchiveReference)
     {
-        string instanceId = null;
+        Guid? instanceGuid = null;
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readA2MigrationStateSql);
         pgcom.Parameters.AddWithValue(
             "_a2archivereference",
@@ -343,12 +343,12 @@ public class PgA2Repository(
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync();
         if (await reader.ReadAsync())
         {
-            instanceId = await reader.IsDBNullAsync("instanceguid")
+            instanceGuid = await reader.IsDBNullAsync("instanceguid")
                 ? null
-                : (await reader.GetFieldValueAsync<Guid>("instanceguid")).ToString();
+                : await reader.GetFieldValueAsync<Guid>("instanceguid");
         }
 
-        return instanceId;
+        return instanceGuid;
     }
 
     private static List<string> GetOrderedLanguages(string language)

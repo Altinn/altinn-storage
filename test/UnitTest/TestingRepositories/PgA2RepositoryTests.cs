@@ -40,7 +40,7 @@ public class PgA2RepositoryTests
     public async Task UpdateCompleteMigrationState_CommitsStateAndMigrationCreatedOutbox()
     {
         InstanceInternal instance = CreateInstance(
-            "01234567-89ab-cdef-0123-456789abcdef",
+            new("01234567-89ab-cdef-0123-456789abcdef"),
             new DateTime(2026, 2, 3, 4, 5, 6, DateTimeKind.Utc)
         );
         PgA2Repository repository = CreateRepository(EnabledSettings());
@@ -65,7 +65,7 @@ public class PgA2RepositoryTests
     public async Task UpdateCompleteMigrationState_OutboxFailureRollsBackStateAndRethrows()
     {
         InstanceInternal instance = CreateInstance(
-            "11234567-89ab-cdef-0123-456789abcdef",
+            new("11234567-89ab-cdef-0123-456789abcdef"),
             DateTime.UtcNow
         );
         Mock<IOutboxRepository> outbox = new(MockBehavior.Strict);
@@ -100,7 +100,7 @@ public class PgA2RepositoryTests
     public async Task SendDeleteToDialogporten_CommitsMigrationDeletedOutbox()
     {
         InstanceInternal instance = CreateInstance(
-            "21234567-89ab-cdef-0123-456789abcdef",
+            new("21234567-89ab-cdef-0123-456789abcdef"),
             new DateTime(2026, 3, 4, 5, 6, 7, DateTimeKind.Utc)
         );
         PgA2Repository repository = CreateRepository(EnabledSettings());
@@ -130,7 +130,7 @@ public class PgA2RepositoryTests
     private static WolverineSettings EnabledSettings() =>
         new() { EnableSending = true, EnableA2Migration = true };
 
-    private static InstanceInternal CreateInstance(string id, DateTime created) =>
+    private static InstanceInternal CreateInstance(Guid id, DateTime created) =>
         new()
         {
             Id = id,
@@ -146,7 +146,7 @@ public class PgA2RepositoryTests
     )
     {
         Assert.Equal(
-            Guid.Parse(instance.Id),
+            instance.Id,
             await PostgresUtil.RunQuery<Guid>("select instanceid from storage.outbox")
         );
         Assert.Equal(

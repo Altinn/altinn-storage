@@ -89,14 +89,18 @@ public class PgInstanceRepository : IInstanceRepository
                 ? new DateTime((((DateTime)instance.LastChanged).Ticks / 10) * 10, DateTimeKind.Utc)
                 : null;
 
-        instance.Id ??= Guid.NewGuid().ToString();
+        if (instance.Id == Guid.Empty)
+        {
+            instance.Id = Guid.NewGuid();
+        }
+
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_insertSql);
         pgcom.Parameters.AddWithValue(
             "_partyid",
             NpgsqlDbType.Bigint,
             long.Parse(instance.InstanceOwner.PartyId)
         );
-        pgcom.Parameters.AddWithValue("_alternateid", NpgsqlDbType.Uuid, new Guid(instance.Id));
+        pgcom.Parameters.AddWithValue("_alternateid", NpgsqlDbType.Uuid, instance.Id);
         pgcom.Parameters.AddWithValue("_instance", NpgsqlDbType.Jsonb, instance);
         pgcom.Parameters.AddWithValue(
             "_created",
@@ -203,10 +207,10 @@ public class PgInstanceRepository : IInstanceRepository
     )
     {
         Dictionary<
-            string,
+            Guid,
             (DataElementInternal DataElement, List<BlobVersionReferencesInternal> BlobVersions)
         > elements = [];
-        List<string> elementOrder = [];
+        List<Guid> elementOrder = [];
         try
         {
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(
@@ -242,7 +246,7 @@ public class PgInstanceRepository : IInstanceRepository
                             ElementColumn,
                             cancellationToken
                         );
-                    string elementId = element.Id;
+                    Guid elementId = element.Id;
                     if (!elements.TryGetValue(elementId, out var elementWithVersions))
                     {
                         elementWithVersions = (element, []);
@@ -621,7 +625,7 @@ public class PgInstanceRepository : IInstanceRepository
     )
     {
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateReadStatusSql);
-        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, new Guid(instanceInternal.Id));
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceInternal.Id);
         pgcom.Parameters.AddWithValue(
             NpgsqlDbType.Integer,
             (int)instanceInternal.Status.ReadStatus
@@ -693,7 +697,7 @@ public class PgInstanceRepository : IInstanceRepository
         int? expectedProcessStateVersion = null
     ) =>
         new(
-            new Guid(instance.Id),
+            instance.Id,
             CustomSerializer.Serialize(instance, updateProperties),
             updateProperties.Contains(nameof(instance.DataValues))
                 ? instance.DataValues

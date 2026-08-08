@@ -234,7 +234,7 @@ public class ContentOnDemandController : Controller
             return NotFound();
         }
 
-        DataElementInternal htmlElement = instance.Data.First(d => d.Id == dataGuid.ToString());
+        DataElementInternal htmlElement = instance.Data.First(d => d.Id == dataGuid);
         string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;
         DataElementInternal xmlElement = instance.Data.First(d =>
             d.Metadata?.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id
@@ -465,7 +465,7 @@ public class ContentOnDemandController : Controller
             instance.AppId,
             instance.Org
         );
-        DataElementInternal htmlElement = instance.Data.First(d => d.Id == dataGuid.ToString());
+        DataElementInternal htmlElement = instance.Data.First(d => d.Id == dataGuid);
         string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;
         DataElementInternal xmlElement = instance.Data.First(d =>
             d.Metadata?.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id

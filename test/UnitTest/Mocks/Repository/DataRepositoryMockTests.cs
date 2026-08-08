@@ -662,8 +662,8 @@ public class DataRepositoryMockTests
     ) =>
         new()
         {
-            Id = dataElementId.ToString(),
-            InstanceGuid = instanceGuid.ToString(),
+            Id = dataElementId,
+            InstanceGuid = instanceGuid,
             BlobVersionId = blobVersionId,
         };
 
