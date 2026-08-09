@@ -218,12 +218,10 @@ BEGIN
                     updateelements.expectedblobversion IS NULL
                     OR dataelement.currentblobversion IS NOT DISTINCT FROM updateelements.expectedblobversion
                 )
+                AND NOT COALESCE((dataelement.element -> 'DeleteStatus' ->> 'IsHardDeleted')::BOOLEAN, FALSE)
                 AND (
                     updateelements.ignorelock
-                    OR (
-                        NOT COALESCE((dataelement.element ->> 'Locked')::BOOLEAN, FALSE)
-                        AND NOT COALESCE((dataelement.element -> 'DeleteStatus' ->> 'IsHardDeleted')::BOOLEAN, FALSE)
-                    )
+                    OR NOT COALESCE((dataelement.element ->> 'Locked')::BOOLEAN, FALSE)
                 )
             RETURNING dataelement.alternateid
         )
