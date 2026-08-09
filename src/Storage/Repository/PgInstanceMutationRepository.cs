@@ -40,15 +40,8 @@ public sealed class PgInstanceMutationRepository(
     private const string TryReplayAdmissionSql =
         "select storage.tryreplayinstancemutation($1, $2, $3, $4, $5) as createddataelementids";
     private const string ReadInstanceSql = "select * from storage.readinstance_v2($1)";
-    private const string DeleteIdempotencyRecordsCreatedBeforeSql = """
-        delete from storage.instance_mutation_idempotency
-        where ctid in (
-            select ctid
-            from storage.instance_mutation_idempotency
-            where created < $1
-            limit $2
-        )
-        """;
+    private const string DeleteIdempotencyRecordsCreatedBeforeSql =
+        "select storage.deleteinstancemutationidempotency($1, $2)";
     private readonly NpgsqlDataSource _dataSource = dataSource;
     private readonly OutboxInsertRowFactory _outboxInsertRowFactory = outboxInsertRowFactory;
 
@@ -139,7 +132,7 @@ public sealed class PgInstanceMutationRepository(
         int totalDeleted = 0;
         while (true)
         {
-            int deleted = await cmd.ExecuteNonQueryAsync(cancellationToken);
+            int deleted = (int)await cmd.ExecuteScalarAsync(cancellationToken);
             if (deleted == 0)
             {
                 return totalDeleted;
