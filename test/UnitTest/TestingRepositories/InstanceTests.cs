@@ -1405,10 +1405,8 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         var dataElements3 = await _instanceFixture.InstanceRepo.GetHardDeletedDataElements(
             CancellationToken.None
         );
-        await _instanceFixture.DataRepo.Update(
-            data1.InstanceGuid,
-            data1.Id,
-            new Dictionary<string, object>() { { "/deleteStatus", new DeleteStatus() } }
+        await PostgresUtil.RunSql(
+            $"update storage.dataelements set element = jsonb_set(element, '{{DeleteStatus,IsHardDeleted}}', 'false') where alternateid = '{data1.Id}'"
         );
         var dataElements2 = await _instanceFixture.InstanceRepo.GetHardDeletedDataElements(
             CancellationToken.None

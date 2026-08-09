@@ -623,34 +623,45 @@ public class DataTests(DataElementFixture dataElementFixture)
     }
 
     [Fact]
-    public async Task DataElement_Update_IsRead_HardDeletedDataElement_UpdatesIsRead()
+    public async Task DataElement_Update_Tags_HardDeletedDataElement_ThrowsNotFoundAndDoesNotUpdateElement()
     {
         // Arrange
+        List<string> orgTags = new() { "s1", "s2" };
         DataElement element = TestDataUtil.GetDataElement(_dataElement3);
         element.Id = Guid.NewGuid().ToString();
         element.InstanceGuid = _instance.Id.ToString();
-        element.IsRead = false;
+        element.Tags = orgTags;
         element.DeleteStatus = new DeleteStatus
         {
             IsHardDeleted = true,
             HardDeleted = DateTime.UtcNow,
         };
         element.LastChanged = DateTime.UtcNow;
-        element.LastChangedBy = "isread-harddeleted-test-setup";
+        element.LastChangedBy = "tags-harddeleted-test-setup";
         DataElement dataElement = await CreateLegacyDataElement(element);
 
         // Act
-        DataElement updatedElement = (
-            await UpdateDataElement(
+        RepositoryException exception = await Assert.ThrowsAsync<RepositoryException>(() =>
+            UpdateDataElement(
                 Guid.Parse(dataElement.InstanceGuid),
                 Guid.Parse(dataElement.Id),
-                new Dictionary<string, object>() { { "/isRead", true } }
+                new Dictionary<string, object>()
+                {
+                    {
+                        "/tags",
+                        new List<string> { "s3" }
+                    },
+                }
             )
-        ).ToApiModel();
+        );
 
         // Assert
-        Assert.True(updatedElement.IsRead);
-        Assert.True(updatedElement.DeleteStatus.IsHardDeleted);
+        Assert.Equal(HttpStatusCode.NotFound, exception.StatusCodeSuggestion);
+        DataElementInternal readElement = await dataElementFixture.DataRepo.Read(
+            Guid.Parse(dataElement.InstanceGuid),
+            Guid.Parse(dataElement.Id)
+        );
+        Assert.Equal(JsonSerializer.Serialize(orgTags), JsonSerializer.Serialize(readElement.Tags));
     }
 
     [Fact]
@@ -2845,8 +2856,12 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(0, await CountAttachedBlobVersionRows(toCreate.BlobVersionId));
     }
 
-    [Fact]
-    public async Task AggregateMutation_UpdateHardDeletedDataElement_MapsToDataElementNotUpdated()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AggregateMutation_UpdateHardDeletedDataElement_MapsToDataElementNotUpdated(
+        bool ignoreLock
+    )
     {
         // Arrange
         Guid instanceGuid = _instance.Id;
@@ -2866,7 +2881,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                     Guid.Parse(hardDeletedElement.Id),
                     new Dictionary<string, object> { ["/tags"] = new List<string> { "new" } },
                     currentVersion,
-                    IgnoreLock: false
+                    IgnoreLock: ignoreLock
                 ),
             ],
             [],

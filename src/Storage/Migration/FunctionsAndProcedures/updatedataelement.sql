@@ -78,7 +78,7 @@ BEGIN
         RETURN;
     END IF;
 
-    IF _enforceLockCheck AND _dataElementIsHardDeleted
+    IF _dataElementIsHardDeleted
     THEN
         RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, _currentProcessStatus, 'hard_deleted'::TEXT;
         RETURN;

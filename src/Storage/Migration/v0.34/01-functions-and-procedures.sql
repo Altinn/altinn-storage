@@ -260,12 +260,10 @@ BEGIN
                     updateelements.expectedblobversion IS NULL
                     OR dataelement.currentblobversion IS NOT DISTINCT FROM updateelements.expectedblobversion
                 )
+                AND NOT COALESCE((dataelement.element -> 'DeleteStatus' ->> 'IsHardDeleted')::BOOLEAN, FALSE)
                 AND (
                     updateelements.ignorelock
-                    OR (
-                        NOT COALESCE((dataelement.element ->> 'Locked')::BOOLEAN, FALSE)
-                        AND NOT COALESCE((dataelement.element -> 'DeleteStatus' ->> 'IsHardDeleted')::BOOLEAN, FALSE)
-                    )
+                    OR NOT COALESCE((dataelement.element ->> 'Locked')::BOOLEAN, FALSE)
                 )
             RETURNING dataelement.alternateid
         )
@@ -782,7 +780,6 @@ BEGIN
             'data_element_hard_deleted'::TEXT AS errorcode
         FROM targetdataelementstates
         WHERE targetdataelementstates.targetexists
-            AND NOT targetdataelementstates.ignorelock
             AND targetdataelementstates.elementisharddeleted
 
         UNION ALL
@@ -1999,7 +1996,7 @@ BEGIN
         RETURN;
     END IF;
 
-    IF _enforceLockCheck AND _dataElementIsHardDeleted
+    IF _dataElementIsHardDeleted
     THEN
         RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, _currentProcessStatus, 'hard_deleted'::TEXT;
         RETURN;

@@ -69,7 +69,6 @@ BEGIN
             'data_element_hard_deleted'::TEXT AS errorcode
         FROM targetdataelementstates
         WHERE targetdataelementstates.targetexists
-            AND NOT targetdataelementstates.ignorelock
             AND targetdataelementstates.elementisharddeleted
 
         UNION ALL

@@ -23,7 +23,7 @@ public sealed class DataElementUpdateContext
     public int? ExpectedProcessStateVersion { get; init; }
 
     /// <summary>
-    /// Whether the update should be rejected when the data element is locked or hard-deleted.
+    /// Whether the update should be rejected when the data element is locked.
     /// </summary>
     public bool EnforceLockCheck { get; init; }
 }
