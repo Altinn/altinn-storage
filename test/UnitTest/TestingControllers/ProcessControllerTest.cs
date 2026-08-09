@@ -64,6 +64,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         string? deleteGeneratedElements = null,
         int? expectedInstanceVersion = null,
         int? expectedProcessStateVersion = null,
+        string? rawExpectedInstanceVersion = null,
         Action<ProcessStateUpdate>? configureUpdate = null
     )
     {
@@ -101,13 +102,17 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
             processAuthorizer: processAuthorizer
         );
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        if (expectedInstanceVersion is not null)
+        // rawExpectedInstanceVersion carries values the version precondition parser must reject,
+        // so it is sent verbatim. It sets the same header as expectedInstanceVersion, and the two
+        // are resolved here so the header can never be sent twice.
+        string? instanceVersionHeader =
+            rawExpectedInstanceVersion
+            ?? expectedInstanceVersion?.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (instanceVersionHeader is not null)
         {
-            client.DefaultRequestHeaders.Add(
+            client.DefaultRequestHeaders.TryAddWithoutValidation(
                 StorageHeaders.IfInstanceVersionMatch,
-                expectedInstanceVersion.Value.ToString(
-                    System.Globalization.CultureInfo.InvariantCulture
-                )
+                instanceVersionHeader
             );
         }
 
@@ -126,6 +131,60 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     }
 
     public static TheoryData<bool> UpdateTestParameters => new() { { true }, { false } };
+
+    public static TheoryData<string> MalformedVersionPreconditions =>
+        new() { "0", "-1", "1.0", "not-a-version", "+5", " 5 ", "5,5" };
+
+    /// <summary>
+    /// Version preconditions are parsed strictly: only a plain positive 32-bit integer is
+    /// accepted. Exercised over HTTP so model binding is covered alongside the parser.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(MalformedVersionPreconditions))]
+    public async Task PutProcess_MalformedInstanceVersionPrecondition_ReturnsBadRequest(
+        string rawExpectedInstanceVersion
+    )
+    {
+        // Arrange
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+
+        // Act
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint: false,
+            token: token,
+            rawExpectedInstanceVersion: rawExpectedInstanceVersion
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        ProblemDetails? problem = JsonConvert.DeserializeObject<ProblemDetails>(
+            await response.Content.ReadAsStringAsync()
+        );
+        Assert.Equal("malformed_version_precondition", problem?.Type);
+    }
+
+    /// <summary>
+    /// A whitespace-only value is not rejected: model binding reports an empty header value as
+    /// null, so it cannot be told apart from an absent header and means "no precondition".
+    /// </summary>
+    [Theory]
+    [InlineData("5")]
+    [InlineData("   ")]
+    public async Task PutProcess_InstanceVersionPrecondition_IsNotRejectedByParsing(string value)
+    {
+        // Arrange
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+
+        // Act
+        using HttpResponseMessage response = await SendUpdateRequest(
+            useInstanceAndEventsEndpoint: false,
+            token: token,
+            rawExpectedInstanceVersion: value
+        );
+
+        // Assert
+        Assert.NotEqual(HttpStatusCode.BadRequest, response.StatusCode);
+    }
 
     /// <summary>
     /// Test case: User has to low authentication level.

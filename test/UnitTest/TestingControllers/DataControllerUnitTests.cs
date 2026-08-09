@@ -129,7 +129,9 @@ public class DataControllerUnitTests
             fixture.InstanceGuid,
             fixture.DataElementId,
             false,
-            CancellationToken.None
+            CancellationToken.None,
+            ifInstanceVersionMatch: "4",
+            ifProcessStateVersionMatch: "2"
         );
 
         OkObjectResult ok = Assert.IsType<OkObjectResult>(result.Result);
@@ -193,7 +195,9 @@ public class DataControllerUnitTests
                 fixture.InstanceGuid,
                 fixture.DataElementId,
                 false,
-                CancellationToken.None
+                CancellationToken.None,
+                ifInstanceVersionMatch: "4",
+                ifProcessStateVersionMatch: "2"
             )
         );
 
@@ -240,7 +244,9 @@ public class DataControllerUnitTests
                 fixture.InstanceGuid,
                 fixture.DataElementId,
                 false,
-                CancellationToken.None
+                CancellationToken.None,
+                ifInstanceVersionMatch: "4",
+                ifProcessStateVersionMatch: "2"
             )
         );
 
@@ -276,7 +282,9 @@ public class DataControllerUnitTests
             fixture.InstanceGuid,
             fixture.DataElementId,
             false,
-            CancellationToken.None
+            CancellationToken.None,
+            ifInstanceVersionMatch: "4",
+            ifProcessStateVersionMatch: "2"
         );
 
         ObjectResult objectResult = Assert.IsType<ObjectResult>(result.Result);
@@ -322,7 +330,9 @@ public class DataControllerUnitTests
             fixture.InstanceGuid,
             fixture.DataElementId,
             false,
-            CancellationToken.None
+            CancellationToken.None,
+            ifInstanceVersionMatch: "4",
+            ifProcessStateVersionMatch: "2"
         );
 
         ObjectResult objectResult = Assert.IsType<ObjectResult>(result.Result);
@@ -353,7 +363,9 @@ public class DataControllerUnitTests
             fixture.InstanceGuid,
             fixture.DataElementId,
             delay,
-            CancellationToken.None
+            CancellationToken.None,
+            ifInstanceVersionMatch: "4",
+            ifProcessStateVersionMatch: "2"
         );
 
         ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
@@ -412,7 +424,9 @@ public class DataControllerUnitTests
             fixture.InstanceGuid,
             fixture.DataElementId,
             true,
-            CancellationToken.None
+            CancellationToken.None,
+            ifInstanceVersionMatch: "4",
+            ifProcessStateVersionMatch: "2"
         );
 
         OkObjectResult ok = Assert.IsType<OkObjectResult>(result.Result);
@@ -458,7 +472,9 @@ public class DataControllerUnitTests
                     fixture.InstanceGuid,
                     fixture.DataElementId,
                     true,
-                    CancellationToken.None
+                    CancellationToken.None,
+                    ifInstanceVersionMatch: "4",
+                    ifProcessStateVersionMatch: "2"
                 )
         );
 
@@ -2861,9 +2877,6 @@ public class DataControllerUnitTests
         {
             User = PrincipalUtil.GetPrincipal(200001, instanceOwnerPartyId),
         };
-        httpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] = "4";
-        httpContext.Request.Headers[StorageHeaders.IfProcessStateVersionMatch] = "2";
-
         DataController sut = new(
             dataRepositoryMock.Object,
             blobRepositoryMock.Object,

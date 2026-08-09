@@ -22,7 +22,6 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Primitives;
 using Microsoft.Net.Http.Headers;
 using Newtonsoft.Json;
 
@@ -120,6 +119,9 @@ public class InstanceMutationsController : ControllerBase
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance that should be mutated.</param>
     /// <param name="cancellationToken">CancellationToken</param>
+    /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
+    /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
+    /// <param name="idempotencyKeyHeader">Optional idempotency key. Requires an expected instance version.</param>
     /// <returns>The updated instance, including current blob version ids on its data elements.</returns>
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
     [HttpPost]
@@ -137,17 +139,23 @@ public class InstanceMutationsController : ControllerBase
     public async Task<ActionResult<InstanceMutationResponse>> CommitMutation(
         [FromRoute] int instanceOwnerPartyId,
         [FromRoute] Guid instanceGuid,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        [FromHeader(Name = StorageHeaders.IfInstanceVersionMatch)]
+            string ifInstanceVersionMatch = null,
+        [FromHeader(Name = StorageHeaders.IfProcessStateVersionMatch)]
+            string ifProcessStateVersionMatch = null,
+        [FromHeader(Name = StorageHeaders.IdempotencyKey)] string idempotencyKeyHeader = null
     )
     {
         (VersionPreconditions preconditions, ActionResult preconditionError) =
-            VersionPreconditionHelper.TryParse(Request.Headers);
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
         {
             return preconditionError;
         }
 
         (Guid? idempotencyKey, ActionResult idempotencyKeyError) = TryReadMutationIdempotencyKey(
+            idempotencyKeyHeader,
             preconditions
         );
         if (idempotencyKeyError is not null)
@@ -1657,24 +1665,16 @@ public class InstanceMutationsController : ControllerBase
     }
 
     private (Guid? IdempotencyKey, ActionResult Error) TryReadMutationIdempotencyKey(
+        string idempotencyKeyHeader,
         VersionPreconditions preconditions
     )
     {
-        if (!Request.Headers.TryGetValue(StorageHeaders.IdempotencyKey, out StringValues values))
+        if (string.IsNullOrWhiteSpace(idempotencyKeyHeader))
         {
             return (null, null);
         }
 
-        if (values.Count != 1 || string.IsNullOrWhiteSpace(values[0]))
-        {
-            return (
-                null,
-                BadRequest($"{StorageHeaders.IdempotencyKey} must contain one non-empty value.")
-            );
-        }
-
-        string idempotencyKey = values[0];
-        if (!Guid.TryParse(idempotencyKey, out Guid parsedIdempotencyKey))
+        if (!Guid.TryParse(idempotencyKeyHeader, out Guid parsedIdempotencyKey))
         {
             return (null, BadRequest($"{StorageHeaders.IdempotencyKey} must be a valid GUID."));
         }

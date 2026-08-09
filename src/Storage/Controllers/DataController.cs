@@ -98,6 +98,8 @@ public class DataController : ControllerBase
     /// <param name="dataGuid">The id of the data element to delete.</param>
     /// <param name="delay">A boolean to indicate if the delete should be immediate or delayed following Altinn's business logic</param>
     /// <param name="cancellationToken">CancellationToken</param>
+    /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
+    /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>The metadata of the deleted data element.</returns>
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
     [HttpDelete("data/{dataGuid:guid}")]
@@ -110,11 +112,15 @@ public class DataController : ControllerBase
         Guid instanceGuid,
         Guid dataGuid,
         [FromQuery] bool delay,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        [FromHeader(Name = StorageHeaders.IfInstanceVersionMatch)]
+            string ifInstanceVersionMatch = null,
+        [FromHeader(Name = StorageHeaders.IfProcessStateVersionMatch)]
+            string ifProcessStateVersionMatch = null
     )
     {
         (VersionPreconditions preconditions, ActionResult preconditionError) =
-            VersionPreconditionHelper.TryParse(Request.Headers);
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
         {
             return preconditionError;
@@ -499,6 +505,8 @@ public class DataController : ControllerBase
     /// <param name="cancellationToken">CancellationToken</param>
     /// <param name="refs">An optional array of data element references.</param>
     /// <param name="generatedFromTask">An optional id of the task the data element was generated from</param>
+    /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
+    /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>The metadata of the new data element.</returns>
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
     [HttpPost("data")]
@@ -514,11 +522,15 @@ public class DataController : ControllerBase
         [FromQuery] string dataType,
         CancellationToken cancellationToken,
         [FromQuery(Name = "refs")] List<Guid> refs = null,
-        [FromQuery(Name = "generatedFromTask")] string generatedFromTask = null
+        [FromQuery(Name = "generatedFromTask")] string generatedFromTask = null,
+        [FromHeader(Name = StorageHeaders.IfInstanceVersionMatch)]
+            string ifInstanceVersionMatch = null,
+        [FromHeader(Name = StorageHeaders.IfProcessStateVersionMatch)]
+            string ifProcessStateVersionMatch = null
     )
     {
         (VersionPreconditions preconditions, ActionResult preconditionError) =
-            VersionPreconditionHelper.TryParse(Request.Headers);
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
         {
             return preconditionError;
@@ -657,6 +669,8 @@ public class DataController : ControllerBase
     /// <param name="cancellationToken">CancellationToken</param>
     /// <param name="refs">An optional array of data element references.</param>
     /// <param name="generatedFromTask">An optional id of the task the data element was generated from</param>
+    /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
+    /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>The metadata of the updated data element.</returns>
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
     [HttpPut("data/{dataGuid}")]
@@ -673,11 +687,15 @@ public class DataController : ControllerBase
         Guid dataGuid,
         CancellationToken cancellationToken,
         [FromQuery(Name = "refs")] List<Guid> refs = null,
-        [FromQuery(Name = "generatedFromTask")] string generatedFromTask = null
+        [FromQuery(Name = "generatedFromTask")] string generatedFromTask = null,
+        [FromHeader(Name = StorageHeaders.IfInstanceVersionMatch)]
+            string ifInstanceVersionMatch = null,
+        [FromHeader(Name = StorageHeaders.IfProcessStateVersionMatch)]
+            string ifProcessStateVersionMatch = null
     )
     {
         (VersionPreconditions preconditions, ActionResult preconditionError) =
-            VersionPreconditionHelper.TryParse(Request.Headers);
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
         {
             return preconditionError;
@@ -964,6 +982,8 @@ public class DataController : ControllerBase
     /// <param name="dataGuid">The id of the data element to update.</param>
     /// <param name="dataElement">The new metadata for the data element.</param>
     /// <param name="cancellationToken">CancellationToken</param>
+    /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
+    /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>The updated data element.</returns>
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
     [HttpPut("dataelements/{dataGuid}")]
@@ -977,11 +997,15 @@ public class DataController : ControllerBase
         Guid instanceGuid,
         Guid dataGuid,
         [FromBody] DataElement dataElement,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        [FromHeader(Name = StorageHeaders.IfInstanceVersionMatch)]
+            string ifInstanceVersionMatch = null,
+        [FromHeader(Name = StorageHeaders.IfProcessStateVersionMatch)]
+            string ifProcessStateVersionMatch = null
     )
     {
         (VersionPreconditions preconditions, ActionResult preconditionError) =
-            VersionPreconditionHelper.TryParse(Request.Headers);
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
         {
             return preconditionError;

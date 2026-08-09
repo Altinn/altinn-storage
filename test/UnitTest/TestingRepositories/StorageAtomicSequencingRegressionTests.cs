@@ -74,7 +74,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
         StorageVersions versions = await ReadVersions(instanceGuid);
 
         ProcessController controller = CreateProcessController(blobRepository);
-        SetHttpContext(controller, versions);
+        SetHttpContext(controller);
 
         ActionResult<Instance> result = await controller.PutInstanceAndEvents(
             PartyId,
@@ -92,7 +92,9 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
                 Events = [],
             },
             deleteGeneratedElements: null,
-            CancellationToken.None
+            CancellationToken.None,
+            ifInstanceVersionMatch: versions.InstanceVersion.ToString(),
+            ifProcessStateVersionMatch: versions.ProcessStateVersion.ToString()
         );
         int staleRows = await CountDataElementRows(staleGenerated.Id);
         int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
@@ -138,7 +140,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
         StorageVersions versions = await ReadVersions(instanceGuid);
 
         SignController controller = CreateSignController(blobRepository);
-        SetHttpContext(controller, versions);
+        SetHttpContext(controller);
 
         Exception exception = await Record.ExceptionAsync(async () =>
         {
@@ -155,7 +157,9 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
                     Signee = signee,
                     GeneratedFromTask = TargetTask,
                 },
-                CancellationToken.None
+                CancellationToken.None,
+                ifInstanceVersionMatch: versions.InstanceVersion.ToString(),
+                ifProcessStateVersionMatch: versions.ProcessStateVersion.ToString()
             );
 
             Assert.IsType<ObjectResult>(result);
@@ -223,7 +227,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
 
         StorageVersions versions = await ReadVersions(instanceGuid);
         SignController controller = CreateSignController(blobRepository);
-        SetHttpContext(controller, versions);
+        SetHttpContext(controller);
 
         Exception exception = await Record.ExceptionAsync(async () =>
         {
@@ -240,7 +244,9 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
                     Signee = signee,
                     GeneratedFromTask = TargetTask,
                 },
-                CancellationToken.None
+                CancellationToken.None,
+                ifInstanceVersionMatch: versions.InstanceVersion.ToString(),
+                ifProcessStateVersionMatch: versions.ProcessStateVersion.ToString()
             );
 
             Assert.IsType<ObjectResult>(result);
@@ -301,7 +307,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
         await BumpInstanceVersion(instanceGuid);
 
         SignController controller = CreateSignController(blobRepository);
-        SetHttpContext(controller, staleVersions);
+        SetHttpContext(controller);
 
         ActionResult result = await controller.Sign(
             PartyId,
@@ -316,7 +322,9 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
                 Signee = signee,
                 GeneratedFromTask = TargetTask,
             },
-            CancellationToken.None
+            CancellationToken.None,
+            ifInstanceVersionMatch: staleVersions.InstanceVersion.ToString(),
+            ifProcessStateVersionMatch: staleVersions.ProcessStateVersion.ToString()
         );
 
         ObjectResult objectResult = Assert.IsType<ObjectResult>(result);
@@ -528,16 +536,12 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
         ).DataElement.ToApiModel();
     }
 
-    private static void SetHttpContext(ControllerBase controller, StorageVersions versions)
+    private static void SetHttpContext(ControllerBase controller)
     {
         DefaultHttpContext httpContext = new()
         {
             User = PrincipalUtil.GetPrincipal(UserId, PartyId, 3),
         };
-        httpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] =
-            versions.InstanceVersion.ToString();
-        httpContext.Request.Headers[StorageHeaders.IfProcessStateVersionMatch] =
-            versions.ProcessStateVersion.ToString();
         controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
     }
 

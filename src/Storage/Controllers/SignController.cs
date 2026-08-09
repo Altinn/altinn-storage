@@ -39,6 +39,8 @@ public class SignController : ControllerBase
     /// <param name="instanceGuid">The guid of the instance.</param>
     /// <param name="signRequest">Sign request containing data element ids and sign status.</param>
     /// <param name="cancellationToken">CancellationToken</param>
+    /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
+    /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_SIGN)]
     [HttpPost("{instanceOwnerPartyId:int}/{instanceGuid:guid}/sign")]
     [ProducesResponseType(StatusCodes.Status201Created)]
@@ -49,11 +51,15 @@ public class SignController : ControllerBase
         [FromRoute] int instanceOwnerPartyId,
         [FromRoute] Guid instanceGuid,
         [FromBody] SignRequest signRequest,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        [FromHeader(Name = StorageHeaders.IfInstanceVersionMatch)]
+            string ifInstanceVersionMatch = null,
+        [FromHeader(Name = StorageHeaders.IfProcessStateVersionMatch)]
+            string ifProcessStateVersionMatch = null
     )
     {
         (VersionPreconditions preconditions, ActionResult preconditionError) =
-            VersionPreconditionHelper.TryParse(Request.Headers);
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
         {
             return preconditionError;
