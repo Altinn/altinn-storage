@@ -5,7 +5,6 @@ using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Primitives;
 
 namespace Altinn.Platform.Storage.Helpers;
 
@@ -15,14 +14,17 @@ namespace Altinn.Platform.Storage.Helpers;
 public static class VersionPreconditionHelper
 {
     /// <summary>
-    /// Parses both optional version precondition headers.
+    /// Parses both optional version precondition headers. An absent header is a null, empty, or
+    /// whitespace value: model binding reports an empty header value as null, so the three cannot
+    /// be told apart and all mean "no precondition".
     /// </summary>
     public static (VersionPreconditions Preconditions, ActionResult? Error) TryParse(
-        IHeaderDictionary headers
+        string? ifInstanceVersionMatch,
+        string? ifProcessStateVersionMatch
     )
     {
         (int? expectedInstanceVersion, ActionResult? instanceError) = TryParseHeader(
-            headers,
+            ifInstanceVersionMatch,
             StorageHeaders.IfInstanceVersionMatch
         );
         if (instanceError is not null)
@@ -31,7 +33,7 @@ public static class VersionPreconditionHelper
         }
 
         (int? expectedProcessStateVersion, ActionResult? processError) = TryParseHeader(
-            headers,
+            ifProcessStateVersionMatch,
             StorageHeaders.IfProcessStateVersionMatch
         );
         if (processError is not null)
@@ -117,20 +119,18 @@ public static class VersionPreconditionHelper
     }
 
     private static (int? Value, ActionResult? Error) TryParseHeader(
-        IHeaderDictionary headers,
+        string? value,
         string headerName
     )
     {
-        if (!headers.TryGetValue(headerName, out StringValues values))
+        if (string.IsNullOrWhiteSpace(value))
         {
             return (null, null);
         }
 
         if (
-            values.Count != 1
-            || string.IsNullOrWhiteSpace(values[0])
-            || !int.TryParse(
-                values[0],
+            !int.TryParse(
+                value,
                 System.Globalization.NumberStyles.None,
                 System.Globalization.CultureInfo.InvariantCulture,
                 out int parsed

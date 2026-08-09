@@ -84,6 +84,8 @@ public class ProcessController : ControllerBase
     /// <param name="instanceGuid">The id of the instance that should have its process updated.</param>
     /// <param name="processState">The new process state of the instance.</param>
     /// <param name="cancellationToken">CancellationToken</param>
+    /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
+    /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>The updated instance</returns>
     [Authorize]
     [HttpPut]
@@ -96,11 +98,15 @@ public class ProcessController : ControllerBase
         int instanceOwnerPartyId,
         Guid instanceGuid,
         [FromBody] ProcessState processState,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        [FromHeader(Name = StorageHeaders.IfInstanceVersionMatch)]
+            string? ifInstanceVersionMatch = null,
+        [FromHeader(Name = StorageHeaders.IfProcessStateVersionMatch)]
+            string? ifProcessStateVersionMatch = null
     )
     {
         (VersionPreconditions preconditions, ActionResult? preconditionError) =
-            VersionPreconditionHelper.TryParse(Request.Headers);
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
         {
             return preconditionError;
@@ -203,6 +209,8 @@ public class ProcessController : ControllerBase
     /// encode a valid boolean.
     /// </param>
     /// <param name="cancellationToken">CancellationToken</param>
+    /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
+    /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns></returns>
     [Authorize]
     [HttpPut("instanceandevents")]
@@ -217,11 +225,15 @@ public class ProcessController : ControllerBase
         Guid instanceGuid,
         [FromBody] ProcessStateUpdate processStateUpdate,
         [FromQuery] bool? deleteGeneratedElements,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        [FromHeader(Name = StorageHeaders.IfInstanceVersionMatch)]
+            string? ifInstanceVersionMatch = null,
+        [FromHeader(Name = StorageHeaders.IfProcessStateVersionMatch)]
+            string? ifProcessStateVersionMatch = null
     )
     {
         (VersionPreconditions preconditions, ActionResult? preconditionError) =
-            VersionPreconditionHelper.TryParse(Request.Headers);
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
         {
             return preconditionError;

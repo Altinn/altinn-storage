@@ -154,9 +154,6 @@ public class InstanceMutationsControllerUnitTests
                 )
             )
             .ReturnsAsync(new InstanceMutationApplyResult(true, ["replayed-id"], instanceInternal));
-        fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] = "12";
-        fixture.HttpContext.Request.Headers[StorageHeaders.IdempotencyKey] =
-            idempotencyKey.ToString();
         SetJsonMutationRequest(
             fixture.HttpContext,
             $$"""
@@ -176,7 +173,9 @@ public class InstanceMutationsControllerUnitTests
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
             instanceGuid,
-            CancellationToken.None
+            CancellationToken.None,
+            ifInstanceVersionMatch: "12",
+            idempotencyKeyHeader: idempotencyKey.ToString()
         );
 
         // Assert
@@ -216,9 +215,6 @@ public class InstanceMutationsControllerUnitTests
             }
             """
         );
-        fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] = "7";
-        fixture.HttpContext.Request.Headers[StorageHeaders.IdempotencyKey] =
-            idempotencyKey.ToString("B");
         SetupCapturingMutationRepository(
             fixture,
             instanceGuid,
@@ -230,7 +226,9 @@ public class InstanceMutationsControllerUnitTests
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
             instanceGuid,
-            CancellationToken.None
+            CancellationToken.None,
+            ifInstanceVersionMatch: "7",
+            idempotencyKeyHeader: idempotencyKey.ToString("B")
         );
 
         OkObjectResult ok = Assert.IsType<OkObjectResult>(result.Result);
@@ -314,14 +312,6 @@ public class InstanceMutationsControllerUnitTests
                 }
                 """
         );
-        if (expectedInstanceVersion is not null)
-        {
-            fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] =
-                expectedInstanceVersion.Value.ToString(
-                    System.Globalization.CultureInfo.InvariantCulture
-                );
-        }
-
         SetupCapturingMutationRepository(
             fixture,
             instanceGuid,
@@ -331,7 +321,10 @@ public class InstanceMutationsControllerUnitTests
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
             instanceGuid,
-            CancellationToken.None
+            CancellationToken.None,
+            ifInstanceVersionMatch: expectedInstanceVersion?.ToString(
+                System.Globalization.CultureInfo.InvariantCulture
+            )
         );
 
         Assert.IsType<OkObjectResult>(result.Result);
@@ -370,7 +363,6 @@ public class InstanceMutationsControllerUnitTests
             Status = currentProcessStatus,
             CurrentTask = new ProcessElementInfo { ElementId = "Task_1" },
         };
-        fixture.HttpContext.Request.Headers[StorageHeaders.IfProcessStateVersionMatch] = "3";
         SetupCapturingMutationRepository(
             fixture,
             instanceGuid,
@@ -380,7 +372,8 @@ public class InstanceMutationsControllerUnitTests
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
             instanceGuid,
-            CancellationToken.None
+            CancellationToken.None,
+            ifProcessStateVersionMatch: "3"
         );
 
         Assert.IsType<OkObjectResult>(result.Result);
@@ -399,12 +392,11 @@ public class InstanceMutationsControllerUnitTests
             CreateAggregateApplication(),
             """{"processState":{"state":{"status":"processing","currentTask":{"elementId":"Task_2"}}}}"""
         );
-        fixture.HttpContext.Request.Headers[StorageHeaders.IfProcessStateVersionMatch] = "2";
-
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
             instanceGuid,
-            CancellationToken.None
+            CancellationToken.None,
+            ifProcessStateVersionMatch: "2"
         );
 
         ObjectResult preconditionFailed = Assert.IsType<ObjectResult>(result.Result);
@@ -513,13 +505,12 @@ public class InstanceMutationsControllerUnitTests
             }
             """
         );
-        fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] = "7";
-        fixture.HttpContext.Request.Headers[StorageHeaders.IdempotencyKey] = "not-a-guid";
-
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
             instanceGuid,
-            CancellationToken.None
+            CancellationToken.None,
+            ifInstanceVersionMatch: "7",
+            idempotencyKeyHeader: "not-a-guid"
         );
 
         BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
@@ -722,7 +713,6 @@ public class InstanceMutationsControllerUnitTests
             """,
             CreateFormFile("attachment")
         );
-        fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] = "1";
         fixture
             .DataRepository.Setup(repository =>
                 repository.CreateBlobVersionId(
@@ -749,7 +739,8 @@ public class InstanceMutationsControllerUnitTests
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
             instanceGuid,
-            CancellationToken.None
+            CancellationToken.None,
+            ifInstanceVersionMatch: "1"
         );
 
         ObjectResult preconditionFailed = Assert.IsType<ObjectResult>(result.Result);
@@ -1342,15 +1333,13 @@ public class InstanceMutationsControllerUnitTests
             }
             """
         );
-        fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] = "12";
-        fixture.HttpContext.Request.Headers[StorageHeaders.IfProcessStateVersionMatch] = "8";
-        fixture.HttpContext.Request.Headers[StorageHeaders.IdempotencyKey] = Guid.NewGuid()
-            .ToString();
-
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
             instanceGuid,
-            CancellationToken.None
+            CancellationToken.None,
+            ifInstanceVersionMatch: "12",
+            ifProcessStateVersionMatch: "8",
+            idempotencyKeyHeader: Guid.NewGuid().ToString()
         );
 
         BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
@@ -1668,12 +1657,6 @@ public class InstanceMutationsControllerUnitTests
             CreateAggregateApplication(),
             mutationJson
         );
-        fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] =
-            instanceVersion.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        fixture.HttpContext.Request.Headers[StorageHeaders.IfProcessStateVersionMatch] =
-            processStateVersion.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        fixture.HttpContext.Request.Headers[StorageHeaders.IdempotencyKey] =
-            idempotencyKey.ToString();
         fixture
             .InstanceEventService.Setup(service =>
                 service.BuildInstanceEvent(InstanceEventType.Deleted, It.IsAny<InstanceInternal>())
@@ -1721,7 +1704,14 @@ public class InstanceMutationsControllerUnitTests
         ActionResult<InstanceMutationResponse> actionResult = await fixture.Sut.CommitMutation(
             555,
             instanceGuid,
-            CancellationToken.None
+            CancellationToken.None,
+            ifInstanceVersionMatch: instanceVersion.ToString(
+                System.Globalization.CultureInfo.InvariantCulture
+            ),
+            ifProcessStateVersionMatch: processStateVersion.ToString(
+                System.Globalization.CultureInfo.InvariantCulture
+            ),
+            idempotencyKeyHeader: idempotencyKey.ToString()
         );
 
         OkObjectResult ok = Assert.IsType<OkObjectResult>(actionResult.Result);
@@ -1849,15 +1839,13 @@ public class InstanceMutationsControllerUnitTests
             CreateAggregateApplication(),
             mutationJson
         );
-        fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] = "12";
-        fixture.HttpContext.Request.Headers[StorageHeaders.IfProcessStateVersionMatch] = "8";
-        fixture.HttpContext.Request.Headers[StorageHeaders.IdempotencyKey] = Guid.NewGuid()
-            .ToString();
-
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
             instanceGuid,
-            CancellationToken.None
+            CancellationToken.None,
+            ifInstanceVersionMatch: "12",
+            ifProcessStateVersionMatch: "8",
+            idempotencyKeyHeader: Guid.NewGuid().ToString()
         );
 
         BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
@@ -1897,16 +1885,19 @@ public class InstanceMutationsControllerUnitTests
             }
             """
         );
-        fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] = "12";
-        fixture.HttpContext.Request.Headers[StorageHeaders.IfProcessStateVersionMatch] = "8";
-        fixture.HttpContext.Request.Headers[StorageHeaders.IdempotencyKey] = Guid.NewGuid()
-            .ToString();
-        fixture.HttpContext.Request.Headers.Remove(missingHeader);
-
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
             instanceGuid,
-            CancellationToken.None
+            CancellationToken.None,
+            ifInstanceVersionMatch: missingHeader == StorageHeaders.IfInstanceVersionMatch
+                ? null
+                : "12",
+            ifProcessStateVersionMatch: missingHeader == StorageHeaders.IfProcessStateVersionMatch
+                ? null
+                : "8",
+            idempotencyKeyHeader: missingHeader == StorageHeaders.IdempotencyKey
+                ? null
+                : Guid.NewGuid().ToString()
         );
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
@@ -2220,10 +2211,6 @@ public class InstanceMutationsControllerUnitTests
             }
             """
         );
-        fixture.HttpContext.Request.Headers[StorageHeaders.IdempotencyKey] =
-            idempotencyKey.ToString();
-        fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] = "12";
-        fixture.HttpContext.Request.Headers[StorageHeaders.IfProcessStateVersionMatch] = "8";
         fixture
             .MutationRepository.Setup(repository =>
                 repository.TryReplayAdmission(
@@ -2240,7 +2227,10 @@ public class InstanceMutationsControllerUnitTests
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
             instanceGuid,
-            CancellationToken.None
+            CancellationToken.None,
+            idempotencyKeyHeader: idempotencyKey.ToString(),
+            ifInstanceVersionMatch: "12",
+            ifProcessStateVersionMatch: "8"
         );
 
         OkObjectResult ok = Assert.IsType<OkObjectResult>(result.Result);
@@ -2744,10 +2734,6 @@ public class InstanceMutationsControllerUnitTests
                 authorizer.AuthorizeDataValuesUpdate(It.IsAny<InstanceInternal>())
             )
             .ReturnsAsync(false);
-        fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] = "12";
-        fixture.HttpContext.Request.Headers[StorageHeaders.IfProcessStateVersionMatch] = "8";
-        fixture.HttpContext.Request.Headers[StorageHeaders.IdempotencyKey] =
-            idempotencyKey.ToString();
         fixture
             .MutationRepository.Setup(repository =>
                 repository.TryReplayAdmission(
@@ -2764,7 +2750,10 @@ public class InstanceMutationsControllerUnitTests
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
             instanceGuid,
-            CancellationToken.None
+            CancellationToken.None,
+            ifInstanceVersionMatch: "12",
+            ifProcessStateVersionMatch: "8",
+            idempotencyKeyHeader: idempotencyKey.ToString()
         );
 
         OkObjectResult ok = Assert.IsType<OkObjectResult>(result.Result);
@@ -2840,17 +2829,16 @@ public class InstanceMutationsControllerUnitTests
             """,
             CreateFormFile("attachment")
         );
-        fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] = (
-            instanceVersionMismatch ? instanceVersion - 1 : instanceVersion
-        ).ToString(System.Globalization.CultureInfo.InvariantCulture);
-        fixture.HttpContext.Request.Headers[StorageHeaders.IfProcessStateVersionMatch] = (
-            processStateVersionMismatch ? processStateVersion - 1 : processStateVersion
-        ).ToString(System.Globalization.CultureInfo.InvariantCulture);
-
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
             instanceGuid,
-            CancellationToken.None
+            CancellationToken.None,
+            ifInstanceVersionMatch: (
+                instanceVersionMismatch ? instanceVersion - 1 : instanceVersion
+            ).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ifProcessStateVersionMatch: (
+                processStateVersionMismatch ? processStateVersion - 1 : processStateVersion
+            ).ToString(System.Globalization.CultureInfo.InvariantCulture)
         );
 
         ObjectResult preconditionFailed = Assert.IsType<ObjectResult>(result.Result);
@@ -3156,14 +3144,12 @@ public class InstanceMutationsControllerUnitTests
                 )
             )
             .ReturnsAsync(new InstanceMutationApplyResult(true, [], fixture.InstanceInternal));
-        fixture.HttpContext.Request.Headers[StorageHeaders.IfInstanceVersionMatch] = "12";
-        fixture.HttpContext.Request.Headers[StorageHeaders.IdempotencyKey] =
-            idempotencyKey.ToString();
-
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
             instanceGuid,
-            CancellationToken.None
+            CancellationToken.None,
+            ifInstanceVersionMatch: "12",
+            idempotencyKeyHeader: idempotencyKey.ToString()
         );
 
         OkObjectResult ok = Assert.IsType<OkObjectResult>(result.Result);
