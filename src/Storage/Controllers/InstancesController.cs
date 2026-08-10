@@ -261,6 +261,11 @@ public class InstancesController : ControllerBase
                 cancellationToken
             );
 
+            if (instance is null)
+            {
+                return NotFound($"Unable to find instance {instanceGuid}");
+            }
+
             if (
                 _authorizationService.UserHasRequiredScope([
                     _generalSettings.InstanceSyncAdapterScope,
@@ -317,6 +322,11 @@ public class InstancesController : ControllerBase
                 true,
                 cancellationToken
             );
+
+            if (instance is null)
+            {
+                return NotFound($"Unable to find instance {instanceGuid}");
+            }
 
             if (
                 _authorizationService.UserHasRequiredScope([
