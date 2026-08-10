@@ -14,8 +14,7 @@
     <PackageReference Include="Altinn.Common.AccessTokenClient" Version="3.2.11" />
     <PackageReference Include="Altinn.Common.PEP" Version="4.2.3" />
     <PackageReference Include="Altinn.Platform.Models" Version="1.6.1" />
-    <!-- TODO: Revert to PackageReference once the new Interface NuGet package is released -->
-    <!-- <PackageReference Include="Altinn.Platform.Storage.Interface" Version="4.7.1" /> -->
+    <PackageReference Include="Altinn.Platform.Storage.Interface.Experimental" Version="4.7.1-pr.2220.aggregate-instance-mutations.68afe586" />
     <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.5.2" />
     <PackageReference Include="Azure.Identity" Version="1.21.0" />
     <PackageReference Include="Azure.Security.KeyVault.Secrets" Version="4.11.0" />
@@ -48,8 +47,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DbTools\DbTools.csproj" />
-    <!-- TODO: Revert to PackageReference once the new Interface NuGet package is released -->
-    <ProjectReference Include="..\Storage.Interface\Altinn.Platform.Storage.Interface.csproj" />
   </ItemGroup>
 
   <ItemGroup>
