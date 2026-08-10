@@ -443,6 +443,80 @@ public class InstanceMutationsControllerTests
         Assert.Null(capturedMutation);
     }
 
+    [Fact]
+    public async Task CommitMutation_AddCompleteConfirmation_ConfirmsForTheCallingOrg()
+    {
+        // Arrange
+        InstanceInternal storedInstance = CreateMutationInstance(
+            new ProcessState
+            {
+                Started = new DateTime(2026, 7, 10, 8, 0, 0, DateTimeKind.Utc),
+                StartEvent = "StartEvent_1",
+                CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_1",
+                    AltinnTaskType = "data",
+                },
+            },
+            null
+        );
+        Mock<IInstanceRepository> instanceRepositoryMock = CreateMutationInstanceRepository(
+            storedInstance
+        );
+        InstanceMutationCommit capturedMutation = null;
+        Mock<IInstanceMutationRepository> mutationRepositoryMock =
+            CreatePersistingMutationRepository(
+                storedInstance,
+                mutation => capturedMutation = mutation
+            );
+        HttpClient client = GetTestClient(
+            bearerAuthToken: PrincipalUtil.GetOrgToken("ttd"),
+            mutationRepositoryMock: mutationRepositoryMock,
+            instanceRepositoryMock: instanceRepositoryMock
+        );
+        InstanceMutationRequest request = new()
+        {
+            AddCompleteConfirmation = true,
+            DataValues = new Dictionary<string, string>
+            {
+                ["eFormidlingShipmentStatus"] = "levert",
+            },
+        };
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            $"{SensitiveDataApp.GetInstanceUrl()}/mutations",
+            JsonContent.Create(request, options: _serializerOptions)
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using JsonDocument responseJson = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync()
+        );
+        JsonElement responseConfirmation = Assert.Single(
+            responseJson
+                .RootElement.GetProperty("instance")
+                .GetProperty("completeConfirmations")
+                .EnumerateArray()
+        );
+        Assert.Equal("ttd", responseConfirmation.GetProperty("stakeholderId").GetString());
+        CompleteConfirmation storedConfirmation = Assert.Single(
+            storedInstance.CompleteConfirmations
+        );
+        Assert.Equal("ttd", storedConfirmation.StakeholderId);
+        Assert.NotNull(capturedMutation);
+        Assert.Contains(
+            nameof(InstanceInternal.CompleteConfirmations),
+            capturedMutation.InstanceUpdateProperties
+        );
+        Assert.Single(
+            capturedMutation.InstanceEvents,
+            instanceEvent =>
+                instanceEvent.EventType == InstanceEventType.ConfirmedComplete.ToString()
+        );
+    }
+
     private static string ExpectedDuplicateDataElementMutationIdsResponse(Guid dataElementId) =>
         $"\"dataElementId '{dataElementId}' is referenced by more than one operation.\"";
 
@@ -511,6 +585,19 @@ public class InstanceMutationsControllerTests
                     )
                     {
                         storedInstance.Process = mutation.InstanceUpdates.Process;
+                    }
+
+                    if (
+                        mutation.InstanceUpdateProperties.Contains(
+                            nameof(InstanceInternal.CompleteConfirmations)
+                        )
+                    )
+                    {
+                        storedInstance.CompleteConfirmations =
+                        [
+                            .. storedInstance.CompleteConfirmations ?? [],
+                            .. mutation.InstanceUpdates.CompleteConfirmations,
+                        ];
                     }
 
                     return new InstanceMutationApplyResult(false, [], storedInstance);

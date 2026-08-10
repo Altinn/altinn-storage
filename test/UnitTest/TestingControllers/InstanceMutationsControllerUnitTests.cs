@@ -21,6 +21,7 @@ using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Utils;
+using AltinnCore.Authentication.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -1935,6 +1936,17 @@ public class InstanceMutationsControllerUnitTests
                     """
             },
             {
+                "addCompleteConfirmation",
+                """
+                    {
+                      "deleteInstance": {
+                        "hard": true
+                      },
+                      "addCompleteConfirmation": true
+                    }
+                    """
+            },
+            {
                 "processState.state",
                 """
                     {
@@ -2265,6 +2277,206 @@ public class InstanceMutationsControllerUnitTests
                 authorizer.AuthorizeProcessNext(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<ProcessState>()
+                ),
+            Times.Never
+        );
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+    }
+
+    [Fact]
+    public async Task CommitMutation_AddCompleteConfirmation_CarriesOnlyTheCallingStakeholdersConfirmation()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        InstanceMutationCommit capturedMutation = null;
+        InstanceInternal instanceInternal = CreateAggregateInstanceInternal(instanceGuid, []);
+        instanceInternal.CompleteConfirmations =
+        [
+            new CompleteConfirmation
+            {
+                StakeholderId = "other-org",
+                ConfirmedOn = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            },
+        ];
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            instanceInternal,
+            CreateAggregateApplication(),
+            """
+            {
+              "addCompleteConfirmation": true
+            }
+            """
+        );
+        fixture.HttpContext.User = CreateOrgPrincipal(_org);
+        fixture
+            .InstanceEventService.Setup(service =>
+                service.BuildInstanceEvent(
+                    InstanceEventType.ConfirmedComplete,
+                    It.IsAny<InstanceInternal>()
+                )
+            )
+            .Returns(
+                (InstanceEventType eventType, InstanceInternal instance) =>
+                    new InstanceEvent
+                    {
+                        EventType = eventType.ToString(),
+                        InstanceId = instance.Id.ToString(),
+                        InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
+                    }
+            );
+        SetupCapturingMutationRepository(
+            fixture,
+            instanceGuid,
+            mutation => capturedMutation = mutation
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.NotNull(capturedMutation);
+        Assert.Contains(
+            nameof(InstanceInternal.CompleteConfirmations),
+            capturedMutation.InstanceUpdateProperties
+        );
+        CompleteConfirmation addedConfirmation = Assert.Single(
+            capturedMutation.InstanceUpdates.CompleteConfirmations
+        );
+        Assert.Equal(_org, addedConfirmation.StakeholderId);
+        Assert.Equal(capturedMutation.LastChanged, addedConfirmation.ConfirmedOn);
+        Assert.Single(
+            capturedMutation.InstanceEvents,
+            instanceEvent =>
+                instanceEvent.EventType == InstanceEventType.ConfirmedComplete.ToString()
+        );
+    }
+
+    [Fact]
+    public async Task CommitMutation_AddCompleteConfirmation_WhenStakeholderHasConfirmed_LeavesTheDecisionToTheMerge()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        InstanceMutationCommit capturedMutation = null;
+        InstanceInternal instanceInternal = CreateAggregateInstanceInternal(instanceGuid, []);
+        instanceInternal.CompleteConfirmations =
+        [
+            new CompleteConfirmation
+            {
+                StakeholderId = _org,
+                ConfirmedOn = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            },
+        ];
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            instanceInternal,
+            CreateAggregateApplication(),
+            """
+            {
+              "addCompleteConfirmation": true,
+              "dataValues": {
+                "eFormidlingShipmentStatus": "levert"
+              }
+            }
+            """
+        );
+        fixture.HttpContext.User = CreateOrgPrincipal(_org);
+        SetupCapturingMutationRepository(
+            fixture,
+            instanceGuid,
+            mutation => capturedMutation = mutation
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.NotNull(capturedMutation);
+        Assert.Contains(
+            nameof(InstanceInternal.DataValues),
+            capturedMutation.InstanceUpdateProperties
+        );
+
+        // The snapshot is read before the instance row is locked, so the controller does not filter
+        // on it. mergeinstanceupdate drops a confirmation the stakeholder already has, which is what
+        // settles two callers confirming at once.
+        Assert.Contains(
+            nameof(InstanceInternal.CompleteConfirmations),
+            capturedMutation.InstanceUpdateProperties
+        );
+        CompleteConfirmation sentConfirmation = Assert.Single(
+            capturedMutation.InstanceUpdates.CompleteConfirmations
+        );
+        Assert.Equal(_org, sentConfirmation.StakeholderId);
+    }
+
+    [Fact]
+    public async Task CommitMutation_AddCompleteConfirmation_WhenCompletePolicyFails_ReturnsForbid()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, []),
+            CreateAggregateApplication(),
+            """
+            {
+              "addCompleteConfirmation": true
+            }
+            """
+        );
+        fixture.HttpContext.User = CreateOrgPrincipal(_org);
+        fixture
+            .PolicyAuthorizationService.Setup(service =>
+                service.AuthorizeAsync(
+                    It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
+                    It.Is<object>(resource => resource == null),
+                    AuthzConstants.POLICY_INSTANCE_COMPLETE
+                )
+            )
+            .ReturnsAsync(AuthorizationResult.Failed());
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        Assert.IsType<ForbidResult>(result.Result);
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+    }
+
+    [Fact]
+    public async Task CommitMutation_AddCompleteConfirmation_WithoutOrganisation_ReturnsForbidBeforePolicy()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, []),
+            CreateAggregateApplication(),
+            """
+            {
+              "addCompleteConfirmation": true
+            }
+            """
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        Assert.IsType<ForbidResult>(result.Result);
+        fixture.PolicyAuthorizationService.Verify(
+            service =>
+                service.AuthorizeAsync(
+                    It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
+                    It.IsAny<object>(),
+                    AuthzConstants.POLICY_INSTANCE_COMPLETE
                 ),
             Times.Never
         );
@@ -4969,6 +5181,15 @@ public class InstanceMutationsControllerUnitTests
                 )
             )
             .ReturnsAsync(AuthorizationResult.Success());
+        policyAuthorizationServiceMock
+            .Setup(service =>
+                service.AuthorizeAsync(
+                    It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
+                    It.Is<object>(resource => resource == null),
+                    AuthzConstants.POLICY_INSTANCE_COMPLETE
+                )
+            )
+            .ReturnsAsync(AuthorizationResult.Success());
 
         DefaultHttpContext httpContext = new() { User = PrincipalUtil.GetPrincipal(200001, 1337) };
         if (mutationJson is not null)
@@ -5021,6 +5242,17 @@ public class InstanceMutationsControllerUnitTests
             InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
             ProcessInfo = instance.Process,
         };
+
+    private static ClaimsPrincipal CreateOrgPrincipal(string org) =>
+        new(
+            new ClaimsIdentity(
+                [
+                    new Claim(AltinnCoreClaimTypes.Org, org),
+                    new Claim(AltinnCoreClaimTypes.OrgNumber, "111111111"),
+                ],
+                "test"
+            )
+        );
 
     private InstanceInternal CreateAggregateInstanceInternal(
         Guid instanceGuid,
@@ -5107,6 +5339,15 @@ public class InstanceMutationsControllerUnitTests
         if (mutation.InstanceUpdates?.PresentationTexts is not null)
         {
             instance.PresentationTexts = mutation.InstanceUpdates.PresentationTexts;
+        }
+
+        if (mutation.InstanceUpdates?.CompleteConfirmations is not null)
+        {
+            instance.CompleteConfirmations =
+            [
+                .. instance.CompleteConfirmations ?? [],
+                .. mutation.InstanceUpdates.CompleteConfirmations,
+            ];
         }
 
         instance.Data = dataElements;

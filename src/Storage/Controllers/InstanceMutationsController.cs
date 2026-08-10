@@ -107,8 +107,11 @@ public class InstanceMutationsController : ControllerBase
     /// </summary>
     /// <remarks>
     /// After the endpoint's outer <c>InstanceWrite</c> policy admits the request, idempotent replay
-    /// is checked before process-state, presentation-text, data-value, per-data-type write, and
-    /// delete-instance authorization. An admitted replay is a no-op and uses the instance snapshot
+    /// is checked before process-state, presentation-text, data-value, per-data-type write,
+    /// complete-confirmation, and delete-instance authorization. A complete confirmation is
+    /// additionally subject to the <c>InstanceComplete</c> policy and is recorded for the calling
+    /// organisation only; an organisation that already has a confirmation keeps the one it has, and
+    /// the remaining operations commit either way. An admitted replay is a no-op and uses the snapshot
     /// returned by replay admission. For non-replays, operation-specific authorization is evaluated
     /// against the controller's instance snapshot; data-element update and delete references missing
     /// from that snapshot are rejected by later plan validation. Process-state mutations on instances
@@ -434,6 +437,13 @@ public class InstanceMutationsController : ControllerBase
         if (deleteInstanceAuthorizationError is not null)
         {
             return deleteInstanceAuthorizationError;
+        }
+
+        ActionResult completeConfirmationAuthorizationError =
+            await AuthorizeCompleteConfirmationMutation(mutationRequest);
+        if (completeConfirmationAuthorizationError is not null)
+        {
+            return completeConfirmationAuthorizationError;
         }
 
         if (
@@ -843,6 +853,20 @@ public class InstanceMutationsController : ControllerBase
             instanceUpdateProperties.Add(nameof(InstanceStatus.Archived));
         }
 
+        List<CompleteConfirmation> addedCompleteConfirmations = null;
+        if (mutationRequest.AddCompleteConfirmation)
+        {
+            addedCompleteConfirmations =
+            [
+                new CompleteConfirmation
+                {
+                    StakeholderId = User.GetOrg(),
+                    ConfirmedOn = lastChanged,
+                },
+            ];
+            instanceUpdateProperties.Add(nameof(InstanceInternal.CompleteConfirmations));
+        }
+
         InstanceInternal instanceUpdates = new()
         {
             Id = instance.Id,
@@ -852,7 +876,7 @@ public class InstanceMutationsController : ControllerBase
             Created = instance.Created,
             Process = processState ?? instance.Process,
             Status = instanceStatus,
-            CompleteConfirmations = instance.CompleteConfirmations,
+            CompleteConfirmations = addedCompleteConfirmations,
             LastChanged = lastChanged,
             LastChangedBy = lastChangedBy,
             PresentationTexts = mutationRequest.PresentationTexts,
@@ -863,6 +887,16 @@ public class InstanceMutationsController : ControllerBase
         {
             instanceEvents.Add(
                 _instanceEventService.BuildInstanceEvent(InstanceEventType.Deleted, instanceUpdates)
+            );
+        }
+
+        if (addedCompleteConfirmations is not null)
+        {
+            instanceEvents.Add(
+                _instanceEventService.BuildInstanceEvent(
+                    InstanceEventType.ConfirmedComplete,
+                    instanceUpdates
+                )
             );
         }
 
@@ -1574,6 +1608,7 @@ public class InstanceMutationsController : ControllerBase
         || request.DeleteInstance is not null
         || request.DataValues?.Count > 0
         || request.PresentationTexts?.Count > 0
+        || request.AddCompleteConfirmation
         || request.ProcessState?.State is not null
         || request.ProcessState?.Events?.Count > 0;
 
@@ -1597,7 +1632,8 @@ public class InstanceMutationsController : ControllerBase
             request.CreateDataElements?.Count > 0
             || request.UpdateDataElements?.Count > 0
             || request.DataValues?.Count > 0
-            || request.PresentationTexts?.Count > 0;
+            || request.PresentationTexts?.Count > 0
+            || request.AddCompleteConfirmation;
         bool isStandaloneDelete =
             !hasUnrelatedMutationOperations
             && request.DeleteDataElements?.Count is not > 0
@@ -1650,6 +1686,29 @@ public class InstanceMutationsController : ControllerBase
             User,
             resource: null,
             policyName: AuthzConstants.POLICY_INSTANCE_DELETE
+        );
+
+        return authorizationResult.Succeeded ? null : Forbid();
+    }
+
+    private async Task<ActionResult> AuthorizeCompleteConfirmationMutation(
+        InstanceMutationRequest request
+    )
+    {
+        if (!request.AddCompleteConfirmation)
+        {
+            return null;
+        }
+
+        if (User.GetOrg() is null)
+        {
+            return Forbid();
+        }
+
+        AuthorizationResult authorizationResult = await _policyAuthorizationService.AuthorizeAsync(
+            User,
+            resource: null,
+            policyName: AuthzConstants.POLICY_INSTANCE_COMPLETE
         );
 
         return authorizationResult.Succeeded ? null : Forbid();

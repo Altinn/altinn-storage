@@ -5098,6 +5098,78 @@ public class DataTests(DataElementFixture dataElementFixture)
     }
 
     [Fact]
+    public async Task MergeInstanceUpdateSql_ConfirmedStakeholderConfirmsAgain_IsNotAppended()
+    {
+        // Arrange
+        DateTime lastChanged = new(2026, 6, 7, 8, 9, 10, DateTimeKind.Utc);
+        string seedJson = CreateParitySeedJson();
+        string confirmationPayload = InstanceUpdatePayload(
+            InstanceUpdatePayloadItem(
+                lastChanged,
+                completeConfirmations: ParseJsonNode(
+                    """[{"StakeholderId":"existing","ConfirmedOn":"2026-08-10T00:00:00Z"}]"""
+                ),
+                confirmed: true
+            )
+        );
+
+        // Act
+        string mergedInstance = await MergeInstanceUpdateSql(seedJson, confirmationPayload);
+
+        // Assert
+        // The whole instance is untouched: no second entry, and the first confirmation keeps its
+        // own timestamp rather than being refreshed by the losing caller.
+        Assert.Equal(await JsonbText(seedJson), mergedInstance);
+    }
+
+    [Fact]
+    public async Task ApplyInstanceMutationSql_ConfirmedStakeholderConfirmsAgain_IsNotAppended()
+    {
+        // Arrange
+        DateTime lastChanged = new(2026, 6, 7, 8, 9, 10, DateTimeKind.Utc);
+        ParityInstance instance = await CreateParityInstance();
+        int previousInstanceVersion = await ReadInstanceVersion(instance.InstanceGuid);
+        int previousProcessStateVersion = await ReadProcessStateVersion(instance.InstanceGuid);
+        string confirmationPayload = InstanceUpdatePayload(
+            InstanceUpdatePayloadItem(
+                lastChanged,
+                completeConfirmations: ParseJsonNode(
+                    """[{"StakeholderId":"existing","ConfirmedOn":"2026-08-10T00:00:00Z"}]"""
+                ),
+                confirmed: true
+            )
+        );
+
+        // Act
+        List<ApplyMutationSqlRow> rows = await ApplyInstanceMutationSql(
+            instance.InstanceGuid,
+            instance.InternalId,
+            previousInstanceVersion,
+            previousProcessStateVersion,
+            null,
+            null,
+            null,
+            null,
+            confirmationPayload,
+            null,
+            null
+        );
+
+        // Assert
+        // The mutation still commits and still bumps - it may carry other operations - but the
+        // stakeholder keeps the single confirmation it already had.
+        Assert.Equal(previousInstanceVersion + 1, rows[0].InstanceVersion);
+        InstanceInternal updatedInstance = await dataElementFixture.InstanceRepo.GetOne(
+            instance.InstanceGuid,
+            false,
+            CancellationToken.None
+        );
+        CompleteConfirmation confirmation = Assert.Single(updatedInstance.CompleteConfirmations);
+        Assert.Equal("existing", confirmation.StakeholderId);
+        Assert.Equal(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), confirmation.ConfirmedOn);
+    }
+
+    [Fact]
     public async Task MergeInstanceUpdateSql_InstanceUpdateBranches_MatchUpdateInstanceV4()
     {
         // Arrange
@@ -6796,6 +6868,9 @@ public class DataTests(DataElementFixture dataElementFixture)
             }
             """;
 
+    // No case confirms a stakeholder the seed already carries: mergeinstanceupdate skips those and
+    // updateinstance_v4 appends them, the one place the two deliberately differ. That difference has
+    // its own tests; see MergeInstanceUpdateSql_ConfirmedStakeholderConfirmsAgain_IsNotAppended.
     private static InstanceUpdateParityCase[] CreateInstanceUpdateParityCases() =>
         [
             new(
