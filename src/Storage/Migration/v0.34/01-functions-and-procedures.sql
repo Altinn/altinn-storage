@@ -1112,8 +1112,6 @@ CREATE OR REPLACE FUNCTION storage.mergeinstanceupdate(
     RETURNS JSONB
     LANGUAGE SQL IMMUTABLE
 AS $BODY$
-    -- The parity test against updateinstance_v4 is the drift guard for these
-    -- per-field composition rules.
     SELECT _instance || updateparts.toplevelsimpleprops
         || CASE
             WHEN updateparts.datavalues IS NOT NULL THEN
@@ -1144,7 +1142,18 @@ AS $BODY$
                 jsonb_build_object(
                     'CompleteConfirmations',
                     COALESCE(_instance -> 'CompleteConfirmations', '[]'::JSONB)
-                        || updateparts.completeconfirmations
+                        || (
+                            SELECT COALESCE(jsonb_agg(incoming.value), '[]'::JSONB)
+                            FROM jsonb_array_elements(updateparts.completeconfirmations) AS incoming
+                            WHERE NOT EXISTS (
+                                SELECT 1
+                                FROM jsonb_array_elements(
+                                    COALESCE(_instance -> 'CompleteConfirmations', '[]'::JSONB)
+                                ) AS existing
+                                WHERE existing.value ->> 'StakeholderId'
+                                    = incoming.value ->> 'StakeholderId'
+                            )
+                        )
                 )
             ELSE
                 '{}'::JSONB

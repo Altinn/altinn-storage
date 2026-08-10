@@ -55,6 +55,14 @@ public class InstanceMutationRequest
     public Dictionary<string, string> PresentationTexts { get; set; }
 
     /// <summary>
+    /// Whether to record a complete confirmation for the calling stakeholder. The stakeholder is the
+    /// caller's organisation and Storage times the confirmation, so a confirmation cannot be recorded
+    /// on another stakeholder's behalf. A stakeholder that has already confirmed is left as it is.
+    /// </summary>
+    [JsonProperty(PropertyName = "addCompleteConfirmation")]
+    public bool AddCompleteConfirmation { get; set; }
+
+    /// <summary>
     /// Optional process state and instance events to persist with the aggregate mutation.
     /// </summary>
     [JsonProperty(PropertyName = "processState")]
