@@ -18,7 +18,14 @@ namespace Altinn.Platform.Storage.OpenApi;
 /// </summary>
 public static class SwaggerExtensions
 {
+    /// <summary>
+    /// The name of the public swagger document for the Storage API (filtered out internal apis)
+    /// </summary>
     public const string V1PublicSwaggerDocName = "v1-public";
+
+    /// <summary>
+    /// The name of the complete swagger document for the Storage API (includes all apis)
+    /// </summary>
     public const string CompleteSwaggerDocName = "v1";
 
     /// <summary>
@@ -41,14 +48,10 @@ public static class SwaggerExtensions
             CompleteSwaggerDocName,
             new OpenApiInfo { Title = "Altinn Platform Storage - complete", Version = "v1" }
         );
-        c.AddServer(
-            new() { Url = "https://platform.tt02.altinn.no/storage/api/v1", Description = "T02" }
-        );
-        c.AddServer(
-            new() { Url = "https://platform.altinn.no/storage/api/v1", Description = "Production" }
-        );
+        c.AddServer(new() { Url = "https://platform.tt02.altinn.no", Description = "T02" });
+        c.AddServer(new() { Url = "https://platform.altinn.no", Description = "Production" });
 
-        // Exclude endpoints from the public openapi doc if they have the ExcludeFromPublicStorageApi attribute or if they have the Authorize attribute with the POLICY_STUDIO_DESIGNER or POLICY_CORRESPONDENCE_SBLBRIDGE policy
+        // Exclude endpoints from the public openapi doc if they have the ExcludeFromPublicStorageApiAttribute attribute or if they have the Authorize attribute with the POLICY_STUDIO_DESIGNER or POLICY_CORRESPONDENCE_SBLBRIDGE policy
         c.DocInclusionPredicate(
             (docName, apiDesc) =>
             {
@@ -59,8 +62,8 @@ public static class SwaggerExtensions
 
                 var attributes = apiDesc.CustomAttributes().ToList();
 
-                // Exclude endpoints that have the ExcludeFromPublicStorageApi attribute
-                if (attributes.Any(attr => attr is ExcludeFromPublicStorageApi))
+                // Exclude endpoints that have the ExcludeFromPublicStorageApiAttribute attribute
+                if (attributes.Any(attr => attr is ExcludeFromPublicStorageApiAttribute))
                 {
                     return false;
                 }
@@ -73,6 +76,7 @@ public static class SwaggerExtensions
                             {
                                 Policy: AuthzConstants.POLICY_STUDIO_DESIGNER
                                     or AuthzConstants.POLICY_CORRESPONDENCE_SBLBRIDGE
+                                    or AuthzConstants.POLICY_SCOPE_APPDEPLOY
                             }
                     )
                 )
@@ -82,7 +86,7 @@ public static class SwaggerExtensions
                 return true;
             }
         );
-        c.AddDocumentFilterInstance(new RemoveStorageBasePathFilter(V1PublicSwaggerDocName));
+        c.AddDocumentFilterInstance(new MoveBasePathToServerSection(V1PublicSwaggerDocName));
 
         c.AddSecurityDefinition(
             JwtCookieDefaults.AuthenticationScheme,
@@ -92,7 +96,9 @@ public static class SwaggerExtensions
                     "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\". Remember to add \"Bearer\" to the input below before your token.",
                 Name = "Authorization",
                 In = ParameterLocation.Header,
-                Type = SecuritySchemeType.ApiKey,
+                Type = SecuritySchemeType.Http,
+                Scheme = "bearer",
+                BearerFormat = "JWT",
             }
         );
         c.AddSecurityRequirement(document => new OpenApiSecurityRequirement

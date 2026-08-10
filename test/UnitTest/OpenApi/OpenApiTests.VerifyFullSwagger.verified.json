@@ -6,11 +6,11 @@
   },
   "servers": [
     {
-      "url": "https://platform.tt02.altinn.no/storage/api/v1",
+      "url": "https://platform.tt02.altinn.no",
       "description": "T02"
     },
     {
-      "url": "https://platform.altinn.no/storage/api/v1",
+      "url": "https://platform.altinn.no",
       "description": "Production"
     }
   ],
@@ -5867,10 +5867,10 @@
     },
     "securitySchemes": {
       "JwtCookie": {
-        "type": "apiKey",
+        "type": "http",
         "description": "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\". Remember to add \"Bearer\" to the input below before your token.",
-        "name": "Authorization",
-        "in": "header"
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
       }
     }
   },

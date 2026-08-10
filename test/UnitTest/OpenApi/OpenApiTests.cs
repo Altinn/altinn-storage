@@ -6,7 +6,6 @@ using Microsoft.OpenApi;
 using VerifyTests;
 using VerifyXunit;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Altinn.Platform.Storage.UnitTest.OpenApi;
 
