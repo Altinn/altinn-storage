@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using Newtonsoft.Json;
+using TextJson = System.Text.Json.Serialization;
 
 namespace Altinn.Platform.Storage.Interface.Models;
 
@@ -116,8 +117,20 @@ public class DataType
     /// <summary>
     /// Gets or sets a value indicating whether the element should trigger PDF generation
     /// </summary>
+    /// <remarks>
+    /// Deprecated. Configure a PDF service task in the process instead, which app backends support
+    /// from v8.9 onwards; v9 app backends ignore this property entirely.
+    /// <para>
+    /// This property is nullable, and an absent value no longer deserializes to <c>true</c>. Callers
+    /// that need the historical v8 default must read it as <c>EnablePdfCreation ?? true</c>.
+    /// </para>
+    /// </remarks>
     [JsonProperty(PropertyName = "enablePdfCreation")]
-    public bool EnablePdfCreation { get; set; } = true;
+    [TextJson.JsonIgnore(Condition = TextJson.JsonIgnoreCondition.WhenWritingNull)]
+    [Obsolete(
+        "Deprecated: configure a PDF service task in the process instead, supported by app backends from v8.9 onwards. Ignored entirely by v9 app backends. Now nullable for backwards compatibility - absent no longer means true, so read it as (EnablePdfCreation ?? true)."
+    )]
+    public bool? EnablePdfCreation { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether file uploaded to this data type should be scanned for malware. Default value is <c>false</c>.
