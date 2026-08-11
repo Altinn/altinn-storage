@@ -4517,6 +4517,14 @@ public class DataTests(DataElementFixture dataElementFixture)
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
         string secondNewBlobVersion = await CreateBlobVersionId(instanceGuid, secondUpdate.Id);
         DateTime mutationLastChanged = new(2026, 2, 3, 4, 7, 6, DateTimeKind.Utc);
+        DataElementInternal firstBeforeUpdate = await dataElementFixture.DataRepo.Read(
+            instanceGuid,
+            Guid.Parse(firstUpdate.Id)
+        );
+        DataElementInternal thirdBeforeUpdate = await dataElementFixture.DataRepo.Read(
+            instanceGuid,
+            Guid.Parse(thirdUpdate.Id)
+        );
 
         // Act
         List<ApplyMutationSqlRow> rows = await ApplyInstanceMutationSql(
@@ -4589,12 +4597,117 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
         Assert.Equal(secondNewBlobVersion, updatedSecondElement.BlobVersionId);
         Assert.Equal(1, await CountAttachedBlobVersionRows(secondNewBlobVersion));
-        Assert.Equal(mutationLastChanged, updatedFirstElement.LastChanged);
-        Assert.Equal("mutation-sql-update", updatedFirstElement.LastChangedBy);
+        Assert.Equal(firstBeforeUpdate.LastChanged, updatedFirstElement.LastChanged);
+        Assert.Equal(firstBeforeUpdate.LastChangedBy, updatedFirstElement.LastChangedBy);
         Assert.Equal(mutationLastChanged, updatedSecondElement.LastChanged);
         Assert.Equal("mutation-sql-update", updatedSecondElement.LastChangedBy);
-        Assert.Equal(mutationLastChanged, updatedThirdElement.LastChanged);
-        Assert.Equal("mutation-sql-update", updatedThirdElement.LastChangedBy);
+        Assert.Equal(thirdBeforeUpdate.LastChanged, updatedThirdElement.LastChanged);
+        Assert.Equal(thirdBeforeUpdate.LastChangedBy, updatedThirdElement.LastChangedBy);
+    }
+
+    [Fact]
+    public async Task ApplyInstanceMutationSql_LockOnlyUpdate_PreservesTheContentAuthorStamp()
+    {
+        // Arrange
+        Guid instanceGuid = _instance.Id;
+        DataElement toLock = TestDataUtil.GetDataElement(_dataElement1);
+        (toLock, _) = await CreateVersionedDataElement(toLock);
+        Guid dataElementId = Guid.Parse(toLock.Id);
+        DataElementInternal beforeLock = await dataElementFixture.DataRepo.Read(
+            instanceGuid,
+            dataElementId
+        );
+        int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        DateTime mutationLastChanged = new(2026, 3, 4, 5, 6, 7, DateTimeKind.Utc);
+
+        // Act
+        List<ApplyMutationSqlRow> rows = await ApplyInstanceMutationSql(
+            instanceGuid,
+            _instanceInternalId,
+            previousInstanceVersion,
+            null,
+            null,
+            null,
+            UpdateElementsPayload([
+                new UpdateElementPayload(
+                    dataElementId,
+                    ElementChanges: new JsonObject { ["Locked"] = true }
+                ),
+            ]),
+            null,
+            null,
+            null,
+            null,
+            lastChanged: mutationLastChanged,
+            lastChangedBy: "workflow-service-owner"
+        );
+        DataElementInternal lockedElement = await dataElementFixture.DataRepo.Read(
+            instanceGuid,
+            dataElementId
+        );
+        InstanceInternal updatedInstance = await dataElementFixture.InstanceRepo.GetOne(
+            instanceGuid,
+            false,
+            CancellationToken.None
+        );
+
+        // Assert
+        AssertAppliedRows(
+            rows,
+            previousInstanceVersion + 1,
+            await ReadProcessStateVersion(instanceGuid)
+        );
+        Assert.True(lockedElement.Locked);
+        Assert.Equal(beforeLock.LastChanged, lockedElement.LastChanged);
+        Assert.Equal(beforeLock.LastChangedBy, lockedElement.LastChangedBy);
+        Assert.Equal(mutationLastChanged, updatedInstance.LastChanged);
+        Assert.Equal("workflow-service-owner", updatedInstance.LastChangedBy);
+    }
+
+    [Fact]
+    public async Task ApplyInstanceMutationSql_ContentUpdate_StampsTheMutationActor()
+    {
+        // Arrange
+        Guid instanceGuid = _instance.Id;
+        DataElement toUpdate = TestDataUtil.GetDataElement(_dataElement2);
+        (toUpdate, _) = await CreateVersionedDataElement(toUpdate);
+        Guid dataElementId = Guid.Parse(toUpdate.Id);
+        DataElementInternal beforeUpdate = await dataElementFixture.DataRepo.Read(
+            instanceGuid,
+            dataElementId
+        );
+        string newBlobVersion = await CreateBlobVersionId(instanceGuid, toUpdate.Id);
+        int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        DateTime mutationLastChanged = new(2026, 3, 4, 5, 6, 8, DateTimeKind.Utc);
+
+        // Act
+        await ApplyInstanceMutationSql(
+            instanceGuid,
+            _instanceInternalId,
+            previousInstanceVersion,
+            null,
+            null,
+            null,
+            UpdateElementsPayload([
+                new UpdateElementPayload(dataElementId, NewBlobVersion: newBlobVersion),
+            ]),
+            null,
+            null,
+            null,
+            null,
+            lastChanged: mutationLastChanged,
+            lastChangedBy: "patching-party"
+        );
+        DataElementInternal updatedElement = await dataElementFixture.DataRepo.Read(
+            instanceGuid,
+            dataElementId
+        );
+
+        // Assert
+        Assert.Equal(newBlobVersion, updatedElement.BlobVersionId);
+        Assert.NotEqual(beforeUpdate.LastChangedBy, updatedElement.LastChangedBy);
+        Assert.Equal(mutationLastChanged, updatedElement.LastChanged);
+        Assert.Equal("patching-party", updatedElement.LastChangedBy);
     }
 
     [Fact]
