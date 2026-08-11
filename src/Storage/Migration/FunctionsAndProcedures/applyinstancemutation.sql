@@ -204,12 +204,16 @@ BEGIN
             UPDATE storage.dataelements dataelement
             SET element = dataelement.element
                     || updateelements.elementchanges
-                    || jsonb_build_object(
-                        'LastChanged',
-                        storage.timestamptz_to_jsonb_utc(_lastchanged),
-                        'LastChangedBy',
-                        COALESCE(to_jsonb(_lastchangedby), 'null'::JSONB)
-                    ),
+                    || CASE
+                        WHEN updateelements.newblobversion IS NULL
+                        THEN '{}'::JSONB
+                        ELSE jsonb_build_object(
+                            'LastChanged',
+                            storage.timestamptz_to_jsonb_utc(_lastchanged),
+                            'LastChangedBy',
+                            COALESCE(to_jsonb(_lastchangedby), 'null'::JSONB)
+                        )
+                    END,
                 currentblobversion = COALESCE(updateelements.newblobversion, dataelement.currentblobversion)
             FROM updateelements
             WHERE dataelement.instanceguid = _instanceguid
