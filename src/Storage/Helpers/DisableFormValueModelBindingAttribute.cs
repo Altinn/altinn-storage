@@ -13,13 +13,14 @@ namespace Altinn.Platform.Storage.Helpers;
 public class DisableFormValueModelBindingAttribute : Attribute, IResourceFilter
 {
     /// <summary>
-    /// Called before resource is processed and turns of formvalue provider an jquery provider
+    /// Called before resource is processed and removes every form-reading value provider factory
     /// </summary>
     /// <param name="context">the execution context</param>
     public void OnResourceExecuting(ResourceExecutingContext context)
     {
         var factories = context.ValueProviderFactories;
         factories.RemoveType<FormValueProviderFactory>();
+        factories.RemoveType<FormFileValueProviderFactory>();
         factories.RemoveType<JQueryFormValueProviderFactory>();
     }
 
