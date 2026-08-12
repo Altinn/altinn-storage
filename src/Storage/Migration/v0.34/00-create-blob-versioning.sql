@@ -1,7 +1,7 @@
 ALTER TABLE storage.dataelements
-ADD COLUMN currentblobversion UUID NULL;
+ADD COLUMN IF NOT EXISTS currentblobversion UUID NULL;
 
-CREATE TABLE storage.dataelementblobversions (
+CREATE TABLE IF NOT EXISTS storage.dataelementblobversions (
     id UUID PRIMARY KEY,
     instanceguid UUID NOT NULL,
     dataelementid UUID NOT NULL,
@@ -13,14 +13,14 @@ CREATE TABLE storage.dataelementblobversions (
 )
 TABLESPACE pg_default;
 
-CREATE INDEX dataelementblobversions_dataelementid
+CREATE INDEX IF NOT EXISTS dataelementblobversions_dataelementid
 ON storage.dataelementblobversions(dataelementid);
 
-CREATE INDEX dataelementblobversions_attached_instance
+CREATE INDEX IF NOT EXISTS dataelementblobversions_attached_instance
 ON storage.dataelementblobversions(instanceguid)
 WHERE attached = true;
 
-CREATE INDEX dataelementblobversions_unattached
+CREATE INDEX IF NOT EXISTS dataelementblobversions_unattached
 ON storage.dataelementblobversions(created)
 WHERE attached = false;
 
