@@ -133,6 +133,50 @@ public class InstanceMutationsControllerTests
     }
 
     [Fact]
+    public async Task CommitMutation_MultipartRequest_EnvelopeSurvivesModelBinding()
+    {
+        // Arrange
+        Guid dataElementId = Guid.Parse(SensitiveDataApp.DataElements.Default);
+        InstanceMutationRequest request = new()
+        {
+            UpdateDataElements =
+            [
+                new InstanceMutationUpdateDataElement
+                {
+                    DataElementId = dataElementId,
+                    Locked = false,
+                },
+                new InstanceMutationUpdateDataElement
+                {
+                    DataElementId = dataElementId,
+                    Locked = true,
+                },
+            ],
+        };
+
+        Mock<IInstanceMutationRepository> mutationRepositoryMock = new();
+        HttpClient client = GetTestClient(
+            bearerAuthToken: PrincipalUtil.GetOrgToken("ttd"),
+            mutationRepositoryMock: mutationRepositoryMock
+        );
+
+        using MultipartFormDataContent multipartContent = new();
+        multipartContent.Add(JsonContent.Create(request, options: _serializerOptions), "mutation");
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            $"{SensitiveDataApp.GetInstanceUrl()}/mutations",
+            multipartContent
+        );
+        string content = await response.Content.ReadAsStringAsync();
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(ExpectedDuplicateDataElementMutationIdsResponse(dataElementId), content);
+        InstanceMutationAsserts.VerifyApplyNever(mutationRepositoryMock);
+    }
+
+    [Fact]
     public async Task CommitMutation_RepositoryConflicts_OnlyProcessStatusUsesProblemDetailsResponse()
     {
         InstanceInternal storedInstance = CreateMutationInstance(
