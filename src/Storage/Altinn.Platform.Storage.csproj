@@ -10,8 +10,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Altinn.Common.AccessToken" Version="5.1.10" />
-    <PackageReference Include="Altinn.Common.AccessTokenClient" Version="3.2.10" />
+    <PackageReference Include="Altinn.Common.AccessToken" Version="5.1.11" />
+    <PackageReference Include="Altinn.Common.AccessTokenClient" Version="3.2.11" />
     <PackageReference Include="Altinn.Common.PEP" Version="4.2.3" />
     <PackageReference Include="Altinn.Platform.Models" Version="1.6.1" />
     <PackageReference Include="Altinn.Platform.Storage.Interface" Version="4.7.1" />
@@ -35,8 +35,8 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
     <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.17.0" />
     <PackageReference Include="Npgsql.OpenTelemetry" Version="10.0.3" />
-    <PackageReference Include="WolverineFx" Version="5.40.0" />
-    <PackageReference Include="WolverineFx.AzureServiceBus" Version="5.40.0" />
+    <PackageReference Include="WolverineFx" Version="5.40.1" />
+    <PackageReference Include="WolverineFx.AzureServiceBus" Version="5.40.1" />
     <PackageReference Include="Parquet.Net" Version="6.0.3" />
   </ItemGroup>
 
