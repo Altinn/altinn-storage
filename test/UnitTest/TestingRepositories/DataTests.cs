@@ -15,35 +15,56 @@ using Xunit;
 namespace Altinn.Platform.Storage.UnitTest.TestingRepositories;
 
 [Collection("StoragePostgreSQL")]
-public class DataTests : IClassFixture<DataElementFixture>
+public class DataTests(DataElementFixture dataElementFixture)
+    : IClassFixture<DataElementFixture>,
+        IAsyncLifetime
 {
-    private const string DataElement1 = "cdb627fd-c586-41f5-99db-bae38daa2b59";
-    private const string DataElement2 = "d03b4a04-f0df-4ead-be92-aa7a68959dab";
-    private const string DataElement3 = "5ebeb498-677d-476f-8cab-b788a0fd0640";
+    private const string _dataElement1 = "cdb627fd-c586-41f5-99db-bae38daa2b59";
+    private const string _dataElement2 = "d03b4a04-f0df-4ead-be92-aa7a68959dab";
+    private const string _contentType = "unittestContentType";
+    private static readonly DateTime _frozenTime = new(2026, 8, 17, 10, 0, 0, DateTimeKind.Utc);
 
-    private readonly DataElementFixture _dataElementFixture;
-    private readonly long _instanceInternalId;
-    private readonly Instance _instance;
+    private static readonly List<KeyValueEntry> _originalEntries =
+    [
+        new() { Key = "key1", Value = "value1" },
+        new() { Key = "key2", Value = "value2" },
+    ];
 
-    public DataTests(DataElementFixture dataElementFixture)
+    private static readonly List<KeyValueEntry> _replacementEntries =
+    [
+        new() { Key = "key3", Value = "value3" },
+        new() { Key = "key4", Value = "value4" },
+    ];
+
+    private static readonly List<string> _originalTags = ["s1", "s2"];
+    private static readonly List<string> _replacementTags = ["s3", "s4"];
+
+    private long _instanceInternalId;
+    private Instance _instance;
+    private string _instanceGuid;
+
+    public async Task InitializeAsync()
     {
-        _dataElementFixture = dataElementFixture;
-
         string sql = "delete from storage.instances; delete from storage.dataelements;";
-        _ = PostgresUtil.RunSql(sql).Result;
+
+        await PostgresUtil.RunSql(sql);
+        await PostgresUtil.FreezeTime(_frozenTime);
+
         Instance instance = TestData.Instance_1_1.Clone();
         instance.Status.IsSoftDeleted = true;
-        Instance newInstance = _dataElementFixture
-            .InstanceRepo.Create(instance, CancellationToken.None)
-            .Result;
-        (_instance, _instanceInternalId) = _dataElementFixture
-            .InstanceRepo.GetOne(
-                Guid.Parse(newInstance.Id.Split('/').Last()),
-                false,
-                CancellationToken.None
-            )
-            .Result;
+        Instance newInstance = await dataElementFixture.InstanceRepo.Create(
+            instance,
+            CancellationToken.None
+        );
+        (_instance, _instanceInternalId) = await dataElementFixture.InstanceRepo.GetOne(
+            Guid.Parse(newInstance.Id.Split('/').Last()),
+            false,
+            CancellationToken.None
+        );
+        _instanceGuid = _instance.Id.Split('/').Last();
     }
+
+    public async Task DisposeAsync() => await PostgresUtil.UnfreezeTime();
 
     /// <summary>
     /// Test create and change instance read status
@@ -52,33 +73,25 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_Create_Change_Instance_Readstatus_Ok()
     {
         // Arrange
-        DateTime lastChanged = DateTime.UtcNow;
-        DataElement dataElement = TestDataUtil.GetDataElement(DataElement1);
+        DateTime lastChanged = _frozenTime;
+        DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
         dataElement.LastChanged = lastChanged;
 
         // Act
-        dataElement = await _dataElementFixture.DataRepo.Create(dataElement, _instanceInternalId);
-        (Instance instance, _) = await _dataElementFixture.InstanceRepo.GetOne(
+        dataElement = await CreateDataElement(dataElement);
+        (Instance instance, _) = await dataElementFixture.InstanceRepo.GetOne(
             Guid.Parse(dataElement.InstanceGuid),
             false,
             CancellationToken.None
         );
 
         // Assert
-        string sql =
-            $"select count(*) from storage.dataelements where alternateid = '{dataElement.Id}'";
-        int dataCount = await PostgresUtil.RunCountQuery(sql);
-        sql =
-            $"select count(*) from storage.instances where alternateid = '{_instance.Id.Split('/').Last()}' and instance -> 'Status' ->> 'ReadStatus' = '2'"
-            + $" and lastchanged = '{((DateTime)dataElement.LastChanged).ToString("o")}' and instance -> 'LastChangedBy' = '\"{dataElement.LastChangedBy}\"'";
-        int instanceCount = await PostgresUtil.RunCountQuery(sql);
-        Assert.Equal(1, dataCount);
-        Assert.Equal(1, instanceCount);
+        Assert.True(await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id)));
+        Assert.Equal(ReadStatus.UpdatedSinceLastReview, instance.Status.ReadStatus);
+        Assert.Equal(dataElement.LastChangedBy, instance.LastChangedBy);
         Assert.Equal(instance.LastChanged, dataElement.LastChanged);
-        Assert.True(
-            Math.Abs(((DateTime)dataElement.LastChanged).Ticks - lastChanged.Ticks)
-                < TimeSpan.TicksPerMicrosecond
-        );
+        Assert.Equal(lastChanged, dataElement.LastChanged);
+        Assert.Equal(lastChanged, await ReadInstanceLastChangedColumn());
     }
 
     /// <summary>
@@ -88,28 +101,18 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_Create_NoChange_Instance_Readstatus_Ok()
     {
         // Arrange
-        await PostgresUtil.RunSql(
-            "update storage.instances set instance = jsonb_set(instance, '{Status, ReadStatus}', '0') where alternateid = '"
-                + _instance.Id.Split('/').Last()
-                + "';"
-        );
+        await SetInstanceReadStatus(ReadStatus.Unread);
 
         // Act
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
-            _instanceInternalId
-        );
+        DataElement dataElement = await CreateDataElement();
 
         // Assert
-        string sql =
-            $"select count(*) from storage.dataelements where alternateid = '{dataElement.Id}'";
-        int dataCount = await PostgresUtil.RunCountQuery(sql);
-        sql =
-            $"select count(*) from storage.instances where alternateid = '{_instance.Id.Split('/').Last()}' and instance -> 'Status' ->> 'ReadStatus' = '0'"
-            + $" and lastchanged = '{((DateTime)dataElement.LastChanged).ToString("o")}' and instance -> 'LastChangedBy' = '\"{dataElement.LastChangedBy}\"'";
-        int instanceCount = await PostgresUtil.RunCountQuery(sql);
-        Assert.Equal(1, dataCount);
-        Assert.Equal(1, instanceCount);
+        Instance instance = await ReadInstance();
+        Assert.True(await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id)));
+        Assert.Equal(ReadStatus.Unread, instance.Status.ReadStatus);
+        Assert.Equal(dataElement.LastChangedBy, instance.LastChangedBy);
+        Assert.Equal(dataElement.LastChanged, instance.LastChanged);
+        Assert.Equal(dataElement.LastChanged, await ReadInstanceLastChangedColumn());
     }
 
     /// <summary>
@@ -119,30 +122,18 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_Update_Metadata_Insert_Ok()
     {
         // Arrange
-        List<KeyValueEntry> metadata = new()
-        {
-            {
-                new() { Key = "key1", Value = "value1" }
-            },
-            {
-                new() { Key = "key2", Value = "value2" }
-            },
-        };
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
-            _instanceInternalId
-        );
+        DataElement dataElement = await CreateDataElement();
 
         // Act
-        DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
+        DataElement updatedElement = await dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
-            new Dictionary<string, object>() { { "/metadata", metadata } }
+            new Dictionary<string, object> { { "/metadata", _originalEntries } }
         );
 
         // Assert
         Assert.Equal(
-            JsonSerializer.Serialize(metadata),
+            JsonSerializer.Serialize(_originalEntries),
             JsonSerializer.Serialize(updatedElement.Metadata)
         );
     }
@@ -154,41 +145,20 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_Update_Metadata_Replace_Ok()
     {
         // Arrange
-        List<KeyValueEntry> orgMetadata = new()
-        {
-            {
-                new() { Key = "key1", Value = "value1" }
-            },
-            {
-                new() { Key = "key2", Value = "value2" }
-            },
-        };
-        List<KeyValueEntry> replacedMetadata = new()
-        {
-            {
-                new() { Key = "key3", Value = "value3" }
-            },
-            {
-                new() { Key = "key4", Value = "value4" }
-            },
-        };
-        DataElement initialDataElement = TestDataUtil.GetDataElement(DataElement1);
-        initialDataElement.Metadata = orgMetadata;
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            initialDataElement,
-            _instanceInternalId
-        );
+        DataElement initialDataElement = TestDataUtil.GetDataElement(_dataElement1);
+        initialDataElement.Metadata = _originalEntries;
+        DataElement dataElement = await CreateDataElement(initialDataElement);
 
         // Act
-        DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
+        DataElement updatedElement = await dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
-            new Dictionary<string, object>() { { "/metadata", replacedMetadata } }
+            new Dictionary<string, object> { { "/metadata", _replacementEntries } }
         );
 
         // Assert
         Assert.Equal(
-            JsonSerializer.Serialize(replacedMetadata),
+            JsonSerializer.Serialize(_replacementEntries),
             JsonSerializer.Serialize(updatedElement.Metadata)
         );
     }
@@ -200,30 +170,18 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_Update_UserDefinedMetadata_Insert_Ok()
     {
         // Arrange
-        List<KeyValueEntry> userDefinedMetadata = new()
-        {
-            {
-                new() { Key = "key1", Value = "value1" }
-            },
-            {
-                new() { Key = "key2", Value = "value2" }
-            },
-        };
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
-            _instanceInternalId
-        );
+        DataElement dataElement = await CreateDataElement();
 
         // Act
-        DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
+        DataElement updatedElement = await dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
-            new Dictionary<string, object>() { { "/userDefinedMetadata", userDefinedMetadata } }
+            new Dictionary<string, object> { { "/userDefinedMetadata", _originalEntries } }
         );
 
         // Assert
         Assert.Equal(
-            JsonSerializer.Serialize(userDefinedMetadata),
+            JsonSerializer.Serialize(_originalEntries),
             JsonSerializer.Serialize(updatedElement.UserDefinedMetadata)
         );
     }
@@ -235,44 +193,20 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_Update_UserDefinedMetadata_Replace_Ok()
     {
         // Arrange
-        List<KeyValueEntry> originalUserDefinedMetadata = new()
-        {
-            {
-                new() { Key = "key1", Value = "value1" }
-            },
-            {
-                new() { Key = "key2", Value = "value2" }
-            },
-        };
-        List<KeyValueEntry> replacedUserDefinedMetadata = new()
-        {
-            {
-                new() { Key = "key3", Value = "value3" }
-            },
-            {
-                new() { Key = "key4", Value = "value4" }
-            },
-        };
-        DataElement initialDataElement = TestDataUtil.GetDataElement(DataElement1);
-        initialDataElement.UserDefinedMetadata = originalUserDefinedMetadata;
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            initialDataElement,
-            _instanceInternalId
-        );
+        DataElement initialDataElement = TestDataUtil.GetDataElement(_dataElement1);
+        initialDataElement.UserDefinedMetadata = _originalEntries;
+        DataElement dataElement = await CreateDataElement(initialDataElement);
 
         // Act
-        DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
+        DataElement updatedElement = await dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
-            new Dictionary<string, object>()
-            {
-                { "/userDefinedMetadata", replacedUserDefinedMetadata },
-            }
+            new Dictionary<string, object> { { "/userDefinedMetadata", _replacementEntries } }
         );
 
         // Assert
         Assert.Equal(
-            JsonSerializer.Serialize(replacedUserDefinedMetadata),
+            JsonSerializer.Serialize(_replacementEntries),
             JsonSerializer.Serialize(updatedElement.UserDefinedMetadata)
         );
     }
@@ -284,21 +218,20 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_Update_Tags_Insert_Ok()
     {
         // Arrange
-        List<string> tags = new() { "s1", "s2" };
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
-            _instanceInternalId
-        );
+        DataElement dataElement = await CreateDataElement();
 
         // Act
-        DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
+        DataElement updatedElement = await dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
-            new Dictionary<string, object>() { { "/tags", tags } }
+            new Dictionary<string, object> { { "/tags", _originalTags } }
         );
 
         // Assert
-        Assert.Equal(JsonSerializer.Serialize(tags), JsonSerializer.Serialize(updatedElement.Tags));
+        Assert.Equal(
+            JsonSerializer.Serialize(_originalTags),
+            JsonSerializer.Serialize(updatedElement.Tags)
+        );
     }
 
     /// <summary>
@@ -308,25 +241,20 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_Update_Tags_Replace_Ok()
     {
         // Arrange
-        List<string> orgTags = new() { "s1", "s2" };
-        List<string> replacedTags = new() { "s3", "s4" };
-        DataElement initialDataElement = TestDataUtil.GetDataElement(DataElement1);
-        initialDataElement.Tags = orgTags;
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            initialDataElement,
-            _instanceInternalId
-        );
+        DataElement initialDataElement = TestDataUtil.GetDataElement(_dataElement1);
+        initialDataElement.Tags = _originalTags;
+        DataElement dataElement = await CreateDataElement(initialDataElement);
 
         // Act
-        DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
+        DataElement updatedElement = await dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
-            new Dictionary<string, object>() { { "/tags", replacedTags } }
+            new Dictionary<string, object> { { "/tags", _replacementTags } }
         );
 
         // Assert
         Assert.Equal(
-            JsonSerializer.Serialize(replacedTags),
+            JsonSerializer.Serialize(_replacementTags),
             JsonSerializer.Serialize(updatedElement.Tags)
         );
     }
@@ -338,18 +266,15 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_Update_DeleteStatus_Ok()
     {
         // Arrange
-        DateTime hardDeleted = DateTime.UtcNow;
+        DateTime hardDeleted = _frozenTime;
         DeleteStatus deleteStatus = new() { IsHardDeleted = true, HardDeleted = hardDeleted };
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
-            _instanceInternalId
-        );
+        DataElement dataElement = await CreateDataElement();
 
         // Act
-        DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
+        DataElement updatedElement = await dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
-            new Dictionary<string, object>() { { "/deleteStatus", deleteStatus } }
+            new Dictionary<string, object> { { "/deleteStatus", deleteStatus } }
         );
 
         // Assert
@@ -364,37 +289,39 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_Update_NoChange_Instance_Readstatus_Ok()
     {
         // Arrange
-        string contentType = "unittestContentType";
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
-            _instanceInternalId
-        );
+        DataElement dataElement = await CreateDataElement();
+        DateTime seededLastChanged =
+            _instance.LastChanged
+            ?? throw new InvalidOperationException(
+                "The seeded instance is expected to have LastChanged set."
+            );
         string restoreValues =
             """{"Status": {"ReadStatus": 0},"LastChanged": "<lastChanged>","LastChangedBy": "<lastChangedBy>"}"""
-                .Replace("<lastChanged>", ((DateTime)_instance.LastChanged).ToString("o"))
+                .Replace("<lastChanged>", seededLastChanged.ToString("o"))
                 .Replace("<lastChangedBy>", _instance.LastChangedBy);
         await PostgresUtil.RunSql(
-            $"update storage.instances set instance = instance || '{restoreValues}', lastChanged = '{((DateTime)_instance.LastChanged).ToString("o")}' where alternateid = '{_instance.Id.Split('/').Last()}';"
+            $"update storage.instances set instance = instance || '{restoreValues}', lastChanged = '{seededLastChanged:o}' where alternateid = '{_instanceGuid}';"
         );
 
         // Act
-        DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
+        DataElement updatedElement = await dataElementFixture.DataRepo.Update(
             Guid.Empty,
             Guid.Parse(dataElement.Id),
-            new Dictionary<string, object>() { { "/contentType", contentType } }
+            new Dictionary<string, object> { { "/contentType", _contentType } }
         );
 
         // Assert
-        string sql =
-            $"select count(*) from storage.dataelements where element ->> 'ContentType' = '{contentType}'";
-        int dataCount = await PostgresUtil.RunCountQuery(sql);
-        sql =
-            $"select count(*) from storage.instances where alternateid = '{_instance.Id.Split('/').Last()}' and instance -> 'Status' ->> 'ReadStatus' = '0'"
-            + $" and lastchanged = '{((DateTime)_instance.LastChanged).ToString("o")}' and instance -> 'LastChangedBy' = '\"{_instance.LastChangedBy}\"'";
-        int instanceCount = await PostgresUtil.RunCountQuery(sql);
-        Assert.Equal(1, dataCount);
-        Assert.Equal(1, instanceCount);
-        Assert.Equal(contentType, updatedElement.ContentType);
+        DataElement readElement = await dataElementFixture.DataRepo.Read(
+            Guid.Empty,
+            Guid.Parse(dataElement.Id)
+        );
+        Instance instance = await ReadInstance();
+        Assert.Equal(_contentType, readElement.ContentType);
+        Assert.Equal(_contentType, updatedElement.ContentType);
+        Assert.Equal(ReadStatus.Unread, instance.Status.ReadStatus);
+        Assert.Equal(_instance.LastChangedBy, instance.LastChangedBy);
+        Assert.Equal(_instance.LastChanged, instance.LastChanged);
+        Assert.Equal(_instance.LastChanged, await ReadInstanceLastChangedColumn());
     }
 
     /// <summary>
@@ -404,54 +331,42 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_Update_Change_Instance_Readstatus_Ok()
     {
         // Arrange
-        string contentType = "unittestContentType";
-        DateTime lastChanged = DateTime.UtcNow;
-        DataElement element = TestDataUtil.GetDataElement(DataElement1);
+        DateTime lastChanged = _frozenTime;
+        DataElement element = TestDataUtil.GetDataElement(_dataElement1);
         element.LastChanged = lastChanged;
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            element,
-            _instanceInternalId
-        );
-        await PostgresUtil.RunSql(
-            "update storage.instances set instance = jsonb_set(instance, '{Status, ReadStatus}', '1') where alternateid = '"
-                + _instance.Id.Split('/').Last()
-                + "';"
-        );
+        DataElement dataElement = await CreateDataElement(element);
+        await SetInstanceReadStatus(ReadStatus.Read);
 
         // Act
-        DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
-            Guid.Parse(_instance.Id.Split('/').Last()),
+        DataElement updatedElement = await dataElementFixture.DataRepo.Update(
+            Guid.Parse(_instanceGuid),
             Guid.Parse(dataElement.Id),
-            new Dictionary<string, object>()
+            new Dictionary<string, object>
             {
-                { "/contentType", contentType },
+                { "/contentType", _contentType },
                 { "/isRead", false },
                 { "/lastChanged", dataElement.LastChanged },
                 { "/lastChangedBy", dataElement.LastChangedBy },
             }
         );
-        (Instance instance, _) = await _dataElementFixture.InstanceRepo.GetOne(
+        (Instance instance, _) = await dataElementFixture.InstanceRepo.GetOne(
             Guid.Parse(updatedElement.InstanceGuid),
             false,
             CancellationToken.None
         );
 
         // Assert
-        string sql =
-            $"select count(*) from storage.dataelements where element ->> 'ContentType' = '{contentType}'";
-        int dataCount = await PostgresUtil.RunCountQuery(sql);
-        sql =
-            $"select count(*) from storage.instances where alternateid = '{_instance.Id.Split('/').Last()}' and instance -> 'Status' ->> 'ReadStatus' = '0'"
-            + $" and lastchanged = '{((DateTime)dataElement.LastChanged).ToString("o")}' and instance -> 'LastChangedBy' = '\"{dataElement.LastChangedBy}\"'";
-        int instanceCount = await PostgresUtil.RunCountQuery(sql);
-        Assert.Equal(1, dataCount);
-        Assert.Equal(1, instanceCount);
-        Assert.Equal(contentType, updatedElement.ContentType);
-        Assert.Equal(instance.LastChanged, updatedElement.LastChanged);
-        Assert.True(
-            Math.Abs(((DateTime)updatedElement.LastChanged).Ticks - lastChanged.Ticks)
-                < TimeSpan.TicksPerMicrosecond
+        DataElement readElement = await dataElementFixture.DataRepo.Read(
+            Guid.Empty,
+            Guid.Parse(dataElement.Id)
         );
+        Assert.Equal(_contentType, readElement.ContentType);
+        Assert.Equal(_contentType, updatedElement.ContentType);
+        Assert.Equal(ReadStatus.Unread, instance.Status.ReadStatus);
+        Assert.Equal(dataElement.LastChangedBy, instance.LastChangedBy);
+        Assert.Equal(instance.LastChanged, updatedElement.LastChanged);
+        Assert.Equal(lastChanged, updatedElement.LastChanged);
+        Assert.Equal(lastChanged, await ReadInstanceLastChangedColumn());
     }
 
     [Fact]
@@ -461,7 +376,7 @@ public class DataTests : IClassFixture<DataElementFixture>
         Guid nonExistentInstanceGuid = Guid.NewGuid();
 
         // Act
-        (Instance instance, long internalId) = await _dataElementFixture.InstanceRepo.GetOne(
+        (Instance instance, long internalId) = await dataElementFixture.InstanceRepo.GetOne(
             nonExistentInstanceGuid,
             false,
             CancellationToken.None
@@ -479,13 +394,10 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_Read_Ok()
     {
         // Arrange
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
-            _instanceInternalId
-        );
+        DataElement dataElement = await CreateDataElement();
 
         // Act
-        DataElement readDataelement = await _dataElementFixture.DataRepo.Read(
+        DataElement readDataelement = await dataElementFixture.DataRepo.Read(
             Guid.Empty,
             Guid.Parse(dataElement.Id)
         );
@@ -501,29 +413,20 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_Delete_Change_Instance_Readstatus_Ok()
     {
         // Arrange
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
-            _instanceInternalId
-        );
-        await PostgresUtil.RunSql(
-            "update storage.instances set instance = jsonb_set(instance, '{Status, ReadStatus}', '1') where alternateid = '"
-                + _instance.Id.Split('/').Last()
-                + "';"
-        );
+        DataElement dataElement = await CreateDataElement();
+        await SetInstanceReadStatus(ReadStatus.Read);
 
         // Act
-        bool deleted = await _dataElementFixture.DataRepo.Delete(dataElement);
+        bool deleted = await dataElementFixture.DataRepo.Delete(dataElement);
 
         // Assert
-        string sql =
-            $"select count(*) from storage.dataelements where alternateid = '{dataElement.Id}'";
-        int dataCount = await PostgresUtil.RunCountQuery(sql);
-        sql =
-            $"select count(*) from storage.instances where alternateid = '{_instance.Id.Split('/').Last()}' and instance -> 'Status' ->> 'ReadStatus' = '0'"
-            + $" and lastchanged between now() - make_interval(secs => 2) and now() and instance -> 'LastChangedBy' = '\"{dataElement.LastChangedBy}\"'";
-        int instanceCount = await PostgresUtil.RunCountQuery(sql);
-        Assert.Equal(0, dataCount);
-        Assert.Equal(1, instanceCount);
+        Instance instance = await ReadInstance();
+        Assert.True(deleted);
+        Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id)));
+        Assert.Equal(ReadStatus.Unread, instance.Status.ReadStatus);
+        Assert.Equal(dataElement.LastChangedBy, instance.LastChangedBy);
+        Assert.Equal(_frozenTime, instance.LastChanged);
+        Assert.Equal(_frozenTime, await ReadInstanceLastChangedColumn());
     }
 
     /// <summary>
@@ -533,29 +436,20 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_Delete_NoChange_Instance_Readstatus_Ok()
     {
         // Arrange
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
-            _instanceInternalId
-        );
-        await PostgresUtil.RunSql(
-            "update storage.instances set instance = jsonb_set(instance, '{Status, ReadStatus}', '0') where alternateid = '"
-                + _instance.Id.Split('/').Last()
-                + "';"
-        );
+        DataElement dataElement = await CreateDataElement();
+        await SetInstanceReadStatus(ReadStatus.Unread);
 
         // Act
-        bool deleted = await _dataElementFixture.DataRepo.Delete(dataElement);
+        bool deleted = await dataElementFixture.DataRepo.Delete(dataElement);
 
         // Assert
-        string sql =
-            $"select count(*) from storage.dataelements where alternateid = '{dataElement.Id}'";
-        int dataCount = await PostgresUtil.RunCountQuery(sql);
-        sql =
-            $"select count(*) from storage.instances where alternateid = '{_instance.Id.Split('/').Last()}' and instance -> 'Status' ->> 'ReadStatus' = '0'"
-            + $" and lastchanged between now() - make_interval(secs => 2) and now() and instance -> 'LastChangedBy' = '\"{dataElement.LastChangedBy}\"'";
-        int instanceCount = await PostgresUtil.RunCountQuery(sql);
-        Assert.Equal(0, dataCount);
-        Assert.Equal(1, instanceCount);
+        Instance instance = await ReadInstance();
+        Assert.True(deleted);
+        Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id)));
+        Assert.Equal(ReadStatus.Unread, instance.Status.ReadStatus);
+        Assert.Equal(dataElement.LastChangedBy, instance.LastChangedBy);
+        Assert.Equal(_frozenTime, instance.LastChanged);
+        Assert.Equal(_frozenTime, await ReadInstanceLastChangedColumn());
     }
 
     /// <summary>
@@ -565,26 +459,16 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_DeleteForInstance_Ok()
     {
         // Arrange
-        await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
-            _instanceInternalId
-        );
-        await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement2),
-            _instanceInternalId
-        );
+        await CreateDataElement();
+        await CreateDataElement(_dataElement2);
 
         // Act
-        bool deleted = await _dataElementFixture.DataRepo.DeleteForInstance(
-            _instance.Id.Split('/').Last()
-        );
+        bool deleted = await dataElementFixture.DataRepo.DeleteForInstance(_instanceGuid);
 
         // Assert
-        string sql =
-            $"select count(*) from storage.dataelements where instanceguid = '{_instance.Id.Split('/').Last()}'";
-        int count = await PostgresUtil.RunCountQuery(sql);
-        Assert.Equal(0, count);
+        Instance instance = await ReadInstance(includeElements: true);
         Assert.True(deleted);
+        Assert.Empty(instance.Data);
     }
 
     /// <summary>
@@ -594,20 +478,17 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_Update_Too_Many_Properties_Throws_Exception()
     {
         // Arrange
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
-            _instanceInternalId
-        );
+        DataElement dataElement = await CreateDataElement();
         const int numberOfAllowedProperties = 14;
 
-        Dictionary<string, object> tooManyPropertiesDictionary = Enumerable
+        var tooManyPropertiesDictionary = Enumerable
             .Range(1, numberOfAllowedProperties + 1) // Add one extra property to make it fail.
-            .ToDictionary(i => $"Key{i}", i => (object)$"Value{i}");
+            .ToDictionary(i => $"Key{i}", object (i) => $"Value{i}");
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
-            await _dataElementFixture.DataRepo.Update(
+            await dataElementFixture.DataRepo.Update(
                 Guid.Empty,
                 Guid.Parse(dataElement.Id),
                 tooManyPropertiesDictionary
@@ -622,13 +503,10 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_Exists_Ok()
     {
         // Arrange
-        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
-            TestDataUtil.GetDataElement(DataElement1),
-            _instanceInternalId
-        );
+        DataElement dataElement = await CreateDataElement();
 
         // Act
-        bool result = await _dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id));
+        bool result = await dataElementFixture.DataRepo.Exists(Guid.Parse(dataElement.Id));
 
         // Assert
         Assert.True(result);
@@ -641,10 +519,49 @@ public class DataTests : IClassFixture<DataElementFixture>
     public async Task DataElement_Exists_NotExists_Ok()
     {
         // Act
-        bool result = await _dataElementFixture.DataRepo.Exists(Guid.Parse(DataElement1));
+        bool result = await dataElementFixture.DataRepo.Exists(Guid.Parse(_dataElement1));
 
         // Assert
         Assert.False(result);
+    }
+
+    private async Task<Instance> ReadInstance(bool includeElements = false)
+    {
+        (Instance instance, _) = await dataElementFixture.InstanceRepo.GetOne(
+            Guid.Parse(_instanceGuid),
+            includeElements,
+            CancellationToken.None
+        );
+
+        return instance;
+    }
+
+    /// <summary>
+    /// Reads the <c>lastchanged</c> column, which the stored procedures keep in sync with the
+    /// <c>LastChanged</c> property inside the instance document. No repository method exposes it.
+    /// </summary>
+    private Task<DateTime> ReadInstanceLastChangedColumn()
+    {
+        return PostgresUtil.RunQuery<DateTime>(
+            $"select lastchanged from storage.instances where alternateid = '{_instanceGuid}'"
+        );
+    }
+
+    private Task<DataElement> CreateDataElement(string dataElementId = _dataElement1)
+    {
+        return CreateDataElement(TestDataUtil.GetDataElement(dataElementId));
+    }
+
+    private Task<DataElement> CreateDataElement(DataElement dataElement)
+    {
+        return dataElementFixture.DataRepo.Create(dataElement, _instanceInternalId);
+    }
+
+    private Task<int> SetInstanceReadStatus(ReadStatus readStatus)
+    {
+        return PostgresUtil.RunSql(
+            $"update storage.instances set instance = jsonb_set(instance, '{{Status, ReadStatus}}', '{(int)readStatus}') where alternateid = '{_instanceGuid}';"
+        );
     }
 }
 
@@ -656,9 +573,10 @@ public class DataElementFixture
 
     public DataElementFixture()
     {
-        var serviceList = ServiceUtil.GetServices(
-            new List<Type>() { typeof(IInstanceRepository), typeof(IDataRepository) }
-        );
+        var serviceList = ServiceUtil.GetServices([
+            typeof(IInstanceRepository),
+            typeof(IDataRepository),
+        ]);
         InstanceRepo = (IInstanceRepository)
             serviceList.First(i => i.GetType() == typeof(PgInstanceRepository));
         DataRepo = (IDataRepository)serviceList.First(i => i.GetType() == typeof(PgDataRepository));
