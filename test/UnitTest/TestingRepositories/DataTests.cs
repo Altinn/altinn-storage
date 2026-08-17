@@ -332,6 +332,32 @@ public class DataTests : IClassFixture<DataElementFixture>
     }
 
     /// <summary>
+    /// Test update, set delete status
+    /// </summary>
+    [Fact]
+    public async Task DataElement_Update_DeleteStatus_Ok()
+    {
+        // Arrange
+        DateTime hardDeleted = DateTime.UtcNow;
+        DeleteStatus deleteStatus = new() { IsHardDeleted = true, HardDeleted = hardDeleted };
+        DataElement dataElement = await _dataElementFixture.DataRepo.Create(
+            TestDataUtil.GetDataElement(DataElement1),
+            _instanceInternalId
+        );
+
+        // Act
+        DataElement updatedElement = await _dataElementFixture.DataRepo.Update(
+            Guid.Empty,
+            Guid.Parse(dataElement.Id),
+            new Dictionary<string, object>() { { "/deleteStatus", deleteStatus } }
+        );
+
+        // Assert
+        Assert.True(updatedElement.DeleteStatus.IsHardDeleted);
+        Assert.Equal(hardDeleted, updatedElement.DeleteStatus.HardDeleted);
+    }
+
+    /// <summary>
     /// Test update and don't change instance read status
     /// </summary>
     [Fact]
