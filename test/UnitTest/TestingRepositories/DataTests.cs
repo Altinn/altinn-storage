@@ -64,7 +64,10 @@ public class DataTests(DataElementFixture dataElementFixture)
         _instanceGuid = _instance.Id.Split('/').Last();
     }
 
-    public async Task DisposeAsync() => await PostgresUtil.UnfreezeTime();
+    public async Task DisposeAsync()
+    {
+        await PostgresUtil.UnfreezeTime();
+    }
 
     /// <summary>
     /// Test create and change instance read status
