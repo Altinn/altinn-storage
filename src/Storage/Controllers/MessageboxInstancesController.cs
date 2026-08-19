@@ -12,6 +12,7 @@ using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
+using Altinn.Platform.Storage.OpenApi;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -26,6 +27,7 @@ namespace Altinn.Platform.Storage.Controllers;
 /// </summary>
 [Route("storage/api/v1/sbl/instances")]
 [ApiController]
+[ExcludeFromPublicStorageApi]
 public class MessageBoxInstancesController : ControllerBase
 {
     private readonly IInstanceRepository _instanceRepository;

@@ -15,6 +15,7 @@ using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Filters;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.OpenApi;
 using Altinn.Platform.Storage.Repository;
 using Azure.Storage;
 using Azure.Storage.Blobs;
@@ -37,6 +38,7 @@ namespace Altinn.Platform.Storage.Controllers;
 [ApiController]
 [ServiceFilter(typeof(ClientIpCheckActionFilterAttribute))]
 [ExcludeFromCodeCoverage]
+[ExcludeFromPublicStorageApi]
 public class MigrationController : ControllerBase
 {
     private readonly IInstanceRepository _instanceRepository;

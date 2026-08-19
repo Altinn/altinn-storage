@@ -14,7 +14,6 @@ using Altinn.Platform.Storage.UnitTest.Mocks.Clients;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using AltinnCore.Authentication.JwtCookie;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -222,17 +221,7 @@ public class SblBridgeControllerTests : IClassFixture<TestApplicationFactory<Sbl
         HttpClient client = _factory
             .WithWebHostBuilder(builder =>
             {
-                IConfiguration configuration = new ConfigurationBuilder()
-                    .AddJsonFile(ServiceUtil.GetAppsettingsPath())
-                    .Build();
                 Mock<IMessageBus> busMock = new Mock<IMessageBus>();
-
-                builder.ConfigureAppConfiguration(
-                    (hostingContext, config) =>
-                    {
-                        config.AddConfiguration(configuration);
-                    }
-                );
 
                 builder.ConfigureTestServices(services =>
                 {

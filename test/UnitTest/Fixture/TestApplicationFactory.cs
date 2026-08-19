@@ -1,11 +1,12 @@
 #nullable disable
 
+using Altinn.Platform.Storage.UnitTest.Utils;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OpenTelemetry.Metrics;
-using OpenTelemetry.Trace;
 
 namespace Altinn.Platform.Storage.UnitTest.Fixture;
 
@@ -14,6 +15,15 @@ public sealed class TestApplicationFactory<TEntryPoint> : WebApplicationFactory<
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddJsonFile(ServiceUtil.GetAppsettingsPath())
+            .Build();
+        builder.ConfigureAppConfiguration(
+            (hostingContext, config) =>
+            {
+                config.AddConfiguration(configuration);
+            }
+        );
         builder.ConfigureTestServices(
             (services) =>
             {
