@@ -310,7 +310,13 @@ public sealed class PgInstanceMutationRepository(
                 WriteRawJsonProperty(
                     writer,
                     "elementChanges",
-                    CustomSerializer.Serialize(element, elementProperties)
+                    CustomSerializer.Serialize(
+                        element,
+                        new Dictionary<Type, List<string>>
+                        {
+                            [typeof(DataElementInternal)] = elementProperties,
+                        }
+                    )
                 );
                 WriteBlobVersionProperty(writer, "newBlobVersion", newCurrentBlobVersion);
                 WriteBlobVersionProperty(
@@ -958,14 +964,10 @@ public sealed class PgInstanceMutationRepository(
                 case "/userDefinedMetadata":
                     element.UserDefinedMetadata = (List<KeyValueEntry>)kvp.Value;
                     elementProperties.Add(nameof(DataElementInternal.UserDefinedMetadata));
-                    elementProperties.Add(nameof(KeyValueEntry.Key));
-                    elementProperties.Add(nameof(KeyValueEntry.Value));
                     break;
                 case "/metadata":
                     element.Metadata = (List<KeyValueEntry>)kvp.Value;
                     elementProperties.Add(nameof(DataElementInternal.Metadata));
-                    elementProperties.Add(nameof(KeyValueEntry.Key));
-                    elementProperties.Add(nameof(KeyValueEntry.Value));
                     break;
                 case "/deleteStatus":
                     element.DeleteStatus = (DeleteStatus)kvp.Value;
