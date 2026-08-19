@@ -637,6 +637,47 @@ public class PgInstanceMutationRepositoryTests
         AssertUtcJsonTimestamp(currentTask, "Ended", taskEnded);
     }
 
+    [Fact]
+    public void BuildUpdateElementsPayload_NestedObjectProperties_AreWrittenInFull()
+    {
+        Guid updateElementId = Guid.NewGuid();
+        DateTime hardDeleted = new(2026, 8, 19, 10, 0, 0, DateTimeKind.Utc);
+
+        string payload = PgInstanceMutationRepository.BuildUpdateElementsPayload([
+            new InstanceMutationDataElementUpdate(
+                updateElementId,
+                new Dictionary<string, object>
+                {
+                    ["/deleteStatus"] = new DeleteStatus
+                    {
+                        IsHardDeleted = true,
+                        HardDeleted = hardDeleted,
+                    },
+                    ["/metadata"] = new List<KeyValueEntry>
+                    {
+                        new() { Key = "key1", Value = "value1" },
+                    },
+                },
+                null,
+                IgnoreLock: true
+            ),
+        ]);
+
+        using JsonDocument document = JsonDocument.Parse(payload);
+        JsonElement elementChanges = AssertObjectProperty(
+            AssertSingleArrayItem(document.RootElement),
+            "elementChanges"
+        );
+        JsonElement deleteStatus = AssertObjectProperty(elementChanges, "DeleteStatus");
+        Assert.True(deleteStatus.GetProperty("IsHardDeleted").GetBoolean());
+        Assert.Equal(hardDeleted, deleteStatus.GetProperty("HardDeleted").GetDateTime());
+        JsonElement metadataEntry = AssertSingleArrayItem(
+            elementChanges.GetProperty(nameof(DataElementInternal.Metadata))
+        );
+        Assert.Equal("key1", metadataEntry.GetProperty("Key").GetString());
+        Assert.Equal("value1", metadataEntry.GetProperty("Value").GetString());
+    }
+
     [Theory]
     [InlineData(DateTimeKind.Unspecified)]
     [InlineData(DateTimeKind.Local)]
