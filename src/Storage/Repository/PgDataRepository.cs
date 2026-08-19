@@ -170,14 +170,10 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
                 case "/userDefinedMetadata":
                     element.UserDefinedMetadata = (List<KeyValueEntry>)kvp.Value;
                     elementProperties.Add(nameof(DataElement.UserDefinedMetadata));
-                    elementProperties.Add(nameof(KeyValueEntry.Key));
-                    elementProperties.Add(nameof(KeyValueEntry.Value));
                     break;
                 case "/metadata":
                     element.Metadata = (List<KeyValueEntry>)kvp.Value;
                     elementProperties.Add(nameof(DataElement.Metadata));
-                    elementProperties.Add(nameof(KeyValueEntry.Key));
-                    elementProperties.Add(nameof(KeyValueEntry.Value));
                     break;
                 case "/deleteStatus":
                     element.DeleteStatus = (DeleteStatus)kvp.Value;
@@ -230,11 +226,17 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
         pgcom.Parameters.AddWithValue(
             NpgsqlDbType.Jsonb,
-            CustomSerializer.Serialize(element, elementProperties)
+            CustomSerializer.Serialize(
+                element,
+                new Dictionary<Type, List<string>> { [typeof(DataElement)] = elementProperties }
+            )
         );
         pgcom.Parameters.AddWithValue(
             NpgsqlDbType.Jsonb,
-            CustomSerializer.Serialize(lastChangedWrapper, instanceProperties)
+            CustomSerializer.Serialize(
+                lastChangedWrapper,
+                new Dictionary<Type, List<string>> { [typeof(Instance)] = instanceProperties }
+            )
         );
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Boolean, isReadChangedToFalse);
         pgcom.Parameters.AddWithValue(
