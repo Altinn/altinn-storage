@@ -87,6 +87,47 @@ public static class DataElementHelper
     }
 
     /// <summary>
+    /// Determines whether data element content can be read from and overwritten at
+    /// <paramref name="blobStoragePath"/>. Content this build writes lives at
+    /// <see cref="DataFileName"/>. Content written by a build with blob versioning enabled lives at a
+    /// versioned path under the instance, whose final segment identifies the stored blob version
+    /// rather than the data element.
+    /// </summary>
+    public static bool IsExpectedBlobStoragePath(
+        string blobStoragePath,
+        string appId,
+        string instanceGuid,
+        string dataElementId
+    )
+    {
+        if (string.IsNullOrEmpty(blobStoragePath))
+        {
+            return false;
+        }
+
+        if (
+            string.Equals(
+                blobStoragePath,
+                DataFileName(appId, instanceGuid, dataElementId),
+                StringComparison.Ordinal
+            )
+        )
+        {
+            return true;
+        }
+
+        string versionedPathPrefix = $"{appId}/{instanceGuid}/data-elements/";
+        if (!blobStoragePath.StartsWith(versionedPathPrefix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> blobVersionId = blobStoragePath.AsSpan(versionedPathPrefix.Length);
+
+        return blobVersionId.ContainsAnyExcept('.') && !blobVersionId.Contains('/');
+    }
+
+    /// <summary>
     /// Get the stream from the request
     /// </summary>
     /// <param name="request">The request</param>

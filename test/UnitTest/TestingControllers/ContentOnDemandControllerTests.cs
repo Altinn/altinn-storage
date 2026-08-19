@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -90,6 +91,34 @@ public class ContentOnDemandControllerTests
         Assert.Equal(_html, await response.Content.ReadAsStringAsync());
     }
 
+    [Fact]
+    public async Task GetFormdataAsHtml_XmlElementAtVersionedBlobStoragePath_ReadsStoredPath()
+    {
+        // Arrange
+        Mock<IBlobRepository> blobRepositoryMock = new();
+        HttpClient client = GetTestClient(blobRepositoryMock);
+        string requestUri = GetRequestUri("formdatahtml");
+        string xmlBlobStoragePath = GetInstance()
+            .Data.First(d => d.DataType == "a2-xml")
+            .BlobStoragePath;
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        blobRepositoryMock.Verify(
+            br =>
+                br.ReadBlob(
+                    _org,
+                    xmlBlobStoragePath,
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+    }
+
     private static Instance GetInstance()
     {
         return new Instance
@@ -111,6 +140,8 @@ public class ContentOnDemandControllerTests
                 {
                     Id = "3a1b2f4c-7a1e-4b25-9f0f-0d6a0f3a5b21",
                     DataType = "a2-xml",
+                    BlobStoragePath =
+                        $"{_org}/{_app}/{_instanceGuid}/data-elements/AZfQZ9nHc0eLm4Xv2R1qAA",
                     Metadata =
                     [
                         new KeyValueEntry { Key = "formid", Value = "1000" },
@@ -121,7 +152,7 @@ public class ContentOnDemandControllerTests
         };
     }
 
-    private HttpClient GetTestClient()
+    private HttpClient GetTestClient(Mock<IBlobRepository> blobRepositoryMock = null)
     {
         Mock<IInstanceRepository> instanceRepositoryMock = new();
         instanceRepositoryMock
@@ -143,7 +174,7 @@ public class ContentOnDemandControllerTests
             .Setup(ar => ar.GetXsls(_org, _app, 2000, "nb", It.IsAny<int>()))
             .ReturnsAsync(xsls);
 
-        Mock<IBlobRepository> blobRepositoryMock = new();
+        blobRepositoryMock ??= new();
         blobRepositoryMock
             .Setup(br =>
                 br.ReadBlob(
