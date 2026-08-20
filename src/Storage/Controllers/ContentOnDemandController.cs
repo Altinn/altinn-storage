@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
@@ -119,6 +120,7 @@ public class ContentOnDemandController : Controller
             cancellationToken
         );
         DataElement signatureElement = instance.Data.First(d => d.DataType == "signature-data");
+        EnsureExpectedBlobStoragePath(signatureElement, instance.AppId, instanceGuid);
 
         List<SignatureView> view = await JsonSerializer.DeserializeAsync<List<SignatureView>>(
             await _blobRepository.ReadBlob(
@@ -165,6 +167,7 @@ public class ContentOnDemandController : Controller
             cancellationToken
         );
         DataElement paymentElement = instance.Data.First(d => d.DataType == "payment-data");
+        EnsureExpectedBlobStoragePath(paymentElement, instance.AppId, instanceGuid);
 
         PaymentView view = await JsonSerializer.DeserializeAsync<PaymentView>(
             await _blobRepository.ReadBlob(
@@ -416,6 +419,7 @@ public class ContentOnDemandController : Controller
         DataElement xmlElement = instance.Data.First(d =>
             d.Metadata?.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id
         );
+        EnsureExpectedBlobStoragePath(xmlElement, instance.AppId, instanceGuid);
         string visiblePagesString = xmlElement
             .Metadata.FirstOrDefault(m => m.Key == "A2VisiblePages")
             ?.Value;
@@ -467,6 +471,27 @@ public class ContentOnDemandController : Controller
         );
 
         return (_a2OndemandFormattingService.GetFormdataHtml(views, blob), views);
+    }
+
+    private static void EnsureExpectedBlobStoragePath(
+        DataElement dataElement,
+        string appId,
+        Guid instanceGuid
+    )
+    {
+        if (
+            !DataElementHelper.IsExpectedBlobStoragePath(
+                dataElement.BlobStoragePath,
+                appId,
+                instanceGuid.ToString(),
+                dataElement.Id
+            )
+        )
+        {
+            throw new InvalidOperationException(
+                $"Blob storage path of data element {dataElement.Id} was unexpected for instance {instanceGuid}"
+            );
+        }
     }
 
     private static float GetScale(PrintViewXslBE infoPathViewXslBE)
