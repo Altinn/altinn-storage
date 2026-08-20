@@ -287,12 +287,6 @@ public class DataController : ControllerBase
             );
         }
 
-        string storageFileName = DataElementHelper.DataFileName(
-            instance.AppId,
-            instanceGuid.ToString(),
-            dataGuid.ToString()
-        );
-
         if (
             (instance.AppId.Contains(@"/a1-") || instance.AppId.Contains(@"/a2-"))
             && _generalSettings.A2UseTtdAsServiceOwner
@@ -301,11 +295,18 @@ public class DataController : ControllerBase
             instance.Org = "ttd";
         }
 
-        if (string.Equals(dataElement.BlobStoragePath, storageFileName))
+        if (
+            DataElementHelper.IsExpectedBlobStoragePath(
+                dataElement.BlobStoragePath,
+                instance.AppId,
+                instanceGuid.ToString(),
+                dataGuid.ToString()
+            )
+        )
         {
             Stream dataStream = await _blobRepository.ReadBlob(
                 instance.Org,
-                storageFileName,
+                dataElement.BlobStoragePath,
                 application.StorageAccountNumber,
                 cancellationToken
             );
@@ -619,13 +620,14 @@ public class DataController : ControllerBase
             return Conflict($"Data element {dataGuid} is locked and cannot be updated");
         }
 
-        string blobStoragePathName = DataElementHelper.DataFileName(
-            instance.AppId,
-            instanceGuid.ToString(),
-            dataGuid.ToString()
-        );
-
-        if (!string.Equals(dataElement.BlobStoragePath, blobStoragePathName))
+        if (
+            !DataElementHelper.IsExpectedBlobStoragePath(
+                dataElement.BlobStoragePath,
+                instance.AppId,
+                instanceGuid.ToString(),
+                dataGuid.ToString()
+            )
+        )
         {
             return StatusCode(500, "Storage url does not match with instance metadata");
         }
@@ -650,7 +652,7 @@ public class DataController : ControllerBase
         (long blobSize, DateTimeOffset blobTimestamp) = await _blobRepository.WriteBlob(
             instance.Org,
             theStream,
-            blobStoragePathName,
+            dataElement.BlobStoragePath,
             application.StorageAccountNumber
         );
 
