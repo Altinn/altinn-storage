@@ -5,7 +5,7 @@ networks:
 
 services:
   k6:
-    image: grafana/k6:1.8.0
+    image: grafana/k6:1.8.1
     networks:
       - k6
     ports:
