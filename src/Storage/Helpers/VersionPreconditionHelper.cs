@@ -1,5 +1,3 @@
-#nullable enable
-
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Http;

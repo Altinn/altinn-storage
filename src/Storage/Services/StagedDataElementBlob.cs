@@ -1,5 +1,3 @@
-#nullable enable
-
 using System;
 using Altinn.Platform.Storage.Models;
 

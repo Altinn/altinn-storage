@@ -260,15 +260,13 @@ public class MigrationController : ControllerBase
             throw new Exception($"Internal error. Can't determine app type for {app.Id}");
         }
 
-        DataElementInternal storedDataElement;
-        Guid dataElementId = Guid.Empty;
+        Guid dataElementId = Guid.NewGuid();
         bool hasBlob = false;
         string blobOrg = null;
         string blobVersionId = null;
         string blobStoragePath = null;
         try
         {
-            dataElementId = Guid.NewGuid();
             hasBlob = Request.ContentLength > 0 || dataType == "binary-data";
             blobOrg = $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}";
             if (hasBlob)
@@ -298,7 +296,6 @@ public class MigrationController : ControllerBase
                     "payment-presentation" => "ondemand/payment",
                     _ => throw new ArgumentException(dataType),
                 };
-                blobVersionId = null;
             }
 
             DataElementInternal dataElement = new()
@@ -378,13 +375,12 @@ public class MigrationController : ControllerBase
                 instance.InternalId,
                 cancellationToken
             );
-            storedDataElement = storedDataElementResult.DataElement;
 
-            return Created((string)null, storedDataElement.ToApiModel());
+            return Created((string)null, storedDataElementResult.DataElement.ToApiModel());
         }
         catch (ProcessStatusConflictException storageException)
         {
-            if (hasBlob && dataElementId != Guid.Empty)
+            if (hasBlob)
             {
                 await DataService.DeleteAllocatedBlobVersion(
                     _blobRepository,

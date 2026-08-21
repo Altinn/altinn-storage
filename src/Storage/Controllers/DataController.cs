@@ -199,7 +199,6 @@ public class DataController : ControllerBase
             }
 
             return await InitiateDelayedDelete(
-                instanceGuid,
                 instance,
                 dataElement,
                 preconditions,
@@ -888,7 +887,7 @@ public class DataController : ControllerBase
                     ExpectedInstanceVersion = preconditions.InstanceVersion,
                     ExpectedProcessStateVersion = preconditions.ProcessStateVersion,
                 },
-                cancellationToken: cancellationToken
+                cancellationToken
             );
         }
         catch (StorageVersionMismatchException exception)
@@ -1210,7 +1209,6 @@ public class DataController : ControllerBase
     }
 
     private async Task<ActionResult<DataElement>> InitiateDelayedDelete(
-        Guid instanceGuid,
         InstanceInternal instance,
         DataElementInternal dataElement,
         VersionPreconditions preconditions,
@@ -1251,7 +1249,7 @@ public class DataController : ControllerBase
             );
 
             applyResult = await _instanceMutationRepository.Apply(
-                instanceGuid,
+                instance.Id,
                 instance.InternalId,
                 mutation,
                 cancellationToken

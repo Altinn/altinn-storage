@@ -43,6 +43,11 @@ public sealed class PgInstanceMutationRepository(
     private const string _deleteIdempotencyRecordsCreatedBeforeSql =
         "select storage.deleteinstancemutationidempotency($1, $2)";
 
+    /// <summary>
+    /// SQLSTATE raised by storage.raiseinstancemutationerror to report a refused mutation.
+    /// </summary>
+    private const string _applyMutationErrorSqlState = "AM001";
+
     /// <inheritdoc/>
     public async Task<InstanceMutationApplyResult> TryReplayAdmission(
         Guid instanceGuid,
@@ -82,7 +87,8 @@ public sealed class PgInstanceMutationRepository(
 
                 createdDataElementIds = ReadTextArray(reader, "createddataelementids");
             }
-            catch (PostgresException exception) when (exception.SqlState == "AM001")
+            catch (PostgresException exception)
+                when (exception.SqlState == _applyMutationErrorSqlState)
             {
                 throw CreateApplyMutationException(instanceGuid, exception);
             }
@@ -217,7 +223,7 @@ public sealed class PgInstanceMutationRepository(
 
             return new InstanceMutationApplyResult(replayed, createdDataElementIds, instance);
         }
-        catch (PostgresException exception) when (exception.SqlState == "AM001")
+        catch (PostgresException exception) when (exception.SqlState == _applyMutationErrorSqlState)
         {
             throw CreateApplyMutationException(instanceGuid, exception);
         }
