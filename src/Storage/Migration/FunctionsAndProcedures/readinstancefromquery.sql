@@ -67,7 +67,7 @@ BEGIN
     RETURN QUERY
     WITH filteredInstances AS
     (
-        SELECT i.id, i.instance, i.lastchanged FROM storage.instances i
+        SELECT i.id, i.instance, i.lastchanged, i.instance_version, i.process_state_version FROM storage.instances i
         WHERE 1 = 1
             AND (_a3_reference IS NULL OR right(i.alternateid::text, 12) = lower(_a3_reference))
             AND (_confirmed IS NULL OR _confirmed = confirmed)
@@ -127,8 +127,7 @@ BEGIN
             i.id
         FETCH FIRST _size ROWS ONLY
     )
-        SELECT filteredInstances.id, filteredInstances.instance, i.instance_version, i.process_state_version, d.element, d.currentblobversion FROM filteredInstances
-            JOIN storage.instances i ON filteredInstances.id = i.id
+        SELECT filteredInstances.id, filteredInstances.instance, filteredInstances.instance_version, filteredInstances.process_state_version, d.element, d.currentblobversion FROM filteredInstances
             LEFT JOIN storage.dataelements d ON filteredInstances.id = d.instanceInternalId AND _includeElements = TRUE
         ORDER BY
             (CASE WHEN _sort_ascending = true  THEN filteredInstances.lastChanged END) ASC,

@@ -20,7 +20,7 @@ CREATE INDEX IF NOT EXISTS dataelementblobversions_attached_instance
 ON storage.dataelementblobversions(instanceguid)
 WHERE attached = true;
 
-CREATE INDEX IF NOT EXISTS dataelementblobversions_unattached
+CREATE INDEX IF NOT EXISTS dataelementblobversions_created_unattached
 ON storage.dataelementblobversions(created)
 WHERE attached = false;
 

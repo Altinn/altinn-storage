@@ -73,7 +73,7 @@ BEGIN
     END IF;
 
     -- Make sure that lastChanged has the Postgres precision (6 digits). The timestamp from C# DateTime and then json serialize has 7 digits
-    _element := _element || jsonb_set('{"LastChanged":""}', '{LastChanged}', to_jsonb(REPLACE(((_element ->> 'LastChanged')::TIMESTAMPTZ AT TIME ZONE 'UTC')::TEXT, ' ', 'T') || 'Z'));
+    _element := _element || jsonb_set('{"LastChanged":""}', '{LastChanged}', storage.timestamptz_to_jsonb_utc((_element ->> 'LastChanged')::TIMESTAMPTZ));
 
     UPDATE storage.instances
         SET lastchanged = (_element ->> 'LastChanged')::TIMESTAMPTZ,
