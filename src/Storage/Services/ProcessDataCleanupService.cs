@@ -11,7 +11,7 @@ namespace Altinn.Platform.Storage.Services;
 /// <summary>
 /// Finds stale task-generated data elements for process-transition cleanup.
 /// </summary>
-public class ProcessDataCleanupService(ILogger<ProcessDataCleanupService> _logger)
+public class ProcessDataCleanupService(ILogger<ProcessDataCleanupService> logger)
     : IProcessDataCleanupService
 {
     /// <inheritdoc/>
@@ -41,7 +41,7 @@ public class ProcessDataCleanupService(ILogger<ProcessDataCleanupService> _logge
             return [];
         }
 
-        _logger.LogInformation(
+        logger.LogInformation(
             "Found {Count} stale data element(s) to clean up for task {TaskId} on instance {InstanceId}",
             stale.Count,
             taskId,

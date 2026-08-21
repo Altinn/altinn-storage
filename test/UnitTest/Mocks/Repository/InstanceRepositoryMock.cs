@@ -17,7 +17,7 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 
 public class InstanceRepositoryMock : IInstanceRepository
 {
-    private const long TestInstanceInternalId = 1;
+    private const long _testInstanceInternalId = 1;
     private static readonly Dictionary<Guid, StorageVersions> _versions = [];
     private static readonly JsonSerializerOptions _options = new()
     {
@@ -295,7 +295,7 @@ public class InstanceRepositoryMock : IInstanceRepository
 
     private static void PostProcess(InstanceInternal instance)
     {
-        instance.InternalId = TestInstanceInternalId;
+        instance.InternalId = _testInstanceInternalId;
         instance.Versions = GetVersions(instance);
         if (instance.Data != null && instance.Data.Count != 0)
         {

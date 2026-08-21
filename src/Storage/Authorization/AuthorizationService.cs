@@ -290,11 +290,7 @@ public class AuthorizationService(
         }
 
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
-        XacmlJsonRequestRoot request = CreateMultiDecisionRequest(
-            user,
-            new List<InstanceInternal>() { instance },
-            actions
-        );
+        XacmlJsonRequestRoot request = CreateMultiDecisionRequest(user, [instance], actions);
 
         _logger.LogDebug(
             "// Authorization Helper // AuthorizeAnyOfInstanceActions // request: {Request}",
@@ -328,7 +324,7 @@ public class AuthorizationService(
             return instances;
         }
 
-        List<InstanceInternal> authorizedInstanceList = new();
+        List<InstanceInternal> authorizedInstanceList = [];
         List<string> actionTypes = new() { "read" };
 
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();

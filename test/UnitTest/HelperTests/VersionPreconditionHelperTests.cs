@@ -2,7 +2,7 @@ using Altinn.Platform.Storage.Helpers;
 using Microsoft.AspNetCore.Mvc;
 using Xunit;
 
-namespace Altinn.Platform.Storage.UnitTest;
+namespace Altinn.Platform.Storage.UnitTest.HelperTests;
 
 public class VersionPreconditionHelperTests
 {

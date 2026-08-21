@@ -31,10 +31,10 @@ namespace Altinn.Platform.Storage.Repository;
 public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource dataSource)
     : IDataRepository
 {
-    private const string NotFoundResult = "not_found";
-    private const string ResultColumn = "result";
-    private const string UpdatedElementColumn = "updatedElement";
-    private const string CurrentProcessStatusColumn = "currentprocessstatus";
+    private const string _notFoundResult = "not_found";
+    private const string _resultColumn = "result";
+    private const string _updatedElementColumn = "updatedElement";
+    private const string _currentProcessStatusColumn = "currentprocessstatus";
 
     private readonly string _insertSql =
         "select * from storage.insertdataelement_v3 ($1, $2, $3, $4, $5, $6, $7)";
@@ -99,14 +99,14 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         if (await reader.ReadAsync(cancellationToken))
         {
             string result = await reader.GetFieldValueAsync<string>(
-                ResultColumn,
+                _resultColumn,
                 cancellationToken
             );
             if (result != "ok")
             {
                 throw result switch
                 {
-                    NotFoundResult => new RepositoryException(
+                    _notFoundResult => new RepositoryException(
                         $"Instance {dataElement.InstanceGuid} was not found.",
                         HttpStatusCode.NotFound
                     ),
@@ -131,7 +131,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
 
             dataElement = await ReadDataElementAsync(
                 reader,
-                UpdatedElementColumn,
+                _updatedElementColumn,
                 cancellationToken
             );
             StorageVersions versions = ReadVersionResult(reader);
@@ -355,14 +355,14 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         if (await reader.ReadAsync(cancellationToken))
         {
             string result = await reader.GetFieldValueAsync<string>(
-                ResultColumn,
+                _resultColumn,
                 cancellationToken
             );
             if (result != "ok")
             {
                 throw result switch
                 {
-                    NotFoundResult => new RepositoryException(
+                    _notFoundResult => new RepositoryException(
                         $"Data element {dataElementId} was not found.",
                         HttpStatusCode.NotFound
                     ),
@@ -396,7 +396,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
 
             DataElementInternal updatedElement = await ReadDataElementAsync(
                 reader,
-                UpdatedElementColumn,
+                _updatedElementColumn,
                 cancellationToken
             );
             StorageVersions versions = ReadVersionResult(reader);
@@ -426,10 +426,10 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         if (await reader.ReadAsync(cancellationToken))
         {
             string result = await reader.GetFieldValueAsync<string>(
-                ResultColumn,
+                _resultColumn,
                 cancellationToken
             );
-            if (result == NotFoundResult)
+            if (result == _notFoundResult)
             {
                 throw new RepositoryException(
                     $"Data element {dataElementId} was not found.",
@@ -446,7 +446,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
 
             DataElementInternal updatedElement = await ReadDataElementAsync(
                 reader,
-                UpdatedElementColumn,
+                _updatedElementColumn,
                 cancellationToken
             );
             StorageVersions versions = ReadVersionResult(reader);
@@ -476,14 +476,14 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         if (await reader.ReadAsync(cancellationToken))
         {
             string result = await reader.GetFieldValueAsync<string>(
-                ResultColumn,
+                _resultColumn,
                 cancellationToken
             );
             if (result != "ok")
             {
                 throw result switch
                 {
-                    NotFoundResult => new RepositoryException(
+                    _notFoundResult => new RepositoryException(
                         $"Data element {dataElementId} was not found.",
                         HttpStatusCode.NotFound
                     ),
@@ -496,7 +496,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
 
             DataElementInternal updatedElement = await ReadDataElementAsync(
                 reader,
-                UpdatedElementColumn,
+                _updatedElementColumn,
                 cancellationToken
             );
             StorageVersions versions = ReadVersionResult(reader);
@@ -536,10 +536,10 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         if (await reader.ReadAsync(cancellationToken))
         {
             string result = await reader.GetFieldValueAsync<string>(
-                ResultColumn,
+                _resultColumn,
                 cancellationToken
             );
-            if (result is NotFoundResult or "version_mismatch")
+            if (result is _notFoundResult or "version_mismatch")
             {
                 return null;
             }
@@ -553,7 +553,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
 
             DataElementInternal updatedElement = await ReadDataElementAsync(
                 reader,
-                UpdatedElementColumn,
+                _updatedElementColumn,
                 cancellationToken
             );
             StorageVersions versions = ReadVersionResult(reader);
@@ -596,7 +596,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     ) =>
         new(
             ProcessStatusHelper.ParsePersistedStatus(
-                reader.GetFieldValue<string>(reader.GetOrdinal(CurrentProcessStatusColumn))
+                reader.GetFieldValue<string>(reader.GetOrdinal(_currentProcessStatusColumn))
             )
         );
 

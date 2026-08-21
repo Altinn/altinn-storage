@@ -427,7 +427,7 @@ public class DataLockControllerUnitTests
             User = PrincipalUtil.GetPrincipal(200001, 1337),
         };
 
-        ControllerContext controllerContext = new ControllerContext() { HttpContext = httpContext };
+        ControllerContext controllerContext = new() { HttpContext = httpContext };
 
         var sut = new DataLockController(
             instanceRepositoryMock.Object,

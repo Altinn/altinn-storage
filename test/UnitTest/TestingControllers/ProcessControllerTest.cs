@@ -133,7 +133,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
     public static TheoryData<bool> UpdateTestParameters => new() { { true }, { false } };
 
     public static TheoryData<string> MalformedVersionPreconditions =>
-        new() { "0", "-1", "1.0", "not-a-version", "+5", " 5 ", "5,5" };
+        ["0", "-1", "1.0", "not-a-version", "+5", " 5 ", "5,5"];
 
     /// <summary>
     /// Version preconditions are parsed strictly: only a plain positive 32-bit integer is

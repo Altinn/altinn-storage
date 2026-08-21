@@ -30,30 +30,25 @@ public class BlobRepositoryTests
     }
 }
 
-public class BlobRepositoryAzuriteTests : IClassFixture<BlobRepositoryAzuriteFixture>
+public class BlobRepositoryAzuriteTests(BlobRepositoryAzuriteFixture fixture)
+    : IClassFixture<BlobRepositoryAzuriteFixture>
 {
-    private readonly BlobRepositoryAzuriteFixture _fixture;
-
-    public BlobRepositoryAzuriteTests(BlobRepositoryAzuriteFixture fixture)
-    {
-        _fixture = fixture;
-    }
 
     [Fact]
     public async Task WriteBlob_ThenReadBlob_RoundtripsContent()
     {
         string expectedContent = $"content-{Guid.NewGuid():N}";
-        string blobStoragePath = _fixture.NewBlobPath("data-elements/version-1");
+        string blobStoragePath = fixture.NewBlobPath("data-elements/version-1");
 
         await using MemoryStream upload = new(Encoding.UTF8.GetBytes(expectedContent));
-        (long contentLength, DateTimeOffset lastModified) = await _fixture.Repository.WriteBlob(
+        (long contentLength, DateTimeOffset lastModified) = await fixture.Repository.WriteBlob(
             BlobRepositoryAzuriteFixture.Org,
             upload,
             blobStoragePath,
             null
         );
 
-        using Stream downloaded = await _fixture.Repository.ReadBlob(
+        using Stream downloaded = await fixture.Repository.ReadBlob(
             BlobRepositoryAzuriteFixture.Org,
             blobStoragePath,
             null
@@ -68,9 +63,9 @@ public class BlobRepositoryAzuriteTests : IClassFixture<BlobRepositoryAzuriteFix
     [Fact]
     public async Task ReadBlob_MissingBlob_ReturnsNull()
     {
-        Stream result = await _fixture.Repository.ReadBlob(
+        Stream result = await fixture.Repository.ReadBlob(
             BlobRepositoryAzuriteFixture.Org,
-            _fixture.NewBlobPath("missing"),
+            fixture.NewBlobPath("missing"),
             null
         );
 
@@ -80,15 +75,15 @@ public class BlobRepositoryAzuriteTests : IClassFixture<BlobRepositoryAzuriteFix
     [Fact]
     public async Task DeleteBlob_ExistingThenMissing_IsIdempotent()
     {
-        string blobStoragePath = _fixture.NewBlobPath("data-elements/version-delete");
-        await _fixture.UploadText(blobStoragePath, "delete me");
+        string blobStoragePath = fixture.NewBlobPath("data-elements/version-delete");
+        await fixture.UploadText(blobStoragePath, "delete me");
 
-        bool firstDelete = await _fixture.Repository.DeleteBlob(
+        bool firstDelete = await fixture.Repository.DeleteBlob(
             BlobRepositoryAzuriteFixture.Org,
             blobStoragePath,
             null
         );
-        bool secondDelete = await _fixture.Repository.DeleteBlob(
+        bool secondDelete = await fixture.Repository.DeleteBlob(
             BlobRepositoryAzuriteFixture.Org,
             blobStoragePath,
             null
@@ -96,7 +91,7 @@ public class BlobRepositoryAzuriteTests : IClassFixture<BlobRepositoryAzuriteFix
 
         Assert.True(firstDelete);
         Assert.False(secondDelete);
-        Assert.False(await _fixture.Exists(blobStoragePath));
+        Assert.False(await fixture.Exists(blobStoragePath));
     }
 
     [Fact]
@@ -108,11 +103,11 @@ public class BlobRepositoryAzuriteTests : IClassFixture<BlobRepositoryAzuriteFix
         string secondTargetBlob = $"ttd/app/{targetInstanceGuid}/data/legacy";
         string otherInstanceBlob = $"ttd/app/{otherInstanceGuid}/data-elements/version-2";
 
-        await _fixture.UploadText(firstTargetBlob, "first target");
-        await _fixture.UploadText(secondTargetBlob, "second target");
-        await _fixture.UploadText(otherInstanceBlob, "other instance");
+        await fixture.UploadText(firstTargetBlob, "first target");
+        await fixture.UploadText(secondTargetBlob, "second target");
+        await fixture.UploadText(otherInstanceBlob, "other instance");
 
-        bool result = await _fixture.Repository.DeleteDataBlobs(
+        bool result = await fixture.Repository.DeleteDataBlobs(
             BlobRepositoryAzuriteFixture.Org,
             "ttd/app",
             new Guid(targetInstanceGuid),
@@ -120,49 +115,49 @@ public class BlobRepositoryAzuriteTests : IClassFixture<BlobRepositoryAzuriteFix
         );
 
         Assert.True(result);
-        Assert.False(await _fixture.Exists(firstTargetBlob));
-        Assert.False(await _fixture.Exists(secondTargetBlob));
-        Assert.True(await _fixture.Exists(otherInstanceBlob));
+        Assert.False(await fixture.Exists(firstTargetBlob));
+        Assert.False(await fixture.Exists(secondTargetBlob));
+        Assert.True(await fixture.Exists(otherInstanceBlob));
     }
 
     [Fact]
     public async Task DeleteBlobsIfExists_ExistingMissingAndDuplicatePaths_ReturnsIndexedResults()
     {
-        string existingBlob = _fixture.NewBlobPath("data-elements/per-path-existing");
-        string missingBlob = _fixture.NewBlobPath("data-elements/per-path-missing");
-        await _fixture.UploadText(existingBlob, "delete me");
+        string existingBlob = fixture.NewBlobPath("data-elements/per-path-existing");
+        string missingBlob = fixture.NewBlobPath("data-elements/per-path-missing");
+        await fixture.UploadText(existingBlob, "delete me");
 
-        bool[] result = await _fixture.Repository.DeleteBlobsIfExists(
+        bool[] result = await fixture.Repository.DeleteBlobsIfExists(
             BlobRepositoryAzuriteFixture.Org,
             [existingBlob, missingBlob, existingBlob],
             null
         );
 
         Assert.Equal([true, true, true], result);
-        Assert.False(await _fixture.Exists(existingBlob));
+        Assert.False(await fixture.Exists(existingBlob));
     }
 
     [Fact]
     public async Task DeleteBlobsIfExists_PerBlobFailure_ReturnsOnlySafePositions()
     {
-        string existingBlob = _fixture.NewBlobPath("data-elements/per-path-existing");
-        string leasedBlob = _fixture.NewBlobPath("data-elements/per-path-leased");
-        string missingBlob = _fixture.NewBlobPath("data-elements/per-path-missing");
-        await _fixture.UploadText(existingBlob, "delete me");
-        await _fixture.UploadText(leasedBlob, "keep me leased");
-        BlobLeaseClient leaseClient = await _fixture.AcquireLease(leasedBlob);
+        string existingBlob = fixture.NewBlobPath("data-elements/per-path-existing");
+        string leasedBlob = fixture.NewBlobPath("data-elements/per-path-leased");
+        string missingBlob = fixture.NewBlobPath("data-elements/per-path-missing");
+        await fixture.UploadText(existingBlob, "delete me");
+        await fixture.UploadText(leasedBlob, "keep me leased");
+        BlobLeaseClient leaseClient = await fixture.AcquireLease(leasedBlob);
 
         try
         {
-            bool[] result = await _fixture.Repository.DeleteBlobsIfExists(
+            bool[] result = await fixture.Repository.DeleteBlobsIfExists(
                 BlobRepositoryAzuriteFixture.Org,
                 [existingBlob, leasedBlob, missingBlob],
                 null
             );
 
             Assert.Equal([true, false, true], result);
-            Assert.False(await _fixture.Exists(existingBlob));
-            Assert.True(await _fixture.Exists(leasedBlob));
+            Assert.False(await fixture.Exists(existingBlob));
+            Assert.True(await fixture.Exists(leasedBlob));
         }
         finally
         {
@@ -175,8 +170,8 @@ public sealed class BlobRepositoryAzuriteFixture : IAsyncLifetime
 {
     public const string Org = "ttd";
 
-    private const string AccountName = "devstoreaccount1";
-    private const string AccountKey =
+    private const string _accountName = "devstoreaccount1";
+    private const string _accountKey =
         "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==";
     private static readonly string _blobEndPoint =
         Environment.GetEnvironmentVariable("ALTINN_STORAGE_AZURITE_BLOB_ENDPOINT")
@@ -189,10 +184,10 @@ public sealed class BlobRepositoryAzuriteFixture : IAsyncLifetime
     {
         AzureStorageConfiguration configuration = new()
         {
-            AccountName = AccountName,
-            AccountKey = AccountKey,
+            AccountName = _accountName,
+            AccountKey = _accountKey,
             BlobEndPoint = _blobEndPoint,
-            OrgStorageAccount = AccountName,
+            OrgStorageAccount = _accountName,
             OrgStorageContainer = $"{_containerName}-{{0}}",
         };
 
@@ -211,7 +206,7 @@ public sealed class BlobRepositoryAzuriteFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        StorageSharedKeyCredential storageCredentials = new(AccountName, AccountKey);
+        StorageSharedKeyCredential storageCredentials = new(_accountName, _accountKey);
         BlobServiceClient blobServiceClient = new(new Uri(_blobEndPoint), storageCredentials);
 
         _container = blobServiceClient.GetBlobContainerClient(ContainerName);

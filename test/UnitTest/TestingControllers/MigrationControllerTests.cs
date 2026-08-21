@@ -28,7 +28,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 [Collection("StoragePostgreSQL")]
 public class MigrationControllerTests : IClassFixture<InstanceFixture>
 {
-    private const int A2ArchiveReference = 4242;
+    private const int _a2ArchiveReference = 4242;
     private readonly InstanceFixture _instanceFixture;
 
     public MigrationControllerTests(InstanceFixture instanceFixture)
@@ -71,21 +71,21 @@ public class MigrationControllerTests : IClassFixture<InstanceFixture>
         incoming.Id = incomingId;
         incoming.DataValues = new Dictionary<string, string>
         {
-            ["A2ArchRef"] = A2ArchiveReference.ToString(),
+            ["A2ArchRef"] = _a2ArchiveReference.ToString(),
         };
         incoming.Process.Status = processStatus;
         incoming.Process.CurrentTask.Name = "migration-process-preserved";
         Mock<IA2Repository> a2Repository = new();
         a2Repository
-            .Setup(repository => repository.GetA2MigrationInstanceId(A2ArchiveReference))
+            .Setup(repository => repository.GetA2MigrationInstanceId(_a2ArchiveReference))
             .ReturnsAsync((Guid?)null);
         a2Repository
-            .Setup(repository => repository.CreateA2MigrationState(A2ArchiveReference))
+            .Setup(repository => repository.CreateA2MigrationState(_a2ArchiveReference))
             .Returns(Task.CompletedTask);
         a2Repository
             .Setup(repository =>
                 repository.UpdateStartA2MigrationState(
-                    A2ArchiveReference,
+                    _a2ArchiveReference,
                     Guid.Parse(expectedStorageId)
                 )
             )

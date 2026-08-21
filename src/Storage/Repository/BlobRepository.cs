@@ -35,8 +35,8 @@ public class BlobRepository(
     ILogger<BlobRepository> logger
 ) : IBlobRepository
 {
-    private const string AuthenticationFailedErrorCode = "AuthenticationFailed";
-    private const int BlobBatchDeleteLimit = 256;
+    private const string _authenticationFailedErrorCode = "AuthenticationFailed";
+    private const int _blobBatchDeleteLimit = 256;
     private const string _credsCacheKey = "creds";
     private readonly AzureStorageConfiguration _storageConfiguration = storageConfiguration.Value;
     private readonly IMemoryCache _memoryCache = memoryCache;
@@ -72,7 +72,7 @@ public class BlobRepository(
         {
             switch (requestFailedException.ErrorCode)
             {
-                case AuthenticationFailedErrorCode:
+                case _authenticationFailedErrorCode:
                     _logger.LogWarning(
                         "Authentication failed. Invalidating credentials and retrying download operation."
                     );
@@ -132,7 +132,7 @@ public class BlobRepository(
         {
             switch (requestFailedException.ErrorCode)
             {
-                case AuthenticationFailedErrorCode:
+                case _authenticationFailedErrorCode:
                     _logger.LogWarning("Authentication failed. Invalidating credentials.");
 
                     _memoryCache.Remove(_credsCacheKey);
@@ -161,7 +161,7 @@ public class BlobRepository(
         {
             switch (requestFailedException.ErrorCode)
             {
-                case AuthenticationFailedErrorCode:
+                case _authenticationFailedErrorCode:
                     _logger.LogWarning(
                         "Authentication failed. Invalidating credentials and retrying delete operation."
                     );
@@ -200,7 +200,7 @@ public class BlobRepository(
             );
         }
         catch (RequestFailedException requestFailedException)
-            when (requestFailedException.ErrorCode == AuthenticationFailedErrorCode)
+            when (requestFailedException.ErrorCode == _authenticationFailedErrorCode)
         {
             _logger.LogWarning(
                 requestFailedException,
@@ -350,12 +350,12 @@ public class BlobRepository(
         for (
             int batchStartIndex = 0;
             batchStartIndex < blobStoragePaths.Count;
-            batchStartIndex += BlobBatchDeleteLimit
+            batchStartIndex += _blobBatchDeleteLimit
         )
         {
             BlobBatch batch = batchClient.CreateBatch();
             int batchLength = Math.Min(
-                BlobBatchDeleteLimit,
+                _blobBatchDeleteLimit,
                 blobStoragePaths.Count - batchStartIndex
             );
             List<(int ResultIndex, string BlobStoragePath, Response Response)> deleteResponses = [];
@@ -390,7 +390,7 @@ public class BlobRepository(
                 );
             }
             catch (RequestFailedException requestFailedException)
-                when (requestFailedException.ErrorCode == AuthenticationFailedErrorCode)
+                when (requestFailedException.ErrorCode == _authenticationFailedErrorCode)
             {
                 throw;
             }

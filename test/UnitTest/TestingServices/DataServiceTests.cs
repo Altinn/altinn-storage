@@ -35,9 +35,9 @@ public class DataServiceTests
             blobRepositoryMock.Object
         );
 
-        InstanceInternal instance = new InstanceInternal();
+        InstanceInternal instance = new();
         DataType dataType = new DataType { EnableFileScan = false };
-        DataElementInternal dataElement = new DataElementInternal { };
+        DataElementInternal dataElement = new();
         DateTimeOffset blobTimestamp = DateTimeOffset.UtcNow;
 
         // Act
@@ -128,7 +128,7 @@ public class DataServiceTests
         string expectedHashResult =
             "85738f8f9a7f1b04b5329c590ebcb9e425925c6d0984089c43a022de4f19c281";
 
-        DataElementInternal dataElement = new DataElementInternal
+        DataElementInternal dataElement = new()
         {
             Id = id,
             BlobStoragePath = blobStoragePath,
@@ -211,7 +211,7 @@ public class DataServiceTests
         Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
         Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
 
-        DataElementInternal dataElement = new DataElementInternal
+        DataElementInternal dataElement = new()
         {
             Id = Guid.NewGuid(),
             BlobStoragePath = "/ttd/some-app",
@@ -285,7 +285,7 @@ public class DataServiceTests
                     null
                 )
             )
-            .ReturnsAsync((DataElementInternal de, long _, CancellationToken _) => de);
+            .ReturnsAsync((de, _, _) => de);
 
         Guid instanceGuid = Guid.NewGuid();
         Guid dataElementId = Guid.NewGuid();
@@ -713,14 +713,14 @@ public class DataServiceTests
     [Fact]
     public async Task CleanupDeletedDataElementBlobs_LegacyBlobDeleteThrows_DoesNotThrow()
     {
-        Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
-        Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+        Mock<IDataRepository> dataRepositoryMock = new();
+        Mock<IBlobRepository> blobRepositoryMock = new();
 
         dataRepositoryMock
             .Setup(drm =>
                 drm.ReadDetachedBlobVersions(It.IsAny<Guid>(), It.IsAny<CancellationToken>())
             )
-            .ReturnsAsync(Array.Empty<BlobVersionReferencesInternal>());
+            .ReturnsAsync([]);
 
         blobRepositoryMock
             .Setup(drm => drm.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()))
@@ -757,8 +757,8 @@ public class DataServiceTests
     [Fact]
     public async Task CleanupDeletedDataElementBlobs_DeletesLegacyBlob()
     {
-        Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
-        Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+        Mock<IDataRepository> dataRepositoryMock = new();
+        Mock<IBlobRepository> blobRepositoryMock = new();
 
         Guid dataElementId = Guid.NewGuid();
         Guid instanceGuid = Guid.NewGuid();
@@ -768,7 +768,7 @@ public class DataServiceTests
             .Setup(drm =>
                 drm.ReadDetachedBlobVersions(dataElementId, It.IsAny<CancellationToken>())
             )
-            .ReturnsAsync(Array.Empty<BlobVersionReferencesInternal>());
+            .ReturnsAsync([]);
         blobRepositoryMock
             .Setup(drm => drm.DeleteBlob("ttd", currentBlobStoragePath, null))
             .ReturnsAsync(true);
@@ -801,8 +801,8 @@ public class DataServiceTests
     [Fact]
     public async Task CleanupDeletedDataElementBlobs_DetachedBlobVersionReadThrows_StillDeletesLegacyBlob()
     {
-        Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
-        Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+        Mock<IDataRepository> dataRepositoryMock = new();
+        Mock<IBlobRepository> blobRepositoryMock = new();
 
         Guid dataElementId = Guid.NewGuid();
         Guid instanceGuid = Guid.NewGuid();
@@ -847,8 +847,8 @@ public class DataServiceTests
         string secondBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
         List<string> callOrder = [];
         IReadOnlyList<string> deletedMetadataIds = [];
-        Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
-        Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+        Mock<IDataRepository> dataRepositoryMock = new();
+        Mock<IBlobRepository> blobRepositoryMock = new();
 
         Guid dataElementId = Guid.NewGuid();
         Guid instanceGuid = Guid.NewGuid();
@@ -976,8 +976,8 @@ public class DataServiceTests
         Guid dataElementId = Guid.NewGuid();
         List<string> callOrder = [];
         IReadOnlyList<string> deletedMetadataIds = [];
-        Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
-        Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+        Mock<IDataRepository> dataRepositoryMock = new();
+        Mock<IBlobRepository> blobRepositoryMock = new();
 
         string firstDuplicateBlobStoragePath =
             $"first/app/{firstInstanceGuid}/data-elements/{duplicateBlobVersionId}";
@@ -1114,8 +1114,8 @@ public class DataServiceTests
         Guid dataElementId = Guid.NewGuid();
         Guid instanceGuid = Guid.NewGuid();
         using CancellationTokenSource cancellationTokenSource = new();
-        Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
-        Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+        Mock<IDataRepository> dataRepositoryMock = new();
+        Mock<IBlobRepository> blobRepositoryMock = new();
 
         dataRepositoryMock
             .Setup(drm =>
@@ -1188,8 +1188,8 @@ public class DataServiceTests
         InstanceInternal instance = CreateInstance();
         Guid instanceGuid = instance.Id;
         using CancellationTokenSource cancellationTokenSource = new();
-        Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
-        Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+        Mock<IDataRepository> dataRepositoryMock = new();
+        Mock<IBlobRepository> blobRepositoryMock = new();
 
         dataRepositoryMock
             .Setup(drm =>
@@ -1301,8 +1301,8 @@ public class DataServiceTests
         string failedBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
         string successfulBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
         IReadOnlyList<string> deletedMetadataIds = [];
-        Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
-        Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+        Mock<IDataRepository> dataRepositoryMock = new();
+        Mock<IBlobRepository> blobRepositoryMock = new();
 
         Guid dataElementId = Guid.NewGuid();
         Guid instanceGuid = Guid.NewGuid();
@@ -1405,9 +1405,9 @@ public class DataServiceTests
     {
         string blobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
         InvalidOperationException batchException = new("batch submit failed");
-        Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
-        Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
-        Mock<ILogger<DataService>> loggerMock = new Mock<ILogger<DataService>>();
+        Mock<IDataRepository> dataRepositoryMock = new();
+        Mock<IBlobRepository> blobRepositoryMock = new();
+        Mock<ILogger<DataService>> loggerMock = new();
 
         Guid dataElementId = Guid.NewGuid();
         Guid instanceGuid = Guid.NewGuid();
@@ -1501,9 +1501,9 @@ public class DataServiceTests
     {
         string blobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
         InvalidOperationException metadataException = new("metadata delete failed");
-        Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
-        Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
-        Mock<ILogger<DataService>> loggerMock = new Mock<ILogger<DataService>>();
+        Mock<IDataRepository> dataRepositoryMock = new();
+        Mock<IBlobRepository> blobRepositoryMock = new();
+        Mock<ILogger<DataService>> loggerMock = new();
 
         Guid dataElementId = Guid.NewGuid();
         Guid instanceGuid = Guid.NewGuid();

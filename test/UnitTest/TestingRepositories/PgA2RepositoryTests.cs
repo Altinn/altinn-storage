@@ -20,7 +20,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories;
 [Collection("StoragePostgreSQL")]
 public class PgA2RepositoryTests
 {
-    private const int ArchiveReference = 424242;
+    private const int _archiveReference = 424242;
     private readonly NpgsqlDataSource _dataSource;
 
     public PgA2RepositoryTests()
@@ -44,8 +44,8 @@ public class PgA2RepositoryTests
             new DateTime(2026, 2, 3, 4, 5, 6, DateTimeKind.Utc)
         );
         PgA2Repository repository = CreateRepository(EnabledSettings());
-        await repository.CreateA2MigrationState(ArchiveReference);
-        await repository.UpdateStartA2MigrationState(ArchiveReference, instance.Id);
+        await repository.CreateA2MigrationState(_archiveReference);
+        await repository.UpdateStartA2MigrationState(_archiveReference, instance.Id);
 
         await repository.UpdateCompleteMigrationState(instance);
 
@@ -79,8 +79,8 @@ public class PgA2RepositoryTests
             )
             .ThrowsAsync(new InvalidOperationException("outbox unavailable"));
         PgA2Repository repository = CreateRepository(EnabledSettings(), outbox.Object);
-        await repository.CreateA2MigrationState(ArchiveReference);
-        await repository.UpdateStartA2MigrationState(ArchiveReference, instance.Id);
+        await repository.CreateA2MigrationState(_archiveReference);
+        await repository.UpdateStartA2MigrationState(_archiveReference, instance.Id);
 
         InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () =>

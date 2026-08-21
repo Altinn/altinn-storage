@@ -1798,11 +1798,13 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     [Fact]
     public void InstanceQueryResult_IsNotAnApiWireModel()
     {
-        string[] propertyNames = typeof(InstanceQueryResult)
-            .GetProperties()
-            .Select(property => property.Name)
-            .OrderBy(name => name)
-            .ToArray();
+        string[] propertyNames =
+        [
+            .. typeof(InstanceQueryResult)
+                .GetProperties()
+                .Select(property => property.Name)
+                .OrderBy(name => name),
+        ];
 
         Assert.Equal(["ContinuationToken", "Exception", "Instances"], propertyNames);
         Assert.All(

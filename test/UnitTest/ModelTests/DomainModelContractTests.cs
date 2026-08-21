@@ -758,15 +758,17 @@ public class DomainModelContractTests
 
     private static void AssertJsonIgnoredProperties<T>(params string[] expectedIgnored)
     {
-        string[] actualIgnored = typeof(T)
-            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
-            .Where(property =>
-                property.GetCustomAttribute<System.Text.Json.Serialization.JsonIgnoreAttribute>()
-                    is not null
-            )
-            .Select(property => property.Name)
-            .OrderBy(name => name)
-            .ToArray();
+        string[] actualIgnored =
+        [
+            .. typeof(T)
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Where(property =>
+                    property.GetCustomAttribute<System.Text.Json.Serialization.JsonIgnoreAttribute>()
+                        is not null
+                )
+                .Select(property => property.Name)
+                .OrderBy(name => name),
+        ];
 
         Assert.Equal(expectedIgnored.OrderBy(name => name), actualIgnored);
     }

@@ -403,7 +403,7 @@ public class CleanupController(
             await instanceRepository.GetBlobVersionsForInstance(instanceGuid, cancellationToken);
 
         foreach (
-            var context in blobVersions
+            var (blobStorageOrg, appId, storageAccountNumber) in blobVersions
                 .Where(blobVersion => blobVersion.BlobVersionIds.Count > 0)
                 .Select(blobVersion =>
                     (
@@ -418,10 +418,10 @@ public class CleanupController(
         {
             if (
                 !await blobRepository.DeleteDataBlobs(
-                    context.BlobStorageOrg,
-                    context.AppId,
+                    blobStorageOrg,
+                    appId,
                     instanceGuid,
-                    context.StorageAccountNumber,
+                    storageAccountNumber,
                     cancellationToken
                 )
             )
@@ -429,8 +429,8 @@ public class CleanupController(
                 _logger.LogError(
                     "CleanupController // CleanupInstancesInternal // Error deleting blobs for instance {InstanceGuid} in blob storage org {BlobStorageOrg} with app id {AppId}",
                     instanceGuid,
-                    context.BlobStorageOrg,
-                    context.AppId
+                    blobStorageOrg,
+                    appId
                 );
                 return false;
             }

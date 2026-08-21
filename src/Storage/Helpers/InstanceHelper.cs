@@ -172,16 +172,14 @@ public static class InstanceHelper
         }
 
         lastChanged = (DateTime)instance.LastChanged;
-        newerDataElements.ForEach(
-            (DataElementInternal dataElement) =>
+        newerDataElements.ForEach(dataElement =>
+        {
+            if (dataElement.LastChanged > lastChanged)
             {
-                if (dataElement.LastChanged > lastChanged)
-                {
-                    lastChangedBy = dataElement.LastChangedBy;
-                    lastChanged = (DateTime)dataElement.LastChanged;
-                }
+                lastChangedBy = dataElement.LastChangedBy;
+                lastChanged = (DateTime)dataElement.LastChanged;
             }
-        );
+        });
 
         return (lastChangedBy, lastChanged);
     }

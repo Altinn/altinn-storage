@@ -1,7 +1,6 @@
 #nullable disable
 
 using System;
-using System.Collections.Generic;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Enums;
@@ -17,14 +16,10 @@ using Xunit;
 namespace Altinn.Platform.Storage.UnitTest.ModelTests;
 
 [Collection("StoragePostgreSQL")]
-public sealed class DomainModelNpgsqlContractTests : IClassFixture<DomainModelNpgsqlFixture>
+public sealed class DomainModelNpgsqlContractTests(DomainModelNpgsqlFixture fixture)
+    : IClassFixture<DomainModelNpgsqlFixture>
 {
-    private readonly NpgsqlDataSource _dataSource;
-
-    public DomainModelNpgsqlContractTests(DomainModelNpgsqlFixture fixture)
-    {
-        _dataSource = fixture.DataSource;
-    }
+    private readonly NpgsqlDataSource _dataSource = fixture.DataSource;
 
     [Fact]
     public async Task DynamicJson_InstanceDomainAndApi_MatchIndependentDatabaseGolden()

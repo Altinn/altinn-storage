@@ -491,7 +491,7 @@ public class DataController : ControllerBase
         return Ok(
             new DataElementList()
             {
-                DataElements = visibleDataElements.Select(de => de.ToApiModel()).ToList(),
+                DataElements = [.. visibleDataElements.Select(de => de.ToApiModel())],
             }
         );
     }
@@ -1364,7 +1364,7 @@ public class DataController : ControllerBase
 
         if (
             !EntityTagHeaderValue.TryParseList(
-                ifMatchHeader.ToArray(),
+                [.. ifMatchHeader],
                 out IList<EntityTagHeaderValue> ifMatch
             )
             || ifMatch.Count != 1

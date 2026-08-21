@@ -15,8 +15,7 @@ namespace Altinn.Platform.Storage.Interface.Tests;
 /// </summary>
 public class ProcessStatusTests
 {
-    public static TheoryData<ProcessStatus> AllStatuses =>
-        new(Enum.GetValues<ProcessStatus>().ToArray());
+    public static TheoryData<ProcessStatus> AllStatuses => [.. Enum.GetValues<ProcessStatus>()];
 
     [Theory]
     [MemberData(nameof(AllStatuses))]

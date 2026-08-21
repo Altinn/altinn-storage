@@ -2656,9 +2656,10 @@ public class InstanceMutationsControllerUnitTests
 
         OkObjectResult ok = Assert.IsType<OkObjectResult>(result.Result);
         InstanceMutationResponse response = Assert.IsType<InstanceMutationResponse>(ok.Value);
-        List<string> createdIds = capturedMutation
-            .CreateDataElements.Select(dataElement => dataElement.Id.ToString())
-            .ToList();
+        List<string> createdIds =
+        [
+            .. capturedMutation.CreateDataElements.Select(dataElement => dataElement.Id.ToString()),
+        ];
         Assert.Equal(createdIds, response.CreatedDataElementIds);
         Assert.False(response.Replayed);
         Assert.DoesNotContain(callerSuppliedFirstId.ToString(), createdIds);
@@ -5266,7 +5267,7 @@ public class InstanceMutationsControllerUnitTests
             InstanceOwner = new InstanceOwner { PartyId = "555" },
             Org = _org,
             AppId = _appId,
-            Data = dataElements.Select(dataElement => dataElement.ToApiModel()).ToList(),
+            Data = [.. dataElements.Select(dataElement => dataElement.ToApiModel())],
         };
 
         return InstanceInternalTestFactory.Create(
