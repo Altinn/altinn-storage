@@ -42,8 +42,6 @@ public sealed class PgInstanceMutationRepository(
     private const string _readInstanceSql = "select * from storage.readinstance_v2($1)";
     private const string _deleteIdempotencyRecordsCreatedBeforeSql =
         "select storage.deleteinstancemutationidempotency($1, $2)";
-    private readonly NpgsqlDataSource _dataSource = dataSource;
-    private readonly OutboxInsertRowFactory _outboxInsertRowFactory = outboxInsertRowFactory;
 
     /// <inheritdoc/>
     public async Task<InstanceMutationApplyResult> TryReplayAdmission(
@@ -57,7 +55,7 @@ public sealed class PgInstanceMutationRepository(
     {
         IReadOnlyList<string> createdDataElementIds;
 
-        await using NpgsqlConnection connection = await _dataSource.OpenConnectionAsync(
+        await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(
             cancellationToken
         );
         await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync(
@@ -116,7 +114,7 @@ public sealed class PgInstanceMutationRepository(
         CancellationToken cancellationToken = default
     )
     {
-        await using NpgsqlCommand cmd = _dataSource.CreateCommand(
+        await using NpgsqlCommand cmd = dataSource.CreateCommand(
             _deleteIdempotencyRecordsCreatedBeforeSql
         );
         cmd.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, createdBeforeUtc);
@@ -143,7 +141,7 @@ public sealed class PgInstanceMutationRepository(
         CancellationToken cancellationToken = default
     )
     {
-        await using NpgsqlCommand cmd = _dataSource.CreateCommand(_applyMutationSql);
+        await using NpgsqlCommand cmd = dataSource.CreateCommand(_applyMutationSql);
         cmd.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
         cmd.Parameters.AddWithValue(NpgsqlDbType.Bigint, instanceInternalId);
         AddNullableParameter(
@@ -543,7 +541,7 @@ public sealed class PgInstanceMutationRepository(
             eventType
         );
 
-        OutboxInsertRow row = _outboxInsertRowFactory.TryBuild(instanceUpdateCommand);
+        OutboxInsertRow row = outboxInsertRowFactory.TryBuild(instanceUpdateCommand);
         if (row is null)
         {
             return null;
