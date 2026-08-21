@@ -653,6 +653,10 @@ public class InstancesController : ControllerBase
         {
             return Conflict(e.Message);
         }
+        catch (RepositoryException e) when (e.StatusCodeSuggestion.HasValue)
+        {
+            return StatusCode((int)e.StatusCodeSuggestion.Value, e.Message);
+        }
         catch (Exception e)
         {
             _logger.LogError(
@@ -754,6 +758,10 @@ public class InstancesController : ControllerBase
         catch (ProcessStatusConflictException e)
         {
             return Conflict(e.Message);
+        }
+        catch (RepositoryException e) when (e.StatusCodeSuggestion.HasValue)
+        {
+            return StatusCode((int)e.StatusCodeSuggestion.Value, e.Message);
         }
         catch (Exception e)
         {
@@ -946,6 +954,10 @@ public class InstancesController : ControllerBase
         {
             return Conflict(e.Message);
         }
+        catch (RepositoryException e) when (e.StatusCodeSuggestion.HasValue)
+        {
+            return StatusCode((int)e.StatusCodeSuggestion.Value, e.Message);
+        }
         catch (Exception e)
         {
             _logger.LogError(
@@ -1062,6 +1074,10 @@ public class InstancesController : ControllerBase
         {
             return Conflict(e.Message);
         }
+        catch (RepositoryException e) when (e.StatusCodeSuggestion.HasValue)
+        {
+            return StatusCode((int)e.StatusCodeSuggestion.Value, e.Message);
+        }
 
         VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
         return updatedInstance.ToApiModel();
@@ -1158,6 +1174,10 @@ public class InstancesController : ControllerBase
         catch (ProcessStatusConflictException e)
         {
             return Conflict(e.Message);
+        }
+        catch (RepositoryException e) when (e.StatusCodeSuggestion.HasValue)
+        {
+            return StatusCode((int)e.StatusCodeSuggestion.Value, e.Message);
         }
 
         VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);

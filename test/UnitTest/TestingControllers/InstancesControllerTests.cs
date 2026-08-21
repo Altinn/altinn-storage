@@ -3062,6 +3062,51 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     )
     {
         const ProcessStatus currentStatus = ProcessStatus.Processing;
+
+        (ActionResult<Instance> result, Mock<IInstanceEventService> instanceEventService) =
+            await InvokeGuardedInstanceUpdate(
+                route,
+                new ProcessStatusConflictException(currentStatus)
+            );
+
+        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
+        Assert.Contains(
+            currentStatus.ToString().ToLowerInvariant(),
+            Assert.IsType<string>(conflict.Value),
+            StringComparison.Ordinal
+        );
+        instanceEventService.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData(GuardedInstanceUpdateRoute.Delete)]
+    [InlineData(GuardedInstanceUpdateRoute.Complete)]
+    [InlineData(GuardedInstanceUpdateRoute.Substatus)]
+    [InlineData(GuardedInstanceUpdateRoute.PresentationTexts)]
+    [InlineData(GuardedInstanceUpdateRoute.DataValues)]
+    public async Task VersionBumpingInstanceUpdate_InstanceGone_ReturnsNotFoundWithoutEvent(
+        GuardedInstanceUpdateRoute route
+    )
+    {
+        const string message = "Instance was not found.";
+
+        (ActionResult<Instance> result, Mock<IInstanceEventService> instanceEventService) =
+            await InvokeGuardedInstanceUpdate(
+                route,
+                new RepositoryException(message, HttpStatusCode.NotFound)
+            );
+
+        ObjectResult notFound = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status404NotFound, notFound.StatusCode);
+        Assert.Equal(message, notFound.Value);
+        instanceEventService.VerifyNoOtherCalls();
+    }
+
+    private static async Task<(
+        ActionResult<Instance> Result,
+        Mock<IInstanceEventService> InstanceEventService
+    )> InvokeGuardedInstanceUpdate(GuardedInstanceUpdateRoute route, Exception updateFailure)
+    {
         const int partyId = 1337;
         Guid instanceGuid = Guid.NewGuid();
         Instance instance = TestData.Instance_1_1.Clone();
@@ -3096,7 +3141,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                     It.IsAny<int?>()
                 )
             )
-            .ThrowsAsync(new ProcessStatusConflictException(currentStatus));
+            .ThrowsAsync(updateFailure);
         Mock<IInstanceEventService> instanceEventService = new(MockBehavior.Strict);
         Mock<IApplicationService> applicationService = new();
         applicationService
@@ -3177,13 +3222,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
             _ => throw new ArgumentOutOfRangeException(nameof(route), route, null),
         };
 
-        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
-        Assert.Contains(
-            currentStatus.ToString().ToLowerInvariant(),
-            Assert.IsType<string>(conflict.Value),
-            StringComparison.Ordinal
-        );
-        instanceEventService.VerifyNoOtherCalls();
+        return (result, instanceEventService);
     }
 
     private TestTelemetry _testTelemetry;
