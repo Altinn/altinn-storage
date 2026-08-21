@@ -3136,9 +3136,9 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                 instanceRepository.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>(),
                     It.IsAny<int?>(),
-                    It.IsAny<int?>()
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ThrowsAsync(updateFailure);

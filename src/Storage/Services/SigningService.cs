@@ -65,9 +65,9 @@ public class SigningService : ISigningService
         Guid instanceGuid,
         SignRequest signRequest,
         string performedBy,
-        CancellationToken cancellationToken,
         int? expectedInstanceVersion,
-        int? expectedProcessStateVersion
+        int? expectedProcessStateVersion,
+        CancellationToken cancellationToken
     )
     {
         InstanceInternal instance = await _instanceRepository.GetOne(

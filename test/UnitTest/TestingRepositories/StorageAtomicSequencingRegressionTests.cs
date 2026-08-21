@@ -530,7 +530,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
             await _fixture.DataRepo.Create(
                 dataElement.FromApiModel(blobVersionId),
                 instanceInternalId,
-                CancellationToken.None
+                cancellationToken: CancellationToken.None
             )
         ).DataElement.ToApiModel();
     }

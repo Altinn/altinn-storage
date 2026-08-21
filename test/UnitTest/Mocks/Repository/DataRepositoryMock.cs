@@ -33,9 +33,9 @@ public class DataRepositoryMock : IDataRepository
     public Task<DataElementWriteResult> Create(
         DataElementInternal dataElement,
         long instanceInternalId = 0,
-        CancellationToken cancellationToken = default,
         int? expectedInstanceVersion = null,
-        int? expectedProcessStateVersion = null
+        int? expectedProcessStateVersion = null,
+        CancellationToken cancellationToken = default
     )
     {
         Guid elementId = dataElement.Id == Guid.Empty ? Guid.NewGuid() : dataElement.Id;

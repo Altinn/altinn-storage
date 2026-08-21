@@ -376,9 +376,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                 repository.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>(),
                     It.IsAny<int?>(),
-                    It.IsAny<int?>()
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ReturnsAsync(snapshot);
@@ -422,9 +422,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                 repository.Update(
                     snapshot,
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>(),
                     It.Is<int?>(value => value == expectedInstanceVersion),
-                    processStateVersion
+                    processStateVersion,
+                    It.IsAny<CancellationToken>()
                 ),
             expectedUpdateCalls
         );
@@ -510,9 +510,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                 repository.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>(),
                     It.IsAny<int?>(),
-                    It.IsAny<int?>()
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
                 ),
             Times.Never
         );
@@ -558,9 +558,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                 repository.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>(),
                     It.IsAny<int?>(),
-                    It.IsAny<int?>()
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ThrowsAsync(exception);
@@ -632,13 +632,13 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                 repository.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>(),
                     It.IsAny<int?>(),
-                    It.IsAny<int?>()
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ReturnsAsync(
-                (InstanceInternal instance, List<string> _, CancellationToken _, int? _, int? _) =>
+                (InstanceInternal instance, List<string> _, int? _, int? _, CancellationToken _) =>
                     instance
             );
         Mock<IInstanceMutationRepository> mutationRepositoryMock = new();
@@ -690,9 +690,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                     It.Is<List<string>>(properties =>
                         properties.Contains(nameof(InstanceInternal.Process))
                     ),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    11
+                    11,
+                    It.IsAny<CancellationToken>()
                 ),
             useInstanceAndEventsEndpoint ? Times.Never() : Times.Once()
         );
@@ -999,9 +999,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                 repository.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>(),
                     It.IsAny<int?>(),
-                    It.IsAny<int?>()
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ThrowsAsync(new ProcessStatusConflictException(currentStatus));
@@ -1076,9 +1076,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                 ir.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    1
+                    1,
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ReturnsAsync(InstanceInternalTestFactory.Create(testInstance, [], InternalId: 0));
@@ -1137,9 +1137,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                 ir.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    1
+                    1,
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ReturnsAsync(InstanceInternalTestFactory.Create(testInstance, [], InternalId: 0));
@@ -1198,9 +1198,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                 ir.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    1
+                    1,
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ReturnsAsync(InstanceInternalTestFactory.Create(testInstance, [], InternalId: 0));
@@ -1259,9 +1259,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                 ir.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    1
+                    1,
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ReturnsAsync(InstanceInternalTestFactory.Create(testInstance, [], InternalId: 0));
@@ -1370,13 +1370,13 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                 ir.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    1
+                    1,
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ReturnsAsync(
-                (InstanceInternal i, List<string> _, CancellationToken _, int? _, int? _) => i
+                (InstanceInternal i, List<string> _, int? _, int? _, CancellationToken _) => i
             );
 
         // Act
@@ -1933,13 +1933,13 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
                 ir.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    1
+                    1,
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ReturnsAsync(
-                (InstanceInternal i, List<string> _, CancellationToken _, int? _, int? _) => i
+                (InstanceInternal i, List<string> _, int? _, int? _, CancellationToken _) => i
             );
         Mock<IProcessDataCleanupService> cleanupMock = new();
 

@@ -51,9 +51,9 @@ public class SigningServiceTest
             fixture.InstanceGuid,
             fixture.SignRequest,
             GetPerformedBy(signee),
-            CancellationToken.None,
             7,
-            11
+            11,
+            CancellationToken.None
         );
 
         Assert.True(result.Created);
@@ -97,9 +97,9 @@ public class SigningServiceTest
             fixture.InstanceGuid,
             fixture.SignRequest,
             performedBy,
-            CancellationToken.None,
             7,
-            11
+            11,
+            CancellationToken.None
         );
 
         Assert.NotNull(fixture.CapturedCreateOptions);
@@ -124,9 +124,9 @@ public class SigningServiceTest
             fixture.InstanceGuid,
             fixture.SignRequest,
             "1337",
-            CancellationToken.None,
             expectedInstanceVersion,
-            expectedProcessStateVersion
+            expectedProcessStateVersion,
+            CancellationToken.None
         );
 
         Assert.True(result.Created);
@@ -164,9 +164,9 @@ public class SigningServiceTest
             fixture.InstanceGuid,
             fixture.SignRequest,
             "1337",
-            CancellationToken.None,
             7,
-            11
+            11,
+            CancellationToken.None
         );
 
         Assert.True(result.Created);
@@ -185,9 +185,9 @@ public class SigningServiceTest
             fixture.InstanceGuid,
             fixture.SignRequest,
             GetPerformedBy(signee),
-            CancellationToken.None,
             7,
-            11
+            11,
+            CancellationToken.None
         );
 
         Assert.True(result.Created);
@@ -238,9 +238,9 @@ public class SigningServiceTest
             fixture.InstanceGuid,
             fixture.SignRequest,
             "1337",
-            CancellationToken.None,
             7,
-            11
+            11,
+            CancellationToken.None
         );
 
         Assert.True(result.Created);
@@ -292,9 +292,9 @@ public class SigningServiceTest
             fixture.InstanceGuid,
             fixture.SignRequest,
             "1337",
-            CancellationToken.None,
             null,
-            null
+            null,
+            CancellationToken.None
         );
 
         Assert.False(result.Created);
@@ -325,9 +325,9 @@ public class SigningServiceTest
                     fixture.InstanceGuid,
                     fixture.SignRequest,
                     "1337",
-                    CancellationToken.None,
                     instanceVersionMismatch ? 6 : 7,
-                    instanceVersionMismatch ? 11 : 10
+                    instanceVersionMismatch ? 11 : 10,
+                    CancellationToken.None
                 )
             );
 
@@ -367,9 +367,9 @@ public class SigningServiceTest
                     fixture.InstanceGuid,
                     fixture.SignRequest,
                     "1337",
-                    CancellationToken.None,
                     7,
-                    11
+                    11,
+                    CancellationToken.None
                 )
             );
 
@@ -416,9 +416,9 @@ public class SigningServiceTest
             fixture.InstanceGuid,
             fixture.SignRequest,
             "1337",
-            CancellationToken.None,
             null,
-            null
+            null,
+            CancellationToken.None
         );
 
         Assert.False(result.Created);
@@ -455,9 +455,9 @@ public class SigningServiceTest
             fixture.InstanceGuid,
             fixture.SignRequest,
             GetPerformedBy(signee),
-            CancellationToken.None,
             null,
-            null
+            null,
+            CancellationToken.None
         );
 
         Assert.False(result.Created);
@@ -497,9 +497,9 @@ public class SigningServiceTest
                     fixture.InstanceGuid,
                     fixture.SignRequest,
                     "1337",
-                    CancellationToken.None,
                     null,
-                    null
+                    null,
+                    CancellationToken.None
                 )
         );
 
@@ -536,9 +536,9 @@ public class SigningServiceTest
                 fixture.InstanceGuid,
                 fixture.SignRequest,
                 "1337",
-                CancellationToken.None,
                 null,
-                null
+                null,
+                CancellationToken.None
             )
         );
 
@@ -567,9 +567,9 @@ public class SigningServiceTest
                 fixture.InstanceGuid,
                 fixture.SignRequest,
                 "1337",
-                CancellationToken.None,
                 null,
-                null
+                null,
+                CancellationToken.None
             )
         );
 
@@ -632,9 +632,9 @@ public class SigningServiceTest
                     fixture.InstanceGuid,
                     fixture.SignRequest,
                     "1337",
-                    CancellationToken.None,
                     7,
-                    11
+                    11,
+                    CancellationToken.None
                 )
             );
 

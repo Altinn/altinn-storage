@@ -339,7 +339,11 @@ public class MessageBoxInstancesController : ControllerBase
 
             try
             {
-                await _instanceRepository.Update(instance, updateProperties, cancellationToken);
+                await _instanceRepository.Update(
+                    instance,
+                    updateProperties,
+                    cancellationToken: cancellationToken
+                );
                 await _instanceEventRepository.InsertInstanceEvent(instanceEvent, instance);
             }
             catch (ProcessStatusConflictException e)
@@ -452,7 +456,11 @@ public class MessageBoxInstancesController : ControllerBase
 
         try
         {
-            await _instanceRepository.Update(instance, updateProperties, cancellationToken);
+            await _instanceRepository.Update(
+                instance,
+                updateProperties,
+                cancellationToken: cancellationToken
+            );
             await _instanceEventRepository.InsertInstanceEvent(instanceEvent, instance);
         }
         catch (ProcessStatusConflictException e)

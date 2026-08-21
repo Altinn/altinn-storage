@@ -635,9 +635,9 @@ public class InstancesController : ControllerBase
             InstanceInternal deletedInstance = await _instanceRepository.Update(
                 instance,
                 updateProperties,
-                cancellationToken,
                 preconditions.InstanceVersion,
-                preconditions.ProcessStateVersion
+                preconditions.ProcessStateVersion,
+                cancellationToken
             );
 
             await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, deletedInstance);
@@ -746,9 +746,9 @@ public class InstancesController : ControllerBase
             updatedInstance = await _instanceRepository.Update(
                 instance,
                 updateProperties,
-                cancellationToken,
                 preconditions.InstanceVersion,
-                preconditions.ProcessStateVersion
+                preconditions.ProcessStateVersion,
+                cancellationToken
             );
         }
         catch (StorageVersionMismatchException e)
@@ -941,9 +941,9 @@ public class InstancesController : ControllerBase
             updatedInstance = await _instanceRepository.Update(
                 instance,
                 updateProperties,
-                cancellationToken,
                 preconditions.InstanceVersion,
-                preconditions.ProcessStateVersion
+                preconditions.ProcessStateVersion,
+                cancellationToken
             );
         }
         catch (StorageVersionMismatchException e)
@@ -1061,9 +1061,9 @@ public class InstancesController : ControllerBase
             updatedInstance = await _instanceRepository.Update(
                 instance,
                 updateProperties,
-                cancellationToken,
                 preconditions.InstanceVersion,
-                preconditions.ProcessStateVersion
+                preconditions.ProcessStateVersion,
+                cancellationToken
             );
         }
         catch (StorageVersionMismatchException e)
@@ -1162,9 +1162,9 @@ public class InstancesController : ControllerBase
             updatedInstance = await _instanceRepository.Update(
                 instance,
                 updateProperties,
-                cancellationToken,
                 preconditions.InstanceVersion,
-                preconditions.ProcessStateVersion
+                preconditions.ProcessStateVersion,
+                cancellationToken
             );
         }
         catch (StorageVersionMismatchException e)

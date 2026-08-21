@@ -70,9 +70,9 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     public async Task<DataElementWriteResult> Create(
         DataElementInternal dataElement,
         long instanceInternalId = 0,
-        CancellationToken cancellationToken = default,
         int? expectedInstanceVersion = null,
-        int? expectedProcessStateVersion = null
+        int? expectedProcessStateVersion = null,
+        CancellationToken cancellationToken = default
     )
     {
         if (dataElement.Id == Guid.Empty)

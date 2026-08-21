@@ -100,9 +100,9 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
                     It.IsAny<Guid>(),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
-                    It.IsAny<CancellationToken>(),
                     It.IsAny<int?>(),
-                    It.IsAny<int?>()
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ReturnsAsync(SignDocumentCreateResult.Success(new StorageVersions(1, 1)));
@@ -203,9 +203,9 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
                     It.IsAny<Guid>(),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
-                    It.IsAny<CancellationToken>(),
                     It.IsAny<int?>(),
-                    It.IsAny<int?>()
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ReturnsAsync(
@@ -257,9 +257,9 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
                     It.IsAny<Guid>(),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
-                    It.IsAny<CancellationToken>(),
                     It.IsAny<int?>(),
-                    It.IsAny<int?>()
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ThrowsAsync(
@@ -310,9 +310,9 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
                     It.IsAny<Guid>(),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
-                    It.IsAny<CancellationToken>(),
                     It.IsAny<int?>(),
-                    It.IsAny<int?>()
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ThrowsAsync(exception);
@@ -363,9 +363,9 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
                     It.IsAny<Guid>(),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
-                    It.IsAny<CancellationToken>(),
                     It.IsAny<int?>(),
-                    It.IsAny<int?>()
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ThrowsAsync(new ProcessStatusConflictException(ProcessStatus.Processing));
@@ -402,9 +402,9 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
                     Guid.Parse(instanceGuid),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
-                    It.IsAny<CancellationToken>(),
                     It.IsAny<int?>(),
-                    It.IsAny<int?>()
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
                 ),
             Times.Once
         );

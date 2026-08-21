@@ -57,9 +57,9 @@ public interface IDataService
     /// <param name="options">Metadata to use when creating the data element.</param>
     /// <param name="instanceInternalId">The internal id of the parent instance.</param>
     /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
-    /// <param name="cancellationToken">A cancellation token to pass to async operations.</param>
     /// <param name="expectedInstanceVersion">Expected instance version for optimistic concurrency checks.</param>
     /// <param name="expectedProcessStateVersion">Expected process state version for optimistic concurrency checks.</param>
+    /// <param name="cancellationToken">A cancellation token to pass to async operations.</param>
     /// <returns>The created data element with internal blob fields, and the blob timestamp.</returns>
     Task<DataUploadResult> UploadDataAndCreateDataElement(
         InstanceInternal instance,
@@ -67,9 +67,9 @@ public interface IDataService
         DataElementCreateOptions options,
         long instanceInternalId,
         int? storageAccountNumber,
-        CancellationToken cancellationToken = default,
         int? expectedInstanceVersion = null,
-        int? expectedProcessStateVersion = null
+        int? expectedProcessStateVersion = null,
+        CancellationToken cancellationToken = default
     );
 
     /// <summary>

@@ -620,9 +620,9 @@ public class DataController : ControllerBase
                 createOptions,
                 instance.InternalId,
                 application.StorageAccountNumber,
-                cancellationToken,
                 preconditions.InstanceVersion,
-                preconditions.ProcessStateVersion
+                preconditions.ProcessStateVersion,
+                cancellationToken
             );
 
             dataElement = uploadResult.DataElement;

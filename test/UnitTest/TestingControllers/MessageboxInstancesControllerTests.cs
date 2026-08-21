@@ -1887,9 +1887,9 @@ public class MessageBoxInstancesControllerTests(
                 instanceRepository.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    null,
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ThrowsAsync(new ProcessStatusConflictException(currentStatus));

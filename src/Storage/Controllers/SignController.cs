@@ -90,9 +90,9 @@ public class SignController : ControllerBase
                 instanceGuid,
                 signRequest,
                 performedBy,
-                cancellationToken,
                 preconditions.InstanceVersion,
-                preconditions.ProcessStateVersion
+                preconditions.ProcessStateVersion,
+                cancellationToken
             );
         }
         catch (StorageVersionMismatchException exception)

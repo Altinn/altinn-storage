@@ -167,9 +167,9 @@ public class MigrationControllerTests : IClassFixture<InstanceFixture>
                         dataElement.BlobVersionId == allocatedBlobVersionId
                     ),
                     instance.InternalId,
-                    It.IsAny<CancellationToken>(),
                     It.IsAny<int?>(),
-                    It.IsAny<int?>()
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ThrowsAsync(new ProcessStatusConflictException(ProcessStatus.Processing));

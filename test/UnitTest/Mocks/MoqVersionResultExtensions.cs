@@ -44,9 +44,9 @@ internal static class MoqVersionResultExtensions
             (
                 DataElementInternal dataElement,
                 long instanceInternalId,
-                CancellationToken cancellationToken,
                 int? expectedInstanceVersion,
-                int? expectedProcessStateVersion
+                int? expectedProcessStateVersion,
+                CancellationToken cancellationToken
             ) =>
                 Task.FromResult(
                     new DataElementWriteResult(
@@ -126,9 +126,9 @@ internal static class MoqVersionResultExtensions
                 DataElementCreateOptions options,
                 long instanceInternalId,
                 int? storageAccountNumber,
-                CancellationToken cancellationToken,
                 int? expectedInstanceVersion,
-                int? expectedProcessStateVersion
+                int? expectedProcessStateVersion,
+                CancellationToken cancellationToken
             ) =>
             {
                 (DataElementInternal dataElement, DateTimeOffset blobTimestamp) = value(

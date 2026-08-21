@@ -235,7 +235,7 @@ public class StudioInstancesController : ControllerBase
             InstanceInternal deletedInstance = await _instanceRepository.Update(
                 instance,
                 updateProperties,
-                ct
+                cancellationToken: ct
             );
 
             PlatformUser studioUser = new() { OrgId = deletedInstance.Org };

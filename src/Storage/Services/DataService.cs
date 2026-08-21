@@ -125,9 +125,9 @@ public class DataService : IDataService
         DataElementCreateOptions options,
         long instanceInternalId,
         int? storageAccountNumber,
-        CancellationToken cancellationToken = default,
         int? expectedInstanceVersion = null,
-        int? expectedProcessStateVersion = null
+        int? expectedProcessStateVersion = null,
+        CancellationToken cancellationToken = default
     )
     {
         StagedDataElementBlob stagedDataElement = await StageDataElementBlob(
@@ -144,9 +144,9 @@ public class DataService : IDataService
             createdDataElement = await _dataRepository.Create(
                 stagedDataElement.DataElement,
                 instanceInternalId,
-                cancellationToken,
                 expectedInstanceVersion,
-                expectedProcessStateVersion
+                expectedProcessStateVersion,
+                cancellationToken
             );
         }
         catch (Exception exception)

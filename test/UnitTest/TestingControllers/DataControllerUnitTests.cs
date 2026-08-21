@@ -1746,9 +1746,9 @@ public class DataControllerUnitTests
                     It.IsAny<DataElementCreateOptions>(),
                     It.IsAny<long>(),
                     It.IsAny<int?>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    null,
+                    It.IsAny<CancellationToken>()
                 ),
             Times.Once
         );
@@ -1804,9 +1804,9 @@ public class DataControllerUnitTests
                     ),
                     It.IsAny<long>(),
                     It.IsAny<int?>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    null,
+                    It.IsAny<CancellationToken>()
                 ),
             Times.Once
         );
@@ -1840,9 +1840,9 @@ public class DataControllerUnitTests
                             It.IsAny<DataElementCreateOptions>(),
                             It.IsAny<long>(),
                             It.IsAny<int?>(),
-                            It.IsAny<CancellationToken>(),
                             It.IsAny<int?>(),
-                            It.IsAny<int?>()
+                            It.IsAny<int?>(),
+                            It.IsAny<CancellationToken>()
                         )
                     )
                     .ThrowsAsync(new ProcessStatusConflictException(ProcessStatus.Processing))
@@ -2248,9 +2248,9 @@ public class DataControllerUnitTests
                                 It.IsAny<DataElementCreateOptions>(),
                                 It.IsAny<long>(),
                                 It.IsAny<int?>(),
-                                It.IsAny<CancellationToken>(),
                                 null,
-                                null
+                                null,
+                                It.IsAny<CancellationToken>()
                             )
                         )
                         .ThrowsAsync(
@@ -2277,9 +2277,9 @@ public class DataControllerUnitTests
                     It.IsAny<DataElementCreateOptions>(),
                     It.IsAny<long>(),
                     It.IsAny<int?>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    null,
+                    It.IsAny<CancellationToken>()
                 ),
             Times.Once
         );
@@ -2644,9 +2644,9 @@ public class DataControllerUnitTests
                 It.IsAny<DataElementCreateOptions>(),
                 It.IsAny<long>(),
                 It.IsAny<int?>(),
-                It.IsAny<CancellationToken>(),
                 null,
-                null
+                null,
+                It.IsAny<CancellationToken>()
             )
         );
         if (throwOnCreate)

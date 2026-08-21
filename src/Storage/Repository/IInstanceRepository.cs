@@ -64,16 +64,16 @@ public interface IInstanceRepository
     /// </summary>
     /// <param name="instance">the instance to update</param>
     /// <param name="updateProperties">a list of which properties should be updated</param>
-    /// <param name="cancellationToken">CancellationToken</param>
     /// <param name="expectedInstanceVersion">Expected instance version for optimistic concurrency checks.</param>
     /// <param name="expectedProcessStateVersion">Expected process state version for optimistic concurrency checks.</param>
+    /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>The updated instance with storage-owned version metadata.</returns>
     Task<InstanceInternal> Update(
         InstanceInternal instance,
         List<string> updateProperties,
-        CancellationToken cancellationToken,
         int? expectedInstanceVersion = null,
-        int? expectedProcessStateVersion = null
+        int? expectedProcessStateVersion = null,
+        CancellationToken cancellationToken = default
     );
 
     /// <summary>

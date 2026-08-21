@@ -185,9 +185,9 @@ public class InstanceRepositoryMock : IInstanceRepository
     public Task<InstanceInternal> Update(
         InstanceInternal instance,
         List<string> updateProperties,
-        CancellationToken cancellationToken,
         int? expectedInstanceVersion = null,
-        int? expectedProcessStateVersion = null
+        int? expectedProcessStateVersion = null,
+        CancellationToken cancellationToken = default
     )
     {
         if (instance.Id == new Guid("d3b326de-2dd8-49a1-834a-b1d23b11e540"))

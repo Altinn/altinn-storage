@@ -278,9 +278,9 @@ public class DataServiceTests
                 drm.Create(
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<long>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    null,
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ReturnsAsync((de, _, _) => de);
@@ -318,7 +318,7 @@ public class DataServiceTests
             options,
             0,
             null,
-            CancellationToken.None
+            cancellationToken: CancellationToken.None
         );
 
         // Assert
@@ -338,9 +338,9 @@ public class DataServiceTests
                         && de.BlobVersionId == allocatedBlobVersionId
                     ),
                     It.IsAny<long>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    null,
+                    It.IsAny<CancellationToken>()
                 ),
             Times.Once
         );
@@ -407,7 +407,7 @@ public class DataServiceTests
                     CreateOptions(dataElementId),
                     0,
                     storageAccountNumber,
-                    CancellationToken.None
+                    cancellationToken: CancellationToken.None
                 )
         );
 
@@ -420,9 +420,9 @@ public class DataServiceTests
                 repository.Create(
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<long>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    null,
+                    It.IsAny<CancellationToken>()
                 ),
             Times.Never
         );
@@ -483,7 +483,7 @@ public class DataServiceTests
                 CreateOptions(dataElementId),
                 0,
                 null,
-                CancellationToken.None
+                cancellationToken: CancellationToken.None
             )
         );
 
@@ -496,9 +496,9 @@ public class DataServiceTests
                 repository.Create(
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<long>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    null,
+                    It.IsAny<CancellationToken>()
                 ),
             Times.Never
         );
@@ -528,9 +528,9 @@ public class DataServiceTests
                 repository.Create(
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<long>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    null,
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ThrowsAsync(new PostgresException("deadlock detected", "ERROR", "ERROR", "40P01"));
@@ -553,7 +553,7 @@ public class DataServiceTests
                 CreateOptions(dataElementId),
                 0,
                 null,
-                CancellationToken.None
+                cancellationToken: CancellationToken.None
             )
         );
 
@@ -604,9 +604,9 @@ public class DataServiceTests
                 repository.Create(
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<long>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    null,
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ThrowsAsync(new TimeoutException("commit outcome unknown"));
@@ -629,7 +629,7 @@ public class DataServiceTests
                 CreateOptions(dataElementId),
                 0,
                 null,
-                CancellationToken.None
+                cancellationToken: CancellationToken.None
             )
         );
 
@@ -684,9 +684,9 @@ public class DataServiceTests
                 repository.Create(
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<long>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    null,
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ThrowsAsync(new InvalidOperationException("metadata create failed"));
@@ -701,7 +701,7 @@ public class DataServiceTests
                     CreateOptions(Guid.NewGuid()),
                     0,
                     null,
-                    CancellationToken.None
+                    cancellationToken: CancellationToken.None
                 )
         );
 

@@ -196,7 +196,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         InstanceInternal updatedInstance = await _instanceFixture.InstanceRepo.Update(
             newInstance,
             updateProperties,
-            CancellationToken.None
+            cancellationToken: CancellationToken.None
         );
 
         // Assert
@@ -248,7 +248,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         InstanceInternal result = await _instanceFixture.InstanceRepo.Update(
             input,
             [nameof(instance.LastChanged), nameof(instance.Process)],
-            CancellationToken.None
+            cancellationToken: CancellationToken.None
         );
 
         Assert.Same(input.Data, result.Data);
@@ -304,7 +304,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
                 _instanceFixture.InstanceRepo.Update(
                     instance,
                     [nameof(instance.LastChanged)],
-                    CancellationToken.None,
+                    cancellationToken: CancellationToken.None,
                     expectedInstanceVersion: instance.Versions.InstanceVersion + 1
                 )
             );
@@ -315,7 +315,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
                 _instanceFixture.InstanceRepo.Update(
                     instance,
                     [nameof(instance.LastChanged)],
-                    CancellationToken.None,
+                    cancellationToken: CancellationToken.None,
                     expectedProcessStateVersion: instance.Versions.ProcessStateVersion + 1
                 )
             );
@@ -358,7 +358,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
                 _instanceFixture.InstanceRepo.Update(
                     instance,
                     updateProperties,
-                    CancellationToken.None
+                    cancellationToken: CancellationToken.None
                 )
             );
 
@@ -401,7 +401,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             _instanceFixture.InstanceRepo.Update(
                 instance,
                 [nameof(instance.LastChanged)],
-                CancellationToken.None
+                cancellationToken: CancellationToken.None
             )
         );
 
@@ -425,7 +425,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
                 _instanceFixture.InstanceRepo.Update(
                     instance,
                     [nameof(instance.LastChanged)],
-                    CancellationToken.None,
+                    cancellationToken: CancellationToken.None,
                     expectedInstanceVersion: instance.Versions.InstanceVersion + 1
                 )
             );
@@ -462,7 +462,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         InstanceInternal result = await _instanceFixture.InstanceRepo.Update(
             instance,
             [nameof(instance.Process), nameof(instance.LastChanged)],
-            CancellationToken.None
+            cancellationToken: CancellationToken.None
         );
 
         Assert.Equal(suppliedStatus, result.Process.Status);
@@ -489,7 +489,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         InstanceInternal result = await _instanceFixture.InstanceRepo.Update(
             instance,
             [nameof(instance.Process), nameof(instance.LastChanged)],
-            CancellationToken.None
+            cancellationToken: CancellationToken.None
         );
         InstanceInternal persisted = await _instanceFixture.InstanceRepo.GetOne(
             instance.Id,
@@ -529,7 +529,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         InstanceInternal result = await _instanceFixture.InstanceRepo.Update(
             instance,
             [nameof(instance.DataValues), nameof(instance.Process), nameof(instance.LastChanged)],
-            CancellationToken.None
+            cancellationToken: CancellationToken.None
         );
 
         Assert.Equal("applied", result.DataValues["combined-update"]);
@@ -572,7 +572,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         InstanceInternal result = await _instanceFixture.InstanceRepo.Update(
             instance,
             [nameof(instance.Process)],
-            CancellationToken.None
+            cancellationToken: CancellationToken.None
         );
 
         Assert.Equal("Task_Representation", result.Process.CurrentTask.ElementId);
@@ -713,7 +713,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             Task<InstanceInternal> updateTask = _instanceFixture.InstanceRepo.Update(
                 instance,
                 [nameof(instance.LastChanged), nameof(instance.LastChangedBy)],
-                CancellationToken.None
+                cancellationToken: CancellationToken.None
             );
 
             try
@@ -801,7 +801,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             _instanceFixture.InstanceRepo.Update(
                 InstanceInternalTestFactory.Create(newInstance, [], InternalId: 0),
                 updateProperties,
-                CancellationToken.None
+                cancellationToken: CancellationToken.None
             )
         );
 
@@ -861,7 +861,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         InstanceInternal updatedInstance = await _instanceFixture.InstanceRepo.Update(
             newInstance,
             updateProperties,
-            CancellationToken.None
+            cancellationToken: CancellationToken.None
         );
 
         // Assert
@@ -909,7 +909,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         InstanceInternal updatedInstance = await _instanceFixture.InstanceRepo.Update(
             newInstance,
             updateProperties,
-            CancellationToken.None
+            cancellationToken: CancellationToken.None
         );
 
         // Assert
@@ -950,7 +950,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         InstanceInternal updatedInstance = await _instanceFixture.InstanceRepo.Update(
             newInstance,
             updateProperties,
-            CancellationToken.None
+            cancellationToken: CancellationToken.None
         );
 
         // Assert
@@ -1003,7 +1003,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         InstanceInternal updatedInstance = await _instanceFixture.InstanceRepo.Update(
             newInstance,
             updateProperties,
-            CancellationToken.None
+            cancellationToken: CancellationToken.None
         );
 
         // Assert
@@ -1057,7 +1057,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         InstanceInternal updatedInstance = await _instanceFixture.InstanceRepo.Update(
             newInstance,
             updateProperties,
-            CancellationToken.None
+            cancellationToken: CancellationToken.None
         );
 
         // Assert
@@ -1102,7 +1102,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         InstanceInternal updatedInstance = await _instanceFixture.InstanceRepo.Update(
             newInstance,
             updateProperties,
-            CancellationToken.None
+            cancellationToken: CancellationToken.None
         );
 
         // Assert
@@ -1158,7 +1158,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         InstanceInternal updatedInstance = await _instanceFixture.InstanceRepo.Update(
             newInstance,
             updateProperties,
-            CancellationToken.None
+            cancellationToken: CancellationToken.None
         );
 
         // Assert
@@ -1216,7 +1216,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         InstanceInternal updatedInstance = await _instanceFixture.InstanceRepo.Update(
             newInstance,
             updateProperties,
-            CancellationToken.None
+            cancellationToken: CancellationToken.None
         );
 
         // Assert
@@ -1539,7 +1539,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         await _instanceFixture.DataRepo.Create(
             otherDataElement.FromApiModel(otherVersion),
             instanceInternal.InternalId,
-            CancellationToken.None
+            cancellationToken: CancellationToken.None
         );
 
         // Act
@@ -1601,7 +1601,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         await _instanceFixture.DataRepo.Create(
             firstInsertedElement.FromApiModel(firstBlobVersionId),
             persisted.InternalId,
-            CancellationToken.None
+            cancellationToken: CancellationToken.None
         );
 
         DataElement secondInsertedElement = TestDataUtil.GetDataElement(
@@ -1619,7 +1619,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         await _instanceFixture.DataRepo.Create(
             secondInsertedElement.FromApiModel(secondBlobVersionId),
             persisted.InternalId,
-            CancellationToken.None
+            cancellationToken: CancellationToken.None
         );
         Assert.NotEqual(firstBlobVersionId, secondBlobVersionId);
         await PostgresUtil.RunSql(
@@ -1735,12 +1735,12 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         await _instanceFixture.DataRepo.Create(
             visibleElement.FromApiModel(),
             persisted.InternalId,
-            CancellationToken.None
+            cancellationToken: CancellationToken.None
         );
         await _instanceFixture.DataRepo.Create(
             deletedElement.FromApiModel(),
             persisted.InternalId,
-            CancellationToken.None
+            cancellationToken: CancellationToken.None
         );
 
         InstanceQueryResult result = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(

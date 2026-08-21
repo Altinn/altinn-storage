@@ -583,9 +583,9 @@ public class PgInstanceRepository : IInstanceRepository
     public async Task<InstanceInternal> Update(
         InstanceInternal instance,
         List<string> updateProperties,
-        CancellationToken cancellationToken,
         int? expectedInstanceVersion = null,
-        int? expectedProcessStateVersion = null
+        int? expectedProcessStateVersion = null,
+        CancellationToken cancellationToken = default
     )
     {
         // Remove last decimal digit to make postgres TIMESTAMPTZ equal to json serialized DateTime

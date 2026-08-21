@@ -20,16 +20,16 @@ public interface IDataRepository
     /// </summary>
     /// <param name="dataElement">the data element to insert</param>
     /// <param name="instanceInternalId">the internal id of the parent instance</param>
-    /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
     /// <param name="expectedInstanceVersion">Expected instance version for optimistic concurrency checks.</param>
     /// <param name="expectedProcessStateVersion">Expected process state version for optimistic concurrency checks.</param>
+    /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
     /// <returns>the data element with internal storage-only fields</returns>
     Task<DataElementWriteResult> Create(
         DataElementInternal dataElement,
         long instanceInternalId = 0,
-        CancellationToken cancellationToken = default,
         int? expectedInstanceVersion = null,
-        int? expectedProcessStateVersion = null
+        int? expectedProcessStateVersion = null,
+        CancellationToken cancellationToken = default
     );
 
     /// <summary>

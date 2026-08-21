@@ -165,9 +165,9 @@ public class ProcessController : ControllerBase
             updatedInstance = await _instanceRepository.Update(
                 existingInstance,
                 updateProperties,
-                cancellationToken,
                 preconditions.InstanceVersion,
-                currentVersions.ProcessStateVersion
+                currentVersions.ProcessStateVersion,
+                cancellationToken
             );
         }
         catch (StorageVersionMismatchException e)

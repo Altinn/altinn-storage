@@ -81,7 +81,7 @@ public class DataBlobIntegrationTests
                 options,
                 _instanceInternalId,
                 null,
-                CancellationToken.None
+                cancellationToken: CancellationToken.None
             );
 
         // Assert upload

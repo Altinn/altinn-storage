@@ -728,9 +728,9 @@ public class StudioInstancesControllerTests
                 ir.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    null,
+                    It.IsAny<CancellationToken>()
                 ),
             Times.Never
         );
@@ -909,9 +909,9 @@ public class StudioInstancesControllerTests
                 ir.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    null,
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ThrowsAsync(new Exception("Database connection error"));
@@ -964,9 +964,9 @@ public class StudioInstancesControllerTests
                 repository.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    null,
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ThrowsAsync(new ProcessStatusConflictException(currentStatus));
@@ -1019,13 +1019,13 @@ public class StudioInstancesControllerTests
                 ir.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    null,
+                    It.IsAny<CancellationToken>()
                 )
             )
             .ReturnsAsync(
-                (InstanceInternal i, List<string> _, CancellationToken _, int? _, int? _) => i
+                (InstanceInternal i, List<string> _, int? _, int? _, CancellationToken _) => i
             );
 
         var applicationServiceMock = new Mock<IApplicationService>();
@@ -1063,9 +1063,9 @@ public class StudioInstancesControllerTests
                         && i.LastChangedBy == "991825827"
                     ),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    null,
+                    It.IsAny<CancellationToken>()
                 ),
             Times.Once
         );
@@ -1130,9 +1130,9 @@ public class StudioInstancesControllerTests
                 ir.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    null,
+                    It.IsAny<CancellationToken>()
                 ),
             Times.Never
         );
@@ -1197,9 +1197,9 @@ public class StudioInstancesControllerTests
                 ir.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
-                    It.IsAny<CancellationToken>(),
                     null,
-                    null
+                    null,
+                    It.IsAny<CancellationToken>()
                 ),
             Times.Never
         );
