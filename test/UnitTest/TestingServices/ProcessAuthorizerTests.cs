@@ -1,7 +1,9 @@
+using System;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
@@ -18,13 +20,13 @@ public class ProcessAuthorizerTests
 
     private ProcessAuthorizer CreateSut() => new(_authorizationMock.Object, _settings);
 
-    private static Instance CreateInstance(
+    private static InstanceInternal CreateInstance(
         string taskId = "Task_1",
         string altinnTaskType = "data"
     ) =>
         new()
         {
-            Id = "500/guid",
+            Id = Guid.NewGuid(),
             Process = new ProcessState
             {
                 CurrentTask = new ProcessElementInfo
@@ -37,7 +39,7 @@ public class ProcessAuthorizerTests
 
     private void SetupAuthorizeAction(string action, string taskId, bool returns) =>
         _authorizationMock
-            .Setup(a => a.AuthorizeInstanceAction(It.IsAny<Instance>(), action, taskId))
+            .Setup(a => a.AuthorizeInstanceAction(It.IsAny<InstanceInternal>(), action, taskId))
             .ReturnsAsync(returns);
 
     #region AuthorizeProcessNext
@@ -79,7 +81,7 @@ public class ProcessAuthorizerTests
     [Fact]
     public async Task AuthorizeProcessNext_NoCurrentTask_ReturnsFalse()
     {
-        var instance = new Instance { Process = new ProcessState { CurrentTask = null } };
+        var instance = new InstanceInternal { Process = new ProcessState { CurrentTask = null } };
 
         Assert.False(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
     }
@@ -87,7 +89,7 @@ public class ProcessAuthorizerTests
     [Fact]
     public async Task AuthorizeProcessNext_NullProcess_ReturnsFalse()
     {
-        var instance = new Instance { Process = null };
+        var instance = new InstanceInternal { Process = null };
 
         Assert.False(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
     }
@@ -104,7 +106,12 @@ public class ProcessAuthorizerTests
 
         Assert.True(await CreateSut().AuthorizeProcessNext(instance, nextState));
         _authorizationMock.Verify(
-            a => a.AuthorizeInstanceAction(It.IsAny<Instance>(), "write", It.IsAny<string>()),
+            a =>
+                a.AuthorizeInstanceAction(
+                    It.IsAny<InstanceInternal>(),
+                    "write",
+                    It.IsAny<string>()
+                ),
             Times.Never
         );
     }
@@ -183,7 +190,7 @@ public class ProcessAuthorizerTests
     [Fact]
     public async Task AuthorizeLock_NoCurrentTask_ReturnsFalse()
     {
-        var instance = new Instance { Process = new ProcessState { CurrentTask = null } };
+        var instance = new InstanceInternal { Process = new ProcessState { CurrentTask = null } };
 
         Assert.False(await CreateSut().AuthorizeDataElementLock(instance));
         Assert.False(await CreateSut().AuthorizeInstanceLock(instance));
@@ -192,7 +199,7 @@ public class ProcessAuthorizerTests
     [Fact]
     public async Task AuthorizeLock_NoCurrentTask_UserHasWriteAccess_ReturnsTrue()
     {
-        var instance = new Instance { Process = new ProcessState { CurrentTask = null } };
+        var instance = new InstanceInternal { Process = new ProcessState { CurrentTask = null } };
         _authorizationMock
             .Setup(a => a.AuthorizeInstanceAction(instance, "write", null))
             .ReturnsAsync(true);
@@ -206,7 +213,7 @@ public class ProcessAuthorizerTests
     [Fact]
     public async Task AuthorizeLock_NoProcess_ReturnsFalse()
     {
-        var instance = new Instance { Process = null };
+        var instance = new InstanceInternal { Process = null };
 
         Assert.False(await CreateSut().AuthorizeDataElementLock(instance));
         Assert.False(await CreateSut().AuthorizeInstanceLock(instance));
@@ -250,7 +257,7 @@ public class ProcessAuthorizerTests
     [Fact]
     public async Task AuthorizeUpdate_NoCurrentTask_ReturnsFalse()
     {
-        var instance = new Instance { Process = new ProcessState { CurrentTask = null } };
+        var instance = new InstanceInternal { Process = new ProcessState { CurrentTask = null } };
 
         Assert.False(await CreateSut().AuthorizePresentationTextsUpdate(instance));
         Assert.False(await CreateSut().AuthorizeDataValuesUpdate(instance));
@@ -259,7 +266,7 @@ public class ProcessAuthorizerTests
     [Fact]
     public async Task AuthorizeDataValuesUpdate_SyncAdapterScope_ReturnsTrue()
     {
-        var instance = new Instance { Process = new ProcessState { CurrentTask = null } };
+        var instance = new InstanceInternal { Process = new ProcessState { CurrentTask = null } };
         _authorizationMock
             .Setup(a => a.UserHasRequiredScope("altinn:storage/instances.syncadapter"))
             .Returns(true);
@@ -270,7 +277,7 @@ public class ProcessAuthorizerTests
     [Fact]
     public async Task AuthorizePresentationTextsUpdate_SyncAdapterScope_ReturnsFalse()
     {
-        var instance = new Instance { Process = new ProcessState { CurrentTask = null } };
+        var instance = new InstanceInternal { Process = new ProcessState { CurrentTask = null } };
         _authorizationMock
             .Setup(a => a.UserHasRequiredScope("altinn:storage/instances.syncadapter"))
             .Returns(true);

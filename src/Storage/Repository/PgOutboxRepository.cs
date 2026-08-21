@@ -18,18 +18,10 @@ namespace Altinn.Platform.Storage.Repository;
 /// <summary>
 /// Handles the outbox repository.
 /// </summary>
-/// <remarks>
-/// Initializes a new instance of the <see cref="PgOutboxRepository"/> class.
-/// </remarks>
-/// <param name="wolverineSettings">the wolverine settings</param>
-/// <param name="dataSource">The npgsql data source.</param>
-/// <param name="logger">The logger.</param>
-/// <param name="contextAccessor">HttpContextAccessor.</param>
 public class PgOutboxRepository(
-    IOptions<WolverineSettings> wolverineSettings,
     NpgsqlDataSource dataSource,
     ILogger<PgOutboxRepository> logger,
-    IHttpContextAccessor contextAccessor = null
+    OutboxInsertRowFactory outboxInsertRowFactory
 ) : IOutboxRepository
 {
     private static readonly string _insertSql =
@@ -63,50 +55,42 @@ public class PgOutboxRepository(
             DELETE FROM storage.leases WHERE resource = @_resource AND holder = @_holder";
 
     private readonly ILogger<PgOutboxRepository> _logger = logger;
-    private readonly WolverineSettings _wolverineSettings = wolverineSettings.Value;
+    private readonly OutboxInsertRowFactory _outboxInsertRowFactory = outboxInsertRowFactory;
 
     /// <inheritdoc/>
     public async Task Insert(
         SyncInstanceToDialogportenCommand dp,
-        NpgsqlConnection existingConnection
+        NpgsqlConnection existingConnection,
+        NpgsqlTransaction transaction
     )
     {
-        if (!_wolverineSettings.EnableSending)
+        OutboxInsertRow row = _outboxInsertRowFactory.TryBuild(dp);
+        if (row is null)
         {
             return;
         }
 
-        // The created event is used both in the data controller and the instance controller. The first one gives an "instance create" event
-        bool isInstanceCreate =
-            dp.EventType == InstanceEventType.Created
-            && !(
-                contextAccessor?.HttpContext?.Request.Path.Value?.EndsWith(
-                    "/data",
-                    StringComparison.OrdinalIgnoreCase
-                ) ?? true
-            );
+        await using NpgsqlCommand pgcom = new(_insertSql, existingConnection, transaction);
 
-        await using NpgsqlCommand pgcom = new(_insertSql, existingConnection);
-
-        pgcom.Parameters.AddWithValue("_appid", NpgsqlDbType.Text, dp.AppId);
-        pgcom.Parameters.AddWithValue("_instanceid", NpgsqlDbType.Uuid, Guid.Parse(dp.InstanceId));
+        pgcom.Parameters.AddWithValue("_appid", NpgsqlDbType.Text, row.AppId);
+        pgcom.Parameters.AddWithValue("_instanceid", NpgsqlDbType.Uuid, row.InstanceId);
         pgcom.Parameters.AddWithValue(
             "_validfrom",
             NpgsqlDbType.TimestampTz,
-            DateTime.UtcNow.AddSeconds(GetEventDelaySecs(dp.EventType, isInstanceCreate))
+            DateTime.UtcNow.AddSeconds(row.DelaySeconds)
         );
         pgcom.Parameters.AddWithValue(
             "_instancecreated",
             NpgsqlDbType.TimestampTz,
-            dp.InstanceCreatedAt
+            row.InstanceCreated
         );
-        pgcom.Parameters.AddWithValue("_ismigration", NpgsqlDbType.Boolean, dp.IsMigration);
+        pgcom.Parameters.AddWithValue("_ismigration", NpgsqlDbType.Boolean, row.IsMigration);
         pgcom.Parameters.AddWithValue(
             "_instanceeventtype",
             NpgsqlDbType.Smallint,
-            (int)dp.EventType
+            (int)row.InstanceEventType
         );
-        pgcom.Parameters.AddWithValue("_partyid", NpgsqlDbType.Bigint, long.Parse(dp.PartyId));
+        pgcom.Parameters.AddWithValue("_partyid", NpgsqlDbType.Bigint, row.PartyId);
 
         try
         {
@@ -212,21 +196,64 @@ public class PgOutboxRepository(
             return false;
         }
     }
+}
+
+/// <summary>
+/// Builds outbox rows for Dialogporten synchronization.
+/// </summary>
+/// <param name="wolverineSettings">Wolverine/outbox delivery settings.</param>
+/// <param name="contextAccessor">Optional HTTP context used to disambiguate instance creation events.</param>
+public sealed class OutboxInsertRowFactory(
+    IOptions<WolverineSettings> wolverineSettings,
+    IHttpContextAccessor contextAccessor = null
+)
+{
+    private readonly WolverineSettings _wolverineSettings = wolverineSettings.Value;
+
+    internal OutboxInsertRow TryBuild(SyncInstanceToDialogportenCommand command)
+    {
+        if (!_wolverineSettings.EnableSending)
+        {
+            return null;
+        }
+
+        // The created event is used both in the data controller and the instance controller. The first one gives an "instance create" event
+        bool isInstanceCreate =
+            command.EventType == InstanceEventType.Created
+            && !(
+                contextAccessor?.HttpContext?.Request.Path.Value?.EndsWith(
+                    "/data",
+                    StringComparison.OrdinalIgnoreCase
+                ) ?? true
+            );
+
+        return new OutboxInsertRow(
+            Guid.Parse(command.InstanceId),
+            command.AppId,
+            long.Parse(command.PartyId),
+            GetEventDelaySecs(command.EventType, isInstanceCreate),
+            command.InstanceCreatedAt,
+            command.IsMigration,
+            command.EventType
+        );
+    }
 
     private int GetEventDelaySecs(InstanceEventType eventType, bool instanceCreate) =>
-        eventType switch
+        OutboxEventSyncPolicy.GetPriority(eventType, instanceCreate) switch
         {
-            InstanceEventType.Created => instanceCreate
-                ? _wolverineSettings.UrgentPriorityDelaySecs
-                : _wolverineSettings.HighPriorityDelaySecs,
-            InstanceEventType.Deleted => _wolverineSettings.UrgentPriorityDelaySecs,
-            InstanceEventType.Saved => _wolverineSettings.LowPriorityDelaySecs,
-            InstanceEventType.SubstatusUpdated => _wolverineSettings.LowPriorityDelaySecs,
-            InstanceEventType.process_StartEvent => _wolverineSettings.LowPriorityDelaySecs,
-            InstanceEventType.process_EndEvent => _wolverineSettings.LowPriorityDelaySecs,
-            InstanceEventType.process_StartTask => _wolverineSettings.LowPriorityDelaySecs,
-            InstanceEventType.process_EndTask => _wolverineSettings.LowPriorityDelaySecs,
-            InstanceEventType.process_AbandonTask => _wolverineSettings.LowPriorityDelaySecs,
+            OutboxEventPriority.Urgent => _wolverineSettings.UrgentPriorityDelaySecs,
+            OutboxEventPriority.High => _wolverineSettings.HighPriorityDelaySecs,
+            OutboxEventPriority.Low => _wolverineSettings.LowPriorityDelaySecs,
             _ => _wolverineSettings.HighPriorityDelaySecs,
         };
 }
+
+internal sealed record OutboxInsertRow(
+    Guid InstanceId,
+    string AppId,
+    long PartyId,
+    int DelaySeconds,
+    DateTime InstanceCreated,
+    bool IsMigration,
+    InstanceEventType InstanceEventType
+);

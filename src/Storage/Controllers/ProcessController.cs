@@ -5,14 +5,18 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace Altinn.Platform.Storage.Controllers;
@@ -26,39 +30,51 @@ public class ProcessController : ControllerBase
 {
     private readonly IInstanceRepository _instanceRepository;
     private readonly IInstanceEventRepository _instanceEventRepository;
-    private readonly IInstanceAndEventsRepository _instanceAndEventsRepository;
+    private readonly IInstanceMutationRepository _instanceMutationRepository;
     private readonly string _storageBaseAndHost;
     private readonly IProcessAuthorizer _processAuthorizer;
     private readonly IInstanceEventService _instanceEventService;
     private readonly IProcessDataCleanupService _processDataCleanupService;
+    private readonly IApplicationService _applicationService;
+    private readonly IDataService _dataService;
+    private readonly ILogger<ProcessController> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ProcessController"/> class
     /// </summary>
     /// <param name="instanceRepository">the instance repository handler</param>
     /// <param name="instanceEventRepository">the instance event repository service</param>
-    /// <param name="instanceAndEventsRepository">the instance and events repository</param>
+    /// <param name="instanceMutationRepository">the aggregate instance mutation repository</param>
     /// <param name="generalsettings">the general settings</param>
     /// <param name="processAuthorizer">the process authorizer</param>
     /// <param name="instanceEventService">the instance event service</param>
     /// <param name="processDataCleanupService">the process data cleanup service</param>
+    /// <param name="applicationService">the application service</param>
+    /// <param name="dataService">the data service</param>
+    /// <param name="logger">the logger</param>
     public ProcessController(
         IInstanceRepository instanceRepository,
         IInstanceEventRepository instanceEventRepository,
-        IInstanceAndEventsRepository instanceAndEventsRepository,
+        IInstanceMutationRepository instanceMutationRepository,
         IOptions<GeneralSettings> generalsettings,
         IProcessAuthorizer processAuthorizer,
         IInstanceEventService instanceEventService,
-        IProcessDataCleanupService processDataCleanupService
+        IProcessDataCleanupService processDataCleanupService,
+        IApplicationService applicationService,
+        IDataService dataService,
+        ILogger<ProcessController>? logger = null
     )
     {
         _instanceRepository = instanceRepository;
         _instanceEventRepository = instanceEventRepository;
-        _instanceAndEventsRepository = instanceAndEventsRepository;
+        _instanceMutationRepository = instanceMutationRepository;
         _storageBaseAndHost = $"{generalsettings.Value.Hostname}/storage/api/v1/";
         _processAuthorizer = processAuthorizer;
         _instanceEventService = instanceEventService;
         _processDataCleanupService = processDataCleanupService;
+        _applicationService = applicationService;
+        _dataService = dataService;
+        _logger = logger ?? NullLogger<ProcessController>.Instance;
     }
 
     /// <summary>
@@ -68,21 +84,35 @@ public class ProcessController : ControllerBase
     /// <param name="instanceGuid">The id of the instance that should have its process updated.</param>
     /// <param name="processState">The new process state of the instance.</param>
     /// <param name="cancellationToken">CancellationToken</param>
+    /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
+    /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>The updated instance</returns>
     [Authorize]
     [HttpPut]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> PutProcess(
         int instanceOwnerPartyId,
         Guid instanceGuid,
         [FromBody] ProcessState processState,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        [FromHeader(Name = StorageHeaders.IfInstanceVersionMatch)]
+            string? ifInstanceVersionMatch = null,
+        [FromHeader(Name = StorageHeaders.IfProcessStateVersionMatch)]
+            string? ifProcessStateVersionMatch = null
     )
     {
-        (Instance existingInstance, _) = await _instanceRepository.GetOne(
+        (VersionPreconditions preconditions, ActionResult? preconditionError) =
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
+        InstanceInternal existingInstance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
@@ -93,6 +123,35 @@ public class ProcessController : ControllerBase
             return NotFound();
         }
 
+        StorageVersions currentVersions = existingInstance.Versions;
+        if (
+            preconditions.InstanceVersion is not null
+            && preconditions.InstanceVersion != currentVersions.InstanceVersion
+        )
+        {
+            return VersionPreconditionHelper.VersionMismatch(
+                Response,
+                new InstanceVersionMismatchException(
+                    currentVersions.InstanceVersion,
+                    currentVersions.ProcessStateVersion
+                )
+            );
+        }
+
+        if (
+            preconditions.ProcessStateVersion is not null
+            && preconditions.ProcessStateVersion != currentVersions.ProcessStateVersion
+        )
+        {
+            return VersionPreconditionHelper.VersionMismatch(
+                Response,
+                new ProcessStateVersionMismatchException(
+                    currentVersions.InstanceVersion,
+                    currentVersions.ProcessStateVersion
+                )
+            );
+        }
+
         if (!await _processAuthorizer.AuthorizeProcessNext(existingInstance, processState))
         {
             return Forbid();
@@ -100,11 +159,25 @@ public class ProcessController : ControllerBase
 
         UpdateInstance(existingInstance, processState, out var updateProperties);
 
-        Instance updatedInstance = await _instanceRepository.Update(
-            existingInstance,
-            updateProperties,
-            cancellationToken
-        );
+        InstanceInternal updatedInstance;
+        try
+        {
+            updatedInstance = await _instanceRepository.Update(
+                existingInstance,
+                updateProperties,
+                cancellationToken,
+                preconditions.InstanceVersion,
+                currentVersions.ProcessStateVersion
+            );
+        }
+        catch (StorageVersionMismatchException e)
+        {
+            return VersionPreconditionHelper.VersionMismatch(Response, e);
+        }
+        catch (ProcessStatusConflictException e)
+        {
+            return Conflict(e.Message);
+        }
 
         if (processState?.CurrentTask?.AltinnTaskType == "signing")
         {
@@ -114,8 +187,10 @@ public class ProcessController : ControllerBase
             );
         }
 
-        updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
-        return Ok(updatedInstance);
+        Instance responseInstance = updatedInstance.ToApiModel();
+        responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
+        return Ok(responseInstance);
     }
 
     /// <summary>
@@ -134,11 +209,14 @@ public class ProcessController : ControllerBase
     /// encode a valid boolean.
     /// </param>
     /// <param name="cancellationToken">CancellationToken</param>
+    /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
+    /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns></returns>
     [Authorize]
     [HttpPut("instanceandevents")]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces("application/json")]
@@ -147,10 +225,26 @@ public class ProcessController : ControllerBase
         Guid instanceGuid,
         [FromBody] ProcessStateUpdate processStateUpdate,
         [FromQuery] bool? deleteGeneratedElements,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        [FromHeader(Name = StorageHeaders.IfInstanceVersionMatch)]
+            string? ifInstanceVersionMatch = null,
+        [FromHeader(Name = StorageHeaders.IfProcessStateVersionMatch)]
+            string? ifProcessStateVersionMatch = null
     )
     {
-        (Instance existingInstance, _) = await _instanceRepository.GetOne(
+        (VersionPreconditions preconditions, ActionResult? preconditionError) =
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
+        if (processStateUpdate?.State is null)
+        {
+            return BadRequest("Invalid instance state");
+        }
+
+        InstanceInternal existingInstance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
@@ -159,6 +253,44 @@ public class ProcessController : ControllerBase
         if (existingInstance is null)
         {
             return NotFound();
+        }
+
+        StorageVersions currentVersions = existingInstance.Versions;
+        if (
+            preconditions.InstanceVersion is not null
+            && preconditions.InstanceVersion != currentVersions.InstanceVersion
+        )
+        {
+            return VersionPreconditionHelper.VersionMismatch(
+                Response,
+                new InstanceVersionMismatchException(
+                    currentVersions.InstanceVersion,
+                    currentVersions.ProcessStateVersion
+                )
+            );
+        }
+
+        if (
+            preconditions.ProcessStateVersion is not null
+            && preconditions.ProcessStateVersion != currentVersions.ProcessStateVersion
+        )
+        {
+            return VersionPreconditionHelper.VersionMismatch(
+                Response,
+                new ProcessStateVersionMismatchException(
+                    currentVersions.InstanceVersion,
+                    currentVersions.ProcessStateVersion
+                )
+            );
+        }
+
+        try
+        {
+            ProcessStatusHelper.EnsureExpectedStatus(existingInstance);
+        }
+        catch (ProcessStatusConflictException exception)
+        {
+            return Conflict(exception.Message);
         }
 
         foreach (InstanceEvent instanceEvent in processStateUpdate.Events ?? [])
@@ -185,14 +317,10 @@ public class ProcessController : ControllerBase
                 return BadRequest("Instance ID in InstanceEvent does not match the Instance ID");
             }
 
-            instanceEvent.Created = instanceEvent.Created?.ToUniversalTime() ?? DateTime.UtcNow;
+            instanceEvent.Created ??= DateTime.UtcNow;
         }
 
         ProcessState processState = processStateUpdate.State;
-        if (processState is null)
-        {
-            return BadRequest("Invalid instance state");
-        }
 
         if (!await _processAuthorizer.AuthorizeProcessNext(existingInstance, processState))
         {
@@ -203,13 +331,14 @@ public class ProcessController : ControllerBase
         // visits to that same task (e.g. stale PDFs, signatures) - unless the caller manages its own
         // task-generated data cleanup and has opted out with deleteGeneratedElements=false.
         string? targetTaskId = processState.CurrentTask?.ElementId;
+        IReadOnlyList<DataElementInternal> generatedDataElementsToDelete = [];
         if (!string.IsNullOrWhiteSpace(targetTaskId) && (deleteGeneratedElements ?? true))
         {
-            await _processDataCleanupService.CleanupGeneratedFromTask(
-                existingInstance,
-                targetTaskId,
-                cancellationToken
-            );
+            generatedDataElementsToDelete =
+                _processDataCleanupService.GetGeneratedFromTaskDataElements(
+                    existingInstance,
+                    targetTaskId
+                );
         }
 
         processStateUpdate.Events ??= [];
@@ -223,15 +352,96 @@ public class ProcessController : ControllerBase
             processStateUpdate.Events.Add(instanceEvent);
         }
 
-        Instance updatedInstance = await _instanceAndEventsRepository.Update(
-            existingInstance,
-            updateProperties,
-            processStateUpdate.Events,
-            cancellationToken
-        );
+        foreach (DataElementInternal dataElement in generatedDataElementsToDelete)
+        {
+            processStateUpdate.Events.Add(
+                _instanceEventService.BuildInstanceEvent(
+                    InstanceEventType.Deleted,
+                    existingInstance,
+                    dataElement
+                )
+            );
+        }
 
-        updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
-        return Ok(updatedInstance);
+        InstanceMutationApplyResult applyResult;
+        try
+        {
+            string lastChangedBy = User.GetUserOrOrgNo() ?? string.Empty;
+            foreach (DataElementInternal dataElement in generatedDataElementsToDelete)
+            {
+                dataElement.LastChangedBy = lastChangedBy;
+            }
+
+            InstanceMutationCommit mutation = new(
+                [],
+                [],
+                [
+                    .. generatedDataElementsToDelete.Select(
+                        dataElement => new InstanceMutationDataElementDelete(
+                            dataElement,
+                            IgnoreLock: true
+                        )
+                    ),
+                ],
+                existingInstance,
+                updateProperties,
+                preconditions.InstanceVersion,
+                currentVersions.ProcessStateVersion,
+                processStateUpdate.Events
+            );
+
+            applyResult = await _instanceMutationRepository.Apply(
+                instanceGuid,
+                existingInstance.InternalId,
+                mutation,
+                cancellationToken
+            );
+        }
+        catch (StorageVersionMismatchException e)
+        {
+            return VersionPreconditionHelper.VersionMismatch(Response, e);
+        }
+        catch (RepositoryException e) when (e.StatusCodeSuggestion.HasValue)
+        {
+            return StatusCode((int)e.StatusCodeSuggestion.Value, e.Message);
+        }
+
+        InstanceInternal updatedInstance = applyResult.Instance;
+
+        int? cleanupStorageAccountNumber = null;
+        if (generatedDataElementsToDelete.Count > 0)
+        {
+            try
+            {
+                (Application application, _) = await _applicationService.GetApplicationOrErrorAsync(
+                    updatedInstance.AppId
+                );
+                cleanupStorageAccountNumber = application?.StorageAccountNumber;
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(
+                    exception,
+                    "Failed to resolve application {AppId} for post-commit generated-data blob cleanup.",
+                    updatedInstance.AppId
+                );
+            }
+        }
+
+        foreach (DataElementInternal dataElementInternal in generatedDataElementsToDelete)
+        {
+            await _dataService.CleanupDeletedDataElementBlobs(
+                updatedInstance,
+                dataElementInternal,
+                cleanupStorageAccountNumber,
+                CancellationToken.None
+            );
+        }
+
+        Instance responseInstance = updatedInstance.ToApiModel();
+        responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
+        return Ok(responseInstance);
     }
 
     /// <summary>
@@ -252,11 +462,10 @@ public class ProcessController : ControllerBase
         string[] eventTypes = Enum.GetNames<InstanceEventType>()
             .Where(x => x.StartsWith("process"))
             .ToArray();
-        string instanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
         ProcessHistoryList processHistoryList = new ProcessHistoryList();
 
         List<InstanceEvent> processEvents = await _instanceEventRepository.ListInstanceEvents(
-            instanceId,
+            instanceGuid,
             eventTypes,
             null,
             null
@@ -289,13 +498,14 @@ public class ProcessController : ControllerBase
         string? message = null;
         try
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(
+            InstanceInternal? instance = await _instanceRepository.GetOne(
                 instanceGuid,
                 false,
                 cancellationToken
             );
-            if (instance.InstanceOwner.PartyId == instanceOwnerPartyId.ToString())
+            if (instance?.InstanceOwner.PartyId == instanceOwnerPartyId.ToString())
             {
+                VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
                 return Ok(new AuthInfo() { Process = instance.Process, AppId = instance.AppId });
             }
         }
@@ -310,7 +520,7 @@ public class ProcessController : ControllerBase
     }
 
     private void UpdateInstance(
-        Instance existingInstance,
+        InstanceInternal existingInstance,
         ProcessState processState,
         out List<string> updateProperties
     )

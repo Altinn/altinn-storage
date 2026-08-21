@@ -16,7 +16,6 @@ using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Constants;
 using Altinn.Common.PEP.Helpers;
 using Altinn.Common.PEP.Interfaces;
-using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Constants;
@@ -253,7 +252,7 @@ public class PepWithPDPAuthorizationMockSI : IPDP
 
         if (!resourceAttributeComplete && !string.IsNullOrEmpty(resourceAttributes.InstanceValue))
         {
-            (Instance instanceData, _) = await _instanceService.GetOne(
+            InstanceInternal instanceData = await _instanceService.GetOne(
                 Guid.Parse(resourceAttributes.InstanceValue.Split('/')[1]),
                 true,
                 CancellationToken.None

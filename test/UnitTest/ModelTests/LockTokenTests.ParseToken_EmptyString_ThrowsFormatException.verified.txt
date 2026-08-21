@@ -3,9 +3,20 @@
     $type: FormatException,
     Type: FormatException,
     Message: Could not deserialize JSON.,
-    StackTrace:
-at Altinn.Platform.Storage.Models.LockToken.ParseToken(String token)
-at Altinn.Platform.Storage.UnitTest.ModelTests.LockTokenTests.<>c__DisplayClass11_0.<ParseToken_EmptyString_ThrowsFormatException>b__0()
-at Xunit.Assert.RecordException(Func`1 testCode, String asyncMethodName)
+    InnerException: {
+      $type: JsonException,
+      Type: JsonException,
+      LineNumber: 0,
+      BytePositionInLine: 0,
+      Path: $,
+      Message: The input does not contain any JSON tokens. Expected the input to start with a valid JSON token, when isFinalBlock is true. Path: $ | LineNumber: 0 | BytePositionInLine: 0.,
+      InnerException: {
+        $type: JsonReaderException,
+        Type: JsonReaderException,
+        LineNumber: 0,
+        BytePositionInLine: 0,
+        Message: The input does not contain any JSON tokens. Expected the input to start with a valid JSON token, when isFinalBlock is true. LineNumber: 0 | BytePositionInLine: 0.
+      }
+    }
   }
 }

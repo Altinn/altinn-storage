@@ -16,6 +16,12 @@ BEGIN
         USING storage.instances i
         WHERE i.alternateid = d.instanceguid AND i.alternateid = _instanceguid;
     GET DIAGNOSTICS _deleteCount = ROW_COUNT;
+
+    UPDATE storage.dataelementblobversions
+        SET attached = false
+        WHERE instanceguid = _instanceguid
+            AND attached = true;
+
     RETURN _deleteCount;
 END;
 $BODY$;

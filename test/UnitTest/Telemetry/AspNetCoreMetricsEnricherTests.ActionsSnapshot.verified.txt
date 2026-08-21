@@ -10,6 +10,7 @@
     Altinn.Platform.Storage.Controllers.InstanceEventsController.Get (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstanceEventsController.GetOne (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstanceEventsController.Post (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.InstanceMutationsController.CommitMutation (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstancesController.AddCompleteConfirmation (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstancesController.Delete (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.InstancesController.Get (Altinn.Platform.Storage),
@@ -73,6 +74,11 @@
       altinn:instances.read,
       altinn:portal/enduser,
       altinn:serviceowner/instances.read
+    ],
+    Altinn.Platform.Storage.Controllers.InstanceMutationsController.CommitMutation (Altinn.Platform.Storage): [
+      altinn:instances.write,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.write
     ],
     Altinn.Platform.Storage.Controllers.InstancesController.AddCompleteConfirmation (Altinn.Platform.Storage): [
       altinn:instances.write,
@@ -144,6 +150,7 @@
     Altinn.Platform.Storage.Controllers.ApplicationsController.Post (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.ApplicationsController.Put (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.CleanupController.CleanupDataelements (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.CleanupController.CleanupInstanceMutationIdempotency (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.CleanupController.CleanupInstances (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.CleanupController.CleanupInstancesForApp (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.ContentOnDemandController.GetFormdataAsHtml (Altinn.Platform.Storage),
