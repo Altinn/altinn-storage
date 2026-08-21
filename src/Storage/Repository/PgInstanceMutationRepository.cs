@@ -30,17 +30,17 @@ public sealed class PgInstanceMutationRepository(
     OutboxInsertRowFactory outboxInsertRowFactory
 ) : IInstanceMutationRepository
 {
-    internal const string ApplyMutationSql =
+    internal const string _applyMutationSql =
         "select * from storage.applyinstancemutation($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)";
-    private static readonly JsonSerializerOptions OmitNullPropertiesJsonOptions = new()
+    private static readonly JsonSerializerOptions _omitNullPropertiesJsonOptions = new()
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
-    private const string TryReplayAdmissionSql =
+    private const string _tryReplayAdmissionSql =
         "select storage.tryreplayinstancemutation($1, $2, $3, $4, $5) as createddataelementids";
-    private const string ReadInstanceSql = "select * from storage.readinstance_v2($1)";
-    private const string DeleteIdempotencyRecordsCreatedBeforeSql =
+    private const string _readInstanceSql = "select * from storage.readinstance_v2($1)";
+    private const string _deleteIdempotencyRecordsCreatedBeforeSql =
         "select storage.deleteinstancemutationidempotency($1, $2)";
     private readonly NpgsqlDataSource _dataSource = dataSource;
     private readonly OutboxInsertRowFactory _outboxInsertRowFactory = outboxInsertRowFactory;
@@ -64,7 +64,7 @@ public sealed class PgInstanceMutationRepository(
             cancellationToken
         );
 
-        await using (NpgsqlCommand cmd = new(TryReplayAdmissionSql, connection, transaction))
+        await using (NpgsqlCommand cmd = new(_tryReplayAdmissionSql, connection, transaction))
         {
             cmd.Parameters.AddWithValue(NpgsqlDbType.Uuid, idempotencyKey);
             cmd.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
@@ -90,18 +90,11 @@ public sealed class PgInstanceMutationRepository(
             }
         }
 
-        InstanceInternal instance = await ReadInstanceForReplay(
-            connection,
-            transaction,
-            instanceGuid,
-            cancellationToken
-        );
-        if (instance is null)
-        {
-            throw new UnreachableException(
+        InstanceInternal instance =
+            await ReadInstanceForReplay(connection, transaction, instanceGuid, cancellationToken)
+            ?? throw new UnreachableException(
                 "Replay admission succeeded but follow-up instance read returned no result."
             );
-        }
 
         // Replay admission has already proved that this is the produced version for the original
         // mutation. The snapshot may therefore legitimately be hard-deleted by that mutation.
@@ -124,7 +117,7 @@ public sealed class PgInstanceMutationRepository(
     )
     {
         await using NpgsqlCommand cmd = _dataSource.CreateCommand(
-            DeleteIdempotencyRecordsCreatedBeforeSql
+            _deleteIdempotencyRecordsCreatedBeforeSql
         );
         cmd.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, createdBeforeUtc);
         cmd.Parameters.AddWithValue(NpgsqlDbType.Integer, batchSize);
@@ -150,7 +143,7 @@ public sealed class PgInstanceMutationRepository(
         CancellationToken cancellationToken = default
     )
     {
-        await using NpgsqlCommand cmd = _dataSource.CreateCommand(ApplyMutationSql);
+        await using NpgsqlCommand cmd = _dataSource.CreateCommand(_applyMutationSql);
         cmd.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
         cmd.Parameters.AddWithValue(NpgsqlDbType.Bigint, instanceInternalId);
         AddNullableParameter(
@@ -209,23 +202,20 @@ public sealed class PgInstanceMutationRepository(
             await using NpgsqlDataReader reader = await cmd.ExecuteReaderAsync(cancellationToken);
             bool replayed = false;
             IReadOnlyList<string> createdDataElementIds = [];
-            InstanceInternal instance = await PgInstanceRepository.ReadInstanceResultAsync(
-                reader,
-                includeElements: true,
-                cancellationToken,
-                firstRowCallback: row =>
-                {
-                    replayed = row.GetBoolean(row.GetOrdinal("replayed"));
-                    createdDataElementIds = ReadTextArray(row, "createddataelementids");
-                }
-            );
-
-            if (instance is null)
-            {
-                throw new UnreachableException(
+            InstanceInternal instance =
+                await PgInstanceRepository.ReadInstanceResultAsync(
+                    reader,
+                    includeElements: true,
+                    cancellationToken,
+                    firstRowCallback: row =>
+                    {
+                        replayed = row.GetBoolean(row.GetOrdinal("replayed"));
+                        createdDataElementIds = ReadTextArray(row, "createddataelementids");
+                    }
+                )
+                ?? throw new UnreachableException(
                     "Apply mutation function returned no instance rows."
                 );
-            }
 
             return new InstanceMutationApplyResult(replayed, createdDataElementIds, instance);
         }
@@ -270,7 +260,7 @@ public sealed class PgInstanceMutationRepository(
                 writer.WriteStartObject();
                 writer.WriteString("elementId", dataElement.Id);
                 writer.WritePropertyName("element");
-                JsonSerializer.Serialize(writer, dataElement, OmitNullPropertiesJsonOptions);
+                JsonSerializer.Serialize(writer, dataElement, _omitNullPropertiesJsonOptions);
                 WriteBlobVersionProperty(writer, "blobVersion", dataElement.BlobVersionId);
                 writer.WriteEndObject();
             }
@@ -673,7 +663,7 @@ public sealed class PgInstanceMutationRepository(
         CancellationToken cancellationToken
     )
     {
-        await using NpgsqlCommand cmd = new(ReadInstanceSql, connection, transaction);
+        await using NpgsqlCommand cmd = new(_readInstanceSql, connection, transaction);
         cmd.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
 
         await using NpgsqlDataReader reader = await cmd.ExecuteReaderAsync(cancellationToken);

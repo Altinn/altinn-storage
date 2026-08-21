@@ -2479,12 +2479,7 @@ public class DataControllerUnitTests
                 )
             )
             .ReturnsAsync(
-                (
-                    Guid instanceGuid,
-                    Guid dataElementId,
-                    FileScanStatus fileScanStatus,
-                    CancellationToken _
-                ) =>
+                (instanceGuid, dataElementId, fileScanStatus, _) =>
                     new DataElement
                     {
                         Id = dataElementId.ToString(),
@@ -2595,12 +2590,12 @@ public class DataControllerUnitTests
         {
             uploadSetup.ReturnsAsync(
                 (
-                    InstanceInternal instanceInternal,
-                    Stream stream,
-                    DataElementCreateOptions options,
-                    long instanceInternalId,
-                    int? storageAccountNumber,
-                    CancellationToken cancellationToken
+                    instanceInternal,
+                    stream,
+                    options,
+                    instanceInternalId,
+                    storageAccountNumber,
+                    cancellationToken
                 ) =>
                 {
                     string instanceGuid = instanceInternal.Id.ToString();

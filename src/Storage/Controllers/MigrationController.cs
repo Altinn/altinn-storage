@@ -778,9 +778,9 @@ public class MigrationController : ControllerBase
             instance.AppId,
             instanceGuid,
             app.StorageAccountNumber,
-            CancellationToken.None
+            cancellationToken
         );
-        await _dataRepository.DeleteForInstance(instanceGuid);
+        await _dataRepository.DeleteForInstance(instanceGuid, cancellationToken);
         await _instanceEventRepository.DeleteAllInstanceEvents(instanceGuid);
         await _instanceRepository.Delete(instanceGuid, cancellationToken);
         await _a2Repository.DeleteMigrationState(instanceGuid);

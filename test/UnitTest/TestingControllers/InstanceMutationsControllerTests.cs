@@ -38,26 +38,15 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 /// <summary>
 /// Represents a collection of integration tests of the <see cref="InstanceMutationsController"/>.
 /// </summary>
-public class InstanceMutationsControllerTests
-    : IClassFixture<TestApplicationFactory<InstanceMutationsController>>
+public class InstanceMutationsControllerTests(
+    TestApplicationFactory<InstanceMutationsController> factory
+) : IClassFixture<TestApplicationFactory<InstanceMutationsController>>
 {
     private const string _versionPrefix = "/storage/api/v1";
-    private readonly TestApplicationFactory<InstanceMutationsController> _factory;
     private static readonly JsonSerializerOptions _serializerOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="InstanceMutationsControllerTests"/> class.
-    /// </summary>
-    /// <param name="factory">Platform storage fixture.</param>
-    public InstanceMutationsControllerTests(
-        TestApplicationFactory<InstanceMutationsController> factory
-    )
-    {
-        _factory = factory;
-    }
 
     [Theory]
     [InlineData("duplicate-updates")]
@@ -678,11 +667,11 @@ public class InstanceMutationsControllerTests
         }
 
         // No setup required for these services. They are not in use by the InstanceController
-        Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
-        Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
-        Mock<IMessageBus> busMock = new Mock<IMessageBus>();
+        Mock<IKeyVaultClientWrapper> keyVaultWrapper = new();
+        Mock<IPartiesWithInstancesClient> partiesWrapper = new();
+        Mock<IMessageBus> busMock = new();
 
-        var factory = _factory.WithWebHostBuilder(builder =>
+        var webApplicationFactory = factory.WithWebHostBuilder(builder =>
         {
             IConfiguration configuration = new ConfigurationBuilder()
                 .AddJsonFile(ServiceUtil.GetAppsettingsPath())
@@ -718,7 +707,7 @@ public class InstanceMutationsControllerTests
             });
         });
 
-        var client = factory.CreateClient();
+        var client = webApplicationFactory.CreateClient();
         if (!string.IsNullOrEmpty(bearerAuthToken))
         {
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(

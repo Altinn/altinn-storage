@@ -24,8 +24,8 @@ namespace Altinn.Platform.Storage.Repository;
 /// </summary>
 public class PgInstanceRepository : IInstanceRepository
 {
-    private const string ElementColumn = "element";
-    private const string CurrentProcessStatusColumn = "currentprocessstatus";
+    private const string _elementColumn = "element";
+    private const string _currentProcessStatusColumn = "currentprocessstatus";
     private const string _readSqlFilteredInitial =
         "select * from storage.readinstancefromquery_v9 (";
     private readonly string _deleteSql = "select * from storage.deleteinstance ($1)";
@@ -36,7 +36,7 @@ public class PgInstanceRepository : IInstanceRepository
     /// <summary>
     /// SQL for updating an instance.
     /// </summary>
-    private static readonly string UpdateSql =
+    private static readonly string _updateSql =
         "select * from storage.updateinstance_v4 (@_alternateid, @_toplevelsimpleprops, @_datavalues,"
         + " @_completeconfirmations, @_presentationtexts, @_status, @_substatus, @_process, @_lastchanged, @_taskid, @_confirmed,"
         + " @_expectedinstanceversion, @_expectedprocessstateversion)";
@@ -243,7 +243,7 @@ public class PgInstanceRepository : IInstanceRepository
                 {
                     DataElementInternal element =
                         await reader.GetFieldValueAsync<DataElementInternal>(
-                            ElementColumn,
+                            _elementColumn,
                             cancellationToken
                         );
                     Guid elementId = element.Id;
@@ -279,12 +279,13 @@ public class PgInstanceRepository : IInstanceRepository
             _logger.LogError(ex, "Error reading hard-deleted data elements for cleanup");
         }
 
-        return elementOrder
-            .Select(elementId => new DeletedDataElementInternal(
+        return
+        [
+            .. elementOrder.Select(elementId => new DeletedDataElementInternal(
                 elements[elementId].DataElement,
                 elements[elementId].BlobVersions
-            ))
-            .ToList();
+            )),
+        ];
     }
 
     /// <inheritdoc/>
@@ -481,11 +482,11 @@ public class PgInstanceRepository : IInstanceRepository
                     previousId = id;
                 }
 
-                if (!await reader.IsDBNullAsync(ElementColumn, cancellationToken))
+                if (!await reader.IsDBNullAsync(_elementColumn, cancellationToken))
                 {
                     DataElementInternal element =
                         await reader.GetFieldValueAsync<DataElementInternal>(
-                            ElementColumn,
+                            _elementColumn,
                             cancellationToken
                         );
                     int versionOrdinal = reader.GetOrdinal("currentblobversion");
@@ -553,10 +554,10 @@ public class PgInstanceRepository : IInstanceRepository
                 instanceInternalId = await reader.GetFieldValueAsync<long>("id", cancellationToken);
             }
 
-            if (includeElements && !await reader.IsDBNullAsync(ElementColumn, cancellationToken))
+            if (includeElements && !await reader.IsDBNullAsync(_elementColumn, cancellationToken))
             {
                 DataElementInternal element = await reader.GetFieldValueAsync<DataElementInternal>(
-                    ElementColumn,
+                    _elementColumn,
                     cancellationToken
                 );
                 int versionOrdinal = reader.GetOrdinal("currentblobversion");
@@ -594,7 +595,7 @@ public class PgInstanceRepository : IInstanceRepository
                 ? new DateTime((((DateTime)instance.LastChanged).Ticks / 10) * 10, DateTimeKind.Utc)
                 : null;
 
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(UpdateSql);
+        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_updateSql);
         BuildUpdateCommand(
             instance,
             updateProperties,
@@ -783,7 +784,7 @@ public class PgInstanceRepository : IInstanceRepository
                 ),
                 "process_status_conflict" => new ProcessStatusConflictException(
                     ProcessStatusHelper.ParsePersistedStatus(
-                        reader.GetFieldValue<string>(reader.GetOrdinal(CurrentProcessStatusColumn))
+                        reader.GetFieldValue<string>(reader.GetOrdinal(_currentProcessStatusColumn))
                     )
                 ),
                 _ => new UnreachableException($"Unexpected instance update result '{result}'."),

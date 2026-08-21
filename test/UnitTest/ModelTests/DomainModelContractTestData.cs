@@ -8,12 +8,12 @@ using Altinn.Platform.Storage.Models;
 
 namespace Altinn.Platform.Storage.UnitTest.ModelTests;
 
-internal static class DomainModelContractTestData
+public static class DomainModelContractTestData
 {
-    internal const string InstanceGuid = "045ea5db-6dd4-4476-b774-bdb2a09da7ea";
-    internal const string DataElementGuid = "11111111-2222-4333-8444-555555555555";
+    public const string InstanceGuid = "045ea5db-6dd4-4476-b774-bdb2a09da7ea";
+    public const string DataElementGuid = "11111111-2222-4333-8444-555555555555";
 
-    internal const string ExpectedInstanceDatabaseJson = """
+    public const string ExpectedInstanceDatabaseJson = """
         {
           "Id": "045ea5db-6dd4-4476-b774-bdb2a09da7ea",
           "InstanceOwner": {
@@ -73,7 +73,7 @@ internal static class DomainModelContractTestData
         }
         """;
 
-    internal const string ExpectedDataElementDatabaseJson = """
+    public const string ExpectedDataElementDatabaseJson = """
         {
           "Id": "11111111-2222-4333-8444-555555555555",
           "InstanceGuid": "045ea5db-6dd4-4476-b774-bdb2a09da7ea",
@@ -106,7 +106,7 @@ internal static class DomainModelContractTestData
         }
         """;
 
-    internal const string LegacyInstanceJsonWithIgnoredNullKeys = """
+    public const string LegacyInstanceJsonWithIgnoredNullKeys = """
         {
           "Id": "ABCDEF12-3456-4789-ABCD-EF1234567890",
           "InstanceOwner": {"PartyId": "42", "Username": null},
@@ -143,7 +143,7 @@ internal static class DomainModelContractTestData
         }
         """;
 
-    internal const string LegacyInstanceJsonWithoutIgnoredKeys = """
+    public const string LegacyInstanceJsonWithoutIgnoredKeys = """
         {
           "Id": "0D5C9F31-7B2E-4A68-9C14-5E8F3A6B7C2D",
           "InstanceOwner": null,
@@ -154,7 +154,7 @@ internal static class DomainModelContractTestData
         }
         """;
 
-    internal const string LegacyDataElementJsonWithIgnoredNullKey = """
+    public const string LegacyDataElementJsonWithIgnoredNullKey = """
         {
           "Id": "6b0a9d84-3c15-4e27-8f39-2a4b6c8d0e1f",
           "InstanceGuid": "3E2F1A0B-9C8D-4E7F-8A6B-5C4D3E2F1A0B",
@@ -183,7 +183,7 @@ internal static class DomainModelContractTestData
         }
         """;
 
-    internal const string LegacyDataElementJsonWithoutIgnoredKey = """
+    public const string LegacyDataElementJsonWithoutIgnoredKey = """
         {
           "Id": "11111111-2222-4333-8444-555555555555",
           "InstanceGuid": "045ea5db-6dd4-4476-b774-bdb2a09da7ea",
@@ -192,7 +192,7 @@ internal static class DomainModelContractTestData
         }
         """;
 
-    internal const string ExpectedDataElementApiJson = """
+    public const string ExpectedDataElementApiJson = """
         {
           "id": "11111111-2222-4333-8444-555555555555",
           "instanceGuid": "045ea5db-6dd4-4476-b774-bdb2a09da7ea",
@@ -230,7 +230,7 @@ internal static class DomainModelContractTestData
         }
         """;
 
-    internal const string ExpectedInstanceApiJson = """
+    public const string ExpectedInstanceApiJson = """
         {
           "id": "1337/045ea5db-6dd4-4476-b774-bdb2a09da7ea",
           "instanceOwner": {
@@ -331,7 +331,7 @@ internal static class DomainModelContractTestData
         }
         """;
 
-    internal static InstanceInternal CreateDomainInstance()
+    public static InstanceInternal CreateDomainInstance()
     {
         DataElementInternal dataElement = CreateDomainDataElement();
         return new InstanceInternal
@@ -372,7 +372,7 @@ internal static class DomainModelContractTestData
         };
     }
 
-    internal static DataElementInternal CreateDomainDataElement() =>
+    public static DataElementInternal CreateDomainDataElement() =>
         new()
         {
             Id = new Guid(DataElementGuid),
@@ -411,7 +411,7 @@ internal static class DomainModelContractTestData
             BlobVersionId = "api-content-version",
         };
 
-    internal static Instance CreateApiInstance(bool apiFormatId)
+    public static Instance CreateApiInstance(bool apiFormatId)
     {
         DataElement dataElement = CreateApiDataElement();
         return new Instance
@@ -455,7 +455,7 @@ internal static class DomainModelContractTestData
         };
     }
 
-    internal static DataElement CreateApiDataElement() =>
+    public static DataElement CreateApiDataElement() =>
         new()
         {
             Id = DataElementGuid,

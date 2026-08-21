@@ -142,7 +142,7 @@ public class ProcessDataCleanupServiceTests
         {
             Id = dataElementId,
             BlobStoragePath = $"ttd/test-app/instance/data/{dataElementId}",
-            References = references.Length == 0 ? null : new List<Reference>(references),
+            References = references.Length == 0 ? null : [.. references],
         };
     }
 
@@ -154,7 +154,7 @@ public class ProcessDataCleanupServiceTests
             Id = new Guid("5f857f25-04a4-4c70-913b-cb40e2a65428"),
             AppId = _appId,
             Org = "ttd",
-            Data = dataElements.ToList(),
+            Data = [.. dataElements],
             Versions = new StorageVersions(1, 1),
         };
 }

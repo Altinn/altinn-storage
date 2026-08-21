@@ -375,12 +375,14 @@ public class ProcessController : ControllerBase
             InstanceMutationCommit mutation = new(
                 [],
                 [],
-                generatedDataElementsToDelete
-                    .Select(dataElement => new InstanceMutationDataElementDelete(
-                        dataElement,
-                        IgnoreLock: true
-                    ))
-                    .ToList(),
+                [
+                    .. generatedDataElementsToDelete.Select(
+                        dataElement => new InstanceMutationDataElementDelete(
+                            dataElement,
+                            IgnoreLock: true
+                        )
+                    ),
+                ],
                 existingInstance,
                 updateProperties,
                 preconditions.InstanceVersion,

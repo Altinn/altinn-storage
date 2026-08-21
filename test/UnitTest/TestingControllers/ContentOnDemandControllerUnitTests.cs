@@ -405,7 +405,7 @@ public class ContentOnDemandControllerUnitTests
         Mock<IA2Repository> a2RepoMock = new();
         a2RepoMock
             .Setup(r => r.GetXsls(_org, _app, 5678, It.IsAny<string>(), It.IsAny<int>()))
-            .ReturnsAsync(new List<(string Xsl, bool IsPortrait)> { ("<xsl/>", true) });
+            .ReturnsAsync([("<xsl/>", true)]);
         Mock<IBlobRepository> blobRepoMock = new();
         blobRepoMock
             .Setup(r =>

@@ -346,9 +346,10 @@ public class DataService : IDataService
         {
             cancellationToken.ThrowIfCancellationRequested();
             var blobVersions = blobStorageGroup.ToArray();
-            IReadOnlyList<string> blobStoragePaths = blobVersions
-                .Select(blobVersion => blobVersion.BlobStoragePath)
-                .ToArray();
+            IReadOnlyList<string> blobStoragePaths =
+            [
+                .. blobVersions.Select(blobVersion => blobVersion.BlobStoragePath),
+            ];
             bool[] deletedBlobs;
             try
             {

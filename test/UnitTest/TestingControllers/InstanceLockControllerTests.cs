@@ -616,10 +616,7 @@ public class InstanceLockControllerTest
                                         false,
                                         cancellationToken
                                     );
-                                    if (instance is not null)
-                                    {
-                                        instance.InternalId = _instanceInternalId;
-                                    }
+                                    instance?.InternalId = _instanceInternalId;
 
                                     return instance;
                                 }
@@ -645,10 +642,7 @@ public class InstanceLockControllerTest
                                         includeElements,
                                         cancellationToken
                                     );
-                                    if (instance is not null)
-                                    {
-                                        instance.InternalId = _instanceInternalId;
-                                    }
+                                    instance?.InternalId = _instanceInternalId;
 
                                     return instance;
                                 }

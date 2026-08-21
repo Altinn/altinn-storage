@@ -33,11 +33,11 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories;
 [Collection("StoragePostgreSQL")]
 public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomicSequencingFixture>
 {
-    private const int PartyId = 1337;
-    private const int UserId = 20001;
-    private const string TargetTask = "Task_2";
-    private const string SignatureDataType = "signature";
-    private const string SignedDataType = "model";
+    private const int _partyId = 1337;
+    private const int _userId = 20001;
+    private const string _targetTask = "Task_2";
+    private const string _signatureDataType = "signature";
+    private const string _signedDataType = "model";
 
     private readonly StorageAtomicSequencingFixture _fixture;
 
@@ -67,7 +67,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
                 {
                     Relation = RelationType.GeneratedFrom,
                     ValueType = ReferenceType.Task,
-                    Value = TargetTask,
+                    Value = _targetTask,
                 },
             ]
         );
@@ -77,7 +77,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
         SetHttpContext(controller);
 
         ActionResult<Instance> result = await controller.PutInstanceAndEvents(
-            PartyId,
+            _partyId,
             instanceGuid,
             new ProcessStateUpdate
             {
@@ -85,7 +85,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
                 {
                     CurrentTask = new ProcessElementInfo
                     {
-                        ElementId = TargetTask,
+                        ElementId = _targetTask,
                         AltinnTaskType = "data",
                     },
                 },
@@ -118,7 +118,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
             instance,
             instanceInternalId,
             blobRepository,
-            SignedDataType,
+            _signedDataType,
             blobContent: "payload to sign"u8.ToArray()
         );
         Signee signee = new() { UserId = "1337", PersonNumber = "22117612345" };
@@ -134,7 +134,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
             instance,
             instanceInternalId,
             blobRepository,
-            SignatureDataType,
+            _signatureDataType,
             blobContent: JsonSerializer.SerializeToUtf8Bytes(existingSignature)
         );
         StorageVersions versions = await ReadVersions(instanceGuid);
@@ -145,17 +145,17 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
         Exception exception = await Record.ExceptionAsync(async () =>
         {
             ActionResult result = await controller.Sign(
-                PartyId,
+                _partyId,
                 instanceGuid,
                 new SignRequest
                 {
-                    SignatureDocumentDataType = SignatureDataType,
+                    SignatureDocumentDataType = _signatureDataType,
                     DataElementSignatures =
                     [
                         new DataElementSignature { DataElementId = signedData.Id, Signed = true },
                     ],
                     Signee = signee,
-                    GeneratedFromTask = TargetTask,
+                    GeneratedFromTask = _targetTask,
                 },
                 CancellationToken.None,
                 ifInstanceVersionMatch: versions.InstanceVersion.ToString(),
@@ -166,12 +166,12 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
             Assert.Equal(StatusCodes.Status201Created, ((ObjectResult)result).StatusCode);
         });
         int oldSignatureRows = await CountDataElementRows(oldSignature.Id);
-        int replacementRows = await CountDataElementsByType(instanceGuid, SignatureDataType);
+        int replacementRows = await CountDataElementsByType(instanceGuid, _signatureDataType);
         int signedEvents = await CountInstanceEvents(instanceGuid, InstanceEventType.Signed);
         int deletedEvents = await CountInstanceEvents(instanceGuid, InstanceEventType.Deleted);
         string signatureLastChangedBy = await ReadDataElementLastChangedBy(
             instanceGuid,
-            SignatureDataType
+            _signatureDataType
         );
         string instanceLastChangedBy = await ReadInstanceLastChangedBy(instanceGuid);
 
@@ -181,8 +181,8 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
                 && replacementRows == 1
                 && signedEvents == 1
                 && deletedEvents == 1
-                && signatureLastChangedBy == UserId.ToString()
-                && instanceLastChangedBy == UserId.ToString(),
+                && signatureLastChangedBy == _userId.ToString()
+                && instanceLastChangedBy == _userId.ToString(),
             $"Expected signing replacement to create the new signature, remove the old one, commit Signed plus Deleted events atomically, and attribute both the signature and the instance to the signee. Actual exception was {DescribeException(exception)}, old signature row count was {oldSignatureRows}, signature row count was {replacementRows}, Signed event count was {signedEvents}, Deleted event count was {deletedEvents}, signature LastChangedBy was {signatureLastChangedBy}, instance LastChangedBy was {instanceLastChangedBy}."
         );
     }
@@ -199,7 +199,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
             instance,
             instanceInternalId,
             blobRepository,
-            SignedDataType,
+            _signedDataType,
             blobContent: "payload to sign"u8.ToArray()
         );
         Signee signee = new() { UserId = "1337", PersonNumber = "22117612345" };
@@ -219,7 +219,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
                     instance,
                     instanceInternalId,
                     blobRepository,
-                    SignatureDataType,
+                    _signatureDataType,
                     blobContent: JsonSerializer.SerializeToUtf8Bytes(duplicate)
                 )
             );
@@ -232,17 +232,17 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
         Exception exception = await Record.ExceptionAsync(async () =>
         {
             ActionResult result = await controller.Sign(
-                PartyId,
+                _partyId,
                 instanceGuid,
                 new SignRequest
                 {
-                    SignatureDocumentDataType = SignatureDataType,
+                    SignatureDocumentDataType = _signatureDataType,
                     DataElementSignatures =
                     [
                         new DataElementSignature { DataElementId = signedData.Id, Signed = true },
                     ],
                     Signee = signee,
-                    GeneratedFromTask = TargetTask,
+                    GeneratedFromTask = _targetTask,
                 },
                 CancellationToken.None,
                 ifInstanceVersionMatch: versions.InstanceVersion.ToString(),
@@ -258,7 +258,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
             survivingDuplicateRows += await CountDataElementRows(duplicateSignature.Id);
         }
 
-        int signatureRows = await CountDataElementsByType(instanceGuid, SignatureDataType);
+        int signatureRows = await CountDataElementsByType(instanceGuid, _signatureDataType);
         int deletedEvents = await CountInstanceEvents(instanceGuid, InstanceEventType.Deleted);
         int instanceVersion = await ReadInstanceVersion(instanceGuid);
 
@@ -284,7 +284,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
             instance,
             instanceInternalId,
             blobRepository,
-            SignedDataType,
+            _signedDataType,
             blobContent: "payload to sign"u8.ToArray()
         );
         Signee signee = new() { UserId = "1337", PersonNumber = "22117612345" };
@@ -300,7 +300,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
             instance,
             instanceInternalId,
             blobRepository,
-            SignatureDataType,
+            _signatureDataType,
             blobContent: JsonSerializer.SerializeToUtf8Bytes(existingSignature)
         );
         StorageVersions staleVersions = await ReadVersions(instanceGuid);
@@ -310,17 +310,17 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
         SetHttpContext(controller);
 
         ActionResult result = await controller.Sign(
-            PartyId,
+            _partyId,
             instanceGuid,
             new SignRequest
             {
-                SignatureDocumentDataType = SignatureDataType,
+                SignatureDocumentDataType = _signatureDataType,
                 DataElementSignatures =
                 [
                     new DataElementSignature { DataElementId = signedData.Id, Signed = true },
                 ],
                 Signee = signee,
-                GeneratedFromTask = TargetTask,
+                GeneratedFromTask = _targetTask,
             },
             CancellationToken.None,
             ifInstanceVersionMatch: staleVersions.InstanceVersion.ToString(),
@@ -330,7 +330,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
         ObjectResult objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status412PreconditionFailed, objectResult.StatusCode);
         Assert.Equal(1, await CountDataElementRows(oldSignature.Id));
-        Assert.Equal(1, await CountDataElementsByType(instanceGuid, SignatureDataType));
+        Assert.Equal(1, await CountDataElementsByType(instanceGuid, _signatureDataType));
         Assert.Equal(2, await CountBlobVersionRows());
         Assert.Equal(0, await CountInstanceEvents(instanceGuid, InstanceEventType.Signed));
         Assert.Equal(0, await CountInstanceEvents(instanceGuid, InstanceEventType.Deleted));
@@ -468,8 +468,8 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
     {
         Guid instanceGuid = Guid.NewGuid();
         Instance instance = TestData.Instance_1_1.Clone();
-        instance.Id = $"{PartyId}/{instanceGuid}";
-        instance.InstanceOwner.PartyId = PartyId.ToString();
+        instance.Id = $"{_partyId}/{instanceGuid}";
+        instance.InstanceOwner.PartyId = _partyId.ToString();
         instance.Data = [];
         instance.Process.CurrentTask = new ProcessElementInfo
         {
@@ -540,7 +540,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
     {
         DefaultHttpContext httpContext = new()
         {
-            User = PrincipalUtil.GetPrincipal(UserId, PartyId, 3),
+            User = PrincipalUtil.GetPrincipal(_userId, _partyId, 3),
         };
         controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
     }
@@ -733,14 +733,11 @@ public class StorageAtomicSequencingFixture
 
     public StorageAtomicSequencingFixture()
     {
-        List<object> serviceList = ServiceUtil.GetServices(
-            new List<Type>
-            {
-                typeof(IInstanceRepository),
-                typeof(IInstanceMutationRepository),
-                typeof(IDataRepository),
-            }
-        );
+        List<object> serviceList = ServiceUtil.GetServices([
+            typeof(IInstanceRepository),
+            typeof(IInstanceMutationRepository),
+            typeof(IDataRepository),
+        ]);
         InstanceRepo = (IInstanceRepository)
             serviceList.First(i => i.GetType() == typeof(PgInstanceRepository));
         InstanceMutationRepo = (IInstanceMutationRepository)

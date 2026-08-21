@@ -626,7 +626,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task DataElement_Update_Tags_HardDeletedDataElement_ThrowsNotFoundAndDoesNotUpdateElement()
     {
         // Arrange
-        List<string> orgTags = new() { "s1", "s2" };
+        List<string> orgTags = ["s1", "s2"];
         DataElement element = TestDataUtil.GetDataElement(_dataElement3);
         element.Id = Guid.NewGuid().ToString();
         element.InstanceGuid = _instance.Id.ToString();
@@ -2959,7 +2959,6 @@ public class DataTests(DataElementFixture dataElementFixture)
         string retryUpdateVersion = await CreateBlobVersionId(instanceGuid, existing.Id);
 
         InstanceMutationCommit firstMutation = CreateContentUpdateMutation(
-            instanceGuid,
             existing,
             currentVersion,
             firstUpdateVersion,
@@ -2967,7 +2966,6 @@ public class DataTests(DataElementFixture dataElementFixture)
             idempotencyKey
         );
         InstanceMutationCommit retryMutation = CreateContentUpdateMutation(
-            instanceGuid,
             existing,
             currentVersion,
             retryUpdateVersion,
@@ -3880,7 +3878,6 @@ public class DataTests(DataElementFixture dataElementFixture)
 
         string firstUpdateVersion = await CreateBlobVersionId(instanceGuid, existing.Id);
         InstanceMutationCommit firstMutation = CreateContentUpdateMutation(
-            instanceGuid,
             existing,
             currentVersion,
             firstUpdateVersion,
@@ -3896,7 +3893,6 @@ public class DataTests(DataElementFixture dataElementFixture)
         int intermediateInstanceVersion = await ReadInstanceVersion(instanceGuid);
         string laterUpdateVersion = await CreateBlobVersionId(instanceGuid, existing.Id);
         InstanceMutationCommit laterMutation = CreateContentUpdateMutation(
-            instanceGuid,
             existing,
             firstUpdateVersion,
             laterUpdateVersion,
@@ -3912,7 +3908,6 @@ public class DataTests(DataElementFixture dataElementFixture)
 
         string retryUpdateVersion = await CreateBlobVersionId(instanceGuid, existing.Id);
         InstanceMutationCommit retryMutation = CreateContentUpdateMutation(
-            instanceGuid,
             existing,
             currentVersion,
             retryUpdateVersion,
@@ -4048,7 +4043,6 @@ public class DataTests(DataElementFixture dataElementFixture)
         string deleteElements = DeleteElementsPayload([toDelete]);
         string instanceUpdates = InstanceUpdatePayload(
             InstanceUpdatePayloadItem(
-                instanceLastChanged,
                 topLevelSimpleProps: new JsonObject { ["SqlMixedInstanceMarker"] = "instance" },
                 process: new JsonObject
                 {
@@ -4331,7 +4325,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Assert
         ApplyMutationSqlRow row = Assert.Single(rows);
         Assert.False(row.Replayed);
-        Assert.Equal(new[] { toCreate.Id.ToString() }, row.CreatedDataElementIds);
+        Assert.Equal([toCreate.Id.ToString()], row.CreatedDataElementIds);
         Assert.Equal(previousInstanceVersion + 1, row.InstanceVersion);
         Assert.Equal(previousProcessStateVersion, row.ProcessStateVersion);
         Assert.True(await dataElementFixture.DataRepo.Exists(toCreate.Id));
@@ -4860,7 +4854,6 @@ public class DataTests(DataElementFixture dataElementFixture)
         DateTime lastChanged = new(2026, 4, 5, 6, 7, 8, DateTimeKind.Utc);
         string instanceUpdates = InstanceUpdatePayload(
             InstanceUpdatePayloadItem(
-                lastChanged,
                 topLevelSimpleProps: new JsonObject
                 {
                     ["SqlTopData"] = "data-top",
@@ -5002,7 +4995,6 @@ public class DataTests(DataElementFixture dataElementFixture)
         DateTime archived = new(2026, 4, 5, 6, 10, 11, DateTimeKind.Utc);
         string instanceUpdates = InstanceUpdatePayload(
             InstanceUpdatePayloadItem(
-                lastChanged,
                 topLevelSimpleProps: new JsonObject
                 {
                     ["SqlSimpleGuardMarker"] = "simple-root-survives",
@@ -5138,7 +5130,6 @@ public class DataTests(DataElementFixture dataElementFixture)
         DateTime archived = new(2026, 4, 5, 6, 8, 9, DateTimeKind.Utc);
         string instanceUpdates = InstanceUpdatePayload(
             InstanceUpdatePayloadItem(
-                lastChanged,
                 topLevelSimpleProps: new JsonObject
                 {
                     ["SqlTopProcessStatus"] = "process-status-top",
@@ -5214,11 +5205,9 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task MergeInstanceUpdateSql_ConfirmedStakeholderConfirmsAgain_IsNotAppended()
     {
         // Arrange
-        DateTime lastChanged = new(2026, 6, 7, 8, 9, 10, DateTimeKind.Utc);
         string seedJson = CreateParitySeedJson();
         string confirmationPayload = InstanceUpdatePayload(
             InstanceUpdatePayloadItem(
-                lastChanged,
                 completeConfirmations: ParseJsonNode(
                     """[{"StakeholderId":"existing","ConfirmedOn":"2026-08-10T00:00:00Z"}]"""
                 ),
@@ -5239,13 +5228,11 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task ApplyInstanceMutationSql_ConfirmedStakeholderConfirmsAgain_IsNotAppended()
     {
         // Arrange
-        DateTime lastChanged = new(2026, 6, 7, 8, 9, 10, DateTimeKind.Utc);
         ParityInstance instance = await CreateParityInstance();
         int previousInstanceVersion = await ReadInstanceVersion(instance.InstanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instance.InstanceGuid);
         string confirmationPayload = InstanceUpdatePayload(
             InstanceUpdatePayloadItem(
-                lastChanged,
                 completeConfirmations: ParseJsonNode(
                     """[{"StakeholderId":"existing","ConfirmedOn":"2026-08-10T00:00:00Z"}]"""
                 ),
@@ -5297,7 +5284,6 @@ public class DataTests(DataElementFixture dataElementFixture)
                 seedJson,
                 InstanceUpdatePayload(
                     InstanceUpdatePayloadItem(
-                        lastChanged,
                         topLevelSimpleProps: CreateParityTopLevelSimpleProps(
                             lastChanged,
                             parityCase.Name
@@ -5401,7 +5387,6 @@ public class DataTests(DataElementFixture dataElementFixture)
                 null,
                 InstanceUpdatePayload(
                     InstanceUpdatePayloadItem(
-                        lastChanged,
                         topLevelSimpleProps: CreateParityMutationTopLevelSimpleProps(
                             parityCase.Name
                         ),
@@ -6584,7 +6569,6 @@ public class DataTests(DataElementFixture dataElementFixture)
             case HardDeletedInstanceMutationPayloadKind.InstanceUpdate:
                 instanceUpdate = InstanceUpdatePayload(
                     InstanceUpdatePayloadItem(
-                        DateTime.UtcNow,
                         dataValues: new JsonObject { ["hardDeletedUpdate"] = "blocked" }
                     )
                 );
@@ -6702,7 +6686,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     )
     {
         await using NpgsqlCommand cmd = dataElementFixture.DataSource.CreateCommand(
-            PgInstanceMutationRepository.ApplyMutationSql
+            PgInstanceMutationRepository._applyMutationSql
         );
         cmd.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
         cmd.Parameters.AddWithValue(NpgsqlDbType.Bigint, instanceInternalId);
@@ -7168,11 +7152,12 @@ public class DataTests(DataElementFixture dataElementFixture)
         IReadOnlyList<DataElement> dataElements,
         bool ignoreLock = false
     ) =>
-        DeleteElementsPayload(
-            dataElements
-                .Select(dataElement => new DeleteElementPayload(dataElement.Id, ignoreLock))
-                .ToList()
-        );
+        DeleteElementsPayload([
+            .. dataElements.Select(dataElement => new DeleteElementPayload(
+                dataElement.Id,
+                ignoreLock
+            )),
+        ]);
 
     private static string DeleteElementsPayload(IReadOnlyList<DeleteElementPayload> deletes)
     {
@@ -7196,7 +7181,6 @@ public class DataTests(DataElementFixture dataElementFixture)
     private static string InstanceUpdatePayload(JsonObject update) => update.ToJsonString();
 
     private static JsonObject InstanceUpdatePayloadItem(
-        DateTime lastChanged,
         JsonObject topLevelSimpleProps = null,
         JsonNode dataValues = null,
         JsonNode completeConfirmations = null,
@@ -7557,7 +7541,6 @@ public class DataTests(DataElementFixture dataElementFixture)
     }
 
     private InstanceMutationCommit CreateContentUpdateMutation(
-        Guid instanceGuid,
         DataElement existing,
         string expectedCurrentVersion,
         string updateVersion,

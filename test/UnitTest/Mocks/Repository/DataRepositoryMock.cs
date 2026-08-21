@@ -19,11 +19,11 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 
 public class DataRepositoryMock : IDataRepository
 {
-    private readonly object _stateLock = new();
-    private readonly Dictionary<string, StoredDataElement> _tempRepository = new();
-    private readonly Dictionary<string, List<BlobVersionEntry>> _blobVersions = new();
+    private readonly Lock _stateLock = new();
+    private readonly Dictionary<string, StoredDataElement> _tempRepository = [];
+    private readonly Dictionary<string, List<BlobVersionEntry>> _blobVersions = [];
     private int _instanceVersion = 1;
-    private int _processStateVersion = 1;
+    private readonly int _processStateVersion = 1;
     private static readonly JsonSerializerOptions _options = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -71,10 +71,7 @@ public class DataRepositoryMock : IDataRepository
             }
 
             string serializedDataElement = JsonSerializer.Serialize(stagedElement, _options);
-            if (blobVersion is not null)
-            {
-                blobVersion.Attached = true;
-            }
+            blobVersion?.Attached = true;
 
             _tempRepository.Add(
                 dataElementId,
@@ -192,10 +189,7 @@ public class DataRepositoryMock : IDataRepository
             }
 
             string serializedDataElement = JsonSerializer.Serialize(stagedElement, _options);
-            if (blobVersion is not null)
-            {
-                blobVersion.Attached = true;
-            }
+            blobVersion?.Attached = true;
 
             _tempRepository[dataElementKey] = new StoredDataElement(
                 serializedDataElement,
@@ -396,7 +390,7 @@ public class DataRepositoryMock : IDataRepository
                 dataElementId.ToString(),
                 out List<BlobVersionEntry> versions
             )
-                ? versions.Where(version => version.Attached == attached).ToArray()
+                ? [.. versions.Where(version => version.Attached == attached)]
                 : [];
         }
 
@@ -416,7 +410,7 @@ public class DataRepositoryMock : IDataRepository
                     group.Key.AppId,
                     group.Key.BlobStorageOrg,
                     group.Key.StorageAccountNumber,
-                    group.Select(version => version.BlobVersionId).ToArray()
+                    [.. group.Select(version => version.BlobVersionId)]
                 )),
         ];
 

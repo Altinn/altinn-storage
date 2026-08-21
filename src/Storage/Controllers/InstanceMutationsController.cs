@@ -30,74 +30,44 @@ namespace Altinn.Platform.Storage.Controllers;
 /// <summary>
 /// API for committing a batch of mutations for a single instance
 /// </summary>
+/// <param name="dataRepository">the data repository handler</param>
+/// <param name="blobRepository">the blob repository handler</param>
+/// <param name="instanceRepository">the instance repository</param>
+/// <param name="instanceMutationRepository">the aggregate instance mutation repository.</param>
+/// <param name="applicationRepository">the application repository</param>
+/// <param name="dataService">A data service with data element related business logic.</param>
+/// <param name="instanceEventService">An instance event service with event related business logic.</param>
+/// <param name="generalSettings">the general settings.</param>
+/// <param name="authorizationService">The authorization service</param>
+/// <param name="policyAuthorizationService">The ASP.NET Core policy authorization service.</param>
+/// <param name="processAuthorizer">The process-state authorizer.</param>
 [Route("storage/api/v1/instances/{instanceOwnerPartyId:int}/{instanceGuid:guid}/mutations")]
 [ApiController]
-public class InstanceMutationsController : ControllerBase
+public class InstanceMutationsController(
+    IDataRepository dataRepository,
+    IBlobRepository blobRepository,
+    IInstanceRepository instanceRepository,
+    IInstanceMutationRepository instanceMutationRepository,
+    IApplicationRepository applicationRepository,
+    IDataService dataService,
+    IInstanceEventService instanceEventService,
+    IOptions<GeneralSettings> generalSettings,
+    IAuthorization authorizationService,
+    IAuthorizationService policyAuthorizationService,
+    IProcessAuthorizer processAuthorizer
+) : ControllerBase
 {
-    private const long RequestSizeLimit = 2000 * 1024 * 1024;
+    private const long _requestSizeLimit = 2000 * 1024 * 1024;
 
     /// <summary>
     /// Maximum size of the mutation JSON document, whether sent as the multipart
     /// <c>mutation</c> section or as a plain <c>application/json</c> body. The document is
     /// buffered in memory before deserialization, so it must stay bounded independently of
-    /// <see cref="RequestSizeLimit"/>.
+    /// <see cref="_requestSizeLimit"/>.
     /// </summary>
-    private const int MaxMutationJsonSize = 1024 * 1024 * 4;
+    private const int _maxMutationJsonSize = 1024 * 1024 * 4;
 
     private static readonly FormOptions _defaultFormOptions = new();
-
-    private readonly IDataRepository _dataRepository;
-    private readonly IBlobRepository _blobRepository;
-    private readonly IInstanceRepository _instanceRepository;
-    private readonly IInstanceMutationRepository _instanceMutationRepository;
-    private readonly IApplicationRepository _applicationRepository;
-    private readonly IDataService _dataService;
-    private readonly IInstanceEventService _instanceEventService;
-    private readonly IProcessAuthorizer _processAuthorizer;
-    private readonly string _storageBaseAndHost;
-    private readonly IAuthorization _authorizationService;
-    private readonly IAuthorizationService _policyAuthorizationService;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="InstanceMutationsController"/> class
-    /// </summary>
-    /// <param name="dataRepository">the data repository handler</param>
-    /// <param name="blobRepository">the blob repository handler</param>
-    /// <param name="instanceRepository">the instance repository</param>
-    /// <param name="instanceMutationRepository">the aggregate instance mutation repository.</param>
-    /// <param name="applicationRepository">the application repository</param>
-    /// <param name="dataService">A data service with data element related business logic.</param>
-    /// <param name="instanceEventService">An instance event service with event related business logic.</param>
-    /// <param name="generalSettings">the general settings.</param>
-    /// <param name="authorizationService">The authorization service</param>
-    /// <param name="policyAuthorizationService">The ASP.NET Core policy authorization service.</param>
-    /// <param name="processAuthorizer">The process-state authorizer.</param>
-    public InstanceMutationsController(
-        IDataRepository dataRepository,
-        IBlobRepository blobRepository,
-        IInstanceRepository instanceRepository,
-        IInstanceMutationRepository instanceMutationRepository,
-        IApplicationRepository applicationRepository,
-        IDataService dataService,
-        IInstanceEventService instanceEventService,
-        IOptions<GeneralSettings> generalSettings,
-        IAuthorization authorizationService,
-        IAuthorizationService policyAuthorizationService,
-        IProcessAuthorizer processAuthorizer
-    )
-    {
-        _dataRepository = dataRepository;
-        _blobRepository = blobRepository;
-        _instanceRepository = instanceRepository;
-        _instanceMutationRepository = instanceMutationRepository;
-        _applicationRepository = applicationRepository;
-        _dataService = dataService;
-        _instanceEventService = instanceEventService;
-        _storageBaseAndHost = $"{generalSettings.Value.Hostname}/storage/api/v1/";
-        _authorizationService = authorizationService;
-        _policyAuthorizationService = policyAuthorizationService;
-        _processAuthorizer = processAuthorizer;
-    }
 
     /// <summary>
     /// Commits a batch of mutations for a single instance.
@@ -129,7 +99,7 @@ public class InstanceMutationsController : ControllerBase
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
     [HttpPost]
     [DisableFormValueModelBinding]
-    [RequestSizeLimit(RequestSizeLimit)]
+    [RequestSizeLimit(_requestSizeLimit)]
     [Consumes("application/json", "multipart/form-data")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -364,7 +334,7 @@ public class InstanceMutationsController : ControllerBase
         try
         {
             InstanceMutationApplyResult replayAdmission =
-                await _instanceMutationRepository.TryReplayAdmission(
+                await instanceMutationRepository.TryReplayAdmission(
                     instanceGuid,
                     preconditions.InstanceVersion.Value,
                     currentVersions.InstanceVersion,
@@ -449,7 +419,7 @@ public class InstanceMutationsController : ControllerBase
         if (
             mutationRequest.ProcessState?.State is not null
             && instance.Process?.CurrentTask is not null
-            && !await _processAuthorizer.AuthorizeProcessNext(
+            && !await processAuthorizer.AuthorizeProcessNext(
                 instance,
                 mutationRequest.ProcessState.State
             )
@@ -460,7 +430,7 @@ public class InstanceMutationsController : ControllerBase
 
         if (
             mutationRequest.PresentationTexts?.Count > 0
-            && !await _processAuthorizer.AuthorizePresentationTextsUpdate(instance)
+            && !await processAuthorizer.AuthorizePresentationTextsUpdate(instance)
         )
         {
             return Forbid();
@@ -468,7 +438,7 @@ public class InstanceMutationsController : ControllerBase
 
         if (
             mutationRequest.DataValues?.Count > 0
-            && !await _processAuthorizer.AuthorizeDataValuesUpdate(instance)
+            && !await processAuthorizer.AuthorizeDataValuesUpdate(instance)
         )
         {
             return Forbid();
@@ -495,7 +465,7 @@ public class InstanceMutationsController : ControllerBase
                 continue;
             }
 
-            if (!await dataType.CanWrite(_authorizationService, instance))
+            if (!await dataType.CanWrite(authorizationService, instance))
             {
                 return Forbid();
             }
@@ -623,7 +593,7 @@ public class InstanceMutationsController : ControllerBase
             );
 
             applyAttempted = true;
-            InstanceMutationApplyResult applyResult = await _instanceMutationRepository.Apply(
+            InstanceMutationApplyResult applyResult = await instanceMutationRepository.Apply(
                 instance.Id,
                 instance.InternalId,
                 preparedWork.Commit,
@@ -886,14 +856,14 @@ public class InstanceMutationsController : ControllerBase
         if (mutationRequest.DeleteInstance is not null)
         {
             instanceEvents.Add(
-                _instanceEventService.BuildInstanceEvent(InstanceEventType.Deleted, instanceUpdates)
+                instanceEventService.BuildInstanceEvent(InstanceEventType.Deleted, instanceUpdates)
             );
         }
 
         if (addedCompleteConfirmations is not null)
         {
             instanceEvents.Add(
-                _instanceEventService.BuildInstanceEvent(
+                instanceEventService.BuildInstanceEvent(
                     InstanceEventType.ConfirmedComplete,
                     instanceUpdates
                 )
@@ -923,7 +893,7 @@ public class InstanceMutationsController : ControllerBase
 
         foreach (FileScanCandidate fileScanCandidate in preparedWork.FileScanCandidates)
         {
-            await _dataService.StartFileScan(
+            await dataService.StartFileScan(
                 updatedInstanceInternal,
                 fileScanCandidate.DataType,
                 fileScanCandidate.DataElement,
@@ -937,7 +907,7 @@ public class InstanceMutationsController : ControllerBase
             DataElementInternal dataElementInternal in preparedWork.PostCommitBlobCleanupDataElements
         )
         {
-            await _dataService.CleanupDeletedDataElementBlobs(
+            await dataService.CleanupDeletedDataElementBlobs(
                 updatedInstanceInternal,
                 dataElementInternal,
                 application.StorageAccountNumber,
@@ -1320,7 +1290,7 @@ public class InstanceMutationsController : ControllerBase
             snapshotProcessStateVersion,
             idempotencyKey,
             (eventType, dataElement) =>
-                _instanceEventService.BuildInstanceEvent(
+                instanceEventService.BuildInstanceEvent(
                     eventType,
                     mutationUpdates.InstanceUpdates,
                     dataElement
@@ -1335,7 +1305,7 @@ public class InstanceMutationsController : ControllerBase
     )
     {
         Instance updatedInstance = updatedInstanceInternal.ToApiModel();
-        updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        updatedInstance.SetPlatformSelfLinks($"{generalSettings.Value.Hostname}/storage/api/v1/");
         VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstanceInternal);
 
         return Ok(
@@ -1399,7 +1369,7 @@ public class InstanceMutationsController : ControllerBase
                 !await TryReadBodyWithinLimitAsync(
                     section.Body,
                     mutationJsonStream,
-                    MaxMutationJsonSize,
+                    _maxMutationJsonSize,
                     cancellationToken
                 )
             )
@@ -1416,7 +1386,7 @@ public class InstanceMutationsController : ControllerBase
                 !await TryReadBodyWithinLimitAsync(
                     Request.Body,
                     mutationJsonStream,
-                    MaxMutationJsonSize,
+                    _maxMutationJsonSize,
                     cancellationToken
                 )
             )
@@ -1682,7 +1652,7 @@ public class InstanceMutationsController : ControllerBase
             return null;
         }
 
-        AuthorizationResult authorizationResult = await _policyAuthorizationService.AuthorizeAsync(
+        AuthorizationResult authorizationResult = await policyAuthorizationService.AuthorizeAsync(
             User,
             resource: null,
             policyName: AuthzConstants.POLICY_INSTANCE_DELETE
@@ -1705,7 +1675,7 @@ public class InstanceMutationsController : ControllerBase
             return Forbid();
         }
 
-        AuthorizationResult authorizationResult = await _policyAuthorizationService.AuthorizeAsync(
+        AuthorizationResult authorizationResult = await policyAuthorizationService.AuthorizeAsync(
             User,
             resource: null,
             policyName: AuthzConstants.POLICY_INSTANCE_COMPLETE
@@ -1773,8 +1743,8 @@ public class InstanceMutationsController : ControllerBase
     {
         await blobStaging.Cleanup(stagedBlob =>
             DataService.DeleteAllocatedBlobVersion(
-                _blobRepository,
-                _dataRepository,
+                blobRepository,
+                dataRepository,
                 stagedBlob.Org,
                 stagedBlob.DataElementId,
                 stagedBlob.BlobStoragePath,
@@ -1799,7 +1769,7 @@ public class InstanceMutationsController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        string blobVersionId = await _dataRepository.CreateBlobVersionId(
+        string blobVersionId = await dataRepository.CreateBlobVersionId(
             instance.Id,
             dataElementId,
             instance.AppId,
@@ -1815,7 +1785,7 @@ public class InstanceMutationsController : ControllerBase
 
         try
         {
-            (long blobSize, DateTimeOffset blobTimestamp) = await _blobRepository.WriteBlob(
+            (long blobSize, DateTimeOffset blobTimestamp) = await blobRepository.WriteBlob(
                 instance.Org,
                 content,
                 versionedBlobStoragePath,
@@ -1825,8 +1795,8 @@ public class InstanceMutationsController : ControllerBase
             if (blobSize == 0)
             {
                 await DataService.DeleteAllocatedBlobVersion(
-                    _blobRepository,
-                    _dataRepository,
+                    blobRepository,
+                    dataRepository,
                     instance.Org,
                     dataElementId,
                     versionedBlobStoragePath,
@@ -1856,8 +1826,8 @@ public class InstanceMutationsController : ControllerBase
         catch
         {
             await DataService.DeleteAllocatedBlobVersion(
-                _blobRepository,
-                _dataRepository,
+                blobRepository,
+                dataRepository,
                 instance.Org,
                 dataElementId,
                 versionedBlobStoragePath,
@@ -2002,7 +1972,7 @@ public class InstanceMutationsController : ControllerBase
         CancellationToken cancellationToken = default
     )
     {
-        Application application = await _applicationRepository.FindOne(
+        Application application = await applicationRepository.FindOne(
             appId,
             org,
             cancellationToken
@@ -2020,7 +1990,7 @@ public class InstanceMutationsController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        InstanceInternal instance = await _instanceRepository.GetOne(
+        InstanceInternal instance = await instanceRepository.GetOne(
             instanceGuid,
             includeDataelements,
             cancellationToken

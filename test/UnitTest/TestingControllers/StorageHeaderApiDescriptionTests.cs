@@ -22,23 +22,16 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 /// appear in the generated API description. Reading them off <c>Request.Headers</c> instead would
 /// leave them undocumented, which these tests exist to prevent.
 /// </summary>
-public class StorageHeaderApiDescriptionTests
+public class StorageHeaderApiDescriptionTests(TestApplicationFactory<ProcessController> factory)
     : IClassFixture<TestApplicationFactory<ProcessController>>
 {
-    private readonly TestApplicationFactory<ProcessController> _factory;
-
-    public StorageHeaderApiDescriptionTests(TestApplicationFactory<ProcessController> factory)
-    {
-        _factory = factory;
-    }
 
     public static TheoryData<string> RequestHeaders =>
-        new()
-        {
+        [
             StorageHeaders.IfInstanceVersionMatch,
             StorageHeaders.IfProcessStateVersionMatch,
             StorageHeaders.IdempotencyKey,
-        };
+        ];
 
     [Theory]
     [MemberData(nameof(RequestHeaders))]
@@ -63,10 +56,12 @@ public class StorageHeaderApiDescriptionTests
     [MemberData(nameof(RequestHeaders))]
     public void StorageRequestHeader_IsAnOptionalStringHeaderParameter(string headerName)
     {
-        List<ApiParameterDescription> parameters = GetApiDescriptions()
-            .SelectMany(description => description.ParameterDescriptions)
-            .Where(parameter => parameter.Name == headerName)
-            .ToList();
+        List<ApiParameterDescription> parameters =
+        [
+            .. GetApiDescriptions()
+                .SelectMany(description => description.ParameterDescriptions)
+                .Where(parameter => parameter.Name == headerName),
+        ];
 
         Assert.NotEmpty(parameters);
         Assert.All(parameters, parameter => Assert.Equal(BindingSource.Header, parameter.Source));
@@ -95,7 +90,7 @@ public class StorageHeaderApiDescriptionTests
 
     private List<ApiDescription> GetApiDescriptions()
     {
-        WebApplicationFactory<ProcessController> factory = _factory.WithWebHostBuilder(builder =>
+        WebApplicationFactory<ProcessController> webApplicationFactory = factory.WithWebHostBuilder(builder =>
         {
             IConfiguration configuration = new ConfigurationBuilder()
                 .AddJsonFile(ServiceUtil.GetAppsettingsPath())
@@ -105,11 +100,13 @@ public class StorageHeaderApiDescriptionTests
             );
             builder.ConfigureTestServices(services => services.AddMockRepositories());
         });
-        factory.CreateClient().Dispose();
+        webApplicationFactory.CreateClient().Dispose();
 
-        return factory
-            .Services.GetRequiredService<IApiDescriptionGroupCollectionProvider>()
-            .ApiDescriptionGroups.Items.SelectMany(group => group.Items)
-            .ToList();
+        return
+        [
+            ..webApplicationFactory
+                .Services.GetRequiredService<IApiDescriptionGroupCollectionProvider>()
+                .ApiDescriptionGroups.Items.SelectMany(group => group.Items),
+        ];
     }
 }

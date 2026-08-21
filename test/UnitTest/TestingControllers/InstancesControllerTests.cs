@@ -650,7 +650,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string token = PrincipalUtil.GetToken(3, 1337, 3);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        Instance instance = new Instance { InstanceOwner = new InstanceOwner { PartyId = "1337" } };
+        Instance instance = new() { InstanceOwner = new InstanceOwner { PartyId = "1337" } };
 
         // Act
         HttpResponseMessage response = await client.PostAsync(
@@ -1825,7 +1825,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                     It.IsAny<CancellationToken>()
                 )
             )
-            .ReturnsAsync(new InstanceQueryResult { Instances = new() });
+            .ReturnsAsync(new InstanceQueryResult { Instances = [] });
 
         string requestUri = $"{BasePath}?instanceOwner.partyId=1337&dataValues.A2ArchRef=123456";
 
@@ -1858,7 +1858,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                     It.IsAny<CancellationToken>()
                 )
             )
-            .ReturnsAsync(new InstanceQueryResult { Instances = new() });
+            .ReturnsAsync(new InstanceQueryResult { Instances = [] });
 
         string requestUri = $"{BasePath}?instanceOwner.partyId=1337&A3Ref=b7fe18ccff30";
 
@@ -3109,16 +3109,18 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         processAuthorizer
             .Setup(authorizer => authorizer.AuthorizeDataValuesUpdate(internalInstance))
             .ReturnsAsync(true);
-        DefaultHttpContext httpContext = new();
-        httpContext.User = new ClaimsPrincipal(
-            new ClaimsIdentity(
-                [
-                    new Claim(AltinnCoreClaimTypes.Org, internalInstance.Org),
-                    new Claim(AltinnCoreClaimTypes.OrgNumber, "111111111"),
-                ],
-                "test"
-            )
-        );
+        DefaultHttpContext httpContext = new()
+        {
+            User = new ClaimsPrincipal(
+                new ClaimsIdentity(
+                    [
+                        new Claim(AltinnCoreClaimTypes.Org, internalInstance.Org),
+                        new Claim(AltinnCoreClaimTypes.OrgNumber, "111111111"),
+                    ],
+                    "test"
+                )
+            ),
+        };
         InstancesController controller = new(
             repository.Object,
             Mock.Of<IPartiesWithInstancesClient>(),

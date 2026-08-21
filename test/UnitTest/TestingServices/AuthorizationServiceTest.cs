@@ -649,9 +649,9 @@ public class AuthorizationServiceTest
 
     private static List<InstanceInternal> CreateInstances()
     {
-        List<InstanceInternal> instances = new List<InstanceInternal>
-        {
-            new InstanceInternal
+        List<InstanceInternal> instances =
+        [
+            new()
             {
                 Id = Guid.NewGuid(),
                 Process = new ProcessState
@@ -663,7 +663,7 @@ public class AuthorizationServiceTest
                 Org = Org,
                 Created = DateTime.UtcNow,
             },
-            new InstanceInternal
+            new()
             {
                 Id = Guid.NewGuid(),
                 InstanceOwner = new InstanceOwner { PartyId = "1002" },
@@ -671,7 +671,7 @@ public class AuthorizationServiceTest
                 Org = Org,
                 Created = DateTime.UtcNow,
             },
-            new InstanceInternal
+            new()
             {
                 Id = Guid.NewGuid(),
                 InstanceOwner = new InstanceOwner { PartyId = "1000" },
@@ -679,7 +679,7 @@ public class AuthorizationServiceTest
                 Org = Org,
                 Created = DateTime.UtcNow,
             },
-        };
+        ];
 
         return instances;
     }

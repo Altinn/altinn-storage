@@ -930,7 +930,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
             .Setup(dr =>
                 dr.ReadDetachedBlobVersions(It.IsAny<Guid>(), It.IsAny<CancellationToken>())
             )
-            .ReturnsAsync(Array.Empty<BlobVersionReferencesInternal>());
+            .ReturnsAsync([]);
 
         mutationRepositoryMock
             .Setup(repository =>

@@ -215,12 +215,14 @@ public class SigningService : ISigningService
             InstanceMutationCommit mutation = new(
                 [stagedDataElement.DataElement],
                 [],
-                existingSignDocuments
-                    .Select(existingSignDocument => new InstanceMutationDataElementDelete(
-                        existingSignDocument.DataElement,
-                        IgnoreLock: true
-                    ))
-                    .ToList(),
+                [
+                    .. existingSignDocuments.Select(
+                        existingSignDocument => new InstanceMutationDataElementDelete(
+                            existingSignDocument.DataElement,
+                            IgnoreLock: true
+                        )
+                    ),
+                ],
                 instance,
                 [],
                 expectedInstanceVersion,

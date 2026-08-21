@@ -29,8 +29,8 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 [Collection("StoragePostgreSQL")]
 public class InstancesControllerCreationIntegrationTests : IClassFixture<InstanceFixture>
 {
-    private const int PartyId = 1337;
-    private const string AppId = "tdd/endring-av-navn";
+    private const int _partyId = 1337;
+    private const string _appId = "tdd/endring-av-navn";
     private readonly InstanceFixture _instanceFixture;
 
     public InstancesControllerCreationIntegrationTests(InstanceFixture instanceFixture)
@@ -54,11 +54,11 @@ public class InstancesControllerCreationIntegrationTests : IClassFixture<Instanc
             );
         Mock<IApplicationService> applicationService = new();
         applicationService
-            .Setup(service => service.GetApplicationOrErrorAsync(AppId))
-            .ReturnsAsync((new Application { Id = AppId, Org = "tdd" }, null));
+            .Setup(service => service.GetApplicationOrErrorAsync(_appId))
+            .ReturnsAsync((new Application { Id = _appId, Org = "tdd" }, null));
         Mock<IPartiesWithInstancesClient> partiesWithInstancesClient = new();
         partiesWithInstancesClient
-            .Setup(client => client.SetHasAltinn3Instances(PartyId))
+            .Setup(client => client.SetHasAltinn3Instances(_partyId))
             .Returns(Task.CompletedTask);
         Mock<IInstanceEventService> instanceEventService = new();
         instanceEventService
@@ -70,7 +70,10 @@ public class InstancesControllerCreationIntegrationTests : IClassFixture<Instanc
         processAuthorizer
             .Setup(authorizer => authorizer.AuthorizeDataValuesUpdate(It.IsAny<InstanceInternal>()))
             .ReturnsAsync(true);
-        DefaultHttpContext httpContext = new() { User = PrincipalUtil.GetPrincipal(3, PartyId, 3) };
+        DefaultHttpContext httpContext = new()
+        {
+            User = PrincipalUtil.GetPrincipal(3, _partyId, 3),
+        };
         InstancesController controller = new(
             _instanceFixture.InstanceRepo,
             partiesWithInstancesClient.Object,
@@ -87,13 +90,13 @@ public class InstancesControllerCreationIntegrationTests : IClassFixture<Instanc
         };
         Instance incoming = new()
         {
-            InstanceOwner = new InstanceOwner { PartyId = PartyId.ToString() },
+            InstanceOwner = new InstanceOwner { PartyId = _partyId.ToString() },
             Process = new ProcessState { Status = ProcessStatus.Processing },
             DataValues = new Dictionary<string, string> { ["preserved"] = "value" },
         };
 
         ActionResult<Instance> createResult = await controller.Post(
-            AppId,
+            _appId,
             incoming,
             CancellationToken.None
         );
@@ -114,7 +117,7 @@ public class InstancesControllerCreationIntegrationTests : IClassFixture<Instanc
         string rawInstanceBefore = await ReadRawInstance(instanceGuid);
 
         ActionResult<Instance> updateResult = await controller.UpdateDataValues(
-            PartyId,
+            _partyId,
             instanceGuid,
             new DataValues
             {

@@ -100,9 +100,9 @@ public class StudioInstancesControllerTests
             .ReturnsAsync(
                 new InstanceQueryResult
                 {
-                    Instances = new List<InstanceInternal>
-                    {
-                        new InstanceInternal
+                    Instances =
+                    [
+                        new()
                         {
                             Id = storageId,
                             InstanceOwner = new() { PartyId = "1337" },
@@ -121,7 +121,7 @@ public class StudioInstancesControllerTests
                             Created = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
                             LastChanged = new DateTime(2026, 1, 3, 4, 5, 6, DateTimeKind.Utc),
                         },
-                    },
+                    ],
                 }
             );
 

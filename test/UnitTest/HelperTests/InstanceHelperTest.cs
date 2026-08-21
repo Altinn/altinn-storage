@@ -67,14 +67,14 @@ public class InstanceHelperTest
         // Arrange
         string lastChangedBy = TestData.UserId_1;
         InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
-        instance.Data = new List<DataElementInternal>()
-        {
-            new DataElementInternal()
+        instance.Data =
+        [
+            new()
             {
                 LastChanged = Convert.ToDateTime("2019-08-21T19:19:22.2135489Z"),
                 LastChangedBy = lastChangedBy,
             },
-        };
+        ];
 
         // Act
         MessageBoxInstance actual = InstanceHelper.ConvertToMessageBoxInstance(instance);
@@ -147,7 +147,7 @@ public class InstanceHelperTest
     [Fact]
     public void GetSBLStatusForCurrentTask_Confirmation()
     {
-        InstanceInternal instance = new InstanceInternal
+        InstanceInternal instance = new()
         {
             Process = new ProcessState
             {
@@ -176,7 +176,7 @@ public class InstanceHelperTest
     [Fact]
     public void GetSBLStatusForCurrentTask_Feedback()
     {
-        InstanceInternal instance = new InstanceInternal
+        InstanceInternal instance = new()
         {
             Process = new ProcessState
             {
@@ -205,7 +205,7 @@ public class InstanceHelperTest
     [Fact]
     public void GetSBLStatusForCurrentTask_Signing()
     {
-        InstanceInternal instance = new InstanceInternal
+        InstanceInternal instance = new()
         {
             Process = new ProcessState
             {
@@ -324,7 +324,7 @@ public class InstanceHelperTest
             },
         };
 
-        List<InstanceInternal> instances = new() { i1, i2 };
+        List<InstanceInternal> instances = [i1, i2];
 
         // Act
         InstanceHelper.RemoveHiddenInstances(apps, instances);
@@ -366,7 +366,7 @@ public class InstanceHelperTest
             },
         };
 
-        List<InstanceInternal> instances = new() { i1, i2 };
+        List<InstanceInternal> instances = [i1, i2];
 
         // Act
         InstanceHelper.RemoveHiddenInstances(apps, instances);
@@ -401,7 +401,7 @@ public class InstanceHelperTest
 
         InstanceInternal i3 = new() { AppId = "ttd/hideAlwayshideSettings" };
 
-        List<InstanceInternal> instances = new() { i1, i2, i3 };
+        List<InstanceInternal> instances = [i1, i2, i3];
 
         // Act
         InstanceHelper.RemoveHiddenInstances(apps, instances);

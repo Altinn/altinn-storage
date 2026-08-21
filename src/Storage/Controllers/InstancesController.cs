@@ -201,9 +201,10 @@ public class InstancesController : ControllerBase
 
             string nextContinuationToken = HttpUtility.UrlEncode(result.ContinuationToken);
 
-            List<Instance> responseInstances = result
-                .Instances.Select(instance => instance.ToApiModel())
-                .ToList();
+            List<Instance> responseInstances =
+            [
+                .. result.Instances.Select(instance => instance.ToApiModel()),
+            ];
 
             if (!appOwnerOrSyncAdapterRequestingInstances)
             {
