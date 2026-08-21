@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Newtonsoft.Json;

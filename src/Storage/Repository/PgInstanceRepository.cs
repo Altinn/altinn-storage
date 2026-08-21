@@ -10,7 +10,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Helpers;
-using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Microsoft.Extensions.Logging;
 using Npgsql;

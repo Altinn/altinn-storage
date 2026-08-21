@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using Altinn.Platform.Storage.Interface.Enums;
-using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Microsoft.Extensions.Logging;
 
