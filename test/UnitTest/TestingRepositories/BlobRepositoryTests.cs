@@ -32,7 +32,6 @@ public class BlobRepositoryTests
 public class BlobRepositoryAzuriteTests(BlobRepositoryAzuriteFixture fixture)
     : IClassFixture<BlobRepositoryAzuriteFixture>
 {
-
     [Fact]
     public async Task WriteBlob_ThenReadBlob_RoundtripsContent()
     {

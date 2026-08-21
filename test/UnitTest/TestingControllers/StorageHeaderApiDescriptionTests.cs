@@ -25,7 +25,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 public class StorageHeaderApiDescriptionTests(TestApplicationFactory<ProcessController> factory)
     : IClassFixture<TestApplicationFactory<ProcessController>>
 {
-
     public static TheoryData<string> RequestHeaders =>
         [
             StorageHeaders.IfInstanceVersionMatch,
@@ -90,21 +89,23 @@ public class StorageHeaderApiDescriptionTests(TestApplicationFactory<ProcessCont
 
     private List<ApiDescription> GetApiDescriptions()
     {
-        WebApplicationFactory<ProcessController> webApplicationFactory = factory.WithWebHostBuilder(builder =>
-        {
-            IConfiguration configuration = new ConfigurationBuilder()
-                .AddJsonFile(ServiceUtil.GetAppsettingsPath())
-                .Build();
-            builder.ConfigureAppConfiguration(
-                (hostingContext, config) => config.AddConfiguration(configuration)
-            );
-            builder.ConfigureTestServices(services => services.AddMockRepositories());
-        });
+        WebApplicationFactory<ProcessController> webApplicationFactory = factory.WithWebHostBuilder(
+            builder =>
+            {
+                IConfiguration configuration = new ConfigurationBuilder()
+                    .AddJsonFile(ServiceUtil.GetAppsettingsPath())
+                    .Build();
+                builder.ConfigureAppConfiguration(
+                    (hostingContext, config) => config.AddConfiguration(configuration)
+                );
+                builder.ConfigureTestServices(services => services.AddMockRepositories());
+            }
+        );
         webApplicationFactory.CreateClient().Dispose();
 
         return
         [
-            ..webApplicationFactory
+            .. webApplicationFactory
                 .Services.GetRequiredService<IApiDescriptionGroupCollectionProvider>()
                 .ApiDescriptionGroups.Items.SelectMany(group => group.Items),
         ];
