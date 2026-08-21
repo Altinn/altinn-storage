@@ -3,7 +3,6 @@
 using System;
 using System.Diagnostics;
 using Altinn.Platform.Storage.Interface.Enums;
-using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 

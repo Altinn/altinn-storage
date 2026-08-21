@@ -1,7 +1,6 @@
 #nullable disable
 
 using System;
-using Altinn.Platform.Storage.Extensions;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.Extensions;

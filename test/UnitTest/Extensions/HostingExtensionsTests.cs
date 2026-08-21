@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using Altinn.Platform.Storage.Extensions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
