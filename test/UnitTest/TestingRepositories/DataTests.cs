@@ -6139,7 +6139,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     }
 
     [Fact]
-    public async Task ApplyInstanceMutationSql_DeleteDiagnostics_ReportMissingBeforeLocked()
+    public async Task ApplyInstanceMutationSql_DeleteValidationOrdersByOrdinalBeforePriority()
     {
         // Arrange
         Guid instanceGuid = _instance.Id;
@@ -6173,10 +6173,10 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Assert
         AssertSqlError(
             exception,
-            "data_element_not_found",
+            "locked",
             currentInstanceVersion,
             currentProcessStateVersion,
-            missingDelete.Id
+            lockedDelete.Id
         );
         Assert.True(await dataElementFixture.DataRepo.Exists(Guid.Parse(lockedDelete.Id)));
         Assert.Equal(1, await CountAttachedBlobVersionRows(blobVersionId));

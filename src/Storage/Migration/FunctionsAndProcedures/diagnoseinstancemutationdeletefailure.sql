@@ -59,7 +59,7 @@ BEGIN
     SELECT validationerrors.dataelementid, validationerrors.errorcode
     INTO _faileddataelementid, _errorcode
     FROM validationerrors
-    ORDER BY validationerrors.priority, validationerrors.ordinality
+    ORDER BY validationerrors.ordinality, validationerrors.priority
     LIMIT 1;
 
     IF _errorcode IS NOT NULL
