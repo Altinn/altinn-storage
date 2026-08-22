@@ -11,7 +11,8 @@ CREATE OR REPLACE FUNCTION storage.applyinstancemutation(
     _deleteelements JSONB,
     _instanceupdate JSONB,
     _events JSONB,
-    _outbox JSONB)
+    _outbox JSONB
+)
     RETURNS TABLE (
         replayed BOOLEAN,
         createddataelementids TEXT[],
@@ -20,7 +21,8 @@ CREATE OR REPLACE FUNCTION storage.applyinstancemutation(
         instanceversion INT,
         processstateversion INT,
         element JSONB,
-        currentblobversion UUID)
+        currentblobversion UUID
+    )
     LANGUAGE plpgsql
 AS $BODY$
 DECLARE
@@ -42,10 +44,10 @@ BEGIN
         i.instance,
         i.instance_version,
         i.process_state_version
-        INTO _composedinstance, _currentinstanceversion, _currentprocessstateversion
-        FROM storage.instances i
-        WHERE i.id = _instanceinternalid
-        FOR UPDATE;
+    INTO _composedinstance, _currentinstanceversion, _currentprocessstateversion
+    FROM storage.instances i
+    WHERE i.id = _instanceinternalid
+    FOR UPDATE;
 
     IF NOT FOUND
     THEN
@@ -77,8 +79,8 @@ BEGIN
     END;
 
     SELECT COALESCE(array_agg(createelement.value ->> 'elementId' ORDER BY createelement.ordinality), ARRAY[]::TEXT[])
-        INTO _committedcreateddataelementids
-        FROM jsonb_array_elements(_createelements) WITH ORDINALITY createelement(value, ordinality);
+    INTO _committedcreateddataelementids
+    FROM jsonb_array_elements(_createelements) WITH ORDINALITY createelement(value, ordinality);
 
 
     IF _idempotencykey IS NOT NULL AND _expectedinstanceversion IS NOT NULL
@@ -146,43 +148,43 @@ BEGIN
     IF jsonb_array_length(_createelements) > 0
     THEN
         INSERT INTO storage.dataelements(instanceinternalid, instanceguid, alternateid, element, currentblobversion)
+        SELECT
+            _instanceinternalid,
+            _instanceguid,
+            createelement.dataelementid,
+            jsonb_strip_nulls(
+                createelement.element
+                    || jsonb_build_object(
+                        'LastChanged',
+                        storage.timestamptz_to_jsonb_utc(_lastchanged),
+                        'LastChangedBy',
+                        _lastchangedby
+                    )
+            ),
+            createelement.blobversion
+        FROM (
             SELECT
-                _instanceinternalid,
-                _instanceguid,
-                createelement.dataelementid,
-                jsonb_strip_nulls(
-                    createelement.element
-                        || jsonb_build_object(
-                            'LastChanged',
-                            storage.timestamptz_to_jsonb_utc(_lastchanged),
-                            'LastChangedBy',
-                            _lastchangedby
-                        )
-                ),
-                createelement.blobversion
-            FROM (
-                SELECT
-                    createelement.ordinality,
-                    (createelement.value ->> 'elementId')::UUID AS dataelementid,
-                    createelement.value -> 'element' AS element,
-                    (createelement.value ->> 'blobVersion')::UUID AS blobversion
-                FROM jsonb_array_elements(_createelements) WITH ORDINALITY createelement(value, ordinality)
-            ) createelement
-            ORDER BY createelement.ordinality;
+                createelement.ordinality,
+                (createelement.value ->> 'elementId')::UUID AS dataelementid,
+                createelement.value -> 'element' AS element,
+                (createelement.value ->> 'blobVersion')::UUID AS blobversion
+            FROM jsonb_array_elements(_createelements) WITH ORDINALITY createelement(value, ordinality)
+        ) createelement
+        ORDER BY createelement.ordinality;
 
         UPDATE storage.dataelementblobversions dataelementblobversion
-            SET attached = true
-            FROM (
-                SELECT
-                    (createelement.value ->> 'elementId')::UUID AS dataelementid,
-                    (createelement.value ->> 'blobVersion')::UUID AS blobversion
-                FROM jsonb_array_elements(_createelements) createelement(value)
-                WHERE createelement.value ->> 'blobVersion' IS NOT NULL
-            ) createelement
-            WHERE dataelementblobversion.id = createelement.blobversion
-                AND dataelementblobversion.instanceguid = _instanceguid
-                AND dataelementblobversion.dataelementid = createelement.dataelementid
-                AND dataelementblobversion.attached = false;
+        SET attached = true
+        FROM (
+            SELECT
+                (createelement.value ->> 'elementId')::UUID AS dataelementid,
+                (createelement.value ->> 'blobVersion')::UUID AS blobversion
+            FROM jsonb_array_elements(_createelements) createelement(value)
+            WHERE createelement.value ->> 'blobVersion' IS NOT NULL
+        ) createelement
+        WHERE dataelementblobversion.id = createelement.blobversion
+            AND dataelementblobversion.instanceguid = _instanceguid
+            AND dataelementblobversion.dataelementid = createelement.dataelementid
+            AND dataelementblobversion.attached = false;
     END IF;
 
     IF jsonb_array_length(_updateelements) > 0
@@ -230,8 +232,8 @@ BEGIN
             RETURNING dataelement.alternateid
         )
         SELECT COALESCE(array_agg(updated.alternateid), ARRAY[]::UUID[])
-            INTO _updatedids
-            FROM updated;
+        INTO _updatedids
+        FROM updated;
 
         IF cardinality(_updatedids) < jsonb_array_length(_updateelements)
         THEN
@@ -244,18 +246,18 @@ BEGIN
         END IF;
 
         UPDATE storage.dataelementblobversions dataelementblobversion
-            SET attached = true
-            FROM (
-                SELECT
-                    (updateelement.value ->> 'elementId')::UUID AS dataelementid,
-                    (updateelement.value ->> 'newBlobVersion')::UUID AS newblobversion
-                FROM jsonb_array_elements(_updateelements) updateelement(value)
-                WHERE updateelement.value ->> 'newBlobVersion' IS NOT NULL
-            ) updateelement
-            WHERE dataelementblobversion.id = updateelement.newblobversion
-                AND dataelementblobversion.instanceguid = _instanceguid
-                AND dataelementblobversion.dataelementid = updateelement.dataelementid
-                AND dataelementblobversion.attached = false;
+        SET attached = true
+        FROM (
+            SELECT
+                (updateelement.value ->> 'elementId')::UUID AS dataelementid,
+                (updateelement.value ->> 'newBlobVersion')::UUID AS newblobversion
+            FROM jsonb_array_elements(_updateelements) updateelement(value)
+            WHERE updateelement.value ->> 'newBlobVersion' IS NOT NULL
+        ) updateelement
+        WHERE dataelementblobversion.id = updateelement.newblobversion
+            AND dataelementblobversion.instanceguid = _instanceguid
+            AND dataelementblobversion.dataelementid = updateelement.dataelementid
+            AND dataelementblobversion.attached = false;
     END IF;
 
     IF jsonb_array_length(_deleteelements) > 0
@@ -278,8 +280,8 @@ BEGIN
             RETURNING dataelement.alternateid
         )
         SELECT COALESCE(array_agg(deleted.alternateid), ARRAY[]::UUID[])
-            INTO _deletedids
-            FROM deleted;
+        INTO _deletedids
+        FROM deleted;
 
         IF cardinality(_deletedids) < jsonb_array_length(_deleteelements)
         THEN
@@ -292,14 +294,14 @@ BEGIN
         END IF;
 
         UPDATE storage.dataelementblobversions dataelementblobversion
-            SET attached = false
-            FROM (
-                SELECT (deleteelement.value ->> 'elementId')::UUID AS dataelementid
-                FROM jsonb_array_elements(_deleteelements) deleteelement(value)
-            ) deleteelement
-            WHERE dataelementblobversion.instanceguid = _instanceguid
-                AND dataelementblobversion.dataelementid = deleteelement.dataelementid
-                AND dataelementblobversion.attached = true;
+        SET attached = false
+        FROM (
+            SELECT (deleteelement.value ->> 'elementId')::UUID AS dataelementid
+            FROM jsonb_array_elements(_deleteelements) deleteelement(value)
+        ) deleteelement
+        WHERE dataelementblobversion.instanceguid = _instanceguid
+            AND dataelementblobversion.dataelementid = deleteelement.dataelementid
+            AND dataelementblobversion.attached = true;
     END IF;
 
     -- The upfront instance-version prediction is the any-operations signal.
@@ -335,16 +337,16 @@ BEGIN
             || jsonb_set('{"LastChangedBy":""}', '{LastChangedBy}', COALESCE(to_jsonb(_lastchangedby), 'null'::JSONB));
 
         UPDATE storage.instances i
-            SET instance = _composedinstance,
-                lastchanged = _lastchanged,
-                instance_version = _newinstanceversion,
-                process_state_version = _newprocessstateversion,
-                confirmed = COALESCE((_instanceupdate ->> 'confirmed')::BOOLEAN, i.confirmed),
-                taskid = CASE
-                    WHEN NULLIF(_instanceupdate -> 'process', 'null'::JSONB) IS NOT NULL THEN _instanceupdate ->> 'taskid'
-                    ELSE i.taskid
-                END
-            WHERE i.id = _instanceinternalid;
+        SET instance = _composedinstance,
+            lastchanged = _lastchanged,
+            instance_version = _newinstanceversion,
+            process_state_version = _newprocessstateversion,
+            confirmed = COALESCE((_instanceupdate ->> 'confirmed')::BOOLEAN, i.confirmed),
+            taskid = CASE
+                WHEN NULLIF(_instanceupdate -> 'process', 'null'::JSONB) IS NOT NULL THEN _instanceupdate ->> 'taskid'
+                ELSE i.taskid
+            END
+        WHERE i.id = _instanceinternalid;
     END IF;
 
     IF jsonb_array_length(_events) > 0

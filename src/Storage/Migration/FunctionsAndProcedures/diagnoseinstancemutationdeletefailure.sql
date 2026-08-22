@@ -57,10 +57,10 @@ BEGIN
             AND targetdataelementstates.elementislocked
     )
     SELECT validationerrors.dataelementid, validationerrors.errorcode
-        INTO _faileddataelementid, _errorcode
-        FROM validationerrors
-        ORDER BY validationerrors.priority, validationerrors.ordinality
-        LIMIT 1;
+    INTO _faileddataelementid, _errorcode
+    FROM validationerrors
+    ORDER BY validationerrors.priority, validationerrors.ordinality
+    LIMIT 1;
 
     IF _errorcode IS NOT NULL
     THEN
