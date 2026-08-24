@@ -104,7 +104,9 @@ public class CleanupController(
     {
         if (string.IsNullOrWhiteSpace(appId))
         {
-            return BadRequest("AppId cannot be empty");
+            return BadRequest(
+                "AppId cannot be null, empty or consist only of white-space characters"
+            );
         }
 
         int successfullyDeleted = 0;
