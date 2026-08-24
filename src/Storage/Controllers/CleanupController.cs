@@ -94,7 +94,7 @@ public class CleanupController(
     /// Invoke periodic cleanup of instances for a specific app
     /// </summary>
     /// <returns>?</returns>
-    [HttpDelete("cleanupinstancesforapp/{appId}")]
+    [HttpDelete("cleanupinstancesforapp/{**appId}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ApiExplorerSettings(IgnoreApi = true)]
     public async Task<ActionResult> CleanupInstancesForApp(
