@@ -295,46 +295,7 @@ public class DataController : ControllerBase
             instance.Org = "ttd";
         }
 
-        if (
-            DataElementHelper.IsExpectedBlobStoragePath(
-                dataElement.BlobStoragePath,
-                instance.AppId,
-                instanceGuid.ToString(),
-                dataGuid.ToString()
-            )
-        )
-        {
-            Stream dataStream = await _blobRepository.ReadBlob(
-                instance.Org,
-                dataElement.BlobStoragePath,
-                application.StorageAccountNumber,
-                cancellationToken
-            );
-
-            if (dataStream == null)
-            {
-                return NotFound($"Unable to read data element from blob storage for {dataGuid}");
-            }
-
-            // Migrated Altinn 2 Websa main forms should be shown inline in the browser
-            if (
-                instance.AppId.Contains(@"/a2-")
-                && dataElement.DataType == "ref-data-as-pdf"
-                && dataElement.ContentType == "text/html"
-            )
-            {
-                var contentDispositionHeader = new ContentDispositionHeaderValue("inline");
-                contentDispositionHeader.SetHttpFileName(dataElement.Filename);
-                Response.Headers.Append(
-                    HeaderNames.ContentDisposition,
-                    contentDispositionHeader.ToString()
-                );
-                return File(dataStream, dataElement.ContentType);
-            }
-
-            return File(dataStream, dataElement.ContentType, dataElement.Filename);
-        }
-        else if (dataElement.BlobStoragePath.StartsWith("ondemand"))
+        if (dataElement.BlobStoragePath.StartsWith("ondemand"))
         {
             var contentDispositionHeader = new ContentDispositionHeaderValue("inline");
             contentDispositionHeader.SetHttpFileName(dataElement.Filename);
@@ -352,7 +313,37 @@ public class DataController : ControllerBase
             );
         }
 
-        return NotFound("Unable to find requested data item");
+        DataElementHelper.EnsureExpectedBlobStoragePath(dataElement, instanceGuid, instance.AppId);
+
+        Stream dataStream = await _blobRepository.ReadBlob(
+            instance.Org,
+            dataElement.BlobStoragePath,
+            application.StorageAccountNumber,
+            cancellationToken
+        );
+
+        if (dataStream == null)
+        {
+            return NotFound($"Unable to read data element from blob storage for {dataGuid}");
+        }
+
+        // Migrated Altinn 2 Websa main forms should be shown inline in the browser
+        if (
+            instance.AppId.Contains(@"/a2-")
+            && dataElement.DataType == "ref-data-as-pdf"
+            && dataElement.ContentType == "text/html"
+        )
+        {
+            var contentDispositionHeader = new ContentDispositionHeaderValue("inline");
+            contentDispositionHeader.SetHttpFileName(dataElement.Filename);
+            Response.Headers.Append(
+                HeaderNames.ContentDisposition,
+                contentDispositionHeader.ToString()
+            );
+            return File(dataStream, dataElement.ContentType);
+        }
+
+        return File(dataStream, dataElement.ContentType, dataElement.Filename);
     }
 
     /// <summary>
@@ -620,17 +611,7 @@ public class DataController : ControllerBase
             return Conflict($"Data element {dataGuid} is locked and cannot be updated");
         }
 
-        if (
-            !DataElementHelper.IsExpectedBlobStoragePath(
-                dataElement.BlobStoragePath,
-                instance.AppId,
-                instanceGuid.ToString(),
-                dataGuid.ToString()
-            )
-        )
-        {
-            return StatusCode(500, "Storage url does not match with instance metadata");
-        }
+        DataElementHelper.EnsureExpectedBlobStoragePath(dataElement, instanceGuid, instance.AppId);
 
         var streamAndDataElement = await ReadRequestAndCreateDataElementAsync(
             Request,

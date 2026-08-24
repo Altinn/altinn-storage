@@ -142,16 +142,16 @@ public class DataControllerUnitTests
             blobRepositoryMock: blobRepositoryMock
         );
 
-        // Act
-        var result = await testController.Get(
-            _instanceOwnerPartyId,
-            Guid.NewGuid(),
-            Guid.NewGuid(),
-            CancellationToken.None
+        // Act & assert
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            testController.Get(
+                _instanceOwnerPartyId,
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                CancellationToken.None
+            )
         );
 
-        // Assert
-        Assert.IsType<NotFoundObjectResult>(result);
         blobRepositoryMock.Verify(
             b =>
                 b.ReadBlob(
@@ -177,17 +177,16 @@ public class DataControllerUnitTests
             blobRepositoryMock: blobRepositoryMock
         );
 
-        // Act
-        var result = await testController.OverwriteData(
-            _instanceOwnerPartyId,
-            Guid.NewGuid(),
-            Guid.NewGuid(),
-            CancellationToken.None
+        // Act & assert
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            testController.OverwriteData(
+                _instanceOwnerPartyId,
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                CancellationToken.None
+            )
         );
 
-        // Assert
-        var objectResult = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
         blobRepositoryMock.Verify(
             b =>
                 b.WriteBlob(
