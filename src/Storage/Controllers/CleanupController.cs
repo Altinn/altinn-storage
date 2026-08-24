@@ -102,6 +102,11 @@ public class CleanupController(
         CancellationToken cancellationToken
     )
     {
+        if (string.IsNullOrWhiteSpace(appId))
+        {
+            return BadRequest("AppId cannot be empty");
+        }
+
         int successfullyDeleted = 0;
         int processed = 0;
         InstanceQueryResponse instancesResponse = new() { ContinuationToken = null };
