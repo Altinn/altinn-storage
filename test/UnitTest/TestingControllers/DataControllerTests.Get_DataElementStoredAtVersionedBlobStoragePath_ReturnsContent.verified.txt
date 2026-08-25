@@ -1,0 +1,12 @@
+﻿{
+  Response: {
+    Status: 200 OK,
+    Content: {
+      Headers: {
+        Content-Length: 29,
+        Content-Type: text/plain; charset=utf-8
+      },
+      Value: This is a versioned blob file
+    }
+  }
+}

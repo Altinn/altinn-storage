@@ -520,6 +520,58 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     }
 
     [Fact]
+    public async Task Get_DataElementStoredAtVersionedBlobStoragePath_ReturnsContent()
+    {
+        // Arrange
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/{VersionedBlobElement.InstanceGuid}/data/{VersionedBlobElement.DataElementId}";
+
+        string token = PrincipalUtil.GetToken(1337, 1337, 3);
+        HttpClient client = GetTestClient(bearerAuthToken: token);
+
+        // Act
+        using HttpResponseMessage response = await client.GetAsync(dataPathWithData);
+
+        // Assert
+        await VerifyXunit.Verifier.Verify(new { Response = response });
+    }
+
+    [Fact]
+    public async Task OverwriteData_DataElementStoredAtVersionedBlobStoragePath_Ok()
+    {
+        // Arrange
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/{VersionedBlobElement.InstanceGuid}/data/{VersionedBlobElement.DataElementId}";
+        HttpContent content = new StringContent("This is a blob file with updated data");
+
+        Mock<IBlobRepository> blobRepositoryMock = new();
+        blobRepositoryMock
+            .Setup(b =>
+                b.WriteBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<Stream>(),
+                    VersionedBlobElement.BlobStoragePath,
+                    It.IsAny<int?>()
+                )
+            )
+            .ReturnsAsync((37, DateTimeOffset.UtcNow))
+            .Verifiable();
+
+        string token = PrincipalUtil.GetToken(1337, 1337, 3);
+        HttpClient client = GetTestClient(
+            blobRepositoryMock: blobRepositoryMock,
+            bearerAuthToken: token
+        );
+
+        // Act
+        HttpResponseMessage response = await client.PutAsync(dataPathWithData, content);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        blobRepositoryMock.Verify();
+    }
+
+    [Fact]
     public async Task Get_DataElementDoesNotExists_ReturnsNotFound()
     {
         string dataPathWithData =
@@ -1231,6 +1283,14 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     {
         User,
         Org,
+    }
+
+    private static class VersionedBlobElement
+    {
+        public const string InstanceGuid = "649388f0-a2c0-4774-bd11-c870223ed819";
+        public const string DataElementId = "7d1c4b8e-3f2a-4c6d-9e5b-1a2b3c4d5e6f";
+        public const string BlobStoragePath =
+            "tdd/endring-av-navn/" + InstanceGuid + "/data-elements/AZfQZ9nHc0eLm4Xv2R1qAA";
     }
 
     private static class SensitiveDataApp

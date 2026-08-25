@@ -27,14 +27,14 @@ public class ContentOnDemandControllerTests
 {
     private const string _basePath = "storage/api/v1/ondemand";
     private const string _html = "<html><body>formdata</body></html>";
-
-    private readonly TestApplicationFactory<ContentOnDemandController> _factory;
-
     private const string _org = "ttd";
     private const string _app = "a2-app";
     private const int _instanceOwnerPartyId = 1337;
     private static readonly Guid _instanceGuid = new("1916cd18-3b8e-46f8-aeaf-4bc3397ddd55");
     private static readonly Guid _htmlDataGuid = new("11f7c994-6681-4e3d-a3ba-6b19bbf3e5f6");
+    private static readonly Guid _xmlDataGuid = new("3a1b2f4c-7a1e-4b25-9f0f-0d6a0f3a5b21");
+
+    private readonly TestApplicationFactory<ContentOnDemandController> _factory;
 
     /// <summary>
     /// Constructor.
@@ -90,7 +90,61 @@ public class ContentOnDemandControllerTests
         Assert.Equal(_html, await response.Content.ReadAsStringAsync());
     }
 
-    private static Instance GetInstance()
+    [Fact]
+    public async Task GetFormdataAsHtml_XmlElementAtVersionedBlobStoragePath_ReadsStoredPath()
+    {
+        // Arrange
+        string xmlBlobStoragePath =
+            $"{_org}/{_app}/{_instanceGuid}/data-elements/AZfQZ9nHc0eLm4Xv2R1qAA";
+        Mock<IBlobRepository> blobRepositoryMock = new();
+        HttpClient client = GetTestClient(blobRepositoryMock, xmlBlobStoragePath);
+        string requestUri = GetRequestUri("formdatahtml");
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        blobRepositoryMock.Verify(
+            br =>
+                br.ReadBlob(
+                    _org,
+                    xmlBlobStoragePath,
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task GetFormdataAsHtml_XmlElementBlobOutsideInstance_ReturnsInternalServerError()
+    {
+        // Arrange
+        string otherInstanceBlobStoragePath =
+            $"{_org}/{_app}/{Guid.NewGuid()}/data-elements/AZfQZ9nHc0eLm4Xv2R1qAA";
+        Mock<IBlobRepository> blobRepositoryMock = new();
+        HttpClient client = GetTestClient(blobRepositoryMock, otherInstanceBlobStoragePath);
+        string requestUri = GetRequestUri("formdatahtml");
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        blobRepositoryMock.Verify(
+            br =>
+                br.ReadBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
+    private static Instance GetInstance(string xmlBlobStoragePath = null)
     {
         return new Instance
         {
@@ -109,8 +163,10 @@ public class ContentOnDemandControllerTests
                 },
                 new DataElement
                 {
-                    Id = "3a1b2f4c-7a1e-4b25-9f0f-0d6a0f3a5b21",
+                    Id = _xmlDataGuid.ToString(),
                     DataType = "a2-xml",
+                    BlobStoragePath =
+                        xmlBlobStoragePath ?? $"{_org}/{_app}/{_instanceGuid}/data/{_xmlDataGuid}",
                     Metadata =
                     [
                         new KeyValueEntry { Key = "formid", Value = "1000" },
@@ -121,12 +177,15 @@ public class ContentOnDemandControllerTests
         };
     }
 
-    private HttpClient GetTestClient()
+    private HttpClient GetTestClient(
+        Mock<IBlobRepository> blobRepositoryMock = null,
+        string xmlBlobStoragePath = null
+    )
     {
         Mock<IInstanceRepository> instanceRepositoryMock = new();
         instanceRepositoryMock
             .Setup(ir => ir.GetOne(_instanceGuid, true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => (GetInstance(), 1L));
+            .ReturnsAsync(() => (GetInstance(xmlBlobStoragePath), 1L));
 
         Mock<IApplicationRepository> applicationRepositoryMock = new();
         applicationRepositoryMock
@@ -143,7 +202,7 @@ public class ContentOnDemandControllerTests
             .Setup(ar => ar.GetXsls(_org, _app, 2000, "nb", It.IsAny<int>()))
             .ReturnsAsync(xsls);
 
-        Mock<IBlobRepository> blobRepositoryMock = new();
+        blobRepositoryMock ??= new();
         blobRepositoryMock
             .Setup(br =>
                 br.ReadBlob(
