@@ -252,8 +252,9 @@ public class DataService : IDataService
         InstanceInternal instance,
         DataElementInternal dataElement,
         int? storageAccountNumber
-    ) =>
-        DeleteAllocatedBlobVersion(
+    )
+    {
+        return DeleteAllocatedBlobVersion(
             _blobRepository,
             _dataRepository,
             instance.Org,
@@ -262,6 +263,7 @@ public class DataService : IDataService
             dataElement.BlobVersionId,
             storageAccountNumber
         );
+    }
 
     /// <inheritdoc/>
     public async Task CleanupDeletedDataElementBlobs(
