@@ -1,5 +1,3 @@
-#nullable disable
-
 using System.Collections.Generic;
 
 namespace Altinn.Platform.Storage.Models;
@@ -10,5 +8,5 @@ namespace Altinn.Platform.Storage.Models;
 public sealed record InstanceMutationApplyResult(
     bool Replayed,
     IReadOnlyList<string> CreatedDataElementIds,
-    InstanceInternal Instance = null
+    InstanceInternal Instance
 );

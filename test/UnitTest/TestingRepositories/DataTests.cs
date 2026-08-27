@@ -2265,7 +2265,8 @@ public class DataTests(DataElementFixture dataElementFixture)
             instanceUpdates,
             [nameof(InstanceInternal.PresentationTexts), nameof(InstanceInternal.DataValues)],
             null,
-            null
+            null,
+            []
         );
 
         // Act
@@ -2834,7 +2835,8 @@ public class DataTests(DataElementFixture dataElementFixture)
             new InstanceInternal { Id = _instance.Id },
             [],
             null,
-            null
+            null,
+            []
         );
 
         // Act
@@ -2888,7 +2890,8 @@ public class DataTests(DataElementFixture dataElementFixture)
             new InstanceInternal { Id = _instance.Id },
             [],
             null,
-            null
+            null,
+            []
         );
 
         // Act
@@ -2923,7 +2926,8 @@ public class DataTests(DataElementFixture dataElementFixture)
             new InstanceInternal { Id = _instance.Id },
             [],
             currentInstanceVersion,
-            null
+            null,
+            []
         );
 
         // Act
@@ -3263,7 +3267,8 @@ public class DataTests(DataElementFixture dataElementFixture)
                 nameof(InstanceStatus.Archived),
             ],
             previousInstanceVersion,
-            previousProcessStateVersion
+            previousProcessStateVersion,
+            []
         );
 
         // Act
@@ -3320,6 +3325,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             [nameof(InstanceInternal.Process)],
             previousInstanceVersion,
             null,
+            [],
             IdempotencyKey: idempotencyKey
         );
 
@@ -3356,7 +3362,8 @@ public class DataTests(DataElementFixture dataElementFixture)
             new InstanceInternal { Id = _instance.Id },
             [],
             null,
-            null
+            null,
+            []
         );
 
         // Act
@@ -3404,7 +3411,8 @@ public class DataTests(DataElementFixture dataElementFixture)
             },
             [nameof(InstanceInternal.DataValues)],
             currentInstanceVersion,
-            currentProcessStateVersion
+            currentProcessStateVersion,
+            []
         );
 
         // Act
@@ -3443,7 +3451,8 @@ public class DataTests(DataElementFixture dataElementFixture)
             },
             [nameof(InstanceInternal.DataValues)],
             currentInstanceVersion,
-            null
+            null,
+            []
         );
 
         // Act
@@ -3481,7 +3490,8 @@ public class DataTests(DataElementFixture dataElementFixture)
             },
             [nameof(InstanceInternal.DataValues)],
             currentInstanceVersion,
-            currentProcessStateVersion - 1
+            currentProcessStateVersion - 1,
+            []
         );
 
         ProcessStateVersionMismatchException exception =
@@ -3517,7 +3527,8 @@ public class DataTests(DataElementFixture dataElementFixture)
             new InstanceInternal { Id = _instance.Id },
             [],
             currentInstanceVersion - 1,
-            currentProcessStateVersion
+            currentProcessStateVersion,
+            []
         );
 
         // Act
@@ -3559,7 +3570,8 @@ public class DataTests(DataElementFixture dataElementFixture)
             },
             [nameof(InstanceInternal.Process)],
             previousInstanceVersion,
-            previousProcessStateVersion
+            previousProcessStateVersion,
+            []
         );
 
         // Act
@@ -3600,7 +3612,8 @@ public class DataTests(DataElementFixture dataElementFixture)
             },
             [nameof(InstanceInternal.Process)],
             previousInstanceVersion,
-            previousProcessStateVersion
+            previousProcessStateVersion,
+            []
         );
 
         // Act
@@ -3639,7 +3652,8 @@ public class DataTests(DataElementFixture dataElementFixture)
             },
             [nameof(InstanceInternal.Process)],
             previousInstanceVersion,
-            previousProcessStateVersion
+            previousProcessStateVersion,
+            []
         );
 
         InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
@@ -3675,6 +3689,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             [nameof(InstanceInternal.Process)],
             previousInstanceVersion,
             previousProcessStateVersion,
+            [],
             IdempotencyKey: acquireKey
         );
 
@@ -3707,6 +3722,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             [nameof(InstanceInternal.Process)],
             firstResult.Instance.Versions.InstanceVersion,
             firstResult.Instance.Versions.ProcessStateVersion,
+            [],
             IdempotencyKey: Guid.NewGuid()
         );
         InstanceMutationApplyResult laterResult =
@@ -3766,6 +3782,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             [nameof(InstanceInternal.Process)],
             previousInstanceVersion,
             previousProcessStateVersion,
+            [],
             IdempotencyKey: firstIdempotencyKey
         );
         InstanceMutationCommit secondMutation = firstMutation with

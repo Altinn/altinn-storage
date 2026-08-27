@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 using Altinn.Platform.Storage.Interface.Models;
@@ -17,8 +15,8 @@ public sealed record InstanceMutationCommit(
     IReadOnlyList<string> InstanceUpdateProperties,
     int? ExpectedInstanceVersion,
     int? ExpectedProcessStateVersion,
-    IReadOnlyList<InstanceEvent> InstanceEvents = null,
+    IReadOnlyList<InstanceEvent> InstanceEvents,
     Guid? IdempotencyKey = null,
     DateTime? LastChanged = null,
-    string LastChangedBy = null
+    string? LastChangedBy = null
 );

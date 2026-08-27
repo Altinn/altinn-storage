@@ -482,7 +482,7 @@ public sealed class PgInstanceMutationRepository(
 
     internal static string BuildEventsPayload(Guid instanceGuid, InstanceMutationCommit mutation)
     {
-        if (mutation.InstanceEvents is null || mutation.InstanceEvents.Count == 0)
+        if (mutation.InstanceEvents.Count == 0)
         {
             return null;
         }
@@ -529,7 +529,7 @@ public sealed class PgInstanceMutationRepository(
 
     internal string BuildOutboxPayload(Guid instanceGuid, InstanceMutationCommit mutation)
     {
-        if (mutation.InstanceEvents is null || mutation.InstanceEvents.Count == 0)
+        if (mutation.InstanceEvents.Count == 0)
         {
             return null;
         }

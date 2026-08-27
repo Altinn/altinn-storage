@@ -267,7 +267,8 @@ public class PgInstanceMutationRepositoryTests
                 nameof(InstanceStatus.Archived),
             ],
             null,
-            null
+            null,
+            []
         );
 
         string payload = PgInstanceMutationRepository.BuildInstanceUpdatesPayload(mutation);
@@ -346,7 +347,8 @@ public class PgInstanceMutationRepositoryTests
                 nameof(InstanceStatus.Substatus),
             ],
             null,
-            null
+            null,
+            []
         );
 
         string payload = PgInstanceMutationRepository.BuildInstanceUpdatesPayload(mutation);
@@ -483,7 +485,8 @@ public class PgInstanceMutationRepositoryTests
                 nameof(InstanceInternal.CompleteConfirmations),
             ],
             null,
-            null
+            null,
+            []
         );
 
         string payload = PgInstanceMutationRepository.BuildInstanceUpdatesPayload(mutation);
@@ -530,7 +533,8 @@ public class PgInstanceMutationRepositoryTests
             },
             [nameof(InstanceInternal.CompleteConfirmations)],
             null,
-            null
+            null,
+            []
         );
 
         string payload = PgInstanceMutationRepository.BuildInstanceUpdatesPayload(mutation);

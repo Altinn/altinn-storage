@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 
@@ -11,6 +9,6 @@ namespace Altinn.Platform.Storage.Models;
 public sealed record InstanceMutationDataElementUpdate(
     Guid DataElementId,
     Dictionary<string, object> Properties,
-    string ExpectedCurrentBlobVersion,
+    string? ExpectedCurrentBlobVersion,
     bool IgnoreLock = false
 );
