@@ -19,9 +19,7 @@ public class ProcessState
     /// An absent value has the same meaning as <see cref="ProcessStatus.Idle"/>.
     /// </summary>
     [JsonProperty(PropertyName = "status")]
-    [TextJson.JsonIgnore(
-        Condition = TextJson.JsonIgnoreCondition.WhenWritingNull
-    )]
+    [TextJson.JsonIgnore(Condition = TextJson.JsonIgnoreCondition.WhenWritingNull)]
     public ProcessStatus? Status { get; set; }
 
     /// <summary>
