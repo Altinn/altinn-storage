@@ -580,13 +580,13 @@ public class DataController : ControllerBase
         }
 
         DateTime creationTime = DateTime.UtcNow;
-        var upload = await DataElementHelper.GetStream(
-            Request,
-            _defaultFormOptions.MultipartBoundaryLengthLimit
-        );
-        Stream theStream = upload.Stream;
+        (Stream stream, string contentType, string contentFileName, _) =
+            await DataElementHelper.GetStream(
+                Request,
+                _defaultFormOptions.MultipartBoundaryLengthLimit
+            );
 
-        if (theStream == null)
+        if (stream is null)
         {
             return BadRequest("No data attachments found");
         }
@@ -597,8 +597,8 @@ public class DataController : ControllerBase
         {
             DataElementId = dataGuid,
             DataType = dataType,
-            ContentType = upload.ContentType,
-            Filename = HttpUtility.UrlDecode(upload.ContentFileName),
+            ContentType = contentType,
+            Filename = HttpUtility.UrlDecode(contentFileName),
             Refs = refs,
             GeneratedFromTask = generatedFromTask,
             Created = creationTime,
@@ -616,7 +616,7 @@ public class DataController : ControllerBase
         {
             DataUploadResult uploadResult = await _dataService.UploadDataAndCreateDataElement(
                 instance,
-                theStream,
+                stream,
                 createOptions,
                 instance.InternalId,
                 application.StorageAccountNumber,
@@ -769,13 +769,13 @@ public class DataController : ControllerBase
             return ifMatchError;
         }
 
-        var upload = await DataElementHelper.GetStream(
-            Request,
-            _defaultFormOptions.MultipartBoundaryLengthLimit
-        );
-        Stream theStream = upload.Stream;
+        (Stream stream, string contentType, string contentFileName, _) =
+            await DataElementHelper.GetStream(
+                Request,
+                _defaultFormOptions.MultipartBoundaryLengthLimit
+            );
 
-        if (theStream == null)
+        if (stream is null)
         {
             return BadRequest("No data found in request body");
         }
@@ -816,7 +816,7 @@ public class DataController : ControllerBase
         {
             (blobSize, blobTimestamp) = await _blobRepository.WriteBlob(
                 instance.Org,
-                theStream,
+                stream,
                 versionedBlobStoragePath,
                 application.StorageAccountNumber
             );
@@ -851,8 +851,8 @@ public class DataController : ControllerBase
 
         var updatedProperties = new Dictionary<string, object>()
         {
-            { "/contentType", upload.ContentType },
-            { "/filename", HttpUtility.UrlDecode(upload.ContentFileName) },
+            { "/contentType", contentType },
+            { "/filename", HttpUtility.UrlDecode(contentFileName) },
             { "/lastChangedBy", User.GetUserOrOrgNo() },
             { "/lastChanged", changedTime },
             { "/refs", refs },

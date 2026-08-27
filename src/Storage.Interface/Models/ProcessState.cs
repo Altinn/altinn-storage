@@ -3,6 +3,7 @@
 using System;
 using Altinn.Platform.Storage.Interface.Enums;
 using Newtonsoft.Json;
+using TextJson = System.Text.Json.Serialization;
 
 namespace Altinn.Platform.Storage.Interface.Models;
 
@@ -18,8 +19,8 @@ public class ProcessState
     /// An absent value has the same meaning as <see cref="ProcessStatus.Idle"/>.
     /// </summary>
     [JsonProperty(PropertyName = "status")]
-    [System.Text.Json.Serialization.JsonIgnore(
-        Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+    [TextJson.JsonIgnore(
+        Condition = TextJson.JsonIgnoreCondition.WhenWritingNull
     )]
     public ProcessStatus? Status { get; set; }
 
