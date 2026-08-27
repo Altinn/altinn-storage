@@ -1,4 +1,3 @@
-#nullable enable annotations
 #nullable disable warnings
 
 using System;
