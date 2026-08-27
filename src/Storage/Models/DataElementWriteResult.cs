@@ -1,6 +1,4 @@
-using Altinn.Platform.Storage.Models;
-
-namespace Altinn.Platform.Storage.Repository;
+namespace Altinn.Platform.Storage.Models;
 
 /// <summary>
 /// Result from a data-element write that also changed or observed parent instance versions.

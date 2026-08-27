@@ -1,7 +1,6 @@
 using System;
-using Altinn.Platform.Storage.Models;
 
-namespace Altinn.Platform.Storage.Services;
+namespace Altinn.Platform.Storage.Models;
 
 /// <summary>
 /// Result from staging blob content before metadata is committed.

@@ -8,8 +8,6 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
-using Altinn.Platform.Storage.Repository;
-using Altinn.Platform.Storage.Services;
 using Moq.Language.Flow;
 
 namespace Moq;

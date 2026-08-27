@@ -1,6 +1,4 @@
-using Altinn.Platform.Storage.Models;
-
-namespace Altinn.Platform.Storage.Services;
+namespace Altinn.Platform.Storage.Models;
 
 /// <summary>
 /// Result from creating a sign document.

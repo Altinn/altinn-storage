@@ -1,7 +1,6 @@
 using System.Collections.Generic;
-using Altinn.Platform.Storage.Models;
 
-namespace Altinn.Platform.Storage.Repository;
+namespace Altinn.Platform.Storage.Models;
 
 /// <summary>
 /// Represents the storage-domain result of an instance query.

@@ -1,6 +1,6 @@
 #nullable disable
 
-namespace Altinn.Platform.Storage.Repository;
+namespace Altinn.Platform.Storage.Models;
 
 /// <summary>
 /// Storage-level options and preconditions for data element metadata updates.

@@ -3,6 +3,7 @@
 using System;
 using System.IO;
 using System.Threading;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Moq;
 
