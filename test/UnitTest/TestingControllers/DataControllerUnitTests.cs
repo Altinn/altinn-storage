@@ -131,6 +131,75 @@ public class DataControllerUnitTests
     }
 
     [Fact]
+    public async Task Get_BlobStoragePathOutsideInstance_ReturnsNotFound()
+    {
+        // Arrange
+        string blobVersionId = "AZfQZ9nHc0eLm4Xv2R1qAA";
+        Mock<IBlobRepository> blobRepositoryMock = new();
+        (DataController testController, _) = GetTestController(
+            ["/isRead"],
+            blobStoragePath: $"{_appId}/{Guid.NewGuid()}/data-elements/{blobVersionId}",
+            blobRepositoryMock: blobRepositoryMock
+        );
+
+        // Act & assert
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            testController.Get(
+                _instanceOwnerPartyId,
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                CancellationToken.None
+            )
+        );
+
+        blobRepositoryMock.Verify(
+            b =>
+                b.ReadBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task OverwriteData_BlobStoragePathOutsideInstance_ReturnsInternalServerError()
+    {
+        // Arrange
+        string blobVersionId = "AZfQZ9nHc0eLm4Xv2R1qAA";
+        Mock<IBlobRepository> blobRepositoryMock = new();
+        (DataController testController, _) = GetTestController(
+            [],
+            includeRequestBody: true,
+            blobStoragePath: $"{_appId}/{Guid.NewGuid()}/data-elements/{blobVersionId}",
+            blobRepositoryMock: blobRepositoryMock
+        );
+
+        // Act & assert
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            testController.OverwriteData(
+                _instanceOwnerPartyId,
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                CancellationToken.None
+            )
+        );
+
+        blobRepositoryMock.Verify(
+            b =>
+                b.WriteBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<Stream>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
     public async Task Update_VerifyDataRepositoryUpdateInput()
     {
         // Arrange
@@ -301,10 +370,15 @@ public class DataControllerUnitTests
     private (
         DataController TestController,
         Mock<IDataRepository> DataRepositoryMock
-    ) GetTestController(List<string> expectedPropertiesForPatch, bool includeRequestBody = false)
+    ) GetTestController(
+        List<string> expectedPropertiesForPatch,
+        bool includeRequestBody = false,
+        string blobStoragePath = null,
+        Mock<IBlobRepository> blobRepositoryMock = null
+    )
     {
         Mock<IDataRepository> dataRepositoryMock = new();
-        Mock<IBlobRepository> blobRepositoryMock = new();
+        blobRepositoryMock ??= new();
         Mock<IInstanceRepository> instanceRepositoryMock = new();
         Mock<IApplicationRepository> applicationRepositoryMock = new();
         Mock<IInstanceEventService> instanceEventServiceMock = new();
@@ -339,7 +413,8 @@ public class DataControllerUnitTests
                         DataType = _dataType,
                         IsRead = false,
                         ContentType = "application/octet-stream",
-                        BlobStoragePath = $"ttd/apps-test/{instanceGuid}/data/{dataElementId}",
+                        BlobStoragePath =
+                            blobStoragePath ?? $"ttd/apps-test/{instanceGuid}/data/{dataElementId}",
                     }
             );
 

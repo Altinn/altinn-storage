@@ -87,6 +87,30 @@ public static class DataElementHelper
     }
 
     /// <summary>
+    /// Throws an exception if the blob storage path isn't in the excpected format.
+    /// </summary>
+    public static void EnsureExpectedBlobStoragePath(
+        DataElement dataElement,
+        Guid instanceGuid,
+        string appId
+    )
+    {
+        if (
+            !IsExpectedBlobStoragePath(
+                dataElement.BlobStoragePath,
+                appId,
+                instanceGuid.ToString(),
+                dataElement.Id
+            )
+        )
+        {
+            throw new InvalidOperationException(
+                $"Blob storage path of data element {dataElement.Id} was unexpected for instance {instanceGuid}."
+            );
+        }
+    }
+
+    /// <summary>
     /// Get the stream from the request
     /// </summary>
     /// <param name="request">The request</param>
@@ -147,5 +171,39 @@ public static class DataElementHelper
         }
 
         return (stream, contentType, contentFileName, fileSize);
+    }
+
+    internal static bool IsExpectedBlobStoragePath(
+        string blobStoragePath,
+        string appId,
+        string instanceGuid,
+        string dataElementId
+    )
+    {
+        if (string.IsNullOrEmpty(blobStoragePath))
+        {
+            return false;
+        }
+
+        if (
+            string.Equals(
+                blobStoragePath,
+                DataFileName(appId, instanceGuid, dataElementId),
+                StringComparison.Ordinal
+            )
+        )
+        {
+            return true;
+        }
+
+        string versionedPathPrefix = $"{appId}/{instanceGuid}/data-elements/";
+        if (!blobStoragePath.StartsWith(versionedPathPrefix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> blobVersionId = blobStoragePath.AsSpan(versionedPathPrefix.Length);
+
+        return blobVersionId.ContainsAnyExcept('.') && !blobVersionId.Contains('/');
     }
 }

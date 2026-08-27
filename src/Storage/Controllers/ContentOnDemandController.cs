@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
@@ -119,11 +120,16 @@ public class ContentOnDemandController : Controller
             cancellationToken
         );
         DataElement signatureElement = instance.Data.First(d => d.DataType == "signature-data");
+        DataElementHelper.EnsureExpectedBlobStoragePath(
+            signatureElement,
+            instanceGuid,
+            instance.AppId
+        );
 
         List<SignatureView> view = await JsonSerializer.DeserializeAsync<List<SignatureView>>(
             await _blobRepository.ReadBlob(
                 $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
-                $"{instance.Org}/{app}/{instanceGuid}/data/{signatureElement.Id}",
+                signatureElement.BlobStoragePath,
                 application.StorageAccountNumber,
                 cancellationToken
             ),
@@ -165,11 +171,16 @@ public class ContentOnDemandController : Controller
             cancellationToken
         );
         DataElement paymentElement = instance.Data.First(d => d.DataType == "payment-data");
+        DataElementHelper.EnsureExpectedBlobStoragePath(
+            paymentElement,
+            instanceGuid,
+            instance.AppId
+        );
 
         PaymentView view = await JsonSerializer.DeserializeAsync<PaymentView>(
             await _blobRepository.ReadBlob(
                 $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
-                $"{instance.Org}/{app}/{instanceGuid}/data/{paymentElement.Id}",
+                paymentElement.BlobStoragePath,
                 application.StorageAccountNumber,
                 cancellationToken
             ),
@@ -416,6 +427,7 @@ public class ContentOnDemandController : Controller
         DataElement xmlElement = instance.Data.First(d =>
             d.Metadata?.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id
         );
+        DataElementHelper.EnsureExpectedBlobStoragePath(xmlElement, instanceGuid, instance.AppId);
         string visiblePagesString = xmlElement
             .Metadata.FirstOrDefault(m => m.Key == "A2VisiblePages")
             ?.Value;
@@ -462,7 +474,7 @@ public class ContentOnDemandController : Controller
 
         Stream blob = await _blobRepository.ReadBlob(
             $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
-            $"{instance.Org}/{app}/{instanceGuid}/data/{xmlElement.Id}",
+            xmlElement.BlobStoragePath,
             application.StorageAccountNumber
         );
 
