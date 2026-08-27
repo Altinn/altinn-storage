@@ -94,11 +94,12 @@ public class CleanupController(
     /// Invoke periodic cleanup of instances for a specific app
     /// </summary>
     /// <returns>?</returns>
-    [HttpDelete("cleanupinstancesforapp/{appId}")]
+    [HttpDelete("cleanupinstancesforapp/{org}/{app}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ApiExplorerSettings(IgnoreApi = true)]
     public async Task<ActionResult> CleanupInstancesForApp(
-        string appId,
+        string org,
+        string app,
         CancellationToken cancellationToken
     )
     {
@@ -112,7 +113,7 @@ public class CleanupController(
             InstanceQueryParameters queryParameters = new()
             {
                 Size = 5000,
-                AppId = appId,
+                AppId = $"{org}/{app}",
                 ContinuationToken = instancesResponse.ContinuationToken,
             };
 
