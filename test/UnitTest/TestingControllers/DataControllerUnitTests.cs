@@ -867,7 +867,7 @@ public class DataControllerUnitTests
                             p
                         )
                     ),
-                    It.Is<DataElementUpdateContext>(o => o.EnforceLockCheck),
+                    It.Is<DataElementUpdateContext>(o => !o.IgnoreLock),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -905,7 +905,7 @@ public class DataControllerUnitTests
                     It.IsAny<Guid>(),
                     It.IsAny<Dictionary<string, object>>(),
                     It.Is<DataElementUpdateContext>(o =>
-                        o.EnforceLockCheck && o.ExpectedCurrentBlobVersion == null
+                        !o.IgnoreLock && o.ExpectedCurrentBlobVersion == null
                     ),
                     It.IsAny<CancellationToken>()
                 ),
@@ -951,7 +951,7 @@ public class DataControllerUnitTests
                     It.IsAny<Guid>(),
                     It.IsAny<Dictionary<string, object>>(),
                     It.Is<DataElementUpdateContext>(o =>
-                        o.EnforceLockCheck && o.ExpectedCurrentBlobVersion == ifMatchBlobVersionId
+                        !o.IgnoreLock && o.ExpectedCurrentBlobVersion == ifMatchBlobVersionId
                     ),
                     It.IsAny<CancellationToken>()
                 ),
@@ -2328,7 +2328,7 @@ public class DataControllerUnitTests
                             StringComparison.Ordinal
                         )
                     ),
-                    It.Is<DataElementUpdateContext>(o => o.EnforceLockCheck),
+                    It.Is<DataElementUpdateContext>(o => !o.IgnoreLock),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once

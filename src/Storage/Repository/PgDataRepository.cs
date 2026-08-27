@@ -299,7 +299,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
             }
         }
 
-        context ??= new DataElementUpdateContext();
+        context ??= new DataElementUpdateContext { IgnoreLock = true };
 
         InstanceInternal lastChangedWrapper = new()
         {
@@ -340,7 +340,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
             NpgsqlDbType.Uuid,
             ToBlobVersion(context.ExpectedCurrentBlobVersion)
         );
-        pgcom.Parameters.AddWithValue(NpgsqlDbType.Boolean, context.EnforceLockCheck);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Boolean, context.IgnoreLock);
         pgcom.Parameters.AddWithValue(
             NpgsqlDbType.Integer,
             context.ExpectedInstanceVersion ?? (object)DBNull.Value

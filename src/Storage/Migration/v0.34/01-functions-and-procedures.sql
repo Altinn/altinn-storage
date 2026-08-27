@@ -1961,7 +1961,7 @@ CREATE OR REPLACE FUNCTION storage.updatedataelement_v3(
     _lastChanged TIMESTAMPTZ,
     _newcurrentblobversion UUID,
     _expectedcurrentblobversion UUID,
-    _enforceLockCheck BOOL,
+    _ignoreLock BOOL,
     _expectedinstanceversion INT DEFAULT NULL,
     _expectedprocessstateversion INT DEFAULT NULL)
     RETURNS TABLE (updatedElement JSONB, currentblobversion UUID, instanceversion INT, processstateversion INT, currentprocessstatus TEXT, result TEXT)
@@ -2038,7 +2038,7 @@ BEGIN
         RETURN;
     END IF;
 
-    IF _enforceLockCheck AND _dataElementIsLocked
+    IF NOT _ignoreLock AND _dataElementIsLocked
     THEN
         RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, _currentProcessStatus, 'locked'::TEXT;
         RETURN;

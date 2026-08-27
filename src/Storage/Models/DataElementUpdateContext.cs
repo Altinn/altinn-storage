@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace Altinn.Platform.Storage.Models;
 
 /// <summary>
@@ -9,8 +7,9 @@ public sealed class DataElementUpdateContext
 {
     /// <summary>
     /// Expected current blob version that must match before the metadata update is applied.
+    /// Null skips the check.
     /// </summary>
-    public string ExpectedCurrentBlobVersion { get; init; }
+    public string? ExpectedCurrentBlobVersion { get; init; }
 
     /// <summary>
     /// Expected parent instance aggregate version. Null skips the check.
@@ -23,7 +22,7 @@ public sealed class DataElementUpdateContext
     public int? ExpectedProcessStateVersion { get; init; }
 
     /// <summary>
-    /// Whether the update should be rejected when the data element is locked.
+    /// Whether the update may proceed on a locked data element.
     /// </summary>
-    public bool EnforceLockCheck { get; init; }
+    public bool IgnoreLock { get; init; }
 }

@@ -882,7 +882,7 @@ public class DataController : ControllerBase
                 updatedProperties,
                 new DataElementUpdateContext
                 {
-                    EnforceLockCheck = true,
+                    IgnoreLock = false,
                     ExpectedCurrentBlobVersion = expectedCurrentBlobVersion,
                     ExpectedInstanceVersion = preconditions.InstanceVersion,
                     ExpectedProcessStateVersion = preconditions.ProcessStateVersion,
@@ -1066,6 +1066,7 @@ public class DataController : ControllerBase
                 propertyList,
                 new DataElementUpdateContext
                 {
+                    IgnoreLock = true,
                     ExpectedInstanceVersion = preconditions.InstanceVersion,
                     ExpectedProcessStateVersion = preconditions.ProcessStateVersion,
                 },

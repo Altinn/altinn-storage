@@ -423,7 +423,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                     { "/lastChanged", lastChanged },
                     { "/lastChangedBy", lastChangedBy },
                 },
-                new DataElementUpdateContext { EnforceLockCheck = true }
+                new DataElementUpdateContext { IgnoreLock = false }
             )
         );
 
@@ -483,7 +483,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                     { "/lastChanged", lastChanged },
                     { "/lastChangedBy", lastChangedBy },
                 },
-                new DataElementUpdateContext { EnforceLockCheck = true }
+                new DataElementUpdateContext { IgnoreLock = false }
             )
         );
 
@@ -1473,7 +1473,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                     },
                     new DataElementUpdateContext
                     {
-                        EnforceLockCheck = true,
+                        IgnoreLock = false,
                         ExpectedCurrentBlobVersion = currentBlobVersion,
                     }
                 )
@@ -1526,7 +1526,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                     },
                     new DataElementUpdateContext
                     {
-                        EnforceLockCheck = true,
+                        IgnoreLock = false,
                         ExpectedCurrentBlobVersion = currentBlobVersion,
                     }
                 )
