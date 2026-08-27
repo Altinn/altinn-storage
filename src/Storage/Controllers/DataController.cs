@@ -1069,7 +1069,7 @@ public class DataController : ControllerBase
                     ExpectedInstanceVersion = preconditions.InstanceVersion,
                     ExpectedProcessStateVersion = preconditions.ProcessStateVersion,
                 },
-                cancellationToken: cancellationToken
+                cancellationToken
             );
         }
         catch (StorageVersionMismatchException exception)
