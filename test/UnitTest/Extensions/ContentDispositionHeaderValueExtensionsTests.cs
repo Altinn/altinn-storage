@@ -1,5 +1,6 @@
 #nullable disable
 
+using Altinn.Platform.Storage.Extensions;
 using Microsoft.Net.Http.Headers;
 using Xunit;
 

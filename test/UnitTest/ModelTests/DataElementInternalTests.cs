@@ -1,6 +1,7 @@
 #nullable disable
 
 using System;
+using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Interface.Models;
 using Xunit;
 
