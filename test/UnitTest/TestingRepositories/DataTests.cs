@@ -9,6 +9,7 @@ using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Extensions;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -413,7 +414,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                     { "/contentType", contentType },
                     {
                         "/blobStoragePath",
-                        BlobRepository.GetVersionedBlobPath(
+                        DataElementHelper.GetVersionedBlobPath(
                             _instance.AppId,
                             new Guid(dataElement.InstanceGuid),
                             blobVersionId
@@ -473,7 +474,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                     { "/contentType", contentType },
                     {
                         "/blobStoragePath",
-                        BlobRepository.GetVersionedBlobPath(
+                        DataElementHelper.GetVersionedBlobPath(
                             _instance.AppId,
                             new Guid(dataElement.InstanceGuid),
                             blobVersionId
@@ -513,7 +514,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             Guid.Parse(element.InstanceGuid),
             element.Id
         );
-        element.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        element.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
             new Guid(element.InstanceGuid),
             blobVersionId
@@ -545,7 +546,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         element.Id = Guid.NewGuid().ToString();
         element.InstanceGuid = _instance.Id.ToString();
         string blobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
-        element.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        element.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
             new Guid(element.InstanceGuid),
             blobVersionId
@@ -776,7 +777,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             Guid.Parse(element.InstanceGuid),
             element.Id
         );
-        element.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        element.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
             new Guid(element.InstanceGuid),
             blobVersionId
@@ -815,7 +816,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             element.Id
         );
         string staleBlobVersionId = BlobVersionId.Encode(Guid.NewGuid());
-        element.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        element.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
             new Guid(element.InstanceGuid),
             blobVersionId
@@ -884,7 +885,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             Guid.Parse(element.InstanceGuid),
             element.Id
         );
-        element.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        element.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
             new Guid(element.InstanceGuid),
             blobVersionId
@@ -940,7 +941,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             Guid.Parse(element.InstanceGuid),
             element.Id
         );
-        element.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        element.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
             new Guid(element.InstanceGuid),
             currentBlobVersionId
@@ -978,7 +979,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             Guid.Parse(element.InstanceGuid),
             element.Id
         );
-        element.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        element.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
             new Guid(element.InstanceGuid),
             currentBlobVersionId
@@ -1021,7 +1022,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             Guid.Parse(element.InstanceGuid),
             element.Id
         );
-        element.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        element.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
             new Guid(element.InstanceGuid),
             firstVersion
@@ -1031,7 +1032,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             _instanceInternalId
         );
         DataElement dataElement = createdDataElement.ToApiModel();
-        string versionedBlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        string versionedBlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
             new Guid(element.InstanceGuid),
             secondVersion
@@ -1077,7 +1078,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         string currentBlobVersionId = await CreateBlobVersionId(instanceGuid, element.Id);
         string replacementBlobVersionId = await CreateBlobVersionId(instanceGuid, element.Id);
         string expectedBlobVersionId = BlobVersionId.Encode(Guid.NewGuid());
-        element.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        element.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
             new Guid(element.InstanceGuid),
             currentBlobVersionId
@@ -1087,7 +1088,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             _instanceInternalId
         );
         DataElement dataElement = createdDataElement.ToApiModel();
-        string replacementBlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        string replacementBlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
             new Guid(element.InstanceGuid),
             replacementBlobVersionId
@@ -1141,7 +1142,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             element
         );
         string missingBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
-        string missingBlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        string missingBlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
             new Guid(element.InstanceGuid),
             missingBlobVersionId
@@ -1242,7 +1243,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         DataElement dataElement = TestDataUtil.GetDataElement(_dataElement3);
         dataElement.Id = Guid.NewGuid().ToString();
         dataElement.InstanceGuid = instanceGuid.ToString();
-        dataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        dataElement.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
             instanceGuid,
             unavailableBlobVersion
@@ -1280,7 +1281,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         dataElement.LastChanged = DateTime.UtcNow;
         dataElement.LastChangedBy = "attach-once-test";
         string blobVersion = await CreateBlobVersionId(instanceGuid, dataElement.Id);
-        dataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        dataElement.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
             instanceGuid,
             blobVersion
@@ -1335,7 +1336,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         dataElement.Id = Guid.NewGuid().ToString();
         dataElement.InstanceGuid = instanceGuid.ToString();
         string availableBlobVersion = await CreateBlobVersionId(instanceGuid, dataElement.Id);
-        dataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        dataElement.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
             instanceGuid,
             availableBlobVersion
@@ -1373,7 +1374,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         dataElement.Id = Guid.NewGuid().ToString();
         dataElement.InstanceGuid = instanceGuid.ToString();
         string availableBlobVersion = await CreateBlobVersionId(instanceGuid, dataElement.Id);
-        dataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        dataElement.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
             instanceGuid,
             availableBlobVersion
@@ -1450,7 +1451,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             instanceGuid,
             createdDataElement.Id
         );
-        string replacementStoragePath = BlobRepository.GetVersionedBlobPath(
+        string replacementStoragePath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
             instanceGuid,
             replacementBlobVersion
@@ -1503,7 +1504,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         (DataElement createdDataElement, string currentBlobVersion) =
             await CreateVersionedDataElement(dataElement);
         string unavailableBlobVersion = BlobVersionId.Encode(Guid.CreateVersion7());
-        string unavailableStoragePath = BlobRepository.GetVersionedBlobPath(
+        string unavailableStoragePath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
             instanceGuid,
             unavailableBlobVersion
@@ -1560,7 +1561,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             instanceGuid,
             createdDataElement.Id
         );
-        string replacementStoragePath = BlobRepository.GetVersionedBlobPath(
+        string replacementStoragePath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
             instanceGuid,
             replacementBlobVersion
@@ -2230,7 +2231,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
 
         string updateVersion = await CreateBlobVersionId(instanceGuid, existing.Id);
-        string updateBlobPath = BlobRepository.GetVersionedBlobPath(
+        string updateBlobPath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
             new Guid(existing.InstanceGuid),
             updateVersion
@@ -2820,7 +2821,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                     Guid.Parse(existing.Id),
                     new Dictionary<string, object>
                     {
-                        ["/blobStoragePath"] = BlobRepository.GetVersionedBlobPath(
+                        ["/blobStoragePath"] = DataElementHelper.GetVersionedBlobPath(
                             _instance.AppId,
                             new Guid(existing.InstanceGuid),
                             updateVersion
@@ -3973,7 +3974,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                     Guid.Parse(existing.Id),
                     new Dictionary<string, object>
                     {
-                        ["/blobStoragePath"] = BlobRepository.GetVersionedBlobPath(
+                        ["/blobStoragePath"] = DataElementHelper.GetVersionedBlobPath(
                             _instance.AppId,
                             new Guid(existing.InstanceGuid),
                             updateVersion
@@ -7534,7 +7535,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         dataElement.LastChanged ??= DateTime.UtcNow;
         dataElement.LastChangedBy ??= "1337";
         string blobVersionId = await CreateBlobVersionId(instanceGuid, dataElement.Id);
-        dataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        dataElement.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
             new Guid(dataElement.InstanceGuid),
             blobVersionId
@@ -7572,7 +7573,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                     Guid.Parse(existing.Id),
                     new Dictionary<string, object>
                     {
-                        ["/blobStoragePath"] = BlobRepository.GetVersionedBlobPath(
+                        ["/blobStoragePath"] = DataElementHelper.GetVersionedBlobPath(
                             _instance.AppId,
                             new Guid(existing.InstanceGuid),
                             updateVersion
@@ -7915,7 +7916,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             Guid.Parse(dataElement.InstanceGuid),
             dataElement.Id
         );
-        dataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        dataElement.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
             new Guid(dataElement.InstanceGuid),
             blobVersionId

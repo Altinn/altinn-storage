@@ -3,7 +3,6 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
-using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Azure.Storage;
 using Azure.Storage.Blobs;
@@ -14,20 +13,6 @@ using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingRepositories;
-
-public class BlobRepositoryTests
-{
-    [Fact]
-    public void GetVersionedBlobPath_WithVersionId_UsesDataElementsPath()
-    {
-        string blobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
-        Guid instanceGuid = Guid.NewGuid();
-
-        string result = BlobRepository.GetVersionedBlobPath("ttd/app", instanceGuid, blobVersionId);
-
-        Assert.Equal($"ttd/app/{instanceGuid}/data-elements/{blobVersionId}", result);
-    }
-}
 
 public class BlobRepositoryAzuriteTests(BlobRepositoryAzuriteFixture fixture)
     : IClassFixture<BlobRepositoryAzuriteFixture>

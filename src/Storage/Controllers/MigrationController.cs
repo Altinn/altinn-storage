@@ -279,7 +279,7 @@ public class MigrationController : ControllerBase
                     app.StorageAccountNumber,
                     cancellationToken
                 );
-                blobStoragePath = BlobRepository.GetVersionedBlobPath(
+                blobStoragePath = DataElementHelper.GetVersionedBlobPath(
                     instance.AppId,
                     instanceGuid,
                     blobVersionId

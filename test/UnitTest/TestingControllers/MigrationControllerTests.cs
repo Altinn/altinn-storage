@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Extensions;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -183,7 +184,7 @@ public class MigrationControllerTests : IClassFixture<InstanceFixture>
                 )
             )
             .ThrowsAsync(new InvalidOperationException("version cleanup failed"));
-        string expectedBlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        string expectedBlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             instance.AppId,
             instanceGuid,
             allocatedBlobVersionId

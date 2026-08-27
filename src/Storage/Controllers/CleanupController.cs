@@ -289,7 +289,7 @@ public class CleanupController(
                         List<string> versionedBlobStoragePaths =
                         [
                             .. blobVersion.BlobVersionIds.Select(versionId =>
-                                BlobRepository.GetVersionedBlobPath(
+                                DataElementHelper.GetVersionedBlobPath(
                                     blobVersion.AppId,
                                     blobVersion.InstanceGuid,
                                     versionId
@@ -450,7 +450,7 @@ public class CleanupController(
             List<string> versionedBlobStoragePaths =
             [
                 .. orphanBlobVersion.BlobVersionIds.Select(versionId =>
-                    BlobRepository.GetVersionedBlobPath(
+                    DataElementHelper.GetVersionedBlobPath(
                         orphanBlobVersion.AppId,
                         orphanBlobVersion.InstanceGuid,
                         versionId

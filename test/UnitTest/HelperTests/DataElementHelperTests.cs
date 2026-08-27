@@ -3,12 +3,28 @@
 using System;
 using System.Buffers.Text;
 using Altinn.Platform.Storage.Helpers;
+using Altinn.Platform.Storage.Models;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.HelperTests;
 
 public class DataElementHelperTests
 {
+    [Fact]
+    public void GetVersionedBlobPath_WithVersionId_UsesDataElementsPath()
+    {
+        string blobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        Guid instanceGuid = Guid.NewGuid();
+
+        string result = DataElementHelper.GetVersionedBlobPath(
+            "ttd/app",
+            instanceGuid,
+            blobVersionId
+        );
+
+        Assert.Equal($"ttd/app/{instanceGuid}/data-elements/{blobVersionId}", result);
+    }
+
     [Theory]
     [InlineData("{appId}/{instanceGuid}/data/{dataElementId}", true)]
     [InlineData("{appId}/{instanceGuid}/data-elements/{blobVersionId}", true)]

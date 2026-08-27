@@ -523,7 +523,7 @@ public class DataControllerUnitTests
         const string expectedBlobVersionId = "existing-version-id";
         Guid instanceGuid = Guid.NewGuid();
         Guid dataGuid = Guid.NewGuid();
-        string expectedBlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        string expectedBlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             "ttd/apps-test",
             instanceGuid,
             expectedBlobVersionId
@@ -2515,7 +2515,7 @@ public class DataControllerUnitTests
                         ?? (
                             string.IsNullOrEmpty(blobVersionId)
                                 ? legacyBlobStoragePath
-                                : BlobRepository.GetVersionedBlobPath(
+                                : DataElementHelper.GetVersionedBlobPath(
                                     "ttd/apps-test",
                                     instanceGuid,
                                     blobVersionId
@@ -2680,7 +2680,7 @@ public class DataControllerUnitTests
                         LastChangedBy = options.CreatedBy,
                         Refs = options.Refs,
                         Size = 123145864564,
-                        BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+                        BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
                             instanceInternal.AppId,
                             new Guid(instanceGuid),
                             allocatedBlobVersionId

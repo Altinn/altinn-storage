@@ -9,6 +9,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Extensions;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -1281,7 +1282,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             CancellationToken.None
         );
         data.BlobVersionId = blobVersionId;
-        data.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        data.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             input.AppId,
             data.InstanceGuid,
             blobVersionId
@@ -1388,7 +1389,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             null,
             CancellationToken.None
         );
-        data1.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        data1.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             instance1.AppId,
             data1.InstanceGuid,
             secondVersion
@@ -1462,7 +1463,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             Guid.Parse(existingDataElement.Id),
             existingInstance
         );
-        existingDataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        existingDataElement.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             existingInstance.AppId,
             new Guid(existingDataElement.InstanceGuid),
             existingVersion
@@ -1508,7 +1509,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             Guid.Parse(dataElement.Id),
             instance
         );
-        dataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        dataElement.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             instance.AppId,
             new Guid(dataElement.InstanceGuid),
             secondVersion
@@ -1527,7 +1528,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             Guid.Parse(otherDataElement.Id),
             instance
         );
-        otherDataElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        otherDataElement.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             instance.AppId,
             new Guid(otherDataElement.InstanceGuid),
             otherVersion
@@ -1594,7 +1595,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             null,
             CancellationToken.None
         );
-        firstInsertedElement.BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        firstInsertedElement.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             input.AppId,
             expectedStorageId,
             firstBlobVersionId
@@ -2662,7 +2663,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
                 updateProperties.Add(nameof(instance.Status.SoftDeleted));
                 break;
             case InstanceUpdateShape.Substatus:
-                instance.Status.Substatus = new Substatus { Label = "blocked-substatus" };
+                instance.Status.Substatus = new() { Label = "blocked-substatus" };
                 updateProperties.Add(nameof(instance.Status.Substatus));
                 break;
             case InstanceUpdateShape.PresentationTexts:

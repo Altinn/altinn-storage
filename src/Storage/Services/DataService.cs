@@ -187,7 +187,7 @@ public class DataService : IDataService
             storageAccountNumber,
             cancellationToken
         );
-        string blobStoragePath = BlobRepository.GetVersionedBlobPath(
+        string blobStoragePath = DataElementHelper.GetVersionedBlobPath(
             instance.AppId,
             instance.Id,
             blobVersionId
@@ -335,7 +335,7 @@ public class DataService : IDataService
                 x =>
                     (
                         BlobVersionId: x.id,
-                        BlobStoragePath: BlobRepository.GetVersionedBlobPath(
+                        BlobStoragePath: DataElementHelper.GetVersionedBlobPath(
                             x.bv.AppId,
                             x.bv.InstanceGuid,
                             x.id

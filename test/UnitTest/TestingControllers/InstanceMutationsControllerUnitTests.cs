@@ -753,7 +753,7 @@ public class InstanceMutationsControllerUnitTests
             repository =>
                 repository.DeleteBlob(
                     _org,
-                    BlobRepository.GetVersionedBlobPath(
+                    DataElementHelper.GetVersionedBlobPath(
                         _appId,
                         instanceGuid,
                         allocatedBlobVersionId
@@ -870,7 +870,7 @@ public class InstanceMutationsControllerUnitTests
             Id = dataElementId.ToString(),
             InstanceGuid = instanceGuid.ToString(),
             DataType = _dataType,
-            BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+            BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
                 _appId,
                 instanceGuid,
                 currentBlobVersionId
@@ -963,7 +963,11 @@ public class InstanceMutationsControllerUnitTests
             repository =>
                 repository.DeleteBlob(
                     _org,
-                    BlobRepository.GetVersionedBlobPath(_appId, instanceGuid, createdBlobVersionId),
+                    DataElementHelper.GetVersionedBlobPath(
+                        _appId,
+                        instanceGuid,
+                        createdBlobVersionId
+                    ),
                     7
                 ),
             Times.Once
@@ -972,7 +976,11 @@ public class InstanceMutationsControllerUnitTests
             repository =>
                 repository.DeleteBlob(
                     _org,
-                    BlobRepository.GetVersionedBlobPath(_appId, instanceGuid, updatedBlobVersionId),
+                    DataElementHelper.GetVersionedBlobPath(
+                        _appId,
+                        instanceGuid,
+                        updatedBlobVersionId
+                    ),
                     7
                 ),
             Times.Once
@@ -1061,7 +1069,7 @@ public class InstanceMutationsControllerUnitTests
             repository =>
                 repository.DeleteBlob(
                     _org,
-                    BlobRepository.GetVersionedBlobPath(
+                    DataElementHelper.GetVersionedBlobPath(
                         _appId,
                         instanceGuid,
                         allocatedBlobVersionId
@@ -4020,7 +4028,7 @@ public class InstanceMutationsControllerUnitTests
             repository =>
                 repository.DeleteBlob(
                     _org,
-                    BlobRepository.GetVersionedBlobPath(
+                    DataElementHelper.GetVersionedBlobPath(
                         _appId,
                         instanceGuid,
                         allocatedBlobVersionId
@@ -4102,7 +4110,7 @@ public class InstanceMutationsControllerUnitTests
             .BlobRepository.Setup(repository =>
                 repository.DeleteBlob(
                     _org,
-                    BlobRepository.GetVersionedBlobPath(
+                    DataElementHelper.GetVersionedBlobPath(
                         _appId,
                         instanceGuid,
                         allocatedBlobVersionId
@@ -4221,7 +4229,11 @@ public class InstanceMutationsControllerUnitTests
             repository =>
                 repository.DeleteBlob(
                     _org,
-                    BlobRepository.GetVersionedBlobPath(_appId, instanceGuid, firstBlobVersionId),
+                    DataElementHelper.GetVersionedBlobPath(
+                        _appId,
+                        instanceGuid,
+                        firstBlobVersionId
+                    ),
                     7
                 ),
             Times.Once
@@ -4230,7 +4242,11 @@ public class InstanceMutationsControllerUnitTests
             repository =>
                 repository.DeleteBlob(
                     _org,
-                    BlobRepository.GetVersionedBlobPath(_appId, instanceGuid, secondBlobVersionId),
+                    DataElementHelper.GetVersionedBlobPath(
+                        _appId,
+                        instanceGuid,
+                        secondBlobVersionId
+                    ),
                     7
                 ),
             Times.Once

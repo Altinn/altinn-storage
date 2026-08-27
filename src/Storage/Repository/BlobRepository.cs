@@ -277,11 +277,6 @@ public class BlobRepository(
         return true;
     }
 
-    internal static string GetVersionedBlobPath(string appId, Guid instanceGuid, string versionId)
-    {
-        return $"{appId}/{instanceGuid}/data-elements/{versionId}";
-    }
-
     private async Task<BlobProperties> UploadFromStreamAsync(
         string org,
         Stream stream,

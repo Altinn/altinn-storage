@@ -804,7 +804,7 @@ public class DataController : ControllerBase
             application.StorageAccountNumber,
             cancellationToken
         );
-        string versionedBlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        string versionedBlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             instance.AppId,
             instanceGuid,
             blobVersionId
@@ -1346,7 +1346,7 @@ public class DataController : ControllerBase
             return false;
         }
 
-        string versionedBlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        string versionedBlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             appId,
             instanceGuid,
             blobVersionId

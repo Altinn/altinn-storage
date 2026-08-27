@@ -13,6 +13,7 @@ using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Extensions;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -501,7 +502,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
             null,
             CancellationToken.None
         );
-        string blobStoragePath = BlobRepository.GetVersionedBlobPath(
+        string blobStoragePath = DataElementHelper.GetVersionedBlobPath(
             instance.AppId,
             instanceGuid,
             blobVersionId

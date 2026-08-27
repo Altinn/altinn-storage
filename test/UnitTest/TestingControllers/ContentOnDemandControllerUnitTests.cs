@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
@@ -32,7 +33,7 @@ public class ContentOnDemandControllerUnitTests
         Guid htmlDataGuid = Guid.NewGuid();
         Guid xmlDataGuid = Guid.NewGuid();
         string expectedBlobVersionId = "2024-01-15T12:00:00.0000000Z";
-        string expectedBlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        string expectedBlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             _appId,
             instanceGuid,
             expectedBlobVersionId
@@ -114,7 +115,7 @@ public class ContentOnDemandControllerUnitTests
         Guid instanceGuid = Guid.NewGuid();
         Guid signatureDataGuid = Guid.NewGuid();
         const string expectedBlobVersionId = "signature-version-id";
-        string expectedBlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        string expectedBlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             _appId,
             instanceGuid,
             expectedBlobVersionId
@@ -164,7 +165,7 @@ public class ContentOnDemandControllerUnitTests
         Guid instanceGuid = Guid.NewGuid();
         Guid paymentDataGuid = Guid.NewGuid();
         const string expectedBlobVersionId = "payment-version-id";
-        string expectedBlobStoragePath = BlobRepository.GetVersionedBlobPath(
+        string expectedBlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             _appId,
             instanceGuid,
             expectedBlobVersionId
@@ -375,7 +376,7 @@ public class ContentOnDemandControllerUnitTests
         {
             dataElement.BlobStoragePath = string.IsNullOrEmpty(dataElement.BlobVersionId)
                 ? $"{_org}/{_app}/{instanceGuid}/data/{dataElement.Id}"
-                : BlobRepository.GetVersionedBlobPath(
+                : DataElementHelper.GetVersionedBlobPath(
                     _appId,
                     instanceGuid,
                     dataElement.BlobVersionId

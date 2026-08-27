@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Extensions;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
@@ -414,7 +415,7 @@ public class CleanupControllerUnitTests
         {
             Id = dataElementId.ToString(),
             InstanceGuid = instanceGuid.ToString(),
-            BlobStoragePath = BlobRepository.GetVersionedBlobPath(
+            BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
                 "stored/app",
                 instanceGuid,
                 secondBlobVersionId
@@ -445,8 +446,8 @@ public class CleanupControllerUnitTests
         Mock<IDataRepository> dataRepositoryMock = new();
         string[] expectedBlobStoragePaths =
         [
-            BlobRepository.GetVersionedBlobPath("stored/app", instanceGuid, firstBlobVersionId),
-            BlobRepository.GetVersionedBlobPath("stored/app", instanceGuid, secondBlobVersionId),
+            DataElementHelper.GetVersionedBlobPath("stored/app", instanceGuid, firstBlobVersionId),
+            DataElementHelper.GetVersionedBlobPath("stored/app", instanceGuid, secondBlobVersionId),
         ];
         int callOrder = 0;
 
@@ -615,8 +616,8 @@ public class CleanupControllerUnitTests
         );
         string[] expectedBlobStoragePaths =
         [
-            BlobRepository.GetVersionedBlobPath("ttd/app", instanceGuid, firstBlobVersionId),
-            BlobRepository.GetVersionedBlobPath("ttd/app", instanceGuid, secondBlobVersionId),
+            DataElementHelper.GetVersionedBlobPath("ttd/app", instanceGuid, firstBlobVersionId),
+            DataElementHelper.GetVersionedBlobPath("ttd/app", instanceGuid, secondBlobVersionId),
         ];
         int callOrder = 0;
 

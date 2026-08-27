@@ -27,6 +27,18 @@ public static class DataElementHelper
     }
 
     /// <summary>
+    /// Formats a filename for a blob version of a data element.
+    /// </summary>
+    internal static string GetVersionedBlobPath(
+        string appId,
+        Guid instanceGuid,
+        string blobVersionId
+    )
+    {
+        return $"{VersionedBlobPathPrefix(appId, instanceGuid)}{blobVersionId}";
+    }
+
+    /// <summary>
     /// Throws an exception if the blob storage path isn't in the excpected format.
     /// </summary>
     public static void EnsureExpectedBlobStoragePath(
@@ -136,7 +148,7 @@ public static class DataElementHelper
             return true;
         }
 
-        string versionedPathPrefix = $"{appId}/{instanceGuid}/data-elements/";
+        string versionedPathPrefix = VersionedBlobPathPrefix(appId, instanceGuid);
         if (!blobStoragePath.StartsWith(versionedPathPrefix, StringComparison.Ordinal))
         {
             return false;
@@ -145,5 +157,10 @@ public static class DataElementHelper
         ReadOnlySpan<char> blobVersionId = blobStoragePath.AsSpan(versionedPathPrefix.Length);
 
         return blobVersionId.ContainsAnyExcept('.') && !blobVersionId.Contains('/');
+    }
+
+    private static string VersionedBlobPathPrefix(string appId, Guid instanceGuid)
+    {
+        return $"{appId}/{instanceGuid}/data-elements/";
     }
 }
