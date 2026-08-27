@@ -207,7 +207,7 @@ public sealed class PgInstanceMutationRepository(
             bool replayed = false;
             IReadOnlyList<string> createdDataElementIds = [];
             InstanceInternal instance =
-                await PgInstanceRepository.ReadInstanceResultAsync(
+                await InstanceResultReader.ReadAsync(
                     reader,
                     includeElements: true,
                     cancellationToken,
@@ -459,8 +459,10 @@ public sealed class PgInstanceMutationRepository(
         List<string> updateProperties
     )
     {
-        PgInstanceRepository.InstanceUpdateCommandArguments arguments =
-            PgInstanceRepository.BuildUpdateCommandArguments(instance, updateProperties);
+        InstanceUpdateCommandArguments arguments = InstanceUpdateCommandArguments.Build(
+            instance,
+            updateProperties
+        );
 
         writer.WriteStartObject();
         WriteRawJsonProperty(
@@ -671,7 +673,7 @@ public sealed class PgInstanceMutationRepository(
         cmd.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
 
         await using NpgsqlDataReader reader = await cmd.ExecuteReaderAsync(cancellationToken);
-        return await PgInstanceRepository.ReadInstanceResultAsync(
+        return await InstanceResultReader.ReadAsync(
             reader,
             includeElements: true,
             cancellationToken

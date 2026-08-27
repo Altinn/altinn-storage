@@ -133,7 +133,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
                 _updatedElementColumn,
                 cancellationToken
             );
-            StorageVersions versions = ReadVersionResult(reader);
+            StorageVersions versions = InstanceResultReader.ReadVersions(reader);
             return new DataElementWriteResult(dataElement, versions);
         }
 
@@ -398,7 +398,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
                 _updatedElementColumn,
                 cancellationToken
             );
-            StorageVersions versions = ReadVersionResult(reader);
+            StorageVersions versions = InstanceResultReader.ReadVersions(reader);
             return new DataElementWriteResult(updatedElement, versions);
         }
 
@@ -448,7 +448,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
                 _updatedElementColumn,
                 cancellationToken
             );
-            StorageVersions versions = ReadVersionResult(reader);
+            StorageVersions versions = InstanceResultReader.ReadVersions(reader);
             return new DataElementWriteResult(updatedElement, versions);
         }
 
@@ -498,7 +498,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
                 _updatedElementColumn,
                 cancellationToken
             );
-            StorageVersions versions = ReadVersionResult(reader);
+            StorageVersions versions = InstanceResultReader.ReadVersions(reader);
             return new DataElementWriteResult(updatedElement, versions);
         }
 
@@ -555,24 +555,18 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
                 _updatedElementColumn,
                 cancellationToken
             );
-            StorageVersions versions = ReadVersionResult(reader);
+            StorageVersions versions = InstanceResultReader.ReadVersions(reader);
             return new DataElementWriteResult(updatedElement, versions);
         }
 
         return null;
     }
 
-    private static StorageVersions ReadVersionResult(NpgsqlDataReader reader) =>
-        new(
-            reader.GetInt32(reader.GetOrdinal("instanceversion")),
-            reader.GetInt32(reader.GetOrdinal("processstateversion"))
-        );
-
     private static InstanceVersionMismatchException CreateInstanceVersionMismatchException(
         NpgsqlDataReader reader
     )
     {
-        StorageVersions versions = ReadVersionResult(reader);
+        StorageVersions versions = InstanceResultReader.ReadVersions(reader);
         return new InstanceVersionMismatchException(
             versions.InstanceVersion,
             versions.ProcessStateVersion
@@ -583,7 +577,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         NpgsqlDataReader reader
     )
     {
-        StorageVersions versions = ReadVersionResult(reader);
+        StorageVersions versions = InstanceResultReader.ReadVersions(reader);
         return new ProcessStateVersionMismatchException(
             versions.InstanceVersion,
             versions.ProcessStateVersion
@@ -696,42 +690,14 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         while (await reader.ReadAsync(cancellationToken))
         {
             blobVersions.Add(
-                await ReadBlobVersionReferencesAsync(reader, cancellationToken: cancellationToken)
+                await BlobVersionReferenceReader.ReadAsync(
+                    reader,
+                    cancellationToken: cancellationToken
+                )
             );
         }
 
         return blobVersions;
-    }
-
-    internal static async Task<BlobVersionReferencesInternal> ReadBlobVersionReferencesAsync(
-        NpgsqlDataReader reader,
-        string instanceGuidColumn = "instanceguid",
-        string appIdColumn = "appid",
-        string blobStorageOrgColumn = "blobstorageorg",
-        string storageAccountNumberColumn = "storageaccountnumber",
-        string blobVersionsColumn = "blobversions",
-        CancellationToken cancellationToken = default
-    )
-    {
-        int storageAccountOrdinal = reader.GetOrdinal(storageAccountNumberColumn);
-        int? storageAccountNumber = await reader.IsDBNullAsync(
-            storageAccountOrdinal,
-            cancellationToken
-        )
-            ? null
-            : await reader.GetFieldValueAsync<int>(storageAccountOrdinal, cancellationToken);
-        Guid[] blobVersions = await reader.GetFieldValueAsync<Guid[]>(
-            blobVersionsColumn,
-            cancellationToken
-        );
-
-        return new BlobVersionReferencesInternal(
-            await reader.GetFieldValueAsync<Guid>(instanceGuidColumn, cancellationToken),
-            await reader.GetFieldValueAsync<string>(appIdColumn, cancellationToken),
-            await reader.GetFieldValueAsync<string>(blobStorageOrgColumn, cancellationToken),
-            storageAccountNumber,
-            blobVersions.Select(BlobVersionId.Encode)
-        );
     }
 
     /// <inheritdoc/>

@@ -14,7 +14,6 @@ using Altinn.Platform.Storage.Models;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using NpgsqlTypes;
-using static Altinn.Platform.Storage.Repository.JsonHelper;
 
 namespace Altinn.Platform.Storage.Repository;
 
@@ -260,7 +259,7 @@ public class PgInstanceRepository : IInstanceRepository
                     if (blobVersions.Length > 0)
                     {
                         elementWithVersions.BlobVersions.Add(
-                            await PgDataRepository.ReadBlobVersionReferencesAsync(
+                            await BlobVersionReferenceReader.ReadAsync(
                                 reader,
                                 instanceGuidColumn: "blobversioninstanceguid",
                                 appIdColumn: "blobversionappid",
@@ -303,7 +302,7 @@ public class PgInstanceRepository : IInstanceRepository
             while (await reader.ReadAsync(cancellationToken))
             {
                 orphanBlobVersions.Add(
-                    await PgDataRepository.ReadBlobVersionReferencesAsync(
+                    await BlobVersionReferenceReader.ReadAsync(
                         reader,
                         cancellationToken: cancellationToken
                     )
@@ -334,7 +333,7 @@ public class PgInstanceRepository : IInstanceRepository
         while (await reader.ReadAsync(cancellationToken))
         {
             blobVersions.Add(
-                await PgDataRepository.ReadBlobVersionReferencesAsync(
+                await BlobVersionReferenceReader.ReadAsync(
                     reader,
                     cancellationToken: cancellationToken
                 )
@@ -475,7 +474,7 @@ public class PgInstanceRepository : IInstanceRepository
                     );
                     lastChanged = instance.LastChanged ?? DateTime.MinValue;
                     instance.InternalId = id;
-                    instance.Versions = ReadVersionResult(reader);
+                    instance.Versions = InstanceResultReader.ReadVersions(reader);
                     instance.Data = [];
                     queryResult.Instances.Add(instance);
                     previousId = id;
@@ -523,60 +522,7 @@ public class PgInstanceRepository : IInstanceRepository
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
 
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
-        return await ReadInstanceResultAsync(reader, includeElements, cancellationToken);
-    }
-
-    internal static async Task<InstanceInternal> ReadInstanceResultAsync(
-        NpgsqlDataReader reader,
-        bool includeElements,
-        CancellationToken cancellationToken,
-        Action<NpgsqlDataReader> firstRowCallback = null
-    )
-    {
-        InstanceInternal instance = null;
-        List<DataElementInternal> instanceData = [];
-        StorageVersions versions = null;
-        long instanceInternalId = 0;
-        bool instanceCreated = false;
-
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            if (!instanceCreated)
-            {
-                instanceCreated = true;
-                firstRowCallback?.Invoke(reader);
-                instance = await reader.GetFieldValueAsync<InstanceInternal>(
-                    "instance",
-                    cancellationToken
-                );
-                versions = ReadVersionResult(reader);
-                instanceInternalId = await reader.GetFieldValueAsync<long>("id", cancellationToken);
-            }
-
-            if (includeElements && !await reader.IsDBNullAsync(_elementColumn, cancellationToken))
-            {
-                DataElementInternal element = await reader.GetFieldValueAsync<DataElementInternal>(
-                    _elementColumn,
-                    cancellationToken
-                );
-                int versionOrdinal = reader.GetOrdinal("currentblobversion");
-                string blobVersionId = await reader.IsDBNullAsync(versionOrdinal, cancellationToken)
-                    ? null
-                    : BlobVersionId.Encode(reader.GetGuid(versionOrdinal));
-                element.BlobVersionId = blobVersionId;
-                instanceData.Add(element);
-            }
-        }
-
-        if (instance is null)
-        {
-            return null;
-        }
-
-        instance.Data = instanceData.OrderBy(x => x.Created).ToList();
-        instance.Versions = versions;
-        instance.InternalId = instanceInternalId;
-        return instance;
+        return await InstanceResultReader.ReadAsync(reader, includeElements, cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -647,25 +593,6 @@ public class PgInstanceRepository : IInstanceRepository
     }
 
     /// <summary>
-    /// Arguments passed to storage.updateinstance_v4.
-    /// </summary>
-    internal sealed record InstanceUpdateCommandArguments(
-        Guid AlternateId,
-        string TopLevelSimpleProperties,
-        object DataValues,
-        object CompleteConfirmations,
-        object PresentationTexts,
-        object Status,
-        object Substatus,
-        object Process,
-        DateTime LastChanged,
-        object TaskId,
-        object Confirmed,
-        object ExpectedInstanceVersion,
-        object ExpectedProcessStateVersion
-    );
-
-    /// <summary>
     /// Builds the update command for the instance.
     /// </summary>
     /// <param name="instance">Instance</param>
@@ -681,7 +608,7 @@ public class PgInstanceRepository : IInstanceRepository
         int? expectedProcessStateVersion = null
     )
     {
-        InstanceUpdateCommandArguments arguments = BuildUpdateCommandArguments(
+        InstanceUpdateCommandArguments arguments = InstanceUpdateCommandArguments.Build(
             instance,
             updateProperties,
             expectedInstanceVersion,
@@ -689,41 +616,6 @@ public class PgInstanceRepository : IInstanceRepository
         );
         AddUpdateCommandParameters(arguments, parameters);
     }
-
-    internal static InstanceUpdateCommandArguments BuildUpdateCommandArguments(
-        InstanceInternal instance,
-        List<string> updateProperties,
-        int? expectedInstanceVersion = null,
-        int? expectedProcessStateVersion = null
-    ) =>
-        new(
-            instance.Id,
-            CustomSerializer.Serialize(instance, updateProperties),
-            updateProperties.Contains(nameof(instance.DataValues))
-                ? instance.DataValues
-                : DBNull.Value,
-            updateProperties.Contains(nameof(instance.CompleteConfirmations))
-                ? instance.CompleteConfirmations
-                : DBNull.Value,
-            updateProperties.Contains(nameof(instance.PresentationTexts))
-                ? instance.PresentationTexts
-                : DBNull.Value,
-            updateProperties.Contains(nameof(instance.Status))
-                ? CustomSerializer.Serialize(instance.Status, updateProperties)
-                : DBNull.Value,
-            updateProperties.Contains(nameof(instance.Status.Substatus))
-                ? instance.Status.Substatus
-                : DBNull.Value,
-            updateProperties.Contains(nameof(instance.Process)) ? instance.Process : DBNull.Value,
-            instance.LastChanged ?? DateTime.UtcNow,
-            instance.Process?.CurrentTask?.ElementId ?? (object)DBNull.Value,
-            instance.CompleteConfirmations != null
-            && instance.CompleteConfirmations.Any(c => c.StakeholderId == instance.Org)
-                ? true
-                : DBNull.Value,
-            expectedInstanceVersion ?? (object)DBNull.Value,
-            expectedProcessStateVersion ?? (object)DBNull.Value
-        );
 
     private static void AddUpdateCommandParameters(
         InstanceUpdateCommandArguments arguments,
@@ -794,17 +686,11 @@ public class PgInstanceRepository : IInstanceRepository
             "updatedInstance",
             cancellationToken
         );
-        StorageVersions versions = ReadVersionResult(reader);
+        StorageVersions versions = InstanceResultReader.ReadVersions(reader);
         instance.Versions = versions;
         instance.InternalId = instanceInternalId;
         return instance;
     }
-
-    private static StorageVersions ReadVersionResult(NpgsqlDataReader reader) =>
-        new(
-            reader.GetInt32(reader.GetOrdinal("instanceversion")),
-            reader.GetInt32(reader.GetOrdinal("processstateversion"))
-        );
 
     private static RepositoryException CreateInstanceNotFoundException(string instanceId = null) =>
         new(
@@ -823,7 +709,7 @@ public class PgInstanceRepository : IInstanceRepository
         NpgsqlDataReader reader
     )
     {
-        StorageVersions versions = ReadVersionResult(reader);
+        StorageVersions versions = InstanceResultReader.ReadVersions(reader);
         return new InstanceVersionMismatchException(
             versions.InstanceVersion,
             versions.ProcessStateVersion
@@ -834,7 +720,7 @@ public class PgInstanceRepository : IInstanceRepository
         NpgsqlDataReader reader
     )
     {
-        StorageVersions versions = ReadVersionResult(reader);
+        StorageVersions versions = InstanceResultReader.ReadVersions(reader);
         return new ProcessStateVersionMismatchException(
             versions.InstanceVersion,
             versions.ProcessStateVersion
