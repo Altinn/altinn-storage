@@ -209,7 +209,6 @@ public class PgInstanceRepository : IInstanceRepository
             Guid,
             (DataElementInternal DataElement, List<BlobVersionReferencesInternal> BlobVersions)
         > elements = [];
-        List<Guid> elementOrder = [];
         try
         {
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(
@@ -245,18 +244,19 @@ public class PgInstanceRepository : IInstanceRepository
                             _elementColumn,
                             cancellationToken
                         );
-                    Guid elementId = element.Id;
-                    if (!elements.TryGetValue(elementId, out var elementWithVersions))
+                    if (!elements.TryGetValue(element.Id, out var elementWithVersions))
                     {
                         elementWithVersions = (element, []);
-                        elements[elementId] = elementWithVersions;
-                        elementOrder.Add(elementId);
+                        elements[element.Id] = elementWithVersions;
                     }
 
                     Guid[] blobVersions = await reader.GetFieldValueAsync<Guid[]>(
                         "blobversions",
                         cancellationToken
                     );
+
+                    // The lateral join leaves the blob version columns null for a data element
+                    // without attached versions, so they can only be read for a non-empty group.
                     if (blobVersions.Length > 0)
                     {
                         elementWithVersions.BlobVersions.Add(
@@ -280,9 +280,9 @@ public class PgInstanceRepository : IInstanceRepository
 
         return
         [
-            .. elementOrder.Select(elementId => new DeletedDataElementInternal(
-                elements[elementId].DataElement,
-                elements[elementId].BlobVersions
+            .. elements.Values.Select(element => new DeletedDataElementInternal(
+                element.DataElement,
+                element.BlobVersions
             )),
         ];
     }
