@@ -1,6 +1,7 @@
 #nullable disable
 
 using System;
+using Altinn.Platform.Storage.Interface.Enums;
 using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.Interface.Models;
@@ -12,6 +13,16 @@ namespace Altinn.Platform.Storage.Interface.Models;
 [JsonObject(ItemNullValueHandling = NullValueHandling.Ignore)]
 public class ProcessState
 {
+    /// <summary>
+    /// Gets or sets the Storage-controlled process status.
+    /// An absent value has the same meaning as <see cref="ProcessStatus.Idle"/>.
+    /// </summary>
+    [JsonProperty(PropertyName = "status")]
+    [System.Text.Json.Serialization.JsonIgnore(
+        Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+    )]
+    public ProcessStatus? Status { get; set; }
+
     /// <summary>
     /// Gets or sets the date and time for when the process was started.
     /// </summary>
