@@ -18,9 +18,9 @@ BEGIN
     GET DIAGNOSTICS _deleteCount = ROW_COUNT;
 
     UPDATE storage.dataelementblobversions
-        SET attached = false
+        SET detachedat = NOW()
         WHERE instanceguid = _instanceguid
-            AND attached = true;
+            AND detachedat IS NULL;
 
     RETURN _deleteCount;
 END;

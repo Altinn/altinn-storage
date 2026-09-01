@@ -110,7 +110,12 @@ public class DataBlobIntegrationTests
         using StreamReader reader = new(readBlob, Encoding.UTF8);
         Assert.Equal(content, await reader.ReadToEndAsync());
         Assert.True(await _blobFixture.Exists(createdDataElement.BlobStoragePath));
-        Assert.Single(await _dataElementFixture.DataRepo.ReadBlobVersions(dataElementId));
+        Assert.Single(
+            await _dataElementFixture.DataRepo.ReadBlobVersions(
+                createdDataElement.InstanceGuid,
+                dataElementId
+            )
+        );
 
         // Act delete
         Guid instanceGuid = createdDataElement.InstanceGuid;
@@ -152,7 +157,12 @@ public class DataBlobIntegrationTests
                 CancellationToken.None
             )
         );
-        Assert.Empty(await _dataElementFixture.DataRepo.ReadBlobVersions(dataElementId));
+        Assert.Empty(
+            await _dataElementFixture.DataRepo.ReadBlobVersions(
+                createdDataElement.InstanceGuid,
+                dataElementId
+            )
+        );
         Assert.False(await _blobFixture.Exists(createdDataElement.BlobStoragePath));
         Assert.Equal(1, await CountInstanceEvents(instanceGuid, InstanceEventType.Deleted));
     }

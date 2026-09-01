@@ -70,7 +70,7 @@ public class DataRepositoryMock : IDataRepository
             }
 
             string serializedDataElement = JsonSerializer.Serialize(stagedElement, _options);
-            blobVersion?.Attached = true;
+            blobVersion?.DetachedAt = null;
 
             _tempRepository.Add(
                 dataElementId,
@@ -188,7 +188,11 @@ public class DataRepositoryMock : IDataRepository
             }
 
             string serializedDataElement = JsonSerializer.Serialize(stagedElement, _options);
-            blobVersion?.Attached = true;
+            if (blobVersion is not null)
+            {
+                SupersedeAttachedBlobVersionsLocked(dataElementKey);
+                blobVersion.DetachedAt = null;
+            }
 
             _tempRepository[dataElementKey] = new StoredDataElement(
                 serializedDataElement,
@@ -292,6 +296,9 @@ public class DataRepositoryMock : IDataRepository
                     blobStorageOrg,
                     storageAccountNumber
                 )
+                {
+                    DetachedAt = DateTimeOffset.UtcNow,
+                }
             );
         }
 
@@ -334,7 +341,8 @@ public class DataRepositoryMock : IDataRepository
             if (_blobVersions.TryGetValue(dataElementKey, out List<BlobVersionEntry> versions))
             {
                 deleteCount = versions.RemoveAll(version =>
-                    !version.Attached && normalizedBlobVersionIds.Contains(version.BlobVersionId)
+                    version.DetachedAt is not null
+                    && normalizedBlobVersionIds.Contains(version.BlobVersionId)
                 );
                 if (versions.Count == 0)
                 {
@@ -360,7 +368,8 @@ public class DataRepositoryMock : IDataRepository
             )
             {
                 deleteCount += versions.RemoveAll(version =>
-                    !version.Attached && normalizedBlobVersionIds.Contains(version.BlobVersionId)
+                    version.DetachedAt is not null
+                    && normalizedBlobVersionIds.Contains(version.BlobVersionId)
                 );
                 if (versions.Count == 0)
                 {
@@ -373,13 +382,18 @@ public class DataRepositoryMock : IDataRepository
     }
 
     public Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadBlobVersions(
+        Guid instanceGuid,
         Guid dataElementId,
         CancellationToken cancellationToken = default
-    ) => ReadBlobVersionsByAttachment(dataElementId, true);
+    ) =>
+        ReadBlobVersions(
+            dataElementId,
+            version => version.DetachedAt is null && version.InstanceGuid == instanceGuid
+        );
 
-    private Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadBlobVersionsByAttachment(
+    private Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadBlobVersions(
         Guid dataElementId,
-        bool attached
+        Func<BlobVersionEntry, bool> filter
     )
     {
         BlobVersionEntry[] snapshot;
@@ -389,7 +403,7 @@ public class DataRepositoryMock : IDataRepository
                 dataElementId.ToString(),
                 out List<BlobVersionEntry> versions
             )
-                ? [.. versions.Where(version => version.Attached == attached)]
+                ? [.. versions.Where(filter)]
                 : [];
         }
 
@@ -419,7 +433,7 @@ public class DataRepositoryMock : IDataRepository
     public Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadDetachedBlobVersions(
         Guid dataElementId,
         CancellationToken cancellationToken = default
-    ) => ReadBlobVersionsByAttachment(dataElementId, false);
+    ) => ReadBlobVersions(dataElementId, version => version.DetachedAt is not null);
 
     public Task<bool> Exists(Guid dataElementId, CancellationToken cancellationToken = default) =>
         Task.FromResult(true);
@@ -558,10 +572,23 @@ public class DataRepositoryMock : IDataRepository
         }
 
         return versions.Find(version =>
-            !version.Attached
+            version.DetachedAt is not null
             && version.InstanceGuid == instanceGuid
             && string.Equals(version.BlobVersionId, blobVersionId, StringComparison.Ordinal)
         );
+    }
+
+    private void SupersedeAttachedBlobVersionsLocked(string dataElementId)
+    {
+        if (!_blobVersions.TryGetValue(dataElementId, out List<BlobVersionEntry> versions))
+        {
+            return;
+        }
+
+        foreach (BlobVersionEntry version in versions.Where(version => version.DetachedAt is null))
+        {
+            version.DetachedAt = DateTimeOffset.UtcNow;
+        }
     }
 
     private void AddBlobVersionLocked(string dataElementId, BlobVersionEntry blobVersion)
@@ -599,7 +626,7 @@ public class DataRepositoryMock : IDataRepository
         }
 
         int versionIndex = versions.FindIndex(version =>
-            !version.Attached
+            version.DetachedAt is not null
             && string.Equals(version.BlobVersionId, blobVersionId, StringComparison.Ordinal)
         );
         if (versionIndex < 0)
@@ -761,6 +788,6 @@ public class DataRepositoryMock : IDataRepository
         int? StorageAccountNumber
     )
     {
-        public bool Attached { get; set; }
+        public DateTimeOffset? DetachedAt { get; set; }
     }
 }

@@ -12,7 +12,7 @@ BEGIN
             array_agg(bv.id ORDER BY bv.created, bv.id) AS blobversions
         FROM storage.dataelementblobversions bv
         WHERE bv.dataelementid = _dataelementid
-            AND bv.attached = false
+            AND bv.detachedat IS NOT NULL
         GROUP BY bv.instanceguid, bv.appid, bv.blobstorageorg, bv.storageaccountnumber
         ORDER BY min(bv.created), min(bv.id::TEXT);
 END;

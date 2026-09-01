@@ -11,8 +11,8 @@ using Npgsql;
 namespace Altinn.Platform.Storage.Repository;
 
 /// <summary>
-/// Reads the blob version columns shared by the storage functions that return attached blob
-/// versions grouped by the storage context they were written to.
+/// Reads the blob version columns shared by the storage functions that return blob versions
+/// grouped by the storage context they were written to.
 /// </summary>
 internal static class BlobVersionReferenceReader
 {

@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION storage.deletedataelementforcleanup(_alternateid UUID)
+CREATE OR REPLACE FUNCTION storage.deletedataelementforcleanup(_alternateid UUID, _instanceguid UUID)
     RETURNS INT
     LANGUAGE 'plpgsql'
 AS $BODY$
@@ -10,9 +10,10 @@ BEGIN
     GET DIAGNOSTICS _deleteCount = ROW_COUNT;
 
     UPDATE storage.dataelementblobversions
-        SET attached = false
-        WHERE dataelementid = _alternateid
-            AND attached = true;
+        SET detachedat = NOW()
+        WHERE instanceguid = _instanceguid
+            AND dataelementid = _alternateid
+            AND detachedat IS NULL;
 
     RETURN _deleteCount;
 END;

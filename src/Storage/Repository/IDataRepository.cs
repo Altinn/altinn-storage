@@ -184,10 +184,12 @@ public interface IDataRepository
     /// <summary>
     /// Reads attached blob versions for a data element grouped by storage context.
     /// </summary>
+    /// <param name="instanceGuid">The instance guid that owns the data element.</param>
     /// <param name="dataElementId">The data element id.</param>
     /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
     /// <returns>The attached blob versions grouped by storage context.</returns>
     Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadBlobVersions(
+        Guid instanceGuid,
         Guid dataElementId,
         CancellationToken cancellationToken = default
     );

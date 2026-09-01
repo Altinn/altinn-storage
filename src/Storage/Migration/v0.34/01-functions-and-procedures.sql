@@ -215,7 +215,7 @@ BEGIN
         ORDER BY createelement.ordinality;
 
         UPDATE storage.dataelementblobversions dataelementblobversion
-        SET attached = true
+        SET detachedat = NULL
         FROM (
             SELECT
                 (createelement.value ->> 'elementId')::UUID AS dataelementid,
@@ -226,7 +226,7 @@ BEGIN
         WHERE dataelementblobversion.id = createelement.blobversion
             AND dataelementblobversion.instanceguid = _instanceguid
             AND dataelementblobversion.dataelementid = createelement.dataelementid
-            AND dataelementblobversion.attached = false;
+            AND dataelementblobversion.detachedat IS NOT NULL;
     END IF;
 
     IF jsonb_array_length(_updateelements) > 0
@@ -287,8 +287,21 @@ BEGIN
                 _updatedids);
         END IF;
 
+        -- Only one version per data element may be attached, and the partial unique index
+        -- enforcing that is checked per statement, so the predecessors are detached first.
+        UPDATE storage.dataelementblobversions superseded
+        SET detachedat = NOW()
+        FROM (
+            SELECT (updateelement.value ->> 'elementId')::UUID AS dataelementid
+            FROM jsonb_array_elements(_updateelements) updateelement(value)
+            WHERE updateelement.value ->> 'newBlobVersion' IS NOT NULL
+        ) updateelement
+        WHERE superseded.instanceguid = _instanceguid
+            AND superseded.dataelementid = updateelement.dataelementid
+            AND superseded.detachedat IS NULL;
+
         UPDATE storage.dataelementblobversions dataelementblobversion
-        SET attached = true
+        SET detachedat = NULL
         FROM (
             SELECT
                 (updateelement.value ->> 'elementId')::UUID AS dataelementid,
@@ -299,7 +312,7 @@ BEGIN
         WHERE dataelementblobversion.id = updateelement.newblobversion
             AND dataelementblobversion.instanceguid = _instanceguid
             AND dataelementblobversion.dataelementid = updateelement.dataelementid
-            AND dataelementblobversion.attached = false;
+            AND dataelementblobversion.detachedat IS NOT NULL;
     END IF;
 
     IF jsonb_array_length(_deleteelements) > 0
@@ -336,14 +349,14 @@ BEGIN
         END IF;
 
         UPDATE storage.dataelementblobversions dataelementblobversion
-        SET attached = false
+        SET detachedat = NOW()
         FROM (
             SELECT (deleteelement.value ->> 'elementId')::UUID AS dataelementid
             FROM jsonb_array_elements(_deleteelements) deleteelement(value)
         ) deleteelement
         WHERE dataelementblobversion.instanceguid = _instanceguid
             AND dataelementblobversion.dataelementid = deleteelement.dataelementid
-            AND dataelementblobversion.attached = true;
+            AND dataelementblobversion.detachedat IS NULL;
     END IF;
 
     -- The upfront instance-version prediction is the any-operations signal.
@@ -441,7 +454,7 @@ BEGIN
         appid,
         blobstorageorg,
         storageaccountnumber,
-        attached)
+        detachedat)
     VALUES (
         _id,
         _instanceguid,
@@ -449,7 +462,7 @@ BEGIN
         _appid,
         _blobstorageorg,
         _storageaccountnumber,
-        false);
+        NOW());
 END;
 $BODY$;
 
@@ -465,7 +478,7 @@ BEGIN
     DELETE FROM storage.dataelementblobversions
         WHERE id = _blobversionid
             AND dataelementid = _dataelementid
-            AND attached = false;
+            AND detachedat IS NOT NULL;
     GET DIAGNOSTICS _deleteCount = ROW_COUNT;
 
     RETURN _deleteCount;
@@ -484,7 +497,7 @@ BEGIN
     DELETE FROM storage.dataelementblobversions
         WHERE id = ANY(_blobversionids)
             AND dataelementid = _dataelementid
-            AND attached = false;
+            AND detachedat IS NOT NULL;
     GET DIAGNOSTICS _deleteCount = ROW_COUNT;
 
     RETURN _deleteCount;
@@ -517,9 +530,10 @@ BEGIN
     GET DIAGNOSTICS _deleteCount = ROW_COUNT;
 
     UPDATE storage.dataelementblobversions
-        SET attached = false
-        WHERE dataelementid = _alternateid
-            AND attached = true;
+        SET detachedat = NOW()
+        WHERE instanceguid = _instanceGuid
+            AND dataelementid = _alternateid
+            AND detachedat IS NULL;
 
     RETURN _deleteCount;
 END;
@@ -527,7 +541,7 @@ $BODY$;
 
 
 -- deletedataelementforcleanup.sql:
-CREATE OR REPLACE FUNCTION storage.deletedataelementforcleanup(_alternateid UUID)
+CREATE OR REPLACE FUNCTION storage.deletedataelementforcleanup(_alternateid UUID, _instanceguid UUID)
     RETURNS INT
     LANGUAGE 'plpgsql'
 AS $BODY$
@@ -539,9 +553,10 @@ BEGIN
     GET DIAGNOSTICS _deleteCount = ROW_COUNT;
 
     UPDATE storage.dataelementblobversions
-        SET attached = false
-        WHERE dataelementid = _alternateid
-            AND attached = true;
+        SET detachedat = NOW()
+        WHERE instanceguid = _instanceguid
+            AND dataelementid = _alternateid
+            AND detachedat IS NULL;
 
     RETURN _deleteCount;
 END;
@@ -569,9 +584,9 @@ BEGIN
     GET DIAGNOSTICS _deleteCount = ROW_COUNT;
 
     UPDATE storage.dataelementblobversions
-        SET attached = false
+        SET detachedat = NOW()
         WHERE instanceguid = _instanceguid
-            AND attached = true;
+            AND detachedat IS NULL;
 
     RETURN _deleteCount;
 END;
@@ -648,7 +663,7 @@ DECLARE
 BEGIN
     DELETE FROM storage.dataelementblobversions
         WHERE id = ANY(_versions)
-            AND attached = false;
+            AND detachedat IS NOT NULL;
     GET DIAGNOSTICS _deleteCount = ROW_COUNT;
 
     RETURN _deleteCount;
@@ -1029,17 +1044,11 @@ BEGIN
     IF _currentblobversion IS NOT NULL
     THEN
         UPDATE storage.dataelementblobversions
-            SET attached = true
+            SET detachedat = NULL
             WHERE id = _currentblobversion
                 AND instanceguid = _instanceguid
                 AND dataelementid = _alternateid
-                AND attached = false;
-
-        IF NOT FOUND
-        THEN
-            RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, _currentProcessStatus, 'blob_version_not_found'::TEXT;
-            RETURN;
-        END IF;
+                AND detachedat IS NOT NULL;
     END IF;
 
     -- Make sure that lastChanged has the Postgres precision (6 digits). The timestamp from C# DateTime and then json serialize has 7 digits
@@ -1306,7 +1315,7 @@ END;
 $BODY$;
 
 -- readblobversions.sql:
-CREATE OR REPLACE FUNCTION storage.readblobversions(_dataelementid UUID)
+CREATE OR REPLACE FUNCTION storage.readblobversions(_instanceguid UUID, _dataelementid UUID)
     RETURNS TABLE (instanceguid UUID, appid TEXT, blobstorageorg TEXT, storageaccountnumber INT, blobversions UUID[])
     LANGUAGE 'plpgsql'
 AS $BODY$
@@ -1319,8 +1328,9 @@ BEGIN
             bv.storageaccountnumber,
             array_agg(bv.id ORDER BY bv.created, bv.id) AS blobversions
         FROM storage.dataelementblobversions bv
-        WHERE bv.dataelementid = _dataelementid
-            AND bv.attached = true
+        WHERE bv.instanceguid = _instanceguid
+            AND bv.dataelementid = _dataelementid
+            AND bv.detachedat IS NULL
         GROUP BY bv.instanceguid, bv.appid, bv.blobstorageorg, bv.storageaccountnumber
         ORDER BY min(bv.created), min(bv.id::TEXT);
 END;
@@ -1343,7 +1353,7 @@ BEGIN
             array_agg(bv.id ORDER BY bv.created, bv.id) AS blobversions
         FROM storage.dataelementblobversions bv
         WHERE bv.instanceguid = _instanceguid
-            AND bv.attached = true
+            AND bv.detachedat IS NULL
         GROUP BY bv.dataelementid, bv.instanceguid, bv.appid, bv.blobstorageorg, bv.storageaccountnumber
         ORDER BY min(bv.created), min(bv.id::TEXT);
 END;
@@ -1418,7 +1428,7 @@ BEGIN
             array_agg(bv.id ORDER BY bv.created, bv.id) AS blobversions
         FROM storage.dataelementblobversions bv
         WHERE bv.dataelementid = _dataelementid
-            AND bv.attached = false
+            AND bv.detachedat IS NOT NULL
         GROUP BY bv.instanceguid, bv.appid, bv.blobstorageorg, bv.storageaccountnumber
         ORDER BY min(bv.created), min(bv.id::TEXT);
 END;
@@ -1471,8 +1481,9 @@ BEGIN
             bv.storageaccountnumber,
             array_agg(bv.id ORDER BY bv.created, bv.id) AS blobversions
         FROM storage.dataelementblobversions bv
-        WHERE bv.dataelementid = d.alternateid
-            AND bv.attached = true
+        WHERE bv.instanceguid = i.alternateid
+            AND bv.dataelementid = d.alternateid
+            AND bv.detachedat IS NULL
         GROUP BY bv.instanceguid, bv.appid, bv.blobstorageorg, bv.storageaccountnumber
     ) v ON TRUE
     WHERE i.AltinnMainVersion >= 3;
@@ -1681,8 +1692,7 @@ BEGIN
             v.storageaccountnumber,
             array_agg(v.id ORDER BY v.created, v.id) AS blobversions
         FROM storage.dataelementblobversions v
-        WHERE v.attached = false
-            AND v.created <= NOW() - INTERVAL '7 days'
+        WHERE v.detachedat <= NOW() - INTERVAL '7 days'
         GROUP BY v.instanceguid, v.appid, v.blobstorageorg, v.storageaccountnumber;
 END;
 $BODY$;
@@ -2059,18 +2069,20 @@ BEGIN
 
     IF _newcurrentblobversion IS NOT NULL
     THEN
+        -- Only one version per data element may be attached, and the partial unique index
+        -- enforcing that is checked per statement, so the predecessor is detached first.
         UPDATE storage.dataelementblobversions
-            SET attached = true
+            SET detachedat = NOW()
+            WHERE instanceguid = _instanceGuid
+                AND dataelementid = _dataelementGuid
+                AND detachedat IS NULL;
+
+        UPDATE storage.dataelementblobversions
+            SET detachedat = NULL
             WHERE id = _newcurrentblobversion
                 AND instanceguid = _instanceGuid
                 AND dataelementid = _dataelementGuid
-                AND attached = false;
-
-        IF NOT FOUND
-        THEN
-            RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, _currentProcessStatus, 'blob_version_not_found'::TEXT;
-            RETURN;
-        END IF;
+                AND detachedat IS NOT NULL;
     END IF;
 
     UPDATE storage.instances

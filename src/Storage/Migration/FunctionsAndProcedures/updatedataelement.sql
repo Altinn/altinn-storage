@@ -105,18 +105,20 @@ BEGIN
 
     IF _newcurrentblobversion IS NOT NULL
     THEN
+        -- Only one version per data element may be attached, and the partial unique index
+        -- enforcing that is checked per statement, so the predecessor is detached first.
         UPDATE storage.dataelementblobversions
-            SET attached = true
+            SET detachedat = NOW()
+            WHERE instanceguid = _instanceGuid
+                AND dataelementid = _dataelementGuid
+                AND detachedat IS NULL;
+
+        UPDATE storage.dataelementblobversions
+            SET detachedat = NULL
             WHERE id = _newcurrentblobversion
                 AND instanceguid = _instanceGuid
                 AND dataelementid = _dataelementGuid
-                AND attached = false;
-
-        IF NOT FOUND
-        THEN
-            RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, _currentProcessStatus, 'blob_version_not_found'::TEXT;
-            RETURN;
-        END IF;
+                AND detachedat IS NOT NULL;
     END IF;
 
     UPDATE storage.instances

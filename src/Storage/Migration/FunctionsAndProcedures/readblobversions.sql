@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION storage.readblobversions(_dataelementid UUID)
+CREATE OR REPLACE FUNCTION storage.readblobversions(_instanceguid UUID, _dataelementid UUID)
     RETURNS TABLE (instanceguid UUID, appid TEXT, blobstorageorg TEXT, storageaccountnumber INT, blobversions UUID[])
     LANGUAGE 'plpgsql'
 AS $BODY$
@@ -11,8 +11,9 @@ BEGIN
             bv.storageaccountnumber,
             array_agg(bv.id ORDER BY bv.created, bv.id) AS blobversions
         FROM storage.dataelementblobversions bv
-        WHERE bv.dataelementid = _dataelementid
-            AND bv.attached = true
+        WHERE bv.instanceguid = _instanceguid
+            AND bv.dataelementid = _dataelementid
+            AND bv.detachedat IS NULL
         GROUP BY bv.instanceguid, bv.appid, bv.blobstorageorg, bv.storageaccountnumber
         ORDER BY min(bv.created), min(bv.id::TEXT);
 END;

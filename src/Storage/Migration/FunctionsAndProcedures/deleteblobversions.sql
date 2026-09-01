@@ -8,7 +8,7 @@ BEGIN
     DELETE FROM storage.dataelementblobversions
         WHERE id = ANY(_blobversionids)
             AND dataelementid = _dataelementid
-            AND attached = false;
+            AND detachedat IS NOT NULL;
     GET DIAGNOSTICS _deleteCount = ROW_COUNT;
 
     RETURN _deleteCount;

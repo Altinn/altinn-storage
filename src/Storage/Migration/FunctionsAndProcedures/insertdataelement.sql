@@ -59,17 +59,11 @@ BEGIN
     IF _currentblobversion IS NOT NULL
     THEN
         UPDATE storage.dataelementblobversions
-            SET attached = true
+            SET detachedat = NULL
             WHERE id = _currentblobversion
                 AND instanceguid = _instanceguid
                 AND dataelementid = _alternateid
-                AND attached = false;
-
-        IF NOT FOUND
-        THEN
-            RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, _currentProcessStatus, 'blob_version_not_found'::TEXT;
-            RETURN;
-        END IF;
+                AND detachedat IS NOT NULL;
     END IF;
 
     -- Make sure that lastChanged has the Postgres precision (6 digits). The timestamp from C# DateTime and then json serialize has 7 digits

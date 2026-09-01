@@ -1396,10 +1396,6 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         );
         data1.BlobVersionId = secondVersion;
         await InsertInstanceAndDataHardDelete(instance1, data1);
-        Guid firstVersionUuid = BlobVersionId.Decode(firstVersion);
-        await PostgresUtil.RunSql(
-            $"update storage.dataelementblobversions set attached = true where id = '{firstVersionUuid}'"
-        );
         await InsertInstanceAndDataHardDelete(TestData.Instance_2_1.Clone().FromApiModel(), data2);
         await InsertInstanceAndDataHardDelete(TestData.Instance_3_1.Clone().FromApiModel(), data3);
 
@@ -1425,7 +1421,8 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Assert.Equal(data1.InstanceGuid, blobVersions.InstanceGuid);
         Assert.Equal(instance1.AppId, blobVersions.AppId);
         Assert.Equal(instance1.Org, blobVersions.BlobStorageOrg);
-        Assert.Equal([firstVersion, secondVersion], blobVersions.BlobVersionIds);
+        Assert.Equal([secondVersion], blobVersions.BlobVersionIds);
+        Assert.DoesNotContain(firstVersion, blobVersions.BlobVersionIds);
     }
 
     [Fact]
@@ -1442,7 +1439,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Guid firstOldVersionUuid = BlobVersionId.Decode(firstOldVersion);
         Guid secondOldVersionUuid = BlobVersionId.Decode(secondOldVersion);
         await PostgresUtil.RunSql(
-            $"update storage.dataelementblobversions set created = now() - interval '8 days' where id in ('{firstOldVersionUuid}', '{secondOldVersionUuid}')"
+            $"update storage.dataelementblobversions set created = now() - interval '8 days', detachedat = now() - interval '8 days' where id in ('{firstOldVersionUuid}', '{secondOldVersionUuid}')"
         );
 
         await _instanceFixture.DataRepo.CreateBlobVersionId(
@@ -1470,7 +1467,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         );
         Guid existingVersionUuid = BlobVersionId.Decode(existingVersion);
         await PostgresUtil.RunSql(
-            $"update storage.dataelementblobversions set created = now() - interval '8 days' where id = '{existingVersionUuid}'"
+            $"update storage.dataelementblobversions set created = now() - interval '8 days', detachedat = now() - interval '8 days' where id = '{existingVersionUuid}'"
         );
         await InsertInstanceAndData(existingInstance, existingDataElement, existingVersion);
 
@@ -1515,10 +1512,6 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             secondVersion
         );
         await InsertInstanceAndData(instance, dataElement, secondVersion);
-        Guid firstVersionUuid = BlobVersionId.Decode(firstVersion);
-        await PostgresUtil.RunSql(
-            $"update storage.dataelementblobversions set attached = true where id = '{firstVersionUuid}'"
-        );
         DataElement otherDataElement = TestDataUtil.GetDataElement(
             "1336b773-4ae2-4bdf-9529-d71dfc1c8b43"
         );
@@ -1555,12 +1548,13 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Assert.Equal(2, blobVersions.Count);
         BlobVersionReferencesInternal blobVersion = Assert.Single(
             blobVersions,
-            versions => versions.BlobVersionIds.Contains(firstVersion)
+            versions => versions.BlobVersionIds.Contains(secondVersion)
         );
         Assert.Equal(Guid.Parse(dataElement.InstanceGuid), blobVersion.InstanceGuid);
         Assert.Equal(instance.AppId, blobVersion.AppId);
         Assert.Equal(instance.Org, blobVersion.BlobStorageOrg);
-        Assert.Equal([firstVersion, secondVersion], blobVersion.BlobVersionIds);
+        Assert.Equal([secondVersion], blobVersion.BlobVersionIds);
+        Assert.DoesNotContain(firstVersion, blobVersion.BlobVersionIds);
         BlobVersionReferencesInternal otherBlobVersion = Assert.Single(
             blobVersions,
             versions => versions.BlobVersionIds.Contains(otherVersion)

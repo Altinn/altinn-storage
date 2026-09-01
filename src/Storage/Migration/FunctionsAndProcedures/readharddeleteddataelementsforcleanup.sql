@@ -43,8 +43,9 @@ BEGIN
             bv.storageaccountnumber,
             array_agg(bv.id ORDER BY bv.created, bv.id) AS blobversions
         FROM storage.dataelementblobversions bv
-        WHERE bv.dataelementid = d.alternateid
-            AND bv.attached = true
+        WHERE bv.instanceguid = i.alternateid
+            AND bv.dataelementid = d.alternateid
+            AND bv.detachedat IS NULL
         GROUP BY bv.instanceguid, bv.appid, bv.blobstorageorg, bv.storageaccountnumber
     ) v ON TRUE
     WHERE i.AltinnMainVersion >= 3;

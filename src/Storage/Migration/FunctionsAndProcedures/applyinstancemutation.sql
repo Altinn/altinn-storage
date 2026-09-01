@@ -173,7 +173,7 @@ BEGIN
         ORDER BY createelement.ordinality;
 
         UPDATE storage.dataelementblobversions dataelementblobversion
-        SET attached = true
+        SET detachedat = NULL
         FROM (
             SELECT
                 (createelement.value ->> 'elementId')::UUID AS dataelementid,
@@ -184,7 +184,7 @@ BEGIN
         WHERE dataelementblobversion.id = createelement.blobversion
             AND dataelementblobversion.instanceguid = _instanceguid
             AND dataelementblobversion.dataelementid = createelement.dataelementid
-            AND dataelementblobversion.attached = false;
+            AND dataelementblobversion.detachedat IS NOT NULL;
     END IF;
 
     IF jsonb_array_length(_updateelements) > 0
@@ -245,8 +245,21 @@ BEGIN
                 _updatedids);
         END IF;
 
+        -- Only one version per data element may be attached, and the partial unique index
+        -- enforcing that is checked per statement, so the predecessors are detached first.
+        UPDATE storage.dataelementblobversions superseded
+        SET detachedat = NOW()
+        FROM (
+            SELECT (updateelement.value ->> 'elementId')::UUID AS dataelementid
+            FROM jsonb_array_elements(_updateelements) updateelement(value)
+            WHERE updateelement.value ->> 'newBlobVersion' IS NOT NULL
+        ) updateelement
+        WHERE superseded.instanceguid = _instanceguid
+            AND superseded.dataelementid = updateelement.dataelementid
+            AND superseded.detachedat IS NULL;
+
         UPDATE storage.dataelementblobversions dataelementblobversion
-        SET attached = true
+        SET detachedat = NULL
         FROM (
             SELECT
                 (updateelement.value ->> 'elementId')::UUID AS dataelementid,
@@ -257,7 +270,7 @@ BEGIN
         WHERE dataelementblobversion.id = updateelement.newblobversion
             AND dataelementblobversion.instanceguid = _instanceguid
             AND dataelementblobversion.dataelementid = updateelement.dataelementid
-            AND dataelementblobversion.attached = false;
+            AND dataelementblobversion.detachedat IS NOT NULL;
     END IF;
 
     IF jsonb_array_length(_deleteelements) > 0
@@ -294,14 +307,14 @@ BEGIN
         END IF;
 
         UPDATE storage.dataelementblobversions dataelementblobversion
-        SET attached = false
+        SET detachedat = NOW()
         FROM (
             SELECT (deleteelement.value ->> 'elementId')::UUID AS dataelementid
             FROM jsonb_array_elements(_deleteelements) deleteelement(value)
         ) deleteelement
         WHERE dataelementblobversion.instanceguid = _instanceguid
             AND dataelementblobversion.dataelementid = deleteelement.dataelementid
-            AND dataelementblobversion.attached = true;
+            AND dataelementblobversion.detachedat IS NULL;
     END IF;
 
     -- The upfront instance-version prediction is the any-operations signal.

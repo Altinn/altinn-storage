@@ -16,7 +16,7 @@ BEGIN
         appid,
         blobstorageorg,
         storageaccountnumber,
-        attached)
+        detachedat)
     VALUES (
         _id,
         _instanceguid,
@@ -24,6 +24,6 @@ BEGIN
         _appid,
         _blobstorageorg,
         _storageaccountnumber,
-        false);
+        NOW());
 END;
 $BODY$;

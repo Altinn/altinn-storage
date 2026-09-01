@@ -532,37 +532,10 @@ public class DataTests(DataElementFixture dataElementFixture)
             $"select count(*) from storage.dataelements where alternateid = '{element.Id}'"
         );
         int attachedVersionCount = await PostgresUtil.RunCountQuery(
-            $"select count(*) from storage.dataelementblobversions where id = '{BlobVersionId.Decode(blobVersionId)}' and attached = true"
+            $"select count(*) from storage.dataelementblobversions where id = '{BlobVersionId.Decode(blobVersionId)}' and detachedat is null"
         );
         Assert.Equal(0, dataCount);
         Assert.Equal(0, attachedVersionCount);
-    }
-
-    [Fact]
-    public async Task DataElement_Create_UnavailableBlobVersion_ThrowsConflictAndDoesNotCreateElement()
-    {
-        // Arrange
-        DataElement element = TestDataUtil.GetDataElement(_dataElement3);
-        element.Id = Guid.NewGuid().ToString();
-        element.InstanceGuid = _instance.Id.ToString();
-        string blobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
-        element.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
-            _instance.AppId,
-            new Guid(element.InstanceGuid),
-            blobVersionId
-        );
-
-        // Act
-        RepositoryException exception = await Assert.ThrowsAsync<RepositoryException>(() =>
-            CreateDataElement(element.FromApiModel(blobVersionId), _instanceInternalId)
-        );
-
-        // Assert
-        Assert.Equal(HttpStatusCode.Conflict, exception.StatusCodeSuggestion);
-        int dataCount = await PostgresUtil.RunCountQuery(
-            $"select count(*) from storage.dataelements where alternateid = '{element.Id}'"
-        );
-        Assert.Equal(0, dataCount);
     }
 
     [Fact]
@@ -1131,47 +1104,6 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(currentProcessStateVersion, await ReadProcessStateVersion(instanceGuid));
     }
 
-    [Fact]
-    public async Task DataElement_Update_UnavailableBlobVersion_ThrowsConflictAndDoesNotUpdate()
-    {
-        // Arrange
-        DataElement element = TestDataUtil.GetDataElement(_dataElement1);
-        element.Id = Guid.NewGuid().ToString();
-        element.InstanceGuid = _instance.Id.ToString();
-        (DataElement dataElement, string currentBlobVersionId) = await CreateVersionedDataElement(
-            element
-        );
-        string missingBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
-        string missingBlobStoragePath = DataElementHelper.GetVersionedBlobPath(
-            _instance.AppId,
-            new Guid(element.InstanceGuid),
-            missingBlobVersionId
-        );
-
-        // Act
-        RepositoryException exception = await Assert.ThrowsAsync<RepositoryException>(() =>
-            UpdateDataElement(
-                Guid.Parse(dataElement.InstanceGuid),
-                Guid.Parse(dataElement.Id),
-                new Dictionary<string, object>
-                {
-                    { "/blobStoragePath", missingBlobStoragePath },
-                    { "/currentBlobVersion", missingBlobVersionId },
-                }
-            )
-        );
-
-        DataElementInternal readElement = await dataElementFixture.DataRepo.Read(
-            Guid.Parse(dataElement.InstanceGuid),
-            Guid.Parse(dataElement.Id)
-        );
-
-        // Assert
-        Assert.Equal(HttpStatusCode.Conflict, exception.StatusCodeSuggestion);
-        Assert.Equal(currentBlobVersionId, readElement.BlobVersionId);
-        Assert.Equal(dataElement.BlobStoragePath, readElement.BlobStoragePath);
-    }
-
     [Theory]
     [InlineData("process-absent")]
     [InlineData("process-null")]
@@ -1271,7 +1203,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     }
 
     [Fact]
-    public async Task DataElement_Create_BlobVersion_AttachesOnceAndRejectsRepeatedAttachWithoutMutation()
+    public async Task DataElement_Create_BlobVersion_AttachesOnceAndConflictedRetryDoesNotMutate()
     {
         // Arrange
         Guid instanceGuid = _instance.Id;
@@ -1303,18 +1235,10 @@ public class DataTests(DataElementFixture dataElementFixture)
                 )
             );
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Idle);
-        RepositoryException blobException = await Assert.ThrowsAsync<RepositoryException>(() =>
-            dataElementFixture.DataRepo.Create(
-                dataElement.FromApiModel(blobVersion),
-                _instanceInternalId
-            )
-        );
 
         // Assert
         Assert.Equal(blobVersion, result.DataElement.BlobVersionId);
         Assert.Equal(ProcessStatus.Processing, statusException.CurrentProcessStatus);
-        Assert.Equal(HttpStatusCode.Conflict, blobException.StatusCodeSuggestion);
-        Assert.Contains(blobVersion, blobException.Message, StringComparison.Ordinal);
         Assert.Equal(1, await CountBlobVersionRows(blobVersion));
         Assert.Equal(1, await CountAttachedBlobVersionRows(blobVersion));
         Assert.Equal(
@@ -1548,7 +1472,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     }
 
     [Fact]
-    public async Task DataElement_Update_BlobVersion_AttachesOnceAndRejectsRepeatedAttachWithoutMutation()
+    public async Task DataElement_Update_BlobVersion_AttachesOnceAndConflictedRetryDoesNotMutate()
     {
         // Arrange
         Guid instanceGuid = _instance.Id;
@@ -1598,18 +1522,6 @@ public class DataTests(DataElementFixture dataElementFixture)
                 )
             );
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Idle);
-        RepositoryException blobException = await Assert.ThrowsAsync<RepositoryException>(() =>
-            UpdateDataElement(
-                instanceGuid,
-                Guid.Parse(createdDataElement.Id),
-                new Dictionary<string, object>
-                {
-                    ["/contentType"] = "must/not/commit",
-                    ["/currentBlobVersion"] = replacementBlobVersion,
-                },
-                new DataElementUpdateContext { ExpectedCurrentBlobVersion = replacementBlobVersion }
-            )
-        );
 
         // Assert
         DataElementInternal storedDataElement = await dataElementFixture.DataRepo.Read(
@@ -1618,7 +1530,6 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
         Assert.Equal(replacementBlobVersion, updatedDataElement.BlobVersionId);
         Assert.Equal(ProcessStatus.Processing, statusException.CurrentProcessStatus);
-        Assert.Equal(HttpStatusCode.Conflict, blobException.StatusCodeSuggestion);
         Assert.Equal(replacementBlobVersion, storedDataElement.BlobVersionId);
         Assert.NotEqual("must/not/commit", storedDataElement.ContentType);
         Assert.Equal(1, await CountBlobVersionRows(replacementBlobVersion));
@@ -1916,9 +1827,129 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.NotEqual(firstVersion, secondVersion);
 
         int versionCount = await PostgresUtil.RunCountQuery(
-            $"select count(*) from storage.dataelementblobversions where id in ('{firstVersionUuid}', '{secondVersionUuid}') and dataelementid = '{dataElementId}' and attached = false and instanceguid = '{instanceGuid}' and appid = '{_instance.AppId}' and blobstorageorg = '{_instance.Org}'"
+            $"select count(*) from storage.dataelementblobversions where id in ('{firstVersionUuid}', '{secondVersionUuid}') and dataelementid = '{dataElementId}' and detachedat is not null and instanceguid = '{instanceGuid}' and appid = '{_instance.AppId}' and blobstorageorg = '{_instance.Org}'"
         );
         Assert.Equal(2, versionCount);
+        Assert.Equal(_frozenTime, await ReadBlobVersionDetachedAt(firstVersion));
+        Assert.Equal(_frozenTime, await ReadBlobVersionDetachedAt(secondVersion));
+    }
+
+    [Fact]
+    public async Task DataElement_Update_NewBlobVersion_DetachesTheSupersededVersion()
+    {
+        // Arrange
+        Guid instanceGuid = _instance.Id;
+        DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
+        dataElement.Id = Guid.NewGuid().ToString();
+        dataElement.InstanceGuid = instanceGuid.ToString();
+        (DataElement createdDataElement, string supersededBlobVersion) =
+            await CreateVersionedDataElement(dataElement);
+        string replacementBlobVersion = await CreateBlobVersionId(
+            instanceGuid,
+            createdDataElement.Id
+        );
+
+        // Act
+        DataElementInternal updatedDataElement = await UpdateDataElement(
+            instanceGuid,
+            Guid.Parse(createdDataElement.Id),
+            new Dictionary<string, object>
+            {
+                ["/blobStoragePath"] = DataElementHelper.GetVersionedBlobPath(
+                    _instance.AppId,
+                    instanceGuid,
+                    replacementBlobVersion
+                ),
+                ["/currentBlobVersion"] = replacementBlobVersion,
+            },
+            new DataElementUpdateContext { ExpectedCurrentBlobVersion = supersededBlobVersion }
+        );
+
+        // Assert
+        Assert.Equal(replacementBlobVersion, updatedDataElement.BlobVersionId);
+        Assert.Equal(1, await CountAttachedBlobVersionRows(replacementBlobVersion));
+        Assert.Equal(1, await CountDetachedBlobVersionRows(supersededBlobVersion));
+        Assert.Equal(1, await CountAttachedBlobVersionRowsForDataElement(createdDataElement.Id));
+        Assert.Equal(_frozenTime, await ReadBlobVersionDetachedAt(supersededBlobVersion));
+    }
+
+    [Fact]
+    public async Task GetOrphanBlobVersionsForCleanup_MeasuresTheGraceWindowFromDetach()
+    {
+        // Arrange
+        Guid instanceGuid = _instance.Id;
+        await PostgresUtil.FreezeTime(_frozenTime.AddDays(-8));
+        DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
+        dataElement.Id = Guid.NewGuid().ToString();
+        dataElement.InstanceGuid = instanceGuid.ToString();
+        (DataElement createdDataElement, string supersededBlobVersion) =
+            await CreateVersionedDataElement(dataElement);
+        string abandonedBlobVersion = await CreateBlobVersionId(instanceGuid);
+
+        await PostgresUtil.FreezeTime(_frozenTime);
+        string replacementBlobVersion = await CreateBlobVersionId(
+            instanceGuid,
+            createdDataElement.Id
+        );
+        await UpdateDataElement(
+            instanceGuid,
+            Guid.Parse(createdDataElement.Id),
+            new Dictionary<string, object> { ["/currentBlobVersion"] = replacementBlobVersion },
+            new DataElementUpdateContext { ExpectedCurrentBlobVersion = supersededBlobVersion }
+        );
+
+        // Act
+        List<BlobVersionReferencesInternal> orphanBlobVersions =
+            await dataElementFixture.InstanceRepo.GetOrphanBlobVersionsForCleanup(
+                CancellationToken.None
+            );
+
+        // Assert
+        BlobVersionReferencesInternal orphanGroup = Assert.Single(orphanBlobVersions);
+        Assert.Equal([abandonedBlobVersion], orphanGroup.BlobVersionIds);
+    }
+
+    [Fact]
+    public async Task ApplyInstanceMutationSql_UpdateNewBlobVersion_DetachesTheSupersededVersion()
+    {
+        // Arrange
+        Guid instanceGuid = _instance.Id;
+        DataElement toUpdate = TestDataUtil.GetDataElement(_dataElement1);
+        toUpdate.Id = Guid.NewGuid().ToString();
+        toUpdate.InstanceGuid = instanceGuid.ToString();
+        (toUpdate, string supersededBlobVersion) = await CreateVersionedDataElement(toUpdate);
+        string replacementBlobVersion = await CreateBlobVersionId(instanceGuid, toUpdate.Id);
+        int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
+
+        // Act
+        await ApplyInstanceMutationSql(
+            instanceGuid,
+            _instanceInternalId,
+            previousInstanceVersion,
+            null,
+            null,
+            null,
+            UpdateElementsPayload(
+                Guid.Parse(toUpdate.Id),
+                expectedBlobVersion: supersededBlobVersion,
+                newBlobVersion: replacementBlobVersion
+            ),
+            null,
+            null,
+            null,
+            null
+        );
+
+        // Assert
+        DataElementInternal updatedDataElement = await dataElementFixture.DataRepo.Read(
+            instanceGuid,
+            Guid.Parse(toUpdate.Id)
+        );
+        Assert.Equal(replacementBlobVersion, updatedDataElement.BlobVersionId);
+        Assert.Equal(1, await CountAttachedBlobVersionRows(replacementBlobVersion));
+        Assert.Equal(1, await CountDetachedBlobVersionRows(supersededBlobVersion));
+        Assert.Equal(1, await CountAttachedBlobVersionRowsForDataElement(toUpdate.Id));
+        Assert.Equal(_frozenTime, await ReadBlobVersionDetachedAt(supersededBlobVersion));
     }
 
     [Fact]
@@ -7554,7 +7585,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     private static Task<int> CountAttachedBlobVersionRows(string blobVersionId)
     {
         return PostgresUtil.RunCountQuery(
-            $"select count(*) from storage.dataelementblobversions where id = '{BlobVersionId.Decode(blobVersionId)}' and attached = true"
+            $"select count(*) from storage.dataelementblobversions where id = '{BlobVersionId.Decode(blobVersionId)}' and detachedat is null"
         );
     }
 
@@ -7932,7 +7963,21 @@ public class DataTests(DataElementFixture dataElementFixture)
     private static Task<int> CountDetachedBlobVersionRows(string blobVersionId)
     {
         return PostgresUtil.RunCountQuery(
-            $"select count(*) from storage.dataelementblobversions where id = '{BlobVersionId.Decode(blobVersionId)}' and attached = false"
+            $"select count(*) from storage.dataelementblobversions where id = '{BlobVersionId.Decode(blobVersionId)}' and detachedat is not null"
+        );
+    }
+
+    private static Task<int> CountAttachedBlobVersionRowsForDataElement(string dataElementId)
+    {
+        return PostgresUtil.RunCountQuery(
+            $"select count(*) from storage.dataelementblobversions where dataelementid = '{dataElementId}' and detachedat is null"
+        );
+    }
+
+    private static Task<DateTime> ReadBlobVersionDetachedAt(string blobVersionId)
+    {
+        return PostgresUtil.RunQuery<DateTime>(
+            $"select detachedat at time zone 'utc' from storage.dataelementblobversions where id = '{BlobVersionId.Decode(blobVersionId)}'"
         );
     }
 

@@ -11,8 +11,7 @@ BEGIN
             v.storageaccountnumber,
             array_agg(v.id ORDER BY v.created, v.id) AS blobversions
         FROM storage.dataelementblobversions v
-        WHERE v.attached = false
-            AND v.created <= NOW() - INTERVAL '7 days'
+        WHERE v.detachedat <= NOW() - INTERVAL '7 days'
         GROUP BY v.instanceguid, v.appid, v.blobstorageorg, v.storageaccountnumber;
 END;
 $BODY$;

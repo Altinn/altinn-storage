@@ -9,20 +9,28 @@ CREATE TABLE IF NOT EXISTS storage.dataelementblobversions (
     blobstorageorg TEXT NOT NULL,
     storageaccountnumber INT NULL,
     created TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    attached BOOLEAN NOT NULL DEFAULT FALSE
+    detachedat TIMESTAMPTZ NULL DEFAULT NOW()
 )
 TABLESPACE pg_default;
 
-CREATE INDEX IF NOT EXISTS dataelementblobversions_dataelementid
-ON storage.dataelementblobversions(dataelementid);
+-- At most one version per data element is attached. The unique index enforces that
+-- invariant; since unique indexes are checked per statement, a supersede has to detach
+-- the previous version before the statement that attaches its replacement.
+CREATE UNIQUE INDEX IF NOT EXISTS dataelementblobversions_attached_instance_element
+ON storage.dataelementblobversions(instanceguid, dataelementid)
+WHERE detachedat IS NULL;
 
-CREATE INDEX IF NOT EXISTS dataelementblobversions_attached_instance
-ON storage.dataelementblobversions(instanceguid)
-WHERE attached = true;
+-- The index above holds one entry per live data element and is written once per version,
+-- at attach time. Detached rows are a small rolling window of pending uploads and
+-- versions still inside the cleanup grace period, so splitting the remaining access paths
+-- on detachedat keeps the upload path off the large index.
+CREATE INDEX IF NOT EXISTS dataelementblobversions_detached_dataelement
+ON storage.dataelementblobversions(dataelementid)
+WHERE detachedat IS NOT NULL;
 
-CREATE INDEX IF NOT EXISTS dataelementblobversions_created_unattached
-ON storage.dataelementblobversions(created)
-WHERE attached = false;
+CREATE INDEX IF NOT EXISTS dataelementblobversions_detachedat
+ON storage.dataelementblobversions(detachedat)
+WHERE detachedat IS NOT NULL;
 
 GRANT SELECT,INSERT,UPDATE,REFERENCES,DELETE,TRUNCATE,TRIGGER ON ALL TABLES IN SCHEMA storage TO platform_storage;
 GRANT SELECT,INSERT,UPDATE,REFERENCES,DELETE,TRUNCATE,TRIGGER ON ALL TABLES IN SCHEMA storage TO platform_storage_admin;

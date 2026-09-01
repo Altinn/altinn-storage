@@ -39,7 +39,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         "select * from storage.insertdataelement_v3 ($1, $2, $3, $4, $5, $6, $7)";
     private readonly string _readSql = "select * from storage.readdataelement_v2($1)";
     private readonly string _deleteForCleanupSql =
-        "select * from storage.deletedataelementforcleanup ($1)";
+        "select * from storage.deletedataelementforcleanup ($1, $2)";
     private readonly string _deleteForInstanceSql = "select * from storage.deletedataelements ($1)";
     private readonly string _updateSql =
         "select * from storage.updatedataelement_v3 ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)";
@@ -57,7 +57,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         "select * from storage.deleteblobversions($1, $2)";
     private readonly string _deleteOrphanBlobVersionsSql =
         "select * from storage.deleteorphanblobversions($1)";
-    private readonly string _readBlobVersionsSql = "select * from storage.readblobversions($1)";
+    private readonly string _readBlobVersionsSql = "select * from storage.readblobversions($1, $2)";
     private readonly string _readDetachedBlobVersionsSql =
         "select * from storage.readdetachedblobversions($1)";
     private readonly string _existsSql = "select * from storage.readdataelementexists($1)";
@@ -113,10 +113,6 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
                         $"Instance {dataElement.InstanceGuid} is deleted and cannot accept new data elements.",
                         HttpStatusCode.NotFound
                     ),
-                    "blob_version_not_found" => new RepositoryException(
-                        $"Blob version {dataElement.BlobVersionId} is not available for data element {dataElement.Id}.",
-                        HttpStatusCode.Conflict
-                    ),
                     "instance_version_mismatch" => CreateInstanceVersionMismatchException(reader),
                     "process_state_version_mismatch" => CreateProcessStateVersionMismatchException(
                         reader
@@ -151,6 +147,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     {
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteForCleanupSql);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElement.Id);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElement.InstanceGuid);
 
         int rc = (int)await pgcom.ExecuteScalarAsync(cancellationToken);
         return rc == 1;
@@ -377,10 +374,6 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
                         $"Data element {dataElementId} current blob version did not match expected version.",
                         reader.GetInt32(reader.GetOrdinal("instanceversion")),
                         reader.GetInt32(reader.GetOrdinal("processstateversion"))
-                    ),
-                    "blob_version_not_found" => new RepositoryException(
-                        $"Blob version was not available for data element {dataElementId}.",
-                        HttpStatusCode.Conflict
                     ),
                     "instance_version_mismatch" => CreateInstanceVersionMismatchException(reader),
                     "process_state_version_mismatch" => CreateProcessStateVersionMismatchException(
@@ -666,24 +659,38 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
 
     /// <inheritdoc/>
     public async Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadBlobVersions(
+        Guid instanceGuid,
         Guid dataElementId,
         CancellationToken cancellationToken = default
-    ) => await ReadBlobVersions(_readBlobVersionsSql, dataElementId, cancellationToken);
+    )
+    {
+        List<BlobVersionReferencesInternal> blobVersions = [];
+        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readBlobVersionsSql);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
+
+        await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            blobVersions.Add(
+                await BlobVersionReferenceReader.ReadAsync(
+                    reader,
+                    cancellationToken: cancellationToken
+                )
+            );
+        }
+
+        return blobVersions;
+    }
 
     /// <inheritdoc/>
     public async Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadDetachedBlobVersions(
         Guid dataElementId,
         CancellationToken cancellationToken = default
-    ) => await ReadBlobVersions(_readDetachedBlobVersionsSql, dataElementId, cancellationToken);
-
-    private async Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadBlobVersions(
-        string sql,
-        Guid dataElementId,
-        CancellationToken cancellationToken
     )
     {
         List<BlobVersionReferencesInternal> blobVersions = [];
-        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(sql);
+        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readDetachedBlobVersionsSql);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
 
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
