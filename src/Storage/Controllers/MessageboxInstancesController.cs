@@ -15,6 +15,7 @@ using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
@@ -118,9 +119,8 @@ public class MessageBoxInstancesController : ControllerBase
                 queryParams.AppIds = await MatchStringToAppTitle(queryModel.SearchString);
             }
 
-            InstanceQueryResponse queryResponse = await _instanceRepository.GetInstancesFromQuery(
+            InstanceQueryResult queryResponse = await _instanceRepository.GetInstancesFromQuery(
                 queryParams,
-                false,
                 cancellationToken
             );
 
@@ -180,7 +180,7 @@ public class MessageBoxInstancesController : ControllerBase
             languageId = language;
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        InstanceInternal? instance = await _instanceRepository.GetOne(
             instanceGuid,
             false,
             cancellationToken
@@ -204,7 +204,7 @@ public class MessageBoxInstancesController : ControllerBase
 
         List<MessageBoxInstance> authorizedInstanceList =
             await _authorizationService.AuthorizeMesseageBoxInstances(
-                new List<Instance> { instance },
+                [instance],
                 includeInstantiate
             );
         if (authorizedInstanceList.Count <= 0)
@@ -241,7 +241,6 @@ public class MessageBoxInstancesController : ControllerBase
         [FromRoute] Guid instanceGuid
     )
     {
-        string instanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
         string[] eventTypes =
         {
             InstanceEventType.Created.ToString(),
@@ -262,13 +261,8 @@ public class MessageBoxInstancesController : ControllerBase
             InstanceEventType.MessageRead.ToString(),
         };
 
-        if (string.IsNullOrEmpty(instanceId))
-        {
-            return BadRequest("Unable to perform query.");
-        }
-
         List<InstanceEvent> allInstanceEvents = await _instanceEventRepository.ListInstanceEvents(
-            instanceId,
+            instanceGuid,
             eventTypes,
             null,
             null
@@ -290,13 +284,14 @@ public class MessageBoxInstancesController : ControllerBase
     /// <returns>True if the instance was restored.</returns>
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_DELETE)]
     [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/undelete")]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult> Undelete(
         int instanceOwnerPartyId,
         Guid instanceGuid,
         CancellationToken cancellationToken
     )
     {
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        InstanceInternal? instance = await _instanceRepository.GetOne(
             instanceGuid,
             false,
             cancellationToken
@@ -330,7 +325,7 @@ public class MessageBoxInstancesController : ControllerBase
             {
                 Created = DateTime.UtcNow,
                 EventType = InstanceEventType.Undeleted.ToString(),
-                InstanceId = instance.Id,
+                InstanceId = $"{instance.InstanceOwner.PartyId}/{instance.Id}",
                 InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
                 User = new PlatformUser
                 {
@@ -342,8 +337,19 @@ public class MessageBoxInstancesController : ControllerBase
                 },
             };
 
-            await _instanceRepository.Update(instance, updateProperties, cancellationToken);
-            await _instanceEventRepository.InsertInstanceEvent(instanceEvent, instance);
+            try
+            {
+                await _instanceRepository.Update(
+                    instance,
+                    updateProperties,
+                    cancellationToken: cancellationToken
+                );
+                await _instanceEventRepository.InsertInstanceEvent(instanceEvent, instance);
+            }
+            catch (ProcessStatusConflictException e)
+            {
+                return Conflict(e.Message);
+            }
 
             return Ok(true);
         }
@@ -362,6 +368,7 @@ public class MessageBoxInstancesController : ControllerBase
     /// DELETE /instances/{instanceId}?instanceOwnerPartyId={instanceOwnerPartyId}?hard={bool}
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_DELETE)]
     [HttpDelete("{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult> Delete(
         Guid instanceGuid,
         int instanceOwnerPartyId,
@@ -371,7 +378,7 @@ public class MessageBoxInstancesController : ControllerBase
     {
         string instanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
 
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        InstanceInternal? instance = await _instanceRepository.GetOne(
             instanceGuid,
             false,
             cancellationToken
@@ -435,7 +442,7 @@ public class MessageBoxInstancesController : ControllerBase
         {
             Created = DateTime.UtcNow,
             EventType = InstanceEventType.Deleted.ToString(),
-            InstanceId = instance.Id,
+            InstanceId = $"{instance.InstanceOwner.PartyId}/{instance.Id}",
             InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
             User = new PlatformUser
             {
@@ -447,8 +454,19 @@ public class MessageBoxInstancesController : ControllerBase
             },
         };
 
-        await _instanceRepository.Update(instance, updateProperties, cancellationToken);
-        await _instanceEventRepository.InsertInstanceEvent(instanceEvent, instance);
+        try
+        {
+            await _instanceRepository.Update(
+                instance,
+                updateProperties,
+                cancellationToken: cancellationToken
+            );
+            await _instanceEventRepository.InsertInstanceEvent(instanceEvent, instance);
+        }
+        catch (ProcessStatusConflictException e)
+        {
+            return Conflict(e.Message);
+        }
 
         return Ok(true);
     }
@@ -507,7 +525,7 @@ public class MessageBoxInstancesController : ControllerBase
         }
     }
 
-    private async Task RemoveHiddenInstances(List<Instance> instances)
+    private async Task RemoveHiddenInstances(List<InstanceInternal> instances)
     {
         List<string> appIds = instances.Select(i => i.AppId).Distinct().ToList();
         Dictionary<string, Application> apps = new();
@@ -529,7 +547,7 @@ public class MessageBoxInstancesController : ControllerBase
     {
         string dateTimeFormat = "yyyy-MM-ddTHH:mm:ss";
 
-        InstanceQueryParameters queryParams = new();
+        InstanceQueryParameters queryParams = new() { IncludeDataElements = false };
         if (queryModel.FromLastChanged != null || queryModel.ToLastChanged != null)
         {
             queryParams.LastChanged = new string[
@@ -611,7 +629,7 @@ public class MessageBoxInstancesController : ControllerBase
     }
 
     private async Task<ActionResult> ProcessQueryResponse(
-        InstanceQueryResponse? queryResponse,
+        InstanceQueryResult? queryResponse,
         string language,
         CancellationToken cancellationToken
     )
@@ -625,12 +643,12 @@ public class MessageBoxInstancesController : ControllerBase
             languageId = language.ToLower();
         }
 
-        if (queryResponse == null || queryResponse.Count <= 0)
+        if (queryResponse == null || queryResponse.Instances.Count <= 0)
         {
             return Ok(new List<MessageBoxInstance>());
         }
 
-        List<Instance> allInstances = queryResponse.Instances;
+        List<InstanceInternal> allInstances = queryResponse.Instances;
         await RemoveHiddenInstances(allInstances);
 
         if (allInstances.Count == 0)

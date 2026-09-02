@@ -17,12 +17,10 @@ public static class InstanceHelper
     /// <summary>
     /// Converts to a simpler instance object that includes some application metadata
     /// </summary>
-    public static MessageBoxInstance ConvertToMessageBoxInstance(Instance instance)
+    public static MessageBoxInstance ConvertToMessageBoxInstance(InstanceInternal instance)
     {
         InstanceStatus status = instance.Status ?? new InstanceStatus();
         DateTime? visibleAfter = instance.VisibleAfter;
-
-        string instanceGuid = instance.Id.Contains('/') ? instance.Id.Split('/')[1] : instance.Id;
 
         DateTime createdDateTime =
             visibleAfter != null && visibleAfter > instance.Created
@@ -33,7 +31,7 @@ public static class InstanceHelper
         {
             CreatedDateTime = createdDateTime,
             DueDateTime = instance.DueBefore,
-            Id = instanceGuid,
+            Id = instance.Id.ToString(),
             InstanceOwnerId = instance.InstanceOwner.PartyId,
             LastChangedBy = FindLastChanged(instance).LastChangedBy,
             Org = instance.Org,
@@ -109,7 +107,7 @@ public static class InstanceHelper
     /// </summary>
     /// <param name="instance">the instance</param>
     /// <returns>status</returns>
-    public static string GetSBLStatusForCurrentTask(Instance instance)
+    public static string GetSBLStatusForCurrentTask(InstanceInternal instance)
     {
         if (instance.Process != null)
         {
@@ -151,7 +149,9 @@ public static class InstanceHelper
     /// </summary>
     /// <param name="instance">The instance</param>
     /// <returns>Last changed by</returns>
-    public static (string LastChangedBy, DateTime? LastChanged) FindLastChanged(Instance instance)
+    public static (string LastChangedBy, DateTime? LastChanged) FindLastChanged(
+        InstanceInternal instance
+    )
     {
         string lastChangedBy = instance.LastChangedBy;
         DateTime? lastChanged = instance.LastChanged;
@@ -160,7 +160,7 @@ public static class InstanceHelper
             return (lastChangedBy, lastChanged);
         }
 
-        List<DataElement> newerDataElements = instance.Data.FindAll(dataElement =>
+        List<DataElementInternal> newerDataElements = instance.Data.FindAll(dataElement =>
             dataElement.LastChanged != null
             && dataElement.LastChangedBy != null
             && dataElement.LastChanged > instance.LastChanged
@@ -172,16 +172,14 @@ public static class InstanceHelper
         }
 
         lastChanged = (DateTime)instance.LastChanged;
-        newerDataElements.ForEach(
-            (DataElement dataElement) =>
+        newerDataElements.ForEach(dataElement =>
+        {
+            if (dataElement.LastChanged > lastChanged)
             {
-                if (dataElement.LastChanged > lastChanged)
-                {
-                    lastChangedBy = dataElement.LastChangedBy;
-                    lastChanged = (DateTime)dataElement.LastChanged;
-                }
+                lastChangedBy = dataElement.LastChangedBy;
+                lastChanged = (DateTime)dataElement.LastChanged;
             }
-        );
+        });
 
         return (lastChangedBy, lastChanged);
     }
@@ -258,12 +256,12 @@ public static class InstanceHelper
     /// <param name="instances">The list of applications to process.</param>
     public static void RemoveHiddenInstances(
         Dictionary<string, Application> applications,
-        List<Instance> instances
+        List<InstanceInternal> instances
     )
     {
-        List<Instance> instancesToRemove = [];
+        List<InstanceInternal> instancesToRemove = [];
 
-        foreach (Instance instance in instances)
+        foreach (InstanceInternal instance in instances)
         {
             Application app = applications[instance.AppId];
             HideSettings hideSettings = app.MessageBoxConfig?.HideSettings;

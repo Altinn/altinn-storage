@@ -1,10 +1,10 @@
 #nullable disable
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 
 namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository;
@@ -18,6 +18,19 @@ public class BlobRepositoryMock : IBlobRepository
     )
     {
         return await Task.FromResult(true);
+    }
+
+    public Task<bool[]> DeleteBlobsIfExists(
+        string org,
+        IReadOnlyList<string> blobStoragePaths,
+        int? storageAccountNumber,
+        CancellationToken cancellationToken = default
+    )
+    {
+        bool[] result = new bool[blobStoragePaths.Count];
+        Array.Fill(result, true);
+
+        return Task.FromResult(result);
     }
 
     public async Task<Stream> ReadBlob(
@@ -53,8 +66,11 @@ public class BlobRepositoryMock : IBlobRepository
         return Path.Combine(unitTestFolder, "..", "..", "..", "data", "blob");
     }
 
-    public Task<bool> DeleteDataBlobs(Instance instance, int? storageAccountNumber)
-    {
-        throw new NotImplementedException();
-    }
+    public Task<bool> DeleteDataBlobs(
+        string org,
+        string appId,
+        Guid instanceGuid,
+        int? storageAccountNumber,
+        CancellationToken cancellationToken = default
+    ) => throw new NotImplementedException();
 }

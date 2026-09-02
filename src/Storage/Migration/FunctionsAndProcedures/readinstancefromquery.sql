@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v8(
+CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v9(
     _a3_reference TEXT DEFAULT NULL,
     _appId TEXT DEFAULT NULL,
     _appIds TEXT[] DEFAULT NULL,
@@ -55,7 +55,7 @@ CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v8(
     _visibleAfter_lt TEXT DEFAULT NULL,
     _visibleAfter_lte TEXT DEFAULT NULL
     )
-    RETURNS TABLE (id BIGINT, instance JSONB, element JSONB)
+    RETURNS TABLE (id BIGINT, instance JSONB, instanceversion INT, processstateversion INT, element JSONB, currentblobversion UUID)
     LANGUAGE 'plpgsql'
 
 AS $BODY$
@@ -67,7 +67,7 @@ BEGIN
     RETURN QUERY
     WITH filteredInstances AS
     (
-        SELECT i.id, i.instance, i.lastchanged FROM storage.instances i
+        SELECT i.id, i.instance, i.lastchanged, i.instance_version, i.process_state_version FROM storage.instances i
         WHERE 1 = 1
             AND (_a3_reference IS NULL OR right(i.alternateid::text, 12) = lower(_a3_reference))
             AND (_confirmed IS NULL OR _confirmed = confirmed)
@@ -127,11 +127,12 @@ BEGIN
             i.id
         FETCH FIRST _size ROWS ONLY
     )
-        SELECT filteredInstances.id, filteredInstances.instance, d.element FROM filteredInstances
+        SELECT filteredInstances.id, filteredInstances.instance, filteredInstances.instance_version, filteredInstances.process_state_version, d.element, d.currentblobversion FROM filteredInstances
             LEFT JOIN storage.dataelements d ON filteredInstances.id = d.instanceInternalId AND _includeElements = TRUE
         ORDER BY
             (CASE WHEN _sort_ascending = true  THEN filteredInstances.lastChanged END) ASC,
             (CASE WHEN _sort_ascending = false THEN filteredInstances.lastChanged END) DESC,
-            filteredInstances.id;
+            filteredInstances.id,
+            d.id;
 END;
 $BODY$;

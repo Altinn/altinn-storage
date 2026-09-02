@@ -106,6 +106,7 @@ public class StudioInstanceParameters
             ContinuationToken = ContinuationToken,
             Size = Size,
             MainVersionInclude = 3,
+            IncludeDataElements = false,
         };
     }
 }
