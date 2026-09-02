@@ -75,6 +75,7 @@ public class CleanupController(
             int successfullyDeleted = await CleanupInstancesInternal(
                 instances,
                 autoDeleteAppIds,
+                true,
                 cancellationToken
             );
             stopwatch.Stop();
@@ -150,7 +151,8 @@ public class CleanupController(
     public async Task<ActionResult> CleanupInstancesForApp(
         string org,
         string app,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        [FromQuery] bool deleteBlobs = true
     )
     {
         int successfullyDeleted = 0;
@@ -175,6 +177,7 @@ public class CleanupController(
             successfullyDeleted += await CleanupInstancesInternal(
                 instancesResponse.Instances,
                 [],
+                deleteBlobs,
                 cancellationToken
             );
             processed += instancesResponse.Instances.Count;
@@ -495,34 +498,38 @@ public class CleanupController(
     private async Task<int> CleanupInstancesInternal(
         List<InstanceInternal> instances,
         List<string> autoDeleteAppIds,
+        bool deleteBlobs,
         CancellationToken cancellationToken
     )
     {
         int successfullyDeleted = 0;
         foreach (InstanceInternal instance in instances)
         {
-            bool blobsNoException = false;
+            bool blobsNoException = true;
             bool instanceEventsNoException = false;
             bool dataElementsNoException = false;
 
             try
             {
                 Application app = await applicationRepository.FindOne(instance.AppId, instance.Org);
-                blobsNoException = await blobRepository.DeleteDataBlobs(
-                    instance.Org,
-                    instance.AppId,
-                    instance.Id,
-                    app.StorageAccountNumber,
-                    CancellationToken.None
-                );
-
-                if (blobsNoException)
+                if (deleteBlobs)
                 {
-                    blobsNoException = await DeleteVersionedInstanceBlobPrefixesInternal(
+                    blobsNoException = await blobRepository.DeleteDataBlobs(
+                        instance.Org,
+                        instance.AppId,
                         instance.Id,
-                        (instance.Org, instance.AppId, app.StorageAccountNumber),
-                        cancellationToken
+                        app.StorageAccountNumber,
+                        CancellationToken.None
                     );
+
+                    if (blobsNoException)
+                    {
+                        blobsNoException = await DeleteVersionedInstanceBlobPrefixesInternal(
+                            instance.Id,
+                            (instance.Org, instance.AppId, app.StorageAccountNumber),
+                            cancellationToken
+                        );
+                    }
                 }
 
                 if (blobsNoException)
