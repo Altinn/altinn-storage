@@ -523,7 +523,7 @@ public class CleanupController(
                     );
                 }
 
-                if (blobsNoException || !deleteBlobs)
+                if (blobsNoException)
                 {
                     blobsNoException = await DeleteVersionedInstanceBlobPrefixesInternal(
                         instance.Id,
