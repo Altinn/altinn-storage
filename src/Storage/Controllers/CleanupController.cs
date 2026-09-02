@@ -67,56 +67,7 @@ public class CleanupController(
             int successfullyDeleted = await CleanupInstancesInternal(
                 instances,
                 autoDeleteAppIds,
-                cancellationToken
-            );
-            stopwatch.Stop();
-
-            _logger.LogInformation(
-                "CleanupController// CleanupInstances // {DeleteCount} of {OriginalCount} instances deleted in {Duration} s",
-                successfullyDeleted,
-                instances.Count,
-                stopwatch.Elapsed.TotalSeconds
-            );
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "CleanupController error");
-            return StatusCode(
-                StatusCodes.Status500InternalServerError,
-                "CleanupController error: " + ex.Message
-            );
-        }
-
-        return Ok();
-    }
-
-    /// <summary>
-    /// Invoke periodic cleanup of instances
-    /// </summary>
-    /// <returns>?</returns>
-    [HttpDelete("cleanupinstancesnoblob")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    [ApiExplorerSettings(IgnoreApi = true)]
-    public async Task<ActionResult> CleanupInstancesNoBlob(CancellationToken cancellationToken)
-    {
-        try
-        {
-            List<Instance> instances = await instanceRepository.GetHardDeletedInstances(
-                cancellationToken
-            );
-            List<string> autoDeleteAppIds = (await applicationRepository.FindAll())
-                .Where(a =>
-                    instances.Select(i => i.AppId).ToList().Contains(a.Id)
-                    && a.AutoDeleteOnProcessEnd
-                )
-                .Select(a => a.Id)
-                .ToList();
-
-            Stopwatch stopwatch = Stopwatch.StartNew();
-            int successfullyDeleted = await CleanupInstancesInternalNoBlob(
-                instances,
-                autoDeleteAppIds,
+                true,
                 cancellationToken
             );
             stopwatch.Stop();
@@ -150,7 +101,8 @@ public class CleanupController(
     public async Task<ActionResult> CleanupInstancesForApp(
         string org,
         string app,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        [FromQuery] bool deleteBlobs = true
     )
     {
         int successfullyDeleted = 0;
@@ -175,6 +127,7 @@ public class CleanupController(
             successfullyDeleted += await CleanupInstancesInternal(
                 instancesResponse.Instances,
                 [],
+                deleteBlobs,
                 cancellationToken
             );
             processed += (int)instancesResponse.Count;
@@ -291,6 +244,7 @@ public class CleanupController(
     private async Task<int> CleanupInstancesInternal(
         List<Instance> instances,
         List<string> autoDeleteAppIds,
+        bool deleteBlobs,
         CancellationToken cancellationToken
     )
     {
@@ -304,84 +258,20 @@ public class CleanupController(
             try
             {
                 Application app = await applicationRepository.FindOne(instance.AppId, instance.Org);
-                blobsNoException = await blobRepository.DeleteDataBlobs(
-                    instance,
-                    app.StorageAccountNumber
-                );
+                if (deleteBlobs)
+                {
+                    blobsNoException = await blobRepository.DeleteDataBlobs(
+                        instance,
+                        app.StorageAccountNumber
+                    );
+                }
 
-                if (blobsNoException)
+                if (blobsNoException || !deleteBlobs)
                 {
                     dataElementsNoException = await dataRepository.DeleteForInstance(
                         instance.Id.Split('/')[^1]
                     );
                 }
-
-                try
-                {
-                    if (autoDeleteAppIds.Contains(instance.AppId))
-                    {
-                        await instanceEventRepository.DeleteAllInstanceEvents(instance.Id);
-                        instanceEventsNoException = true;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(
-                        ex,
-                        "CleanupController // CleanupInstancesInternal // Error deleting instance events for id {id}",
-                        instance.Id
-                    );
-                }
-
-                if (
-                    dataElementsNoException
-                    && (!autoDeleteAppIds.Contains(instance.AppId) || instanceEventsNoException)
-                )
-                {
-                    if (await instanceRepository.Delete(instance, cancellationToken))
-                    {
-                        successfullyDeleted += 1;
-                    }
-                    else
-                    {
-                        _logger.LogError(
-                            "CleanupController // CleanupInstancesInternal // Instance not found for id {id}",
-                            instance.Id
-                        );
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(
-                    e,
-                    "CleanupController // CleanupInstancesInternal // Error occured when deleting instance: {AppId}/{InstanceId}",
-                    instance.AppId,
-                    $"{instance.InstanceOwner.PartyId}/{instance.Id}"
-                );
-            }
-        }
-
-        return successfullyDeleted;
-    }
-
-    private async Task<int> CleanupInstancesInternalNoBlob(
-        List<Instance> instances,
-        List<string> autoDeleteAppIds,
-        CancellationToken cancellationToken
-    )
-    {
-        int successfullyDeleted = 0;
-        foreach (Instance instance in instances)
-        {
-            bool instanceEventsNoException = false;
-            bool dataElementsNoException = false;
-
-            try
-            {
-                dataElementsNoException = await dataRepository.DeleteForInstance(
-                    instance.Id.Split('/')[^1]
-                );
 
                 try
                 {
