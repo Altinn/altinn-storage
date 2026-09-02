@@ -505,7 +505,7 @@ public class CleanupController(
         int successfullyDeleted = 0;
         foreach (InstanceInternal instance in instances)
         {
-            bool blobsNoException = false;
+            bool blobsNoException = true;
             bool instanceEventsNoException = false;
             bool dataElementsNoException = false;
 
@@ -521,18 +521,18 @@ public class CleanupController(
                         app.StorageAccountNumber,
                         CancellationToken.None
                     );
+
+                    if (blobsNoException)
+                    {
+                        blobsNoException = await DeleteVersionedInstanceBlobPrefixesInternal(
+                            instance.Id,
+                            (instance.Org, instance.AppId, app.StorageAccountNumber),
+                            cancellationToken
+                        );
+                    }
                 }
 
                 if (blobsNoException)
-                {
-                    blobsNoException = await DeleteVersionedInstanceBlobPrefixesInternal(
-                        instance.Id,
-                        (instance.Org, instance.AppId, app.StorageAccountNumber),
-                        cancellationToken
-                    );
-                }
-
-                if (blobsNoException || !deleteBlobs)
                 {
                     dataElementsNoException = await dataRepository.DeleteForInstance(
                         instance.Id,
