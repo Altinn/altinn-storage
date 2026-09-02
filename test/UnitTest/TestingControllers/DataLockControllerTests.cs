@@ -1,14 +1,17 @@
 #nullable disable
 
+using System;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Controllers;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Fixture;
@@ -199,7 +202,7 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
     public async Task User_with_write_is_allowed_to_unlock_already_unlocked_dataelement()
     {
         string dataPathWithData =
-            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dccc/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
 
         HttpClient client = GetTestClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
@@ -217,7 +220,7 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
     public async Task User_with_read_write_unlock_is_allowed_to_unlock()
     {
         string dataPathWithData =
-            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dcdd/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dccc/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
 
         HttpClient client = GetTestClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
@@ -349,6 +352,46 @@ public class DataLockControllerTests : IClassFixture<TestApplicationFactory<Data
         HttpResponseMessage response = await client.DeleteAsync($"{dataPathWithData}");
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(true, ProcessStatus.Processing)]
+    [InlineData(false, ProcessStatus.Processing)]
+    public async Task LockStatus_ProcessStatusConflict_ReturnsConflictWithCurrentStatus(
+        bool lockData,
+        ProcessStatus currentProcessStatus
+    )
+    {
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/500004/4c67392f-36c6-42dc-998f-c367e771dccc/data/998c5e56-6f73-494a-9730-6ebd11bffe88/lock";
+        Mock<IDataRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(repository =>
+                repository.UpdateLockStatus(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(new ProcessStatusConflictException(currentProcessStatus));
+
+        HttpClient client = GetTestClient(repositoryMock);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(1337, 500004, 3)
+        );
+
+        HttpResponseMessage response = lockData
+            ? await client.PutAsync(dataPathWithData, null)
+            : await client.DeleteAsync(dataPathWithData);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains(
+            currentProcessStatus.ToString().ToLowerInvariant(),
+            await response.Content.ReadAsStringAsync(),
+            StringComparison.Ordinal
+        );
     }
 
     private static void AssertDataLockHasCorrectStatus(

@@ -1,6 +1,11 @@
 ﻿{
   Response: {
     Status: 200 OK,
+    Headers: {
+      ETag: "AZfQZ9nHc0eLm4Xv2R1qAA",
+      Instance-Version: 1,
+      Process-State-Version: 1
+    },
     Content: {
       Headers: {
         Content-Length: 29,

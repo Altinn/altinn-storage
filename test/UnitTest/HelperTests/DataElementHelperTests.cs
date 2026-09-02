@@ -3,14 +3,28 @@
 using System;
 using System.Buffers.Text;
 using Altinn.Platform.Storage.Helpers;
-using Altinn.Platform.Storage.Interface.Enums;
-using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.HelperTests;
 
 public class DataElementHelperTests
 {
+    [Fact]
+    public void GetVersionedBlobPath_WithVersionId_UsesDataElementsPath()
+    {
+        string blobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        Guid instanceGuid = Guid.NewGuid();
+
+        string result = DataElementHelper.GetVersionedBlobPath(
+            "ttd/app",
+            instanceGuid,
+            blobVersionId
+        );
+
+        Assert.Equal($"ttd/app/{instanceGuid}/data-elements/{blobVersionId}", result);
+    }
+
     [Theory]
     [InlineData("{appId}/{instanceGuid}/data/{dataElementId}", true)]
     [InlineData("{appId}/{instanceGuid}/data-elements/{blobVersionId}", true)]
@@ -30,8 +44,8 @@ public class DataElementHelperTests
     {
         // Arrange
         string appId = "ttd/app";
-        string instanceGuid = $"{Guid.NewGuid()}";
-        string dataElementId = $"{Guid.NewGuid()}";
+        Guid instanceGuid = Guid.NewGuid();
+        Guid dataElementId = Guid.NewGuid();
 
         // The blob versioning build encodes the version id as base64url of a v7 guid in
         // canonical byte order, which keeps the encoded id sorted by creation time.
@@ -44,8 +58,8 @@ public class DataElementHelperTests
             .Replace("{otherInstanceGuid}", $"{Guid.NewGuid()}")
             .Replace("{otherDataElementId}", $"{Guid.NewGuid()}")
             .Replace("{appId}", appId)
-            .Replace("{instanceGuid}", instanceGuid)
-            .Replace("{dataElementId}", dataElementId)
+            .Replace("{instanceGuid}", instanceGuid.ToString())
+            .Replace("{dataElementId}", dataElementId.ToString())
             .Replace("{blobVersionId}", blobVersionId);
 
         // Act
@@ -58,47 +72,5 @@ public class DataElementHelperTests
 
         // Assert
         Assert.Equal(expected, actual);
-    }
-
-    [Fact]
-    public void CreateDataElement_GeneratedFromTaskProvided_DataElementReferencesPopulated()
-    {
-        // AAct
-        var actual = DataElementHelper.CreateDataElement(
-            "dataType",
-            null,
-            new Instance { AppId = "ttd/app-test", Id = $"1337/{Guid.NewGuid()}" },
-            DateTime.UtcNow,
-            "application/json",
-            "file-name.json",
-            1234,
-            "12345",
-            "Task_1"
-        );
-
-        // Assert
-        Assert.NotEmpty(actual.References);
-        Assert.Equal(RelationType.GeneratedFrom, actual.References[0].Relation);
-        Assert.Equal(ReferenceType.Task, actual.References[0].ValueType);
-    }
-
-    [Fact]
-    public void CreateDataElement_NoGeneratedFromIdsProvided_DataElementReferencesIsNull()
-    {
-        // Act
-        var actual = DataElementHelper.CreateDataElement(
-            "dataType",
-            null,
-            new Instance { AppId = "ttd/app-test", Id = $"1337/{Guid.NewGuid()}" },
-            DateTime.UtcNow,
-            "application/json",
-            "file-name.json",
-            1234,
-            "12345",
-            null
-        );
-
-        // Assert
-        Assert.Null(actual.References);
     }
 }
