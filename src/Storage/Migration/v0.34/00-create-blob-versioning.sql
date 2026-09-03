@@ -1,5 +1,5 @@
-ALTER TABLE storage.dataelements
-ADD COLUMN IF NOT EXISTS currentblobversion UUID NULL;
+-- ALTER TABLE storage.dataelements
+-- ADD COLUMN IF NOT EXISTS currentblobversion UUID NULL;
 
 CREATE TABLE IF NOT EXISTS storage.dataelementblobversions (
     id UUID PRIMARY KEY,
