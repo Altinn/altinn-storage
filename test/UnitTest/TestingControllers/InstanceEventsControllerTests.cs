@@ -21,7 +21,6 @@ using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
 using AltinnCore.Authentication.JwtCookie;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -288,16 +287,6 @@ public class InstanceEventsControllerTests
         HttpClient client = _factory
             .WithWebHostBuilder(builder =>
             {
-                IConfiguration configuration = new ConfigurationBuilder()
-                    .AddJsonFile(ServiceUtil.GetAppsettingsPath())
-                    .Build();
-                builder.ConfigureAppConfiguration(
-                    (hostingContext, config) =>
-                    {
-                        config.AddConfiguration(configuration);
-                    }
-                );
-
                 builder.ConfigureTestServices(services =>
                 {
                     services.AddMockRepositories();

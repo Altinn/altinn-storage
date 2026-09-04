@@ -21,7 +21,6 @@ using Altinn.Platform.Storage.Wrappers;
 using AltinnCore.Authentication.JwtCookie;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -90,16 +89,6 @@ public class AspNetCoreMetricsEnricherTests(TestApplicationFactory<InstancesCont
 
         var factory = _factory.WithWebHostBuilder(builder =>
         {
-            IConfiguration configuration = new ConfigurationBuilder()
-                .AddJsonFile(ServiceUtil.GetAppsettingsPath())
-                .Build();
-            builder.ConfigureAppConfiguration(
-                (hostingContext, config) =>
-                {
-                    config.AddConfiguration(configuration);
-                }
-            );
-
             builder.ConfigureTestServices(services =>
             {
                 services.AddMockRepositories();

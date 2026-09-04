@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Models.Metrics;
+using Altinn.Platform.Storage.OpenApi;
 using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -16,6 +17,7 @@ namespace Altinn.Platform.Storage.Controllers;
 /// </summary>
 [Route("storage/api/v1/metrics")]
 [ApiController]
+[ExcludeFromPublicStorageApi]
 public class MetricsController(IMetricsService metricsService, ILogger<MetricsController> logger)
     : ControllerBase
 {
