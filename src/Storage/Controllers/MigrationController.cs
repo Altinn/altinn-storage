@@ -15,8 +15,10 @@ using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Filters;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.OpenApi;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Services;
 using Azure.Storage;
 using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Authorization;
@@ -118,7 +120,7 @@ public class MigrationController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        Instance storedInstance;
+        InstanceInternal storedInstance;
         try
         {
             int a1ArchiveReference = instance.DataValues.TryGetValue(
@@ -141,19 +143,19 @@ public class MigrationController : ControllerBase
                 );
             }
 
-            string instanceId = isA1
+            Guid? existingInstanceGuid = isA1
                 ? await _a2Repository.GetA1MigrationInstanceId(a1ArchiveReference)
                 : await _a2Repository.GetA2MigrationInstanceId(a2ArchiveReference);
-            if (instanceId != null)
+            if (existingInstanceGuid is { } instanceGuid)
             {
-                (storedInstance, _) = await _instanceRepository.GetOne(
-                    Guid.Parse(instanceId),
+                storedInstance = await _instanceRepository.GetOne(
+                    instanceGuid,
                     false,
                     cancellationToken
                 );
                 bool hasDialog = storedInstance?.DataValues?.ContainsKey("dialog.id") ?? false;
 
-                await CleanupOldMigrationInternal(instanceId, cancellationToken);
+                await CleanupOldMigrationInternal(instanceGuid, cancellationToken);
 
                 if (hasDialog)
                 {
@@ -171,7 +173,7 @@ public class MigrationController : ControllerBase
             }
 
             storedInstance = await _instanceRepository.Create(
-                instance,
+                instance.FromApiModel(),
                 cancellationToken,
                 isA1 ? 1 : 2
             );
@@ -180,18 +182,18 @@ public class MigrationController : ControllerBase
             {
                 await _a2Repository.UpdateStartA1MigrationState(
                     a1ArchiveReference,
-                    storedInstance.Id.Split('/')[^1]
+                    storedInstance.Id
                 );
             }
             else
             {
                 await _a2Repository.UpdateStartA2MigrationState(
                     a2ArchiveReference,
-                    storedInstance.Id.Split('/')[^1]
+                    storedInstance.Id
                 );
             }
 
-            return Created((string)null, storedInstance);
+            return Created((string)null, storedInstance.ToApiModel());
         }
         catch (Exception storageException)
         {
@@ -221,6 +223,7 @@ public class MigrationController : ControllerBase
     [DisableFormValueModelBinding]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [Produces("application/json")]
     [DisableRequestSizeLimit]
@@ -238,12 +241,12 @@ public class MigrationController : ControllerBase
     {
         DateTime created = new DateTime(createdTicks, DateTimeKind.Utc).ToLocalTime();
         DateTime lastChanged = new DateTime(changedTicks, DateTimeKind.Utc).ToLocalTime();
-        (Instance instance, long instanceId) = await _instanceRepository.GetOne(
+        InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
             false,
             cancellationToken
         );
-        if (instanceId == 0)
+        if (instance is null || instance.InternalId == 0)
         {
             return BadRequest("Instance not found");
         }
@@ -259,25 +262,56 @@ public class MigrationController : ControllerBase
             throw new Exception($"Internal error. Can't determine app type for {app.Id}");
         }
 
-        DataElement storedDataElement;
+        Guid dataElementId = Guid.NewGuid();
+        bool hasBlob = false;
+        string blobOrg = null;
+        string blobVersionId = null;
+        string blobStoragePath = null;
         try
         {
-            string dataElementId = Guid.NewGuid().ToString();
-            DataElement dataElement = new()
+            hasBlob = Request.ContentLength > 0 || dataType == "binary-data";
+            blobOrg = $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}";
+            if (hasBlob)
+            {
+                blobVersionId = await _dataRepository.CreateBlobVersionId(
+                    instanceGuid,
+                    dataElementId,
+                    instance.AppId,
+                    blobOrg,
+                    app.StorageAccountNumber,
+                    cancellationToken
+                );
+                blobStoragePath = DataElementHelper.GetVersionedBlobPath(
+                    instance.AppId,
+                    instanceGuid,
+                    blobVersionId
+                );
+            }
+            else
+            {
+                blobStoragePath = dataType switch
+                {
+                    "signature-presentation" => "ondemand/signature",
+                    "ref-data-as-pdf" => "ondemand/formdatapdf",
+                    "ref-data-as-html" => "ondemand/formdatahtml",
+                    "ref-summary-data-as-html" => "ondemand/formsummaryhtml",
+                    "payment-presentation" => "ondemand/payment",
+                    _ => throw new ArgumentException(dataType),
+                };
+            }
+
+            DataElementInternal dataElement = new()
             {
                 Id = dataElementId,
                 Created = created,
                 CreatedBy = instance.CreatedBy,
                 DataType = dataType,
-                InstanceGuid = instanceGuid.ToString(),
+                InstanceGuid = instanceGuid,
                 IsRead = true,
                 LastChanged = lastChanged,
                 LastChangedBy = instance.LastChangedBy,
-                BlobStoragePath = DataElementHelper.DataFileName(
-                    instance.AppId,
-                    instanceGuid.ToString(),
-                    dataElementId
-                ),
+                BlobStoragePath = blobStoragePath,
+                BlobVersionId = blobVersionId,
                 Metadata =
                     formid == null
                         ? null
@@ -312,31 +346,56 @@ public class MigrationController : ControllerBase
                     FormOptions.DefaultMultipartBoundaryLengthLimit
                 );
 
-            if (Request.ContentLength > 0 || dataElement.DataType == "binary-data")
+            if (hasBlob)
             {
-                (dataElement.Size, _) = await _blobRepository.WriteBlob(
-                    $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
-                    theStream,
-                    dataElement.BlobStoragePath,
+                try
+                {
+                    (dataElement.Size, _) = await _blobRepository.WriteBlob(
+                        blobOrg,
+                        theStream,
+                        blobStoragePath,
+                        app.StorageAccountNumber
+                    );
+                }
+                catch
+                {
+                    await DataService.DeleteAllocatedBlobVersion(
+                        _blobRepository,
+                        _dataRepository,
+                        blobOrg,
+                        dataElementId,
+                        blobStoragePath,
+                        blobVersionId,
+                        app.StorageAccountNumber
+                    );
+                    throw;
+                }
+            }
+
+            DataElementWriteResult storedDataElementResult = await _dataRepository.Create(
+                dataElement,
+                instance.InternalId,
+                cancellationToken: cancellationToken
+            );
+
+            return Created((string)null, storedDataElementResult.DataElement.ToApiModel());
+        }
+        catch (ProcessStatusConflictException storageException)
+        {
+            if (hasBlob)
+            {
+                await DataService.DeleteAllocatedBlobVersion(
+                    _blobRepository,
+                    _dataRepository,
+                    blobOrg,
+                    dataElementId,
+                    blobStoragePath,
+                    blobVersionId,
                     app.StorageAccountNumber
                 );
             }
-            else
-            {
-                dataElement.BlobStoragePath = dataElement.DataType switch
-                {
-                    "signature-presentation" => "ondemand/signature",
-                    "ref-data-as-pdf" => "ondemand/formdatapdf",
-                    "ref-data-as-html" => "ondemand/formdatahtml",
-                    "ref-summary-data-as-html" => "ondemand/formsummaryhtml",
-                    "payment-presentation" => "ondemand/payment",
-                    _ => throw new ArgumentException(dataElement.DataType),
-                };
-            }
 
-            storedDataElement = await _dataRepository.Create(dataElement, instanceId);
-
-            return Created((string)null, storedDataElement);
+            return Conflict(storageException.Message);
         }
         catch (Exception storageException)
         {
@@ -372,7 +431,7 @@ public class MigrationController : ControllerBase
                 await _instanceEventRepository.InsertInstanceEvent(instanceEvent, null);
             }
 
-            (Instance instance, _) = await _instanceRepository.GetOne(
+            InstanceInternal instance = await _instanceRepository.GetOne(
                 new Guid(instanceEvents[0].InstanceId),
                 false,
                 CancellationToken.None
@@ -654,7 +713,7 @@ public class MigrationController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        if (!await CleanupOldMigrationInternal(instanceGuid.ToString(), cancellationToken))
+        if (!await CleanupOldMigrationInternal(instanceGuid, cancellationToken))
         {
             return BadRequest();
         }
@@ -681,12 +740,12 @@ public class MigrationController : ControllerBase
     }
 
     private async Task<bool> CleanupOldMigrationInternal(
-        string instanceId,
+        Guid instanceGuid,
         CancellationToken cancellationToken
     )
     {
-        (Instance instance, _) = await _instanceRepository.GetOne(
-            new Guid(instanceId),
+        InstanceInternal instance = await _instanceRepository.GetOne(
+            instanceGuid,
             false,
             cancellationToken
         );
@@ -712,12 +771,17 @@ public class MigrationController : ControllerBase
             instance.Org = "ttd";
         }
 
-        instance.Id = instanceId;
-        await _blobRepository.DeleteDataBlobs(instance, app.StorageAccountNumber);
-        await _dataRepository.DeleteForInstance(instanceId);
-        await _instanceEventRepository.DeleteAllInstanceEvents(instanceId);
-        await _instanceRepository.Delete(instance, cancellationToken);
-        await _a2Repository.DeleteMigrationState(instanceId);
+        await _blobRepository.DeleteDataBlobs(
+            instance.Org,
+            instance.AppId,
+            instanceGuid,
+            app.StorageAccountNumber,
+            cancellationToken
+        );
+        await _dataRepository.DeleteForInstance(instanceGuid, cancellationToken);
+        await _instanceEventRepository.DeleteAllInstanceEvents(instanceGuid);
+        await _instanceRepository.Delete(instanceGuid, cancellationToken);
+        await _a2Repository.DeleteMigrationState(instanceGuid);
 
         return true;
     }

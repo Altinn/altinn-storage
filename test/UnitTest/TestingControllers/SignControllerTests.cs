@@ -2,18 +2,23 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Controllers;
+using Altinn.Platform.Storage.Helpers;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
+using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Mocks;
@@ -65,6 +70,19 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
             }
         );
 
+    public static TheoryData<StorageVersionMismatchException, string> VersionMismatchData =>
+        new()
+        {
+            {
+                new InstanceVersionMismatchException(9, 4),
+                "{\"type\":\"instance_version_mismatch\",\"title\":\"Instance version did not match expected version.\",\"status\":412}"
+            },
+            {
+                new ProcessStateVersionMismatchException(9, 4),
+                "{\"type\":\"process_state_version_mismatch\",\"title\":\"Process state version did not match expected version.\",\"status\":412}"
+            },
+        };
+
     [Theory]
     [MemberData(nameof(SigneeData))]
     public async Task SignRequest_UserHasRequiredRole_Created(Signee signee)
@@ -81,10 +99,12 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
                     It.IsAny<Guid>(),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 )
             )
-            .ReturnsAsync((true, null));
+            .ReturnsAsync(SignDocumentCreateResult.Success(new StorageVersions(1, 1)));
 
         HttpClient client = GetTestClient(instanceServiceMock);
         string token = !string.IsNullOrWhiteSpace(signee.UserId)
@@ -182,10 +202,14 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
                     It.IsAny<Guid>(),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 )
             )
-            .ReturnsAsync((false, new ServiceError(404, "Instance not found")));
+            .ReturnsAsync(
+                SignDocumentCreateResult.Failure(new ServiceError(404, "Instance not found"))
+            );
 
         HttpClient client = GetTestClient(instanceServiceMock);
         string token = PrincipalUtil.GetToken(10016, 1600, 2);
@@ -213,6 +237,176 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
 
         // Assert
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound)]
+    [InlineData(HttpStatusCode.Conflict)]
+    public async Task SignRequest_RepositoryExceptionWithStatusSuggestion_ReturnsSuggestedStatus(
+        HttpStatusCode statusCodeSuggestion
+    )
+    {
+        const int instanceOwnerPartyId = 1600;
+        const string instanceGuid = "1916cd18-3b8e-46f8-aeaf-4bc3397ddd55";
+        string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/sign";
+        Mock<ISigningService> signingService = new();
+        signingService
+            .Setup(service =>
+                service.CreateSignDocument(
+                    It.IsAny<Guid>(),
+                    It.IsAny<SignRequest>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(
+                new RepositoryException("Data element is not available.", statusCodeSuggestion)
+            );
+        HttpClient client = GetTestClient(signingService);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(10016, instanceOwnerPartyId, 2)
+        );
+        SignRequest signRequest = new()
+        {
+            SignatureDocumentDataType = "sign-data-type",
+            DataElementSignatures =
+            [
+                new DataElementSignature
+                {
+                    DataElementId = Guid.NewGuid().ToString(),
+                    Signed = true,
+                },
+            ],
+            Signee = new Signee { UserId = "1337", PersonNumber = "22117612345" },
+        };
+
+        HttpResponseMessage response = await client.PostAsJsonAsync(requestUri, signRequest);
+
+        Assert.Equal(statusCodeSuggestion, response.StatusCode);
+        Assert.Contains(
+            "Data element is not available.",
+            await response.Content.ReadAsStringAsync()
+        );
+    }
+
+    [Theory]
+    [MemberData(nameof(VersionMismatchData))]
+    public async Task SignRequest_VersionMismatch_ReturnsSharedByteExactProblemDetails(
+        StorageVersionMismatchException exception,
+        string expectedBody
+    )
+    {
+        const int instanceOwnerPartyId = 1600;
+        const string instanceGuid = "1916cd18-3b8e-46f8-aeaf-4bc3397ddd55";
+        string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/sign";
+        Mock<ISigningService> signingService = new();
+        signingService
+            .Setup(service =>
+                service.CreateSignDocument(
+                    It.IsAny<Guid>(),
+                    It.IsAny<SignRequest>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(exception);
+        HttpClient client = GetTestClient(signingService);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(10016, instanceOwnerPartyId, 2)
+        );
+        SignRequest signRequest = new()
+        {
+            SignatureDocumentDataType = "sign-data-type",
+            DataElementSignatures =
+            [
+                new DataElementSignature
+                {
+                    DataElementId = Guid.NewGuid().ToString(),
+                    Signed = true,
+                },
+            ],
+            Signee = new Signee { UserId = "1337", PersonNumber = "22117612345" },
+        };
+
+        HttpResponseMessage response = await client.PostAsJsonAsync(requestUri, signRequest);
+
+        Assert.Equal(HttpStatusCode.PreconditionFailed, response.StatusCode);
+        Assert.Equal(
+            "application/json; charset=utf-8",
+            response.Content.Headers.ContentType?.ToString()
+        );
+        Assert.Equal("9", response.Headers.GetValues(StorageHeaders.InstanceVersion).Single());
+        Assert.Equal("4", response.Headers.GetValues(StorageHeaders.ProcessStateVersion).Single());
+        Assert.Equal(
+            Encoding.UTF8.GetBytes(expectedBody),
+            await response.Content.ReadAsByteArrayAsync()
+        );
+    }
+
+    [Fact]
+    public async Task SignRequest_ProcessStatusConflict_ReturnsConflictWithCurrentStatus()
+    {
+        const int instanceOwnerPartyId = 1600;
+        const string instanceGuid = "1916cd18-3b8e-46f8-aeaf-4bc3397ddd55";
+        string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/sign";
+        Mock<ISigningService> signingService = new();
+        signingService
+            .Setup(service =>
+                service.CreateSignDocument(
+                    It.IsAny<Guid>(),
+                    It.IsAny<SignRequest>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(new ProcessStatusConflictException(ProcessStatus.Processing));
+        HttpClient client = GetTestClient(signingService);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(10016, instanceOwnerPartyId, 2)
+        );
+        SignRequest signRequest = new()
+        {
+            SignatureDocumentDataType = "sign-data-type",
+            DataElementSignatures =
+            [
+                new DataElementSignature
+                {
+                    DataElementId = Guid.NewGuid().ToString(),
+                    Signed = true,
+                },
+            ],
+            Signee = new Signee { UserId = "1337", PersonNumber = "22117612345" },
+        };
+
+        HttpResponseMessage response = await client.PostAsJsonAsync(requestUri, signRequest);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains(
+            "processing",
+            await response.Content.ReadAsStringAsync(),
+            StringComparison.Ordinal
+        );
+        signingService.Verify(
+            service =>
+                service.CreateSignDocument(
+                    Guid.Parse(instanceGuid),
+                    It.IsAny<SignRequest>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
     }
 
     private HttpClient GetTestClient(Mock<ISigningService> instanceServiceMock = null)

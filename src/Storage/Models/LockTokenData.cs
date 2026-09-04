@@ -65,9 +65,9 @@ public sealed class LockToken(long id, byte[] secret)
         {
             tokenData = JsonSerializer.Deserialize<LockToken>(jsonBytes.AsSpan(0, bytesWritten));
         }
-        catch (JsonException)
+        catch (JsonException e)
         {
-            throw new FormatException("Could not deserialize JSON.");
+            throw new FormatException("Could not deserialize JSON.", e);
         }
         if (
             tokenData is null

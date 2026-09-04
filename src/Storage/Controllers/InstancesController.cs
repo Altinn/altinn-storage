@@ -6,12 +6,12 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
-using Altinn.AccessManagement.Core.Models;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Helpers;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
@@ -171,7 +171,7 @@ public class InstancesController : ControllerBase
     {
         try
         {
-            InstanceQueryResponse result = await _instanceRepository.GetInstancesFromQuery(
+            InstanceQueryResult result = await _instanceRepository.GetInstancesFromQuery(
                 queryParameters,
                 cancellationToken
             );
@@ -190,26 +190,30 @@ public class InstancesController : ControllerBase
 
             if (!appOwnerOrSyncAdapterRequestingInstances)
             {
-                foreach (Instance instance in result.Instances)
-                {
-                    FilterOutDeletedDataElements(instance);
-                }
-
                 if (cancellationToken.IsCancellationRequested)
                 {
                     throw new TimeoutException("Request was cancelled.");
                 }
 
                 result.Instances = await _authorizationService.AuthorizeInstances(result.Instances);
-                result.Count = result.Instances.Count;
             }
 
             string nextContinuationToken = HttpUtility.UrlEncode(result.ContinuationToken);
 
+            List<Instance> responseInstances =
+            [
+                .. result.Instances.Select(instance => instance.ToApiModel()),
+            ];
+
+            if (!appOwnerOrSyncAdapterRequestingInstances)
+            {
+                responseInstances.ForEach(FilterOutDeletedDataElements);
+            }
+
             QueryResponse<Instance> response = new()
             {
-                Instances = result.Instances,
-                Count = result.Instances.Count,
+                Instances = responseInstances,
+                Count = responseInstances.Count,
                 Self = BuildRequestLink(selfContinuationToken),
             };
 
@@ -255,7 +259,7 @@ public class InstancesController : ControllerBase
     {
         try
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(
+            InstanceInternal instance = await _instanceRepository.GetOne(
                 instanceGuid,
                 true,
                 cancellationToken
@@ -272,8 +276,10 @@ public class InstancesController : ControllerBase
                 ])
             )
             {
-                instance.SetPlatformSelfLinks(_storageBaseAndHost);
-                return Ok(instance);
+                Instance responseInstance = instance.ToApiModel();
+                responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+                VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
+                return Ok(responseInstance);
             }
 
             if (
@@ -284,13 +290,15 @@ public class InstancesController : ControllerBase
                 return Forbid();
             }
 
+            Instance mappedInstance = instance.ToApiModel();
             if (User.GetOrg() != instance.Org)
             {
-                FilterOutDeletedDataElements(instance);
+                FilterOutDeletedDataElements(mappedInstance);
             }
 
-            instance.SetPlatformSelfLinks(_storageBaseAndHost);
-            return Ok(instance);
+            mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
+            return Ok(mappedInstance);
         }
         catch (Exception e)
         {
@@ -317,7 +325,7 @@ public class InstancesController : ControllerBase
     {
         try
         {
-            (Instance instance, _) = await _instanceRepository.GetOne(
+            InstanceInternal instance = await _instanceRepository.GetOne(
                 instanceGuid,
                 true,
                 cancellationToken
@@ -334,8 +342,10 @@ public class InstancesController : ControllerBase
                 ])
             )
             {
-                instance.SetPlatformSelfLinks(_storageBaseAndHost);
-                return Ok(instance);
+                Instance responseInstance = instance.ToApiModel();
+                responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+                VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
+                return Ok(responseInstance);
             }
 
             if (
@@ -346,13 +356,15 @@ public class InstancesController : ControllerBase
                 return Forbid();
             }
 
+            Instance mappedInstance = instance.ToApiModel();
             if (User.GetOrg() != instance.Org)
             {
-                FilterOutDeletedDataElements(instance);
+                FilterOutDeletedDataElements(mappedInstance);
             }
 
-            instance.SetPlatformSelfLinks(_storageBaseAndHost);
-            return Ok(instance);
+            mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
+            return Ok(mappedInstance);
         }
         catch (Exception e)
         {
@@ -472,7 +484,7 @@ public class InstancesController : ControllerBase
             return Forbid();
         }
 
-        Instance storedInstance = null;
+        InstanceInternal storedInstance = null;
         try
         {
             DateTime creationTime = DateTime.UtcNow;
@@ -484,22 +496,24 @@ public class InstancesController : ControllerBase
                 User.GetUserOrOrgNo()
             );
 
-            storedInstance = await _instanceRepository.Create(instanceToCreate, cancellationToken);
-            await _instanceEventService.DispatchEvent(InstanceEventType.Created, storedInstance);
-            _logger.LogInformation(
-                "Created instance: {storedInstance.Id}",
-                storedInstance.Id.RemoveNewlines()
+            storedInstance = await _instanceRepository.Create(
+                instanceToCreate.FromApiModel(),
+                cancellationToken
             );
-            storedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+            await _instanceEventService.DispatchEvent(InstanceEventType.Created, storedInstance);
+            _logger.LogInformation("Created instance: {InstanceId}", storedInstance.Id);
+            Instance responseInstance = storedInstance.ToApiModel();
+            responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
 
             await _partiesWithInstancesClient.SetHasAltinn3Instances(instanceOwnerPartyId);
-            return Created(storedInstance.SelfLinks.Platform, storedInstance);
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, storedInstance);
+            return Created(responseInstance.SelfLinks.Platform, responseInstance);
         }
         catch (Exception storageException)
         {
             _logger.LogError(
                 storageException,
-                "Unable to create {appId} instance for {instance.InstanceOwner.PartyId}",
+                "Unable to create {AppId} instance for {PartyId}",
                 appId.RemoveNewlines(),
                 instance.InstanceOwner.PartyId?.RemoveNewlines()
             );
@@ -507,13 +521,10 @@ public class InstancesController : ControllerBase
             // compensating action - delete instance
             if (storedInstance != null)
             {
-                await _instanceRepository.Delete(storedInstance, cancellationToken);
+                await _instanceRepository.Delete(storedInstance.Id, cancellationToken);
             }
 
-            _logger.LogError(
-                "Deleted instance {storedInstance.Id}",
-                storedInstance?.Id.RemoveNewlines()
-            );
+            _logger.LogError("Deleted instance {InstanceId}", storedInstance?.Id);
             return StatusCode(
                 500,
                 $"Unable to create {appId} instance for {instance.InstanceOwner?.PartyId} due to {storageException.Message}"
@@ -528,6 +539,8 @@ public class InstancesController : ControllerBase
     /// <param name="instanceGuid">The id of the instance that should be deleted.</param>
     /// <param name="hard">if true hard delete will take place. if false, the instance gets its status.softDelete attribute set to current date and time.</param>
     /// <param name="cancellationToken">CancellationToken</param>
+    /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
+    /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>Information from the deleted instance.</returns>
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_DELETE)]
     [HttpDelete("{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
@@ -536,17 +549,31 @@ public class InstancesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> Delete(
         int instanceOwnerPartyId,
         Guid instanceGuid,
         [FromQuery] bool hard,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        [FromHeader(Name = StorageHeaders.IfInstanceVersionMatch)]
+            string ifInstanceVersionMatch = null,
+        [FromHeader(Name = StorageHeaders.IfProcessStateVersionMatch)]
+            string ifProcessStateVersionMatch = null
     )
     {
-        Instance instance;
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
 
-        (instance, _) = await _instanceRepository.GetOne(instanceGuid, false, cancellationToken);
+        InstanceInternal instance = await _instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            cancellationToken
+        );
 
         if (instance == null)
         {
@@ -605,21 +632,36 @@ public class InstancesController : ControllerBase
 
         try
         {
-            Instance deletedInstance = await _instanceRepository.Update(
+            InstanceInternal deletedInstance = await _instanceRepository.Update(
                 instance,
                 updateProperties,
+                preconditions.InstanceVersion,
+                preconditions.ProcessStateVersion,
                 cancellationToken
             );
 
             await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, deletedInstance);
 
-            return Ok(deletedInstance);
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, deletedInstance);
+            return Ok(deletedInstance.ToApiModel());
+        }
+        catch (StorageVersionMismatchException e)
+        {
+            return VersionPreconditionHelper.VersionMismatch(Response, e);
+        }
+        catch (ProcessStatusConflictException e)
+        {
+            return Conflict(e.Message);
+        }
+        catch (RepositoryException e) when (e.StatusCodeSuggestion.HasValue)
+        {
+            return StatusCode((int)e.StatusCodeSuggestion.Value, e.Message);
         }
         catch (Exception e)
         {
             _logger.LogError(
                 e,
-                "Unexpected exception when deleting instance {instance.Id}",
+                "Unexpected exception when deleting instance {InstanceId}",
                 instance.Id
             );
             return StatusCode(
@@ -640,31 +682,52 @@ public class InstancesController : ControllerBase
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance to confirm as complete.</param>
     /// <param name="cancellationToken">CancellationToken</param>
+    /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
+    /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>Returns a list of the process events.</returns>
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_COMPLETE)]
     [HttpPost("{instanceOwnerPartyId:int}/{instanceGuid:guid}/complete")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> AddCompleteConfirmation(
         [FromRoute] int instanceOwnerPartyId,
         [FromRoute] Guid instanceGuid,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        [FromHeader(Name = StorageHeaders.IfInstanceVersionMatch)]
+            string ifInstanceVersionMatch = null,
+        [FromHeader(Name = StorageHeaders.IfProcessStateVersionMatch)]
+            string ifProcessStateVersionMatch = null
     )
     {
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
         List<string> updateProperties = [];
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
+        if (instance is null)
+        {
+            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
+        }
 
         string org = User.GetOrg();
 
         instance.CompleteConfirmations ??= new List<CompleteConfirmation>();
         if (instance.CompleteConfirmations.Exists(cc => cc.StakeholderId == org))
         {
-            instance.SetPlatformSelfLinks(_storageBaseAndHost);
-            return Ok(instance);
+            Instance responseInstance = instance.ToApiModel();
+            responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
+            return Ok(responseInstance);
         }
 
         instance.CompleteConfirmations.Add(
@@ -677,15 +740,28 @@ public class InstancesController : ControllerBase
         updateProperties.Add(nameof(instance.LastChanged));
         updateProperties.Add(nameof(instance.LastChangedBy));
 
-        Instance updatedInstance;
+        InstanceInternal updatedInstance;
         try
         {
             updatedInstance = await _instanceRepository.Update(
                 instance,
                 updateProperties,
+                preconditions.InstanceVersion,
+                preconditions.ProcessStateVersion,
                 cancellationToken
             );
-            updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        }
+        catch (StorageVersionMismatchException e)
+        {
+            return VersionPreconditionHelper.VersionMismatch(Response, e);
+        }
+        catch (ProcessStatusConflictException e)
+        {
+            return Conflict(e.Message);
+        }
+        catch (RepositoryException e) when (e.StatusCodeSuggestion.HasValue)
+        {
+            return StatusCode((int)e.StatusCodeSuggestion.Value, e.Message);
         }
         catch (Exception e)
         {
@@ -703,7 +779,10 @@ public class InstancesController : ControllerBase
             updatedInstance
         );
 
-        return Ok(updatedInstance);
+        Instance mappedInstance = updatedInstance.ToApiModel();
+        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
+        return Ok(mappedInstance);
     }
 
     /// <summary>
@@ -718,6 +797,7 @@ public class InstancesController : ControllerBase
     [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/readstatus")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> UpdateReadStatus(
         [FromRoute] int instanceOwnerPartyId,
@@ -733,18 +813,17 @@ public class InstancesController : ControllerBase
             );
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
+        if (instance is null)
+        {
+            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
+        }
 
-        List<string> updateProperties =
-        [
-            nameof(instance.Status),
-            nameof(instance.Status.ReadStatus),
-        ];
-        Instance updatedInstance;
+        InstanceInternal updatedInstance;
         try
         {
             ReadStatus? oldStatus = null;
@@ -761,13 +840,8 @@ public class InstancesController : ControllerBase
 
             updatedInstance =
                 (oldStatus == null || oldStatus != newStatus)
-                    ? await _instanceRepository.Update(
-                        instance,
-                        updateProperties,
-                        cancellationToken
-                    )
+                    ? await _instanceRepository.UpdateReadStatus(instance, cancellationToken)
                     : instance;
-            updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
         }
         catch (Exception e)
         {
@@ -780,7 +854,10 @@ public class InstancesController : ControllerBase
             return StatusCode(StatusCodes.Status500InternalServerError);
         }
 
-        return Ok(updatedInstance);
+        Instance mappedInstance = updatedInstance.ToApiModel();
+        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
+        return Ok(mappedInstance);
     }
 
     /// <summary>
@@ -790,19 +867,34 @@ public class InstancesController : ControllerBase
     /// <param name="instanceGuid">The id of the instance to confirm as complete.</param>
     /// <param name="substatus">The updated sub status.</param>
     /// <param name="cancellationToken">CancellationToken</param>
+    /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
+    /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>Returns the updated instance.</returns>
     [Authorize]
     [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/substatus")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> UpdateSubstatus(
         [FromRoute] int instanceOwnerPartyId,
         [FromRoute] Guid instanceGuid,
         [FromBody] Substatus substatus,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        [FromHeader(Name = StorageHeaders.IfInstanceVersionMatch)]
+            string ifInstanceVersionMatch = null,
+        [FromHeader(Name = StorageHeaders.IfProcessStateVersionMatch)]
+            string ifProcessStateVersionMatch = null
     )
     {
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
         DateTime creationTime = DateTime.UtcNow;
 
         if (substatus == null || string.IsNullOrEmpty(substatus.Label))
@@ -812,11 +904,15 @@ public class InstancesController : ControllerBase
             );
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
+        if (instance is null)
+        {
+            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
+        }
 
         string org = User.GetOrg();
         if (!instance.Org.Equals(org))
@@ -824,7 +920,7 @@ public class InstancesController : ControllerBase
             return Forbid();
         }
 
-        Instance updatedInstance;
+        InstanceInternal updatedInstance;
         try
         {
             List<string> updateProperties =
@@ -845,9 +941,22 @@ public class InstancesController : ControllerBase
             updatedInstance = await _instanceRepository.Update(
                 instance,
                 updateProperties,
+                preconditions.InstanceVersion,
+                preconditions.ProcessStateVersion,
                 cancellationToken
             );
-            updatedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        }
+        catch (StorageVersionMismatchException e)
+        {
+            return VersionPreconditionHelper.VersionMismatch(Response, e);
+        }
+        catch (ProcessStatusConflictException e)
+        {
+            return Conflict(e.Message);
+        }
+        catch (RepositoryException e) when (e.StatusCodeSuggestion.HasValue)
+        {
+            return StatusCode((int)e.StatusCodeSuggestion.Value, e.Message);
         }
         catch (Exception e)
         {
@@ -864,7 +973,10 @@ public class InstancesController : ControllerBase
             InstanceEventType.SubstatusUpdated,
             updatedInstance
         );
-        return Ok(updatedInstance);
+        Instance mappedInstance = updatedInstance.ToApiModel();
+        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
+        return Ok(mappedInstance);
     }
 
     /// <summary>
@@ -874,31 +986,50 @@ public class InstancesController : ControllerBase
     /// <param name="instanceGuid">The id of the instance to confirm as complete.</param>
     /// <param name="presentationTexts">Collection of changes to the presentation texts collection.</param>
     /// <param name="cancellationToken">CancellationToken</param>
+    /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
+    /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>The instance that was updated with an updated collection of presentation texts.</returns>
     [Authorize]
     [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/presentationtexts")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Consumes("application/json")]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> UpdatePresentationTexts(
         [FromRoute] int instanceOwnerPartyId,
         [FromRoute] Guid instanceGuid,
         [FromBody] PresentationTexts presentationTexts,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        [FromHeader(Name = StorageHeaders.IfInstanceVersionMatch)]
+            string ifInstanceVersionMatch = null,
+        [FromHeader(Name = StorageHeaders.IfProcessStateVersionMatch)]
+            string ifProcessStateVersionMatch = null
     )
     {
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
         if (presentationTexts?.Texts == null)
         {
             return BadRequest($"Missing parameter value: presentationTexts is misformed or empty");
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
+        if (instance is null)
+        {
+            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
+        }
 
         if (!await _processAuthorizer.AuthorizePresentationTextsUpdate(instance))
         {
@@ -924,12 +1055,32 @@ public class InstancesController : ControllerBase
             }
         }
 
-        Instance updatedInstance = await _instanceRepository.Update(
-            instance,
-            updateProperties,
-            cancellationToken
-        );
-        return updatedInstance;
+        InstanceInternal updatedInstance;
+        try
+        {
+            updatedInstance = await _instanceRepository.Update(
+                instance,
+                updateProperties,
+                preconditions.InstanceVersion,
+                preconditions.ProcessStateVersion,
+                cancellationToken
+            );
+        }
+        catch (StorageVersionMismatchException e)
+        {
+            return VersionPreconditionHelper.VersionMismatch(Response, e);
+        }
+        catch (ProcessStatusConflictException e)
+        {
+            return Conflict(e.Message);
+        }
+        catch (RepositoryException e) when (e.StatusCodeSuggestion.HasValue)
+        {
+            return StatusCode((int)e.StatusCodeSuggestion.Value, e.Message);
+        }
+
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
+        return updatedInstance.ToApiModel();
     }
 
     /// <summary>
@@ -939,31 +1090,50 @@ public class InstancesController : ControllerBase
     /// <param name="instanceGuid">The id of the instance to confirm as complete.</param>
     /// <param name="dataValues">Collection of changes to the data values collection.</param>
     /// <param name="cancellationToken">CancellationToken</param>
+    /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
+    /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>The instance that was updated with an updated collection of data values.</returns>
     [Authorize]
     [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/datavalues")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Consumes("application/json")]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> UpdateDataValues(
         [FromRoute] int instanceOwnerPartyId,
         [FromRoute] Guid instanceGuid,
         [FromBody] DataValues dataValues,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        [FromHeader(Name = StorageHeaders.IfInstanceVersionMatch)]
+            string ifInstanceVersionMatch = null,
+        [FromHeader(Name = StorageHeaders.IfProcessStateVersionMatch)]
+            string ifProcessStateVersionMatch = null
     )
     {
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
         if (dataValues?.Values == null)
         {
             return BadRequest($"Missing parameter value: dataValues is misformed or empty");
         }
 
-        (Instance instance, _) = await _instanceRepository.GetOne(
+        InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
+        if (instance is null)
+        {
+            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
+        }
 
         if (!await _processAuthorizer.AuthorizeDataValuesUpdate(instance))
         {
@@ -986,12 +1156,32 @@ public class InstancesController : ControllerBase
             }
         }
 
-        var updatedInstance = await _instanceRepository.Update(
-            instance,
-            updateProperties,
-            cancellationToken
-        );
-        return Ok(updatedInstance);
+        InstanceInternal updatedInstance;
+        try
+        {
+            updatedInstance = await _instanceRepository.Update(
+                instance,
+                updateProperties,
+                preconditions.InstanceVersion,
+                preconditions.ProcessStateVersion,
+                cancellationToken
+            );
+        }
+        catch (StorageVersionMismatchException e)
+        {
+            return VersionPreconditionHelper.VersionMismatch(Response, e);
+        }
+        catch (ProcessStatusConflictException e)
+        {
+            return Conflict(e.Message);
+        }
+        catch (RepositoryException e) when (e.StatusCodeSuggestion.HasValue)
+        {
+            return StatusCode((int)e.StatusCodeSuggestion.Value, e.Message);
+        }
+
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
+        return Ok(updatedInstance.ToApiModel());
     }
 
     private static Instance CreateInstanceFromTemplate(

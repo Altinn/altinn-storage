@@ -47,7 +47,7 @@ public class DataElement : ChangableElement
     public string ContentType { get; set; }
 
     /// <summary>
-    /// Gets or sets the path to blob storage. Might be nullified in export.
+    /// Gets or sets the current path to blob storage. Might be nullified in export.
     /// </summary>
     [JsonProperty(PropertyName = "blobStoragePath")]
     public string BlobStoragePath { get; set; }
@@ -69,6 +69,19 @@ public class DataElement : ChangableElement
     /// </summary>
     [JsonProperty(PropertyName = "contentHash")]
     public string ContentHash { get; set; }
+
+    /// <summary>
+    /// Gets or sets the blob version id identifying the current data element content.
+    /// </summary>
+    /// <remarks>
+    /// Assigned by storage and ignored on input. It versions the content only: metadata-only
+    /// updates (tags, read status, lock status) do not change it. Null for elements whose content
+    /// is not stored with a blob version, such as on-demand elements. The ETag response header on
+    /// content downloads, and the If-Match header on content reads and updates, carry this value
+    /// as a quoted strong HTTP ETag.
+    /// </remarks>
+    [JsonProperty(PropertyName = "blobVersionId")]
+    public string BlobVersionId { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether the element can be updated.
