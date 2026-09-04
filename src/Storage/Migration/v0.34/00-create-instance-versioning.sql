@@ -19,4 +19,4 @@ BEGIN
         ALTER TABLE storage.instances
         ADD COLUMN IF NOT EXISTS process_state_version INT NOT NULL DEFAULT 1;
     END IF;
-END $$;ß
+END $$;
