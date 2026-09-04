@@ -34,10 +34,6 @@ public static class SwaggerExtensions
     /// </summary>
     public const string CompleteSwaggerDocName = "v1";
 
-    // The "env" segment is substituted per environment. The url omits the storage base path
-    // because API Management exposes that as its own api suffix.
-    private const string _apimGatewayUrl = "https://platform.env.altinn.cloud";
-
     /// <summary>
     /// Configures Swagger for the Storage API. Pass this to services.AddSwaggerGen() in Program.cs.
     /// </summary>
@@ -81,10 +77,7 @@ public static class SwaggerExtensions
         );
         c.AddDocumentFilterInstance(new MoveBasePathToServerSection(V1PublicSwaggerDocName));
         c.AddDocumentFilterInstance(
-            new MoveBasePathToServerSection(
-                ApimSwaggerDocName,
-                new OpenApiServer { Url = _apimGatewayUrl }
-            )
+            new MoveBasePathToServerSection(ApimSwaggerDocName, omitServers: true)
         );
 
         c.AddSecurityDefinition(
