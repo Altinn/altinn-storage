@@ -7,7 +7,7 @@ BEGIN
           AND attnum > 0 AND NOT attisdropped
     ) THEN
         ALTER TABLE storage.instances
-        ADD COLUMN instance_version INT NOT NULL DEFAULT 1;
+        ADD COLUMN IF NOT EXISTS instance_version INT NOT NULL DEFAULT 1;
     END IF;
 
     IF NOT EXISTS (
@@ -17,6 +17,6 @@ BEGIN
           AND attnum > 0 AND NOT attisdropped
     ) THEN
         ALTER TABLE storage.instances
-        ADD COLUMN process_state_version INT NOT NULL DEFAULT 1;
+        ADD COLUMN IF NOT EXISTS process_state_version INT NOT NULL DEFAULT 1;
     END IF;
-END $$;
+END $$;ß
