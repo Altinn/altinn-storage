@@ -362,6 +362,22 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "name": "If-Instance-Version-Match",
+            "in": "header",
+            "description": "Optional expected aggregate instance version.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Process-State-Version-Match",
+            "in": "header",
+            "description": "Optional expected process-state version.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -457,6 +473,16 @@
                 }
               }
             }
+          },
+          "412": {
+            "description": "Precondition Failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       },
@@ -512,6 +538,22 @@
             "name": "generatedFromTask",
             "in": "query",
             "description": "An optional id of the task the data element was generated from",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Instance-Version-Match",
+            "in": "header",
+            "description": "Optional expected aggregate instance version.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Process-State-Version-Match",
+            "in": "header",
+            "description": "Optional expected process-state version.",
             "schema": {
               "type": "string"
             }
@@ -677,6 +719,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "If-Instance-Version-Match",
+            "in": "header",
+            "description": "Optional expected aggregate instance version.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Process-State-Version-Match",
+            "in": "header",
+            "description": "Optional expected process-state version.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -692,6 +750,16 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -739,6 +807,22 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "If-Instance-Version-Match",
+            "in": "header",
+            "description": "Optional expected aggregate instance version.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Process-State-Version-Match",
+            "in": "header",
+            "description": "Optional expected process-state version.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -764,6 +848,16 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -926,6 +1020,16 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       },
@@ -999,6 +1103,16 @@
           },
           "403": {
             "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -1383,6 +1497,133 @@
           },
           "422": {
             "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/mutations": {
+      "post": {
+        "tags": [
+          "InstanceMutations"
+        ],
+        "summary": "Commits a batch of mutations for a single instance.\nFor multipart requests, the first part must be the `mutation` JSON field;\neach subsequent part must match exactly one `contentPartName` in the request.\nUnknown, duplicate, or missing file parts are rejected with 400 Bad Request.",
+        "description": "After the endpoint's outer `InstanceWrite` policy admits the request, idempotent replay\nis checked before process-state, presentation-text, data-value, per-data-type write,\ncomplete-confirmation, and delete-instance authorization. A complete confirmation is\nadditionally subject to the `InstanceComplete` policy and is recorded for the calling\norganisation only; an organisation that already has a confirmation keeps the one it has, and\nthe remaining operations commit either way. An admitted replay is a no-op and uses the snapshot\nreturned by replay admission. For non-replays, operation-specific authorization is evaluated\nagainst the controller's instance snapshot; data-element update and delete references missing\nfrom that snapshot are rejected by later plan validation. Process-state mutations on instances\nwithout a current task, and delete-instance mutations the application prevents from deletion,\nare rejected after replay admission. Delete-instance mutations check instance existence before\ndelete authorization, so a missing instance returns 404 before a possible delete-policy 403.",
+        "parameters": [
+          {
+            "name": "instanceOwnerPartyId",
+            "in": "path",
+            "description": "The party id of the instance owner.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "instanceGuid",
+            "in": "path",
+            "description": "The id of the instance that should be mutated.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Instance-Version-Match",
+            "in": "header",
+            "description": "Optional expected aggregate instance version.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Process-State-Version-Match",
+            "in": "header",
+            "description": "Optional expected process-state version.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional idempotency key. Requires an expected instance version.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceMutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Precondition Failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
             "content": {
               "application/json": {
                 "schema": {
@@ -1797,6 +2038,22 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "name": "If-Instance-Version-Match",
+            "in": "header",
+            "description": "Optional expected aggregate instance version.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Process-State-Version-Match",
+            "in": "header",
+            "description": "Optional expected process-state version.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1835,6 +2092,16 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -1915,6 +2182,22 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "If-Instance-Version-Match",
+            "in": "header",
+            "description": "Optional expected aggregate instance version.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Process-State-Version-Match",
+            "in": "header",
+            "description": "Optional expected process-state version.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1924,6 +2207,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Instance"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -1987,6 +2290,16 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -2016,6 +2329,22 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Instance-Version-Match",
+            "in": "header",
+            "description": "Optional expected aggregate instance version.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Process-State-Version-Match",
+            "in": "header",
+            "description": "Optional expected process-state version.",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -2064,6 +2393,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -2093,6 +2442,22 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Instance-Version-Match",
+            "in": "header",
+            "description": "Optional expected aggregate instance version.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Process-State-Version-Match",
+            "in": "header",
+            "description": "Optional expected process-state version.",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -2136,6 +2501,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -2165,6 +2550,22 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Instance-Version-Match",
+            "in": "header",
+            "description": "Optional expected aggregate instance version.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Process-State-Version-Match",
+            "in": "header",
+            "description": "Optional expected process-state version.",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -2201,6 +2602,26 @@
           },
           "403": {
             "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -2328,8 +2749,25 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK"
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -2398,8 +2836,25 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK"
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -2562,6 +3017,16 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -2989,6 +3454,22 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "If-Instance-Version-Match",
+            "in": "header",
+            "description": "Optional expected aggregate instance version.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Process-State-Version-Match",
+            "in": "header",
+            "description": "Optional expected process-state version.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -3008,6 +3489,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Instance"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -3059,6 +3550,22 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "name": "If-Instance-Version-Match",
+            "in": "header",
+            "description": "Optional expected aggregate instance version.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Process-State-Version-Match",
+            "in": "header",
+            "description": "Optional expected process-state version.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -3078,6 +3585,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Instance"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -3297,6 +3814,22 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "If-Instance-Version-Match",
+            "in": "header",
+            "description": "Optional expected aggregate instance version.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Process-State-Version-Match",
+            "in": "header",
+            "description": "Optional expected process-state version.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -3330,6 +3863,16 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -3606,6 +4149,26 @@
           },
           "403": {
             "description": "Forbidden",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "text/plain": {
                 "schema": {
@@ -4288,6 +4851,10 @@
             "type": "string",
             "nullable": true
           },
+          "blobVersionId": {
+            "type": "string",
+            "nullable": true
+          },
           "locked": {
             "type": "boolean"
           },
@@ -4597,6 +5164,10 @@
             "type": "string",
             "nullable": true
           },
+          "blobVersionId": {
+            "type": "string",
+            "nullable": true
+          },
           "fileScanResult": {
             "$ref": "#/components/schemas/FileScanResult"
           }
@@ -4781,6 +5352,25 @@
           "lockToken": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "InstanceMutationResponse": {
+        "type": "object",
+        "properties": {
+          "instance": {
+            "$ref": "#/components/schemas/Instance"
+          },
+          "createdDataElementIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "replayed": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -5270,6 +5860,9 @@
       "ProcessState": {
         "type": "object",
         "properties": {
+          "status": {
+            "$ref": "#/components/schemas/ProcessStatus"
+          },
           "started": {
             "type": "string",
             "format": "date-time",
@@ -5309,6 +5902,13 @@
           }
         },
         "additionalProperties": false
+      },
+      "ProcessStatus": {
+        "enum": [
+          "idle",
+          "processing"
+        ],
+        "type": "string"
       },
       "ReadStatus": {
         "enum": [
@@ -5894,6 +6494,9 @@
     },
     {
       "name": "InstanceLock"
+    },
+    {
+      "name": "InstanceMutations"
     },
     {
       "name": "Instances"

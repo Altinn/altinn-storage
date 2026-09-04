@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Microsoft.OpenApi;
 
 namespace Altinn.Platform.Storage.OpenApi;
@@ -6,11 +7,29 @@ namespace Altinn.Platform.Storage.OpenApi;
 /// <summary>
 /// This class is used to remove the storageBasePath prefix from the swagger documentation
 /// </summary>
-/// <param name="documentName">The name of the swagger document to apply this filter to</param>
-public class MoveBasePathToServerSection(string documentName)
-    : Swashbuckle.AspNetCore.SwaggerGen.IDocumentFilter
+public class MoveBasePathToServerSection : Swashbuckle.AspNetCore.SwaggerGen.IDocumentFilter
 {
     private const string _prefix = "/storage/api/v1";
+
+    private readonly string _documentName;
+    private readonly OpenApiServer? _gatewayServer;
+
+    /// <summary>
+    /// Appends the base path to the servers already documented for the swagger document.
+    /// </summary>
+    public MoveBasePathToServerSection(string documentName)
+    {
+        _documentName = documentName;
+    }
+
+    /// <summary>
+    /// Documents a single gateway server, url unchanged, for gateways that add the base path themselves.
+    /// </summary>
+    public MoveBasePathToServerSection(string documentName, OpenApiServer gatewayServer)
+    {
+        _documentName = documentName;
+        _gatewayServer = gatewayServer;
+    }
 
     /// <inheritdoc/>
     public void Apply(
@@ -18,7 +37,7 @@ public class MoveBasePathToServerSection(string documentName)
         Swashbuckle.AspNetCore.SwaggerGen.DocumentFilterContext context
     )
     {
-        if (context.DocumentName == documentName)
+        if (string.Equals(context.DocumentName, _documentName, StringComparison.Ordinal))
         {
             RewriteServers(swaggerDoc);
             RewritePath(swaggerDoc);
@@ -41,17 +60,27 @@ public class MoveBasePathToServerSection(string documentName)
         swaggerDoc.Paths = rewrittenPaths;
     }
 
-    private static void RewriteServers(OpenApiDocument swaggerDoc)
+    private void RewriteServers(OpenApiDocument swaggerDoc)
     {
-        if (swaggerDoc.Servers is not null)
+        if (_gatewayServer is not null)
         {
-            foreach (var server in swaggerDoc.Servers)
-            {
-                if (server.Url?.EndsWith(_prefix, StringComparison.Ordinal) != true)
-                {
-                    server.Url = $"{server.Url}{_prefix}";
-                }
-            }
+            swaggerDoc.Servers = [_gatewayServer];
+            return;
         }
+
+        if (swaggerDoc.Servers is null)
+        {
+            return;
+        }
+
+        swaggerDoc.Servers = swaggerDoc
+            .Servers.Select(server => new OpenApiServer
+            {
+                Url = $"{server.Url}{_prefix}",
+                Description = server.Description,
+                Variables = server.Variables,
+                Extensions = server.Extensions,
+            })
+            .ToList();
     }
 }

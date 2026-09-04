@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -24,9 +25,18 @@ public static class SwaggerExtensions
     public const string V1PublicSwaggerDocName = "v1-public";
 
     /// <summary>
+    /// The name of the swagger document for the Storage API as it is exposed through API Management
+    /// </summary>
+    public const string ApimSwaggerDocName = "v1-apim";
+
+    /// <summary>
     /// The name of the complete swagger document for the Storage API (includes all apis)
     /// </summary>
     public const string CompleteSwaggerDocName = "v1";
+
+    // The "env" segment is substituted per environment. The url omits the storage base path
+    // because API Management exposes that as its own api suffix.
+    private const string _apimGatewayUrl = "https://platform.env.altinn.cloud";
 
     /// <summary>
     /// Configures Swagger for the Storage API. Pass this to services.AddSwaggerGen() in Program.cs.
@@ -45,48 +55,37 @@ public static class SwaggerExtensions
             }
         );
         c.SwaggerDoc(
+            ApimSwaggerDocName,
+            new OpenApiInfo
+            {
+                Title = "Altinn Platform Storage - API Management",
+                Version = "v1",
+                Description =
+                    "This is the API for Altinn Platform Storage as it is exposed through API Management. It contains every Storage endpoint, including the ones that are only reachable through API Management.",
+            }
+        );
+        c.SwaggerDoc(
             CompleteSwaggerDocName,
             new OpenApiInfo { Title = "Altinn Platform Storage - complete", Version = "v1" }
         );
         c.AddServer(new() { Url = "https://platform.tt02.altinn.no", Description = "T02" });
         c.AddServer(new() { Url = "https://platform.altinn.no", Description = "Production" });
 
-        // Exclude endpoints from the public openapi doc if they have the ExcludeFromPublicStorageApiAttribute attribute or if they have the Authorize attribute with the POLICY_STUDIO_DESIGNER or POLICY_CORRESPONDENCE_SBLBRIDGE policy
         c.DocInclusionPredicate(
             (docName, apiDesc) =>
-            {
-                if (docName != V1PublicSwaggerDocName)
+                docName switch
                 {
-                    return true;
+                    V1PublicSwaggerDocName => IncludeInPublicDoc(apiDesc.CustomAttributes()),
+                    _ => true,
                 }
-
-                var attributes = apiDesc.CustomAttributes().ToList();
-
-                // Exclude endpoints that have the ExcludeFromPublicStorageApiAttribute attribute
-                if (attributes.Any(attr => attr is ExcludeFromPublicStorageApiAttribute))
-                {
-                    return false;
-                }
-
-                // Exclude endpoints that have the Authorize attribute with the POLICY_STUDIO_DESIGNER or POLICY_CORRESPONDENCE_SBLBRIDGE policy
-                if (
-                    attributes.Any(attr =>
-                        attr
-                            is AuthorizeAttribute
-                            {
-                                Policy: AuthzConstants.POLICY_STUDIO_DESIGNER
-                                    or AuthzConstants.POLICY_CORRESPONDENCE_SBLBRIDGE
-                                    or AuthzConstants.POLICY_SCOPE_APPDEPLOY
-                            }
-                    )
-                )
-                {
-                    return false;
-                }
-                return true;
-            }
         );
         c.AddDocumentFilterInstance(new MoveBasePathToServerSection(V1PublicSwaggerDocName));
+        c.AddDocumentFilterInstance(
+            new MoveBasePathToServerSection(
+                ApimSwaggerDocName,
+                new OpenApiServer { Url = _apimGatewayUrl }
+            )
+        );
 
         c.AddSecurityDefinition(
             JwtCookieDefaults.AuthenticationScheme,
@@ -135,8 +134,26 @@ public static class SwaggerExtensions
             "Altinn Storage Public API"
         );
         options.SwaggerEndpoint(
+            $"/swagger/{ApimSwaggerDocName}/swagger.json",
+            "Altinn Storage API Management API"
+        );
+        options.SwaggerEndpoint(
             $"/swagger/{CompleteSwaggerDocName}/swagger.json",
             "Altinn Storage Complete API"
+        );
+    }
+
+    private static bool IncludeInPublicDoc(IEnumerable<object> attributes)
+    {
+        return !attributes.Any(attr =>
+            attr is ExcludeFromPublicStorageApiAttribute
+            || attr
+                is AuthorizeAttribute
+                {
+                    Policy: AuthzConstants.POLICY_STUDIO_DESIGNER
+                        or AuthzConstants.POLICY_CORRESPONDENCE_SBLBRIDGE
+                        or AuthzConstants.POLICY_SCOPE_APPDEPLOY
+                }
         );
     }
 

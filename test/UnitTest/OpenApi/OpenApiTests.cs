@@ -15,47 +15,42 @@ public class OpenApiTests(TestApplicationFactory<Program> factory)
     [Fact]
     public async Task VerifyFullSwagger()
     {
-        using var client = factory.CreateClient();
+        string parsedDoc = await GetSwaggerDocument(SwaggerExtensions.CompleteSwaggerDocName);
 
-        var response = await client.GetAsync(
-            $"/swagger/{SwaggerExtensions.CompleteSwaggerDocName}/swagger.json"
-        );
-        var swaggerJson = await response.Content.ReadAsStringAsync();
-        // output.WriteLine(swaggerJson);
-        response.EnsureSuccessStatusCode();
-        var readResult = OpenApiDocument.Parse(swaggerJson);
-        Assert.NotNull(readResult.Diagnostic);
-        Assert.Empty(readResult.Diagnostic.Errors);
-        Assert.NotNull(readResult.Document);
-        var document = readResult.Document;
-        // document.Info.Version = ""; // This includes the nuget version
-        var parsedDoc = await document.SerializeAsJsonAsync(
-            readResult.Diagnostic.SpecificationVersion
-        );
+        await Verifier.VerifyJson(parsedDoc, _verifySettings);
+    }
+
+    [Fact]
+    public async Task VerifyApimSwagger()
+    {
+        string parsedDoc = await GetSwaggerDocument(SwaggerExtensions.ApimSwaggerDocName);
+
         await Verifier.VerifyJson(parsedDoc, _verifySettings);
     }
 
     [Fact]
     public async Task VerifyPublicDocSwagger()
     {
+        string parsedDoc = await GetSwaggerDocument(SwaggerExtensions.V1PublicSwaggerDocName);
+
+        await Verifier.VerifyJson(parsedDoc, _verifySettings);
+    }
+
+    private async Task<string> GetSwaggerDocument(string documentName)
+    {
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync(
-            $"/swagger/{SwaggerExtensions.V1PublicSwaggerDocName}/swagger.json"
-        );
+        var response = await client.GetAsync($"/swagger/{documentName}/swagger.json");
         var swaggerJson = await response.Content.ReadAsStringAsync();
-        // output.WriteLine(swaggerJson);
         response.EnsureSuccessStatusCode();
         var readResult = OpenApiDocument.Parse(swaggerJson);
         Assert.NotNull(readResult.Diagnostic);
         Assert.Empty(readResult.Diagnostic.Errors);
         Assert.NotNull(readResult.Document);
-        var document = readResult.Document;
-        // document.Info.Version = ""; // This includes the nuget version
-        var parsedDoc = await document.SerializeAsJsonAsync(
+
+        return await readResult.Document.SerializeAsJsonAsync(
             readResult.Diagnostic.SpecificationVersion
         );
-        await Verifier.VerifyJson(parsedDoc, _verifySettings);
     }
 
     private static VerifySettings _verifySettings
