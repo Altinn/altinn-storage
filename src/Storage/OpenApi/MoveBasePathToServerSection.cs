@@ -12,7 +12,7 @@ public class MoveBasePathToServerSection : Swashbuckle.AspNetCore.SwaggerGen.IDo
     private const string _prefix = "/storage/api/v1";
 
     private readonly string _documentName;
-    private readonly OpenApiServer? _gatewayServer;
+    private readonly bool _omitServers;
 
     /// <summary>
     /// Appends the base path to the servers already documented for the swagger document.
@@ -23,12 +23,12 @@ public class MoveBasePathToServerSection : Swashbuckle.AspNetCore.SwaggerGen.IDo
     }
 
     /// <summary>
-    /// Documents a single gateway server, url unchanged, for gateways that add the base path themselves.
+    /// Leaves the swagger document without a server section, for consumers that supply their own base url.
     /// </summary>
-    public MoveBasePathToServerSection(string documentName, OpenApiServer gatewayServer)
+    public MoveBasePathToServerSection(string documentName, bool omitServers)
     {
         _documentName = documentName;
-        _gatewayServer = gatewayServer;
+        _omitServers = omitServers;
     }
 
     /// <inheritdoc/>
@@ -62,9 +62,9 @@ public class MoveBasePathToServerSection : Swashbuckle.AspNetCore.SwaggerGen.IDo
 
     private void RewriteServers(OpenApiDocument swaggerDoc)
     {
-        if (_gatewayServer is not null)
+        if (_omitServers)
         {
-            swaggerDoc.Servers = [_gatewayServer];
+            swaggerDoc.Servers = [];
             return;
         }
 

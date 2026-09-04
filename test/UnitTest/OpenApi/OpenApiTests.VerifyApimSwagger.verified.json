@@ -5,11 +5,6 @@
     "description": "This is the API for Altinn Platform Storage as it is exposed through API Management. It contains every Storage endpoint, including the ones that are only reachable through API Management.",
     "version": "v1"
   },
-  "servers": [
-    {
-      "url": "https://platform.env.altinn.cloud"
-    }
-  ],
   "paths": {
     "/applications": {
       "get": {
