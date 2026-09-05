@@ -1,5 +1,15 @@
-ALTER TABLE storage.dataelements
-ADD COLUMN IF NOT EXISTS currentblobversion UUID NULL;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_attribute
+        WHERE attrelid = 'storage.dataelements'::regclass
+          AND attname = 'currentblobversion'
+          AND attnum > 0 AND NOT attisdropped
+    ) THEN
+        ALTER TABLE storage.dataelements
+        ADD COLUMN IF NOT EXISTS currentblobversion UUID NULL;
+    END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS storage.dataelementblobversions (
     id UUID PRIMARY KEY,
