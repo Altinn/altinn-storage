@@ -207,6 +207,33 @@ public class InstanceRepositoryMock : IInstanceRepository
         return Task.FromResult(instance);
     }
 
+    public async Task<InstanceInternal> UpdateDataValues(
+        Guid instanceGuid,
+        Dictionary<string, string> dataValues,
+        int? expectedInstanceVersion = null,
+        int? expectedProcessStateVersion = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        InstanceInternal instance = await GetOne(instanceGuid, true, cancellationToken);
+        ThrowIfVersionMismatch(instance, expectedInstanceVersion, expectedProcessStateVersion);
+        instance.DataValues ??= [];
+        foreach (var (key, value) in dataValues)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                instance.DataValues.Remove(key);
+            }
+            else
+            {
+                instance.DataValues[key] = value;
+            }
+        }
+
+        instance.Versions = GetVersions(instance);
+        return instance;
+    }
+
     public Task<InstanceInternal> UpdateReadStatus(
         InstanceInternal instanceInternal,
         CancellationToken cancellationToken
