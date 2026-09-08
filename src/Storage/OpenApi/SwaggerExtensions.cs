@@ -64,7 +64,7 @@ public static class SwaggerExtensions
             CompleteSwaggerDocName,
             new OpenApiInfo { Title = "Altinn Platform Storage - complete", Version = "v1" }
         );
-        c.AddServer(new() { Url = "https://platform.tt02.altinn.no", Description = "T02" });
+        c.AddServer(new() { Url = "https://platform.tt02.altinn.no", Description = "TT02" });
         c.AddServer(new() { Url = "https://platform.altinn.no", Description = "Production" });
 
         c.DocInclusionPredicate(
