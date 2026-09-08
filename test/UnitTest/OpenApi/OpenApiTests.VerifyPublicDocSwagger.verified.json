@@ -8,7 +8,7 @@
   "servers": [
     {
       "url": "https://platform.tt02.altinn.no/storage/api/v1",
-      "description": "T02"
+      "description": "TT02"
     },
     {
       "url": "https://platform.altinn.no/storage/api/v1",
