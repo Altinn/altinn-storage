@@ -25,6 +25,22 @@ public interface IInstanceRepository
     );
 
     /// <summary>
+    /// Gets a page of the instances an instance owner holds, oldest first by creation time.
+    /// Anything awaiting permanent deletion is left out.
+    /// </summary>
+    /// <param name="partyId">The party id of the instance owner.</param>
+    /// <param name="size">The maximum number of instances to return.</param>
+    /// <param name="continueFrom">The cursor from the previous page, or <c>null</c> to start at the oldest instance.</param>
+    /// <param name="cancellationToken">CancellationToken</param>
+    /// <returns>The domain query result.</returns>
+    Task<InstanceQueryResult> GetInstancesForParty(
+        int partyId,
+        int size,
+        InstanceContinuationToken? continueFrom,
+        CancellationToken cancellationToken
+    );
+
+    /// <summary>
     /// Get an instance for a given instance id
     /// </summary>
     /// <param name="instanceGuid">the instance guid</param>
