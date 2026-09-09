@@ -77,6 +77,27 @@ public interface IInstanceRepository
     );
 
     /// <summary>
+    /// Applies a data-values patch without changing process status or storage-owned versions.
+    /// </summary>
+    /// <remarks>
+    /// Null or empty values remove keys. Preconditions fence versioned instance changes, not other
+    /// standalone data-values patches. Concurrent writes to the same key use the last committed value.
+    /// </remarks>
+    /// <param name="instanceGuid">The instance to update.</param>
+    /// <param name="dataValues">Only the keys to add, replace, or remove.</param>
+    /// <param name="expectedInstanceVersion">Optional expected instance version.</param>
+    /// <param name="expectedProcessStateVersion">Optional expected process-state version.</param>
+    /// <param name="cancellationToken">CancellationToken</param>
+    /// <returns>The current instance and storage-owned versions from the mutation transaction.</returns>
+    Task<InstanceInternal> UpdateDataValues(
+        Guid instanceGuid,
+        Dictionary<string, string> dataValues,
+        int? expectedInstanceVersion = null,
+        int? expectedProcessStateVersion = null,
+        CancellationToken cancellationToken = default
+    );
+
+    /// <summary>
     /// Updates only the instance read status without bumping storage-owned versions.
     /// </summary>
     /// <param name="instanceInternal">The instance to update with internal metadata.</param>

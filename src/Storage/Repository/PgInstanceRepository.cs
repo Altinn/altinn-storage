@@ -40,6 +40,8 @@ public class PgInstanceRepository : IInstanceRepository
         + " @_expectedinstanceversion, @_expectedprocessstateversion)";
 
     private readonly string _readSql = "select * from storage.readinstance_v2 ($1)";
+    private const string _updateDataValuesSql =
+        "select * from storage.updateinstance_datavalues ($1, $2, $3, $4)";
     private readonly string _updateReadStatusSql =
         "select * from storage.updateinstance_readstatus ($1, $2)";
     private readonly string _readSqlFiltered = _readSqlFilteredInitial;
@@ -562,6 +564,58 @@ public class PgInstanceRepository : IInstanceRepository
         );
         result.Data = instance.Data;
         return result;
+    }
+
+    /// <inheritdoc/>
+    public async Task<InstanceInternal> UpdateDataValues(
+        Guid instanceGuid,
+        Dictionary<string, string> dataValues,
+        int? expectedInstanceVersion = null,
+        int? expectedProcessStateVersion = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        Dictionary<string, string> patch = dataValues.ToDictionary(
+            entry => entry.Key,
+            entry => string.IsNullOrEmpty(entry.Value) ? null : entry.Value
+        );
+        await using NpgsqlCommand command = _dataSource.CreateCommand(_updateDataValuesSql);
+        command.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
+        command.Parameters.AddWithValue(NpgsqlDbType.Jsonb, patch);
+        command.Parameters.AddWithValue(
+            NpgsqlDbType.Integer,
+            expectedInstanceVersion ?? (object)DBNull.Value
+        );
+        command.Parameters.AddWithValue(
+            NpgsqlDbType.Integer,
+            expectedProcessStateVersion ?? (object)DBNull.Value
+        );
+
+        await using NpgsqlDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await InstanceResultReader.ReadAsync(
+                reader,
+                includeElements: true,
+                cancellationToken,
+                firstRowCallback: row =>
+                {
+                    string result = row.GetFieldValue<string>(row.GetOrdinal("result"));
+                    if (result != "ok")
+                    {
+                        throw result switch
+                        {
+                            "not_found" => CreateInstanceNotFoundException(),
+                            "instance_version_mismatch" => CreateInstanceVersionMismatchException(
+                                row
+                            ),
+                            "process_state_version_mismatch" =>
+                                CreateProcessStateVersionMismatchException(row),
+                            _ => new UnreachableException(
+                                $"Unexpected instance update result '{result}'."
+                            ),
+                        };
+                    }
+                }
+            ) ?? throw CreateMissingUpdateResultException("storage.updateinstance_datavalues");
     }
 
     /// <inheritdoc/>

@@ -36,7 +36,6 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Status,
         Substatus,
         PresentationTexts,
-        DataValues,
         CompleteConfirmations,
         Process,
         ProcessAndStatus,
@@ -331,7 +330,6 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     [InlineData(InstanceUpdateShape.Status, ProcessStatus.Processing)]
     [InlineData(InstanceUpdateShape.Substatus, ProcessStatus.Processing)]
     [InlineData(InstanceUpdateShape.PresentationTexts, ProcessStatus.Processing)]
-    [InlineData(InstanceUpdateShape.DataValues, ProcessStatus.Processing)]
     [InlineData(InstanceUpdateShape.CompleteConfirmations, ProcessStatus.Processing)]
     [InlineData(InstanceUpdateShape.Process, ProcessStatus.Processing)]
     [InlineData(InstanceUpdateShape.ProcessAndStatus, ProcessStatus.Processing)]
@@ -511,7 +509,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     }
 
     [Fact]
-    public async Task Instance_Update_DataValuesAndProcess_DoesNotApplyProcessThroughTopLevelProperties()
+    public async Task Instance_Update_PresentationTextsAndProcess_DoesNotApplyProcessThroughTopLevelProperties()
     {
         InstanceInternal instance = await _instanceFixture.InstanceRepo.Create(
             TestData.Instance_1_1.Clone().FromApiModel(),
@@ -520,7 +518,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Guid instanceGuid = instance.Id;
         StorageVersions versionsBefore = instance.Versions;
         string originalTaskId = instance.Process.CurrentTask.ElementId;
-        instance.DataValues["combined-update"] = "applied";
+        instance.PresentationTexts = new() { ["combined-update"] = "applied" };
         instance.Process = new ProcessState
         {
             Status = ProcessStatus.Processing,
@@ -530,11 +528,15 @@ public class InstanceTests : IClassFixture<InstanceFixture>
 
         InstanceInternal result = await _instanceFixture.InstanceRepo.Update(
             instance,
-            [nameof(instance.DataValues), nameof(instance.Process), nameof(instance.LastChanged)],
+            [
+                nameof(instance.PresentationTexts),
+                nameof(instance.Process),
+                nameof(instance.LastChanged),
+            ],
             cancellationToken: CancellationToken.None
         );
 
-        Assert.Equal("applied", result.DataValues["combined-update"]);
+        Assert.Equal("applied", result.PresentationTexts["combined-update"]);
         Assert.Equal(originalTaskId, result.Process.CurrentTask.ElementId);
         Assert.Null(result.Process.Status);
         Assert.Equal(
@@ -607,6 +609,358 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Assert.Equal(versionsBefore, result.Versions);
         Assert.Equal(versionsBefore, await ReadStoredVersions(instanceGuid));
         Assert.Equal("processing", await ReadStoredProcessStatus(instanceGuid));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Instance_UpdateDataValues_PatchesOnlyRequestedKeysWithoutVersionBump(
+        bool sendPreconditions
+    )
+    {
+        InstanceInternal input = TestData.Instance_1_1.Clone().FromApiModel();
+        input.Process.Status = ProcessStatus.Processing;
+        input.DataValues = new()
+        {
+            ["preserved"] = "value",
+            ["replaced"] = "old",
+            ["remove-null"] = "old",
+            ["remove-empty"] = "old",
+        };
+        InstanceInternal instance = await _instanceFixture.InstanceRepo.Create(
+            input,
+            CancellationToken.None
+        );
+        string processBefore = JsonSerializer.Serialize(instance.Process);
+        StorageVersions versions = instance.Versions;
+
+        InstanceInternal updated = await _instanceFixture.InstanceRepo.UpdateDataValues(
+            instance.Id,
+            new Dictionary<string, string>
+            {
+                ["replaced"] = "new",
+                ["dialog.id"] = "dialog-1",
+                ["remove-null"] = null,
+                ["remove-empty"] = string.Empty,
+            },
+            sendPreconditions ? versions.InstanceVersion : null,
+            sendPreconditions ? versions.ProcessStateVersion : null
+        );
+
+        Assert.Equal(3, updated.DataValues.Count);
+        Assert.Equal("value", updated.DataValues["preserved"]);
+        Assert.Equal("new", updated.DataValues["replaced"]);
+        Assert.Equal("dialog-1", updated.DataValues["dialog.id"]);
+        Assert.Equal(processBefore, JsonSerializer.Serialize(updated.Process));
+        Assert.Equal(instance.LastChanged, updated.LastChanged);
+        Assert.Equal(instance.LastChangedBy, updated.LastChangedBy);
+        Assert.Equal(versions, updated.Versions);
+        InstanceInternal persisted = await _instanceFixture.InstanceRepo.GetOne(
+            instance.Id,
+            true,
+            CancellationToken.None
+        );
+        Assert.Equal(JsonSerializer.Serialize(updated), JsonSerializer.Serialize(persisted));
+    }
+
+    [Fact]
+    public async Task Instance_UpdateDataValues_DataValuesKeyAbsent_CreatesCollectionWithoutVersionBump()
+    {
+        InstanceInternal instance = await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone().FromApiModel(),
+            CancellationToken.None
+        );
+        await PostgresUtil.RunSql(
+            $$"""
+            update storage.instances
+            set instance = instance - 'DataValues'
+            where alternateid = '{{instance.Id}}'
+            """
+        );
+        StorageVersions versions = instance.Versions;
+
+        InstanceInternal updated = await _instanceFixture.InstanceRepo.UpdateDataValues(
+            instance.Id,
+            new Dictionary<string, string> { ["dialog.id"] = "dialog-1", ["missing"] = null }
+        );
+
+        KeyValuePair<string, string> only = Assert.Single(updated.DataValues);
+        Assert.Equal("dialog.id", only.Key);
+        Assert.Equal("dialog-1", only.Value);
+        Assert.Equal(versions, updated.Versions);
+        InstanceInternal persisted = await _instanceFixture.InstanceRepo.GetOne(
+            instance.Id,
+            true,
+            CancellationToken.None
+        );
+        Assert.Equal(JsonSerializer.Serialize(updated), JsonSerializer.Serialize(persisted));
+    }
+
+    [Fact]
+    public async Task Instance_UpdateDataValues_DataValuesJsonNull_CreatesCollectionWithoutVersionBump()
+    {
+        InstanceInternal instance = await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone().FromApiModel(),
+            CancellationToken.None
+        );
+        await PostgresUtil.RunSql(
+            $$"""
+            update storage.instances
+            set instance = jsonb_set(instance, '{DataValues}', 'null'::jsonb)
+            where alternateid = '{{instance.Id}}'
+            """
+        );
+        StorageVersions versions = instance.Versions;
+
+        InstanceInternal updated = await _instanceFixture.InstanceRepo.UpdateDataValues(
+            instance.Id,
+            new Dictionary<string, string> { ["dialog.id"] = "dialog-1", ["missing"] = null }
+        );
+
+        KeyValuePair<string, string> only = Assert.Single(updated.DataValues);
+        Assert.Equal("dialog.id", only.Key);
+        Assert.Equal("dialog-1", only.Value);
+        Assert.Equal(versions, updated.Versions);
+        InstanceInternal persisted = await _instanceFixture.InstanceRepo.GetOne(
+            instance.Id,
+            true,
+            CancellationToken.None
+        );
+        Assert.Equal(JsonSerializer.Serialize(updated), JsonSerializer.Serialize(persisted));
+    }
+
+    [Fact]
+    public async Task Instance_UpdateDataValues_ConcurrentPatchesWithSamePreconditions_PreserveBothChanges()
+    {
+        InstanceInternal instance = await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone().FromApiModel(),
+            CancellationToken.None
+        );
+        StorageVersions versions = instance.Versions;
+        await using NpgsqlConnection gate = await _instanceFixture.DataSource.OpenConnectionAsync();
+        await using NpgsqlTransaction transaction = await gate.BeginTransactionAsync();
+        await using NpgsqlCommand command = new(
+            "select 1 from storage.instances where alternateid = $1 for update",
+            gate,
+            transaction
+        );
+        command.Parameters.AddWithValue(NpgsqlDbType.Uuid, instance.Id);
+        await command.ExecuteScalarAsync();
+
+        Task<InstanceInternal> first = _instanceFixture.InstanceRepo.UpdateDataValues(
+            instance.Id,
+            new Dictionary<string, string> { ["first"] = "one" },
+            versions.InstanceVersion,
+            versions.ProcessStateVersion
+        );
+        Task<InstanceInternal> second = _instanceFixture.InstanceRepo.UpdateDataValues(
+            instance.Id,
+            new Dictionary<string, string> { ["second"] = "two" },
+            versions.InstanceVersion,
+            versions.ProcessStateVersion
+        );
+        try
+        {
+            await WaitForBlockedDatabaseCalls(
+                "storage.updateinstance_datavalues",
+                expectedCount: 2
+            );
+        }
+        finally
+        {
+            await transaction.RollbackAsync();
+            await Task.WhenAll(first, second);
+        }
+
+        InstanceInternal persisted = await _instanceFixture.InstanceRepo.GetOne(
+            instance.Id,
+            true,
+            CancellationToken.None
+        );
+        Assert.Equal("one", persisted.DataValues["first"]);
+        Assert.Equal("two", persisted.DataValues["second"]);
+        Assert.Equal(versions, persisted.Versions);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(ExpectedVersionKind.Instance)]
+    [InlineData(ExpectedVersionKind.ProcessState)]
+    public async Task Instance_UpdateDataValues_RacingProcessChange_ChecksLockedVersionsAndPreservesProcess(
+        ExpectedVersionKind? versionKind
+    )
+    {
+        InstanceInternal instance = await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone().FromApiModel(),
+            CancellationToken.None
+        );
+        StorageVersions versions = instance.Versions;
+        await using NpgsqlConnection gate = await _instanceFixture.DataSource.OpenConnectionAsync();
+        await using NpgsqlTransaction transaction = await gate.BeginTransactionAsync();
+        await using NpgsqlCommand command = new(
+            """
+            update storage.instances
+            set instance = jsonb_set(instance, '{Process}', '{"Status":"processing","CurrentTask":{"ElementId":"Task_New"}}'::jsonb),
+                instance_version = instance_version + 1, process_state_version = process_state_version + 1
+            where alternateid = $1
+            """,
+            gate,
+            transaction
+        );
+        command.Parameters.AddWithValue(NpgsqlDbType.Uuid, instance.Id);
+        await command.ExecuteNonQueryAsync();
+
+        Task<InstanceInternal> patch = _instanceFixture.InstanceRepo.UpdateDataValues(
+            instance.Id,
+            new Dictionary<string, string> { ["dialog.id"] = "dialog-1" },
+            versionKind == ExpectedVersionKind.Instance ? versions.InstanceVersion : null,
+            versionKind == ExpectedVersionKind.ProcessState ? versions.ProcessStateVersion : null
+        );
+        try
+        {
+            await WaitForBlockedDatabaseCalls(
+                "storage.updateinstance_datavalues",
+                expectedCount: 1
+            );
+        }
+        finally
+        {
+            await transaction.CommitAsync();
+        }
+
+        if (versionKind is not null)
+        {
+            StorageVersionMismatchException exception =
+                await Assert.ThrowsAnyAsync<StorageVersionMismatchException>(() => patch);
+            Assert.IsType(
+                versionKind == ExpectedVersionKind.Instance
+                    ? typeof(InstanceVersionMismatchException)
+                    : typeof(ProcessStateVersionMismatchException),
+                exception
+            );
+        }
+        else
+        {
+            InstanceInternal updated = await patch;
+            Assert.Equal("dialog-1", updated.DataValues["dialog.id"]);
+            Assert.Equal("Task_New", updated.Process.CurrentTask.ElementId);
+        }
+
+        InstanceInternal persisted = await _instanceFixture.InstanceRepo.GetOne(
+            instance.Id,
+            true,
+            CancellationToken.None
+        );
+        Assert.Equal(ProcessStatus.Processing, persisted.Process.Status);
+        Assert.Equal("Task_New", persisted.Process.CurrentTask.ElementId);
+        Assert.Equal(versionKind is null, persisted.DataValues?.ContainsKey("dialog.id") == true);
+        Assert.Equal(
+            new StorageVersions(versions.InstanceVersion + 1, versions.ProcessStateVersion + 1),
+            persisted.Versions
+        );
+    }
+
+    [Fact]
+    public async Task Instance_UpdateDataValues_MissingInstance_ThrowsNotFound()
+    {
+        RepositoryException exception = await Assert.ThrowsAsync<RepositoryException>(() =>
+            _instanceFixture.InstanceRepo.UpdateDataValues(
+                Guid.NewGuid(),
+                new Dictionary<string, string> { ["key"] = "value" }
+            )
+        );
+        Assert.Equal(HttpStatusCode.NotFound, exception.StatusCodeSuggestion);
+    }
+
+    [Fact]
+    public async Task Instance_UpdateDataValues_BetweenMutations_ApplyAndReplayReturnCurrentDataValues()
+    {
+        IInstanceMutationRepository mutations = (IInstanceMutationRepository)
+            ServiceUtil.GetServices([typeof(IInstanceMutationRepository)])[0];
+        InstanceInternal created = await _instanceFixture.InstanceRepo.Create(
+            TestData.Instance_1_1.Clone().FromApiModel(),
+            CancellationToken.None
+        );
+        InstanceInternal instance = await _instanceFixture.InstanceRepo.GetOne(
+            created.Id,
+            true,
+            CancellationToken.None
+        );
+        StorageVersions initialVersions = instance.Versions;
+
+        await _instanceFixture.InstanceRepo.UpdateDataValues(
+            instance.Id,
+            new Dictionary<string, string> { ["dialog.id"] = "dialog-1" }
+        );
+        instance.Process.Status = ProcessStatus.Processing;
+        var processMutation = new InstanceMutationCommit(
+            CreateDataElements: [],
+            UpdateDataElements: [],
+            DeleteDataElements: [],
+            InstanceUpdates: instance,
+            InstanceUpdateProperties: [nameof(instance.Process)],
+            ExpectedInstanceVersion: initialVersions.InstanceVersion,
+            ExpectedProcessStateVersion: initialVersions.ProcessStateVersion,
+            InstanceEvents: [],
+            IdempotencyKey: Guid.NewGuid()
+        );
+        InstanceMutationApplyResult processResult = await mutations.Apply(
+            instance.Id,
+            instance.InternalId,
+            processMutation
+        );
+        Assert.Equal("dialog-1", processResult.Instance.DataValues["dialog.id"]);
+        Assert.Equal(ProcessStatus.Processing, processResult.Instance.Process.Status);
+        Assert.Equal(
+            initialVersions.InstanceVersion + 1,
+            processResult.Instance.Versions.InstanceVersion
+        );
+
+        await _instanceFixture.InstanceRepo.UpdateDataValues(
+            instance.Id,
+            new Dictionary<string, string> { ["dialog.id"] = "dialog-2" }
+        );
+        processResult.Instance.DataValues = new() { ["case.number"] = "42" };
+        var dataValuesMutation = new InstanceMutationCommit(
+            CreateDataElements: [],
+            UpdateDataElements: [],
+            DeleteDataElements: [],
+            InstanceUpdates: processResult.Instance,
+            InstanceUpdateProperties: [nameof(instance.DataValues)],
+            ExpectedInstanceVersion: processResult.Instance.Versions.InstanceVersion,
+            ExpectedProcessStateVersion: processResult.Instance.Versions.ProcessStateVersion,
+            InstanceEvents: [],
+            IdempotencyKey: Guid.NewGuid()
+        );
+        InstanceMutationApplyResult dataValuesResult = await mutations.Apply(
+            instance.Id,
+            instance.InternalId,
+            dataValuesMutation
+        );
+        Assert.Equal("dialog-2", dataValuesResult.Instance.DataValues["dialog.id"]);
+        Assert.Equal("42", dataValuesResult.Instance.DataValues["case.number"]);
+        Assert.Equal(ProcessStatus.Processing, dataValuesResult.Instance.Process.Status);
+        Assert.Equal(
+            processResult.Instance.Versions.InstanceVersion + 1,
+            dataValuesResult.Instance.Versions.InstanceVersion
+        );
+        Assert.Equal(
+            processResult.Instance.Versions.ProcessStateVersion,
+            dataValuesResult.Instance.Versions.ProcessStateVersion
+        );
+
+        await _instanceFixture.InstanceRepo.UpdateDataValues(
+            instance.Id,
+            new Dictionary<string, string> { ["dialog.id"] = "dialog-3" }
+        );
+        InstanceMutationApplyResult replay = await mutations.Apply(
+            instance.Id,
+            instance.InternalId,
+            dataValuesMutation
+        );
+        Assert.True(replay.Replayed);
+        Assert.Equal("dialog-3", replay.Instance.DataValues["dialog.id"]);
+        Assert.Equal(dataValuesResult.Instance.Versions, replay.Instance.Versions);
     }
 
     [Fact]
@@ -1076,48 +1430,6 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         Assert.Equal(newInstance.LastChanged, updatedInstance.LastChanged);
         Assert.Equal(newInstance.LastChangedBy, updatedInstance.LastChangedBy);
         Assert.Equal(unchangedSofteDeleted, updatedInstance.Status.SoftDeleted);
-    }
-
-    /// <summary>
-    /// Test update data values
-    /// </summary>
-    [Fact]
-    public async Task Instance_Update_DataValues_Ok()
-    {
-        // Arrange
-        InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
-        newInstance.DataValues = new() { { "k1", "v1" }, { "k2", "v2" } };
-        newInstance = await _instanceFixture.InstanceRepo.Create(
-            newInstance,
-            CancellationToken.None
-        );
-        newInstance.DataValues = new() { { "k2", null }, { "k3", "v3" } };
-        newInstance.LastChanged = DateTime.UtcNow;
-        newInstance.LastChangedBy = "unittest";
-
-        List<string> updateProperties = [];
-        updateProperties.Add(nameof(newInstance.LastChanged));
-        updateProperties.Add(nameof(newInstance.LastChangedBy));
-        updateProperties.Add(nameof(newInstance.DataValues));
-
-        // Act
-        InstanceInternal updatedInstance = await _instanceFixture.InstanceRepo.Update(
-            newInstance,
-            updateProperties,
-            cancellationToken: CancellationToken.None
-        );
-
-        // Assert
-        string sql =
-            $"select count(*) from storage.instances where alternateid = '{TestData.Instance_1_1.Id.Split('/').Last()}'"
-            + $" and instance ->> 'LastChangedBy' = 'unittest'";
-        int count = await PostgresUtil.RunCountQuery(sql);
-        Assert.Equal(1, count);
-        Assert.Equal(2, updatedInstance.DataValues.Count);
-        Assert.True(updatedInstance.DataValues.ContainsKey("k1"));
-        Assert.True(updatedInstance.DataValues.ContainsKey("k3"));
-        Assert.Equal(newInstance.LastChanged, updatedInstance.LastChanged);
-        Assert.Equal(newInstance.LastChangedBy, updatedInstance.LastChangedBy);
     }
 
     /// <summary>
@@ -2666,13 +2978,6 @@ public class InstanceTests : IClassFixture<InstanceFixture>
                     ["blocked-presentation"] = "value",
                 };
                 updateProperties.Add(nameof(instance.PresentationTexts));
-                break;
-            case InstanceUpdateShape.DataValues:
-                instance.DataValues = new Dictionary<string, string>
-                {
-                    ["blocked-data-value"] = "value",
-                };
-                updateProperties.Add(nameof(instance.DataValues));
                 break;
             case InstanceUpdateShape.CompleteConfirmations:
                 instance.CompleteConfirmations =

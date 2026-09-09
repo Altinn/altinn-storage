@@ -2582,7 +2582,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// Scenario:
     /// Add presentation fields to an instance that doesn't have any existing presentation fields
     /// Result:
-    /// Presentation fields are succesfully added and the updated instance returned.
+    /// Presentation fields are successfully added and the updated instance returned.
     /// </summary>
     [Fact]
     public async Task UpdatePresentationFields_NoPreviousFieldsSet_ReturnsUpdatedInstance()
@@ -2626,7 +2626,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// Scenario:
     /// Update an existing presentation field
     /// Result:
-    /// Presentation field are succesfully updated, other fields are untouched and the updated instance returned.
+    /// Presentation field are successfully updated, other fields are untouched and the updated instance returned.
     /// </summary>
     [Fact]
     public async Task UpdatePresentationFields_UpdateAnExistingPresentationField_ReturnsUpdatedInstance()
@@ -2671,7 +2671,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// Scenario:
     /// Delete an existing presentation field
     /// Result:
-    /// Presentation field is succesfully removed, other fields are untouched and the updated instance returned.
+    /// Presentation field is successfully removed, other fields are untouched and the updated instance returned.
     /// </summary>
     [Fact]
     public async Task UpdatePresentationFields_RemoveAnExistingPresentationField_ReturnsUpdatedInstance()
@@ -2718,7 +2718,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// Scenario:
     /// Add a new presentation field to an already existing collection of presentation fields
     /// Result:
-    /// Presentation field is succesfully added to existing collection and the updated instance returned.
+    /// Presentation field is successfully added to existing collection and the updated instance returned.
     /// </summary>
     [Fact]
     public async Task UpdatePresentationFields_AddNewPresentationFieldToExistingCollection_ReturnsUpdatedInstance()
@@ -2805,12 +2805,12 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
     /// <summary>
     /// Scenario:
-    /// Add the value of a data field to an instance that doesn't have any existing data values
+    /// Send a data values patch through the HTTP endpoint.
     /// Result:
-    /// Data values are succesfully added and the updated instance returned.
+    /// Data values are successfully added and the updated instance returned.
     /// </summary>
     [Fact]
-    public async Task UpdateDataValues_NoPreviousValuesSet_ReturnsUpdatedInstance()
+    public async Task UpdateDataValues_ReturnsUpdatedInstance()
     {
         // Arrange
         var dataValues = new DataValues
@@ -2839,132 +2839,10 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Dictionary<string, string> actual = updatedInstance.DataValues;
 
         // Assert
-        Assert.NotNull(actual);
-        Assert.Equal(2, actual.Keys.Count);
-    }
-
-    /// <summary>
-    /// Scenario:
-    /// Update an existing data value
-    /// Result:
-    /// Data values are succesfully updated, other values are untouched and the updated instance returned.
-    /// </summary>
-    [Fact]
-    public async Task UpdateDataValues_UpdateAnExistingDataValue_ReturnsUpdatedInstance()
-    {
-        // Arrange
-        var dataValues = new DataValues
-        {
-            Values = new Dictionary<string, string> { { "key1", "updatedvalue1" } },
-        };
-
-        int instanceOwnerPartyId = 1337;
-        string instanceGuid = "20a1353e-91cf-44d6-8ff7-f68993638ffe";
-        string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/datavalues";
-
-        HttpClient client = GetTestClient();
-
-        string token = PrincipalUtil.GetToken(3, 1337);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Put, requestUri)
-        {
-            Content = JsonContent.Create(dataValues, new MediaTypeHeaderValue("application/json")),
-        };
-
-        // Act
-        HttpResponseMessage response = await client.SendAsync(httpRequestMessage);
-
-        string json = await response.Content.ReadAsStringAsync();
-        Instance updatedInstance = JsonConvert.DeserializeObject<Instance>(json);
-        Dictionary<string, string> actual = updatedInstance.DataValues;
-
-        // Assert
-        Assert.Equal(2, actual.Keys.Count);
-        Assert.True(actual.ContainsKey("key2"));
-        Assert.Equal("updatedvalue1", actual["key1"]);
-    }
-
-    /// <summary>
-    /// Scenario:
-    /// Delete an existing data value
-    /// Result:
-    /// Data value is succesfully removed, other fields are untouched and the updated instance returned.
-    /// </summary>
-    [Fact]
-    public async Task UpdateDataValues_RemoveAnExistingDataValue_ReturnsUpdatedInstance()
-    {
-        // Arrange
-        const string removedKey = "key1";
-
-        var dataValues = new DataValues
-        {
-            Values = new Dictionary<string, string> { { removedKey, string.Empty } },
-        };
-
-        int instanceOwnerPartyId = 1337;
-        string instanceGuid = "20a1353e-91cf-44d6-8ff7-f68993638ffe";
-        string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/datavalues";
-
-        HttpClient client = GetTestClient();
-
-        string token = PrincipalUtil.GetToken(3, 1337);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Put, requestUri)
-        {
-            Content = JsonContent.Create(dataValues, new MediaTypeHeaderValue("application/json")),
-        };
-
-        // Act
-        HttpResponseMessage response = await client.SendAsync(httpRequestMessage);
-
-        string json = await response.Content.ReadAsStringAsync();
-        Instance updatedInstance = JsonConvert.DeserializeObject<Instance>(json);
-        Dictionary<string, string> actual = updatedInstance.DataValues;
-
-        // Assert
-        Assert.Single(actual.Keys);
-        Assert.True(actual.ContainsKey("key2"));
-        Assert.False(actual.ContainsKey(removedKey));
-    }
-
-    /// <summary>
-    /// Scenario:
-    /// Add a new data value to an already existing collection of data values
-    /// Result:
-    /// Data value is succesfully added to existing collection and the updated instance returned.
-    /// </summary>
-    [Fact]
-    public async Task UpdateDataValues_AddNewDataValueToExistingCollection_ReturnsUpdatedInstance()
-    {
-        // Arrange
-        var dataValues = new DataValues
-        {
-            Values = new Dictionary<string, string> { { "key3", "value3" } },
-        };
-
-        int instanceOwnerPartyId = 1337;
-        string instanceGuid = "20a1353e-91cf-44d6-8ff7-f68993638ffe";
-        string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/datavalues";
-
-        HttpClient client = GetTestClient();
-
-        string token = PrincipalUtil.GetToken(3, 1337);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Put, requestUri)
-        {
-            Content = JsonContent.Create(dataValues, new MediaTypeHeaderValue("application/json")),
-        };
-
-        // Act
-        HttpResponseMessage response = await client.SendAsync(httpRequestMessage);
-
-        string json = await response.Content.ReadAsStringAsync();
-        Instance updatedInstance = JsonConvert.DeserializeObject<Instance>(json);
-        Dictionary<string, string> actual = updatedInstance.DataValues;
-
-        // Assert
-        Assert.Equal(3, actual.Keys.Count);
-        Assert.Equal("value3", actual["key3"]);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(2, actual.Count);
+        Assert.Equal("value1", actual["key1"]);
+        Assert.Equal("value2", actual["key2"]);
     }
 
     /// <summary>
@@ -2973,6 +2851,58 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// Result:
     /// The existing collection is left as is, and a 400 Bad request is returned
     /// </summary>
+    [Fact]
+    public async Task UpdateDataValues_NullAndEmptyValuesInBody_ReachRepositoryUnchanged()
+    {
+        Guid instanceGuid = Guid.Parse("20a1353e-91cf-44d6-8ff7-f68993638ffe");
+        InstanceInternal instance = await new InstanceRepositoryMock().GetOne(
+            instanceGuid,
+            true,
+            CancellationToken.None
+        );
+        Mock<IInstanceRepository> repository = new(MockBehavior.Strict);
+        repository
+            .Setup(repo => repo.GetOne(instanceGuid, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(instance);
+        Dictionary<string, string> received = null;
+        repository
+            .Setup(repo =>
+                repo.UpdateDataValues(
+                    instanceGuid,
+                    It.IsAny<Dictionary<string, string>>(),
+                    null,
+                    null,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .Callback<Guid, Dictionary<string, string>, int?, int?, CancellationToken>(
+                (_, values, _, _, _) => received = values
+            )
+            .ReturnsAsync(instance);
+        HttpClient client = GetTestClient(repository);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337)
+        );
+        StringContent content = new(
+            """{"values":{"replace":"new","remove-null":null,"remove-empty":""}}""",
+            Encoding.UTF8,
+            "application/json"
+        );
+
+        HttpResponseMessage response = await client.PutAsync(
+            $"{BasePath}/1337/{instanceGuid}/datavalues",
+            content
+        );
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(3, received.Count);
+        Assert.Equal("new", received["replace"]);
+        Assert.Null(received["remove-null"]);
+        Assert.Equal(string.Empty, received["remove-empty"]);
+        repository.VerifyAll();
+    }
+
     [Theory]
     [MemberData(nameof(GetDataValuesData))]
     public async Task UpdateDataValues_PassingNullAsDataValues_Returns400(DataValues dataValues)
@@ -3005,7 +2935,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// Scenario:
     /// Add the value of a data field to an instance using the sync adapter scope should succeed
     /// Result:
-    /// Data values are succesfully added and the updated instance returned.
+    /// Data values are successfully added and the updated instance returned.
     /// </summary>
     [Fact]
     public async Task UpdateDataValues_NoPreviousValuesSet_WithSyncAdapterScope_ReturnsUpdatedInstance()
@@ -3044,6 +2974,131 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Assert.Equal(2, actual.Keys.Count);
     }
 
+    [Fact]
+    public async Task UpdateDataValues_ForwardsOnlySuppliedKeys_AndReturnsStorageSnapshot()
+    {
+        InstanceInternal instance = CreateInstanceForDataValuesUpdate();
+        var repository = new Mock<IInstanceRepository>(MockBehavior.Strict);
+        InstancesController controller = CreateControllerForDataValuesUpdate(repository, instance);
+        var patch = new Dictionary<string, string>
+        {
+            ["dialog.id"] = "dialog-1",
+            ["remove"] = null,
+        };
+        InstanceInternal updated = CreateInstanceForDataValuesUpdate();
+        updated.DataValues = new() { ["other"] = "latest", ["dialog.id"] = "dialog-1" };
+        updated.Versions = new StorageVersions(8, 12);
+        repository
+            .Setup(repo =>
+                repo.UpdateDataValues(
+                    instance.Id,
+                    It.Is<Dictionary<string, string>>(values =>
+                        values.Count == 2
+                        && values.ContainsKey("dialog.id")
+                        && values["dialog.id"] == "dialog-1"
+                        && values.ContainsKey("remove")
+                        && values["remove"] == null
+                    ),
+                    null,
+                    null,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(updated);
+
+        ActionResult<Instance> response = await controller.UpdateDataValues(
+            1337,
+            instance.Id,
+            new DataValues { Values = patch },
+            CancellationToken.None
+        );
+
+        Instance body = Assert.IsType<Instance>(
+            Assert.IsType<OkObjectResult>(response.Result).Value
+        );
+        Assert.Equal("latest", body.DataValues["other"]);
+        Assert.Equal("dialog-1", body.DataValues["dialog.id"]);
+        Assert.Equal("8", controller.Response.Headers[StorageHeaders.InstanceVersion]);
+        Assert.Equal("12", controller.Response.Headers[StorageHeaders.ProcessStateVersion]);
+        repository.VerifyAll();
+    }
+
+    [Fact]
+    public async Task UpdateDataValues_ForwardsPreconditions_AndReturns412WithCurrentVersionsOnMismatch()
+    {
+        InstanceInternal instance = CreateInstanceForDataValuesUpdate();
+        var repository = new Mock<IInstanceRepository>(MockBehavior.Strict);
+        InstancesController controller = CreateControllerForDataValuesUpdate(repository, instance);
+        repository
+            .Setup(repo =>
+                repo.UpdateDataValues(
+                    instance.Id,
+                    It.IsAny<Dictionary<string, string>>(),
+                    7,
+                    11,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(new InstanceVersionMismatchException(8, 12));
+
+        ActionResult<Instance> response = await controller.UpdateDataValues(
+            1337,
+            instance.Id,
+            new DataValues { Values = new() { ["dialog.id"] = "dialog-1" } },
+            CancellationToken.None,
+            "7",
+            "11"
+        );
+
+        Assert.Equal(
+            StatusCodes.Status412PreconditionFailed,
+            Assert.IsType<ObjectResult>(response.Result).StatusCode
+        );
+        Assert.Equal("8", controller.Response.Headers[StorageHeaders.InstanceVersion]);
+        Assert.Equal("12", controller.Response.Headers[StorageHeaders.ProcessStateVersion]);
+        repository.VerifyAll();
+    }
+
+    private static InstanceInternal CreateInstanceForDataValuesUpdate() =>
+        new()
+        {
+            Id = Guid.Parse("4a2c62bf-b1ad-47b7-95cc-22592453311c"),
+            InternalId = 42,
+            InstanceOwner = new InstanceOwner { PartyId = "1337" },
+            AppId = "ttd/test",
+            Org = "ttd",
+            Process = new ProcessState { Status = ProcessStatus.Processing },
+            DataValues = new() { ["other"] = "stale" },
+            Data = [],
+            Versions = new StorageVersions(7, 11),
+        };
+
+    private static InstancesController CreateControllerForDataValuesUpdate(
+        Mock<IInstanceRepository> repository,
+        InstanceInternal instance
+    )
+    {
+        repository
+            .Setup(repo => repo.GetOne(instance.Id, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(instance);
+        var authorizer = new Mock<IProcessAuthorizer>();
+        authorizer.Setup(auth => auth.AuthorizeDataValuesUpdate(instance)).ReturnsAsync(true);
+        return new InstancesController(
+            repository.Object,
+            Mock.Of<IPartiesWithInstancesClient>(),
+            NullLogger<InstancesController>.Instance,
+            Mock.Of<IAuthorization>(),
+            Mock.Of<IInstanceEventService>(),
+            Mock.Of<IRegisterService>(),
+            Mock.Of<IApplicationService>(),
+            Options.Create(new GeneralSettings()),
+            authorizer.Object
+        )
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
+        };
+    }
+
     public static IEnumerable<object[]> GetDataValuesData()
     {
         yield return new object[] { new DataValues() { Values = null } };
@@ -3055,7 +3110,6 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     [InlineData(GuardedInstanceUpdateRoute.Complete)]
     [InlineData(GuardedInstanceUpdateRoute.Substatus)]
     [InlineData(GuardedInstanceUpdateRoute.PresentationTexts)]
-    [InlineData(GuardedInstanceUpdateRoute.DataValues)]
     public async Task VersionBumpingInstanceUpdate_ProcessStatusConflict_ReturnsConflictWithoutEvent(
         GuardedInstanceUpdateRoute route
     )
@@ -3083,7 +3137,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     [InlineData(GuardedInstanceUpdateRoute.Substatus)]
     [InlineData(GuardedInstanceUpdateRoute.PresentationTexts)]
     [InlineData(GuardedInstanceUpdateRoute.DataValues)]
-    public async Task VersionBumpingInstanceUpdate_InstanceGone_ReturnsNotFoundWithoutEvent(
+    public async Task InstanceUpdate_InstanceGone_ReturnsNotFoundWithoutEvent(
         GuardedInstanceUpdateRoute route
     )
     {
@@ -3135,6 +3189,17 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                 instanceRepository.Update(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<List<string>>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(updateFailure);
+        repository
+            .Setup(instanceRepository =>
+                instanceRepository.UpdateDataValues(
+                    instanceGuid,
+                    It.IsAny<Dictionary<string, string>>(),
                     It.IsAny<int?>(),
                     It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
