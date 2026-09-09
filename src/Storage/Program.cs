@@ -100,20 +100,27 @@ async Task SetConfigurationProviders(ConfigurationManager config, bool isDevelop
 {
     string basePath = Directory.GetParent(Directory.GetCurrentDirectory()).FullName;
 
+    // A watching provider holds an open file system watcher for the lifetime of the host.
+    bool reloadOnChange = config.GetValue("ReloadConfigurationOnChange", true);
+
     config.SetBasePath(basePath);
-    config.AddJsonFile(basePath + @"altinn-appsettings/altinn-dbsettings-secret.json", true, true);
+    config.AddJsonFile(
+        basePath + @"altinn-appsettings/altinn-dbsettings-secret.json",
+        true,
+        reloadOnChange
+    );
 
     if (basePath == "/")
     {
         // In a pod/container where the app is located in an app folder on the root of the filesystem.
         string filePath = basePath + @"app/appsettings.json";
-        config.AddJsonFile(filePath, false, true);
+        config.AddJsonFile(filePath, false, reloadOnChange);
     }
     else
     {
         // Running on development machine.
         string filePath = Directory.GetCurrentDirectory() + @"/appsettings.json";
-        config.AddJsonFile(filePath, false, true);
+        config.AddJsonFile(filePath, false, reloadOnChange);
     }
 
     config.AddEnvironmentVariables();
