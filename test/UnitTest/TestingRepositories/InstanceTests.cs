@@ -2072,6 +2072,228 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     }
 
     [Fact]
+    public async Task Instance_GetInstancesForParty_WalksOldestToNewestAcrossBatches()
+    {
+        Instance first = TestData.Instance_1_1.Clone();
+        Instance second = TestData.Instance_1_2.Clone();
+        Instance otherParty = TestData.Instance_1_3.Clone();
+        first.Created = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        second.Created = new DateTime(2024, 1, 2, 0, 0, 0, DateTimeKind.Utc);
+        otherParty.Created = new DateTime(2024, 1, 3, 0, 0, 0, DateTimeKind.Utc);
+        await CreateApiInstance(first, CancellationToken.None);
+        await CreateApiInstance(second, CancellationToken.None);
+        await CreateApiInstance(otherParty, CancellationToken.None);
+
+        int partyId = Convert.ToInt32(first.InstanceOwner.PartyId);
+
+        InstanceQueryResult firstPage = await _instanceFixture.InstanceRepo.GetInstancesForParty(
+            partyId,
+            1,
+            null,
+            CancellationToken.None
+        );
+        Assert.Null(firstPage.Exception);
+        Assert.Equal(first.Id.Split('/').Last(), Assert.Single(firstPage.Instances).Id.ToString());
+        Assert.NotNull(firstPage.ContinuationToken);
+
+        Assert.True(
+            InstanceContinuationToken.TryParse(
+                firstPage.ContinuationToken,
+                out InstanceContinuationToken cursor
+            )
+        );
+        InstanceQueryResult secondPage = await _instanceFixture.InstanceRepo.GetInstancesForParty(
+            partyId,
+            1,
+            cursor,
+            CancellationToken.None
+        );
+        Assert.Equal(
+            second.Id.Split('/').Last(),
+            Assert.Single(secondPage.Instances).Id.ToString()
+        );
+
+        Assert.True(
+            InstanceContinuationToken.TryParse(
+                secondPage.ContinuationToken,
+                out InstanceContinuationToken lastCursor
+            )
+        );
+        InstanceQueryResult thirdPage = await _instanceFixture.InstanceRepo.GetInstancesForParty(
+            partyId,
+            1,
+            lastCursor,
+            CancellationToken.None
+        );
+        Assert.Empty(thirdPage.Instances);
+        Assert.Null(thirdPage.ContinuationToken);
+    }
+
+    [Fact]
+    public async Task Instance_GetInstancesForParty_AdvancesWhenInstanceDocumentHasNoCreated()
+    {
+        // A cursor taken from the document rather than the created column would fall back to
+        // DateTime.MinValue here and never advance.
+        Instance first = TestData.Instance_1_1.Clone();
+        Instance second = TestData.Instance_1_2.Clone();
+        first.Created = null;
+        second.Created = DateTime.UtcNow.AddDays(1);
+        await CreateApiInstance(first, CancellationToken.None);
+        await CreateApiInstance(second, CancellationToken.None);
+
+        int partyId = Convert.ToInt32(first.InstanceOwner.PartyId);
+        List<Guid> walked = [];
+        InstanceContinuationToken? cursor = null;
+
+        for (int batch = 0; batch < 3; batch++)
+        {
+            InstanceQueryResult page = await _instanceFixture.InstanceRepo.GetInstancesForParty(
+                partyId,
+                1,
+                cursor,
+                CancellationToken.None
+            );
+            Assert.Null(page.Exception);
+            walked.AddRange(page.Instances.Select(i => i.Id));
+
+            if (page.ContinuationToken is null)
+            {
+                break;
+            }
+
+            Assert.True(
+                InstanceContinuationToken.TryParse(
+                    page.ContinuationToken,
+                    out InstanceContinuationToken next
+                )
+            );
+            cursor = next;
+        }
+
+        Assert.Equal(
+            [Guid.Parse(first.Id.Split('/').Last()), Guid.Parse(second.Id.Split('/').Last())],
+            walked
+        );
+    }
+
+    [Fact]
+    public async Task Instance_GetInstancesForParty_IncludesDataElements()
+    {
+        Instance instance = TestData.Instance_1_1.Clone();
+        await CreateApiInstance(instance, CancellationToken.None);
+        InstanceInternal persisted = await _instanceFixture.InstanceRepo.GetOne(
+            Guid.Parse(instance.Id.Split('/').Last()),
+            false,
+            CancellationToken.None
+        );
+
+        DataElement element = TestDataUtil.GetDataElement("24bfec2e-c4ce-4e82-8fa9-aa39da329fd5");
+        element.InstanceGuid = persisted.Id.ToString();
+        string blobVersionId = await CreateBlobVersionId(
+            persisted.Id,
+            Guid.Parse(element.Id),
+            instance
+        );
+        await _instanceFixture.DataRepo.Create(
+            element.FromApiModel(blobVersionId),
+            persisted.InternalId,
+            cancellationToken: CancellationToken.None
+        );
+
+        InstanceQueryResult result = await _instanceFixture.InstanceRepo.GetInstancesForParty(
+            Convert.ToInt32(instance.InstanceOwner.PartyId),
+            100,
+            null,
+            CancellationToken.None
+        );
+
+        InstanceInternal returned = Assert.Single(result.Instances);
+        Assert.Equal(persisted.InternalId, returned.InternalId);
+        Assert.Equal(element.Id, Assert.Single(returned.Data).Id.ToString());
+        Assert.Equal(blobVersionId, Assert.Single(returned.Data).BlobVersionId);
+        Assert.Null(result.ContinuationToken);
+    }
+
+    [Fact]
+    public async Task Instance_GetInstancesForParty_ExcludesWhatAwaitsPermanentDeletion()
+    {
+        Instance deletedInstance = TestData.Instance_1_1.Clone();
+        Instance liveInstance = TestData.Instance_1_2.Clone();
+        await CreateApiInstance(deletedInstance, CancellationToken.None);
+        await CreateApiInstance(liveInstance, CancellationToken.None);
+
+        InstanceInternal persistedDeleted = await _instanceFixture.InstanceRepo.GetOne(
+            Guid.Parse(deletedInstance.Id.Split('/').Last()),
+            false,
+            CancellationToken.None
+        );
+        InstanceInternal persistedLive = await _instanceFixture.InstanceRepo.GetOne(
+            Guid.Parse(liveInstance.Id.Split('/').Last()),
+            false,
+            CancellationToken.None
+        );
+
+        DataElement keptElement = TestDataUtil.GetDataElement(
+            "24bfec2e-c4ce-4e82-8fa9-aa39da329fd5"
+        );
+        keptElement.InstanceGuid = persistedLive.Id.ToString();
+        await _instanceFixture.DataRepo.Create(
+            keptElement.FromApiModel(),
+            persistedLive.InternalId,
+            cancellationToken: CancellationToken.None
+        );
+
+        DataElement deletedElement = TestDataUtil.GetDataElement(
+            "1336b773-4ae2-4bdf-9529-d71dfc1c8b43"
+        );
+        deletedElement.InstanceGuid = persistedLive.Id.ToString();
+        deletedElement.DeleteStatus = new DeleteStatus
+        {
+            IsHardDeleted = true,
+            HardDeleted = DateTime.UtcNow,
+        };
+        await _instanceFixture.DataRepo.Create(
+            deletedElement.FromApiModel(),
+            persistedLive.InternalId,
+            cancellationToken: CancellationToken.None
+        );
+
+        await PostgresUtil.RunSql(
+            "update storage.instances set instance = jsonb_set(instance, '{Status,IsHardDeleted}', 'true') "
+                + $"where id = {persistedDeleted.InternalId}"
+        );
+
+        InstanceQueryResult result = await _instanceFixture.InstanceRepo.GetInstancesForParty(
+            Convert.ToInt32(liveInstance.InstanceOwner.PartyId),
+            100,
+            null,
+            CancellationToken.None
+        );
+
+        Assert.Null(result.Exception);
+        InstanceInternal returned = Assert.Single(result.Instances);
+        Assert.Equal(persistedLive.InternalId, returned.InternalId);
+        Assert.Equal(keptElement.Id, Assert.Single(returned.Data).Id.ToString());
+    }
+
+    [Fact]
+    public async Task Instance_GetInstancesForParty_ReturnsErrorResultOnCancellation()
+    {
+        using CancellationTokenSource cancellation = new();
+        await cancellation.CancelAsync();
+
+        InstanceQueryResult result = await _instanceFixture.InstanceRepo.GetInstancesForParty(
+            Convert.ToInt32(TestData.Instance_1_1.InstanceOwner.PartyId),
+            100,
+            null,
+            cancellation.Token
+        );
+
+        Assert.Empty(result.Instances);
+        Assert.NotNull(result.Exception);
+    }
+
+    [Fact]
     public async Task Instance_GetInstancesFromQuery_ReturnsErrorResultOnCancellation()
     {
         using CancellationTokenSource cancellation = new();

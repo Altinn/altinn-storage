@@ -183,6 +183,7 @@
     Altinn.Platform.Storage.Controllers.MigrationController.CreateText (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.MigrationController.CreateXsl (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.MigrationController.ProxyGeneratePdf (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.PartyInstancesController.GetInstancesForParty (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.ProcessController.GetForAuth (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.SblBridgeController.RegisterAltinn3CorrespondenceRecipient (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.SblBridgeController.SyncAltinn3CorrespondenceEvent (Altinn.Platform.Storage),

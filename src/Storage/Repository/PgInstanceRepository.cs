@@ -23,6 +23,7 @@ namespace Altinn.Platform.Storage.Repository;
 public class PgInstanceRepository : IInstanceRepository
 {
     private const string _elementColumn = "element";
+    private const string _createdColumn = "created";
     private const string _currentProcessStatusColumn = "currentprocessstatus";
     private const string _readSqlFilteredInitial =
         "select * from storage.readinstancefromquery_v9 (";
@@ -54,6 +55,8 @@ public class PgInstanceRepository : IInstanceRepository
         "select * from storage.readorphanblobversionsforcleanup ()";
     private readonly string _readSqlNoElements =
         "select * from storage.readinstancenoelements_v2 ($1)";
+    private readonly string _readForPartySql =
+        "select * from storage.readinstancesforparty_v1 ($1, $2, $3, $4)";
 
     private readonly ILogger<PgInstanceRepository> _logger;
     private readonly NpgsqlDataSource _dataSource;
@@ -162,6 +165,39 @@ public class PgInstanceRepository : IInstanceRepository
         catch (Exception e)
         {
             _logger.LogError(e, "Error running GetInstancesFromQuery");
+            return new() { Instances = [], Exception = e.Message };
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<InstanceQueryResult> GetInstancesForParty(
+        int partyId,
+        int size,
+        InstanceContinuationToken? continueFrom,
+        CancellationToken cancellationToken
+    )
+    {
+        try
+        {
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readForPartySql);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Bigint, (long)partyId);
+            pgcom.Parameters.AddWithValue(
+                NpgsqlDbType.TimestampTz,
+                continueFrom?.Timestamp ?? (object)DBNull.Value
+            );
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Bigint, continueFrom?.InternalId ?? -1);
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.Integer, size);
+
+            return await ReadInstancePageAsync(
+                pgcom,
+                size,
+                (reader, _) => reader.GetFieldValue<DateTime>(_createdColumn),
+                cancellationToken
+            );
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Error running GetInstancesForParty");
             return new() { Instances = [], Exception = e.Message };
         }
     }
@@ -438,9 +474,6 @@ public class PgInstanceRepository : IInstanceRepository
         CancellationToken cancellationToken
     )
     {
-        DateTime lastChanged = DateTime.MinValue;
-        InstanceQueryResult queryResult = new() { Instances = [] };
-
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readSqlFiltered);
 
         Dictionary<string, object> postgresParams = queryParams.GeneratePostgreSQLParameters();
@@ -460,6 +493,24 @@ public class PgInstanceRepository : IInstanceRepository
 #pragma warning restore CA2254 // Template should be a static expression
         }
 
+        return await ReadInstancePageAsync(
+            pgcom,
+            queryParams.Size,
+            (_, instance) => instance.LastChanged ?? DateTime.MinValue,
+            cancellationToken
+        );
+    }
+
+    private static async Task<InstanceQueryResult> ReadInstancePageAsync(
+        NpgsqlCommand pgcom,
+        int? size,
+        Func<NpgsqlDataReader, InstanceInternal, DateTime> continuationTimestamp,
+        CancellationToken cancellationToken
+    )
+    {
+        DateTime lastTimestamp = DateTime.MinValue;
+        InstanceQueryResult queryResult = new() { Instances = [] };
+
         await using (NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken))
         {
             long previousId = -1;
@@ -474,7 +525,7 @@ public class PgInstanceRepository : IInstanceRepository
                         "instance",
                         cancellationToken
                     );
-                    lastChanged = instance.LastChanged ?? DateTime.MinValue;
+                    lastTimestamp = continuationTimestamp(reader, instance);
                     instance.InternalId = id;
                     instance.Versions = InstanceResultReader.ReadVersions(reader);
                     instance.Data = [];
@@ -501,9 +552,7 @@ public class PgInstanceRepository : IInstanceRepository
             }
 
             queryResult.ContinuationToken =
-                queryResult.Instances.Count == queryParams.Size
-                    ? $"{lastChanged.Ticks};{id}"
-                    : null;
+                queryResult.Instances.Count == size ? $"{lastTimestamp.Ticks};{id}" : null;
         }
 
         Activity.Current?.AddTag("instanceCount", queryResult.Instances.Count.ToString());

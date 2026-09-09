@@ -20,12 +20,9 @@ using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Primitives;
 using Newtonsoft.Json;
 using Substatus = Altinn.Platform.Storage.Interface.Models.Substatus;
 
@@ -214,12 +211,18 @@ public class InstancesController : ControllerBase
             {
                 Instances = responseInstances,
                 Count = responseInstances.Count,
-                Self = BuildRequestLink(selfContinuationToken),
+                Self = Request.BuildContinuationLink(
+                    _generalSettings.Hostname,
+                    selfContinuationToken
+                ),
             };
 
             if (!string.IsNullOrEmpty(nextContinuationToken))
             {
-                response.Next = BuildRequestLink(nextContinuationToken);
+                response.Next = Request.BuildContinuationLink(
+                    _generalSettings.Hostname,
+                    nextContinuationToken
+                );
             }
 
             // add self links to platform
@@ -1374,7 +1377,10 @@ public class InstancesController : ControllerBase
                     new QueryResponse<Instance>()
                     {
                         Instances = [],
-                        Self = BuildRequestLink(selfContinuationToken),
+                        Self = Request.BuildContinuationLink(
+                            _generalSettings.Hostname,
+                            selfContinuationToken
+                        ),
                     }
                 );
             }
@@ -1479,36 +1485,6 @@ public class InstancesController : ControllerBase
                 .Data.Where(e => e.DeleteStatus?.IsHardDeleted != true)
                 .ToList();
         }
-    }
-
-    private string BuildRequestLink(string continuationToken)
-    {
-        string url = Request.Path;
-        string queryString = Request.QueryString.Value;
-        string host = $"https://platform.{_generalSettings.Hostname}";
-
-        if (string.IsNullOrEmpty(continuationToken))
-        {
-            return $"{host}{url}{queryString}";
-        }
-
-        Dictionary<string, StringValues> queryParams = QueryHelpers.ParseQuery(queryString);
-
-        var flattenedQueryParams = queryParams
-            .SelectMany(
-                x => x.Value,
-                (col, value) => new KeyValuePair<string, string>(col.Key, value)
-            )
-            .Where(e => e.Key != "continuationToken");
-
-        var queryBuilder = new QueryBuilder(flattenedQueryParams)
-        {
-            { "continuationToken", continuationToken },
-        };
-
-        var newQueryString = queryBuilder.ToQueryString().Value;
-
-        return $"{host}{url}{newQueryString}";
     }
 
     /// <summary>

@@ -317,6 +317,13 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
                 )
         )
         .AddPolicy(
+            AuthzConstants.POLICY_SCOPE_INSTANCES_SUPPORTDASHBOARD,
+            policy =>
+                policy.Requirements.Add(
+                    new ScopeAccessRequirement(generalSettings.InstanceSupportDashboardScope)
+                )
+        )
+        .AddPolicy(
             AuthzConstants.POLICY_CORRESPONDENCE_SBLBRIDGE,
             policy =>
                 policy.Requirements.Add(

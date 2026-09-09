@@ -3420,6 +3420,88 @@
         }
       }
     },
+    "/parties/{partyId}/instances": {
+      "get": {
+        "tags": [
+          "PartyInstances"
+        ],
+        "summary": "Retrieves the instances owned by a party, each with its data elements, ordered from oldest\nto newest by creation time. A next link is returned for as long as more instances remain.\nLater changes never reorder instances, so following the next links to the end yields every\ninstance the party held when the walk started. Anything awaiting permanent deletion is left out.",
+        "parameters": [
+          {
+            "name": "partyId",
+            "in": "path",
+            "description": "The party id of the instance owner.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "The maximum number of instances in one batch. Defaults to 50, at most 100.",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "continuationToken",
+            "in": "query",
+            "description": "The token from the previous batch. Omit it to start at the oldest instance.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceQueryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
     "/instances/{instanceOwnerPartyId}/{instanceGuid}/process": {
       "put": {
         "tags": [
@@ -6501,6 +6583,9 @@
     },
     {
       "name": "Migration"
+    },
+    {
+      "name": "PartyInstances"
     },
     {
       "name": "Process"
