@@ -2582,7 +2582,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// Scenario:
     /// Add presentation fields to an instance that doesn't have any existing presentation fields
     /// Result:
-    /// Presentation fields are succesfully added and the updated instance returned.
+    /// Presentation fields are successfully added and the updated instance returned.
     /// </summary>
     [Fact]
     public async Task UpdatePresentationFields_NoPreviousFieldsSet_ReturnsUpdatedInstance()
@@ -2626,7 +2626,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// Scenario:
     /// Update an existing presentation field
     /// Result:
-    /// Presentation field are succesfully updated, other fields are untouched and the updated instance returned.
+    /// Presentation field are successfully updated, other fields are untouched and the updated instance returned.
     /// </summary>
     [Fact]
     public async Task UpdatePresentationFields_UpdateAnExistingPresentationField_ReturnsUpdatedInstance()
@@ -2671,7 +2671,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// Scenario:
     /// Delete an existing presentation field
     /// Result:
-    /// Presentation field is succesfully removed, other fields are untouched and the updated instance returned.
+    /// Presentation field is successfully removed, other fields are untouched and the updated instance returned.
     /// </summary>
     [Fact]
     public async Task UpdatePresentationFields_RemoveAnExistingPresentationField_ReturnsUpdatedInstance()
@@ -2718,7 +2718,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// Scenario:
     /// Add a new presentation field to an already existing collection of presentation fields
     /// Result:
-    /// Presentation field is succesfully added to existing collection and the updated instance returned.
+    /// Presentation field is successfully added to existing collection and the updated instance returned.
     /// </summary>
     [Fact]
     public async Task UpdatePresentationFields_AddNewPresentationFieldToExistingCollection_ReturnsUpdatedInstance()
@@ -2807,7 +2807,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// Scenario:
     /// Send a data values patch through the HTTP endpoint.
     /// Result:
-    /// Data values are succesfully added and the updated instance returned.
+    /// Data values are successfully added and the updated instance returned.
     /// </summary>
     [Fact]
     public async Task UpdateDataValues_ReturnsUpdatedInstance()
@@ -2851,6 +2851,58 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// Result:
     /// The existing collection is left as is, and a 400 Bad request is returned
     /// </summary>
+    [Fact]
+    public async Task UpdateDataValues_NullAndEmptyValuesInBody_ReachRepositoryUnchanged()
+    {
+        Guid instanceGuid = Guid.Parse("20a1353e-91cf-44d6-8ff7-f68993638ffe");
+        InstanceInternal instance = await new InstanceRepositoryMock().GetOne(
+            instanceGuid,
+            true,
+            CancellationToken.None
+        );
+        Mock<IInstanceRepository> repository = new(MockBehavior.Strict);
+        repository
+            .Setup(repo => repo.GetOne(instanceGuid, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(instance);
+        Dictionary<string, string> received = null;
+        repository
+            .Setup(repo =>
+                repo.UpdateDataValues(
+                    instanceGuid,
+                    It.IsAny<Dictionary<string, string>>(),
+                    null,
+                    null,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .Callback<Guid, Dictionary<string, string>, int?, int?, CancellationToken>(
+                (_, values, _, _, _) => received = values
+            )
+            .ReturnsAsync(instance);
+        HttpClient client = GetTestClient(repository);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337)
+        );
+        StringContent content = new(
+            """{"values":{"replace":"new","remove-null":null,"remove-empty":""}}""",
+            Encoding.UTF8,
+            "application/json"
+        );
+
+        HttpResponseMessage response = await client.PutAsync(
+            $"{BasePath}/1337/{instanceGuid}/datavalues",
+            content
+        );
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(3, received.Count);
+        Assert.Equal("new", received["replace"]);
+        Assert.Null(received["remove-null"]);
+        Assert.Equal(string.Empty, received["remove-empty"]);
+        repository.VerifyAll();
+    }
+
     [Theory]
     [MemberData(nameof(GetDataValuesData))]
     public async Task UpdateDataValues_PassingNullAsDataValues_Returns400(DataValues dataValues)
@@ -2883,7 +2935,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// Scenario:
     /// Add the value of a data field to an instance using the sync adapter scope should succeed
     /// Result:
-    /// Data values are succesfully added and the updated instance returned.
+    /// Data values are successfully added and the updated instance returned.
     /// </summary>
     [Fact]
     public async Task UpdateDataValues_NoPreviousValuesSet_WithSyncAdapterScope_ReturnsUpdatedInstance()
