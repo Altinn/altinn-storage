@@ -46,6 +46,11 @@ public class GeneralSettings
     public string InstanceSyncAdapterScope { get; set; }
 
     /// <summary>
+    /// Gets or sets the scope for the support dashboard's instance export.
+    /// </summary>
+    public string InstanceSupportDashboardScope { get; set; }
+
+    /// <summary>
     /// Gets or sets the cache lifetime for text resources.
     /// </summary>
     public int TextResourceCacheLifeTimeInSeconds { get; set; }
