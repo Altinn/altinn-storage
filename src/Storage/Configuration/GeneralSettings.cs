@@ -66,11 +66,6 @@ public class GeneralSettings
     public string MigrationIpWhiteList { get; set; }
 
     /// <summary>
-    /// Gets or sets the URI for the ondemand API
-    /// </summary>
-    public string OndemandEndpoint { get; set; }
-
-    /// <summary>
     /// Gets or sets the URI for the pdf generator
     /// </summary>
     public string PdfGeneratorEndpoint { get; set; }
