@@ -6,20 +6,22 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
-using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
-using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.AspNetCore.Mvc.ViewEngines;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
 
-namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
+namespace Altinn.Platform.Storage.UnitTest.TestingServices;
 
-public class ContentOnDemandControllerUnitTests
+public class OnDemandContentServiceTests
 {
     private const string _org = "ttd";
     private const string _app = "apps-test";
@@ -39,15 +41,14 @@ public class ContentOnDemandControllerUnitTests
             expectedBlobVersionId
         );
 
-        var (controller, blobRepoMock) = CreateController(
+        var (service, blobRepoMock) = CreateService(
             instanceGuid,
             CreateFormSummaryDataElements(htmlDataGuid, xmlDataGuid, expectedBlobVersionId),
             "<xml/>"
         );
 
         // Act
-        ActionResult<Stream> result = await controller.GetFormSummaryAsHtml(
-            _org,
+        Stream result = await service.GetFormSummaryAsHtml(
             _app,
             instanceGuid,
             htmlDataGuid,
@@ -56,7 +57,7 @@ public class ContentOnDemandControllerUnitTests
         );
 
         // Assert
-        Assert.NotNull(result.Value);
+        Assert.NotNull(result);
         blobRepoMock.Verify(
             b =>
                 b.ReadBlob(
@@ -76,17 +77,16 @@ public class ContentOnDemandControllerUnitTests
         Guid instanceGuid = Guid.NewGuid();
         Guid htmlDataGuid = Guid.NewGuid();
         Guid xmlDataGuid = Guid.NewGuid();
+        string expectedFallbackPath = $"{_org}/{_app}/{instanceGuid}/data/{xmlDataGuid}";
 
-        var (controller, blobRepoMock) = CreateController(
+        var (service, blobRepoMock) = CreateService(
             instanceGuid,
             CreateFormSummaryDataElements(htmlDataGuid, xmlDataGuid, null),
             "<xml/>"
         );
-        string expectedFallbackPath = $"{_appId}/{instanceGuid}/data/{xmlDataGuid}";
 
         // Act
-        ActionResult<Stream> result = await controller.GetFormSummaryAsHtml(
-            _org,
+        Stream result = await service.GetFormSummaryAsHtml(
             _app,
             instanceGuid,
             htmlDataGuid,
@@ -95,7 +95,7 @@ public class ContentOnDemandControllerUnitTests
         );
 
         // Assert
-        Assert.NotNull(result.Value);
+        Assert.NotNull(result);
         blobRepoMock.Verify(
             b =>
                 b.ReadBlob(
@@ -121,7 +121,7 @@ public class ContentOnDemandControllerUnitTests
             expectedBlobVersionId
         );
 
-        var (controller, blobRepoMock) = CreateController(
+        var (service, blobRepoMock) = CreateService(
             instanceGuid,
             [
                 new DataElementInternal
@@ -135,17 +135,10 @@ public class ContentOnDemandControllerUnitTests
         );
 
         // Act
-        ActionResult result = await controller.GetSignatureAsHtml(
-            _org,
-            _app,
-            instanceGuid,
-            signatureDataGuid,
-            "nb",
-            CancellationToken.None
-        );
+        Stream result = await service.GetSignatureAsHtml(instanceGuid, CancellationToken.None);
 
         // Assert
-        Assert.IsType<ViewResult>(result);
+        Assert.NotNull(result);
         blobRepoMock.Verify(
             b =>
                 b.ReadBlob(
@@ -171,7 +164,7 @@ public class ContentOnDemandControllerUnitTests
             expectedBlobVersionId
         );
 
-        var (controller, blobRepoMock) = CreateController(
+        var (service, blobRepoMock) = CreateService(
             instanceGuid,
             [
                 new DataElementInternal
@@ -185,17 +178,10 @@ public class ContentOnDemandControllerUnitTests
         );
 
         // Act
-        ActionResult result = await controller.GetPaymentAsHtml(
-            _org,
-            _app,
-            instanceGuid,
-            paymentDataGuid,
-            "nb",
-            CancellationToken.None
-        );
+        Stream result = await service.GetPaymentAsHtml(instanceGuid, CancellationToken.None);
 
         // Assert
-        Assert.IsType<ViewResult>(result);
+        Assert.NotNull(result);
         blobRepoMock.Verify(
             b =>
                 b.ReadBlob(
@@ -209,15 +195,15 @@ public class ContentOnDemandControllerUnitTests
     }
 
     [Fact]
-    public async Task GetSignatureAsHtml_MissingInstance_ReturnsNotFound()
+    public async Task GetContent_UnknownKind_ReturnsNull()
     {
         // Arrange
         Guid instanceGuid = Guid.NewGuid();
-        ContentOnDemandController controller = CreateControllerWithMissingInstance(instanceGuid);
+        var (service, _) = CreateService(instanceGuid, [], "{}");
 
         // Act
-        ActionResult result = await controller.GetSignatureAsHtml(
-            _org,
+        Stream result = await service.GetContent(
+            "somethingelse",
             _app,
             instanceGuid,
             Guid.NewGuid(),
@@ -226,19 +212,24 @@ public class ContentOnDemandControllerUnitTests
         );
 
         // Assert
-        Assert.IsType<NotFoundResult>(result);
+        Assert.Null(result);
     }
 
-    [Fact]
-    public async Task GetPaymentAsHtml_MissingInstance_ReturnsNotFound()
+    [Theory]
+    [InlineData("signature")]
+    [InlineData("payment")]
+    [InlineData("formsummaryhtml")]
+    [InlineData("formdatahtml")]
+    [InlineData("formdatapdf")]
+    public async Task GetContent_MissingInstance_ReturnsNull(string kind)
     {
         // Arrange
         Guid instanceGuid = Guid.NewGuid();
-        ContentOnDemandController controller = CreateControllerWithMissingInstance(instanceGuid);
+        IOnDemandContentService service = CreateServiceWithMissingInstance(instanceGuid);
 
         // Act
-        ActionResult result = await controller.GetPaymentAsHtml(
-            _org,
+        Stream result = await service.GetContent(
+            kind,
             _app,
             instanceGuid,
             Guid.NewGuid(),
@@ -247,94 +238,27 @@ public class ContentOnDemandControllerUnitTests
         );
 
         // Assert
-        Assert.IsType<NotFoundResult>(result);
+        Assert.Null(result);
     }
 
-    [Fact]
-    public async Task GetFormSummaryAsHtml_MissingInstance_ReturnsNotFound()
-    {
-        // Arrange
-        Guid instanceGuid = Guid.NewGuid();
-        ContentOnDemandController controller = CreateControllerWithMissingInstance(instanceGuid);
-
-        // Act
-        ActionResult<Stream> result = await controller.GetFormSummaryAsHtml(
-            _org,
-            _app,
-            instanceGuid,
-            Guid.NewGuid(),
-            "nb",
-            CancellationToken.None
-        );
-
-        // Assert
-        Assert.IsType<NotFoundResult>(result.Result);
-    }
-
-    [Fact]
-    public async Task GetFormdataAsPdf_MissingInstance_ReturnsNotFound()
-    {
-        // Arrange
-        Guid instanceGuid = Guid.NewGuid();
-        ContentOnDemandController controller = CreateControllerWithMissingInstance(instanceGuid);
-
-        // Act
-        ActionResult<Stream> result = await controller.GetFormdataAsPdf(
-            _org,
-            _app,
-            instanceGuid,
-            Guid.NewGuid(),
-            "nb",
-            CancellationToken.None
-        );
-
-        // Assert
-        Assert.IsType<NotFoundResult>(result.Result);
-    }
-
-    [Fact]
-    public async Task GetFormdataAsHtml_MissingInstance_ReturnsNotFound()
-    {
-        // Arrange
-        Guid instanceGuid = Guid.NewGuid();
-        ContentOnDemandController controller = CreateControllerWithMissingInstance(instanceGuid);
-
-        // Act
-        ActionResult<Stream> result = await controller.GetFormdataAsHtml(
-            _org,
-            _app,
-            instanceGuid,
-            Guid.NewGuid(),
-            "nb",
-            CancellationToken.None
-        );
-
-        // Assert
-        Assert.IsType<NotFoundResult>(result.Result);
-    }
-
-    private static ContentOnDemandController CreateControllerWithMissingInstance(Guid instanceGuid)
+    private static IOnDemandContentService CreateServiceWithMissingInstance(Guid instanceGuid)
     {
         Mock<IInstanceRepository> instanceRepoMock = new();
         instanceRepoMock
             .Setup(r => r.GetOne(instanceGuid, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => null);
 
-        Mock<IBlobRepository> blobRepoMock = new();
-        Mock<IA2Repository> a2RepoMock = new();
-        Mock<IApplicationRepository> appRepoMock = new();
-        Mock<IA2OndemandFormattingService> formattingMock = new();
-        Mock<IPdfGeneratorClient> pdfMock = new();
-        IOptions<GeneralSettings> settings = Options.Create(new GeneralSettings());
-
-        return new ContentOnDemandController(
+        return new OnDemandContentService(
             instanceRepoMock.Object,
-            blobRepoMock.Object,
-            a2RepoMock.Object,
-            appRepoMock.Object,
-            settings,
-            formattingMock.Object,
-            pdfMock.Object
+            Mock.Of<IBlobRepository>(),
+            Mock.Of<IA2Repository>(),
+            Mock.Of<IApplicationRepository>(),
+            Options.Create(new GeneralSettings()),
+            Mock.Of<IA2OndemandFormattingService>(),
+            Mock.Of<IPdfGeneratorClient>(),
+            CreateViewEngine(),
+            Mock.Of<ITempDataProvider>(),
+            new ServiceCollection().BuildServiceProvider()
         );
     }
 
@@ -364,13 +288,9 @@ public class ContentOnDemandControllerUnitTests
         ];
 
     private static (
-        ContentOnDemandController Controller,
+        IOnDemandContentService Service,
         Mock<IBlobRepository> BlobRepoMock
-    ) CreateController(
-        Guid instanceGuid,
-        List<DataElementInternal> dataElements,
-        string blobContent
-    )
+    ) CreateService(Guid instanceGuid, List<DataElementInternal> dataElements, string blobContent)
     {
         foreach (DataElementInternal dataElement in dataElements)
         {
@@ -422,19 +342,47 @@ public class ContentOnDemandControllerUnitTests
         formattingMock
             .Setup(f => f.GetFormdataHtml(It.IsAny<PrintViewXslBEList>(), It.IsAny<Stream>()))
             .Returns("<html>test</html>");
-        Mock<IPdfGeneratorClient> pdfMock = new();
-        IOptions<GeneralSettings> settings = Options.Create(new GeneralSettings());
 
-        var controller = new ContentOnDemandController(
+        var service = new OnDemandContentService(
             instanceRepoMock.Object,
             blobRepoMock.Object,
             a2RepoMock.Object,
             appRepoMock.Object,
-            settings,
+            Options.Create(new GeneralSettings()),
             formattingMock.Object,
-            pdfMock.Object
+            Mock.Of<IPdfGeneratorClient>(),
+            CreateViewEngine(),
+            Mock.Of<ITempDataProvider>(),
+            new ServiceCollection().BuildServiceProvider()
         );
 
-        return (controller, blobRepoMock);
+        return (service, blobRepoMock);
+    }
+
+    /// <summary>
+    /// The signature and payment content is produced by rendering a Razor view, which needs a
+    /// view engine that the MVC pipeline would normally supply.
+    /// </summary>
+    private static ICompositeViewEngine CreateViewEngine()
+    {
+        Mock<IView> viewMock = new();
+        viewMock
+            .Setup(v => v.RenderAsync(It.IsAny<ViewContext>()))
+            .Returns(
+                (ViewContext context) =>
+                {
+                    context.Writer.Write("<html>rendered</html>");
+                    return Task.CompletedTask;
+                }
+            );
+
+        Mock<ICompositeViewEngine> viewEngineMock = new();
+        viewEngineMock
+            .Setup(e => e.GetView(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()))
+            .Returns(
+                (string _, string path, bool _) => ViewEngineResult.Found(path, viewMock.Object)
+            );
+
+        return viewEngineMock.Object;
     }
 }
