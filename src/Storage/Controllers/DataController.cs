@@ -9,7 +9,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 using Altinn.Platform.Storage.Authorization;
-using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
@@ -46,7 +45,7 @@ public class DataController : ControllerBase
     private readonly IApplicationRepository _applicationRepository;
     private readonly IDataService _dataService;
     private readonly IInstanceEventService _instanceEventService;
-    private readonly IOnDemandClient _onDemandClient;
+    private readonly IOnDemandContentService _onDemandContentService;
     private readonly string _storageBaseAndHost;
     private readonly GeneralSettings _generalSettings;
     private readonly IAuthorization _authorizationService;
@@ -62,7 +61,7 @@ public class DataController : ControllerBase
     /// <param name="dataService">A data service with data element related business logic.</param>
     /// <param name="instanceEventService">An instance event service with event related business logic.</param>
     /// <param name="generalSettings">the general settings.</param>
-    /// <param name="onDemandClient">the ondemand client</param>
+    /// <param name="onDemandContentService">generates on demand content for migrated Altinn 2 data elements</param>
     /// <param name="authorizationService">The authorization service</param>
     public DataController(
         IDataRepository dataRepository,
@@ -73,7 +72,7 @@ public class DataController : ControllerBase
         IDataService dataService,
         IInstanceEventService instanceEventService,
         IOptions<GeneralSettings> generalSettings,
-        IOnDemandClient onDemandClient,
+        IOnDemandContentService onDemandContentService,
         IAuthorization authorizationService
     )
     {
@@ -85,7 +84,7 @@ public class DataController : ControllerBase
         _dataService = dataService;
         _instanceEventService = instanceEventService;
         _storageBaseAndHost = $"{generalSettings.Value.Hostname}/storage/api/v1/";
-        _onDemandClient = onDemandClient;
+        _onDemandContentService = onDemandContentService;
         _generalSettings = generalSettings.Value;
         _authorizationService = authorizationService;
     }
@@ -395,12 +394,21 @@ public class DataController : ControllerBase
                 contentDispositionHeader.ToString()
             );
 
-            Stream onDemandStream = await _onDemandClient.GetStreamAsync(
-                $"ondemand/{instance.AppId}/{instanceOwnerPartyId}/{instanceGuid}/{dataGuid}/"
-                    + $"{LanguageHelper.GetCurrentUserLanguage(Request)}/{dataElement.BlobStoragePath.Split('/')[1]}"
+            Stream onDemandStream = await _onDemandContentService.GetContent(
+                dataElement.BlobStoragePath.Split('/')[1],
+                instance.AppId.Split('/')[1],
+                instanceGuid,
+                dataGuid,
+                LanguageHelper.GetCurrentUserLanguage(Request),
+                cancellationToken
             );
 
             VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
+            if (onDemandStream is null)
+            {
+                return NotFound();
+            }
+
             return File(onDemandStream, dataElement.ContentType);
         }
 

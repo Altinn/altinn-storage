@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -612,23 +611,43 @@ public class DataControllerUnitTests
     }
 
     [Fact]
-    public async Task Get_OnDemandRequestThrows_DoesNotWriteVersionHeaders()
+    public async Task Get_OnDemandGenerationThrows_DoesNotWriteVersionHeaders()
     {
-        Mock<IOnDemandClient> onDemandClientMock = new();
-        onDemandClientMock
-            .Setup(c => c.GetStreamAsync(It.IsAny<string>()))
-            .ThrowsAsync(new HttpRequestException("on-demand request failed"));
+        Mock<IOnDemandContentService> onDemandContentServiceMock = new();
+        onDemandContentServiceMock
+            .Setup(c =>
+                c.GetContent(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(new InvalidOperationException("on-demand generation failed"));
         (DataController testController, _, _) = GetTestController(
             ["/isRead"],
             blobStoragePathOverride: "ondemand/formdatapdf",
-            onDemandClient: onDemandClientMock.Object
+            onDemandContentService: onDemandContentServiceMock.Object
         );
 
-        await Assert.ThrowsAsync<HttpRequestException>(() =>
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
             testController.Get(12345, Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None)
         );
 
-        onDemandClientMock.Verify(c => c.GetStreamAsync(It.IsAny<string>()), Times.Once);
+        onDemandContentServiceMock.Verify(
+            c =>
+                c.GetContent(
+                    "formdatapdf",
+                    It.IsAny<string>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
         Assert.False(testController.Response.Headers.ContainsKey(StorageHeaders.InstanceVersion));
         Assert.False(
             testController.Response.Headers.ContainsKey(StorageHeaders.ProcessStateVersion)
@@ -2416,7 +2435,7 @@ public class DataControllerUnitTests
         bool authorized = true,
         Action<Mock<IInstanceEventService>> configureInstanceEventService = null,
         string blobStoragePathOverride = null,
-        IOnDemandClient onDemandClient = null
+        IOnDemandContentService onDemandContentService = null
     )
     {
         allocatedBlobVersionId ??= BlobVersionId.Encode(Guid.CreateVersion7());
@@ -2793,7 +2812,7 @@ public class DataControllerUnitTests
             dataServiceMock.Object,
             instanceEventServiceMock.Object,
             generalSettings,
-            onDemandClient,
+            onDemandContentService,
             authorizationServiceMock.Object
         )
         {
