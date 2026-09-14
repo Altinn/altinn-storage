@@ -6561,9 +6561,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     [Theory]
     [InlineData(HardDeletedInstanceMutationPayloadKind.Create)]
     [InlineData(HardDeletedInstanceMutationPayloadKind.Update)]
-    [InlineData(HardDeletedInstanceMutationPayloadKind.Delete)]
-    [InlineData(HardDeletedInstanceMutationPayloadKind.InstanceUpdate)]
-    public async Task ApplyInstanceMutationSql_OnHardDeletedInstance_RaisesInstanceHardDeletedAndDoesNotMutate(
+    public async Task ApplyInstanceMutationSql_DataElementWriteOnHardDeletedInstance_RaisesInstanceHardDeletedAndDoesNotMutate(
         HardDeletedInstanceMutationPayloadKind payloadKind
     )
     {
@@ -6571,8 +6569,6 @@ public class DataTests(DataElementFixture dataElementFixture)
         Guid instanceGuid = _instance.Id;
         string createElements = null;
         string updateElements = null;
-        string deleteElements = null;
-        string instanceUpdate = null;
         Func<Task> assertMutationDidNotApply;
 
         switch (payloadKind)
@@ -6605,27 +6601,6 @@ public class DataTests(DataElementFixture dataElementFixture)
                         await ReadDataElementJsonText(instanceGuid, toUpdate.Id, "ContentType")
                     );
                 break;
-            case HardDeletedInstanceMutationPayloadKind.Delete:
-                DataElement toDelete = TestDataUtil.GetDataElement(_dataElement1);
-                (toDelete, string blobVersionId) = await CreateVersionedDataElement(toDelete);
-                deleteElements = DeleteElementsPayload([toDelete]);
-                assertMutationDidNotApply = async () =>
-                {
-                    Assert.True(await dataElementFixture.DataRepo.Exists(Guid.Parse(toDelete.Id)));
-                    Assert.Equal(1, await CountAttachedBlobVersionRows(blobVersionId));
-                };
-                break;
-            case HardDeletedInstanceMutationPayloadKind.InstanceUpdate:
-                instanceUpdate = InstanceUpdatePayload(
-                    InstanceUpdatePayloadItem(
-                        dataValues: new JsonObject { ["hardDeletedUpdate"] = "blocked" }
-                    )
-                );
-                assertMutationDidNotApply = async () =>
-                    Assert.False(
-                        await InstanceDataValuesContainsKey(instanceGuid, "hardDeletedUpdate")
-                    );
-                break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(payloadKind), payloadKind, null);
         }
@@ -6644,8 +6619,8 @@ public class DataTests(DataElementFixture dataElementFixture)
                 null,
                 createElements,
                 updateElements,
-                deleteElements,
-                instanceUpdate,
+                null,
+                null,
                 null,
                 null
             )
@@ -6661,6 +6636,85 @@ public class DataTests(DataElementFixture dataElementFixture)
         AssertSqlErrorHasNoMutationTarget(exception);
         await assertMutationDidNotApply();
         Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
+    }
+
+    [Theory]
+    [InlineData(HardDeletedInstanceMutationPayloadKind.Delete)]
+    [InlineData(HardDeletedInstanceMutationPayloadKind.InstanceUpdate)]
+    public async Task ApplyInstanceMutationSql_DeleteInstanceUpdateOrEventsOnHardDeletedInstance_Applies(
+        HardDeletedInstanceMutationPayloadKind payloadKind
+    )
+    {
+        // Arrange
+        Guid instanceGuid = _instance.Id;
+        string deleteElements = null;
+        string instanceUpdate = null;
+        Func<Task> assertMutationApplied;
+
+        switch (payloadKind)
+        {
+            case HardDeletedInstanceMutationPayloadKind.Delete:
+                DataElement toDelete = TestDataUtil.GetDataElement(_dataElement1);
+                (toDelete, string blobVersionId) = await CreateVersionedDataElement(toDelete);
+                deleteElements = DeleteElementsPayload([toDelete]);
+                assertMutationApplied = async () =>
+                {
+                    Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(toDelete.Id)));
+                    Assert.Equal(0, await CountAttachedBlobVersionRows(blobVersionId));
+                };
+                break;
+            case HardDeletedInstanceMutationPayloadKind.InstanceUpdate:
+                instanceUpdate = InstanceUpdatePayload(
+                    InstanceUpdatePayloadItem(
+                        dataValues: new JsonObject { ["hardDeletedUpdate"] = "applied" },
+                        process: new JsonObject
+                        {
+                            ["Ended"] = DateTime.UtcNow,
+                            ["EndEvent"] = "EndEvent_1",
+                        }
+                    )
+                );
+                assertMutationApplied = async () =>
+                    Assert.True(
+                        await InstanceDataValuesContainsKey(instanceGuid, "hardDeletedUpdate")
+                    );
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(payloadKind), payloadKind, null);
+        }
+
+        int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        string events = EventsPayload(
+            instanceGuid,
+            InstanceEventType.process_EndEvent,
+            _instance.Id.ToString(),
+            _instance.InstanceOwner.PartyId
+        );
+        await SetInstanceHardDeleted(instanceGuid);
+
+        // Act
+        List<ApplyMutationSqlRow> rows = await ApplyInstanceMutationSql(
+            instanceGuid,
+            _instanceInternalId,
+            currentInstanceVersion,
+            null,
+            null,
+            null,
+            null,
+            deleteElements,
+            instanceUpdate,
+            events,
+            null
+        );
+
+        // Assert
+        Assert.NotEmpty(rows);
+        await assertMutationApplied();
+        Assert.Equal(currentInstanceVersion + 1, await ReadInstanceVersion(instanceGuid));
+        Assert.Equal(
+            1,
+            await CountInstanceEvents(instanceGuid, InstanceEventType.process_EndEvent.ToString())
+        );
     }
 
     [Fact]

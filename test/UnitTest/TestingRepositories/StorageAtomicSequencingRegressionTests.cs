@@ -108,6 +108,58 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
     }
 
     [Fact]
+    public async Task PutInstanceAndEvents_OnHardDeletedInstance_RecordsEndedProcessAndEvents()
+    {
+        Instance instance = await CreateInstance();
+        Guid instanceGuid = Guid.Parse(instance.Id.Split('/').Last());
+        InMemoryBlobRepository blobRepository = new();
+        await SetInstanceHardDeleted(instanceGuid);
+        StorageVersions versions = await ReadVersions(instanceGuid);
+
+        ProcessController controller = CreateProcessController(blobRepository);
+        SetHttpContext(controller);
+
+        ActionResult<Instance> result = await controller.PutInstanceAndEvents(
+            _partyId,
+            instanceGuid,
+            new ProcessStateUpdate
+            {
+                State = new ProcessState
+                {
+                    Started = DateTime.UtcNow.AddMinutes(-5),
+                    Ended = DateTime.UtcNow,
+                    EndEvent = "EndEvent_1",
+                },
+                Events =
+                [
+                    new InstanceEvent
+                    {
+                        InstanceId = $"{_partyId}/{instanceGuid}",
+                        EventType = InstanceEventType.process_EndEvent.ToString(),
+                        User = new PlatformUser { UserId = _userId },
+                    },
+                ],
+            },
+            deleteGeneratedElements: null,
+            CancellationToken.None,
+            ifInstanceVersionMatch: versions.InstanceVersion.ToString(),
+            ifProcessStateVersionMatch: versions.ProcessStateVersion.ToString()
+        );
+        int endEvents = await CountInstanceEvents(instanceGuid, InstanceEventType.process_EndEvent);
+        string processEnded = await ReadInstanceProcessEnded(instanceGuid);
+        bool stillHardDeleted = await ReadInstanceIsHardDeleted(instanceGuid);
+        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+
+        Assert.True(
+            result.Result is OkObjectResult
+                && endEvents == 1
+                && processEnded != "<none>"
+                && stillHardDeleted,
+            $"Expected a process that ends after the instance was hard deleted to commit its final state and events. Actual result was {DescribeActionResult(result.Result)}, process_EndEvent count was {endEvents}, persisted process Ended was {processEnded}, IsHardDeleted was {stillHardDeleted}, process state version moved from {versions.ProcessStateVersion} to {currentProcessStateVersion}."
+        );
+    }
+
+    [Fact]
     public async Task Sign_WithExistingSignatureAndMatchingVersions_ReplacesAtomically()
     {
         Instance instance = await CreateInstance(currentTaskType: "signing");
@@ -637,6 +689,27 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
     {
         return PostgresUtil.RunCountQuery(
             $"select count(*) from storage.instanceevents where instance = '{instanceGuid}' and event ->> 'EventType' = '{eventType}'"
+        );
+    }
+
+    private static Task SetInstanceHardDeleted(Guid instanceGuid)
+    {
+        return PostgresUtil.RunSql(
+            $"update storage.instances set instance = jsonb_set(instance, '{{Status,IsHardDeleted}}', 'true'::jsonb) where alternateid = '{instanceGuid}'"
+        );
+    }
+
+    private static Task<bool> ReadInstanceIsHardDeleted(Guid instanceGuid)
+    {
+        return PostgresUtil.RunQuery<bool>(
+            $"select coalesce((instance -> 'Status' ->> 'IsHardDeleted')::boolean, false) from storage.instances where alternateid = '{instanceGuid}'"
+        );
+    }
+
+    private static Task<string> ReadInstanceProcessEnded(Guid instanceGuid)
+    {
+        return PostgresUtil.RunQuery<string>(
+            $"select coalesce(instance -> 'Process' ->> 'Ended', '<none>') from storage.instances where alternateid = '{instanceGuid}'"
         );
     }
 
