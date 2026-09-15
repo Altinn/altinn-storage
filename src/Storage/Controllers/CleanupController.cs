@@ -273,7 +273,7 @@ public class CleanupController(
             false,
             cancellationToken
         );
-        if (instance == null)
+        if (instance is null || instance.InstanceOwner.PartyId != instanceOwnerPartyId.ToString())
         {
             return NotFound(
                 $"Unable to find any instance with id: {instanceOwnerPartyId}/{instanceGuid}."
@@ -290,11 +290,24 @@ public class CleanupController(
             return NotFound($"Unable to find any data element with id: {dataGuid}.");
         }
 
+        // Data elements are read by their own id alone, so the element has to be checked against
+        // the instance in the route before anything is deleted on that instance's behalf.
+        if (dataElement.InstanceGuid != instanceGuid.ToString())
+        {
+            return NotFound(
+                $"Data element {dataGuid} does not belong to instance {instanceOwnerPartyId}/{instanceGuid}."
+            );
+        }
+
         Application application = await applicationRepository.FindOne(
             instance.AppId,
             instance.Org,
             cancellationToken
         );
+        if (application == null)
+        {
+            return NotFound($"Cannot find application {instance.AppId} in storage");
+        }
 
         PlatformUser user = new() { OrgId = instance.Org, AuthenticationLevel = 0 };
 
