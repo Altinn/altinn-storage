@@ -253,6 +253,7 @@ BEGIN
                     || updateelements.elementchanges
                     || CASE
                         WHEN updateelements.newblobversion IS NULL
+                            AND NOT COALESCE((updateelements.elementchanges -> 'DeleteStatus' ->> 'IsHardDeleted')::BOOLEAN, FALSE)
                         THEN '{}'::JSONB
                         ELSE jsonb_build_object(
                             'LastChanged',
@@ -373,12 +374,20 @@ BEGIN
             )
             THEN
                 _composedinstance := jsonb_set(_composedinstance, '{Status, ReadStatus}', '2');
-            ELSIF NOT EXISTS (
-                SELECT 1
-                FROM storage.dataelements dataelement
-                WHERE dataelement.instanceguid = _instanceguid
-                    AND dataelement.element -> 'IsRead' = 'true'
-            )
+            ELSIF (
+                    jsonb_array_length(_deleteelements) > 0
+                    OR EXISTS (
+                        SELECT 1
+                        FROM jsonb_array_elements(_updateelements) updateelement(value)
+                        WHERE updateelement.value -> 'elementChanges' ->> 'IsRead' = 'false'
+                    )
+                )
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM storage.dataelements dataelement
+                    WHERE dataelement.instanceguid = _instanceguid
+                        AND dataelement.element -> 'IsRead' = 'true'
+                )
             THEN
                 _composedinstance := jsonb_set(_composedinstance, '{Status, ReadStatus}', '0');
             END IF;

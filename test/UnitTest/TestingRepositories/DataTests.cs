@@ -4630,8 +4630,10 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Arrange
         Guid instanceGuid = _instance.Id;
         DataElement toLock = TestDataUtil.GetDataElement(_dataElement1);
+        toLock.IsRead = false;
         (toLock, _) = await CreateVersionedDataElement(toLock);
         Guid dataElementId = Guid.Parse(toLock.Id);
+        await SetInstanceReadStatus(instanceGuid, ReadStatus.Read);
         DataElementInternal beforeLock = await dataElementFixture.DataRepo.Read(
             instanceGuid,
             dataElementId
@@ -4681,6 +4683,65 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(beforeLock.LastChangedBy, lockedElement.LastChangedBy);
         Assert.Equal(mutationLastChanged, updatedInstance.LastChanged);
         Assert.Equal("workflow-service-owner", updatedInstance.LastChangedBy);
+        Assert.Equal(ReadStatus.Read, updatedInstance.Status.ReadStatus);
+    }
+
+    [Fact]
+    public async Task ApplyInstanceMutationSql_DelayedDelete_StampsElementAndPreservesReadStatus()
+    {
+        // Arrange
+        Guid instanceGuid = _instance.Id;
+        DataElement toDelete = TestDataUtil.GetDataElement(_dataElement1);
+        toDelete.IsRead = false;
+        (toDelete, _) = await CreateVersionedDataElement(toDelete);
+        Guid dataElementId = Guid.Parse(toDelete.Id);
+        await SetInstanceReadStatus(instanceGuid, ReadStatus.Read);
+        int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        DateTime mutationLastChanged = new(2026, 3, 4, 5, 6, 8, DateTimeKind.Utc);
+
+        // Act
+        await ApplyInstanceMutationSql(
+            instanceGuid,
+            _instanceInternalId,
+            previousInstanceVersion,
+            null,
+            null,
+            null,
+            UpdateElementsPayload([
+                new UpdateElementPayload(
+                    dataElementId,
+                    ElementChanges: new JsonObject
+                    {
+                        ["DeleteStatus"] = new JsonObject
+                        {
+                            ["IsHardDeleted"] = true,
+                            ["HardDeleted"] = mutationLastChanged.ToString("O"),
+                        },
+                    }
+                ),
+            ]),
+            null,
+            null,
+            null,
+            null,
+            lastChanged: mutationLastChanged,
+            lastChangedBy: "deleting-party"
+        );
+        DataElementInternal deletedElement = await dataElementFixture.DataRepo.Read(
+            instanceGuid,
+            dataElementId
+        );
+        InstanceInternal updatedInstance = await dataElementFixture.InstanceRepo.GetOne(
+            instanceGuid,
+            false,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.True(deletedElement.DeleteStatus.IsHardDeleted);
+        Assert.Equal(mutationLastChanged, deletedElement.LastChanged);
+        Assert.Equal("deleting-party", deletedElement.LastChangedBy);
+        Assert.Equal(ReadStatus.Read, updatedInstance.Status.ReadStatus);
     }
 
     [Fact]
@@ -4727,6 +4788,47 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.NotEqual(beforeUpdate.LastChangedBy, updatedElement.LastChangedBy);
         Assert.Equal(mutationLastChanged, updatedElement.LastChanged);
         Assert.Equal("patching-party", updatedElement.LastChangedBy);
+    }
+
+    [Fact]
+    public async Task ApplyInstanceMutationSql_UpdateLastReadElementToUnread_SetsAggregateUnread()
+    {
+        // Arrange
+        Guid instanceGuid = _instance.Id;
+        DataElement element = TestDataUtil.GetDataElement(_dataElement1);
+        element.IsRead = true;
+        element = await CreateLegacyDataElement(element);
+        await SetInstanceReadStatus(instanceGuid, ReadStatus.Read);
+        int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
+
+        // Act
+        await ApplyInstanceMutationSql(
+            instanceGuid,
+            _instanceInternalId,
+            previousInstanceVersion,
+            null,
+            null,
+            null,
+            UpdateElementsPayload([
+                new UpdateElementPayload(
+                    Guid.Parse(element.Id),
+                    ElementChanges: new JsonObject { ["IsRead"] = false },
+                    IsReadChangedToFalse: true
+                ),
+            ]),
+            null,
+            null,
+            null,
+            null
+        );
+        InstanceInternal updatedInstance = await dataElementFixture.InstanceRepo.GetOne(
+            instanceGuid,
+            false,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Equal(ReadStatus.Unread, updatedInstance.Status.ReadStatus);
     }
 
     [Fact]
@@ -5149,6 +5251,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     {
         // Arrange
         Guid instanceGuid = _instance.Id;
+        await SetInstanceReadStatus(instanceGuid, ReadStatus.Read);
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
         DateTime lastChanged = new(2026, 4, 5, 6, 7, 8, DateTimeKind.Utc);
@@ -5202,6 +5305,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(archived, updatedInstance.Status.Archived);
         Assert.Equal("Task_10", updatedInstance.Process.CurrentTask.ElementId);
         Assert.Equal(ProcessStatus.Processing, updatedInstance.Process.Status);
+        Assert.Equal(ReadStatus.Read, updatedInstance.Status.ReadStatus);
         Assert.Equal("Task_10", await ReadInstanceTaskId(instanceGuid));
         Assert.True(await ReadInstanceConfirmed(instanceGuid));
         Assert.Equal(
