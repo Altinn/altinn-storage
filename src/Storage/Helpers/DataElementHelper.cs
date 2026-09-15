@@ -63,6 +63,26 @@ public static class DataElementHelper
     }
 
     /// <summary>
+    /// Throws an exception if the blob storage path isn't the path implied by the requested
+    /// instance and data element ids, either the legacy unversioned path or the path of the
+    /// element's current blob version.
+    /// </summary>
+    internal static void EnsureBlobStoragePathMatchesRequest(
+        DataElementInternal dataElement,
+        string appId,
+        Guid instanceGuid,
+        Guid dataGuid
+    )
+    {
+        if (!BlobStoragePathMatchesRequest(dataElement, appId, instanceGuid, dataGuid))
+        {
+            throw new InvalidOperationException(
+                $"Blob storage path of data element {dataGuid} was unexpected for instance {instanceGuid}."
+            );
+        }
+    }
+
+    /// <summary>
     /// Get the stream from the request
     /// </summary>
     /// <param name="request">The request</param>
@@ -157,6 +177,35 @@ public static class DataElementHelper
         ReadOnlySpan<char> blobVersionId = blobStoragePath.AsSpan(versionedPathPrefix.Length);
 
         return blobVersionId.ContainsAnyExcept('.') && !blobVersionId.Contains('/');
+    }
+
+    private static bool BlobStoragePathMatchesRequest(
+        DataElementInternal dataElement,
+        string appId,
+        Guid instanceGuid,
+        Guid dataGuid
+    )
+    {
+        string blobStoragePath = dataElement.BlobStoragePath;
+        if (string.IsNullOrEmpty(blobStoragePath))
+        {
+            return false;
+        }
+
+        string legacyBlobStoragePath = DataFileName(appId, instanceGuid, dataGuid);
+        if (string.Equals(blobStoragePath, legacyBlobStoragePath, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        string blobVersionId = dataElement.BlobVersionId;
+        if (string.IsNullOrEmpty(blobVersionId))
+        {
+            return false;
+        }
+
+        string versionedBlobStoragePath = GetVersionedBlobPath(appId, instanceGuid, blobVersionId);
+        return string.Equals(blobStoragePath, versionedBlobStoragePath, StringComparison.Ordinal);
     }
 
     private static string VersionedBlobPathPrefix(string appId, Guid instanceGuid)

@@ -2803,6 +2803,16 @@ public class DataControllerUnitTests
             );
         }
 
+        DataElementContentService dataElementContentService = new(
+            instanceRepositoryMock.Object,
+            dataRepositoryMock.Object,
+            applicationRepositoryMock.Object,
+            blobRepositoryMock.Object,
+            authorizationServiceMock.Object,
+            onDemandContentService,
+            generalSettings
+        );
+
         var sut = new DataController(
             dataRepositoryMock.Object,
             blobRepositoryMock.Object,
@@ -2812,7 +2822,7 @@ public class DataControllerUnitTests
             dataServiceMock.Object,
             instanceEventServiceMock.Object,
             generalSettings,
-            onDemandContentService,
+            dataElementContentService,
             authorizationServiceMock.Object
         )
         {
