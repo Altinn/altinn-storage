@@ -756,11 +756,6 @@ public class DataController : ControllerBase
             return Conflict($"Data element {dataGuid} is locked and cannot be updated");
         }
 
-        if (dataElement.DeleteStatus?.IsHardDeleted == true)
-        {
-            return Conflict($"Data element {dataGuid} is deleted and cannot be updated");
-        }
-
         EnsureExpectedBlobStoragePath(dataElement, instance.AppId, instanceGuid, dataGuid);
 
         (string expectedCurrentBlobVersion, ActionResult ifMatchError) = TryGetIfMatchBlobVersion();
