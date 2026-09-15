@@ -865,10 +865,10 @@ public class CleanupControllerUnitTests
     }
 
     [Fact]
-    public async Task CleanupDataelement_DeletesElementAndRecordsEventWithExplicitActor()
+    public async Task CleanupDataElement_DeletesElementAndRecordsEventWithExplicitActor()
     {
         // Arrange
-        CleanupDataelementFixture fixture = new();
+        CleanupDataElementFixture fixture = new();
         InstanceEvent deletedEvent = new();
         PlatformUser actor = null;
 
@@ -916,7 +916,7 @@ public class CleanupControllerUnitTests
         CleanupController target = fixture.CreateTarget();
 
         // Act
-        ActionResult<DataElement> response = await target.CleanupDataelement(
+        ActionResult<DataElement> response = await target.CleanupDataElement(
             PartyId,
             fixture.InstanceGuid,
             fixture.DataGuid,
@@ -949,14 +949,14 @@ public class CleanupControllerUnitTests
     }
 
     [Fact]
-    public async Task CleanupDataelement_InstanceNotFound_ReturnsNotFound()
+    public async Task CleanupDataElement_InstanceNotFound_ReturnsNotFound()
     {
         // Arrange
-        CleanupDataelementFixture fixture = new(withInstance: false);
+        CleanupDataElementFixture fixture = new(withInstance: false);
         CleanupController target = fixture.CreateTarget();
 
         // Act
-        ActionResult<DataElement> response = await target.CleanupDataelement(
+        ActionResult<DataElement> response = await target.CleanupDataElement(
             PartyId,
             fixture.InstanceGuid,
             fixture.DataGuid,
@@ -969,14 +969,14 @@ public class CleanupControllerUnitTests
     }
 
     [Fact]
-    public async Task CleanupDataelement_PartyIdDoesNotMatchInstance_ReturnsNotFound()
+    public async Task CleanupDataElement_PartyIdDoesNotMatchInstance_ReturnsNotFound()
     {
         // Arrange
-        CleanupDataelementFixture fixture = new();
+        CleanupDataElementFixture fixture = new();
         CleanupController target = fixture.CreateTarget();
 
         // Act
-        ActionResult<DataElement> response = await target.CleanupDataelement(
+        ActionResult<DataElement> response = await target.CleanupDataElement(
             PartyId + 1,
             fixture.InstanceGuid,
             fixture.DataGuid,
@@ -989,15 +989,15 @@ public class CleanupControllerUnitTests
     }
 
     [Fact]
-    public async Task CleanupDataelement_DataElementBelongsToAnotherInstance_ReturnsNotFound()
+    public async Task CleanupDataElement_DataElementBelongsToAnotherInstance_ReturnsNotFound()
     {
         // Arrange
-        CleanupDataelementFixture fixture = new();
+        CleanupDataElementFixture fixture = new();
         fixture.DataElement.InstanceGuid = Guid.NewGuid();
         CleanupController target = fixture.CreateTarget();
 
         // Act
-        ActionResult<DataElement> response = await target.CleanupDataelement(
+        ActionResult<DataElement> response = await target.CleanupDataElement(
             PartyId,
             fixture.InstanceGuid,
             fixture.DataGuid,
@@ -1011,14 +1011,14 @@ public class CleanupControllerUnitTests
     }
 
     [Fact]
-    public async Task CleanupDataelement_ApplicationNotFound_ReturnsNotFound()
+    public async Task CleanupDataElement_ApplicationNotFound_ReturnsNotFound()
     {
         // Arrange
-        CleanupDataelementFixture fixture = new(withApplication: false);
+        CleanupDataElementFixture fixture = new(withApplication: false);
         CleanupController target = fixture.CreateTarget();
 
         // Act
-        ActionResult<DataElement> response = await target.CleanupDataelement(
+        ActionResult<DataElement> response = await target.CleanupDataElement(
             PartyId,
             fixture.InstanceGuid,
             fixture.DataGuid,
@@ -1033,9 +1033,9 @@ public class CleanupControllerUnitTests
     private const int PartyId = 1337;
     private const int StorageAccountNumber = 7;
 
-    private sealed class CleanupDataelementFixture
+    private sealed class CleanupDataElementFixture
     {
-        internal CleanupDataelementFixture(bool withInstance = true, bool withApplication = true)
+        internal CleanupDataElementFixture(bool withInstance = true, bool withApplication = true)
         {
             Instance = withInstance
                 ? new InstanceInternal

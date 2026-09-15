@@ -523,7 +523,7 @@ public class CleanupController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
     [ApiExplorerSettings(IgnoreApi = true)]
-    public async Task<ActionResult<DataElement>> CleanupDataelement(
+    public async Task<ActionResult<DataElement>> CleanupDataElement(
         int instanceOwnerPartyId,
         Guid instanceGuid,
         Guid dataGuid,
@@ -579,7 +579,7 @@ public class CleanupController(
             instance,
             dataElement,
             user,
-            "Deleted manually through CleanupController // CleanupDataelement"
+            "Deleted manually through CleanupController // CleanupDataElement"
         );
 
         InstanceMutationCommit mutation = new(
@@ -610,7 +610,7 @@ public class CleanupController(
         );
 
         _logger.LogInformation(
-            "CleanupController // CleanupDataelement // Deleted data element {DataElementId} ({BlobStoragePath}) on instance {InstanceId} for caller {ClientIp}",
+            "CleanupController // CleanupDataElement // Deleted data element {DataElementId} ({BlobStoragePath}) on instance {InstanceId} for caller {ClientIp}",
             dataElement.Id,
             dataElement.BlobStoragePath,
             instance.Id,
