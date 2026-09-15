@@ -6,9 +6,11 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -26,6 +28,7 @@ namespace Altinn.Platform.Storage.Controllers;
 /// <param name="blobRepository">the blob repository handler</param>
 /// <param name="dataRepository">the data repository handler</param>
 /// <param name="instanceEventRepository">the instance event repository handler</param>
+/// <param name="dataService">the data service</param>
 /// <param name="logger">the logger</param>
 [Route("storage/api/v1/cleanup")]
 [ApiController]
@@ -35,6 +38,7 @@ public class CleanupController(
     IBlobRepository blobRepository,
     IDataRepository dataRepository,
     IInstanceEventRepository instanceEventRepository,
+    IDataService dataService,
     ILogger<CleanupController> logger
 ) : ControllerBase
 {
@@ -236,6 +240,81 @@ public class CleanupController(
         );
 
         return Ok();
+    }
+
+    /// <summary>
+    /// Deletes a single data element, its blob and records a delete event.
+    /// </summary>
+    /// <remarks>
+    /// Intended for operational use from inside the cluster and guarded by a shared secret rather
+    /// than an Altinn token. The deletion is immediate and cannot be undone.
+    /// </remarks>
+    /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
+    /// <param name="instanceGuid">The id of the instance that the data element belongs to.</param>
+    /// <param name="dataGuid">The id of the data element to delete.</param>
+    /// <param name="cancellationToken">CancellationToken</param>
+    /// <returns>The metadata of the deleted data element.</returns>
+    [HttpDelete("dataelement/{instanceOwnerPartyId:int}/{instanceGuid:guid}/{dataGuid:guid}")]
+    [ServiceFilter(typeof(CleanupApiKeyFilter))]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Produces("application/json")]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public async Task<ActionResult<DataElement>> CleanupDataelement(
+        int instanceOwnerPartyId,
+        Guid instanceGuid,
+        Guid dataGuid,
+        CancellationToken cancellationToken
+    )
+    {
+        (Instance instance, _) = await instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            cancellationToken
+        );
+        if (instance == null)
+        {
+            return NotFound(
+                $"Unable to find any instance with id: {instanceOwnerPartyId}/{instanceGuid}."
+            );
+        }
+
+        DataElement dataElement = await dataRepository.Read(
+            instanceGuid,
+            dataGuid,
+            cancellationToken
+        );
+        if (dataElement == null)
+        {
+            return NotFound($"Unable to find any data element with id: {dataGuid}.");
+        }
+
+        Application application = await applicationRepository.FindOne(
+            instance.AppId,
+            instance.Org,
+            cancellationToken
+        );
+
+        PlatformUser user = new() { OrgId = instance.Org, AuthenticationLevel = 0 };
+
+        await dataService.DeleteImmediately(
+            instance,
+            dataElement,
+            application.StorageAccountNumber,
+            user,
+            "Deleted manually through CleanupController // CleanupDataelement"
+        );
+
+        _logger.LogInformation(
+            "CleanupController // CleanupDataelement // Deleted data element {DataElementId} ({BlobStoragePath}) on instance {InstanceId} for caller {ClientIp}",
+            dataElement.Id,
+            dataElement.BlobStoragePath,
+            instance.Id,
+            HttpContext.Connection.RemoteIpAddress
+        );
+
+        return Ok(dataElement);
     }
 
     private async Task<int> CleanupInstancesInternal(

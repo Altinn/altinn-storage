@@ -6,10 +6,12 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Clients;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Xunit;
 
@@ -30,7 +32,8 @@ public class DataServiceTests
             fileScanMock.Object,
             dataRepositoryMock.Object,
             blobRepositoryMock.Object,
-            instanceEventServiceMock.Object
+            instanceEventServiceMock.Object,
+            NullLogger<DataService>.Instance
         );
 
         Instance instance = new Instance();
@@ -68,7 +71,8 @@ public class DataServiceTests
             fileScanMock.Object,
             dataRepositoryMock.Object,
             blobRepositoryMock.Object,
-            instanceEventServiceMock.Object
+            instanceEventServiceMock.Object,
+            NullLogger<DataService>.Instance
         );
 
         Instance instance = new Instance { Id = "343243/guid" };
@@ -138,7 +142,8 @@ public class DataServiceTests
             fileScanQueueClientMock.Object,
             dataRepositoryMock.Object,
             blobRepositoryMock.Object,
-            instanceEventServiceMock.Object
+            instanceEventServiceMock.Object,
+            NullLogger<DataService>.Instance
         );
 
         // Act
@@ -168,7 +173,8 @@ public class DataServiceTests
             fileScanQueueClientMock.Object,
             dataRepositoryMock.Object,
             blobRepositoryMock.Object,
-            instanceEventServiceMock.Object
+            instanceEventServiceMock.Object,
+            NullLogger<DataService>.Instance
         );
 
         // Act
@@ -209,7 +215,8 @@ public class DataServiceTests
             fileScanQueueClientMock.Object,
             dataRepositoryMock.Object,
             blobRepositoryMock.Object,
-            instanceEventServiceMock.Object
+            instanceEventServiceMock.Object,
+            NullLogger<DataService>.Instance
         );
 
         // Act
@@ -255,7 +262,8 @@ public class DataServiceTests
             fileScanQueueClientMock.Object,
             dataRepositoryMock.Object,
             blobRepositoryMock.Object,
-            instanceEventServiceMock.Object
+            instanceEventServiceMock.Object,
+            NullLogger<DataService>.Instance
         );
 
         // Act
@@ -269,5 +277,159 @@ public class DataServiceTests
 
         // Assert
         dataRepositoryMock.VerifyAll();
+    }
+
+    [Fact]
+    public async Task DeleteImmediately_DeletesBlobAtStoredBlobStoragePath()
+    {
+        // Arrange
+        DataElement dataElement = new DataElement
+        {
+            Id = "dataElementId",
+            BlobStoragePath = "ttd/test-app/instanceGuid/data-elements/version-1",
+        };
+        DeleteImmediatelyFixture fixture = new DeleteImmediatelyFixture(dataElement);
+
+        // Act
+        await fixture.DataService.DeleteImmediately(fixture.Instance, dataElement, null);
+
+        // Assert
+        fixture.BlobRepository.Verify(
+            b => b.DeleteBlob("ttd", dataElement.BlobStoragePath, null),
+            Times.Once
+        );
+        fixture.BlobRepository.VerifyNoOtherCalls();
+        fixture.DataRepository.Verify(
+            d => d.Delete(dataElement, CancellationToken.None),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task DeleteImmediately_NoUserGiven_DispatchesEventWithoutActor()
+    {
+        // Arrange
+        DataElement dataElement = CreateDataElement();
+        DeleteImmediatelyFixture fixture = new DeleteImmediatelyFixture(dataElement);
+
+        // Act
+        await fixture.DataService.DeleteImmediately(fixture.Instance, dataElement, null);
+
+        // Assert
+        fixture.InstanceEventService.Verify(
+            e =>
+                e.DispatchEvent(
+                    InstanceEventType.Deleted,
+                    fixture.Instance,
+                    dataElement,
+                    null,
+                    null
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task DeleteImmediately_UserGiven_DispatchesEventWithThatActor()
+    {
+        // Arrange
+        DataElement dataElement = CreateDataElement();
+        DeleteImmediatelyFixture fixture = new DeleteImmediatelyFixture(dataElement);
+        PlatformUser user = new PlatformUser { OrgId = "ttd", AuthenticationLevel = 0 };
+
+        // Act
+        await fixture.DataService.DeleteImmediately(
+            fixture.Instance,
+            dataElement,
+            null,
+            user,
+            "why it happened"
+        );
+
+        // Assert
+        fixture.InstanceEventService.Verify(
+            e =>
+                e.DispatchEvent(
+                    InstanceEventType.Deleted,
+                    fixture.Instance,
+                    dataElement,
+                    user,
+                    "why it happened"
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task DeleteImmediately_BlobMissing_StillDeletesElementAndDispatchesEvent()
+    {
+        // Arrange
+        DataElement dataElement = CreateDataElement();
+        DeleteImmediatelyFixture fixture = new DeleteImmediatelyFixture(
+            dataElement,
+            blobDeleted: false
+        );
+
+        // Act
+        DataElement result = await fixture.DataService.DeleteImmediately(
+            fixture.Instance,
+            dataElement,
+            null
+        );
+
+        // Assert
+        Assert.Same(dataElement, result);
+        fixture.DataRepository.Verify(
+            d => d.Delete(dataElement, CancellationToken.None),
+            Times.Once
+        );
+        fixture.InstanceEventService.Verify(
+            e =>
+                e.DispatchEvent(
+                    InstanceEventType.Deleted,
+                    fixture.Instance,
+                    dataElement,
+                    null,
+                    null
+                ),
+            Times.Once
+        );
+    }
+
+    private static DataElement CreateDataElement() =>
+        new DataElement
+        {
+            Id = "dataElementId",
+            BlobStoragePath = "ttd/test-app/instanceGuid/data/dataElementId",
+        };
+
+    private sealed class DeleteImmediatelyFixture
+    {
+        internal DeleteImmediatelyFixture(DataElement dataElement, bool blobDeleted = true)
+        {
+            BlobRepository
+                .Setup(b => b.DeleteBlob("ttd", dataElement.BlobStoragePath, null))
+                .ReturnsAsync(blobDeleted);
+
+            DataService = new DataService(
+                new Mock<IFileScanQueueClient>().Object,
+                DataRepository.Object,
+                BlobRepository.Object,
+                InstanceEventService.Object,
+                NullLogger<DataService>.Instance
+            );
+        }
+
+        internal Instance Instance { get; } =
+            new Instance { Id = "1337/instanceGuid", Org = "ttd" };
+
+        internal Mock<IDataRepository> DataRepository { get; } = new Mock<IDataRepository>();
+
+        internal Mock<IBlobRepository> BlobRepository { get; } = new Mock<IBlobRepository>();
+
+        internal Mock<IInstanceEventService> InstanceEventService { get; } =
+            new Mock<IInstanceEventService>();
+
+        internal DataService DataService { get; }
     }
 }

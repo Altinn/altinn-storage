@@ -205,7 +205,7 @@ public class ProcessDataCleanupServiceTests
 
         _dataServiceMock
             .Setup(d => d.DeleteImmediately(instance, It.IsAny<DataElement>(), _storageAccount))
-            .ReturnsAsync((Instance _, DataElement de, int? _) => de);
+            .ReturnsAsync((Instance _, DataElement de, int? _, PlatformUser _, string _) => de);
 
         int deleted = await target.CleanupGeneratedFromTask(
             instance,

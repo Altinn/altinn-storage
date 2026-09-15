@@ -71,10 +71,17 @@ public interface IDataService
     /// <param name="instance">The instance</param>
     /// <param name="dataElement">The data element</param>
     /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
+    /// <param name="user">
+    /// The actor to record on the delete event. When null the actor is resolved from the claims of
+    /// the current request.
+    /// </param>
+    /// <param name="additionalInfo">Free text describing why the data element was deleted.</param>
     /// <returns></returns>
     Task<DataElement> DeleteImmediately(
         Instance instance,
         DataElement dataElement,
-        int? storageAccountNumber
+        int? storageAccountNumber,
+        PlatformUser user = null,
+        string additionalInfo = null
     );
 }

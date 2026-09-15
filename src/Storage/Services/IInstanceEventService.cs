@@ -47,9 +47,16 @@ public interface IInstanceEventService
     /// <param name="eventType">The event type</param>
     /// <param name="instance">The instance the event is related to</param>
     /// <param name="dataElement">The data element the event is related to</param>
+    /// <param name="user">
+    /// The actor to record on the event. When null the actor is resolved from the claims of the
+    /// current request, which requires the caller to be acting on behalf of a user or org.
+    /// </param>
+    /// <param name="additionalInfo">Free text describing the event</param>
     public Task DispatchEvent(
         InstanceEventType eventType,
         Instance instance,
-        DataElement dataElement
+        DataElement dataElement,
+        PlatformUser user = null,
+        string additionalInfo = null
     );
 }

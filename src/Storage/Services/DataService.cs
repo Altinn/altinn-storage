@@ -7,11 +7,11 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Clients;
-using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
+using Microsoft.Extensions.Logging;
 
 namespace Altinn.Platform.Storage.Services;
 
@@ -28,6 +28,7 @@ public class DataService : IDataService
     private readonly IDataRepository _dataRepository;
     private readonly IBlobRepository _blobRepository;
     private readonly IInstanceEventService _instanceEventService;
+    private readonly ILogger<DataService> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DataService"/> class.
@@ -36,13 +37,15 @@ public class DataService : IDataService
         IFileScanQueueClient fileScanQueueClient,
         IDataRepository dataRepository,
         IBlobRepository blobRepository,
-        IInstanceEventService instanceEventService
+        IInstanceEventService instanceEventService,
+        ILogger<DataService> logger
     )
     {
         _fileScanQueueClient = fileScanQueueClient;
         _dataRepository = dataRepository;
         _blobRepository = blobRepository;
         _instanceEventService = instanceEventService;
+        _logger = logger;
     }
 
     /// <inheritdoc/>
@@ -136,20 +139,37 @@ public class DataService : IDataService
     public async Task<DataElement> DeleteImmediately(
         Instance instance,
         DataElement dataElement,
-        int? storageAccountNumber
+        int? storageAccountNumber,
+        PlatformUser user = null,
+        string additionalInfo = null
     )
     {
-        string storageFileName = DataElementHelper.DataFileName(
-            instance.AppId,
-            dataElement.InstanceGuid,
-            dataElement.Id
+        // The stored path is authoritative: data elements written with a versioned blob path do
+        // not follow the conventional {appId}/{instanceGuid}/data/{dataElementId} layout.
+        bool blobDeleted = await _blobRepository.DeleteBlob(
+            instance.Org,
+            dataElement.BlobStoragePath,
+            storageAccountNumber
         );
 
-        await _blobRepository.DeleteBlob(instance.Org, storageFileName, storageAccountNumber);
+        if (!blobDeleted)
+        {
+            _logger.LogWarning(
+                "DataService // DeleteImmediately // No blob found at {BlobStoragePath} for data element {DataElementId}",
+                dataElement.BlobStoragePath,
+                dataElement.Id
+            );
+        }
 
         await _dataRepository.Delete(dataElement);
 
-        await _instanceEventService.DispatchEvent(InstanceEventType.Deleted, instance, dataElement);
+        await _instanceEventService.DispatchEvent(
+            InstanceEventType.Deleted,
+            instance,
+            dataElement,
+            user,
+            additionalInfo
+        );
 
         return dataElement;
     }
