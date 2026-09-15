@@ -3,8 +3,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Extensions;
@@ -871,6 +873,7 @@ public class CleanupControllerUnitTests
         CleanupDataElementFixture fixture = new();
         InstanceEvent deletedEvent = new();
         PlatformUser actor = null;
+        string additionalInfo = null;
 
         fixture
             .InstanceEventServiceMock.Setup(service =>
@@ -888,8 +891,12 @@ public class CleanupControllerUnitTests
                     InstanceInternal _,
                     DataElementInternal _,
                     PlatformUser user,
-                    string _
-                ) => actor = user
+                    string info
+                ) =>
+                {
+                    actor = user;
+                    additionalInfo = info;
+                }
             )
             .Returns(deletedEvent);
         fixture
@@ -929,6 +936,10 @@ public class CleanupControllerUnitTests
         // The caller has no claims, so the actor has to be supplied rather than resolved.
         Assert.NotNull(actor);
         Assert.Equal(fixture.Instance.Org, actor.OrgId);
+        Assert.Equal(
+            "Deleted manually through CleanupController // CleanupDataElement",
+            additionalInfo
+        );
 
         fixture.InstanceMutationRepositoryMock.Verify(
             repository =>
@@ -940,6 +951,9 @@ public class CleanupControllerUnitTests
                         && mutation.DeleteDataElements[0].DataElement == fixture.DataElement
                         && mutation.InstanceEvents.Count == 1
                         && mutation.InstanceEvents[0] == deletedEvent
+                        // The instance keeps whoever last changed it rather than being
+                        // reattributed to an operational delete.
+                        && mutation.LastChangedBy == null
                     ),
                     It.IsAny<CancellationToken>()
                 ),
@@ -1028,6 +1042,22 @@ public class CleanupControllerUnitTests
         // Assert
         Assert.IsType<NotFoundObjectResult>(response.Result);
         fixture.InstanceMutationRepositoryMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public void CleanupDataElement_IsGuardedByTheCleanupApiKeyFilter()
+    {
+        // The endpoint deletes data irreversibly and is not covered by an authorization policy,
+        // so the API key filter is the only thing standing in front of it. Calling the action
+        // directly does not run filters, which would leave its removal undetected.
+        MethodInfo action = typeof(CleanupController).GetMethod(
+            nameof(CleanupController.CleanupDataElement)
+        );
+
+        Assert.Contains(
+            action.GetCustomAttributes<ServiceFilterAttribute>(inherit: true),
+            attribute => attribute.ServiceType == typeof(CleanupApiKeyFilter)
+        );
     }
 
     private const int PartyId = 1337;

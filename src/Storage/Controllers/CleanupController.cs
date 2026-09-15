@@ -591,8 +591,7 @@ public class CleanupController(
             ExpectedInstanceVersion: null,
             ExpectedProcessStateVersion: null,
             InstanceEvents: [deletedEvent],
-            LastChanged: deletedTime,
-            LastChangedBy: instance.Org
+            LastChanged: deletedTime
         );
 
         await instanceMutationRepository.Apply(
