@@ -45,9 +45,8 @@ public class DataController : ControllerBase
     private readonly IApplicationRepository _applicationRepository;
     private readonly IDataService _dataService;
     private readonly IInstanceEventService _instanceEventService;
-    private readonly IOnDemandContentService _onDemandContentService;
+    private readonly IDataElementContentService _dataElementContentService;
     private readonly string _storageBaseAndHost;
-    private readonly GeneralSettings _generalSettings;
     private readonly IAuthorization _authorizationService;
 
     /// <summary>
@@ -61,7 +60,7 @@ public class DataController : ControllerBase
     /// <param name="dataService">A data service with data element related business logic.</param>
     /// <param name="instanceEventService">An instance event service with event related business logic.</param>
     /// <param name="generalSettings">the general settings.</param>
-    /// <param name="onDemandContentService">generates on demand content for migrated Altinn 2 data elements</param>
+    /// <param name="dataElementContentService">resolves and opens the content of a data element</param>
     /// <param name="authorizationService">The authorization service</param>
     public DataController(
         IDataRepository dataRepository,
@@ -72,7 +71,7 @@ public class DataController : ControllerBase
         IDataService dataService,
         IInstanceEventService instanceEventService,
         IOptions<GeneralSettings> generalSettings,
-        IOnDemandContentService onDemandContentService,
+        IDataElementContentService dataElementContentService,
         IAuthorization authorizationService
     )
     {
@@ -84,8 +83,7 @@ public class DataController : ControllerBase
         _dataService = dataService;
         _instanceEventService = instanceEventService;
         _storageBaseAndHost = $"{generalSettings.Value.Hostname}/storage/api/v1/";
-        _onDemandContentService = onDemandContentService;
-        _generalSettings = generalSettings.Value;
+        _dataElementContentService = dataElementContentService;
         _authorizationService = authorizationService;
     }
 
@@ -283,54 +281,20 @@ public class DataController : ControllerBase
             return BadRequest("Missing parameter value: instanceOwnerPartyId can not be empty");
         }
 
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-        if (instance == null)
+        (DataElementReadContext context, ServiceError resolveError) =
+            await _dataElementContentService.ResolveForRead(
+                instanceOwnerPartyId,
+                instanceGuid,
+                dataGuid,
+                cancellationToken
+            );
+        if (resolveError is not null)
         {
-            return instanceError;
+            return ErrorResult(resolveError);
         }
 
-        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read") is false)
-        {
-            return Forbid();
-        }
-
-        (DataElementInternal dataElement, ActionResult dataElementError) =
-            await GetDataElementAsync(instanceGuid, dataGuid, cancellationToken);
-        if (dataElement == null)
-        {
-            return dataElementError;
-        }
-
-        (Application application, ActionResult applicationError) = await GetApplicationAsync(
-            instance.AppId,
-            instance.Org,
-            cancellationToken
-        );
-        if (application == null)
-        {
-            return applicationError;
-        }
-
-        (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(
-            instance,
-            dataElement.DataType,
-            application,
-            cancellationToken
-        );
-        if (dataTypeDefinition == null)
-        {
-            return dataTypeError;
-        }
-
-        if (await dataTypeDefinition.CanRead(_authorizationService, instance) is not true)
-        {
-            return Forbid();
-        }
+        InstanceInternal instance = context.Instance;
+        DataElementInternal dataElement = context.DataElement;
 
         bool appOwnerRequestingElement = User.GetOrg() == instance.Org;
 
@@ -377,49 +341,23 @@ public class DataController : ControllerBase
             }
         }
 
-        if (
-            (instance.AppId.Contains(@"/a1-") || instance.AppId.Contains(@"/a2-"))
-            && _generalSettings.A2UseTtdAsServiceOwner
-        )
+        Stream dataStream = await _dataElementContentService.OpenContent(
+            context,
+            LanguageHelper.GetCurrentUserLanguage(Request),
+            cancellationToken
+        );
+
+        if (context.IsOnDemandContent)
         {
-            instance.Org = "ttd";
-        }
-
-        if (dataElement.BlobStoragePath.StartsWith("ondemand"))
-        {
-            Stream onDemandStream = await _onDemandContentService.GetContent(
-                dataElement.BlobStoragePath.Split('/')[1],
-                instance.AppId.Split('/')[1],
-                instanceGuid,
-                dataGuid,
-                LanguageHelper.GetCurrentUserLanguage(Request),
-                cancellationToken
-            );
-
-            var contentDispositionHeader = new ContentDispositionHeaderValue("inline");
-            contentDispositionHeader.SetHttpFileName(dataElement.Filename);
-            Response.Headers.Append(
-                HeaderNames.ContentDisposition,
-                contentDispositionHeader.ToString()
-            );
-
             VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
-            if (onDemandStream is null)
+            if (dataStream is null)
             {
                 return NotFound();
             }
 
-            return File(onDemandStream, dataElement.ContentType);
+            SetInlineContentDisposition(dataElement.Filename);
+            return File(dataStream, dataElement.ContentType);
         }
-
-        EnsureExpectedBlobStoragePath(dataElement, instance.AppId, instanceGuid, dataGuid);
-
-        Stream dataStream = await _blobRepository.ReadBlob(
-            instance.Org,
-            dataElement.BlobStoragePath,
-            application.StorageAccountNumber,
-            cancellationToken
-        );
 
         if (dataStream == null)
         {
@@ -437,12 +375,7 @@ public class DataController : ControllerBase
             && dataElement.ContentType == "text/html"
         )
         {
-            var contentDispositionHeader = new ContentDispositionHeaderValue("inline");
-            contentDispositionHeader.SetHttpFileName(dataElement.Filename);
-            Response.Headers.Append(
-                HeaderNames.ContentDisposition,
-                contentDispositionHeader.ToString()
-            );
+            SetInlineContentDisposition(dataElement.Filename);
             return File(dataStream, dataElement.ContentType);
         }
 
@@ -764,7 +697,12 @@ public class DataController : ControllerBase
             return Conflict($"Data element {dataGuid} is locked and cannot be updated");
         }
 
-        EnsureExpectedBlobStoragePath(dataElement, instance.AppId, instanceGuid, dataGuid);
+        DataElementHelper.EnsureBlobStoragePathMatchesRequest(
+            dataElement,
+            instance.AppId,
+            instanceGuid,
+            dataGuid
+        );
 
         (string expectedCurrentBlobVersion, ActionResult ifMatchError) = TryGetIfMatchBlobVersion();
         if (ifMatchError is not null)
@@ -1305,58 +1243,6 @@ public class DataController : ControllerBase
             : (dataTypeDefinition, null);
     }
 
-    private static void EnsureExpectedBlobStoragePath(
-        DataElementInternal dataElement,
-        string appId,
-        Guid instanceGuid,
-        Guid dataGuid
-    )
-    {
-        if (!HasExpectedBlobStoragePath(dataElement, appId, instanceGuid, dataGuid))
-        {
-            throw new InvalidOperationException(
-                $"Blob storage path of data element {dataGuid} was unexpected for instance {instanceGuid}."
-            );
-        }
-    }
-
-    private static bool HasExpectedBlobStoragePath(
-        DataElementInternal dataElement,
-        string appId,
-        Guid instanceGuid,
-        Guid dataGuid
-    )
-    {
-        string blobStoragePath = dataElement.BlobStoragePath;
-        if (string.IsNullOrEmpty(blobStoragePath))
-        {
-            return false;
-        }
-
-        string legacyBlobStoragePath = DataElementHelper.DataFileName(
-            appId,
-            instanceGuid,
-            dataGuid
-        );
-        if (string.Equals(blobStoragePath, legacyBlobStoragePath, StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        string blobVersionId = dataElement.BlobVersionId;
-        if (string.IsNullOrEmpty(blobVersionId))
-        {
-            return false;
-        }
-
-        string versionedBlobStoragePath = DataElementHelper.GetVersionedBlobPath(
-            appId,
-            instanceGuid,
-            blobVersionId
-        );
-        return string.Equals(blobStoragePath, versionedBlobStoragePath, StringComparison.Ordinal);
-    }
-
     private (string BlobVersionId, ActionResult Error) TryGetIfMatchBlobVersion()
     {
         if (!Request.Headers.TryGetValue(HeaderNames.IfMatch, out StringValues ifMatchHeader))
@@ -1383,6 +1269,25 @@ public class DataController : ControllerBase
         }
 
         return (blobVersionId, null);
+    }
+
+    private ActionResult ErrorResult(ServiceError serviceError) =>
+        serviceError.ErrorCode switch
+        {
+            400 => BadRequest(serviceError.ErrorMessage),
+            403 => Forbid(),
+            404 => NotFound(serviceError.ErrorMessage),
+            _ => StatusCode(serviceError.ErrorCode, serviceError.ErrorMessage),
+        };
+
+    private void SetInlineContentDisposition(string filename)
+    {
+        ContentDispositionHeaderValue contentDispositionHeader = new("inline");
+        contentDispositionHeader.SetHttpFileName(filename);
+        Response.Headers.Append(
+            HeaderNames.ContentDisposition,
+            contentDispositionHeader.ToString()
+        );
     }
 
     private void SetBlobVersionETag(string blobVersionId)
