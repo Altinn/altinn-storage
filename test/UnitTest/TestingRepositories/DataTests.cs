@@ -442,7 +442,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     }
 
     [Fact]
-    public async Task DataElement_Update_BlobVersionId_HardDeletedDataElement_ThrowsNotFoundAndDoesNotUpdateInstance()
+    public async Task DataElement_Update_BlobVersionId_HardDeletedDataElement_UpdatesElementAndInstance()
     {
         // Arrange
         string contentType = $"hard-deleted-{Guid.NewGuid()}";
@@ -465,44 +465,43 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
 
         // Act
-        RepositoryException exception = await Assert.ThrowsAsync<RepositoryException>(() =>
-            UpdateDataElement(
-                Guid.Parse(dataElement.InstanceGuid),
-                Guid.Parse(dataElement.Id),
-                new Dictionary<string, object>()
+        DataElementInternal updatedElement = await UpdateDataElement(
+            Guid.Parse(dataElement.InstanceGuid),
+            Guid.Parse(dataElement.Id),
+            new Dictionary<string, object>()
+            {
+                { "/contentType", contentType },
                 {
-                    { "/contentType", contentType },
-                    {
-                        "/blobStoragePath",
-                        DataElementHelper.GetVersionedBlobPath(
-                            _instance.AppId,
-                            new Guid(dataElement.InstanceGuid),
-                            blobVersionId
-                        )
-                    },
-                    { "/currentBlobVersion", blobVersionId },
-                    { "/lastChanged", lastChanged },
-                    { "/lastChangedBy", lastChangedBy },
+                    "/blobStoragePath",
+                    DataElementHelper.GetVersionedBlobPath(
+                        _instance.AppId,
+                        new Guid(dataElement.InstanceGuid),
+                        blobVersionId
+                    )
                 },
-                new DataElementUpdateContext { IgnoreLock = false }
-            )
+                { "/currentBlobVersion", blobVersionId },
+                { "/lastChanged", lastChanged },
+                { "/lastChangedBy", lastChangedBy },
+            },
+            new DataElementUpdateContext { IgnoreLock = false }
         );
 
         // Assert
-        Assert.Equal(HttpStatusCode.NotFound, exception.StatusCodeSuggestion);
+        Assert.Equal(contentType, updatedElement.ContentType);
+        Assert.Equal(blobVersionId, updatedElement.BlobVersionId);
         int dataCount = await PostgresUtil.RunCountQuery(
             $"select count(*) from storage.dataelements where alternateid = '{dataElement.Id}' and element ->> 'ContentType' = '{contentType}'"
         );
         int instanceCount = await PostgresUtil.RunCountQuery(
             $"select count(*) from storage.instances where alternateid = '{dataElement.InstanceGuid}' and instance -> 'LastChangedBy' = '\"{lastChangedBy}\"'"
         );
-        Assert.Equal(0, dataCount);
-        Assert.Equal(0, instanceCount);
-        Assert.Equal(0, await CountAttachedBlobVersionRows(blobVersionId));
+        Assert.Equal(1, dataCount);
+        Assert.Equal(1, instanceCount);
+        Assert.Equal(1, await CountAttachedBlobVersionRows(blobVersionId));
     }
 
     [Fact]
-    public async Task DataElement_Create_HardDeletedInstance_ThrowsNotFoundAndDoesNotAttachBlobVersion()
+    public async Task DataElement_Create_HardDeletedInstance_CreatesAndAttachesBlobVersion()
     {
         // Arrange
         DataElement element = TestDataUtil.GetDataElement(_dataElement3);
@@ -522,24 +521,25 @@ public class DataTests(DataElementFixture dataElementFixture)
         await SetInstanceHardDeleted(Guid.Parse(element.InstanceGuid));
 
         // Act
-        RepositoryException exception = await Assert.ThrowsAsync<RepositoryException>(() =>
-            CreateDataElement(element.FromApiModel(blobVersionId), _instanceInternalId)
+        DataElementInternal createdElement = await CreateDataElement(
+            element.FromApiModel(blobVersionId),
+            _instanceInternalId
         );
 
         // Assert
-        Assert.Equal(HttpStatusCode.NotFound, exception.StatusCodeSuggestion);
+        Assert.Equal(element.Id, createdElement.Id.ToString());
         int dataCount = await PostgresUtil.RunCountQuery(
             $"select count(*) from storage.dataelements where alternateid = '{element.Id}'"
         );
         int attachedVersionCount = await PostgresUtil.RunCountQuery(
             $"select count(*) from storage.dataelementblobversions where id = '{BlobVersionId.Decode(blobVersionId)}' and detachedat is null"
         );
-        Assert.Equal(0, dataCount);
-        Assert.Equal(0, attachedVersionCount);
+        Assert.Equal(1, dataCount);
+        Assert.Equal(1, attachedVersionCount);
     }
 
     [Fact]
-    public async Task DataElement_Update_HardDeletedInstance_ThrowsNotFoundAndDoesNotUpdateElement()
+    public async Task DataElement_Update_HardDeletedInstance_UpdatesElement()
     {
         // Arrange
         DataElement element = TestDataUtil.GetDataElement(_dataElement3);
@@ -552,21 +552,14 @@ public class DataTests(DataElementFixture dataElementFixture)
         await SetInstanceHardDeleted(Guid.Parse(dataElement.InstanceGuid));
 
         // Act
-        RepositoryException exception = await Assert.ThrowsAsync<RepositoryException>(() =>
-            UpdateDataElement(
-                Guid.Parse(dataElement.InstanceGuid),
-                Guid.Parse(dataElement.Id),
-                new Dictionary<string, object>() { { "/isRead", true } }
-            )
+        DataElementInternal updatedElement = await UpdateDataElement(
+            Guid.Parse(dataElement.InstanceGuid),
+            Guid.Parse(dataElement.Id),
+            new Dictionary<string, object>() { { "/isRead", true } }
         );
 
         // Assert
-        Assert.Equal(HttpStatusCode.NotFound, exception.StatusCodeSuggestion);
-        DataElementInternal readElement = await dataElementFixture.DataRepo.Read(
-            Guid.Parse(dataElement.InstanceGuid),
-            Guid.Parse(dataElement.Id)
-        );
-        Assert.False(readElement.IsRead);
+        Assert.True(updatedElement.IsRead);
     }
 
     [Fact]
@@ -597,7 +590,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     }
 
     [Fact]
-    public async Task DataElement_Update_Tags_HardDeletedDataElement_ThrowsNotFoundAndDoesNotUpdateElement()
+    public async Task DataElement_Update_Tags_HardDeletedDataElement_UpdatesElement()
     {
         // Arrange
         List<string> orgTags = ["s1", "s2"];
@@ -615,27 +608,20 @@ public class DataTests(DataElementFixture dataElementFixture)
         DataElement dataElement = await CreateLegacyDataElement(element);
 
         // Act
-        RepositoryException exception = await Assert.ThrowsAsync<RepositoryException>(() =>
-            UpdateDataElement(
-                Guid.Parse(dataElement.InstanceGuid),
-                Guid.Parse(dataElement.Id),
-                new Dictionary<string, object>()
+        DataElementInternal updatedElement = await UpdateDataElement(
+            Guid.Parse(dataElement.InstanceGuid),
+            Guid.Parse(dataElement.Id),
+            new Dictionary<string, object>()
+            {
                 {
-                    {
-                        "/tags",
-                        new List<string> { "s3" }
-                    },
-                }
-            )
+                    "/tags",
+                    new List<string> { "s3" }
+                },
+            }
         );
 
         // Assert
-        Assert.Equal(HttpStatusCode.NotFound, exception.StatusCodeSuggestion);
-        DataElementInternal readElement = await dataElementFixture.DataRepo.Read(
-            Guid.Parse(dataElement.InstanceGuid),
-            Guid.Parse(dataElement.Id)
-        );
-        Assert.Equal(JsonSerializer.Serialize(orgTags), JsonSerializer.Serialize(readElement.Tags));
+        Assert.Equal(["s3"], updatedElement.Tags);
     }
 
     [Fact]
@@ -2893,9 +2879,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task AggregateMutation_UpdateHardDeletedDataElement_MapsToDataElementNotUpdated(
-        bool ignoreLock
-    )
+    public async Task AggregateMutation_UpdateHardDeletedDataElement_UpdatesElement(bool ignoreLock)
     {
         // Arrange
         Guid instanceGuid = _instance.Id;
@@ -2927,24 +2911,22 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
 
         // Act
-        RepositoryException exception = await Assert.ThrowsAsync<RepositoryException>(() =>
-            dataElementFixture.InstanceMutationRepo.Apply(
-                instanceGuid,
-                _instanceInternalId,
-                mutation
-            )
+        InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
+            instanceGuid,
+            _instanceInternalId,
+            mutation
         );
 
         // Assert
-        Assert.Equal(HttpStatusCode.NotFound, exception.StatusCodeSuggestion);
-        Assert.Equal(
-            $"Data element {hardDeletedElement.Id} is deleted and cannot be updated.",
-            exception.Message
+        DataElementInternal updatedElement = Assert.Single(
+            result.Instance.Data,
+            element => element.Id == Guid.Parse(hardDeletedElement.Id)
         );
+        Assert.Equal(["new"], updatedElement.Tags);
     }
 
     [Fact]
-    public async Task AggregateMutation_CreateDataElementOnHardDeletedInstance_MapsToInstanceDeleted()
+    public async Task AggregateMutation_CreateDataElementOnHardDeletedInstance_CreatesElement()
     {
         // Arrange
         Guid instanceGuid = _instance.Id;
@@ -2963,22 +2945,16 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
 
         // Act
-        RepositoryException exception = await Assert.ThrowsAsync<RepositoryException>(() =>
-            dataElementFixture.InstanceMutationRepo.Apply(
-                instanceGuid,
-                _instanceInternalId,
-                mutation
-            )
+        InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
+            instanceGuid,
+            _instanceInternalId,
+            mutation
         );
 
         // Assert
-        Assert.Equal(HttpStatusCode.NotFound, exception.StatusCodeSuggestion);
-        Assert.Equal(
-            $"Instance {instanceGuid} is deleted and cannot be modified.",
-            exception.Message
-        );
-        Assert.False(await dataElementFixture.DataRepo.Exists(toCreate.Id));
-        Assert.Equal(0, await CountAttachedBlobVersionRows(toCreate.BlobVersionId));
+        Assert.Contains(result.Instance.Data, element => element.Id == toCreate.Id);
+        Assert.True(await dataElementFixture.DataRepo.Exists(toCreate.Id));
+        Assert.Equal(1, await CountAttachedBlobVersionRows(toCreate.BlobVersionId));
     }
 
     [Fact]
@@ -4654,8 +4630,10 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Arrange
         Guid instanceGuid = _instance.Id;
         DataElement toLock = TestDataUtil.GetDataElement(_dataElement1);
+        toLock.IsRead = false;
         (toLock, _) = await CreateVersionedDataElement(toLock);
         Guid dataElementId = Guid.Parse(toLock.Id);
+        await SetInstanceReadStatus(instanceGuid, ReadStatus.Read);
         DataElementInternal beforeLock = await dataElementFixture.DataRepo.Read(
             instanceGuid,
             dataElementId
@@ -4705,6 +4683,65 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(beforeLock.LastChangedBy, lockedElement.LastChangedBy);
         Assert.Equal(mutationLastChanged, updatedInstance.LastChanged);
         Assert.Equal("workflow-service-owner", updatedInstance.LastChangedBy);
+        Assert.Equal(ReadStatus.Read, updatedInstance.Status.ReadStatus);
+    }
+
+    [Fact]
+    public async Task ApplyInstanceMutationSql_DelayedDelete_StampsElementAndPreservesReadStatus()
+    {
+        // Arrange
+        Guid instanceGuid = _instance.Id;
+        DataElement toDelete = TestDataUtil.GetDataElement(_dataElement1);
+        toDelete.IsRead = false;
+        (toDelete, _) = await CreateVersionedDataElement(toDelete);
+        Guid dataElementId = Guid.Parse(toDelete.Id);
+        await SetInstanceReadStatus(instanceGuid, ReadStatus.Read);
+        int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        DateTime mutationLastChanged = new(2026, 3, 4, 5, 6, 8, DateTimeKind.Utc);
+
+        // Act
+        await ApplyInstanceMutationSql(
+            instanceGuid,
+            _instanceInternalId,
+            previousInstanceVersion,
+            null,
+            null,
+            null,
+            UpdateElementsPayload([
+                new UpdateElementPayload(
+                    dataElementId,
+                    ElementChanges: new JsonObject
+                    {
+                        ["DeleteStatus"] = new JsonObject
+                        {
+                            ["IsHardDeleted"] = true,
+                            ["HardDeleted"] = mutationLastChanged.ToString("O"),
+                        },
+                    }
+                ),
+            ]),
+            null,
+            null,
+            null,
+            null,
+            lastChanged: mutationLastChanged,
+            lastChangedBy: "deleting-party"
+        );
+        DataElementInternal deletedElement = await dataElementFixture.DataRepo.Read(
+            instanceGuid,
+            dataElementId
+        );
+        InstanceInternal updatedInstance = await dataElementFixture.InstanceRepo.GetOne(
+            instanceGuid,
+            false,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.True(deletedElement.DeleteStatus.IsHardDeleted);
+        Assert.Equal(mutationLastChanged, deletedElement.LastChanged);
+        Assert.Equal("deleting-party", deletedElement.LastChangedBy);
+        Assert.Equal(ReadStatus.Read, updatedInstance.Status.ReadStatus);
     }
 
     [Fact]
@@ -4751,6 +4788,47 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.NotEqual(beforeUpdate.LastChangedBy, updatedElement.LastChangedBy);
         Assert.Equal(mutationLastChanged, updatedElement.LastChanged);
         Assert.Equal("patching-party", updatedElement.LastChangedBy);
+    }
+
+    [Fact]
+    public async Task ApplyInstanceMutationSql_UpdateLastReadElementToUnread_SetsAggregateUnread()
+    {
+        // Arrange
+        Guid instanceGuid = _instance.Id;
+        DataElement element = TestDataUtil.GetDataElement(_dataElement1);
+        element.IsRead = true;
+        element = await CreateLegacyDataElement(element);
+        await SetInstanceReadStatus(instanceGuid, ReadStatus.Read);
+        int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
+
+        // Act
+        await ApplyInstanceMutationSql(
+            instanceGuid,
+            _instanceInternalId,
+            previousInstanceVersion,
+            null,
+            null,
+            null,
+            UpdateElementsPayload([
+                new UpdateElementPayload(
+                    Guid.Parse(element.Id),
+                    ElementChanges: new JsonObject { ["IsRead"] = false },
+                    IsReadChangedToFalse: true
+                ),
+            ]),
+            null,
+            null,
+            null,
+            null
+        );
+        InstanceInternal updatedInstance = await dataElementFixture.InstanceRepo.GetOne(
+            instanceGuid,
+            false,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Equal(ReadStatus.Unread, updatedInstance.Status.ReadStatus);
     }
 
     [Fact]
@@ -5173,6 +5251,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     {
         // Arrange
         Guid instanceGuid = _instance.Id;
+        await SetInstanceReadStatus(instanceGuid, ReadStatus.Read);
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
         DateTime lastChanged = new(2026, 4, 5, 6, 7, 8, DateTimeKind.Utc);
@@ -5226,6 +5305,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(archived, updatedInstance.Status.Archived);
         Assert.Equal("Task_10", updatedInstance.Process.CurrentTask.ElementId);
         Assert.Equal(ProcessStatus.Processing, updatedInstance.Process.Status);
+        Assert.Equal(ReadStatus.Read, updatedInstance.Status.ReadStatus);
         Assert.Equal("Task_10", await ReadInstanceTaskId(instanceGuid));
         Assert.True(await ReadInstanceConfirmed(instanceGuid));
         Assert.Equal(
@@ -6561,7 +6641,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     [Theory]
     [InlineData(HardDeletedInstanceMutationPayloadKind.Create)]
     [InlineData(HardDeletedInstanceMutationPayloadKind.Update)]
-    public async Task ApplyInstanceMutationSql_DataElementWriteOnHardDeletedInstance_RaisesInstanceHardDeletedAndDoesNotMutate(
+    public async Task ApplyInstanceMutationSql_DataElementWriteOnHardDeletedInstance_Applies(
         HardDeletedInstanceMutationPayloadKind payloadKind
     )
     {
@@ -6569,7 +6649,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         Guid instanceGuid = _instance.Id;
         string createElements = null;
         string updateElements = null;
-        Func<Task> assertMutationDidNotApply;
+        Func<Task> assertMutationApplied;
 
         switch (payloadKind)
         {
@@ -6578,15 +6658,14 @@ public class DataTests(DataElementFixture dataElementFixture)
                     instanceGuid
                 );
                 createElements = CreateElementsPayload([toCreate]);
-                assertMutationDidNotApply = async () =>
+                assertMutationApplied = async () =>
                 {
-                    Assert.False(await dataElementFixture.DataRepo.Exists(toCreate.Id));
-                    Assert.Equal(0, await CountAttachedBlobVersionRows(toCreate.BlobVersionId));
+                    Assert.True(await dataElementFixture.DataRepo.Exists(toCreate.Id));
+                    Assert.Equal(1, await CountAttachedBlobVersionRows(toCreate.BlobVersionId));
                 };
                 break;
             case HardDeletedInstanceMutationPayloadKind.Update:
                 DataElement toUpdate = TestDataUtil.GetDataElement(_dataElement1);
-                string originalContentType = toUpdate.ContentType;
                 (toUpdate, string currentBlobVersion) = await CreateVersionedDataElement(toUpdate);
                 updateElements = UpdateElementsPayload([
                     new UpdateElementPayload(
@@ -6595,9 +6674,9 @@ public class DataTests(DataElementFixture dataElementFixture)
                         ExpectedBlobVersion: currentBlobVersion
                     ),
                 ]);
-                assertMutationDidNotApply = async () =>
+                assertMutationApplied = async () =>
                     Assert.Equal(
-                        originalContentType,
+                        "application/xml",
                         await ReadDataElementJsonText(instanceGuid, toUpdate.Id, "ContentType")
                     );
                 break;
@@ -6606,36 +6685,27 @@ public class DataTests(DataElementFixture dataElementFixture)
         }
 
         int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
-        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
         await SetInstanceHardDeleted(instanceGuid);
 
         // Act
-        PostgresException exception = await Assert.ThrowsAsync<PostgresException>(() =>
-            ApplyInstanceMutationSql(
-                instanceGuid,
-                _instanceInternalId,
-                currentInstanceVersion,
-                null,
-                null,
-                createElements,
-                updateElements,
-                null,
-                null,
-                null,
-                null
-            )
+        List<ApplyMutationSqlRow> rows = await ApplyInstanceMutationSql(
+            instanceGuid,
+            _instanceInternalId,
+            currentInstanceVersion,
+            null,
+            null,
+            createElements,
+            updateElements,
+            null,
+            null,
+            null,
+            null
         );
 
         // Assert
-        AssertSqlError(
-            exception,
-            "instance_hard_deleted",
-            currentInstanceVersion,
-            currentProcessStateVersion
-        );
-        AssertSqlErrorHasNoMutationTarget(exception);
-        await assertMutationDidNotApply();
-        Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
+        Assert.NotEmpty(rows);
+        await assertMutationApplied();
+        Assert.Equal(currentInstanceVersion + 1, await ReadInstanceVersion(instanceGuid));
     }
 
     [Theory]
@@ -6718,12 +6788,11 @@ public class DataTests(DataElementFixture dataElementFixture)
     }
 
     [Fact]
-    public async Task ApplyInstanceMutationSql_HardDeletedDataElement_RaisesDistinctCodeAndDoesNotUpdate()
+    public async Task ApplyInstanceMutationSql_HardDeletedDataElement_Updates()
     {
         // Arrange
         Guid instanceGuid = _instance.Id;
         DataElement hardDeletedElement = TestDataUtil.GetDataElement(_dataElement1);
-        hardDeletedElement.Locked = true;
         hardDeletedElement.DeleteStatus = new DeleteStatus
         {
             IsHardDeleted = true,
@@ -6733,43 +6802,44 @@ public class DataTests(DataElementFixture dataElementFixture)
             hardDeletedElement
         );
         int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
-        int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
 
         // Act
-        PostgresException exception = await Assert.ThrowsAsync<PostgresException>(() =>
-            ApplyInstanceMutationSql(
-                instanceGuid,
-                _instanceInternalId,
-                currentInstanceVersion,
-                null,
-                null,
-                null,
-                UpdateElementsPayload(
+        List<ApplyMutationSqlRow> rows = await ApplyInstanceMutationSql(
+            instanceGuid,
+            _instanceInternalId,
+            currentInstanceVersion,
+            null,
+            null,
+            null,
+            UpdateElementsPayload([
+                new UpdateElementPayload(
                     Guid.Parse(hardDeletedElement.Id),
-                    expectedBlobVersion: currentBlobVersion,
-                    ignoreLock: false
+                    ElementChanges: new JsonObject { ["SqlHardDeletedMarker"] = "updated" },
+                    ExpectedBlobVersion: currentBlobVersion
                 ),
-                null,
-                null,
-                null,
-                null
-            )
+            ]),
+            null,
+            null,
+            null,
+            null
         );
 
         // Assert
-        AssertSqlError(
-            exception,
-            "data_element_hard_deleted",
-            currentInstanceVersion,
-            currentProcessStateVersion,
-            hardDeletedElement.Id
-        );
-        Assert.Equal(currentInstanceVersion, await ReadInstanceVersion(instanceGuid));
+        Assert.NotEmpty(rows);
+        Assert.Equal(currentInstanceVersion + 1, await ReadInstanceVersion(instanceGuid));
         DataElementInternal readElement = await dataElementFixture.DataRepo.Read(
             instanceGuid,
             Guid.Parse(hardDeletedElement.Id)
         );
         Assert.True(readElement.DeleteStatus.IsHardDeleted);
+        Assert.Equal(
+            "updated",
+            await ReadDataElementJsonText(
+                instanceGuid,
+                hardDeletedElement.Id,
+                "SqlHardDeletedMarker"
+            )
+        );
     }
 
     private async Task<List<ApplyMutationSqlRow>> ApplyInstanceMutationSql(

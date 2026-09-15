@@ -10,18 +10,16 @@ CREATE OR REPLACE FUNCTION storage.insertdataelement_v3(
     LANGUAGE plpgsql
 AS $BODY$
 DECLARE
-    _instanceIsHardDeleted BOOL;
     _currentInstanceVersion INT;
     _currentProcessStateVersion INT;
     _currentProcessStatus TEXT;
     _newInstanceVersion INT;
 BEGIN
     SELECT
-        COALESCE((i.instance -> 'Status' ->> 'IsHardDeleted')::BOOLEAN, FALSE),
         i.instance_version,
         i.process_state_version,
         COALESCE(i.instance -> 'Process' ->> 'Status', 'idle')
-        INTO _instanceIsHardDeleted, _currentInstanceVersion, _currentProcessStateVersion, _currentProcessStatus
+        INTO _currentInstanceVersion, _currentProcessStateVersion, _currentProcessStatus
         FROM storage.instances i
         WHERE i.id = _instanceinternalid
         FOR UPDATE;
@@ -41,12 +39,6 @@ BEGIN
     IF _expectedprocessstateversion IS NOT NULL AND _currentProcessStateVersion <> _expectedprocessstateversion
     THEN
         RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, _currentProcessStatus, 'process_state_version_mismatch'::TEXT;
-        RETURN;
-    END IF;
-
-    IF _instanceIsHardDeleted
-    THEN
-        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, _currentProcessStatus, 'hard_deleted'::TEXT;
         RETURN;
     END IF;
 

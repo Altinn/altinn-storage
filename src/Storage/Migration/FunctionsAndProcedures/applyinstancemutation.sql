@@ -47,8 +47,7 @@ BEGIN
     --   instance_version_mismatch       caller-supplied fences, checked before any other
     --   process_state_version_mismatch  state the instance is in
     --   process_status_conflict         unfenced callers only: a non-idle process takes no writes
-    --   instance_hard_deleted           payloads that create or update data elements only
-    -- Data element refusals (not found, blob version, hard deleted, locked) come last: the
+    -- Data element refusals (not found, blob version, locked) come last: the
     -- create, update and delete statements carry their own conditions, and the diagnose*
     -- procedures identify the offending element when a statement matches fewer rows than
     -- the payload listed.
@@ -149,19 +148,6 @@ BEGIN
             _currentprocessstatus);
     END IF;
 
-    -- A hard deleted instance takes no new or changed data element content: its blobs are
-    -- already queued for physical cleanup. Instance updates, data element deletes and events
-    -- still apply, so an app that hard deletes on process end (autoDeleteOnProcessEnd) can
-    -- record the final process state and its events afterwards.
-    IF (jsonb_array_length(_createelements) > 0 OR jsonb_array_length(_updateelements) > 0)
-        AND COALESCE((_composedinstance -> 'Status' ->> 'IsHardDeleted')::BOOLEAN, FALSE)
-    THEN
-        CALL storage.raiseinstancemutationerror(
-            'instance_hard_deleted',
-            _currentinstanceversion,
-            _currentprocessstateversion);
-    END IF;
-
     IF jsonb_array_length(_createelements) > 0
     THEN
         INSERT INTO storage.dataelements(instanceinternalid, instanceguid, alternateid, element, currentblobversion)
@@ -225,6 +211,7 @@ BEGIN
                     || updateelements.elementchanges
                     || CASE
                         WHEN updateelements.newblobversion IS NULL
+                            AND NOT COALESCE((updateelements.elementchanges -> 'DeleteStatus' ->> 'IsHardDeleted')::BOOLEAN, FALSE)
                         THEN '{}'::JSONB
                         ELSE jsonb_build_object(
                             'LastChanged',
@@ -241,7 +228,6 @@ BEGIN
                     updateelements.expectedblobversion IS NULL
                     OR dataelement.currentblobversion IS NOT DISTINCT FROM updateelements.expectedblobversion
                 )
-                AND NOT COALESCE((dataelement.element -> 'DeleteStatus' ->> 'IsHardDeleted')::BOOLEAN, FALSE)
                 AND (
                     updateelements.ignorelock
                     OR NOT COALESCE((dataelement.element ->> 'Locked')::BOOLEAN, FALSE)
@@ -346,12 +332,20 @@ BEGIN
             )
             THEN
                 _composedinstance := jsonb_set(_composedinstance, '{Status, ReadStatus}', '2');
-            ELSIF NOT EXISTS (
-                SELECT 1
-                FROM storage.dataelements dataelement
-                WHERE dataelement.instanceguid = _instanceguid
-                    AND dataelement.element -> 'IsRead' = 'true'
-            )
+            ELSIF (
+                    jsonb_array_length(_deleteelements) > 0
+                    OR EXISTS (
+                        SELECT 1
+                        FROM jsonb_array_elements(_updateelements) updateelement(value)
+                        WHERE updateelement.value -> 'elementChanges' ->> 'IsRead' = 'false'
+                    )
+                )
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM storage.dataelements dataelement
+                    WHERE dataelement.instanceguid = _instanceguid
+                        AND dataelement.element -> 'IsRead' = 'true'
+                )
             THEN
                 _composedinstance := jsonb_set(_composedinstance, '{Status, ReadStatus}', '0');
             END IF;
