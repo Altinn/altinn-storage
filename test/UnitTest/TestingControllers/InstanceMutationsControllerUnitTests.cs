@@ -1692,7 +1692,9 @@ public class InstanceMutationsControllerUnitTests
                 (
                     InstanceEventType eventType,
                     InstanceInternal instance,
-                    DataElementInternal element
+                    DataElementInternal element,
+                    PlatformUser _,
+                    string _
                 ) => BuildDataElementEvent(eventType, instance, element)
             );
         InstanceMutationCommit capturedMutation = null;
@@ -2525,7 +2527,9 @@ public class InstanceMutationsControllerUnitTests
                 (
                     InstanceEventType eventType,
                     InstanceInternal instance,
-                    DataElementInternal dataElement
+                    DataElementInternal dataElement,
+                    PlatformUser _,
+                    string _
                 ) => BuildDataElementEvent(eventType, instance, dataElement)
             );
         SetupCapturingMutationRepository(
@@ -2762,7 +2766,9 @@ public class InstanceMutationsControllerUnitTests
                 (
                     InstanceEventType eventType,
                     InstanceInternal instance,
-                    DataElementInternal eventDataElement
+                    DataElementInternal eventDataElement,
+                    PlatformUser _,
+                    string _
                 ) => BuildDataElementEvent(eventType, instance, eventDataElement)
             );
         SetupCapturingMutationRepository(
@@ -3768,7 +3774,9 @@ public class InstanceMutationsControllerUnitTests
                 (
                     InstanceEventType eventType,
                     InstanceInternal instance,
-                    DataElementInternal dataElement
+                    DataElementInternal dataElement,
+                    PlatformUser _,
+                    string _
                 ) => BuildDataElementEvent(eventType, instance, dataElement)
             );
         SetupCapturingMutationRepository(
@@ -3889,8 +3897,14 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<DataElementInternal>()
                 )
             )
-            .Callback<InstanceEventType, InstanceInternal, DataElementInternal>(
-                (eventType, eventInstance, dataElement) =>
+            .Callback<
+                InstanceEventType,
+                InstanceInternal,
+                DataElementInternal,
+                PlatformUser,
+                string
+            >(
+                (eventType, eventInstance, dataElement, _, _) =>
                     capturedEventContexts.Add(
                         (
                             eventType,
@@ -3904,7 +3918,9 @@ public class InstanceMutationsControllerUnitTests
                 (
                     InstanceEventType eventType,
                     InstanceInternal instance,
-                    DataElementInternal dataElement
+                    DataElementInternal dataElement,
+                    PlatformUser _,
+                    string _
                 ) => BuildDataElementEvent(eventType, instance, dataElement)
             );
 
@@ -3988,7 +4004,9 @@ public class InstanceMutationsControllerUnitTests
                 (
                     InstanceEventType eventType,
                     InstanceInternal instance,
-                    DataElementInternal dataElement
+                    DataElementInternal dataElement,
+                    PlatformUser _,
+                    string _
                 ) => BuildDataElementEvent(eventType, instance, dataElement)
             );
         fixture
