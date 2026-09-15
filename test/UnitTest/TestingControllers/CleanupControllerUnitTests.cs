@@ -9,9 +9,12 @@ using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Services;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -861,6 +864,263 @@ public class CleanupControllerUnitTests
         instanceMutationRepositoryMock.VerifyAll();
     }
 
+    [Fact]
+    public async Task CleanupDataelement_DeletesElementAndRecordsEventWithExplicitActor()
+    {
+        // Arrange
+        CleanupDataelementFixture fixture = new();
+        InstanceEvent deletedEvent = new();
+        PlatformUser actor = null;
+
+        fixture
+            .InstanceEventServiceMock.Setup(service =>
+                service.BuildInstanceEvent(
+                    InstanceEventType.Deleted,
+                    fixture.Instance,
+                    fixture.DataElement,
+                    It.IsAny<PlatformUser>(),
+                    It.IsAny<string>()
+                )
+            )
+            .Callback(
+                (
+                    InstanceEventType _,
+                    InstanceInternal _,
+                    DataElementInternal _,
+                    PlatformUser user,
+                    string _
+                ) => actor = user
+            )
+            .Returns(deletedEvent);
+        fixture
+            .InstanceMutationRepositoryMock.Setup(repository =>
+                repository.Apply(
+                    fixture.InstanceGuid,
+                    fixture.Instance.InternalId,
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(new InstanceMutationApplyResult(false, [], fixture.Instance));
+        fixture
+            .DataServiceMock.Setup(service =>
+                service.CleanupDeletedDataElementBlobs(
+                    fixture.Instance,
+                    fixture.DataElement,
+                    StorageAccountNumber,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .Returns(Task.CompletedTask);
+
+        CleanupController target = fixture.CreateTarget();
+
+        // Act
+        ActionResult<DataElement> response = await target.CleanupDataelement(
+            PartyId,
+            fixture.InstanceGuid,
+            fixture.DataGuid,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.IsType<OkObjectResult>(response.Result);
+
+        // The caller has no claims, so the actor has to be supplied rather than resolved.
+        Assert.NotNull(actor);
+        Assert.Equal(fixture.Instance.Org, actor.OrgId);
+
+        fixture.InstanceMutationRepositoryMock.Verify(
+            repository =>
+                repository.Apply(
+                    fixture.InstanceGuid,
+                    fixture.Instance.InternalId,
+                    It.Is<InstanceMutationCommit>(mutation =>
+                        mutation.DeleteDataElements.Count == 1
+                        && mutation.DeleteDataElements[0].DataElement == fixture.DataElement
+                        && mutation.InstanceEvents.Count == 1
+                        && mutation.InstanceEvents[0] == deletedEvent
+                    ),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+        fixture.DataServiceMock.VerifyAll();
+    }
+
+    [Fact]
+    public async Task CleanupDataelement_InstanceNotFound_ReturnsNotFound()
+    {
+        // Arrange
+        CleanupDataelementFixture fixture = new(withInstance: false);
+        CleanupController target = fixture.CreateTarget();
+
+        // Act
+        ActionResult<DataElement> response = await target.CleanupDataelement(
+            PartyId,
+            fixture.InstanceGuid,
+            fixture.DataGuid,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.IsType<NotFoundObjectResult>(response.Result);
+        fixture.InstanceMutationRepositoryMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task CleanupDataelement_PartyIdDoesNotMatchInstance_ReturnsNotFound()
+    {
+        // Arrange
+        CleanupDataelementFixture fixture = new();
+        CleanupController target = fixture.CreateTarget();
+
+        // Act
+        ActionResult<DataElement> response = await target.CleanupDataelement(
+            PartyId + 1,
+            fixture.InstanceGuid,
+            fixture.DataGuid,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.IsType<NotFoundObjectResult>(response.Result);
+        fixture.InstanceMutationRepositoryMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task CleanupDataelement_DataElementBelongsToAnotherInstance_ReturnsNotFound()
+    {
+        // Arrange
+        CleanupDataelementFixture fixture = new();
+        fixture.DataElement.InstanceGuid = Guid.NewGuid();
+        CleanupController target = fixture.CreateTarget();
+
+        // Act
+        ActionResult<DataElement> response = await target.CleanupDataelement(
+            PartyId,
+            fixture.InstanceGuid,
+            fixture.DataGuid,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.IsType<NotFoundObjectResult>(response.Result);
+        fixture.InstanceMutationRepositoryMock.VerifyNoOtherCalls();
+        fixture.DataServiceMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task CleanupDataelement_ApplicationNotFound_ReturnsNotFound()
+    {
+        // Arrange
+        CleanupDataelementFixture fixture = new(withApplication: false);
+        CleanupController target = fixture.CreateTarget();
+
+        // Act
+        ActionResult<DataElement> response = await target.CleanupDataelement(
+            PartyId,
+            fixture.InstanceGuid,
+            fixture.DataGuid,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.IsType<NotFoundObjectResult>(response.Result);
+        fixture.InstanceMutationRepositoryMock.VerifyNoOtherCalls();
+    }
+
+    private const int PartyId = 1337;
+    private const int StorageAccountNumber = 7;
+
+    private sealed class CleanupDataelementFixture
+    {
+        internal CleanupDataelementFixture(bool withInstance = true, bool withApplication = true)
+        {
+            Instance = withInstance
+                ? new InstanceInternal
+                {
+                    Id = InstanceGuid,
+                    InternalId = 42,
+                    AppId = "ttd/app",
+                    Org = "ttd",
+                    InstanceOwner = new InstanceOwner { PartyId = PartyId.ToString() },
+                }
+                : null;
+            Application = withApplication
+                ? new Application
+                {
+                    Id = "ttd/app",
+                    Org = "ttd",
+                    StorageAccountNumber = StorageAccountNumber,
+                }
+                : null;
+            DataElement = new DataElementInternal
+            {
+                Id = DataGuid,
+                InstanceGuid = InstanceGuid,
+                BlobStoragePath = "ttd/app/instance/data/element",
+            };
+
+            InstanceRepositoryMock
+                .Setup(repository =>
+                    repository.GetOne(InstanceGuid, false, It.IsAny<CancellationToken>())
+                )
+                .ReturnsAsync(Instance);
+            DataRepositoryMock
+                .Setup(repository =>
+                    repository.Read(InstanceGuid, DataGuid, It.IsAny<CancellationToken>())
+                )
+                .ReturnsAsync(DataElement);
+            ApplicationRepositoryMock
+                .Setup(repository =>
+                    repository.FindOne("ttd/app", "ttd", It.IsAny<CancellationToken>())
+                )
+                .ReturnsAsync(Application);
+        }
+
+        internal Guid InstanceGuid { get; } = Guid.NewGuid();
+
+        internal Guid DataGuid { get; } = Guid.NewGuid();
+
+        internal InstanceInternal Instance { get; }
+
+        internal Application Application { get; }
+
+        internal DataElementInternal DataElement { get; }
+
+        internal Mock<IInstanceRepository> InstanceRepositoryMock { get; } = new();
+
+        internal Mock<IApplicationRepository> ApplicationRepositoryMock { get; } = new();
+
+        internal Mock<IDataRepository> DataRepositoryMock { get; } = new();
+
+        internal Mock<IInstanceMutationRepository> InstanceMutationRepositoryMock { get; } = new();
+
+        internal Mock<IInstanceEventService> InstanceEventServiceMock { get; } = new();
+
+        internal Mock<IDataService> DataServiceMock { get; } = new();
+
+        internal CleanupController CreateTarget()
+        {
+            CleanupController controller = CreateController(
+                InstanceRepositoryMock,
+                ApplicationRepositoryMock,
+                dataRepositoryMock: DataRepositoryMock,
+                instanceMutationRepositoryMock: InstanceMutationRepositoryMock,
+                instanceEventServiceMock: InstanceEventServiceMock,
+                dataServiceMock: DataServiceMock
+            );
+
+            controller.ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext(),
+            };
+
+            return controller;
+        }
+    }
+
     private static CleanupController CreateController(
         Mock<IInstanceRepository> instanceRepositoryMock = null,
         Mock<IApplicationRepository> applicationRepositoryMock = null,
@@ -868,6 +1128,8 @@ public class CleanupControllerUnitTests
         Mock<IDataRepository> dataRepositoryMock = null,
         Mock<IInstanceEventRepository> instanceEventRepositoryMock = null,
         Mock<IInstanceMutationRepository> instanceMutationRepositoryMock = null,
+        Mock<IInstanceEventService> instanceEventServiceMock = null,
+        Mock<IDataService> dataServiceMock = null,
         StorageCleanupSettings cleanupSettings = null,
         Mock<ILogger<CleanupController>> loggerMock = null
     ) =>
@@ -886,6 +1148,10 @@ public class CleanupControllerUnitTests
                 instanceMutationRepositoryMock
                 ?? new Mock<IInstanceMutationRepository>(MockBehavior.Strict)
             ).Object,
+            (
+                instanceEventServiceMock ?? new Mock<IInstanceEventService>(MockBehavior.Strict)
+            ).Object,
+            (dataServiceMock ?? new Mock<IDataService>(MockBehavior.Strict)).Object,
             Options.Create(cleanupSettings ?? new StorageCleanupSettings()),
             loggerMock?.Object ?? NullLogger<CleanupController>.Instance
         );
