@@ -7,7 +7,7 @@
   "servers": [
     {
       "url": "https://platform.tt02.altinn.no",
-      "description": "T02"
+      "description": "TT02"
     },
     {
       "url": "https://platform.altinn.no",
