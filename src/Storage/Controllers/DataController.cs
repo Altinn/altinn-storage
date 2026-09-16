@@ -1021,7 +1021,7 @@ public class DataController : ControllerBase
             instance.Org,
             cancellationToken
         );
-        if (application is null)
+        if (application == null)
         {
             return applicationError;
         }
