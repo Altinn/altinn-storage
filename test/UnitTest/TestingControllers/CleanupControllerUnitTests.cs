@@ -954,9 +954,9 @@ public class CleanupControllerUnitTests
                         && mutation.DeleteDataElements[0].DataElement == fixture.DataElement
                         && mutation.InstanceEvents.Count == 1
                         && mutation.InstanceEvents[0] == deletedEvent
-                        // The instance keeps whoever last changed it rather than being
-                        // reattributed to an operational delete.
-                        && mutation.LastChangedBy == null
+                        // The instance records the same actor as the event it commits, rather
+                        // than the application owner or whoever last changed it before.
+                        && mutation.LastChangedBy == "platform-cleanup"
                     ),
                     It.IsAny<CancellationToken>()
                 ),
