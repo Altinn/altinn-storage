@@ -57,10 +57,10 @@ public class CleanupController(
     private readonly StorageCleanupSettings _cleanupSettings = cleanupSettings.Value;
 
     /// <summary>
-    /// Actor recorded on instance events raised by the operational cleanup endpoints. The API key
-    /// authorises the request but identifies no caller, so there is no real actor to record. The
-    /// value is deliberately not an Altinn org identifier, so that these events cannot be mistaken
-    /// for something the application owner did.
+    /// Actor recorded on instance events raised by the operational cleanup endpoints, and on the
+    /// instances they change. The API key authorises the request but identifies no caller, so
+    /// there is no real actor to record. The value is deliberately not an Altinn org identifier,
+    /// so that these changes cannot be mistaken for something the application owner did.
     /// </summary>
     private const string CleanupActor = "platform-cleanup";
 
@@ -599,7 +599,8 @@ public class CleanupController(
             ExpectedInstanceVersion: null,
             ExpectedProcessStateVersion: null,
             InstanceEvents: [deletedEvent],
-            LastChanged: deletedTime
+            LastChanged: deletedTime,
+            LastChangedBy: CleanupActor
         );
 
         await instanceMutationRepository.Apply(
