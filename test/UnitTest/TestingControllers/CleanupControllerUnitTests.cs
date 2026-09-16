@@ -935,7 +935,10 @@ public class CleanupControllerUnitTests
 
         // The caller has no claims, so the actor has to be supplied rather than resolved.
         Assert.NotNull(actor);
-        Assert.Equal(fixture.Instance.Org, actor.OrgId);
+        Assert.Equal("platform-cleanup", actor.OrgId);
+
+        // An operational delete must not be recorded as the application owner's doing.
+        Assert.NotEqual(fixture.Instance.Org, actor.OrgId);
         Assert.Equal(
             "Deleted manually through CleanupController // CleanupDataElement",
             additionalInfo
