@@ -361,6 +361,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddSingleton<IAccessTokenGenerator, AccessTokenGenerator>();
     services.AddSingleton<ISigningCredentialsResolver, SigningCredentialsResolver>();
     services.AddTransient<IDataService, DataService>();
+    services.AddTransient<IDataElementContentService, DataElementContentService>();
     services.AddTransient<ISigningService, SigningService>();
     services.AddTransient<IInstanceEventService, InstanceEventService>();
     services.AddTransient<IProcessDataCleanupService, ProcessDataCleanupService>();
