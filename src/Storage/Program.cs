@@ -310,6 +310,13 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
             policy => policy.Requirements.Add(new ScopeAccessRequirement("altinn:appdeploy"))
         )
         .AddPolicy(
+            AuthzConstants.POLICY_SCOPE_DATA_SUPPORTDASHBOARD,
+            policy =>
+                policy.Requirements.Add(
+                    new ScopeAccessRequirement(generalSettings.DataSupportDashboardScope)
+                )
+        )
+        .AddPolicy(
             AuthzConstants.POLICY_STUDIO_DESIGNER,
             policy =>
                 policy.Requirements.Add(

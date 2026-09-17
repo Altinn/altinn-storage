@@ -43,6 +43,11 @@ public static class AuthzConstants
     public const string POLICY_SCOPE_INSTANCE_READ = "ScopeInstanceRead";
 
     /// <summary>
+    /// Policy tag for authorizing the support dashboard's data element export scope.
+    /// </summary>
+    public const string POLICY_SCOPE_DATA_SUPPORTDASHBOARD = "ScopeDataSupportDashboard";
+
+    /// <summary>
     /// Policy tag for authorizing designer access
     /// </summary>
     public const string POLICY_STUDIO_DESIGNER = "StudioDesignerAccess";
