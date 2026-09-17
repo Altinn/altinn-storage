@@ -24,20 +24,12 @@ public class ApplicationService : IApplicationService
     }
 
     /// <inheritdoc/>
-    public async Task<(bool IsValid, ServiceError ServiceError)> ValidateDataTypeForApp(
-        string org,
-        string appId,
+    public (bool IsValid, ServiceError ServiceError) ValidateDataTypeForApp(
+        Application application,
         string dataType,
         string currentTask
     )
     {
-        Application application = await _applicationRepository.FindOne(appId, org);
-
-        if (application == null)
-        {
-            return (false, new ServiceError(404, $"Cannot find application {appId} in storage"));
-        }
-
         if (
             application.DataTypes.Exists(e =>
                 e.Id == dataType && (string.IsNullOrEmpty(e.TaskId) || e.TaskId == currentTask)
@@ -51,7 +43,7 @@ public class ApplicationService : IApplicationService
             false,
             new ServiceError(
                 405,
-                $"DataType {dataType} is not declared in application metadata for app {appId}"
+                $"DataType {dataType} is not declared in application metadata for app {application.Id}"
             )
         );
     }
