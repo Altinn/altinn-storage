@@ -398,19 +398,58 @@ public class SigningServiceTest
     }
 
     [Fact]
+    public async Task CreateSignDocument_ApplicationNotFound_ReturnsNotFound()
+    {
+        SigningFixture fixture = CreateSigningFixture();
+        fixture
+            .ApplicationRepository.Setup(repository =>
+                repository.FindOne(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync((Application)null);
+
+        SignDocumentCreateResult result = await fixture.Sut.CreateSignDocument(
+            fixture.InstanceGuid,
+            fixture.SignRequest,
+            "1337",
+            null,
+            null,
+            CancellationToken.None
+        );
+
+        Assert.False(result.Created);
+        Assert.Equal(404, result.ServiceError.ErrorCode);
+        Assert.Equal(
+            "Cannot find application org/app in storage",
+            result.ServiceError.ErrorMessage
+        );
+        fixture.ApplicationService.Verify(
+            service =>
+                service.ValidateDataTypeForApp(
+                    It.IsAny<Application>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
     public async Task CreateSignDocument_SigningFailed_InvalidDatatype()
     {
         SigningFixture fixture = CreateSigningFixture();
         fixture
             .ApplicationService.Setup(service =>
                 service.ValidateDataTypeForApp(
-                    It.IsAny<string>(),
-                    It.IsAny<string>(),
+                    It.IsAny<Application>(),
                     It.IsAny<string>(),
                     It.IsAny<string>()
                 )
             )
-            .ReturnsAsync((false, new ServiceError(404, "Cannot find application in storage")));
+            .Returns((false, new ServiceError(404, "Cannot find application in storage")));
 
         SignDocumentCreateResult result = await fixture.Sut.CreateSignDocument(
             fixture.InstanceGuid,
@@ -802,9 +841,13 @@ public class SigningServiceTest
             .ReturnsAsync(new Application { StorageAccountNumber = 7 });
         applicationService
             .Setup(service =>
-                service.ValidateDataTypeForApp("org", "org/app", _signatureDataType, "Task_1")
+                service.ValidateDataTypeForApp(
+                    It.IsAny<Application>(),
+                    _signatureDataType,
+                    "Task_1"
+                )
             )
-            .ReturnsAsync((true, null));
+            .Returns((true, null));
         dataService
             .Setup(service => service.GenerateSha256Hash("org", instanceGuid, It.IsAny<Guid>(), 7))
             .ReturnsAsync((Guid.NewGuid().ToString(), null));
