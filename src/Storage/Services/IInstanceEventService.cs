@@ -26,11 +26,18 @@ public interface IInstanceEventService
     /// <param name="eventType">Event type</param>
     /// <param name="instance">Instance</param>
     /// <param name="dataElement">Data element</param>
+    /// <param name="user">
+    /// The actor to record on the event. When null the actor is resolved from the claims of the
+    /// current request, which requires the caller to be acting on behalf of a user or org.
+    /// </param>
+    /// <param name="additionalInfo">Free text describing the event</param>
     /// <returns></returns>
     public InstanceEvent BuildInstanceEvent(
         InstanceEventType eventType,
         InstanceInternal instance,
-        DataElementInternal dataElement
+        DataElementInternal dataElement,
+        PlatformUser user = null,
+        string additionalInfo = null
     );
 
     /// <summary>

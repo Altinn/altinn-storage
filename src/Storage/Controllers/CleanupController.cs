@@ -6,11 +6,15 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -30,6 +34,8 @@ namespace Altinn.Platform.Storage.Controllers;
 /// <param name="dataRepository">the data repository handler</param>
 /// <param name="instanceEventRepository">the instance event repository handler</param>
 /// <param name="instanceMutationRepository">the instance mutation repository handler</param>
+/// <param name="instanceEventService">the instance event service</param>
+/// <param name="dataService">the data service</param>
 /// <param name="cleanupSettings">the cleanup settings</param>
 /// <param name="logger">the logger</param>
 [Route("storage/api/v1/cleanup")]
@@ -41,12 +47,22 @@ public class CleanupController(
     IDataRepository dataRepository,
     IInstanceEventRepository instanceEventRepository,
     IInstanceMutationRepository instanceMutationRepository,
+    IInstanceEventService instanceEventService,
+    IDataService dataService,
     IOptions<StorageCleanupSettings> cleanupSettings,
     ILogger<CleanupController> logger
 ) : ControllerBase
 {
     private readonly ILogger<CleanupController> _logger = logger;
     private readonly StorageCleanupSettings _cleanupSettings = cleanupSettings.Value;
+
+    /// <summary>
+    /// Actor recorded on instance events raised by the operational cleanup endpoints, and on the
+    /// instances they change. The API key authorises the request but identifies no caller, so
+    /// there is no real actor to record. The value is deliberately not an Altinn org identifier,
+    /// so that these changes cannot be mistaken for something the application owner did.
+    /// </summary>
+    private const string CleanupActor = "platform-cleanup";
 
     /// <summary>
     /// Invoke periodic cleanup of instances
@@ -493,6 +509,123 @@ public class CleanupController(
         }
 
         return successfullyDeleted;
+    }
+
+    /// <summary>
+    /// Deletes a single data element, its blobs and records a delete event.
+    /// </summary>
+    /// <remarks>
+    /// Intended for operational use from inside the cluster and guarded by a shared secret rather
+    /// than an Altinn token. The deletion is immediate and cannot be undone. No version
+    /// preconditions are applied, so the delete is not rejected by a concurrent instance update.
+    /// </remarks>
+    /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
+    /// <param name="instanceGuid">The id of the instance that the data element belongs to.</param>
+    /// <param name="dataGuid">The id of the data element to delete.</param>
+    /// <param name="cancellationToken">CancellationToken</param>
+    /// <returns>The metadata of the deleted data element.</returns>
+    [HttpDelete("dataelement/{instanceOwnerPartyId:int}/{instanceGuid:guid}/{dataGuid:guid}")]
+    [ServiceFilter(typeof(CleanupApiKeyFilter))]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Produces("application/json")]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public async Task<ActionResult<DataElement>> CleanupDataElement(
+        int instanceOwnerPartyId,
+        Guid instanceGuid,
+        Guid dataGuid,
+        CancellationToken cancellationToken
+    )
+    {
+        InstanceInternal instance = await instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            cancellationToken
+        );
+        if (instance is null || instance.InstanceOwner.PartyId != instanceOwnerPartyId.ToString())
+        {
+            return NotFound(
+                $"Unable to find any instance with id: {instanceOwnerPartyId}/{instanceGuid}."
+            );
+        }
+
+        DataElementInternal dataElement = await dataRepository.Read(
+            instanceGuid,
+            dataGuid,
+            cancellationToken
+        );
+        if (dataElement is null)
+        {
+            return NotFound($"Unable to find any data element with id: {dataGuid}.");
+        }
+
+        // Data elements are read by their own id alone, so the element has to be checked against
+        // the instance in the route before anything is deleted on that instance's behalf.
+        if (dataElement.InstanceGuid != instanceGuid)
+        {
+            return NotFound(
+                $"Data element {dataGuid} does not belong to instance {instanceOwnerPartyId}/{instanceGuid}."
+            );
+        }
+
+        Application application = await applicationRepository.FindOne(
+            instance.AppId,
+            instance.Org,
+            cancellationToken
+        );
+        if (application is null)
+        {
+            return NotFound($"Cannot find application {instance.AppId} in storage");
+        }
+
+        DateTime deletedTime = DateTime.UtcNow;
+        PlatformUser user = new() { OrgId = CleanupActor, AuthenticationLevel = 0 };
+
+        InstanceEvent deletedEvent = instanceEventService.BuildInstanceEvent(
+            InstanceEventType.Deleted,
+            instance,
+            dataElement,
+            user,
+            "Deleted manually through CleanupController // CleanupDataElement"
+        );
+
+        InstanceMutationCommit mutation = new(
+            [],
+            [],
+            [new InstanceMutationDataElementDelete(dataElement, IgnoreLock: true)],
+            instance,
+            [],
+            ExpectedInstanceVersion: null,
+            ExpectedProcessStateVersion: null,
+            InstanceEvents: [deletedEvent],
+            LastChanged: deletedTime,
+            LastChangedBy: CleanupActor
+        );
+
+        await instanceMutationRepository.Apply(
+            instanceGuid,
+            instance.InternalId,
+            mutation,
+            cancellationToken
+        );
+
+        await dataService.CleanupDeletedDataElementBlobs(
+            instance,
+            dataElement,
+            application.StorageAccountNumber,
+            CancellationToken.None
+        );
+
+        _logger.LogInformation(
+            "CleanupController // CleanupDataElement // Deleted data element {DataElementId} ({BlobStoragePath}) on instance {InstanceId} for caller {ClientIp}",
+            dataElement.Id,
+            dataElement.BlobStoragePath,
+            instance.Id,
+            HttpContext.Connection.RemoteIpAddress
+        );
+
+        return Ok(dataElement.ToApiModel());
     }
 
     private async Task<int> CleanupInstancesInternal(
