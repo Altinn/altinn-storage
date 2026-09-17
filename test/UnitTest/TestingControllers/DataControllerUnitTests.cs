@@ -1252,6 +1252,90 @@ public class DataControllerUnitTests
         );
     }
 
+    public enum ApplicationLookupEndpoint
+    {
+        Delete,
+        Get,
+        CreateAndUpload,
+        Overwrite,
+        Update,
+    }
+
+    [Theory]
+    [InlineData(ApplicationLookupEndpoint.Delete)]
+    [InlineData(ApplicationLookupEndpoint.Get)]
+    [InlineData(ApplicationLookupEndpoint.CreateAndUpload)]
+    [InlineData(ApplicationLookupEndpoint.Overwrite)]
+    [InlineData(ApplicationLookupEndpoint.Update)]
+    public async Task ApplicationNotFound_ReturnsNotFound(ApplicationLookupEndpoint endpoint)
+    {
+        // Arrange
+        (DataController testController, _, _) = GetTestController(
+            _expectedPropertiesForOverwrite,
+            includeRequestBody: true,
+            blobVersionId: "existing-version-id",
+            applicationExists: false
+        );
+
+        Guid instanceGuid = Guid.NewGuid();
+        Guid dataGuid = Guid.NewGuid();
+
+        // Act
+        ActionResult result = endpoint switch
+        {
+            ApplicationLookupEndpoint.Delete => (
+                await testController.Delete(
+                    _instanceOwnerPartyId,
+                    instanceGuid,
+                    dataGuid,
+                    false,
+                    CancellationToken.None
+                )
+            ).Result,
+            ApplicationLookupEndpoint.Get => await testController.Get(
+                _instanceOwnerPartyId,
+                instanceGuid,
+                dataGuid,
+                CancellationToken.None
+            ),
+            ApplicationLookupEndpoint.CreateAndUpload => (
+                await testController.CreateAndUploadData(
+                    _instanceOwnerPartyId,
+                    instanceGuid,
+                    _dataType,
+                    CancellationToken.None
+                )
+            ).Result,
+            ApplicationLookupEndpoint.Overwrite => (
+                await testController.OverwriteData(
+                    _instanceOwnerPartyId,
+                    instanceGuid,
+                    dataGuid,
+                    CancellationToken.None
+                )
+            ).Result,
+            ApplicationLookupEndpoint.Update => (
+                await testController.Update(
+                    _instanceOwnerPartyId,
+                    instanceGuid,
+                    dataGuid,
+                    new DataElement
+                    {
+                        Id = $"{dataGuid}",
+                        InstanceGuid = $"{instanceGuid}",
+                        DataType = _dataType,
+                    },
+                    CancellationToken.None
+                )
+            ).Result,
+            _ => throw new ArgumentOutOfRangeException(nameof(endpoint)),
+        };
+
+        // Assert
+        NotFoundObjectResult notFound = Assert.IsType<NotFoundObjectResult>(result);
+        Assert.Equal($"Cannot find application {_appId} in storage", notFound.Value);
+    }
+
     [Fact]
     public async Task Update_VerifyDataRepositoryUpdateInput()
     {
@@ -2414,6 +2498,7 @@ public class DataControllerUnitTests
         HeaderDictionary requestHeaders = null,
         bool isHardDeleted = false,
         bool authorized = true,
+        bool applicationExists = true,
         Action<Mock<IInstanceEventService>> configureInstanceEventService = null,
         string blobStoragePathOverride = null,
         IOnDemandClient onDemandClient = null
@@ -2606,17 +2691,19 @@ public class DataControllerUnitTests
                 ar.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
             )
             .ReturnsAsync(
-                new Application
-                {
-                    DataTypes =
-                    [
-                        new DataType
-                        {
-                            Id = _dataType,
-                            AppLogic = new ApplicationLogic { AutoDeleteOnProcessEnd = true },
-                        },
-                    ],
-                }
+                applicationExists
+                    ? new Application
+                    {
+                        DataTypes =
+                        [
+                            new DataType
+                            {
+                                Id = _dataType,
+                                AppLogic = new ApplicationLogic { AutoDeleteOnProcessEnd = true },
+                            },
+                        ],
+                    }
+                    : null
             );
 
         instanceEventServiceMock.Setup(ier =>
