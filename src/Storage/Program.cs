@@ -39,7 +39,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi;
 using Npgsql;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
@@ -314,6 +313,13 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
             policy =>
                 policy.Requirements.Add(
                     new ScopeAccessRequirement(generalSettings.DataSupportDashboardScope)
+                )
+        )
+        .AddPolicy(
+            AuthzConstants.POLICY_SCOPE_INSTANCES_SUPPORTDASHBOARD,
+            policy =>
+                policy.Requirements.Add(
+                    new ScopeAccessRequirement(generalSettings.InstanceSupportDashboardScope)
                 )
         )
         .AddPolicy(
