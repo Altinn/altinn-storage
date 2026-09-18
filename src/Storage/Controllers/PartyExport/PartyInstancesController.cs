@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -36,20 +37,24 @@ public class PartyInstancesController(
     private readonly GeneralSettings _generalSettings = settings.Value;
 
     /// <summary>
-    /// Retrieves the instances owned by a party, each with its data elements, ordered from oldest
-    /// to newest by creation time. A next link is returned for as long as more instances remain.
-    /// Later changes never reorder instances, so following the next links to the end yields every
-    /// instance the party held when the walk started. Anything awaiting permanent deletion is left out.
+    /// Retrieves the instances owned by a party, each with its data elements, oldest first by
+    /// creation time. Later changes never reorder instances, so following the next links to the
+    /// end yields every instance the party held when the walk started. Anything awaiting
+    /// permanent deletion is left out.
     /// </summary>
     /// <param name="partyId">The party id of the instance owner.</param>
     /// <param name="size">The maximum number of instances in one batch. Defaults to 50, at most 100.</param>
+    /// <param name="dateFrom">The oldest date to include. Omit it for no lower bound.</param>
+    /// <param name="dateTo">The newest date to include. Omit it for no upper bound.</param>
     /// <param name="continuationToken">The token from the previous batch. Omit it to start at the oldest instance.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>A batch of instances owned by the party.</returns>
     /// <remarks>
-    /// Instances and data elements are returned without self links. The platform self links address
-    /// the instance-scoped endpoints, which an export scope does not reach, so a consumer builds the
-    /// party-scoped data element route from the ids instead.
+    /// Self links are not set. They address the instance-scoped endpoints, which an export scope
+    /// does not reach, so a consumer builds the party-scoped data element route from the ids.
+    /// The date bounds are inclusive, keep an instance whose creation or last changed time falls
+    /// inside them, and are read as UTC when the caller supplies no offset, so
+    /// <c>dateTo=2026-09-18</c> means midnight that morning.
     /// </remarks>
     [HttpGet]
     [Authorize(Policy = AuthzConstants.POLICY_SCOPE_INSTANCES_SUPPORTDASHBOARD)]
@@ -62,6 +67,8 @@ public class PartyInstancesController(
     public async Task<ActionResult<QueryResponse<Instance>>> GetInstancesForParty(
         [FromRoute] int partyId,
         [FromQuery] int? size,
+        [FromQuery] DateTime? dateFrom,
+        [FromQuery] DateTime? dateTo,
         [FromQuery] string? continuationToken,
         CancellationToken cancellationToken
     )
@@ -74,6 +81,14 @@ public class PartyInstancesController(
         if (size is < 1 or > _maxPageSize)
         {
             return BadRequest($"The size must be between 1 and {_maxPageSize}.");
+        }
+
+        DateTime? from = DateTimeHelper.ConvertToUniversalTime(dateFrom);
+        DateTime? to = DateTimeHelper.ConvertToUniversalTime(dateTo);
+
+        if (from > to)
+        {
+            return BadRequest("The dateFrom must not be later than the dateTo.");
         }
 
         InstanceContinuationToken? continueFrom = null;
@@ -95,6 +110,8 @@ public class PartyInstancesController(
         InstanceQueryResult result = await instanceRepository.GetInstancesForParty(
             partyId,
             size ?? _defaultPageSize,
+            from,
+            to,
             continueFrom,
             cancellationToken
         );

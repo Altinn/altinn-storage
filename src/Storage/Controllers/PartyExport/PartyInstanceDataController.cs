@@ -28,8 +28,8 @@ public class PartyInstanceDataController(IDataElementContentService dataElementC
     : ControllerBase
 {
     /// <summary>
-    /// Gets the content of a single data element. The content type is the same as the file was
-    /// stored with. Anything awaiting permanent deletion is left out, matching the instances the export walk returns.
+    /// Gets the content of a single data element, with the content type it was stored with.
+    /// Anything awaiting permanent deletion is left out, matching the export walk.
     /// </summary>
     /// <param name="partyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance the data element belongs to.</param>

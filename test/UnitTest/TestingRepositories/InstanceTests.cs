@@ -2071,6 +2071,50 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         );
     }
 
+    [Theory]
+    [InlineData(null, null, new[] { 1, 2, 3 })]
+    [InlineData("2024-01-02", null, new[] { 2, 3 })]
+    [InlineData(null, "2024-01-01", new[] { 1 })]
+    [InlineData("2024-01-02", "2024-01-02", new[] { 2 })]
+    [InlineData("2024-05-01", "2024-07-01", new[] { 2 })]
+    [InlineData("2024-02-01", "2024-03-01", new int[0])]
+    public async Task Instance_GetInstancesForParty_FiltersOnCreatedOrLastChangedInclusively(
+        string dateFrom,
+        string dateTo,
+        int[] expectedDaysCreated
+    )
+    {
+        Instance first = TestData.Instance_1_1.Clone();
+        Instance second = TestData.Instance_1_2.Clone();
+        Instance third = TestData.Instance_1_Status_1.Clone();
+        first.Created = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        first.LastChanged = first.Created;
+        second.Created = new DateTime(2024, 1, 2, 0, 0, 0, DateTimeKind.Utc);
+
+        // Only this one is reachable through lastChanged alone.
+        second.LastChanged = new DateTime(2024, 6, 1, 0, 0, 0, DateTimeKind.Utc);
+        third.Created = new DateTime(2024, 1, 3, 0, 0, 0, DateTimeKind.Utc);
+        third.LastChanged = third.Created;
+        await CreateApiInstance(first, CancellationToken.None);
+        await CreateApiInstance(second, CancellationToken.None);
+        await CreateApiInstance(third, CancellationToken.None);
+
+        InstanceQueryResult result = await _instanceFixture.InstanceRepo.GetInstancesForParty(
+            Convert.ToInt32(first.InstanceOwner.PartyId),
+            100,
+            dateFrom is null ? null : DateTimeHelper.ParseAndConvertToUniversalTime(dateFrom),
+            dateTo is null ? null : DateTimeHelper.ParseAndConvertToUniversalTime(dateTo),
+            null,
+            CancellationToken.None
+        );
+
+        Assert.Null(result.Exception);
+        Assert.Equal(
+            expectedDaysCreated,
+            result.Instances.Select(instance => instance.Created!.Value.Day).ToArray()
+        );
+    }
+
     [Fact]
     public async Task Instance_GetInstancesForParty_WalksOldestToNewestAcrossBatches()
     {
@@ -2090,6 +2134,8 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             partyId,
             1,
             null,
+            null,
+            null,
             CancellationToken.None
         );
         Assert.Null(firstPage.Exception);
@@ -2105,6 +2151,8 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         InstanceQueryResult secondPage = await _instanceFixture.InstanceRepo.GetInstancesForParty(
             partyId,
             1,
+            null,
+            null,
             cursor,
             CancellationToken.None
         );
@@ -2122,6 +2170,8 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         InstanceQueryResult thirdPage = await _instanceFixture.InstanceRepo.GetInstancesForParty(
             partyId,
             1,
+            null,
+            null,
             lastCursor,
             CancellationToken.None
         );
@@ -2150,6 +2200,8 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             InstanceQueryResult page = await _instanceFixture.InstanceRepo.GetInstancesForParty(
                 partyId,
                 1,
+                null,
+                null,
                 cursor,
                 CancellationToken.None
             );
@@ -2203,6 +2255,8 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         InstanceQueryResult result = await _instanceFixture.InstanceRepo.GetInstancesForParty(
             Convert.ToInt32(instance.InstanceOwner.PartyId),
             100,
+            null,
+            null,
             null,
             CancellationToken.None
         );
@@ -2267,6 +2321,8 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             Convert.ToInt32(liveInstance.InstanceOwner.PartyId),
             100,
             null,
+            null,
+            null,
             CancellationToken.None
         );
 
@@ -2285,6 +2341,8 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         InstanceQueryResult result = await _instanceFixture.InstanceRepo.GetInstancesForParty(
             Convert.ToInt32(TestData.Instance_1_1.InstanceOwner.PartyId),
             100,
+            null,
+            null,
             null,
             cancellation.Token
         );

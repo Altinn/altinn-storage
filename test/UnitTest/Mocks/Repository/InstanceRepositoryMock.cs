@@ -56,6 +56,8 @@ public class InstanceRepositoryMock : IInstanceRepository
     public Task<InstanceQueryResult> GetInstancesForParty(
         int partyId,
         int size,
+        DateTime? dateFrom,
+        DateTime? dateTo,
         InstanceContinuationToken? continueFrom,
         CancellationToken cancellationToken
     )
