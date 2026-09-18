@@ -46,6 +46,11 @@ public class GeneralSettings
     public string InstanceSyncAdapterScope { get; set; }
 
     /// <summary>
+    /// Gets or sets the scope for the support dashboard's instance export.
+    /// </summary>
+    public string InstanceSupportDashboardScope { get; set; }
+
+    /// <summary>
     /// Gets or sets the scope for the support dashboard's data element export.
     /// </summary>
     public string DataSupportDashboardScope { get; set; }
