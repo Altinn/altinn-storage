@@ -190,7 +190,7 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
         "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstanceEvents (Altinn.Platform.Storage)",
         "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.Undelete (Altinn.Platform.Storage)",
         "Altinn.Platform.Storage.Controllers.MetricsController.GetDailyInstanceStatistics (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.PartyInstancesController.GetInstancesForParty (Altinn.Platform.Storage)"
+        "Altinn.Platform.Storage.Controllers.PartyExport.PartyInstancesController.GetInstancesForParty (Altinn.Platform.Storage)"
     );
 
     /// <summary>

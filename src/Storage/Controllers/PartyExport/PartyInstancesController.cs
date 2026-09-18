@@ -15,7 +15,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Altinn.Platform.Storage.Controllers;
+namespace Altinn.Platform.Storage.Controllers.PartyExport;
 
 /// <summary>
 /// Exports the instances of an instance owner, data elements included, in batches.
@@ -34,7 +34,6 @@ public class PartyInstancesController(
     private const int _maxPageSize = 100;
 
     private readonly GeneralSettings _generalSettings = settings.Value;
-    private readonly string _storageBaseAndHost = $"{settings.Value.Hostname}/storage/api/v1/";
 
     /// <summary>
     /// Retrieves the instances owned by a party, each with its data elements, ordered from oldest
@@ -47,6 +46,11 @@ public class PartyInstancesController(
     /// <param name="continuationToken">The token from the previous batch. Omit it to start at the oldest instance.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>A batch of instances owned by the party.</returns>
+    /// <remarks>
+    /// Instances and data elements are returned without self links. The platform self links address
+    /// the instance-scoped endpoints, which an export scope does not reach, so a consumer builds the
+    /// party-scoped data element route from the ids instead.
+    /// </remarks>
     [HttpGet]
     [Authorize(Policy = AuthzConstants.POLICY_SCOPE_INSTANCES_SUPPORTDASHBOARD)]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -109,7 +113,6 @@ public class PartyInstancesController(
         }
 
         List<Instance> instances = [.. result.Instances.Select(instance => instance.ToApiModel())];
-        instances.ForEach(instance => instance.SetPlatformSelfLinks(_storageBaseAndHost));
 
         QueryResponse<Instance> response = new()
         {

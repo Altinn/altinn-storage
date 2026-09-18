@@ -3552,6 +3552,7 @@
           "PartyExport"
         ],
         "summary": "Retrieves the instances owned by a party, each with its data elements, ordered from oldest\nto newest by creation time. A next link is returned for as long as more instances remain.\nLater changes never reorder instances, so following the next links to the end yields every\ninstance the party held when the walk started. Anything awaiting permanent deletion is left out.",
+        "description": "Instances and data elements are returned without self links. The platform self links address\nthe instance-scoped endpoints, which an export scope does not reach, so a consumer builds the\nparty-scoped data element route from the ids instead.",
         "parameters": [
           {
             "name": "partyId",

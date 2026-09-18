@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Common.AccessToken.Services;
-using Altinn.Platform.Storage.Controllers;
+using Altinn.Platform.Storage.Controllers.PartyExport;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
@@ -24,7 +24,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
 
-namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
+namespace Altinn.Platform.Storage.UnitTest.TestingControllers.PartyExport;
 
 public class PartyInstanceDataControllerTests(
     TestApplicationFactory<PartyInstanceDataController> factory
