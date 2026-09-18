@@ -114,16 +114,16 @@ public class DataType
     public string Grouping { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether the element should trigger PDF generation
+    /// Gets or sets a value indicating whether the element should trigger PDF generation. Default value is <c>true</c>.
     /// </summary>
     [JsonProperty(PropertyName = "enablePdfCreation")]
     public bool EnablePdfCreation { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets a value indicating whether file uploaded to this data type should be scanned for malware. Default value is <c>false</c>.
+    /// Gets or sets a value indicating whether file uploaded to this data type should be scanned for malware. Default value is <c>true</c>.
     /// </summary>
     [JsonProperty(PropertyName = "enableFileScan")]
-    public bool EnableFileScan { get; set; }
+    public bool EnableFileScan { get; set; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating wheter a file scan status of pending should trigger a validation error or not. Default is <c>false</c>.
