@@ -77,7 +77,16 @@ public class PartyInstancesControllerTests(TestApplicationFactory<PartyInstances
         // Arrange
         Mock<IInstanceRepository> repositoryMock = new();
         repositoryMock
-            .Setup(r => r.GetInstancesForParty(_partyId, 50, null, It.IsAny<CancellationToken>()))
+            .Setup(r =>
+                r.GetInstancesForParty(
+                    _partyId,
+                    50,
+                    null,
+                    null,
+                    null,
+                    It.IsAny<CancellationToken>()
+                )
+            )
             .ReturnsAsync(
                 new InstanceQueryResult
                 {
@@ -122,6 +131,8 @@ public class PartyInstancesControllerTests(TestApplicationFactory<PartyInstances
                 r.GetInstancesForParty(
                     _partyId,
                     50,
+                    null,
+                    null,
                     It.IsAny<InstanceContinuationToken?>(),
                     It.IsAny<CancellationToken>()
                 )
@@ -157,6 +168,8 @@ public class PartyInstancesControllerTests(TestApplicationFactory<PartyInstances
                 r.GetInstancesForParty(
                     _partyId,
                     50,
+                    null,
+                    null,
                     It.IsAny<InstanceContinuationToken?>(),
                     It.IsAny<CancellationToken>()
                 )
@@ -199,7 +212,14 @@ public class PartyInstancesControllerTests(TestApplicationFactory<PartyInstances
         Mock<IInstanceRepository> repositoryMock = new();
         repositoryMock
             .Setup(r =>
-                r.GetInstancesForParty(_partyId, 25, expected, It.IsAny<CancellationToken>())
+                r.GetInstancesForParty(
+                    _partyId,
+                    25,
+                    null,
+                    null,
+                    expected,
+                    It.IsAny<CancellationToken>()
+                )
             )
             .ReturnsAsync(new InstanceQueryResult());
 
@@ -215,9 +235,134 @@ public class PartyInstancesControllerTests(TestApplicationFactory<PartyInstances
         // Assert
         Assert.Equal(0, response.Count);
         repositoryMock.Verify(
-            r => r.GetInstancesForParty(_partyId, 25, expected, It.IsAny<CancellationToken>()),
+            r =>
+                r.GetInstancesForParty(
+                    _partyId,
+                    25,
+                    null,
+                    null,
+                    expected,
+                    It.IsAny<CancellationToken>()
+                ),
             Times.Once
         );
+    }
+
+    [Fact]
+    public async Task Get_WithDateRange_PassesUtcBoundsToRepository()
+    {
+        // Arrange
+        Mock<IInstanceRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(r =>
+                r.GetInstancesForParty(
+                    _partyId,
+                    50,
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<InstanceContinuationToken?>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(new InstanceQueryResult());
+
+        HttpClient client = GetTestClient(repositoryMock);
+
+        // Act
+        await SendAsync(
+            client,
+            $"{_basePath}/{_partyId}/instances?dateFrom=2017-01-01T00:00:00Z&dateTo=2020-06-01T12:30:00Z"
+        );
+
+        // Assert
+        repositoryMock.Verify(
+            r =>
+                r.GetInstancesForParty(
+                    _partyId,
+                    50,
+                    new DateTime(2017, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    new DateTime(2020, 6, 1, 12, 30, 0, DateTimeKind.Utc),
+                    null,
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task Get_WithOnlyDateFrom_LeavesTheUpperBoundOpen()
+    {
+        // Arrange
+        Mock<IInstanceRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(r =>
+                r.GetInstancesForParty(
+                    _partyId,
+                    50,
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<InstanceContinuationToken?>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(new InstanceQueryResult());
+
+        HttpClient client = GetTestClient(repositoryMock);
+
+        // Act
+        await SendAsync(client, $"{_basePath}/{_partyId}/instances?dateFrom=2017-01-01");
+
+        // Assert
+        repositoryMock.Verify(
+            r =>
+                r.GetInstancesForParty(
+                    _partyId,
+                    50,
+                    new DateTime(2017, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    null,
+                    null,
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task Get_NextLink_KeepsTheDateRange()
+    {
+        // Arrange
+        Mock<IInstanceRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(r =>
+                r.GetInstancesForParty(
+                    _partyId,
+                    50,
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<InstanceContinuationToken?>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                new InstanceQueryResult
+                {
+                    Instances = [CreateInstance(DateTime.UtcNow, 1)],
+                    ContinuationToken = "638424288000000000;2",
+                }
+            );
+
+        HttpClient client = GetTestClient(repositoryMock);
+
+        // Act
+        QueryResponse<Instance> response = await SendAsync(
+            client,
+            $"{_basePath}/{_partyId}/instances?dateFrom=2017-01-01&dateTo=2020-01-01"
+        );
+
+        // Assert
+        Assert.Contains("dateFrom=2017-01-01", response.Next);
+        Assert.Contains("dateTo=2020-01-01", response.Next);
+        Assert.Contains("continuationToken=638424288000000000;2", response.Next);
     }
 
     [Theory]
@@ -225,6 +370,10 @@ public class PartyInstancesControllerTests(TestApplicationFactory<PartyInstances
     [InlineData("continuationToken=123", "The continuation token is not valid.")]
     [InlineData("size=0", "The size must be between 1 and 100.")]
     [InlineData("size=101", "The size must be between 1 and 100.")]
+    [InlineData(
+        "dateFrom=2020-01-02&dateTo=2020-01-01",
+        "The dateFrom must not be later than the dateTo."
+    )]
     public async Task Get_WithInvalidParameters_ReturnsBadRequest(
         string queryString,
         string expectedMessage
@@ -258,6 +407,8 @@ public class PartyInstancesControllerTests(TestApplicationFactory<PartyInstances
                 r.GetInstancesForParty(
                     _partyId,
                     50,
+                    null,
+                    null,
                     It.IsAny<InstanceContinuationToken?>(),
                     It.IsAny<CancellationToken>()
                 )

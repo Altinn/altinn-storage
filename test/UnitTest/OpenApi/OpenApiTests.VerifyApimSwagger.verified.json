@@ -3425,7 +3425,7 @@
         "tags": [
           "PartyExport"
         ],
-        "summary": "Gets the content of a single data element. The content type is the same as the file was\nstored with. Anything awaiting permanent deletion is left out, matching the instances the export walk returns.",
+        "summary": "Gets the content of a single data element, with the content type it was stored with.\nAnything awaiting permanent deletion is left out, matching the export walk.",
         "description": "Unlike the instance-scoped download this does not mark the data element as read: an export\nis not the instance owner reading their message.",
         "parameters": [
           {
@@ -3551,8 +3551,8 @@
         "tags": [
           "PartyExport"
         ],
-        "summary": "Retrieves the instances owned by a party, each with its data elements, ordered from oldest\nto newest by creation time. A next link is returned for as long as more instances remain.\nLater changes never reorder instances, so following the next links to the end yields every\ninstance the party held when the walk started. Anything awaiting permanent deletion is left out.",
-        "description": "Instances and data elements are returned without self links. The platform self links address\nthe instance-scoped endpoints, which an export scope does not reach, so a consumer builds the\nparty-scoped data element route from the ids instead.",
+        "summary": "Retrieves the instances owned by a party, each with its data elements, oldest first by\ncreation time. Later changes never reorder instances, so following the next links to the\nend yields every instance the party held when the walk started. Anything awaiting\npermanent deletion is left out.",
+        "description": "Self links are not set. They address the instance-scoped endpoints, which an export scope\ndoes not reach, so a consumer builds the party-scoped data element route from the ids.\nThe date bounds are inclusive, keep an instance whose creation or last changed time falls\ninside them, and are read as UTC when the caller supplies no offset, so\n`dateTo=2026-09-18` means midnight that morning.",
         "parameters": [
           {
             "name": "partyId",
@@ -3571,6 +3571,24 @@
             "schema": {
               "type": "integer",
               "format": "int32"
+            }
+          },
+          {
+            "name": "dateFrom",
+            "in": "query",
+            "description": "The oldest date to include. Omit it for no lower bound.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "dateTo",
+            "in": "query",
+            "description": "The newest date to include. Omit it for no upper bound.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
             }
           },
           {

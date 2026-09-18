@@ -56,7 +56,7 @@ public class PgInstanceRepository : IInstanceRepository
     private readonly string _readSqlNoElements =
         "select * from storage.readinstancenoelements_v2 ($1)";
     private readonly string _readForPartySql =
-        "select * from storage.readinstancesforparty_v1 ($1, $2, $3, $4)";
+        "select * from storage.readinstancesforparty ($1, $2, $3, $4, $5, $6)";
 
     private readonly ILogger<PgInstanceRepository> _logger;
     private readonly NpgsqlDataSource _dataSource;
@@ -173,6 +173,8 @@ public class PgInstanceRepository : IInstanceRepository
     public async Task<InstanceQueryResult> GetInstancesForParty(
         int partyId,
         int size,
+        DateTime? dateFrom,
+        DateTime? dateTo,
         InstanceContinuationToken? continueFrom,
         CancellationToken cancellationToken
     )
@@ -187,6 +189,11 @@ public class PgInstanceRepository : IInstanceRepository
             );
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Bigint, continueFrom?.InternalId ?? -1);
             pgcom.Parameters.AddWithValue(NpgsqlDbType.Integer, size);
+            pgcom.Parameters.AddWithValue(
+                NpgsqlDbType.TimestampTz,
+                dateFrom ?? (object)DBNull.Value
+            );
+            pgcom.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, dateTo ?? (object)DBNull.Value);
 
             return await ReadInstancePageAsync(
                 pgcom,
