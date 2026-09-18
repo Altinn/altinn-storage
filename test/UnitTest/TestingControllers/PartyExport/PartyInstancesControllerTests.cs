@@ -5,7 +5,7 @@ using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Common.AccessToken.Services;
-using Altinn.Platform.Storage.Controllers;
+using Altinn.Platform.Storage.Controllers.PartyExport;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -23,7 +23,7 @@ using Moq;
 using Newtonsoft.Json;
 using Xunit;
 
-namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
+namespace Altinn.Platform.Storage.UnitTest.TestingControllers.PartyExport;
 
 public class PartyInstancesControllerTests(TestApplicationFactory<PartyInstancesController> factory)
     : IClassFixture<TestApplicationFactory<PartyInstancesController>>
@@ -145,6 +145,48 @@ public class PartyInstancesControllerTests(TestApplicationFactory<PartyInstances
         // Assert
         Assert.Equal(1, response.Count);
         Assert.Null(response.Next);
+    }
+
+    [Fact]
+    public async Task Get_OmitsSelfLinksOnInstancesAndDataElements()
+    {
+        // Arrange
+        Mock<IInstanceRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(r =>
+                r.GetInstancesForParty(
+                    _partyId,
+                    50,
+                    It.IsAny<InstanceContinuationToken?>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                new InstanceQueryResult
+                {
+                    Instances = [CreateInstance(DateTime.UtcNow, 1)],
+                    ContinuationToken = null,
+                }
+            );
+
+        HttpClient client = GetTestClient(repositoryMock);
+        using HttpRequestMessage message = new(HttpMethod.Get, $"{_basePath}/{_partyId}/instances");
+        AddToken(message);
+
+        // Act
+        using HttpResponseMessage httpResponse = await client.SendAsync(message);
+        string json = await httpResponse.Content.ReadAsStringAsync();
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, httpResponse.StatusCode);
+        Assert.DoesNotContain("selfLinks", json, StringComparison.OrdinalIgnoreCase);
+
+        QueryResponse<Instance> response = JsonConvert.DeserializeObject<QueryResponse<Instance>>(
+            json
+        )!;
+        Instance instance = Assert.Single(response.Instances);
+        Assert.Null(instance.SelfLinks);
+        Assert.Null(Assert.Single(instance.Data).SelfLinks);
     }
 
     [Fact]

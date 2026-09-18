@@ -14,7 +14,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Altinn.Platform.Storage.Controllers;
+namespace Altinn.Platform.Storage.Controllers.PartyExport;
 
 /// <summary>
 /// Serves the content of a party's data elements, one file per request, for exporting everything a
