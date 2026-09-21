@@ -241,6 +241,121 @@ public class OnDemandContentServiceTests
         Assert.Null(result);
     }
 
+    [Fact]
+    public async Task GetFormSummaryAsHtml_WithNoXslViews_ReturnsNull()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        Guid htmlDataGuid = Guid.NewGuid();
+        Guid xmlDataGuid = Guid.NewGuid();
+
+        var (service, _) = CreateService(
+            instanceGuid,
+            CreateFormSummaryDataElements(htmlDataGuid, xmlDataGuid, null),
+            "<xml/>",
+            xsls: []
+        );
+
+        // Act
+        Stream result = await service.GetFormSummaryAsHtml(
+            _app,
+            instanceGuid,
+            htmlDataGuid,
+            "nb",
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetFormSummaryAsHtml_WhenVisiblePagesExcludeEveryView_ReturnsNull()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        Guid htmlDataGuid = Guid.NewGuid();
+        Guid xmlDataGuid = Guid.NewGuid();
+
+        List<DataElementInternal> dataElements = CreateFormSummaryDataElements(
+            htmlDataGuid,
+            xmlDataGuid,
+            null
+        );
+        dataElements[1].Metadata.Add(new KeyValueEntry { Key = "A2VisiblePages", Value = "9" });
+
+        var (service, _) = CreateService(instanceGuid, dataElements, "<xml/>");
+
+        // Act
+        Stream result = await service.GetFormSummaryAsHtml(
+            _app,
+            instanceGuid,
+            htmlDataGuid,
+            "nb",
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetFormdataAsHtml_WhenSinglePageNrMatchesNoView_ReturnsNull()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        Guid htmlDataGuid = Guid.NewGuid();
+        Guid xmlDataGuid = Guid.NewGuid();
+
+        var (service, _) = CreateService(
+            instanceGuid,
+            CreateFormSummaryDataElements(htmlDataGuid, xmlDataGuid, null),
+            "<xml/>",
+            xsls: [("<xsl/>", true)]
+        );
+
+        // Act
+        Stream result = await service.GetFormdataAsHtml(
+            _app,
+            instanceGuid,
+            htmlDataGuid,
+            "nb",
+            CancellationToken.None,
+            singlePageNr: 5
+        );
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetFormdataAsPdf_WithNoXslViews_ReturnsNull()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        Guid htmlDataGuid = Guid.NewGuid();
+        Guid xmlDataGuid = Guid.NewGuid();
+
+        var (service, _) = CreateService(
+            instanceGuid,
+            CreateFormSummaryDataElements(htmlDataGuid, xmlDataGuid, null),
+            "<xml/>",
+            xsls: []
+        );
+
+        // Act
+        Stream result = await service.GetFormdataAsPdf(
+            _app,
+            instanceGuid,
+            htmlDataGuid,
+            "nb",
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Null(result);
+    }
+
     private static IOnDemandContentService CreateServiceWithMissingInstance(Guid instanceGuid)
     {
         Mock<IInstanceRepository> instanceRepoMock = new();
@@ -290,7 +405,12 @@ public class OnDemandContentServiceTests
     private static (
         IOnDemandContentService Service,
         Mock<IBlobRepository> BlobRepoMock
-    ) CreateService(Guid instanceGuid, List<DataElementInternal> dataElements, string blobContent)
+    ) CreateService(
+        Guid instanceGuid,
+        List<DataElementInternal> dataElements,
+        string blobContent,
+        List<(string Xsl, bool IsPortrait)>? xsls = null
+    )
     {
         foreach (DataElementInternal dataElement in dataElements)
         {
@@ -325,7 +445,7 @@ public class OnDemandContentServiceTests
         Mock<IA2Repository> a2RepoMock = new();
         a2RepoMock
             .Setup(r => r.GetXsls(_org, _app, 5678, It.IsAny<string>(), It.IsAny<int>()))
-            .ReturnsAsync([("<xsl/>", true)]);
+            .ReturnsAsync(xsls ?? [("<xsl/>", true)]);
         Mock<IBlobRepository> blobRepoMock = new();
         blobRepoMock
             .Setup(r =>
