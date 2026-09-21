@@ -25,9 +25,10 @@ public interface IInstanceRepository
     );
 
     /// <summary>
-    /// Gets a page of the instances an instance owner holds, oldest first by creation time.
-    /// A date bound matches an instance whose creation or last changed time falls inside it.
-    /// Anything awaiting permanent deletion is left out.
+    /// Gets a page of the instances that an instance owner holds. The oldest instance is first, by
+    /// the time of creation. A date limit keeps an instance if the time of creation or the time of
+    /// the last change is in the range. The query does not return an instance that is marked for
+    /// permanent deletion.
     /// </summary>
     /// <param name="partyId">The party id of the instance owner.</param>
     /// <param name="size">The maximum number of instances to return.</param>

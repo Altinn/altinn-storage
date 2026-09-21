@@ -19,7 +19,8 @@ using Microsoft.Extensions.Options;
 namespace Altinn.Platform.Storage.Controllers.PartyExport;
 
 /// <summary>
-/// Exports the instances of an instance owner, data elements included, in batches.
+/// Exports the instances of an instance owner in batches. Each instance includes its data
+/// elements.
 /// </summary>
 [Route("storage/api/v1/parties/{partyId:int}/instances")]
 [ApiController]
@@ -37,24 +38,26 @@ public class PartyInstancesController(
     private readonly GeneralSettings _generalSettings = settings.Value;
 
     /// <summary>
-    /// Retrieves the instances owned by a party, each with its data elements, oldest first by
-    /// creation time. Later changes never reorder instances, so following the next links to the
-    /// end yields every instance the party held when the walk started. Anything awaiting
-    /// permanent deletion is left out.
+    /// Gets the instances that a party owns. Each instance includes its data elements. The oldest
+    /// instance is first, by the time of creation. A change to an instance does not change this
+    /// sequence. Thus, if you follow the next links to the last batch, you get all the instances
+    /// that the party had when the export started. The endpoint does not return an item that is
+    /// marked for permanent deletion.
     /// </summary>
     /// <param name="partyId">The party id of the instance owner.</param>
-    /// <param name="size">The maximum number of instances in one batch. Defaults to 50, at most 100.</param>
-    /// <param name="dateFrom">The oldest date to include. Omit it for no lower bound.</param>
-    /// <param name="dateTo">The newest date to include. Omit it for no upper bound.</param>
-    /// <param name="continuationToken">The token from the previous batch. Omit it to start at the oldest instance.</param>
+    /// <param name="size">The maximum number of instances in one batch. The default value is 50. The maximum value is 100.</param>
+    /// <param name="dateFrom">The oldest date to include. If you give no value, there is no lower limit.</param>
+    /// <param name="dateTo">The newest date to include. If you give no value, there is no upper limit.</param>
+    /// <param name="continuationToken">The token from the previous batch. If you give no value, the batch starts at the oldest instance.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>A batch of instances owned by the party.</returns>
     /// <remarks>
-    /// Self links are not set. They address the instance-scoped endpoints, which an export scope
-    /// does not reach, so a consumer builds the party-scoped data element route from the ids.
-    /// The date bounds are inclusive, keep an instance whose creation or last changed time falls
-    /// inside them, and are read as UTC when the caller supplies no offset, so
-    /// <c>dateTo=2026-09-18</c> means midnight that morning.
+    /// The response does not contain self links. A self link refers to an instance-scoped
+    /// endpoint, and an export scope cannot use those endpoints. Thus, the client must build the
+    /// party-scoped route to the data element from the ids. The date limits are inclusive. A date
+    /// limit keeps an instance if the time of creation or the time of the last change is in the
+    /// range. If the caller gives no time offset, the system reads the date as UTC. For example,
+    /// <c>dateTo=2026-09-18</c> is midnight at the start of that day.
     /// </remarks>
     [HttpGet]
     [Authorize(Policy = AuthzConstants.POLICY_SCOPE_INSTANCES_SUPPORTDASHBOARD)]

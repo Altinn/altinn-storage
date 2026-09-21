@@ -63,9 +63,9 @@ public static class DataElementHelper
     }
 
     /// <summary>
-    /// Throws an exception if the blob storage path isn't the path implied by the requested
-    /// instance and data element ids, either the legacy unversioned path or the path of the
-    /// element's current blob version.
+    /// Makes sure that the blob storage path agrees with the requested instance and data element
+    /// ids. Two paths are correct: the legacy path without a version, and the path of the current
+    /// blob version of the element. Throws an exception for all other paths.
     /// </summary>
     internal static void EnsureBlobStoragePathMatchesRequest(
         DataElementInternal dataElement,

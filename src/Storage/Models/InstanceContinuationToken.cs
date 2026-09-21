@@ -4,18 +4,18 @@ using System.Globalization;
 namespace Altinn.Platform.Storage.Models;
 
 /// <summary>
-/// Keyset cursor identifying the last instance handed out by a paged instance query.
+/// A keyset cursor. It identifies the last instance that a paged instance query returned.
 /// </summary>
-/// <param name="Timestamp">The timestamp the query orders by, for the last instance in the previous page.</param>
-/// <param name="InternalId">The internal id of that instance, breaking ties on the timestamp.</param>
+/// <param name="Timestamp">The timestamp that the query sorts by, for the last instance in the previous page.</param>
+/// <param name="InternalId">The internal id of that instance. It gives the sequence when two instances have the same timestamp.</param>
 public readonly record struct InstanceContinuationToken(DateTime Timestamp, long InternalId)
 {
     /// <summary>
-    /// Attempts to parse the form produced by <see cref="ToString"/>.
+    /// Tries to read the format that <see cref="ToString"/> makes.
     /// </summary>
     /// <param name="value">The serialized token.</param>
     /// <param name="token">The parsed token, when parsing succeeds.</param>
-    /// <returns><c>true</c> when the value is a well formed token; otherwise <c>false</c>.</returns>
+    /// <returns><c>true</c> if the value is a correct token. If it is not, the result is <c>false</c>.</returns>
     public static bool TryParse(string? value, out InstanceContinuationToken token)
     {
         token = default;

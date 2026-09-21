@@ -17,8 +17,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace Altinn.Platform.Storage.Controllers.PartyExport;
 
 /// <summary>
-/// Serves the content of a party's data elements, one file per request, for exporting everything a
-/// party holds.
+/// Serves the content of the data elements of a party. Each request gives one file. Use this
+/// endpoint to export all the data that a party holds.
 /// </summary>
 [Route("storage/api/v1/parties/{partyId:int}/instances/{instanceGuid:guid}/data")]
 [ApiController]
@@ -28,8 +28,9 @@ public class PartyInstanceDataController(IDataElementContentService dataElementC
     : ControllerBase
 {
     /// <summary>
-    /// Gets the content of a single data element, with the content type it was stored with.
-    /// Anything awaiting permanent deletion is left out, matching the export walk.
+    /// Gets the content of one data element. The response uses the content type that the system
+    /// stored with the element. The endpoint does not return a data element that is marked for
+    /// permanent deletion. This is the same rule as the export sequence.
     /// </summary>
     /// <param name="partyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance the data element belongs to.</param>
@@ -37,8 +38,8 @@ public class PartyInstanceDataController(IDataElementContentService dataElementC
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>The data file as a stream.</returns>
     /// <remarks>
-    /// Unlike the instance-scoped download this does not mark the data element as read: an export
-    /// is not the instance owner reading their message.
+    /// The instance-scoped download marks the data element as read. This endpoint does not mark
+    /// it, because an export is not a read operation by the instance owner.
     /// </remarks>
     [HttpGet("{dataGuid:guid}")]
     [Authorize(Policy = AuthzConstants.POLICY_SCOPE_DATA_SUPPORTDASHBOARD)]

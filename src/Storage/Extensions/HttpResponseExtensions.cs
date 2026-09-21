@@ -7,12 +7,12 @@ using Microsoft.Net.Http.Headers;
 namespace Altinn.Platform.Storage.Extensions;
 
 /// <summary>
-/// Response headers shared by the endpoints that serve data element content.
+/// Sets the response headers that are common to the endpoints that serve data element content.
 /// </summary>
 public static class HttpResponseExtensions
 {
     /// <summary>
-    /// Asks the client to render the content rather than offer it as a download.
+    /// Tells the client to show the content and not to download it.
     /// </summary>
     /// <param name="response">The response to write the header to.</param>
     /// <param name="filename">The filename to present the content under.</param>
@@ -27,8 +27,9 @@ public static class HttpResponseExtensions
     }
 
     /// <summary>
-    /// Tags the response with the blob version the content was read from. Does nothing when the
-    /// data element carries no blob version, as on-demand generated content does.
+    /// Adds an ETag header that identifies the blob version of the content. If the data element
+    /// has no blob version, the method does not add the header. On-demand content has no blob
+    /// version.
     /// </summary>
     /// <param name="response">The response to write the header to.</param>
     /// <param name="blobVersionId">The blob version id of the content being served.</param>

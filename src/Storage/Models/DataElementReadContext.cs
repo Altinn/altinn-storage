@@ -6,8 +6,8 @@ using Altinn.Platform.Storage.Interface.Models;
 namespace Altinn.Platform.Storage.Models;
 
 /// <summary>
-/// A data element the caller has been authorized to read, together with everything needed to open
-/// its content.
+/// A data element that the caller has permission to read. It also holds the instance and the
+/// application metadata that are necessary to open the content.
 /// </summary>
 /// <param name="InstanceGuid">The instance id the element was requested through.</param>
 /// <param name="DataGuid">The data element id the element was requested through.</param>
@@ -25,8 +25,9 @@ public sealed record DataElementReadContext(
     private const string OnDemandBlobStoragePathPrefix = "ondemand";
 
     /// <summary>
-    /// Whether the content is generated per request rather than read from blob storage. Migrated
-    /// Altinn 2 elements say so through their blob storage path.
+    /// Tells if the system generates the content for each request. If this value is false, the
+    /// system reads the content from blob storage. The blob storage path identifies a migrated
+    /// Altinn 2 element.
     /// </summary>
     public bool IsOnDemandContent =>
         DataElement.BlobStoragePath.StartsWith(

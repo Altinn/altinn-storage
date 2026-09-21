@@ -9,9 +9,9 @@ using Altinn.Platform.Storage.Models;
 namespace Altinn.Platform.Storage.Services;
 
 /// <summary>
-/// Resolves a data element for reading and opens its content, so that every endpoint serving data
-/// element content applies the same authorization rules and makes the same choice between a stored
-/// blob and generated on-demand content.
+/// Resolves a data element for read operations and opens its content. All endpoints that serve
+/// data element content use this service. Thus they apply the same authorization rules, and they
+/// make the same choice between a stored blob and generated on-demand content.
 /// </summary>
 public interface IDataElementContentService
 {
@@ -25,8 +25,8 @@ public interface IDataElementContentService
     /// <param name="dataGuid">The id of the data element.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <remarks>
-    /// Hard-deleted elements resolve like any other. Whether they may be served is left to the
-    /// caller, because the rule differs between endpoints.
+    /// This method resolves hard-deleted elements in the same way as all other elements. The
+    /// caller decides if it can serve them, because the rule is different for each endpoint.
     /// </remarks>
     Task<(DataElementReadContext Context, ServiceError ServiceError)> ResolveForRead(
         int instanceOwnerPartyId,

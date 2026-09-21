@@ -8,19 +8,19 @@ using Microsoft.Extensions.Primitives;
 namespace Altinn.Platform.Storage.Helpers;
 
 /// <summary>
-/// Builds the links a <see cref="QueryResponse{T}"/> hands back to the caller.
+/// Builds the links that a <see cref="QueryResponse{T}"/> returns to the caller.
 /// </summary>
 public static class QueryLinkExtensions
 {
     private const string _continuationTokenParameterName = "continuationToken";
 
     /// <summary>
-    /// Rebuilds the current request as an absolute platform URL, replacing any continuation
-    /// token the caller sent with the supplied one.
+    /// Makes an absolute platform URL from the current request. The URL contains the supplied
+    /// continuation token in place of the token that the caller sent.
     /// </summary>
     /// <param name="request">The request being answered.</param>
     /// <param name="hostname">The platform hostname the link should point at.</param>
-    /// <param name="continuationToken">The token the link should continue from, or <c>null</c> to keep the caller's own.</param>
+    /// <param name="continuationToken">The token that the link must continue from. If the value is <c>null</c>, the link keeps the token that the caller sent.</param>
     /// <returns>An absolute URL.</returns>
     public static string BuildContinuationLink(
         this HttpRequest request,

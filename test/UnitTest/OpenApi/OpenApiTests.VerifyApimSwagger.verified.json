@@ -3425,8 +3425,8 @@
         "tags": [
           "PartyExport"
         ],
-        "summary": "Gets the content of a single data element, with the content type it was stored with.\nAnything awaiting permanent deletion is left out, matching the export walk.",
-        "description": "Unlike the instance-scoped download this does not mark the data element as read: an export\nis not the instance owner reading their message.",
+        "summary": "Gets the content of one data element. The response uses the content type that the system\nstored with the element. The endpoint does not return a data element that is marked for\npermanent deletion. This is the same rule as the export sequence.",
+        "description": "The instance-scoped download marks the data element as read. This endpoint does not mark\nit, because an export is not a read operation by the instance owner.",
         "parameters": [
           {
             "name": "partyId",
@@ -3551,8 +3551,8 @@
         "tags": [
           "PartyExport"
         ],
-        "summary": "Retrieves the instances owned by a party, each with its data elements, oldest first by\ncreation time. Later changes never reorder instances, so following the next links to the\nend yields every instance the party held when the walk started. Anything awaiting\npermanent deletion is left out.",
-        "description": "Self links are not set. They address the instance-scoped endpoints, which an export scope\ndoes not reach, so a consumer builds the party-scoped data element route from the ids.\nThe date bounds are inclusive, keep an instance whose creation or last changed time falls\ninside them, and are read as UTC when the caller supplies no offset, so\n`dateTo=2026-09-18` means midnight that morning.",
+        "summary": "Gets the instances that a party owns. Each instance includes its data elements. The oldest\ninstance is first, by the time of creation. A change to an instance does not change this\nsequence. Thus, if you follow the next links to the last batch, you get all the instances\nthat the party had when the export started. The endpoint does not return an item that is\nmarked for permanent deletion.",
+        "description": "The response does not contain self links. A self link refers to an instance-scoped\nendpoint, and an export scope cannot use those endpoints. Thus, the client must build the\nparty-scoped route to the data element from the ids. The date limits are inclusive. A date\nlimit keeps an instance if the time of creation or the time of the last change is in the\nrange. If the caller gives no time offset, the system reads the date as UTC. For example,\n`dateTo=2026-09-18` is midnight at the start of that day.",
         "parameters": [
           {
             "name": "partyId",
@@ -3567,7 +3567,7 @@
           {
             "name": "size",
             "in": "query",
-            "description": "The maximum number of instances in one batch. Defaults to 50, at most 100.",
+            "description": "The maximum number of instances in one batch. The default value is 50. The maximum value is 100.",
             "schema": {
               "type": "integer",
               "format": "int32"
@@ -3576,7 +3576,7 @@
           {
             "name": "dateFrom",
             "in": "query",
-            "description": "The oldest date to include. Omit it for no lower bound.",
+            "description": "The oldest date to include. If you give no value, there is no lower limit.",
             "schema": {
               "type": "string",
               "format": "date-time"
@@ -3585,7 +3585,7 @@
           {
             "name": "dateTo",
             "in": "query",
-            "description": "The newest date to include. Omit it for no upper bound.",
+            "description": "The newest date to include. If you give no value, there is no upper limit.",
             "schema": {
               "type": "string",
               "format": "date-time"
@@ -3594,7 +3594,7 @@
           {
             "name": "continuationToken",
             "in": "query",
-            "description": "The token from the previous batch. Omit it to start at the oldest instance.",
+            "description": "The token from the previous batch. If you give no value, the batch starts at the oldest instance.",
             "schema": {
               "type": "string"
             }
