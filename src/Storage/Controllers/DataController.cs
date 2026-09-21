@@ -387,13 +387,6 @@ public class DataController : ControllerBase
 
         if (dataElement.BlobStoragePath.StartsWith("ondemand"))
         {
-            var contentDispositionHeader = new ContentDispositionHeaderValue("inline");
-            contentDispositionHeader.SetHttpFileName(dataElement.Filename);
-            Response.Headers.Append(
-                HeaderNames.ContentDisposition,
-                contentDispositionHeader.ToString()
-            );
-
             Stream onDemandStream = await _onDemandContentService.GetContent(
                 dataElement.BlobStoragePath.Split('/')[1],
                 instance.AppId.Split('/')[1],
@@ -401,6 +394,13 @@ public class DataController : ControllerBase
                 dataGuid,
                 LanguageHelper.GetCurrentUserLanguage(Request),
                 cancellationToken
+            );
+
+            var contentDispositionHeader = new ContentDispositionHeaderValue("inline");
+            contentDispositionHeader.SetHttpFileName(dataElement.Filename);
+            Response.Headers.Append(
+                HeaderNames.ContentDisposition,
+                contentDispositionHeader.ToString()
             );
 
             VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);

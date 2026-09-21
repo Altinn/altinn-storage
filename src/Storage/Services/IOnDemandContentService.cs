@@ -8,15 +8,15 @@ using System.Threading.Tasks;
 namespace Altinn.Platform.Storage.Services;
 
 /// <summary>
-/// Generates the presentation content for migrated Altinn 2 data elements, which is rendered per
-/// request rather than stored as a blob. The kind of content is encoded in the data element's
-/// blob storage path, as <c>ondemand/&lt;kind&gt;</c>.
+/// Generates the presentation content for migrated Altinn 2 data elements. The system renders this
+/// content for each request and does not store it as a blob. The blob storage path of the data
+/// element gives the kind of content, in the form <c>ondemand/&lt;kind&gt;</c>.
 /// </summary>
 public interface IOnDemandContentService
 {
     /// <summary>
-    /// Generates the content for the given kind, or <c>null</c> when the kind is unknown or the
-    /// instance it refers to no longer exists.
+    /// Generates the content for the given kind. Returns <c>null</c> if the kind is unknown.
+    /// Also returns <c>null</c> if the instance no longer exists.
     /// </summary>
     /// <param name="kind">The kind of content, taken from the data element's blob storage path.</param>
     /// <param name="app">The app the instance belongs to, without the org prefix.</param>

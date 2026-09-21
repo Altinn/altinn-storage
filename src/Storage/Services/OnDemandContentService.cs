@@ -233,68 +233,28 @@ public class OnDemandContentService : IOnDemandContentService
         CancellationToken cancellationToken
     )
     {
-        InstanceInternal instance = await _instanceRepository.GetOne(
+        FormdataSource source = await LoadFormdataSource(
+            app,
             instanceGuid,
-            true,
+            dataGuid,
+            language,
+            3,
             cancellationToken
         );
-        if (instance is null)
+        if (source is null)
         {
             return null;
         }
 
-        DataElementInternal htmlElement = instance.Data.First(d => d.Id == dataGuid);
-        string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;
-        DataElementInternal xmlElement = instance.Data.First(d =>
-            d.Metadata?.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id
-        );
-        string visiblePagesString = xmlElement
-            .Metadata.FirstOrDefault(m => m.Key == "A2VisiblePages")
-            ?.Value;
-        List<int> visiblePages = !string.IsNullOrEmpty(visiblePagesString)
-            ? visiblePagesString.Split(';').Select(int.Parse).ToList()
-            : null;
+        InstanceInternal instance = source.Instance;
+        PrintViewXslBEList printViews = BuildPrintViews(source, language);
 
-        int lformid = int.Parse(xmlElement.Metadata.First(m => m.Key == "lformid").Value);
-        PrintViewXslBEList printViews = [];
-        int pageNumber = 1;
-        foreach (
-            (string view, bool isPortrait) in await _a2Repository.GetXsls(
-                instance.Org,
-                app,
-                lformid,
-                language,
-                3
-            )
-        )
-        {
-            if (visiblePages == null || visiblePages.Contains(pageNumber))
-            {
-                printViews.Add(
-                    new PrintViewXslBE()
-                    {
-                        PrintViewXsl = view,
-                        Id = $"{lformid}-{pageNumber}{language}",
-                        IsPortrait = isPortrait,
-                        PageNumber = pageNumber,
-                    }
-                );
-            }
-
-            ++pageNumber;
-        }
-
-        printViews[^1].LastPage = true;
-
-        using var mergedDoc = new PdfDocument();
-        foreach (var view in printViews)
+        using PdfDocument mergedDoc = new();
+        foreach (PrintViewXslBE view in printViews)
         {
             (string html, PrintViewXslBEList updatedViews) = await GetFormdataAsHtmlString(
-                app,
-                instanceGuid,
-                dataGuid,
+                source,
                 language,
-                3,
                 cancellationToken,
                 view.PageNumber
             );
@@ -303,13 +263,13 @@ public class OnDemandContentService : IOnDemandContentService
                 return null;
             }
 
-            var pdfPages = await _pdfGeneratorClient.GeneratePdf(
+            Stream pdfPages = await _pdfGeneratorClient.GeneratePdf(
                 html,
                 view.IsPortrait,
                 GetScale(updatedViews[0])
             );
-            using var pageDoc = PdfReader.Open(pdfPages, PdfDocumentOpenMode.Import);
-            for (var i = 0; i < pageDoc.PageCount; i++)
+            using PdfDocument pageDoc = PdfReader.Open(pdfPages, PdfDocumentOpenMode.Import);
+            for (int i = 0; i < pageDoc.PageCount; i++)
             {
                 pageDoc.Pages[i].Orientation = view.IsPortrait
                     ? PdfSharp.PageOrientation.Portrait
@@ -319,7 +279,7 @@ public class OnDemandContentService : IOnDemandContentService
         }
 
         MemoryStream pdfStream = new();
-        mergedDoc.Save(pdfStream);
+        await mergedDoc.SaveAsync(pdfStream);
 
         DateTime created;
         if (instance.DataValues.TryGetValue("A2ArchRefTs", out string a2ArchRefTs))
@@ -341,10 +301,10 @@ public class OnDemandContentService : IOnDemandContentService
             created.ToString(timestampFormat, CultureInfo.InvariantCulture)
             + $" AR{instance.DataValues["A2ArchRef"]}";
 
-        using var finalPdfDocument = PdfReader.Open(pdfStream, PdfDocumentOpenMode.Modify);
+        using PdfDocument finalPdfDocument = PdfReader.Open(pdfStream, PdfDocumentOpenMode.Modify);
         AddWaterMarksAndPageNumber(finalPdfDocument, watermark);
         MemoryStream finalPdfStream = new();
-        finalPdfDocument.Save(finalPdfStream);
+        await finalPdfDocument.SaveAsync(finalPdfStream);
         return finalPdfStream;
     }
 
@@ -462,6 +422,50 @@ public class OnDemandContentService : IOnDemandContentService
         int singlePageNr = -1
     )
     {
+        FormdataSource source = await LoadFormdataSource(
+            app,
+            instanceGuid,
+            dataGuid,
+            language,
+            viewType,
+            cancellationToken
+        );
+        if (source is null)
+        {
+            return (null, null);
+        }
+
+        return await GetFormdataAsHtmlString(source, language, cancellationToken, singlePageNr);
+    }
+
+    private async Task<(string Html, PrintViewXslBEList Views)> GetFormdataAsHtmlString(
+        FormdataSource source,
+        string language,
+        CancellationToken cancellationToken,
+        int singlePageNr = -1
+    )
+    {
+        PrintViewXslBEList views = BuildPrintViews(source, language, singlePageNr);
+
+        Stream blob = await _blobRepository.ReadBlob(
+            $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : source.Instance.Org)}",
+            source.XmlElement.BlobStoragePath,
+            source.Application.StorageAccountNumber,
+            cancellationToken
+        );
+
+        return (_a2OndemandFormattingService.GetFormdataHtml(views, blob), views);
+    }
+
+    private async Task<FormdataSource> LoadFormdataSource(
+        string app,
+        Guid instanceGuid,
+        Guid dataGuid,
+        string language,
+        int viewType,
+        CancellationToken cancellationToken
+    )
+    {
         InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
@@ -469,12 +473,13 @@ public class OnDemandContentService : IOnDemandContentService
         );
         if (instance is null)
         {
-            return (null, null);
+            return null;
         }
 
         Application application = await _applicationRepository.FindOne(
             instance.AppId,
-            instance.Org
+            instance.Org,
+            cancellationToken
         );
         DataElementInternal htmlElement = instance.Data.First(d => d.Id == dataGuid);
         string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;
@@ -488,33 +493,45 @@ public class OnDemandContentService : IOnDemandContentService
         List<int> visiblePages = !string.IsNullOrEmpty(visiblePagesString)
             ? visiblePagesString.Split(';').Select(int.Parse).ToList()
             : null;
-
-        PrintViewXslBEList views = [];
         int lformid = int.Parse(xmlElement.Metadata.First(m => m.Key == "lformid").Value);
+
+        return new FormdataSource(
+            instance,
+            application,
+            xmlElement,
+            visiblePages,
+            lformid,
+            await _a2Repository.GetXsls(instance.Org, app, lformid, language, viewType)
+        );
+    }
+
+    /// <summary>
+    /// Selects the XSL views to render. A <paramref name="singlePageNr"/> of -1 selects all the
+    /// visible pages, other values select that one page.
+    /// </summary>
+    private static PrintViewXslBEList BuildPrintViews(
+        FormdataSource source,
+        string language,
+        int singlePageNr = -1
+    )
+    {
+        PrintViewXslBEList views = [];
         int pageNumber = 1;
-        foreach (
-            (string view, bool isPortrait) in await _a2Repository.GetXsls(
-                instance.Org,
-                app,
-                lformid,
-                language,
-                viewType
-            )
-        )
+        foreach ((string view, bool isPortrait) in source.Xsls)
         {
             if (
                 (singlePageNr != -1 && singlePageNr == pageNumber)
                 || (
                     singlePageNr == -1
-                    && (visiblePages == null || visiblePages.Contains(pageNumber))
+                    && (source.VisiblePages == null || source.VisiblePages.Contains(pageNumber))
                 )
             )
             {
                 views.Add(
-                    new PrintViewXslBE()
+                    new PrintViewXslBE
                     {
                         PrintViewXsl = view,
-                        Id = $"{lformid}-{pageNumber}{language}",
+                        Id = $"{source.LFormId}-{pageNumber}{language}",
                         IsPortrait = isPortrait,
                         PageNumber = pageNumber,
                     }
@@ -526,19 +543,12 @@ public class OnDemandContentService : IOnDemandContentService
 
         views[^1].LastPage = true;
 
-        Stream blob = await _blobRepository.ReadBlob(
-            $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
-            xmlElement.BlobStoragePath,
-            application.StorageAccountNumber,
-            cancellationToken
-        );
-
-        return (_a2OndemandFormattingService.GetFormdataHtml(views, blob), views);
+        return views;
     }
 
     private static float GetScale(PrintViewXslBE infoPathViewXslBE)
     {
-        float margin = _watermarkMarginW + _watermarkWidth;
+        const float margin = _watermarkMarginW + _watermarkWidth;
 
         // Set A4 width in XUnit points (1/72 inch)
         float pageWidth = infoPathViewXslBE.IsPortrait ? 595.92f : 842.88f;
@@ -555,14 +565,14 @@ public class OnDemandContentService : IOnDemandContentService
 
     private static void AddWaterMarksAndPageNumber(PdfDocument document, string watermark)
     {
-        for (var idx = 0; idx < document.Pages.Count; idx++)
+        for (int idx = 0; idx < document.Pages.Count; idx++)
         {
-            var page = document.Pages[idx];
+            PdfPage page = document.Pages[idx];
 
             // Get an XGraphics object for drawing beneath the existing content.
             using XGraphics gfx = XGraphics.FromPdfPage(page, XGraphicsPdfPageOptions.Append);
 
-            var state = gfx.Save();
+            XGraphicsState state = gfx.Save();
             DrawWatermark(
                 gfx,
                 page.Width.Point - _watermarkMarginW,
@@ -613,11 +623,20 @@ public class OnDemandContentService : IOnDemandContentService
     {
         try
         {
-            return new(_primaryFontFamily, _fontSize);
+            return new XFont(_primaryFontFamily, _fontSize);
         }
         catch (Exception)
         {
-            return new(_fallbackFontFamily, _fontSize);
+            return new XFont(_fallbackFontFamily, _fontSize);
         }
     }
+
+    private sealed record FormdataSource(
+        InstanceInternal Instance,
+        Application Application,
+        DataElementInternal XmlElement,
+        List<int> VisiblePages,
+        int LFormId,
+        List<(string Xsl, bool IsPortrait)> Xsls
+    );
 }
