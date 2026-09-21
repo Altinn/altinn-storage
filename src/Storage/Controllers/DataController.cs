@@ -355,7 +355,7 @@ public class DataController : ControllerBase
                 return NotFound();
             }
 
-            SetInlineContentDisposition(dataElement.Filename);
+            Response.SetInlineContentDisposition(dataElement.Filename);
             return File(dataStream, dataElement.ContentType);
         }
 
