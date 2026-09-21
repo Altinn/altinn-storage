@@ -90,11 +90,6 @@ public class PartyInstanceDataController(IDataElementContentService dataElementC
             return NotFound();
         }
 
-        if (context.IsOnDemandContent)
-        {
-            Response.SetInlineContentDisposition(dataElement.Filename);
-        }
-
         Stream dataStream = await dataElementContentService.OpenContent(
             context,
             LanguageHelper.GetCurrentUserLanguage(Request),
@@ -103,7 +98,13 @@ public class PartyInstanceDataController(IDataElementContentService dataElementC
 
         if (context.IsOnDemandContent)
         {
-            return dataStream is null ? NotFound() : File(dataStream, dataElement.ContentType);
+            if (dataStream is null)
+            {
+                return NotFound();
+            }
+
+            Response.SetInlineContentDisposition(dataElement.Filename);
+            return File(dataStream, dataElement.ContentType);
         }
 
         if (dataStream is null)
