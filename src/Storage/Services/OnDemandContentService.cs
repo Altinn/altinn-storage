@@ -248,6 +248,10 @@ public class OnDemandContentService : IOnDemandContentService
 
         InstanceInternal instance = source.Instance;
         PrintViewXslBEList printViews = BuildPrintViews(source, language);
+        if (printViews is null)
+        {
+            return null;
+        }
 
         using PdfDocument mergedDoc = new();
         foreach (PrintViewXslBE view in printViews)
@@ -446,6 +450,10 @@ public class OnDemandContentService : IOnDemandContentService
     )
     {
         PrintViewXslBEList views = BuildPrintViews(source, language, singlePageNr);
+        if (views is null)
+        {
+            return (null, null);
+        }
 
         Stream blob = await _blobRepository.ReadBlob(
             $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : source.Instance.Org)}",
@@ -507,7 +515,8 @@ public class OnDemandContentService : IOnDemandContentService
 
     /// <summary>
     /// Selects the XSL views to render. A <paramref name="singlePageNr"/> of -1 selects all the
-    /// visible pages, other values select that one page.
+    /// visible pages. Other values select only that page. Returns <c>null</c> if the selection
+    /// contains no views.
     /// </summary>
     private static PrintViewXslBEList BuildPrintViews(
         FormdataSource source,
@@ -539,6 +548,11 @@ public class OnDemandContentService : IOnDemandContentService
             }
 
             ++pageNumber;
+        }
+
+        if (views.Count == 0)
+        {
+            return null;
         }
 
         views[^1].LastPage = true;
