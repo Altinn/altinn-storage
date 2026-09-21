@@ -9,24 +9,24 @@ using Altinn.Platform.Storage.Models;
 namespace Altinn.Platform.Storage.Services;
 
 /// <summary>
-/// Resolves a data element for reading and opens its content, so that every endpoint serving data
-/// element content applies the same authorization rules and makes the same choice between a stored
-/// blob and generated on-demand content.
+/// Resolves a data element for read operations and opens its content. All endpoints that serve
+/// data element content use this service. Thus they apply the same authorization rules, and they
+/// make the same choice between a stored blob and generated on-demand content.
 /// </summary>
 public interface IDataElementContentService
 {
     /// <summary>
-    /// Resolves the instance, data element and application behind a data element reference and
-    /// authorizes the caller to read it, both for the instance and for the data type's
-    /// <see cref="Interface.Models.DataType.ActionRequiredToRead"/>.
+    /// Finds the instance, the data element and the application for a data element reference.
+    /// Authorizes the caller for read access to the instance. Also authorizes the caller for the
+    /// data type's <see cref="Interface.Models.DataType.ActionRequiredToRead"/>.
     /// </summary>
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance the data element belongs to.</param>
     /// <param name="dataGuid">The id of the data element.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <remarks>
-    /// Hard-deleted elements resolve like any other. Whether they may be served is left to the
-    /// caller, because the rule differs between endpoints.
+    /// This method resolves hard-deleted elements in the same way as all other elements. The
+    /// caller decides if it can serve them, because the rule is different for each endpoint.
     /// </remarks>
     Task<(DataElementReadContext Context, ServiceError ServiceError)> ResolveForRead(
         int instanceOwnerPartyId,
@@ -36,10 +36,10 @@ public interface IDataElementContentService
     );
 
     /// <summary>
-    /// Opens the content of a resolved data element, reading it from blob storage or, for migrated
-    /// Altinn 2 elements, generating it.
+    /// Opens the content of a resolved data element. The method reads the content from blob
+    /// storage. For migrated Altinn 2 elements, the method generates the content.
     /// </summary>
-    /// <param name="context">A data element resolved by <see cref="ResolveForRead"/>.</param>
+    /// <param name="context">A data element that <see cref="ResolveForRead"/> resolved.</param>
     /// <param name="language">The language to generate on-demand content in.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>The content, or <c>null</c> when it could not be read or generated.</returns>
