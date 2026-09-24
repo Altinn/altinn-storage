@@ -47,10 +47,7 @@ public class PartyInstancesController(
     /// <param name="partyId">The party id of the instance owner.</param>
     /// <param name="userId">The user id of the person that the export is for.</param>
     /// <param name="authenticationLevel">The authentication level to use for the authorization decisions of the person.</param>
-    /// <param name="size">The maximum number of instances in one batch.</param>
-    /// <param name="dateFrom">The oldest date to include.</param>
-    /// <param name="dateTo">The newest date to include.</param>
-    /// <param name="continuationToken">The token from the previous batch.</param>
+    /// <param name="queryParameters">The batch size, the date limits and the continuation token.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>A batch of instances owned by the party.</returns>
     /// <remarks>
@@ -69,10 +66,7 @@ public class PartyInstancesController(
         [FromRoute] int partyId,
         [FromHeader(Name = StorageHeaders.UserId), Required] int? userId,
         [FromHeader(Name = StorageHeaders.AuthenticationLevel), Required] int? authenticationLevel,
-        [FromQuery] int? size,
-        [FromQuery] DateTime? dateFrom,
-        [FromQuery] DateTime? dateTo,
-        [FromQuery] string? continuationToken,
+        PartyInstancesQueryParameters queryParameters,
         CancellationToken cancellationToken
     )
     {
@@ -93,13 +87,13 @@ public class PartyInstancesController(
             );
         }
 
-        if (size is < 1 or > _maxPageSize)
+        if (queryParameters.Size is < 1 or > _maxPageSize)
         {
             return BadRequest($"The size must be between 1 and {_maxPageSize}.");
         }
 
-        DateTime? from = DateTimeHelper.ConvertToUniversalTime(dateFrom);
-        DateTime? to = DateTimeHelper.ConvertToUniversalTime(dateTo);
+        DateTime? from = DateTimeHelper.ConvertToUniversalTime(queryParameters.DateFrom);
+        DateTime? to = DateTimeHelper.ConvertToUniversalTime(queryParameters.DateTo);
 
         if (from > to)
         {
@@ -107,11 +101,11 @@ public class PartyInstancesController(
         }
 
         InstanceContinuationToken? continueFrom = null;
-        if (!string.IsNullOrEmpty(continuationToken))
+        if (!string.IsNullOrEmpty(queryParameters.ContinuationToken))
         {
             if (
                 !InstanceContinuationToken.TryParse(
-                    continuationToken,
+                    queryParameters.ContinuationToken,
                     out InstanceContinuationToken parsed
                 )
             )
@@ -124,7 +118,7 @@ public class PartyInstancesController(
 
         InstanceQueryResult result = await instanceRepository.GetInstancesForParty(
             partyId,
-            size ?? _defaultPageSize,
+            queryParameters.Size ?? _defaultPageSize,
             from,
             to,
             continueFrom,
@@ -161,7 +155,10 @@ public class PartyInstancesController(
         {
             Instances = instances,
             Count = instances.Count,
-            Self = Request.BuildContinuationLink(_generalSettings.Hostname, continuationToken),
+            Self = Request.BuildContinuationLink(
+                _generalSettings.Hostname,
+                queryParameters.ContinuationToken
+            ),
         };
 
         if (!string.IsNullOrEmpty(result.ContinuationToken))
