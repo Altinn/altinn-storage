@@ -64,6 +64,49 @@ public class DataElementContentService : IDataElementContentService
         CancellationToken cancellationToken
     )
     {
+        return await ResolveForRead(
+            instanceOwnerPartyId,
+            instanceGuid,
+            dataGuid,
+            null,
+            cancellationToken
+        );
+    }
+
+    /// <inheritdoc/>
+    public async Task<(
+        DataElementReadContext Context,
+        ServiceError ServiceError
+    )> ResolveForReadForUser(
+        int instanceOwnerPartyId,
+        Guid instanceGuid,
+        Guid dataGuid,
+        UserSubject subject,
+        CancellationToken cancellationToken
+    )
+    {
+        return await ResolveForRead(
+            instanceOwnerPartyId,
+            instanceGuid,
+            dataGuid,
+            subject,
+            cancellationToken
+        );
+    }
+
+    /// <summary>
+    /// Resolves a data element and authorizes a read operation on it. If
+    /// <paramref name="subject"/> is null, the decisions are for the caller. If not, the
+    /// decisions are for that user.
+    /// </summary>
+    private async Task<(DataElementReadContext Context, ServiceError ServiceError)> ResolveForRead(
+        int instanceOwnerPartyId,
+        Guid instanceGuid,
+        Guid dataGuid,
+        UserSubject subject,
+        CancellationToken cancellationToken
+    )
+    {
         InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
             false,
@@ -80,7 +123,14 @@ public class DataElementContentService : IDataElementContentService
             );
         }
 
-        if (!await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read"))
+        bool instanceReadAuthorized = subject is not null
+            ? await _authorizationService.AuthorizeEnrichedInstanceActionForUser(
+                instance,
+                "read",
+                subject
+            )
+            : await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read");
+        if (!instanceReadAuthorized)
         {
             return (null, new ServiceError(403, "Not authorized to read the instance"));
         }
@@ -125,7 +175,10 @@ public class DataElementContentService : IDataElementContentService
             );
         }
 
-        if (!await dataTypeDefinition.CanRead(_authorizationService, instance))
+        bool dataTypeReadAuthorized = subject is not null
+            ? await dataTypeDefinition.CanReadForUser(_authorizationService, instance, subject)
+            : await dataTypeDefinition.CanRead(_authorizationService, instance);
+        if (!dataTypeReadAuthorized)
         {
             return (
                 null,

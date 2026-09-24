@@ -33,6 +33,30 @@ internal static class DataTypeExtensions
     }
 
     /// <summary>
+    /// Checks if a user who is not the caller has permission to read data of this type for the
+    /// storage instance.
+    /// </summary>
+    public static async Task<bool> CanReadForUser(
+        this DataType dataType,
+        IAuthorization authorizationService,
+        InstanceInternal instance,
+        UserSubject subject
+    )
+    {
+        if (string.IsNullOrWhiteSpace(dataType.ActionRequiredToRead))
+        {
+            return true;
+        }
+
+        return await authorizationService.AuthorizeInstanceActionForUser(
+            instance,
+            dataType.ActionRequiredToRead,
+            instance.Process?.CurrentTask?.ElementId,
+            subject
+        );
+    }
+
+    /// <summary>
     /// Checks if the user has permission to write data of this type for the given storage instance.
     /// </summary>
     public static async Task<bool> CanWrite(

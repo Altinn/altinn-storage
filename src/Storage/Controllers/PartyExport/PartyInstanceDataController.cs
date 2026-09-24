@@ -1,6 +1,7 @@
 #nullable disable
 
 using System;
+using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.IO;
 using System.Threading;
@@ -17,8 +18,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Altinn.Platform.Storage.Controllers.PartyExport;
 
 /// <summary>
-/// Serves the content of the data elements of a party. Each request gives one file. Use this
-/// endpoint to export all the data that a party holds.
+/// Serves the content of the data elements of a party, one file for each request.
 /// </summary>
 [Route("storage/api/v1/parties/{partyId:int}/instances/{instanceGuid:guid}/data")]
 [ApiController]
@@ -28,18 +28,19 @@ public class PartyInstanceDataController(IDataElementContentService dataElementC
     : ControllerBase
 {
     /// <summary>
-    /// Gets the content of one data element. The response uses the content type that the system
-    /// stored with the element. The endpoint does not return a data element that is marked for
-    /// permanent deletion. This is the same rule as the export sequence.
+    /// Gets the content of one data element, with its stored content type. The endpoint does not
+    /// return a data element that is marked for permanent deletion.
     /// </summary>
     /// <param name="partyId">The party id of the instance owner.</param>
+    /// <param name="userId">The user id of the person that the export is for.</param>
+    /// <param name="authenticationLevel">The authentication level to use for the authorization decisions of the person.</param>
     /// <param name="instanceGuid">The id of the instance the data element belongs to.</param>
-    /// <param name="dataGuid">The id of the data element to retrieve.</param>
+    /// <param name="dataGuid">The id of the data element.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>The data file as a stream.</returns>
     /// <remarks>
-    /// The instance-scoped download marks the data element as read. This endpoint does not mark
-    /// it, because an export is not a read operation by the instance owner.
+    /// An export is not a read operation by the instance owner. Thus, the endpoint does not mark
+    /// the data element as read.
     /// </remarks>
     [HttpGet("{dataGuid:guid}")]
     [Authorize(Policy = AuthzConstants.POLICY_SCOPE_DATA_SUPPORTDASHBOARD)]
@@ -50,6 +51,8 @@ public class PartyInstanceDataController(IDataElementContentService dataElementC
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> Get(
         [FromRoute] int partyId,
+        [FromHeader(Name = StorageHeaders.UserId), Required] int? userId,
+        [FromHeader(Name = StorageHeaders.AuthenticationLevel), Required] int? authenticationLevel,
         [FromRoute] Guid instanceGuid,
         [FromRoute] Guid dataGuid,
         CancellationToken cancellationToken
@@ -60,11 +63,24 @@ public class PartyInstanceDataController(IDataElementContentService dataElementC
             return BadRequest("The party id must be a positive number.");
         }
 
+        if (userId is not > 0)
+        {
+            return BadRequest($"The {StorageHeaders.UserId} header must be a positive number.");
+        }
+
+        if (authenticationLevel is not >= 0)
+        {
+            return BadRequest(
+                $"The {StorageHeaders.AuthenticationLevel} header must be zero or a positive number."
+            );
+        }
+
         (DataElementReadContext context, ServiceError resolveError) =
-            await dataElementContentService.ResolveForRead(
+            await dataElementContentService.ResolveForReadForUser(
                 partyId,
                 instanceGuid,
                 dataGuid,
+                new UserSubject(userId.Value, authenticationLevel.Value),
                 cancellationToken
             );
         if (resolveError is not null)

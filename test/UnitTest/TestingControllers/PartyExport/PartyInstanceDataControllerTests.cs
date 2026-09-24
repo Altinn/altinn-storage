@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Common.AccessToken.Services;
 using Altinn.Platform.Storage.Controllers.PartyExport;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
@@ -35,6 +36,8 @@ public class PartyInstanceDataControllerTests(
     private const string _scope = "altinn:storage/data.supportdashboard";
 
     private const int _partyId = 1337;
+
+    private static readonly UserSubject _subject = new(20001337, 3);
 
     private static readonly Guid _instanceGuid = new("6e1e3f2c-0f2b-4f8a-9b0f-5a4e2c7d1b33");
 
@@ -65,13 +68,60 @@ public class PartyInstanceDataControllerTests(
         Mock<IDataElementContentService> serviceMock = new(MockBehavior.Strict);
         HttpClient client = GetTestClient(serviceMock);
         using HttpRequestMessage message = new(HttpMethod.Get, DataUri());
-        AddToken(message, scope);
+        AddTokenAndSubjectHeaders(message, scope);
 
         // Act
         using HttpResponseMessage response = await client.SendAsync(message);
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        serviceMock.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("0")]
+    [InlineData("abc")]
+    public async Task Get_WithoutValidUserId_ReturnsBadRequest(string? userId)
+    {
+        // Arrange
+        Mock<IDataElementContentService> serviceMock = new(MockBehavior.Strict);
+        HttpClient client = GetTestClient(serviceMock);
+        using HttpRequestMessage message = new(HttpMethod.Get, DataUri());
+        AddTokenAndSubjectHeaders(message, userId: userId);
+
+        // Act
+        using HttpResponseMessage response = await client.SendAsync(message);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(StorageHeaders.UserId, await response.Content.ReadAsStringAsync());
+        serviceMock.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("-1")]
+    [InlineData("abc")]
+    public async Task Get_WithoutValidAuthenticationLevel_ReturnsBadRequest(
+        string? authenticationLevel
+    )
+    {
+        // Arrange
+        Mock<IDataElementContentService> serviceMock = new(MockBehavior.Strict);
+        HttpClient client = GetTestClient(serviceMock);
+        using HttpRequestMessage message = new(HttpMethod.Get, DataUri());
+        AddTokenAndSubjectHeaders(message, authenticationLevel: authenticationLevel);
+
+        // Act
+        using HttpResponseMessage response = await client.SendAsync(message);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(
+            StorageHeaders.AuthenticationLevel,
+            await response.Content.ReadAsStringAsync()
+        );
         serviceMock.VerifyNoOtherCalls();
     }
 
@@ -214,7 +264,13 @@ public class PartyInstanceDataControllerTests(
         Mock<IDataElementContentService> serviceMock = new();
         serviceMock
             .Setup(s =>
-                s.ResolveForRead(_partyId, _instanceGuid, _dataGuid, It.IsAny<CancellationToken>())
+                s.ResolveForReadForUser(
+                    _partyId,
+                    _instanceGuid,
+                    _dataGuid,
+                    _subject,
+                    It.IsAny<CancellationToken>()
+                )
             )
             .ReturnsAsync((null, new ServiceError(errorCode, "nope")));
 
@@ -256,7 +312,13 @@ public class PartyInstanceDataControllerTests(
         Mock<IDataElementContentService> serviceMock = new();
         serviceMock
             .Setup(s =>
-                s.ResolveForRead(_partyId, _instanceGuid, _dataGuid, It.IsAny<CancellationToken>())
+                s.ResolveForReadForUser(
+                    _partyId,
+                    _instanceGuid,
+                    _dataGuid,
+                    _subject,
+                    It.IsAny<CancellationToken>()
+                )
             )
             .ReturnsAsync((context, null));
 
@@ -290,18 +352,32 @@ public class PartyInstanceDataControllerTests(
             new Application { Id = "tdd/test-app", Org = "tdd" }
         );
 
-    private static void AddToken(HttpRequestMessage message, string scope = _scope)
+    private static void AddTokenAndSubjectHeaders(
+        HttpRequestMessage message,
+        string scope = _scope,
+        string? userId = "20001337",
+        string? authenticationLevel = "3"
+    )
     {
         message.Headers.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             PrincipalUtil.GetOrgToken("supportdashboard", scope: scope)
         );
+        if (userId is not null)
+        {
+            message.Headers.Add(StorageHeaders.UserId, userId);
+        }
+
+        if (authenticationLevel is not null)
+        {
+            message.Headers.Add(StorageHeaders.AuthenticationLevel, authenticationLevel);
+        }
     }
 
     private static async Task<HttpResponseMessage> SendAsync(HttpClient client, string uri)
     {
         using HttpRequestMessage message = new(HttpMethod.Get, uri);
-        AddToken(message);
+        AddTokenAndSubjectHeaders(message);
 
         return await client.SendAsync(message);
     }

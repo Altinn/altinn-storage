@@ -29,4 +29,15 @@ public static class StorageHeaders
     /// Optional idempotency key for workflow-owned aggregate saves.
     /// </summary>
     public const string IdempotencyKey = "Idempotency-Key";
+
+    /// <summary>
+    /// The user id of the person that the request is for.
+    /// </summary>
+    public const string UserId = "X-Ai-UserId";
+
+    /// <summary>
+    /// The authentication level that the authorization decisions use for the user in
+    /// <see cref="UserId"/>.
+    /// </summary>
+    public const string AuthenticationLevel = "X-Ai-AuthenticationLevel";
 }

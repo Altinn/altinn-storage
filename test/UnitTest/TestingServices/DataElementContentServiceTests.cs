@@ -152,6 +152,100 @@ public class DataElementContentServiceTests
     }
 
     [Fact]
+    public async Task ResolveForReadForUser_AuthorizesInstanceAndDataTypeForTheUser()
+    {
+        UserSubject subject = new(20001337, 3);
+        Fixture fixture = new()
+        {
+            Application = new Application
+            {
+                DataTypes = [new DataType { Id = DataTypeId, ActionRequiredToRead = "sign" }],
+            },
+        };
+
+        (DataElementReadContext context, ServiceError serviceError) = await fixture
+            .Build()
+            .ResolveForReadForUser(
+                InstanceOwnerPartyId,
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                subject,
+                CancellationToken.None
+            );
+
+        Assert.NotNull(context);
+        Assert.Null(serviceError);
+        fixture.Authorization.Verify(
+            service =>
+                service.AuthorizeEnrichedInstanceActionForUser(
+                    It.IsAny<InstanceInternal>(),
+                    "read",
+                    subject
+                ),
+            Times.Once
+        );
+        fixture.Authorization.Verify(
+            service =>
+                service.AuthorizeInstanceActionForUser(
+                    It.IsAny<InstanceInternal>(),
+                    "sign",
+                    It.IsAny<string>(),
+                    subject
+                ),
+            Times.Once
+        );
+        fixture.Authorization.Verify(
+            service =>
+                service.AuthorizeEnrichedInstanceAction(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<string>()
+                ),
+            Times.Never
+        );
+        fixture.Authorization.Verify(
+            service =>
+                service.AuthorizeInstanceAction(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task ResolveForReadForUser_UserNotAuthorized_ReturnsForbidden(
+        bool instanceReadAuthorized,
+        bool dataTypeReadAuthorized
+    )
+    {
+        Fixture fixture = new()
+        {
+            Application = new Application
+            {
+                DataTypes = [new DataType { Id = DataTypeId, ActionRequiredToRead = "sign" }],
+            },
+            Authorized = instanceReadAuthorized,
+            ActionAuthorized = dataTypeReadAuthorized,
+        };
+
+        (DataElementReadContext context, ServiceError serviceError) = await fixture
+            .Build()
+            .ResolveForReadForUser(
+                InstanceOwnerPartyId,
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                new UserSubject(20001337, 3),
+                CancellationToken.None
+            );
+
+        Assert.Null(context);
+        Assert.Equal(403, serviceError.ErrorCode);
+    }
+
+    [Fact]
     public async Task ResolveForRead_HardDeletedElement_IsResolved()
     {
         Fixture fixture = new();
@@ -341,6 +435,8 @@ public class DataElementContentServiceTests
 
         public bool A2UseTtdAsServiceOwner { get; init; }
 
+        public Mock<IAuthorization> Authorization { get; } = new();
+
         public DataElementContentService Build()
         {
             Mock<IInstanceRepository> instanceRepository = new();
@@ -387,8 +483,7 @@ public class DataElementContentServiceTests
                 )
                 .ReturnsAsync(() => new MemoryStream(Encoding.UTF8.GetBytes("blob content")));
 
-            Mock<IAuthorization> authorization = new();
-            authorization
+            Authorization
                 .Setup(service =>
                     service.AuthorizeEnrichedInstanceAction(
                         It.IsAny<InstanceInternal>(),
@@ -396,12 +491,31 @@ public class DataElementContentServiceTests
                     )
                 )
                 .ReturnsAsync(Authorized);
-            authorization
+            Authorization
                 .Setup(service =>
                     service.AuthorizeInstanceAction(
                         It.IsAny<InstanceInternal>(),
                         It.IsAny<string>(),
                         It.IsAny<string>()
+                    )
+                )
+                .ReturnsAsync(ActionAuthorized);
+            Authorization
+                .Setup(service =>
+                    service.AuthorizeEnrichedInstanceActionForUser(
+                        It.IsAny<InstanceInternal>(),
+                        It.IsAny<string>(),
+                        It.IsAny<UserSubject>()
+                    )
+                )
+                .ReturnsAsync(Authorized);
+            Authorization
+                .Setup(service =>
+                    service.AuthorizeInstanceActionForUser(
+                        It.IsAny<InstanceInternal>(),
+                        It.IsAny<string>(),
+                        It.IsAny<string>(),
+                        It.IsAny<UserSubject>()
                     )
                 )
                 .ReturnsAsync(ActionAuthorized);
@@ -411,7 +525,7 @@ public class DataElementContentServiceTests
                 dataRepository.Object,
                 applicationRepository.Object,
                 BlobRepository.Object,
-                authorization.Object,
+                Authorization.Object,
                 OnDemandContentService.Object,
                 Options.Create(
                     new GeneralSettings { A2UseTtdAsServiceOwner = A2UseTtdAsServiceOwner }

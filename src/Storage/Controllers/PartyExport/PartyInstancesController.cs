@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
@@ -19,8 +21,7 @@ using Microsoft.Extensions.Options;
 namespace Altinn.Platform.Storage.Controllers.PartyExport;
 
 /// <summary>
-/// Exports the instances of an instance owner in batches. Each instance includes its data
-/// elements.
+/// Exports the instances of a party in batches.
 /// </summary>
 [Route("storage/api/v1/parties/{partyId:int}/instances")]
 [ApiController]
@@ -28,6 +29,7 @@ namespace Altinn.Platform.Storage.Controllers.PartyExport;
 [Tags("PartyExport")]
 public class PartyInstancesController(
     IInstanceRepository instanceRepository,
+    IAuthorization authorizationService,
     IOptions<GeneralSettings> settings,
     ILogger<PartyInstancesController> logger
 ) : ControllerBase
@@ -38,26 +40,22 @@ public class PartyInstancesController(
     private readonly GeneralSettings _generalSettings = settings.Value;
 
     /// <summary>
-    /// Gets the instances that a party owns. Each instance includes its data elements. The oldest
-    /// instance is first, by the time of creation. A change to an instance does not change this
-    /// sequence. Thus, if you follow the next links to the last batch, you get all the instances
-    /// that the party had when the export started. The endpoint does not return an item that is
-    /// marked for permanent deletion.
+    /// Gets the instances that a party owns, with their data elements. The oldest instance is
+    /// first. Follow the next links until there is no next link. The endpoint does not return
+    /// an instance that is marked for permanent deletion.
     /// </summary>
     /// <param name="partyId">The party id of the instance owner.</param>
-    /// <param name="size">The maximum number of instances in one batch. The default value is 50. The maximum value is 100.</param>
-    /// <param name="dateFrom">The oldest date to include. If you give no value, there is no lower limit.</param>
-    /// <param name="dateTo">The newest date to include. If you give no value, there is no upper limit.</param>
-    /// <param name="continuationToken">The token from the previous batch. If you give no value, the batch starts at the oldest instance.</param>
+    /// <param name="userId">The user id of the person that the export is for.</param>
+    /// <param name="authenticationLevel">The authentication level to use for the authorization decisions of the person.</param>
+    /// <param name="size">The maximum number of instances in one batch.</param>
+    /// <param name="dateFrom">The oldest date to include.</param>
+    /// <param name="dateTo">The newest date to include.</param>
+    /// <param name="continuationToken">The token from the previous batch.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>A batch of instances owned by the party.</returns>
     /// <remarks>
-    /// The response does not contain self links. A self link refers to an instance-scoped
-    /// endpoint, and an export scope cannot use those endpoints. Thus, the client must build the
-    /// party-scoped route to the data element from the ids. The date limits are inclusive. A date
-    /// limit keeps an instance if the time of creation or the time of the last change is in the
-    /// range. If the caller gives no time offset, the system reads the date as UTC. For example,
-    /// <c>dateTo=2026-09-18</c> is midnight at the start of that day.
+    /// A batch contains only the instances that the person can read. Thus a batch can have
+    /// fewer instances than the size, or none, and still have a next link.
     /// </remarks>
     [HttpGet]
     [Authorize(Policy = AuthzConstants.POLICY_SCOPE_INSTANCES_SUPPORTDASHBOARD)]
@@ -69,6 +67,8 @@ public class PartyInstancesController(
     [Produces("application/json")]
     public async Task<ActionResult<QueryResponse<Instance>>> GetInstancesForParty(
         [FromRoute] int partyId,
+        [FromHeader(Name = StorageHeaders.UserId), Required] int? userId,
+        [FromHeader(Name = StorageHeaders.AuthenticationLevel), Required] int? authenticationLevel,
         [FromQuery] int? size,
         [FromQuery] DateTime? dateFrom,
         [FromQuery] DateTime? dateTo,
@@ -79,6 +79,18 @@ public class PartyInstancesController(
         if (partyId <= 0)
         {
             return BadRequest("The party id must be a positive number.");
+        }
+
+        if (userId is not > 0)
+        {
+            return BadRequest($"The {StorageHeaders.UserId} header must be a positive number.");
+        }
+
+        if (authenticationLevel is not >= 0)
+        {
+            return BadRequest(
+                $"The {StorageHeaders.AuthenticationLevel} header must be zero or a positive number."
+            );
         }
 
         if (size is < 1 or > _maxPageSize)
@@ -132,7 +144,18 @@ public class PartyInstancesController(
             );
         }
 
-        List<Instance> instances = [.. result.Instances.Select(instance => instance.ToApiModel())];
+        List<InstanceInternal> authorized = await authorizationService.AuthorizeInstancesForUser(
+            result.Instances,
+            new UserSubject(userId.Value, authenticationLevel.Value)
+        );
+
+        HashSet<Guid> authorizedIds = [.. authorized.Select(instance => instance.Id)];
+        List<Instance> instances =
+        [
+            .. result
+                .Instances.Where(instance => authorizedIds.Contains(instance.Id))
+                .Select(instance => instance.ToApiModel()),
+        ];
 
         QueryResponse<Instance> response = new()
         {

@@ -3434,13 +3434,33 @@
         "tags": [
           "PartyExport"
         ],
-        "summary": "Gets the content of one data element. The response uses the content type that the system\nstored with the element. The endpoint does not return a data element that is marked for\npermanent deletion. This is the same rule as the export sequence.",
-        "description": "The instance-scoped download marks the data element as read. This endpoint does not mark\nit, because an export is not a read operation by the instance owner.",
+        "summary": "Gets the content of one data element, with its stored content type. The endpoint does not\nreturn a data element that is marked for permanent deletion.",
+        "description": "An export is not a read operation by the instance owner. Thus, the endpoint does not mark\nthe data element as read.",
         "parameters": [
           {
             "name": "partyId",
             "in": "path",
             "description": "The party id of the instance owner.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "X-Ai-UserId",
+            "in": "header",
+            "description": "The user id of the person that the export is for.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "X-Ai-AuthenticationLevel",
+            "in": "header",
+            "description": "The authentication level to use for the authorization decisions of the person.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -3460,7 +3480,7 @@
           {
             "name": "dataGuid",
             "in": "path",
-            "description": "The id of the data element to retrieve.",
+            "description": "The id of the data element.",
             "required": true,
             "schema": {
               "type": "string",
@@ -3560,8 +3580,8 @@
         "tags": [
           "PartyExport"
         ],
-        "summary": "Gets the instances that a party owns. Each instance includes its data elements. The oldest\ninstance is first, by the time of creation. A change to an instance does not change this\nsequence. Thus, if you follow the next links to the last batch, you get all the instances\nthat the party had when the export started. The endpoint does not return an item that is\nmarked for permanent deletion.",
-        "description": "The response does not contain self links. A self link refers to an instance-scoped\nendpoint, and an export scope cannot use those endpoints. Thus, the client must build the\nparty-scoped route to the data element from the ids. The date limits are inclusive. A date\nlimit keeps an instance if the time of creation or the time of the last change is in the\nrange. If the caller gives no time offset, the system reads the date as UTC. For example,\n`dateTo=2026-09-18` is midnight at the start of that day.",
+        "summary": "Gets the instances that a party owns, with their data elements. The oldest instance is\nfirst. Follow the next links until there is no next link. The endpoint does not return\nan instance that is marked for permanent deletion.",
+        "description": "A batch contains only the instances that the person can read. Thus a batch can have\nfewer instances than the size, or none, and still have a next link.",
         "parameters": [
           {
             "name": "partyId",
@@ -3574,9 +3594,29 @@
             }
           },
           {
+            "name": "X-Ai-UserId",
+            "in": "header",
+            "description": "The user id of the person that the export is for.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "X-Ai-AuthenticationLevel",
+            "in": "header",
+            "description": "The authentication level to use for the authorization decisions of the person.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
             "name": "size",
             "in": "query",
-            "description": "The maximum number of instances in one batch. The default value is 50. The maximum value is 100.",
+            "description": "The maximum number of instances in one batch.",
             "schema": {
               "type": "integer",
               "format": "int32"
@@ -3585,7 +3625,7 @@
           {
             "name": "dateFrom",
             "in": "query",
-            "description": "The oldest date to include. If you give no value, there is no lower limit.",
+            "description": "The oldest date to include.",
             "schema": {
               "type": "string",
               "format": "date-time"
@@ -3594,7 +3634,7 @@
           {
             "name": "dateTo",
             "in": "query",
-            "description": "The newest date to include. If you give no value, there is no upper limit.",
+            "description": "The newest date to include.",
             "schema": {
               "type": "string",
               "format": "date-time"
@@ -3603,7 +3643,7 @@
           {
             "name": "continuationToken",
             "in": "query",
-            "description": "The token from the previous batch. If you give no value, the batch starts at the oldest instance.",
+            "description": "The token from the previous batch.",
             "schema": {
               "type": "string"
             }

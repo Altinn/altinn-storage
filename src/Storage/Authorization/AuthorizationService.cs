@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Security.Claims;
 using System.Text;
@@ -15,6 +16,7 @@ using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Models;
+using AltinnCore.Authentication.Constants;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -180,12 +182,37 @@ public class AuthorizationService(
         string task = null
     )
     {
+        return await AuthorizeInstanceAction(
+            instance,
+            action,
+            task,
+            _claimsPrincipalProvider.GetUser()
+        );
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> AuthorizeInstanceActionForUser(
+        InstanceInternal instance,
+        string action,
+        string task,
+        UserSubject subject
+    )
+    {
+        return await AuthorizeInstanceAction(instance, action, task, CreatePrincipal(subject));
+    }
+
+    private async Task<bool> AuthorizeInstanceAction(
+        InstanceInternal instance,
+        string action,
+        string task,
+        ClaimsPrincipal user
+    )
+    {
         string org = instance.Org;
         string app = instance.AppId.Split('/')[1];
         int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
         XacmlJsonRequestRoot request;
 
-        ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
         if (instance.Id == Guid.Empty)
         {
             request = DecisionHelper.CreateDecisionRequest(
@@ -221,8 +248,7 @@ public class AuthorizationService(
             return false;
         }
 
-        bool authorized = DecisionHelper.ValidatePdpDecision(response.Response, user);
-        return authorized;
+        return DecisionHelper.ValidatePdpDecision(response.Response, user);
     }
 
     /// <inheritdoc />
@@ -231,11 +257,33 @@ public class AuthorizationService(
         string action
     )
     {
+        return await AuthorizeEnrichedInstanceAction(
+            instance,
+            action,
+            _claimsPrincipalProvider.GetUser()
+        );
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> AuthorizeEnrichedInstanceActionForUser(
+        InstanceInternal instance,
+        string action,
+        UserSubject subject
+    )
+    {
+        return await AuthorizeEnrichedInstanceAction(instance, action, CreatePrincipal(subject));
+    }
+
+    private async Task<bool> AuthorizeEnrichedInstanceAction(
+        InstanceInternal instance,
+        string action,
+        ClaimsPrincipal user
+    )
+    {
         string org = instance.Org;
         string app = instance.AppId.Split('/')[1];
         int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
 
-        ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
         XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
             org,
             app,
@@ -319,6 +367,23 @@ public class AuthorizationService(
     /// <inheritdoc />
     public async Task<List<InstanceInternal>> AuthorizeInstances(List<InstanceInternal> instances)
     {
+        return await AuthorizeInstances(instances, _claimsPrincipalProvider.GetUser());
+    }
+
+    /// <inheritdoc />
+    public async Task<List<InstanceInternal>> AuthorizeInstancesForUser(
+        List<InstanceInternal> instances,
+        UserSubject subject
+    )
+    {
+        return await AuthorizeInstances(instances, CreatePrincipal(subject));
+    }
+
+    private async Task<List<InstanceInternal>> AuthorizeInstances(
+        List<InstanceInternal> instances,
+        ClaimsPrincipal user
+    )
+    {
         if (instances.Count <= 0)
         {
             return instances;
@@ -327,7 +392,6 @@ public class AuthorizationService(
         List<InstanceInternal> authorizedInstanceList = [];
         List<string> actionTypes = new() { "read" };
 
-        ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
         XacmlJsonRequestRoot xacmlJsonRequest = CreateMultiDecisionRequest(
             user,
             instances,
@@ -547,6 +611,32 @@ public class AuthorizationService(
         string app = instance.AppId.Split("/")[1];
 
         return (instanceId, instanceGuid, task, instanceOwnerPartyId, org, app);
+    }
+
+    /// <summary>
+    /// Creates a principal for a user who is not the caller. The PDP uses the user id to find
+    /// the roles and delegations of the user. The obligation check compares the authentication
+    /// level with the minimum authentication level of the policy.
+    /// </summary>
+    private static ClaimsPrincipal CreatePrincipal(UserSubject subject)
+    {
+        Claim[] claims =
+        [
+            new(
+                AltinnCoreClaimTypes.UserId,
+                subject.UserId.ToString(CultureInfo.InvariantCulture),
+                ClaimValueTypes.String,
+                DefaultIssuer
+            ),
+            new(
+                AltinnCoreClaimTypes.AuthenticationLevel,
+                subject.AuthenticationLevel.ToString(CultureInfo.InvariantCulture),
+                ClaimValueTypes.Integer32,
+                DefaultIssuer
+            ),
+        ];
+
+        return new ClaimsPrincipal(new ClaimsIdentity(claims));
     }
 
     private static XacmlJsonCategory CreateMultipleSubjectCategory(IEnumerable<Claim> claims)

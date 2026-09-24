@@ -36,6 +36,23 @@ public interface IDataElementContentService
     );
 
     /// <summary>
+    /// Does the same operation as <see cref="ResolveForRead"/>, but for a user who is not the caller.
+    /// The authorization decisions are for that user.
+    /// </summary>
+    /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
+    /// <param name="instanceGuid">The id of the instance the data element belongs to.</param>
+    /// <param name="dataGuid">The id of the data element.</param>
+    /// <param name="subject">The user that the decisions are for.</param>
+    /// <param name="cancellationToken">CancellationToken</param>
+    Task<(DataElementReadContext Context, ServiceError ServiceError)> ResolveForReadForUser(
+        int instanceOwnerPartyId,
+        Guid instanceGuid,
+        Guid dataGuid,
+        UserSubject subject,
+        CancellationToken cancellationToken
+    );
+
+    /// <summary>
     /// Opens the content of a resolved data element, reading it from blob storage or, for migrated
     /// Altinn 2 elements, generating it.
     /// </summary>

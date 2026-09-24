@@ -1,10 +1,13 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Common.AccessToken.Services;
+using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Controllers.PartyExport;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
@@ -36,6 +39,8 @@ public class PartyInstancesControllerTests(TestApplicationFactory<PartyInstances
 
     private const int _partyId = 1337;
 
+    private static readonly UserSubject _subject = new(20001337, 3);
+
     [Fact]
     public async Task Get_WithoutToken_ReturnsUnauthorized()
     {
@@ -61,7 +66,7 @@ public class PartyInstancesControllerTests(TestApplicationFactory<PartyInstances
         Mock<IInstanceRepository> repositoryMock = new(MockBehavior.Strict);
         HttpClient client = GetTestClient(repositoryMock);
         using HttpRequestMessage message = new(HttpMethod.Get, $"{_basePath}/{_partyId}/instances");
-        AddToken(message, scope);
+        AddTokenAndSubjectHeaders(message, scope);
 
         // Act
         using HttpResponseMessage response = await client.SendAsync(message);
@@ -184,7 +189,7 @@ public class PartyInstancesControllerTests(TestApplicationFactory<PartyInstances
 
         HttpClient client = GetTestClient(repositoryMock);
         using HttpRequestMessage message = new(HttpMethod.Get, $"{_basePath}/{_partyId}/instances");
-        AddToken(message);
+        AddTokenAndSubjectHeaders(message);
 
         // Act
         using HttpResponseMessage httpResponse = await client.SendAsync(message);
@@ -386,7 +391,7 @@ public class PartyInstancesControllerTests(TestApplicationFactory<PartyInstances
             HttpMethod.Get,
             $"{_basePath}/{_partyId}/instances?{queryString}"
         );
-        AddToken(message);
+        AddTokenAndSubjectHeaders(message);
 
         // Act
         using HttpResponseMessage response = await client.SendAsync(message);
@@ -395,6 +400,117 @@ public class PartyInstancesControllerTests(TestApplicationFactory<PartyInstances
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Contains(expectedMessage, await response.Content.ReadAsStringAsync());
         repositoryMock.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("0")]
+    [InlineData("-5")]
+    [InlineData("abc")]
+    public async Task Get_WithoutValidUserId_ReturnsBadRequest(string? userId)
+    {
+        // Arrange
+        Mock<IInstanceRepository> repositoryMock = new(MockBehavior.Strict);
+        Mock<IAuthorization> authorizationMock = new(MockBehavior.Strict);
+        HttpClient client = GetTestClient(repositoryMock, authorizationMock);
+        using HttpRequestMessage message = new(HttpMethod.Get, $"{_basePath}/{_partyId}/instances");
+        AddTokenAndSubjectHeaders(message, userId: userId);
+
+        // Act
+        using HttpResponseMessage response = await client.SendAsync(message);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(StorageHeaders.UserId, await response.Content.ReadAsStringAsync());
+        repositoryMock.VerifyNoOtherCalls();
+        authorizationMock.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("-1")]
+    [InlineData("abc")]
+    public async Task Get_WithoutValidAuthenticationLevel_ReturnsBadRequest(
+        string? authenticationLevel
+    )
+    {
+        // Arrange
+        Mock<IInstanceRepository> repositoryMock = new(MockBehavior.Strict);
+        Mock<IAuthorization> authorizationMock = new(MockBehavior.Strict);
+        HttpClient client = GetTestClient(repositoryMock, authorizationMock);
+        using HttpRequestMessage message = new(HttpMethod.Get, $"{_basePath}/{_partyId}/instances");
+        AddTokenAndSubjectHeaders(message, authenticationLevel: authenticationLevel);
+
+        // Act
+        using HttpResponseMessage response = await client.SendAsync(message);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(
+            StorageHeaders.AuthenticationLevel,
+            await response.Content.ReadAsStringAsync()
+        );
+        repositoryMock.VerifyNoOtherCalls();
+        authorizationMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Get_ReturnsOnlyInstancesTheUserCanRead_InBatchOrder()
+    {
+        // Arrange
+        InstanceInternal first = CreateInstance(
+            new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            1
+        );
+        InstanceInternal denied = CreateInstance(
+            new DateTime(2024, 2, 1, 0, 0, 0, DateTimeKind.Utc),
+            2
+        );
+        InstanceInternal third = CreateInstance(
+            new DateTime(2024, 3, 1, 0, 0, 0, DateTimeKind.Utc),
+            3
+        );
+
+        Mock<IInstanceRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(r =>
+                r.GetInstancesForParty(
+                    _partyId,
+                    50,
+                    null,
+                    null,
+                    null,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                new InstanceQueryResult
+                {
+                    Instances = [first, denied, third],
+                    ContinuationToken = "638449344000000000;3",
+                }
+            );
+
+        Mock<IAuthorization> authorizationMock = new(MockBehavior.Strict);
+        authorizationMock
+            .Setup(a => a.AuthorizeInstancesForUser(It.IsAny<List<InstanceInternal>>(), _subject))
+            .ReturnsAsync([third, first]);
+
+        HttpClient client = GetTestClient(repositoryMock, authorizationMock);
+
+        // Act
+        QueryResponse<Instance> response = await SendAsync(
+            client,
+            $"{_basePath}/{_partyId}/instances"
+        );
+
+        // Assert
+        Assert.Equal(2, response.Count);
+        Assert.Equal(
+            [first.Id.ToString(), third.Id.ToString()],
+            response.Instances.Select(instance => instance.Id.Split('/')[1])
+        );
+        Assert.NotNull(response.Next);
     }
 
     [Fact]
@@ -417,7 +533,7 @@ public class PartyInstancesControllerTests(TestApplicationFactory<PartyInstances
 
         HttpClient client = GetTestClient(repositoryMock);
         using HttpRequestMessage message = new(HttpMethod.Get, $"{_basePath}/{_partyId}/instances");
-        AddToken(message);
+        AddTokenAndSubjectHeaders(message);
 
         // Act
         using HttpResponseMessage response = await client.SendAsync(message);
@@ -441,18 +557,32 @@ public class PartyInstancesControllerTests(TestApplicationFactory<PartyInstances
             Data = [new DataElementInternal { Id = Guid.NewGuid(), DataType = "default" }],
         };
 
-    private static void AddToken(HttpRequestMessage message, string scope = _scope)
+    private static void AddTokenAndSubjectHeaders(
+        HttpRequestMessage message,
+        string scope = _scope,
+        string? userId = "20001337",
+        string? authenticationLevel = "3"
+    )
     {
         message.Headers.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             PrincipalUtil.GetOrgToken("supportdashboard", scope: scope)
         );
+        if (userId is not null)
+        {
+            message.Headers.Add(StorageHeaders.UserId, userId);
+        }
+
+        if (authenticationLevel is not null)
+        {
+            message.Headers.Add(StorageHeaders.AuthenticationLevel, authenticationLevel);
+        }
     }
 
     private static async Task<QueryResponse<Instance>> SendAsync(HttpClient client, string uri)
     {
         using HttpRequestMessage message = new(HttpMethod.Get, uri);
-        AddToken(message);
+        AddTokenAndSubjectHeaders(message);
 
         using HttpResponseMessage response = await client.SendAsync(message);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -462,8 +592,21 @@ public class PartyInstancesControllerTests(TestApplicationFactory<PartyInstances
         )!;
     }
 
-    private HttpClient GetTestClient(Mock<IInstanceRepository> repositoryMock)
+    private HttpClient GetTestClient(
+        Mock<IInstanceRepository> repositoryMock,
+        Mock<IAuthorization>? authorizationMock = null
+    )
     {
+        if (authorizationMock is null)
+        {
+            authorizationMock = new Mock<IAuthorization>();
+            authorizationMock
+                .Setup(a =>
+                    a.AuthorizeInstancesForUser(It.IsAny<List<InstanceInternal>>(), _subject)
+                )
+                .ReturnsAsync((List<InstanceInternal> instances, UserSubject _) => instances);
+        }
+
         return _factory
             .WithWebHostBuilder(builder =>
             {
@@ -477,6 +620,7 @@ public class PartyInstancesControllerTests(TestApplicationFactory<PartyInstances
                 builder.ConfigureTestServices(services =>
                 {
                     services.AddSingleton(repositoryMock.Object);
+                    services.AddSingleton(authorizationMock.Object);
                     services.AddSingleton<
                         IPostConfigureOptions<JwtCookieOptions>,
                         JwtCookiePostConfigureOptionsStub
