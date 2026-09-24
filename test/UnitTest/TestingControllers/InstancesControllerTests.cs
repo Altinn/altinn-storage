@@ -340,6 +340,95 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     }
 
     /// <summary>
+    /// Test case: The PDP throws while deciding whether the user may read the instance.
+    /// Expected: The failure is logged and reported as 503 Service Unavailable, not 404 Not Found.
+    /// </summary>
+    [Fact]
+    public async Task Get_PdpThrows_LogsErrorAndReturnsServiceUnavailable()
+    {
+        // Arrange
+        int instanceOwnerPartyId = 1337;
+        string instanceGuid = "46133fb5-a9f2-45d4-90b1-f6d93ad40713";
+        string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}";
+
+        Exception thrownException = new("PDP is unavailable");
+
+        Mock<IPDP> pdpMock = new();
+        pdpMock
+            .Setup(pdp => pdp.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .ThrowsAsync(thrownException);
+
+        Mock<ILogger<InstancesController>> loggerMock = new();
+
+        HttpClient client = GetTestClient(pdpMock: pdpMock, loggerMock: loggerMock);
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        AssertAuthorizeEnrichedInstanceActionErrorLogged(loggerMock, thrownException);
+    }
+
+    /// <summary>
+    /// Test case: The PDP throws while deciding whether the user may read the instance.
+    /// Expected: The failure is logged and reported as 503 Service Unavailable, not 404 Not Found.
+    /// </summary>
+    [Fact]
+    public async Task GetByGuid_PdpThrows_LogsErrorAndReturnsServiceUnavailable()
+    {
+        // Arrange
+        string instanceGuid = "46133fb5-a9f2-45d4-90b1-f6d93ad40713";
+        string requestUri = $"{BasePath}/{instanceGuid}";
+
+        Exception thrownException = new("PDP is unavailable");
+
+        Mock<IPDP> pdpMock = new();
+        pdpMock
+            .Setup(pdp => pdp.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .ThrowsAsync(thrownException);
+
+        Mock<ILogger<InstancesController>> loggerMock = new();
+
+        HttpClient client = GetTestClient(pdpMock: pdpMock, loggerMock: loggerMock);
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        AssertAuthorizeEnrichedInstanceActionErrorLogged(loggerMock, thrownException);
+    }
+
+    private static void AssertAuthorizeEnrichedInstanceActionErrorLogged(
+        Mock<ILogger<InstancesController>> loggerMock,
+        Exception expectedException
+    )
+    {
+        loggerMock.Verify(
+            logger =>
+                logger.Log(
+                    LogLevel.Error,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>(
+                        (v, t) =>
+                            v.ToString()
+                                .Contains(
+                                    "Something went wrong during AuthorizeEnrichedInstanceAction"
+                                )
+                    ),
+                    expectedException,
+                    It.IsAny<Func<It.IsAnyType, Exception, string>>()
+                ),
+            Times.Once
+        );
+    }
+
+    /// <summary>
     /// Test case: Response is deny.
     /// Expected: Returns status forbidden.
     /// </summary>

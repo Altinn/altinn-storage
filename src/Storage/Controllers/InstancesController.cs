@@ -249,7 +249,9 @@ public class InstancesController : ControllerBase
     [Authorize]
     [HttpGet("{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> Get(
         int instanceOwnerPartyId,
@@ -282,12 +284,13 @@ public class InstancesController : ControllerBase
                 return Ok(responseInstance);
             }
 
-            if (
-                await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read")
-                is false
-            )
+            ActionResult authorizationError = await AuthorizeInstanceActionOrError(
+                instance,
+                "read"
+            );
+            if (authorizationError != null)
             {
-                return Forbid();
+                return authorizationError;
             }
 
             Instance mappedInstance = instance.ToApiModel();
@@ -316,7 +319,9 @@ public class InstancesController : ControllerBase
     [Authorize]
     [HttpGet("{instanceGuid:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> GetByGuid(
         Guid instanceGuid,
@@ -348,12 +353,13 @@ public class InstancesController : ControllerBase
                 return Ok(responseInstance);
             }
 
-            if (
-                await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read")
-                is false
-            )
+            ActionResult authorizationError = await AuthorizeInstanceActionOrError(
+                instance,
+                "read"
+            );
+            if (authorizationError != null)
             {
-                return Forbid();
+                return authorizationError;
             }
 
             Instance mappedInstance = instance.ToApiModel();
@@ -1329,6 +1335,42 @@ public class InstancesController : ControllerBase
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Checks whether the current user may perform <paramref name="action"/> on <paramref name="instance"/>.
+    /// Returns <c>null</c> when authorized, <see cref="ForbidResult"/> when the PDP denies the action, and
+    /// 503 Service Unavailable when no decision could be obtained from the PDP. A PDP outage is not an
+    /// authorization decision and must not be reported as a missing instance or as a denial.
+    /// </summary>
+    private async Task<ActionResult> AuthorizeInstanceActionOrError(
+        InstanceInternal instance,
+        string action
+    )
+    {
+        bool authorized;
+        try
+        {
+            authorized = await _authorizationService.AuthorizeEnrichedInstanceAction(
+                instance,
+                action
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Something went wrong during AuthorizeEnrichedInstanceAction for instance {InstanceId} action {Action}",
+                instance.Id,
+                action
+            );
+            return StatusCode(
+                StatusCodes.Status503ServiceUnavailable,
+                "Unable to authorize the request because the authorization service is unavailable."
+            );
+        }
+
+        return authorized ? null : Forbid();
     }
 
     /// <summary>
