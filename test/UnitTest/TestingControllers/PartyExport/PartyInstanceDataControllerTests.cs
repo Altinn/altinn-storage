@@ -225,32 +225,6 @@ public class PartyInstanceDataControllerTests(
         );
     }
 
-    [Fact]
-    public async Task Get_InstanceOwnedByAnotherParty_ReturnsNotFound()
-    {
-        // Arrange
-        DataElementReadContext context = CreateContext();
-        context.Instance.InstanceOwner.PartyId = "1338";
-        Mock<IDataElementContentService> serviceMock = CreateServiceMock(context);
-
-        HttpClient client = GetTestClient(serviceMock);
-
-        // Act
-        using HttpResponseMessage response = await SendAsync(client, DataUri());
-
-        // Assert
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        serviceMock.Verify(
-            s =>
-                s.OpenContent(
-                    It.IsAny<DataElementReadContext>(),
-                    It.IsAny<string>(),
-                    It.IsAny<CancellationToken>()
-                ),
-            Times.Never
-        );
-    }
-
     [Theory]
     [InlineData(403, HttpStatusCode.Forbidden)]
     [InlineData(404, HttpStatusCode.NotFound)]

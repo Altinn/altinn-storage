@@ -214,6 +214,76 @@ public class DataElementContentServiceTests
     }
 
     [Theory]
+    [InlineData("12346", false)]
+    [InlineData(null, false)]
+    [InlineData("12345", true)]
+    public async Task ResolveForReadForUser_OtherPartyOrHardDeletedInstance_ReturnsNotFoundBeforeAuthorization(
+        string? instanceOwnerPartyId,
+        bool isHardDeleted
+    )
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        Fixture fixture = new()
+        {
+            Instance = new InstanceInternal
+            {
+                Id = instanceGuid,
+                AppId = AppId,
+                Org = Org,
+                InstanceOwner = new InstanceOwner { PartyId = instanceOwnerPartyId },
+                Status = new InstanceStatus { IsHardDeleted = isHardDeleted },
+            },
+            Authorized = false,
+        };
+
+        (DataElementReadContext context, ServiceError serviceError) = await fixture
+            .Build()
+            .ResolveForReadForUser(
+                InstanceOwnerPartyId,
+                instanceGuid,
+                Guid.NewGuid(),
+                new UserSubject(20001337, 3),
+                CancellationToken.None
+            );
+
+        Assert.Null(context);
+        Assert.Equal(404, serviceError.ErrorCode);
+        Assert.Equal(
+            $"Unable to find any instance with id: {InstanceOwnerPartyId}/{instanceGuid}.",
+            serviceError.ErrorMessage
+        );
+        fixture.Authorization.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task ResolveForRead_InstanceOfOtherParty_IsResolved()
+    {
+        Fixture fixture = new()
+        {
+            Instance = new InstanceInternal
+            {
+                Id = Guid.NewGuid(),
+                AppId = AppId,
+                Org = Org,
+                InstanceOwner = new InstanceOwner { PartyId = "12346" },
+                Status = new InstanceStatus { IsHardDeleted = true },
+            },
+        };
+
+        (DataElementReadContext context, ServiceError serviceError) = await fixture
+            .Build()
+            .ResolveForRead(
+                InstanceOwnerPartyId,
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                CancellationToken.None
+            );
+
+        Assert.NotNull(context);
+        Assert.Null(serviceError);
+    }
+
+    [Theory]
     [InlineData(false, true)]
     [InlineData(true, false)]
     public async Task ResolveForReadForUser_UserNotAuthorized_ReturnsForbidden(
@@ -421,6 +491,7 @@ public class DataElementContentServiceTests
                 Id = Guid.NewGuid(),
                 AppId = AppId,
                 Org = Org,
+                InstanceOwner = new InstanceOwner { PartyId = InstanceOwnerPartyId.ToString() },
             };
 
         public DataElementInternal? DataElement { get; init; } =

@@ -2,7 +2,6 @@
 
 using System;
 using System.ComponentModel.DataAnnotations;
-using System.Globalization;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -90,17 +89,6 @@ public class PartyInstanceDataController(IDataElementContentService dataElementC
 
         InstanceInternal instance = context.Instance;
         DataElementInternal dataElement = context.DataElement;
-
-        if (
-            !string.Equals(
-                instance.InstanceOwner?.PartyId,
-                partyId.ToString(CultureInfo.InvariantCulture),
-                StringComparison.Ordinal
-            )
-        )
-        {
-            return NotFound($"Unable to find any instance with id: {partyId}/{instanceGuid}.");
-        }
 
         if (dataElement.DeleteStatus?.IsHardDeleted == true)
         {

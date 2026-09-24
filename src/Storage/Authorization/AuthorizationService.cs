@@ -399,6 +399,13 @@ public class AuthorizationService(
         );
         XacmlJsonResponse response = await _pdp.GetDecisionForRequest(xacmlJsonRequest);
 
+        if (response?.Response is null)
+        {
+            throw new InvalidOperationException(
+                "The PDP returned no decisions for the multi decision request."
+            );
+        }
+
         foreach (
             XacmlJsonResult result in response.Response.Where(result =>
                 DecisionHelper.ValidateDecisionResult(result, user)

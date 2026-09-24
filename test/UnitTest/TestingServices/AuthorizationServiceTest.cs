@@ -577,6 +577,22 @@ public class AuthorizationServiceTest
         );
     }
 
+    [Fact]
+    public async Task AuthorizeInstancesForUser_PdpReturnsNoDecisions_Throws()
+    {
+        AuthorizationService service = CreateRequestCapturingService(
+            [],
+            response: new XacmlJsonResponse()
+        );
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.AuthorizeInstancesForUser(
+                [CreateDomainInstance()],
+                new UserSubject(20001337, 3)
+            )
+        );
+    }
+
     [Theory]
     [InlineData(2, false)]
     [InlineData(3, true)]

@@ -1,6 +1,7 @@
 #nullable disable
 
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -112,15 +113,21 @@ public class DataElementContentService : IDataElementContentService
             false,
             cancellationToken
         );
-        if (instance is null)
-        {
-            return (
-                null,
-                new ServiceError(
-                    404,
-                    $"Unable to find any instance with id: {instanceOwnerPartyId}/{instanceGuid}."
+        ServiceError instanceNotFound = new(
+            404,
+            $"Unable to find any instance with id: {instanceOwnerPartyId}/{instanceGuid}."
+        );
+        if (
+            instance is null
+            || subject is not null
+                && (
+                    instance.InstanceOwner?.PartyId
+                        != instanceOwnerPartyId.ToString(CultureInfo.InvariantCulture)
+                    || instance.Status?.IsHardDeleted == true
                 )
-            );
+        )
+        {
+            return (null, instanceNotFound);
         }
 
         bool instanceReadAuthorized = subject is not null
