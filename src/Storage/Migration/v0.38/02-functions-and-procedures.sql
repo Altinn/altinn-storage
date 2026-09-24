@@ -1692,8 +1692,9 @@ BEGIN
         SELECT i.id, i.instance, i.created, i.instance_version, i.process_state_version FROM storage.instances i
         WHERE i.partyId = _instanceOwner_partyId
             AND (i.instance -> 'Status' -> 'IsHardDeleted')::BOOLEAN IS NOT TRUE
+            AND i.created <= _to
+            AND i.lastchanged >= _from
             AND (_continue_idx <= 0 OR (i.created, i.id) > (_created_idx, _continue_idx))
-            AND (i.created BETWEEN _from AND _to OR i.lastchanged BETWEEN _from AND _to)
         ORDER BY i.created, i.id
         FETCH FIRST _size ROWS ONLY
     )

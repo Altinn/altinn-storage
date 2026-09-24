@@ -2077,8 +2077,10 @@ public class InstanceTests : IClassFixture<InstanceFixture>
     [InlineData(null, "2024-01-01", new[] { 1 })]
     [InlineData("2024-01-02", "2024-01-02", new[] { 2 })]
     [InlineData("2024-05-01", "2024-07-01", new[] { 2 })]
-    [InlineData("2024-02-01", "2024-03-01", new int[0])]
-    public async Task Instance_GetInstancesForParty_FiltersOnCreatedOrLastChangedInclusively(
+    [InlineData("2024-02-01", "2024-03-01", new[] { 2 })]
+    [InlineData("2024-07-01", null, new int[0])]
+    [InlineData(null, "2023-12-31", new int[0])]
+    public async Task Instance_GetInstancesForParty_KeepsInstancesThatOverlapTheRange(
         string dateFrom,
         string dateTo,
         int[] expectedDaysCreated
@@ -2091,7 +2093,6 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         first.LastChanged = first.Created;
         second.Created = new DateTime(2024, 1, 2, 0, 0, 0, DateTimeKind.Utc);
 
-        // Only this one is reachable through lastChanged alone.
         second.LastChanged = new DateTime(2024, 6, 1, 0, 0, 0, DateTimeKind.Utc);
         third.Created = new DateTime(2024, 1, 3, 0, 0, 0, DateTimeKind.Utc);
         third.LastChanged = third.Created;

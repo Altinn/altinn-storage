@@ -26,8 +26,9 @@ public interface IInstanceRepository
 
     /// <summary>
     /// Gets a page of the instances that an instance owner holds. The oldest instance is first, by
-    /// the time of creation. A date limit keeps an instance if the time of creation or the time of
-    /// the last change is in the range. The query does not return an instance that is marked for
+    /// the time of creation. The date limits keep an instance that existed in the range: it was
+    /// created on or before <paramref name="dateTo"/> and last changed on or after
+    /// <paramref name="dateFrom"/>. The query does not return an instance that is marked for
     /// permanent deletion.
     /// </summary>
     /// <param name="partyId">The party id of the instance owner.</param>
