@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -557,6 +558,137 @@ public class AuthorizationServiceTest
         );
     }
 
+    [Fact]
+    public async Task AuthorizeInstancesForUser_SubjectIsTheUser()
+    {
+        List<XacmlJsonRequestRoot> requests = [];
+
+        await CreateRequestCapturingService(requests)
+            .AuthorizeInstancesForUser([CreateDomainInstance()], new UserSubject(20001337, 3));
+
+        XacmlJsonCategory subject = Assert.Single(requests[0].Request.AccessSubject);
+        Assert.Contains(
+            subject.Attribute,
+            attribute => attribute.AttributeId == UrnUserId && attribute.Value == "20001337"
+        );
+        Assert.DoesNotContain(
+            subject.Attribute,
+            attribute => attribute.AttributeId == AltinnCoreClaimTypes.Org
+        );
+    }
+
+    [Fact]
+    public async Task AuthorizeInstancesForUser_PdpReturnsNoDecisions_Throws()
+    {
+        AuthorizationService service = CreateRequestCapturingService(
+            [],
+            response: new XacmlJsonResponse()
+        );
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.AuthorizeInstancesForUser(
+                [CreateDomainInstance()],
+                new UserSubject(20001337, 3)
+            )
+        );
+    }
+
+    [Theory]
+    [InlineData(2, false)]
+    [InlineData(3, true)]
+    [InlineData(4, true)]
+    public async Task AuthorizeInstancesForUser_ComparesAuthenticationLevelWithObligation(
+        int authenticationLevel,
+        bool expectPermitted
+    )
+    {
+        InstanceInternal instance = CreateDomainInstance(
+            new Guid("045ea5db-6dd4-4476-b774-bdb2a09da7ea")
+        );
+        XacmlJsonResponse response = new()
+        {
+            Response =
+            [
+                CreatePermitWithAuthenticationLevelObligation(
+                    "1000/045ea5db-6dd4-4476-b774-bdb2a09da7ea",
+                    3
+                ),
+            ],
+        };
+
+        List<InstanceInternal> authorized = await CreateRequestCapturingService(
+                [],
+                response: response
+            )
+            .AuthorizeInstancesForUser([instance], new UserSubject(20001337, authenticationLevel));
+
+        Assert.Equal(expectPermitted, authorized.Contains(instance));
+    }
+
+    [Theory]
+    [InlineData(2, false)]
+    [InlineData(3, true)]
+    public async Task AuthorizeEnrichedInstanceActionForUser_ComparesAuthenticationLevelWithObligation(
+        int authenticationLevel,
+        bool expectPermitted
+    )
+    {
+        InstanceInternal instance = CreateDomainInstance();
+        List<XacmlJsonRequestRoot> requests = [];
+        XacmlJsonResponse response = new()
+        {
+            Response = [CreatePermitWithAuthenticationLevelObligation($"1000/{instance.Id}", 3)],
+        };
+
+        bool decision = await CreateRequestCapturingService(requests, response: response)
+            .AuthorizeEnrichedInstanceActionForUser(
+                instance,
+                "read",
+                new UserSubject(20001337, authenticationLevel)
+            );
+
+        Assert.Equal(expectPermitted, decision);
+        Assert.Contains(
+            Assert.Single(requests[0].Request.AccessSubject).Attribute,
+            attribute => attribute.AttributeId == UrnUserId && attribute.Value == "20001337"
+        );
+    }
+
+    [Theory]
+    [InlineData(2, false)]
+    [InlineData(3, true)]
+    public async Task AuthorizeInstanceActionForUser_ComparesAuthenticationLevelWithObligation(
+        int authenticationLevel,
+        bool expectPermitted
+    )
+    {
+        InstanceInternal instance = CreateDomainInstance();
+        List<XacmlJsonRequestRoot> requests = [];
+        XacmlJsonResponse response = new()
+        {
+            Response = [CreatePermitWithAuthenticationLevelObligation($"1000/{instance.Id}", 3)],
+        };
+
+        bool decision = await CreateRequestCapturingService(requests, response: response)
+            .AuthorizeInstanceActionForUser(
+                instance,
+                "sign",
+                "Task_Override",
+                new UserSubject(20001337, authenticationLevel)
+            );
+
+        Assert.Equal(expectPermitted, decision);
+        Assert.Contains(
+            requests[0].Request.Resource.SelectMany(category => category.Attribute),
+            attribute =>
+                attribute.AttributeId == "urn:altinn:task" && attribute.Value == "Task_Override"
+        );
+        Assert.Contains(
+            Assert.Single(requests[0].Request.AccessSubject).Attribute,
+            attribute => attribute.AttributeId == UrnUserId && attribute.Value == "20001337"
+        );
+    }
+
     private AuthorizationService CreateRequestCapturingService(
         List<XacmlJsonRequestRoot> requests,
         Mock<IPDP> pdp = null,
@@ -629,6 +761,30 @@ public class AuthorizationServiceTest
                 },
             ],
         };
+    }
+
+    private static XacmlJsonResult CreatePermitWithAuthenticationLevelObligation(
+        string instanceId,
+        int minimumAuthenticationLevel
+    )
+    {
+        XacmlJsonResult result = CreateInstanceDecision(instanceId, "Permit");
+        result.Obligations =
+        [
+            new XacmlJsonObligationOrAdvice
+            {
+                AttributeAssignment =
+                [
+                    new XacmlJsonAttributeAssignment
+                    {
+                        Category = "urn:altinn:minimum-authenticationlevel",
+                        Value = minimumAuthenticationLevel.ToString(CultureInfo.InvariantCulture),
+                    },
+                ],
+            },
+        ];
+
+        return result;
     }
 
     private static ClaimsPrincipal CreateUserClaims(int userId)

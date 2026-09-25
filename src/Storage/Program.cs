@@ -39,7 +39,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi;
 using Npgsql;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
@@ -308,6 +307,20 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
         .AddPolicy(
             AuthzConstants.POLICY_SCOPE_APPDEPLOY,
             policy => policy.Requirements.Add(new ScopeAccessRequirement("altinn:appdeploy"))
+        )
+        .AddPolicy(
+            AuthzConstants.POLICY_SCOPE_DATA_SUPPORTDASHBOARD,
+            policy =>
+                policy.Requirements.Add(
+                    new ScopeAccessRequirement(generalSettings.DataSupportDashboardScope)
+                )
+        )
+        .AddPolicy(
+            AuthzConstants.POLICY_SCOPE_INSTANCES_SUPPORTDASHBOARD,
+            policy =>
+                policy.Requirements.Add(
+                    new ScopeAccessRequirement(generalSettings.InstanceSupportDashboardScope)
+                )
         )
         .AddPolicy(
             AuthzConstants.POLICY_STUDIO_DESIGNER,

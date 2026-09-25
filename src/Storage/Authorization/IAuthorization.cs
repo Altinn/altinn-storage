@@ -31,9 +31,36 @@ public interface IAuthorization
     );
 
     /// <summary>
+    /// Authorizes an action on a storage instance for a user who is not the caller.
+    /// </summary>
+    /// <param name="instance">The instance.</param>
+    /// <param name="action">The action to authorize.</param>
+    /// <param name="task">The process task for the action. If you give no value, the request does not contain a task.</param>
+    /// <param name="subject">The user that the decision is for.</param>
+    public Task<bool> AuthorizeInstanceActionForUser(
+        InstanceInternal instance,
+        string action,
+        string task,
+        UserSubject subject
+    );
+
+    /// <summary>
     /// Authorizes a read action on a storage instance with full process context.
     /// </summary>
     public Task<bool> AuthorizeEnrichedInstanceAction(InstanceInternal instance, string action);
+
+    /// <summary>
+    /// Authorizes an action on a storage instance with full process context, for a user who is
+    /// not the caller.
+    /// </summary>
+    /// <param name="instance">The instance.</param>
+    /// <param name="action">The action to authorize.</param>
+    /// <param name="subject">The user that the decision is for.</param>
+    public Task<bool> AuthorizeEnrichedInstanceActionForUser(
+        InstanceInternal instance,
+        string action,
+        UserSubject subject
+    );
 
     /// <summary>
     /// Authorizes that the user has one or more of the actions on a storage instance.
@@ -47,6 +74,17 @@ public interface IAuthorization
     /// Authorize storage instances, and returns the instances that the user has the right to read.
     /// </summary>
     public Task<List<InstanceInternal>> AuthorizeInstances(List<InstanceInternal> instances);
+
+    /// <summary>
+    /// Authorizes storage instances for a user who is not the caller. Returns the instances that
+    /// the user has the right to read.
+    /// </summary>
+    /// <param name="instances">The instances.</param>
+    /// <param name="subject">The user that the decisions are for.</param>
+    public Task<List<InstanceInternal>> AuthorizeInstancesForUser(
+        List<InstanceInternal> instances,
+        UserSubject subject
+    );
 
     /// <summary>
     /// Verifies that the user has at least one of the supplied scopes.

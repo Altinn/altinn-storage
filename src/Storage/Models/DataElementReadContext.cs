@@ -26,8 +26,8 @@ public sealed record DataElementReadContext(
 
     /// <summary>
     /// Tells if the system generates the content for each request. If this value is false, the
-    /// system reads the content from blob storage. The blob storage path identifies migrated
-    /// Altinn 2 elements.
+    /// system reads the content from blob storage. The blob storage path identifies a migrated
+    /// Altinn 2 element.
     /// </summary>
     public bool IsOnDemandContent =>
         DataElement.BlobStoragePath.StartsWith(

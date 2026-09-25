@@ -38,9 +38,14 @@ public static class AuthzConstants
     public const string POLICY_SCOPE_APPDEPLOY = "ScopeAppDeploy";
 
     /// <summary>
-    /// Policy tag for authorizing client scope.
+    /// Policy tag for authorizing the support dashboard's instance export scope.
     /// </summary>
-    public const string POLICY_SCOPE_INSTANCE_READ = "ScopeInstanceRead";
+    public const string POLICY_SCOPE_INSTANCES_SUPPORTDASHBOARD = "ScopeInstancesSupportDashboard";
+
+    /// <summary>
+    /// Policy tag for authorizing the support dashboard's data element export scope.
+    /// </summary>
+    public const string POLICY_SCOPE_DATA_SUPPORTDASHBOARD = "ScopeDataSupportDashboard";
 
     /// <summary>
     /// Policy tag for authorizing designer access

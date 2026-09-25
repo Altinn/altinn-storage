@@ -355,7 +355,7 @@ public class DataController : ControllerBase
                 return NotFound();
             }
 
-            SetInlineContentDisposition(dataElement.Filename);
+            Response.SetInlineContentDisposition(dataElement.Filename);
             return File(dataStream, dataElement.ContentType);
         }
 
@@ -365,7 +365,7 @@ public class DataController : ControllerBase
             return NotFound($"Unable to read data element from blob storage for {dataGuid}");
         }
 
-        SetBlobVersionETag(dataElement.BlobVersionId);
+        Response.SetBlobVersionETag(dataElement.BlobVersionId);
         VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
 
         // Migrated Altinn 2 Websa main forms should be shown inline in the browser
@@ -375,7 +375,7 @@ public class DataController : ControllerBase
             && dataElement.ContentType == "text/html"
         )
         {
-            SetInlineContentDisposition(dataElement.Filename);
+            Response.SetInlineContentDisposition(dataElement.Filename);
             return File(dataStream, dataElement.ContentType);
         }
 
@@ -905,7 +905,7 @@ public class DataController : ControllerBase
             updatedElement
         );
 
-        SetBlobVersionETag(blobVersionId);
+        Response.SetBlobVersionETag(blobVersionId);
         VersionPreconditionHelper.WriteVersionResponseHeaders(
             Response,
             updatedElementResult.Versions
@@ -1279,25 +1279,4 @@ public class DataController : ControllerBase
             404 => NotFound(serviceError.ErrorMessage),
             _ => StatusCode(serviceError.ErrorCode, serviceError.ErrorMessage),
         };
-
-    private void SetInlineContentDisposition(string filename)
-    {
-        ContentDispositionHeaderValue contentDispositionHeader = new("inline");
-        contentDispositionHeader.SetHttpFileName(filename);
-        Response.Headers.Append(
-            HeaderNames.ContentDisposition,
-            contentDispositionHeader.ToString()
-        );
-    }
-
-    private void SetBlobVersionETag(string blobVersionId)
-    {
-        string etag = BlobVersionId.ToETag(blobVersionId);
-        if (etag is null)
-        {
-            return;
-        }
-
-        Response.Headers[HeaderNames.ETag] = etag;
-    }
 }

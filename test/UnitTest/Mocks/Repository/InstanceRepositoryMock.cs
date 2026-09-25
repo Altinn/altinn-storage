@@ -53,6 +53,18 @@ public class InstanceRepositoryMock : IInstanceRepository
         throw new NotImplementedException();
     }
 
+    public Task<InstanceQueryResult> GetInstancesForParty(
+        int partyId,
+        int size,
+        DateTime? dateFrom,
+        DateTime? dateTo,
+        InstanceContinuationToken? continueFrom,
+        CancellationToken cancellationToken
+    )
+    {
+        throw new NotImplementedException();
+    }
+
     public Task<InstanceQueryResult> GetInstancesFromQuery(
         InstanceQueryParameters queryParams,
         CancellationToken cancellationToken
