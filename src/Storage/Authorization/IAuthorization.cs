@@ -33,6 +33,7 @@ public interface IAuthorization
     /// <summary>
     /// Authorizes a read action on a storage instance with full process context.
     /// </summary>
+    /// <exception cref="PdpDecisionUnavailableException">The PDP call failed or returned no decision.</exception>
     public Task<bool> AuthorizeEnrichedInstanceAction(InstanceInternal instance, string action);
 
     /// <summary>
