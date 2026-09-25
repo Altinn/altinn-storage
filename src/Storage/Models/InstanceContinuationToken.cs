@@ -30,6 +30,7 @@ public readonly record struct InstanceContinuationToken(DateTime Timestamp, long
             parts.Length != 2
             || !long.TryParse(parts[0], CultureInfo.InvariantCulture, out long ticks)
             || !long.TryParse(parts[1], CultureInfo.InvariantCulture, out long internalId)
+            || internalId <= 0
             || ticks < DateTime.MinValue.Ticks
             || ticks > DateTime.MaxValue.Ticks
         )

@@ -324,12 +324,18 @@ public class InstanceQueryParameters
         }
         else if (ContinuationToken.Contains(';'))
         {
-            var tokens = ContinuationToken.Split(';');
-            postgresParams.Add(_continueIndexParameterName, long.Parse(tokens[1]));
-            postgresParams.Add(
-                _lastChangedIndexParameterName,
-                new DateTime(long.Parse(tokens[0]), DateTimeKind.Utc)
-            );
+            if (
+                !InstanceContinuationToken.TryParse(
+                    ContinuationToken,
+                    out InstanceContinuationToken token
+                )
+            )
+            {
+                throw new FormatException("The continuation token is not valid.");
+            }
+
+            postgresParams.Add(_continueIndexParameterName, token.InternalId);
+            postgresParams.Add(_lastChangedIndexParameterName, token.Timestamp);
         }
 
         return postgresParams;

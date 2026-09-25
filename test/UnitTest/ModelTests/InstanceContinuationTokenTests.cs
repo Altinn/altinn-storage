@@ -35,6 +35,8 @@ public class InstanceContinuationTokenTests
     [InlineData("638400000000000000;12;3")]
     [InlineData("not-a-number;12")]
     [InlineData("638400000000000000;not-a-number")]
+    [InlineData("638400000000000000;0")]
+    [InlineData("638400000000000000;-5")]
     [InlineData("-1;12")]
     [InlineData("9223372036854775807;12")]
     public void TryParse_RejectsMalformedTokens(string? value)

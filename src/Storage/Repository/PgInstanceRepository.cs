@@ -559,7 +559,9 @@ public class PgInstanceRepository : IInstanceRepository
             }
 
             queryResult.ContinuationToken =
-                queryResult.Instances.Count == size ? $"{lastTimestamp.Ticks};{id}" : null;
+                queryResult.Instances.Count == size
+                    ? new InstanceContinuationToken(lastTimestamp, id).ToString()
+                    : null;
         }
 
         Activity.Current?.AddTag("instanceCount", queryResult.Instances.Count.ToString());
