@@ -382,13 +382,13 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     }
 
     /// <summary>
-    /// Test case: The PDP throws while deciding whether the user may read the instance.
-    /// Expected: The exception reaches the exception handler and is reported as 500, not as 404.
+    /// Test case: The PDP call throws while deciding whether the user may read the instance.
+    /// Expected: The failure is reported as 503 Service Unavailable.
     /// </summary>
     [Theory]
     [InlineData("1337/46133fb5-a9f2-45d4-90b1-f6d93ad40713")]
     [InlineData("46133fb5-a9f2-45d4-90b1-f6d93ad40713")]
-    public async Task GetInstance_PdpThrows_ReturnsInternalServerError(string instancePath)
+    public async Task GetInstance_PdpThrows_ReturnsServiceUnavailable(string instancePath)
     {
         // Arrange
         string requestUri = $"{BasePath}/{instancePath}";
@@ -406,7 +406,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         HttpResponseMessage response = await client.GetAsync(requestUri);
 
         // Assert
-        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
     }
 
     /// <summary>

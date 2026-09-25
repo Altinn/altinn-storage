@@ -27,9 +27,8 @@ public class PdpDecisionUnavailableExceptionFilter(
 
         logger.LogError(
             exception,
-            "No authorization decision could be obtained from the PDP for {Method} {Path}",
-            context.HttpContext.Request.Method,
-            context.HttpContext.Request.Path
+            "No authorization decision could be obtained from the PDP in {Action}",
+            context.ActionDescriptor.DisplayName
         );
 
         context.Result = new ObjectResult(

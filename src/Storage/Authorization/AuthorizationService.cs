@@ -250,34 +250,51 @@ public class AuthorizationService(
         string cacheKey = GetCacheKeyForDecisionRequest(request);
         if (!_memoryCache.TryGetValue(cacheKey, out XacmlJsonResponse response))
         {
-            response = await _pdp.GetDecisionForRequest(request);
-
-            if (response?.Response is not null)
-            {
-                _memoryCache.Set(
-                    cacheKey,
-                    response,
-                    new MemoryCacheEntryOptions()
-                        .SetPriority(CacheItemPriority.High)
-                        .SetAbsoluteExpiration(
-                            new TimeSpan(0, _pepSettings.PdpDecisionCachingTimeout, 0)
-                        )
-                );
-            }
-        }
-
-        if (response?.Response == null)
-        {
-            _logger.LogWarning(
-                "// Authorization Helper // AuthorizeEnrichedInstanceAction got no decision for request: {request}.",
-                JsonSerializer.Serialize(request)
-            );
-            throw new PdpDecisionUnavailableException(
-                $"No decision was obtained from the PDP for action '{action}' on instance {instance.Id}."
+            response = await GetDecisionOrThrow(request);
+            _memoryCache.Set(
+                cacheKey,
+                response,
+                new MemoryCacheEntryOptions()
+                    .SetPriority(CacheItemPriority.High)
+                    .SetAbsoluteExpiration(
+                        new TimeSpan(0, _pepSettings.PdpDecisionCachingTimeout, 0)
+                    )
             );
         }
 
         return DecisionHelper.ValidatePdpDecision(response.Response, user);
+    }
+
+    /// <summary>
+    /// Gets a decision from the PDP, throwing <see cref="PdpDecisionUnavailableException"/> when the call
+    /// fails or returns no result. The call carries no cancellation token, so an exception from it is a
+    /// PDP failure (including a client-side timeout), never a cancellation requested by the caller.
+    /// </summary>
+    private async Task<XacmlJsonResponse> GetDecisionOrThrow(XacmlJsonRequestRoot request)
+    {
+        XacmlJsonResponse response;
+        try
+        {
+            response = await _pdp.GetDecisionForRequest(request);
+        }
+        catch (Exception ex)
+        {
+            throw new PdpDecisionUnavailableException(
+                "The decision request to the PDP failed.",
+                ex
+            );
+        }
+
+        if (response?.Response is not { Count: > 0 })
+        {
+            _logger.LogWarning(
+                "// Authorization Helper // No decision was returned by the PDP for request: {request}.",
+                JsonSerializer.Serialize(request)
+            );
+            throw new PdpDecisionUnavailableException("No decision was returned by the PDP.");
+        }
+
+        return response;
     }
 
     /// <inheritdoc />
