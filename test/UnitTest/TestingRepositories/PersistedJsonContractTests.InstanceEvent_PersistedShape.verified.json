@@ -1,0 +1,49 @@
+﻿{
+  "Id": "e5f6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9",
+  "InstanceId": "1337/8a9d6f4e-0f1e-4c2b-9a7d-2f3e4d5c6b7a",
+  "DataId": "d1c2b3a4-5f6e-4d7c-8b9a-0e1f2a3b4c5d",
+  "Created": "2026-09-25T08:15:30.123Z",
+  "EventType": "Saved",
+  "InstanceOwnerPartyId": "1337",
+  "User": {
+    "UserId": 20001,
+    "OrgId": "ttd",
+    "AuthenticationLevel": 3,
+    "EndUserSystemId": 7,
+    "NationalIdentityNumber": "01010112345",
+    "SystemUserId": "11111111-2222-4333-8444-555555555555",
+    "SystemUserOwnerOrgNo": "991825827",
+    "SystemUserName": "system-user"
+  },
+  "RelatedUser": {
+    "UserId": 20001,
+    "OrgId": "ttd",
+    "AuthenticationLevel": 3,
+    "EndUserSystemId": 7,
+    "NationalIdentityNumber": "01010112345",
+    "SystemUserId": "11111111-2222-4333-8444-555555555555",
+    "SystemUserOwnerOrgNo": "991825827",
+    "SystemUserName": "system-user"
+  },
+  "ProcessInfo": {
+    "Status": "processing",
+    "Started": "2026-09-25T08:15:30.123Z",
+    "StartEvent": "StartEvent_1",
+    "CurrentTask": {
+      "Flow": 2,
+      "Started": "2026-09-25T08:15:30.123Z",
+      "ElementId": "Task_1",
+      "Name": "Utfylling",
+      "AltinnTaskType": "data",
+      "Ended": "2026-09-25T10:15:30.123Z",
+      "Validated": {
+        "Timestamp": "2026-09-25T10:15:30.123Z",
+        "CanCompleteTask": true
+      },
+      "FlowType": "CompleteCurrentMoveToNext"
+    },
+    "Ended": "2026-09-25T10:15:30.123Z",
+    "EndEvent": "EndEvent_1"
+  },
+  "AdditionalInfo": "additional"
+}

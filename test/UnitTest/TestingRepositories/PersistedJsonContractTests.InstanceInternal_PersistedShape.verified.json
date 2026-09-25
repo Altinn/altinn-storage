@@ -1,0 +1,63 @@
+﻿{
+  "Id": "8a9d6f4e-0f1e-4c2b-9a7d-2f3e4d5c6b7a",
+  "InstanceOwner": {
+    "PartyId": "1337",
+    "PersonNumber": "01010112345",
+    "OrganisationNumber": "991825827",
+    "Username": "user-1337",
+    "ExternalIdentifier": "ext:1337"
+  },
+  "AppId": "ttd/contract-app",
+  "Org": "ttd",
+  "DueBefore": "2026-10-25T10:15:30.123Z",
+  "VisibleAfter": "2026-09-25T08:15:30.123Z",
+  "Process": {
+    "Status": "processing",
+    "Started": "2026-09-25T08:15:30.123Z",
+    "StartEvent": "StartEvent_1",
+    "CurrentTask": {
+      "Flow": 2,
+      "Started": "2026-09-25T08:15:30.123Z",
+      "ElementId": "Task_1",
+      "Name": "Utfylling",
+      "AltinnTaskType": "data",
+      "Ended": "2026-09-25T10:15:30.123Z",
+      "Validated": {
+        "Timestamp": "2026-09-25T10:15:30.123Z",
+        "CanCompleteTask": true
+      },
+      "FlowType": "CompleteCurrentMoveToNext"
+    },
+    "Ended": "2026-09-25T10:15:30.123Z",
+    "EndEvent": "EndEvent_1"
+  },
+  "Status": {
+    "IsArchived": true,
+    "Archived": "2026-09-25T10:15:30.123Z",
+    "IsSoftDeleted": true,
+    "SoftDeleted": "2026-09-25T10:15:30.123Z",
+    "IsHardDeleted": true,
+    "HardDeleted": "2026-09-25T10:15:30.123Z",
+    "ReadStatus": 2,
+    "Substatus": {
+      "Label": "substatus.label",
+      "Description": "substatus.desc"
+    }
+  },
+  "CompleteConfirmations": [
+    {
+      "StakeholderId": "ttd",
+      "ConfirmedOn": "2026-09-25T10:15:30.123Z"
+    }
+  ],
+  "PresentationTexts": {
+    "title": "Contract"
+  },
+  "DataValues": {
+    "caseNumber": "42"
+  },
+  "Created": "2026-09-25T08:15:30.123Z",
+  "CreatedBy": "1337",
+  "LastChanged": "2026-09-25T10:15:30.123Z",
+  "LastChangedBy": "1338"
+}

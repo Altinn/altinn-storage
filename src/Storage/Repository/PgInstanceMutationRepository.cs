@@ -32,7 +32,9 @@ public sealed class PgInstanceMutationRepository(
 {
     internal const string _applyMutationSql =
         "select * from storage.applyinstancemutation($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)";
-    private static readonly JsonSerializerOptions _omitNullPropertiesJsonOptions = new()
+    private static readonly JsonSerializerOptions _omitNullPropertiesJsonOptions = new(
+        PersistedJson.Options
+    )
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
@@ -525,7 +527,7 @@ public sealed class PgInstanceMutationRepository(
         }
 
         return BuildJsonPayload(writer =>
-            JsonSerializer.Serialize(writer, mutation.InstanceEvents)
+            JsonSerializer.Serialize(writer, mutation.InstanceEvents, PersistedJson.Options)
         );
     }
 
@@ -606,7 +608,7 @@ public sealed class PgInstanceMutationRepository(
             return;
         }
 
-        JsonSerializer.Serialize(writer, value);
+        JsonSerializer.Serialize(writer, value, PersistedJson.Options);
     }
 
     private static void WriteScalarJsonProperty(
@@ -622,7 +624,7 @@ public sealed class PgInstanceMutationRepository(
             return;
         }
 
-        JsonSerializer.Serialize(writer, value);
+        JsonSerializer.Serialize(writer, value, PersistedJson.Options);
     }
 
     private static void WriteBlobVersionProperty(
