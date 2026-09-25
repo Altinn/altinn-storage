@@ -268,11 +268,13 @@ public class AuthorizationService(
 
         if (response?.Response == null)
         {
-            _logger.LogInformation(
-                "// Authorization Helper // AuthorizeEnrichedInstanceAction failed for request: {request}.",
+            _logger.LogWarning(
+                "// Authorization Helper // AuthorizeEnrichedInstanceAction got no decision for request: {request}.",
                 JsonSerializer.Serialize(request)
             );
-            return false;
+            throw new PdpDecisionUnavailableException(
+                $"No decision was obtained from the PDP for action '{action}' on instance {instance.Id}."
+            );
         }
 
         return DecisionHelper.ValidatePdpDecision(response.Response, user);

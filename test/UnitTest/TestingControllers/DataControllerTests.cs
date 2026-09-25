@@ -11,8 +11,10 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
+using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Extensions;
@@ -28,6 +30,7 @@ using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
 using AltinnCore.Authentication.JwtCookie;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -255,6 +258,35 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
     /// Success:
     /// Created
     /// </summary>
+    /// <summary>
+    /// Test case: The PDP returns no decision while deciding whether the user may read the data element.
+    /// Expected: 503 Service Unavailable with problem details.
+    /// </summary>
+    [Fact]
+    public async Task Get_NoDecisionFromPdp_ReturnsServiceUnavailable()
+    {
+        // Arrange
+        string dataPath =
+            $"{_versionPrefix}/instances/1337/649388f0-a2c0-4774-bd11-c870223ed819/data/11f7c994-6681-47a1-9626-fcf6c27308a5";
+
+        Mock<IPDP> pdpMock = new();
+        pdpMock
+            .Setup(pdp => pdp.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .ReturnsAsync((XacmlJsonResponse)null);
+
+        string token = PrincipalUtil.GetToken(1337, 1337, 3);
+        HttpClient client = GetTestClient(bearerAuthToken: token, pdpMock: pdpMock);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(dataPath);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+
+        ProblemDetails problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.Equal("Authorization decision unavailable", problemDetails.Title);
+    }
+
     [Fact]
     public async Task OverwriteData_UpdateData_Ok()
     {
@@ -1314,7 +1346,8 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         Mock<IFileScanQueueClient> fileScanMock = null,
         string bearerAuthToken = null,
         Mock<IInstanceMutationRepository> mutationRepositoryMock = null,
-        Mock<IInstanceRepository> instanceRepositoryMock = null
+        Mock<IInstanceRepository> instanceRepositoryMock = null,
+        Mock<IPDP> pdpMock = null
     )
     {
         if (mutationRepositoryMock is null)
@@ -1383,6 +1416,11 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
                 services.AddSingleton(keyVaultWrapper.Object);
                 services.AddSingleton(partiesWrapper.Object);
                 services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
+
+                if (pdpMock is not null)
+                {
+                    services.AddSingleton(pdpMock.Object);
+                }
                 services.AddSingleton(busMock.Object);
             });
         });

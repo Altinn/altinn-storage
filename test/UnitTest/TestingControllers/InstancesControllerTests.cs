@@ -340,27 +340,27 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     }
 
     /// <summary>
-    /// Test case: The PDP throws while deciding whether the user may read the instance.
-    /// Expected: The failure is logged and reported as 503 Service Unavailable, not 404 Not Found.
+    /// Test case: The PDP returns no decision while deciding whether the user may read the instance.
+    /// Expected: The failure is logged and reported as 503 Service Unavailable with problem details.
     /// </summary>
-    [Fact]
-    public async Task Get_PdpThrows_LogsErrorAndReturnsServiceUnavailable()
+    [Theory]
+    [InlineData("1337/46133fb5-a9f2-45d4-90b1-f6d93ad40713")]
+    [InlineData("46133fb5-a9f2-45d4-90b1-f6d93ad40713")]
+    public async Task GetInstance_NoDecisionFromPdp_LogsErrorAndReturnsServiceUnavailable(
+        string instancePath
+    )
     {
         // Arrange
-        int instanceOwnerPartyId = 1337;
-        string instanceGuid = "46133fb5-a9f2-45d4-90b1-f6d93ad40713";
-        string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}";
-
-        Exception thrownException = new("PDP is unavailable");
+        string requestUri = $"{BasePath}/{instancePath}";
 
         Mock<IPDP> pdpMock = new();
         pdpMock
             .Setup(pdp => pdp.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
-            .ThrowsAsync(thrownException);
+            .ReturnsAsync((XacmlJsonResponse)null);
 
-        Mock<ILogger<InstancesController>> loggerMock = new();
+        Mock<ILogger<PdpDecisionUnavailableExceptionFilter>> filterLoggerMock = new();
 
-        HttpClient client = GetTestClient(pdpMock: pdpMock, loggerMock: loggerMock);
+        HttpClient client = GetTestClient(pdpMock: pdpMock, filterLoggerMock: filterLoggerMock);
         string token = PrincipalUtil.GetToken(3, 1337, 3);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -369,30 +369,36 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
         // Assert
         Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
-        AssertAuthorizeEnrichedInstanceActionErrorLogged(loggerMock, thrownException);
+
+        ProblemDetails problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, problemDetails.Status);
+        Assert.Equal("Authorization decision unavailable", problemDetails.Title);
+
+        AssertErrorLogged(
+            filterLoggerMock,
+            "No authorization decision could be obtained from the PDP",
+            e => e is PdpDecisionUnavailableException
+        );
     }
 
     /// <summary>
     /// Test case: The PDP throws while deciding whether the user may read the instance.
-    /// Expected: The failure is logged and reported as 503 Service Unavailable, not 404 Not Found.
+    /// Expected: The exception reaches the exception handler and is reported as 500, not as 404.
     /// </summary>
-    [Fact]
-    public async Task GetByGuid_PdpThrows_LogsErrorAndReturnsServiceUnavailable()
+    [Theory]
+    [InlineData("1337/46133fb5-a9f2-45d4-90b1-f6d93ad40713")]
+    [InlineData("46133fb5-a9f2-45d4-90b1-f6d93ad40713")]
+    public async Task GetInstance_PdpThrows_ReturnsInternalServerError(string instancePath)
     {
         // Arrange
-        string instanceGuid = "46133fb5-a9f2-45d4-90b1-f6d93ad40713";
-        string requestUri = $"{BasePath}/{instanceGuid}";
-
-        Exception thrownException = new("PDP is unavailable");
+        string requestUri = $"{BasePath}/{instancePath}";
 
         Mock<IPDP> pdpMock = new();
         pdpMock
             .Setup(pdp => pdp.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
-            .ThrowsAsync(thrownException);
+            .ThrowsAsync(new Exception("PDP is unavailable"));
 
-        Mock<ILogger<InstancesController>> loggerMock = new();
-
-        HttpClient client = GetTestClient(pdpMock: pdpMock, loggerMock: loggerMock);
+        HttpClient client = GetTestClient(pdpMock: pdpMock);
         string token = PrincipalUtil.GetToken(3, 1337, 3);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -400,32 +406,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         HttpResponseMessage response = await client.GetAsync(requestUri);
 
         // Assert
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
-        AssertAuthorizeEnrichedInstanceActionErrorLogged(loggerMock, thrownException);
-    }
-
-    private static void AssertAuthorizeEnrichedInstanceActionErrorLogged(
-        Mock<ILogger<InstancesController>> loggerMock,
-        Exception expectedException
-    )
-    {
-        loggerMock.Verify(
-            logger =>
-                logger.Log(
-                    LogLevel.Error,
-                    It.IsAny<EventId>(),
-                    It.Is<It.IsAnyType>(
-                        (v, t) =>
-                            v.ToString()
-                                .Contains(
-                                    "Something went wrong during AuthorizeEnrichedInstanceAction"
-                                )
-                    ),
-                    expectedException,
-                    It.IsAny<Func<It.IsAnyType, Exception, string>>()
-                ),
-            Times.Once
-        );
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
     }
 
     /// <summary>
@@ -1218,22 +1199,10 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
             Times.Once
         );
 
-        loggerMock.Verify(
-            logger =>
-                logger.Log(
-                    LogLevel.Error,
-                    It.IsAny<EventId>(),
-                    It.Is<It.IsAnyType>(
-                        (v, t) =>
-                            v.ToString()
-                                .Contains(
-                                    "Something went wrong during GetDecisionForRequest for org"
-                                )
-                    ),
-                    thrownException,
-                    It.IsAny<Func<It.IsAnyType, Exception, string>>()
-                ),
-            Times.Once
+        AssertErrorLogged(
+            loggerMock,
+            "Something went wrong during GetDecisionForRequest for org",
+            e => ReferenceEquals(e, thrownException)
         );
     }
 
@@ -3380,6 +3349,25 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
     private TestTelemetry _testTelemetry;
 
+    private static void AssertErrorLogged<T>(
+        Mock<ILogger<T>> loggerMock,
+        string messageFragment,
+        Func<Exception, bool> exceptionMatches
+    )
+    {
+        loggerMock.Verify(
+            logger =>
+                logger.Log(
+                    LogLevel.Error,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>((v, t) => v.ToString().Contains(messageFragment)),
+                    It.Is<Exception>(e => exceptionMatches(e)),
+                    It.IsAny<Func<It.IsAnyType, Exception, string>>()
+                ),
+            Times.Once
+        );
+    }
+
     private HttpClient GetTestClient(
         Mock<IInstanceRepository> repositoryMock = null,
         Mock<IRegisterService> registerService = null,
@@ -3387,7 +3375,8 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Mock<IAuthorization> authorizationService = null,
         Mock<IPartiesWithInstancesClient> partiesWithInstancesClient = null,
         Mock<IPDP> pdpMock = null,
-        Mock<ILogger<InstancesController>> loggerMock = null
+        Mock<ILogger<InstancesController>> loggerMock = null,
+        Mock<ILogger<PdpDecisionUnavailableExceptionFilter>> filterLoggerMock = null
     )
     {
         // No setup required for these services. They are not in use by the InstanceController
@@ -3441,6 +3430,11 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                 if (loggerMock != null)
                 {
                     services.AddSingleton(loggerMock.Object);
+                }
+
+                if (filterLoggerMock != null)
+                {
+                    services.AddSingleton(filterLoggerMock.Object);
                 }
 
                 services.AddSingleton<

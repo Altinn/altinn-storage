@@ -522,6 +522,29 @@ public class AuthorizationServiceTest
     }
 
     [Fact]
+    public async Task AuthorizeEnrichedInstanceAction_NoDecisionFromPdp_ThrowsAndDoesNotCache()
+    {
+        InstanceInternal instance = CreateDomainInstance();
+        List<XacmlJsonRequestRoot> requests = [];
+        Mock<IPDP> pdp = new();
+        AuthorizationService service = CreateRequestCapturingService(requests, pdp);
+        pdp.Setup(client => client.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .ReturnsAsync((XacmlJsonResponse)null);
+
+        await Assert.ThrowsAsync<PdpDecisionUnavailableException>(() =>
+            service.AuthorizeEnrichedInstanceAction(instance, "read")
+        );
+        await Assert.ThrowsAsync<PdpDecisionUnavailableException>(() =>
+            service.AuthorizeEnrichedInstanceAction(instance, "read")
+        );
+
+        pdp.Verify(
+            client => client.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()),
+            Times.Exactly(2)
+        );
+    }
+
+    [Fact]
     public async Task AuthorizeAnyOfInstanceActions_MigratedDataValues_PreservesApprovedRequestShape()
     {
         InstanceInternal instance = CreateDomainInstance();
