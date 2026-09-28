@@ -1086,11 +1086,6 @@ public class InstancesController : ControllerBase
     /// <summary>
     /// Updates the data values on an instance.
     /// </summary>
-    /// <remarks>
-    /// Applies only the supplied keys, including while the process is processing, without advancing
-    /// either storage version. Optional preconditions check versioned changes; they do not detect
-    /// other standalone data-values updates. Null or empty values remove keys.
-    /// </remarks>
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance to confirm as complete.</param>
     /// <param name="dataValues">Collection of changes to the data values collection.</param>
@@ -1104,7 +1099,7 @@ public class InstancesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status412PreconditionFailed)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Consumes("application/json")]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> UpdateDataValues(
@@ -1145,12 +1140,28 @@ public class InstancesController : ControllerBase
             return Forbid();
         }
 
+        instance.DataValues ??= new Dictionary<string, string>();
+
+        List<string> updateProperties = [];
+        updateProperties.Add(nameof(instance.DataValues));
+        foreach (KeyValuePair<string, string> entry in dataValues.Values)
+        {
+            if (string.IsNullOrEmpty(entry.Value))
+            {
+                instance.DataValues.Remove(entry.Key);
+            }
+            else
+            {
+                instance.DataValues[entry.Key] = entry.Value;
+            }
+        }
+
         InstanceInternal updatedInstance;
         try
         {
-            updatedInstance = await _instanceRepository.UpdateDataValues(
-                instanceGuid,
-                dataValues.Values,
+            updatedInstance = await _instanceRepository.Update(
+                instance,
+                updateProperties,
                 preconditions.InstanceVersion,
                 preconditions.ProcessStateVersion,
                 cancellationToken
@@ -1159,6 +1170,10 @@ public class InstancesController : ControllerBase
         catch (StorageVersionMismatchException e)
         {
             return VersionPreconditionHelper.VersionMismatch(Response, e);
+        }
+        catch (ProcessStatusConflictException e)
+        {
+            return Conflict(e.Message);
         }
         catch (RepositoryException e) when (e.StatusCodeSuggestion.HasValue)
         {

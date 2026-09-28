@@ -67,9 +67,7 @@ public class InstancesControllerCreationIntegrationTests : IClassFixture<Instanc
             .Returns(Task.CompletedTask);
         Mock<IProcessAuthorizer> processAuthorizer = new();
         processAuthorizer
-            .Setup(authorizer =>
-                authorizer.AuthorizePresentationTextsUpdate(It.IsAny<InstanceInternal>())
-            )
+            .Setup(authorizer => authorizer.AuthorizeDataValuesUpdate(It.IsAny<InstanceInternal>()))
             .ReturnsAsync(true);
         DefaultHttpContext httpContext = new()
         {
@@ -117,12 +115,12 @@ public class InstancesControllerCreationIntegrationTests : IClassFixture<Instanc
         StorageVersions versionsBefore = persistedBefore.Versions;
         string rawInstanceBefore = await ReadRawInstance(instanceGuid);
 
-        ActionResult<Instance> updateResult = await controller.UpdatePresentationTexts(
+        ActionResult<Instance> updateResult = await controller.UpdateDataValues(
             _partyId,
             instanceGuid,
-            new PresentationTexts
+            new DataValues
             {
-                Texts = new Dictionary<string, string> { ["blocked"] = "not-applied" },
+                Values = new Dictionary<string, string> { ["blocked"] = "not-applied" },
             },
             CancellationToken.None
         );
@@ -142,6 +140,7 @@ public class InstancesControllerCreationIntegrationTests : IClassFixture<Instanc
         Assert.Equal(ProcessStatus.Processing, persistedAfter.Process.Status);
         Assert.Equal(versionsBefore, persistedAfter.Versions);
         Assert.Equal("value", persistedAfter.DataValues["preserved"]);
+        Assert.False(persistedAfter.DataValues.ContainsKey("blocked"));
         Assert.Equal(rawInstanceBefore, await ReadRawInstance(instanceGuid));
         instanceEventService.Verify(
             service =>

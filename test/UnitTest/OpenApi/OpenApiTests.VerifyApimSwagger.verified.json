@@ -2522,7 +2522,6 @@
           "Instances"
         ],
         "summary": "Updates the data values on an instance.",
-        "description": "Applies only the supplied keys, including while the process is processing, without advancing\neither storage version. Optional preconditions check versioned changes; they do not detect\nother standalone data-values updates. Null or empty values remove keys.",
         "parameters": [
           {
             "name": "instanceOwnerPartyId",
@@ -2612,8 +2611,8 @@
               }
             }
           },
-          "412": {
-            "description": "Precondition Failed",
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
