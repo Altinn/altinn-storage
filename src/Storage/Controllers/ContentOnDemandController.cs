@@ -13,7 +13,6 @@ using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
-using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -110,24 +109,17 @@ public class ContentOnDemandController : Controller
         CancellationToken cancellationToken
     )
     {
-        InstanceInternal instance = await _instanceRepository.GetOne(
+        (Instance instance, _) = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
-        if (instance is null)
-        {
-            return NotFound();
-        }
-
         Application application = await _applicationRepository.FindOne(
             instance.AppId,
             instance.Org,
             cancellationToken
         );
-        DataElementInternal signatureElement = instance.Data.First(d =>
-            d.DataType == "signature-data"
-        );
+        DataElement signatureElement = instance.Data.First(d => d.DataType == "signature-data");
         DataElementHelper.EnsureExpectedBlobStoragePath(
             signatureElement,
             instanceGuid,
@@ -168,22 +160,17 @@ public class ContentOnDemandController : Controller
         CancellationToken cancellationToken
     )
     {
-        InstanceInternal instance = await _instanceRepository.GetOne(
+        (Instance instance, _) = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
-        if (instance is null)
-        {
-            return NotFound();
-        }
-
         Application application = await _applicationRepository.FindOne(
             instance.AppId,
             instance.Org,
             cancellationToken
         );
-        DataElementInternal paymentElement = instance.Data.First(d => d.DataType == "payment-data");
+        DataElement paymentElement = instance.Data.First(d => d.DataType == "payment-data");
         DataElementHelper.EnsureExpectedBlobStoragePath(
             paymentElement,
             instanceGuid,
@@ -215,7 +202,7 @@ public class ContentOnDemandController : Controller
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>The formatted content</returns>
     [HttpGet("formdatapdf")]
-    public async Task<ActionResult<Stream>> GetFormdataAsPdf(
+    public async Task<Stream> GetFormdataAsPdf(
         [FromRoute] string org,
         [FromRoute] string app,
         [FromRoute] Guid instanceGuid,
@@ -224,19 +211,14 @@ public class ContentOnDemandController : Controller
         CancellationToken cancellationToken
     )
     {
-        InstanceInternal instance = await _instanceRepository.GetOne(
+        (Instance instance, _) = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
-        if (instance is null)
-        {
-            return NotFound();
-        }
-
-        DataElementInternal htmlElement = instance.Data.First(d => d.Id == dataGuid);
+        DataElement htmlElement = instance.Data.First(d => d.Id == dataGuid.ToString());
         string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;
-        DataElementInternal xmlElement = instance.Data.First(d =>
+        DataElement xmlElement = instance.Data.First(d =>
             d.Metadata?.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id
         );
         string visiblePagesString = xmlElement
@@ -289,11 +271,6 @@ public class ContentOnDemandController : Controller
                 cancellationToken,
                 view.PageNumber
             );
-            if (html is null)
-            {
-                return NotFound();
-            }
-
             var pdfPages = await _pdfGeneratorClient.GeneratePdf(
                 html,
                 view.IsPortrait,
@@ -351,7 +328,7 @@ public class ContentOnDemandController : Controller
     /// <param name="singlePageNr">optional filter for a single page number</param>
     /// <returns>The formatted content</returns>
     [HttpGet("formdatahtml/{singlepagenr?}")]
-    public async Task<ActionResult<Stream>> GetFormdataAsHtml(
+    public async Task<Stream> GetFormdataAsHtml(
         [FromRoute] string org,
         [FromRoute] string app,
         [FromRoute] Guid instanceGuid,
@@ -370,11 +347,6 @@ public class ContentOnDemandController : Controller
             cancellationToken,
             singlePageNr
         );
-        if (html is null)
-        {
-            return NotFound();
-        }
-
         return html;
     }
 
@@ -389,7 +361,7 @@ public class ContentOnDemandController : Controller
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>The formatted content</returns>
     [HttpGet("formsummaryhtml")]
-    public async Task<ActionResult<Stream>> GetFormSummaryAsHtml(
+    public async Task<Stream> GetFormSummaryAsHtml(
         [FromRoute] string org,
         [FromRoute] string app,
         [FromRoute] Guid instanceGuid,
@@ -406,11 +378,6 @@ public class ContentOnDemandController : Controller
             2,
             cancellationToken
         );
-        if (html is null)
-        {
-            return NotFound();
-        }
-
         return html;
     }
 
@@ -433,11 +400,6 @@ public class ContentOnDemandController : Controller
             cancellationToken,
             singlePageNr
         );
-        if (html is null)
-        {
-            return (null, null);
-        }
-
         return (new MemoryStream(Encoding.UTF8.GetBytes(html)), views);
     }
 
@@ -451,23 +413,18 @@ public class ContentOnDemandController : Controller
         int singlePageNr = -1
     )
     {
-        InstanceInternal instance = await _instanceRepository.GetOne(
+        (Instance instance, _) = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
-        if (instance is null)
-        {
-            return (null, null);
-        }
-
         Application application = await _applicationRepository.FindOne(
             instance.AppId,
             instance.Org
         );
-        DataElementInternal htmlElement = instance.Data.First(d => d.Id == dataGuid);
+        DataElement htmlElement = instance.Data.First(d => d.Id == dataGuid.ToString());
         string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;
-        DataElementInternal xmlElement = instance.Data.First(d =>
+        DataElement xmlElement = instance.Data.First(d =>
             d.Metadata?.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id
         );
         DataElementHelper.EnsureExpectedBlobStoragePath(xmlElement, instanceGuid, instance.AppId);
@@ -518,8 +475,7 @@ public class ContentOnDemandController : Controller
         Stream blob = await _blobRepository.ReadBlob(
             $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
             xmlElement.BlobStoragePath,
-            application.StorageAccountNumber,
-            cancellationToken
+            application.StorageAccountNumber
         );
 
         return (_a2OndemandFormattingService.GetFormdataHtml(views, blob), views);

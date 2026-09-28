@@ -14,13 +14,9 @@ namespace Altinn.Platform.Storage.Repository;
 public interface IOutboxRepository
 {
     /// <summary>
-    /// Insert outbox message as part of an active database transaction.
+    /// Insert outbox message
     /// </summary>
-    Task Insert(
-        SyncInstanceToDialogportenCommand dp,
-        NpgsqlConnection existingConnection,
-        NpgsqlTransaction transaction
-    );
+    Task Insert(SyncInstanceToDialogportenCommand dp, NpgsqlConnection existingConnection);
 
     /// <summary>
     /// Polls the outbox for messages to be processed.

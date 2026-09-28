@@ -1,4 +1,4 @@
-namespace Altinn.Platform.Storage.Models;
+namespace Altinn.Platform.Storage.Repository;
 
 /// <summary>
 /// Result of attempting to acquire an instance lock.

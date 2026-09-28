@@ -19,7 +19,6 @@ internal static class ModuleInitializer
         VerifierSettings.InitializePlugins();
         VerifierSettings.AutoVerify(includeBuildServer: false);
         VerifierSettings.ScrubMembers("traceId");
-        VerifierSettings.IgnoreMembers("StackTrace");
     }
 
     /// <summary>

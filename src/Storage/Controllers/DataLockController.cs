@@ -1,12 +1,9 @@
 using System;
-using System.Linq;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
-using Altinn.Platform.Storage.Extensions;
-using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
-using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -63,7 +60,6 @@ public class DataLockController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
     public async Task<ActionResult<DataElement>> Lock(
         int instanceOwnerPartyId,
@@ -72,7 +68,7 @@ public class DataLockController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        (InstanceInternal? instance, ActionResult? instanceError) = await GetInstanceAsync(
+        (Instance? instance, ActionResult? instanceError) = await GetInstanceAsync(
             instanceGuid,
             instanceOwnerPartyId,
             true,
@@ -88,32 +84,24 @@ public class DataLockController : ControllerBase
             return Forbid();
         }
 
-        DataElementInternal? dataElement = instance.Data.FirstOrDefault(d => d.Id == dataGuid);
+        DataElement? dataElement = instance.Data.Find(d => d.Id == dataGuid.ToString());
 
         if (dataElement?.Locked is true)
         {
-            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
-            return Ok(dataElement.ToApiModel());
+            return Ok(dataElement);
         }
+
+        Dictionary<string, object> propertyList = new() { { "/locked", true } };
 
         try
         {
-            DataElementWriteResult updatedDataElement = await _dataRepository.UpdateLockStatus(
+            DataElement updatedDataElement = await _dataRepository.Update(
                 instanceGuid,
                 dataGuid,
-                true,
-                cancellationToken: cancellationToken
+                propertyList,
+                cancellationToken
             );
-            VersionPreconditionHelper.WriteVersionResponseHeaders(
-                Response,
-                updatedDataElement.Versions
-            );
-            DataElement response = updatedDataElement.DataElement.ToApiModel();
-            return Created(response.Id, response);
-        }
-        catch (ProcessStatusConflictException e)
-        {
-            return Conflict(e.Message);
+            return Created(updatedDataElement.Id, updatedDataElement);
         }
         catch (RepositoryException e)
         {
@@ -137,7 +125,6 @@ public class DataLockController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
     public async Task<ActionResult<DataElement>> Unlock(
         int instanceOwnerPartyId,
@@ -146,7 +133,7 @@ public class DataLockController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        (InstanceInternal? instance, _) = await GetInstanceAsync(
+        (Instance? instance, _) = await GetInstanceAsync(
             instanceGuid,
             instanceOwnerPartyId,
             false,
@@ -166,23 +153,16 @@ public class DataLockController : ControllerBase
             return Forbid();
         }
 
+        Dictionary<string, object> propertyList = new() { { "/locked", false } };
         try
         {
-            DataElementWriteResult updatedDataElement = await _dataRepository.UpdateLockStatus(
+            DataElement updatedDataElement = await _dataRepository.Update(
                 instanceGuid,
                 dataGuid,
-                false,
-                cancellationToken: cancellationToken
+                propertyList,
+                cancellationToken
             );
-            VersionPreconditionHelper.WriteVersionResponseHeaders(
-                Response,
-                updatedDataElement.Versions
-            );
-            return Ok(updatedDataElement.DataElement.ToApiModel());
-        }
-        catch (ProcessStatusConflictException e)
-        {
-            return Conflict(e.Message);
+            return Ok(updatedDataElement);
         }
         catch (RepositoryException e)
         {
@@ -192,14 +172,14 @@ public class DataLockController : ControllerBase
         }
     }
 
-    private async Task<(InstanceInternal? Instance, ActionResult? ErrorMessage)> GetInstanceAsync(
+    private async Task<(Instance? Instance, ActionResult? ErrorMessage)> GetInstanceAsync(
         Guid instanceGuid,
         int instanceOwnerPartyId,
         bool includeDataElements,
         CancellationToken cancellationToken
     )
     {
-        InstanceInternal? instance = await _instanceRepository.GetOne(
+        (Instance instance, _) = await _instanceRepository.GetOne(
             instanceGuid,
             includeDataElements,
             cancellationToken
