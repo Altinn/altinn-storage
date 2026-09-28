@@ -1,12 +1,11 @@
 #nullable disable
 
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using System.Web;
 using Altinn.Platform.Storage.Extensions;
-using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Primitives;
@@ -20,77 +19,30 @@ namespace Altinn.Platform.Storage.Helpers;
 public static class DataElementHelper
 {
     /// <summary>
-    /// Creates a data element based on element type, instance id, content type, content file name and file size.
+    /// Formats a filename for blob storage.
     /// </summary>
-    /// <returns>DataElement</returns>
-    public static DataElement CreateDataElement(
-        string dataType,
-        List<Guid> refs,
-        Instance instance,
-        DateTime creationTime,
-        string contentType,
-        string contentFileName,
-        long fileSize,
-        string user,
-        string generatedFromTask
-    )
+    public static string DataFileName(string appId, Guid instanceGuid, Guid dataElementId)
     {
-        string dataId = Guid.NewGuid().ToString();
-
-        string guidFromInstanceId = instance.Id;
-
-        if (guidFromInstanceId != null && guidFromInstanceId.Contains('/'))
-        {
-            guidFromInstanceId = instance.Id.Split("/")[1];
-        }
-
-        DataElement newData = new DataElement
-        {
-            // update data record
-            Id = dataId,
-            InstanceGuid = guidFromInstanceId,
-            DataType = dataType,
-            ContentType = contentType,
-            CreatedBy = user,
-            Created = creationTime,
-            Filename = contentFileName,
-            LastChangedBy = user,
-            LastChanged = creationTime,
-            Size = fileSize,
-            Refs = refs,
-        };
-
-        if (!string.IsNullOrEmpty(generatedFromTask))
-        {
-            newData.References = new List<Reference>
-            {
-                new Reference
-                {
-                    Relation = Interface.Enums.RelationType.GeneratedFrom,
-                    Value = generatedFromTask,
-                    ValueType = Interface.Enums.ReferenceType.Task,
-                },
-            };
-        }
-
-        string filePath = DataFileName(instance.AppId, guidFromInstanceId, newData.Id);
-        newData.BlobStoragePath = filePath;
-        return newData;
+        return $"{appId}/{instanceGuid}/data/{dataElementId}";
     }
 
     /// <summary>
-    /// Formats a filename for blob storage.
+    /// Formats a filename for a blob version of a data element.
     /// </summary>
-    public static string DataFileName(string appId, string instanceGuid, string dataElementId)
+    internal static string GetVersionedBlobPath(
+        string appId,
+        Guid instanceGuid,
+        string blobVersionId
+    )
     {
-        return $"{appId}/{instanceGuid}/data/{dataElementId}";
+        return $"{VersionedBlobPathPrefix(appId, instanceGuid)}{blobVersionId}";
     }
 
     /// <summary>
     /// Throws an exception if the blob storage path isn't in the excpected format.
     /// </summary>
     public static void EnsureExpectedBlobStoragePath(
-        DataElement dataElement,
+        DataElementInternal dataElement,
         Guid instanceGuid,
         string appId
     )
@@ -99,7 +51,7 @@ public static class DataElementHelper
             !IsExpectedBlobStoragePath(
                 dataElement.BlobStoragePath,
                 appId,
-                instanceGuid.ToString(),
+                instanceGuid,
                 dataElement.Id
             )
         )
@@ -176,8 +128,8 @@ public static class DataElementHelper
     internal static bool IsExpectedBlobStoragePath(
         string blobStoragePath,
         string appId,
-        string instanceGuid,
-        string dataElementId
+        Guid instanceGuid,
+        Guid dataElementId
     )
     {
         if (string.IsNullOrEmpty(blobStoragePath))
@@ -196,7 +148,7 @@ public static class DataElementHelper
             return true;
         }
 
-        string versionedPathPrefix = $"{appId}/{instanceGuid}/data-elements/";
+        string versionedPathPrefix = VersionedBlobPathPrefix(appId, instanceGuid);
         if (!blobStoragePath.StartsWith(versionedPathPrefix, StringComparison.Ordinal))
         {
             return false;
@@ -205,5 +157,10 @@ public static class DataElementHelper
         ReadOnlySpan<char> blobVersionId = blobStoragePath.AsSpan(versionedPathPrefix.Length);
 
         return blobVersionId.ContainsAnyExcept('.') && !blobVersionId.Contains('/');
+    }
+
+    private static string VersionedBlobPathPrefix(string appId, Guid instanceGuid)
+    {
+        return $"{appId}/{instanceGuid}/data-elements/";
     }
 }

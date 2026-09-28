@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -69,10 +70,10 @@ public class InstanceEventsController : ControllerBase
 
         instanceEvent.Created = instanceEvent.Created?.ToUniversalTime() ?? DateTime.UtcNow;
 
-        Instance? instance = null;
+        InstanceInternal? instance = null;
         if (_wolverineSettings.EnableSending)
         {
-            (instance, _) = await _instanceRepository.GetOne(
+            instance = await _instanceRepository.GetOne(
                 instanceGuid,
                 false,
                 CancellationToken.None
@@ -106,8 +107,7 @@ public class InstanceEventsController : ControllerBase
         Guid eventGuid
     )
     {
-        string instanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
-        InstanceEvent theEvent = await _repository.GetOneEvent(instanceId, eventGuid);
+        InstanceEvent theEvent = await _repository.GetOneEvent(instanceGuid, eventGuid);
         if (theEvent != null)
         {
             return Ok(theEvent);
@@ -146,13 +146,6 @@ public class InstanceEventsController : ControllerBase
         [FromQuery] string? to
     )
     {
-        string instanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
-
-        if (string.IsNullOrEmpty(instanceId))
-        {
-            return BadRequest("Unable to perform query.");
-        }
-
         DateTime? fromDateTime = null,
             toDateTime = null;
 
@@ -172,7 +165,7 @@ public class InstanceEventsController : ControllerBase
         }
 
         List<InstanceEvent> instanceEvents = await _repository.ListInstanceEvents(
-            instanceId,
+            instanceGuid,
             eventTypes,
             fromDateTime,
             toDateTime

@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using AltinnCore.Authentication.Constants;
@@ -39,13 +40,13 @@ public class InstanceEventServiceTests
             instanceEventRepositoryMock.Object,
             contextAccessorMock.Object
         );
-        Instance instance = new()
+        InstanceInternal instance = new()
         {
-            Id = "test",
+            Id = Guid.NewGuid(),
             InstanceOwner = new InstanceOwner { PartyId = "someId" },
             Process = new ProcessState(),
         };
-        DataElement dataElement = new() { Id = "test" };
+        DataElementInternal dataElement = new() { Id = Guid.NewGuid() };
 
         // Act
         await target.DispatchEvent(eventType, instance, dataElement);
@@ -54,6 +55,52 @@ public class InstanceEventServiceTests
         instanceEventRepositoryMock.Verify(
             r => r.InsertInstanceEvent(It.IsAny<InstanceEvent>(), instance),
             Times.Once
+        );
+    }
+
+    [Fact]
+    public void BuildInstanceEvent_ForDataElement_CreatesEventWithoutDispatching()
+    {
+        // Arrange
+        const InstanceEventType eventType = InstanceEventType.Deleted;
+        Mock<IInstanceEventRepository> instanceEventRepositoryMock = new();
+        Mock<IHttpContextAccessor> contextAccessorMock = new();
+
+        Claim userIdClaim = new(AltinnCoreClaimTypes.UserId, "123456");
+        Claim authenticationLevelClaim = new(AltinnCoreClaimTypes.AuthenticationLevel, "3");
+
+        ClaimsIdentity identity = new();
+        identity.AddClaim(userIdClaim);
+        identity.AddClaim(authenticationLevelClaim);
+
+        HttpContext context = new DefaultHttpContext { User = new ClaimsPrincipal(identity) };
+
+        contextAccessorMock.Setup(accessor => accessor.HttpContext).Returns(context);
+
+        InstanceEventService target = new(
+            instanceEventRepositoryMock.Object,
+            contextAccessorMock.Object
+        );
+        InstanceInternal instance = new()
+        {
+            Id = Guid.NewGuid(),
+            InstanceOwner = new InstanceOwner { PartyId = "someId" },
+            Process = new ProcessState(),
+        };
+        DataElementInternal dataElement = new() { Id = Guid.NewGuid() };
+
+        // Act
+        InstanceEvent result = target.BuildInstanceEvent(eventType, instance, dataElement);
+
+        // Assert
+        Assert.Equal(InstanceEventType.Deleted.ToString(), result.EventType);
+        Assert.Equal($"{instance.InstanceOwner.PartyId}/{instance.Id}", result.InstanceId);
+        Assert.Equal(dataElement.Id.ToString(), result.DataId);
+        Assert.Equal(123456, result.User.UserId);
+        Assert.Equal(3, result.User.AuthenticationLevel);
+        instanceEventRepositoryMock.Verify(
+            r => r.InsertInstanceEvent(It.IsAny<InstanceEvent>(), It.IsAny<InstanceInternal>()),
+            Times.Never
         );
     }
 
@@ -78,13 +125,13 @@ public class InstanceEventServiceTests
             instanceEventRepositoryMock.Object,
             contextAccessorMock.Object
         );
-        Instance instance = new()
+        InstanceInternal instance = new()
         {
-            Id = "test",
+            Id = Guid.NewGuid(),
             InstanceOwner = new InstanceOwner { PartyId = "someId" },
             Process = new ProcessState(),
         };
-        DataElement dataElement = new() { Id = "test" };
+        DataElementInternal dataElement = new() { Id = Guid.NewGuid() };
 
         // Act and Assert
         InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
@@ -118,13 +165,13 @@ public class InstanceEventServiceTests
             instanceEventRepositoryMock.Object,
             contextAccessorMock.Object
         );
-        Instance instance = new()
+        InstanceInternal instance = new()
         {
-            Id = "test",
+            Id = Guid.NewGuid(),
             InstanceOwner = new InstanceOwner { PartyId = "someId" },
             Process = new ProcessState(),
         };
-        DataElement dataElement = new() { Id = "test" };
+        DataElementInternal dataElement = new() { Id = Guid.NewGuid() };
 
         // Act and Assert
         InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(

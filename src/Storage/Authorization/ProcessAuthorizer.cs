@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Microsoft.Extensions.Options;
 
 namespace Altinn.Platform.Storage.Authorization;
@@ -28,23 +29,24 @@ public class ProcessAuthorizer : IProcessAuthorizer
     }
 
     /// <inheritdoc/>
-    public Task<bool> AuthorizeProcessNext(Instance instance, ProcessState nextProcessState)
+    public Task<bool> AuthorizeProcessNext(InstanceInternal instance, ProcessState nextProcessState)
     {
         ArgumentNullException.ThrowIfNull(nextProcessState);
         return Authorize(instance, nextProcessState);
     }
 
     /// <inheritdoc/>
-    public Task<bool> AuthorizeInstanceLock(Instance instance) => Authorize(instance);
+    public Task<bool> AuthorizeInstanceLock(InstanceInternal instance) => Authorize(instance);
 
     /// <inheritdoc/>
-    public Task<bool> AuthorizeDataElementLock(Instance instance) => Authorize(instance);
+    public Task<bool> AuthorizeDataElementLock(InstanceInternal instance) => Authorize(instance);
 
     /// <inheritdoc/>
-    public Task<bool> AuthorizePresentationTextsUpdate(Instance instance) => Authorize(instance);
+    public Task<bool> AuthorizePresentationTextsUpdate(InstanceInternal instance) =>
+        Authorize(instance);
 
     /// <inheritdoc/>
-    public Task<bool> AuthorizeDataValuesUpdate(Instance instance) =>
+    public Task<bool> AuthorizeDataValuesUpdate(InstanceInternal instance) =>
         AuthorizeWithSyncAdapterBypass(instance);
 
     /// <summary>
@@ -67,7 +69,7 @@ public class ProcessAuthorizer : IProcessAuthorizer
         };
     }
 
-    private Task<bool> AuthorizeWithSyncAdapterBypass(Instance instance)
+    private Task<bool> AuthorizeWithSyncAdapterBypass(InstanceInternal instance)
     {
         if (_authorizationService.UserHasRequiredScope(_generalSettings.InstanceSyncAdapterScope))
         {
@@ -77,7 +79,7 @@ public class ProcessAuthorizer : IProcessAuthorizer
         return Authorize(instance);
     }
 
-    private async Task<bool> Authorize(Instance instance)
+    private async Task<bool> Authorize(InstanceInternal instance)
     {
         string? taskId = instance.Process?.CurrentTask?.ElementId;
         string? altinnTaskType = instance.Process?.CurrentTask?.AltinnTaskType;
@@ -100,7 +102,7 @@ public class ProcessAuthorizer : IProcessAuthorizer
         return false;
     }
 
-    private async Task<bool> Authorize(Instance instance, ProcessState nextProcessState)
+    private async Task<bool> Authorize(InstanceInternal instance, ProcessState nextProcessState)
     {
         if (instance.Process?.CurrentTask is null)
         {

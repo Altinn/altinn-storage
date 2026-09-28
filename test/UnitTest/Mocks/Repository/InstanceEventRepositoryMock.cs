@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Newtonsoft.Json;
@@ -13,26 +14,26 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 
 public class InstanceEventRepositoryMock : IInstanceEventRepository
 {
-    public Task<int> DeleteAllInstanceEvents(string instanceId)
+    public Task<int> DeleteAllInstanceEvents(Guid instanceGuid)
     {
         throw new NotImplementedException();
     }
 
-    public Task<InstanceEvent> GetOneEvent(string instanceId, Guid eventGuid)
+    public Task<InstanceEvent> GetOneEvent(Guid instanceGuid, Guid eventGuid)
     {
         throw new NotImplementedException();
     }
 
     public Task<InstanceEvent> InsertInstanceEvent(
         InstanceEvent instanceEvent,
-        Instance instance = null
+        InstanceInternal instance = null
     )
     {
         return Task.FromResult(instanceEvent);
     }
 
     public async Task<List<InstanceEvent>> ListInstanceEvents(
-        string instanceId,
+        Guid instanceGuid,
         string[] eventTypes,
         DateTime? fromDateTime,
         DateTime? toDateTime
@@ -42,10 +43,7 @@ public class InstanceEventRepositoryMock : IInstanceEventRepository
 
         lock (TestDataUtil.DataLock)
         {
-            string eventsPath = GetInstanceEventsPath(
-                instanceId.Split("/")[1],
-                instanceId.Split("/")[0]
-            );
+            string eventsPath = GetInstanceEventsPath();
             if (Directory.Exists(eventsPath))
             {
                 string[] instanceEventPath = Directory.GetFiles(eventsPath);
@@ -61,7 +59,7 @@ public class InstanceEventRepositoryMock : IInstanceEventRepository
         return await Task.FromResult(events);
     }
 
-    private static string GetInstanceEventsPath(string _, string instanceOwnerPartyId)
+    private static string GetInstanceEventsPath()
     {
         string unitTestFolder = Path.GetDirectoryName(
             new Uri(typeof(InstanceRepositoryMock).Assembly.Location).LocalPath

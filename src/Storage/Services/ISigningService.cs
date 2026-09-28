@@ -19,11 +19,15 @@ public interface ISigningService
     /// <param name="instanceGuid">The instance guid</param>
     /// <param name="signRequest">Sign request containing data element ids and sign status</param>
     /// <param name="performedBy">User id or org no for the authenticated user</param>
+    /// <param name="expectedInstanceVersion">Expected instance version for optimistic concurrency checks.</param>
+    /// <param name="expectedProcessStateVersion">Expected process state version for optimistic concurrency checks.</param>
     /// <param name="cancellationToken">CancellationToken</param>
-    Task<(bool Created, ServiceError ServiceError)> CreateSignDocument(
+    Task<SignDocumentCreateResult> CreateSignDocument(
         Guid instanceGuid,
         SignRequest signRequest,
         string performedBy,
+        int? expectedInstanceVersion,
+        int? expectedProcessStateVersion,
         CancellationToken cancellationToken
     );
 }
