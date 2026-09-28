@@ -15,18 +15,21 @@ CREATE OR REPLACE FUNCTION storage.updatedataelement_v3(
 AS $BODY$
 DECLARE
     _lastChanged6digits TEXT;
+    _instanceIsHardDeleted BOOL;
     _currentInstanceVersion INT;
     _currentProcessStateVersion INT;
     _currentProcessStatus TEXT;
     _newInstanceVersion INT;
+    _dataElementIsHardDeleted BOOL;
     _dataElementIsLocked BOOL;
     _dataElementCurrentBlobVersion UUID;
 BEGIN
     SELECT
+        COALESCE((i.instance -> 'Status' ->> 'IsHardDeleted')::BOOLEAN, FALSE),
         i.instance_version,
         i.process_state_version,
         COALESCE(i.instance -> 'Process' ->> 'Status', 'idle')
-        INTO _currentInstanceVersion, _currentProcessStateVersion, _currentProcessStatus
+        INTO _instanceIsHardDeleted, _currentInstanceVersion, _currentProcessStateVersion, _currentProcessStatus
         FROM storage.instances i
         WHERE i.alternateid = _instanceGuid
         FOR UPDATE;
@@ -49,9 +52,16 @@ BEGIN
         RETURN;
     END IF;
 
-    SELECT COALESCE((d.element ->> 'Locked')::BOOLEAN, FALSE),
+    IF _instanceIsHardDeleted
+    THEN
+        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, _currentProcessStatus, 'hard_deleted'::TEXT;
+        RETURN;
+    END IF;
+
+    SELECT COALESCE((d.element -> 'DeleteStatus' ->> 'IsHardDeleted')::BOOLEAN, FALSE),
+        COALESCE((d.element ->> 'Locked')::BOOLEAN, FALSE),
         d.currentblobversion
-        INTO _dataElementIsLocked, _dataElementCurrentBlobVersion
+        INTO _dataElementIsHardDeleted, _dataElementIsLocked, _dataElementCurrentBlobVersion
         FROM storage.dataelements d
         WHERE d.alternateid = _dataelementGuid AND d.instanceguid = _instanceGuid
         FOR UPDATE;
@@ -65,6 +75,12 @@ BEGIN
     IF _expectedcurrentblobversion IS NOT NULL AND _dataElementCurrentBlobVersion IS DISTINCT FROM _expectedcurrentblobversion
     THEN
         RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, _currentProcessStatus, 'version_mismatch'::TEXT;
+        RETURN;
+    END IF;
+
+    IF _dataElementIsHardDeleted
+    THEN
+        RETURN QUERY SELECT NULL::JSONB, NULL::UUID, _currentInstanceVersion, _currentProcessStateVersion, _currentProcessStatus, 'hard_deleted'::TEXT;
         RETURN;
     END IF;
 

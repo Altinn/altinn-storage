@@ -1127,6 +1127,13 @@ public class InstanceMutationsController(
             );
         }
 
+        if (dataElement.DeleteStatus?.IsHardDeleted == true)
+        {
+            return new ConflictObjectResult(
+                $"Data element {update.DataElementId} is deleted and cannot be updated"
+            );
+        }
+
         return null;
     }
 

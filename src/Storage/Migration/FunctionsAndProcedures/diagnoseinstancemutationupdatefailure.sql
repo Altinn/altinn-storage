@@ -32,6 +32,7 @@ BEGIN
             targetdataelements.ignorelock,
             dataelement.alternateid IS NOT NULL AS targetexists,
             dataelement.currentblobversion,
+            COALESCE((dataelement.element -> 'DeleteStatus' ->> 'IsHardDeleted')::BOOLEAN, false) AS elementisharddeleted,
             COALESCE((dataelement.element ->> 'Locked')::BOOLEAN, false) AS elementislocked
         FROM targetdataelements
         LEFT JOIN storage.dataelements dataelement
@@ -64,6 +65,17 @@ BEGIN
         SELECT
             targetdataelementstates.ordinality,
             3 AS priority,
+            targetdataelementstates.dataelementid,
+            'data_element_hard_deleted'::TEXT AS errorcode
+        FROM targetdataelementstates
+        WHERE targetdataelementstates.targetexists
+            AND targetdataelementstates.elementisharddeleted
+
+        UNION ALL
+
+        SELECT
+            targetdataelementstates.ordinality,
+            4 AS priority,
             targetdataelementstates.dataelementid,
             'locked'::TEXT AS errorcode
         FROM targetdataelementstates
