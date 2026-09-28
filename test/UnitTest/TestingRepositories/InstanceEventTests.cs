@@ -15,8 +15,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories;
 [Collection("StoragePostgreSQL")]
 public class InstanceEventTests : IClassFixture<InstanceEventFixture>
 {
-    private static readonly Guid _instanceGuid = Guid.NewGuid();
-    private static readonly string _instanceId = _instanceGuid.ToString();
+    private static readonly string _instanceId = Guid.NewGuid().ToString();
 
     private readonly InstanceEventFixture _instanceEventFixture;
 
@@ -79,33 +78,12 @@ public class InstanceEventTests : IClassFixture<InstanceEventFixture>
 
         // Act
         InstanceEvent ie = await _instanceEventFixture.InstanceEventRepo.GetOneEvent(
-            _instanceGuid,
+            null,
             (Guid)_ie1.Id
         );
 
         // Assert
         Assert.Equal(ie.Id, _ie1.Id);
-    }
-
-    /// <summary>
-    /// Test GetOneEvent
-    /// Expected: An event is only readable through the instance that owns it
-    /// Success: Null is returned when the event belongs to another instance
-    /// </summary>
-    [Fact]
-    public async Task InstanceEvent_GetOneEvent_EventBelongsToAnotherInstance_ReturnsNull()
-    {
-        // Arrange
-        await _instanceEventFixture.InstanceEventRepo.InsertInstanceEvent(_ie1);
-
-        // Act
-        InstanceEvent ie = await _instanceEventFixture.InstanceEventRepo.GetOneEvent(
-            Guid.NewGuid(),
-            (Guid)_ie1.Id
-        );
-
-        // Assert
-        Assert.Null(ie);
     }
 
     /// <summary>
@@ -121,19 +99,19 @@ public class InstanceEventTests : IClassFixture<InstanceEventFixture>
 
         // Act
         List<InstanceEvent> ies1 = await _instanceEventFixture.InstanceEventRepo.ListInstanceEvents(
-            _instanceGuid,
+            _instanceId,
             null,
             null,
             null
         );
         List<InstanceEvent> ies2 = await _instanceEventFixture.InstanceEventRepo.ListInstanceEvents(
-            _instanceGuid,
+            _instanceId,
             ["et1"],
             null,
             null
         );
         List<InstanceEvent> ies3 = await _instanceEventFixture.InstanceEventRepo.ListInstanceEvents(
-            _instanceGuid,
+            _instanceId,
             null,
             DateTime.Parse(
                 "2013-06-16",
@@ -163,7 +141,7 @@ public class InstanceEventTests : IClassFixture<InstanceEventFixture>
 
         // Act
         int count = await _instanceEventFixture.InstanceEventRepo.DeleteAllInstanceEvents(
-            _instanceGuid
+            _instanceId
         );
 
         // Assert

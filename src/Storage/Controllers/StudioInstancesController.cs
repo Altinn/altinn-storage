@@ -78,8 +78,9 @@ public class StudioInstancesController : ControllerBase
 
         try
         {
-            InstanceQueryResult result = await _instanceRepository.GetInstancesFromQuery(
+            InstanceQueryResponse result = await _instanceRepository.GetInstancesFromQuery(
                 parameters.ToInstanceQueryParameters(),
+                false,
                 ct
             );
 
@@ -92,7 +93,7 @@ public class StudioInstancesController : ControllerBase
                 return StatusCode(ct.IsCancellationRequested ? 499 : 500, result.Exception);
             }
 
-            string? nextContinuationToken = HttpUtility.UrlEncode(result.ContinuationToken);
+            string nextContinuationToken = HttpUtility.UrlEncode(result.ContinuationToken);
 
             QueryResponse<SimpleInstance> response = new()
             {
@@ -135,7 +136,7 @@ public class StudioInstancesController : ControllerBase
     {
         try
         {
-            InstanceInternal result = await _instanceRepository.GetOne(instanceGuid, true, ct);
+            (var result, _) = await _instanceRepository.GetOne(instanceGuid, true, ct);
             if (result == null || result.Org != org || result.AppId != $"{org}/{app}")
             {
                 return NotFound();
@@ -166,7 +167,6 @@ public class StudioInstancesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult> DeleteInstance(
         [FromRoute] string org,
@@ -175,7 +175,9 @@ public class StudioInstancesController : ControllerBase
         CancellationToken ct
     )
     {
-        InstanceInternal instance = await _instanceRepository.GetOne(instanceGuid, false, ct);
+        Instance instance;
+
+        (instance, _) = await _instanceRepository.GetOne(instanceGuid, false, ct);
 
         if (instance == null || instance.Org != org || instance.AppId != $"{org}/{app}")
         {
@@ -232,10 +234,10 @@ public class StudioInstancesController : ControllerBase
                     $"Could not resolve organisation number for service owner '{instance.Org}'."
                 );
 
-            InstanceInternal deletedInstance = await _instanceRepository.Update(
+            Instance deletedInstance = await _instanceRepository.Update(
                 instance,
                 updateProperties,
-                cancellationToken: ct
+                ct
             );
 
             PlatformUser studioUser = new() { OrgId = deletedInstance.Org };
@@ -247,10 +249,6 @@ public class StudioInstancesController : ControllerBase
             );
 
             return NoContent();
-        }
-        catch (ProcessStatusConflictException e)
-        {
-            return Conflict(e.Message);
         }
         catch (Exception e)
         {

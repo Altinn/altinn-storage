@@ -7,9 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Controllers;
-using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Interface.Models;
-using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Microsoft.AspNetCore.Http;
@@ -115,10 +113,16 @@ public class DataLockControllerUnitTests
         instanceRepoMock.VerifyNoOtherCalls();
         dataRepositoryMock.Verify(
             d =>
-                d.UpdateLockStatus(
+                d.Update(
                     instanceGuid,
                     dataElementId,
-                    true,
+                    It.Is<Dictionary<string, object>>(p =>
+                        VerifyPropertyListInput(
+                            expectedPropertiesForPatch.Count,
+                            expectedPropertiesForPatch,
+                            p
+                        )
+                    ),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -188,10 +192,16 @@ public class DataLockControllerUnitTests
         Assert.IsType<OkObjectResult>(result.Result);
         dataRepositoryMock.Verify(
             d =>
-                d.UpdateLockStatus(
+                d.Update(
                     instanceGuid,
                     dataElementId,
-                    false,
+                    It.Is<Dictionary<string, object>>(p =>
+                        VerifyPropertyListInput(
+                            expectedPropertiesForPatch.Count,
+                            expectedPropertiesForPatch,
+                            p
+                        )
+                    ),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -341,23 +351,35 @@ public class DataLockControllerUnitTests
         {
             dataRepositoryMock
                 .Setup(d =>
-                    d.UpdateLockStatus(
+                    d.Update(
                         It.IsAny<Guid>(),
                         It.Is<Guid>(g => g == dataGuid),
-                        It.IsAny<bool>(),
+                        It.Is<Dictionary<string, object>>(propertyList =>
+                            VerifyPropertyListInput(
+                                expectedPropertiesForPatch.Count,
+                                expectedPropertiesForPatch,
+                                propertyList
+                            )
+                        ),
                         It.IsAny<CancellationToken>()
                     )
                 )
-                .ReturnsAsync(new DataElement { Id = dataGuid.ToString() });
+                .ReturnsAsync(new DataElement());
         }
         else
         {
             dataRepositoryMock
                 .Setup(d =>
-                    d.UpdateLockStatus(
+                    d.Update(
                         It.IsAny<Guid>(),
                         It.Is<Guid>(g => g == dataGuid),
-                        It.IsAny<bool>(),
+                        It.Is<Dictionary<string, object>>(propertyList =>
+                            VerifyPropertyListInput(
+                                expectedPropertiesForPatch.Count,
+                                expectedPropertiesForPatch,
+                                propertyList
+                            )
+                        ),
                         It.IsAny<CancellationToken>()
                     )
                 )
@@ -366,14 +388,11 @@ public class DataLockControllerUnitTests
 
         authorizationMock
             .Setup(a =>
-                a.AuthorizeAnyOfInstanceActions(
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<List<string>>()
-                )
+                a.AuthorizeAnyOfInstanceActions(It.IsAny<Instance>(), It.IsAny<List<string>>())
             )
             .ReturnsAsync(authorized);
         processAuthorizerMock
-            .Setup(a => a.AuthorizeDataElementLock(It.IsAny<InstanceInternal>()))
+            .Setup(a => a.AuthorizeDataElementLock(It.IsAny<Instance>()))
             .ReturnsAsync(authorized);
         if (instanceFound)
         {
@@ -386,30 +405,22 @@ public class DataLockControllerUnitTests
                         CancellationToken cancellationToken
                     ) =>
                     {
-                        Instance instance = new()
-                        {
-                            Id = $"555/{instanceGuid}",
-                            InstanceOwner = new() { PartyId = "555" },
-                            Process = new() { CurrentTask = new() { ElementId = "Task_1" } },
-                            Data = !includeDataElements
-                                ? null
-                                : new()
-                                {
-                                    new() { Id = dataGuid.ToString(), Locked = dataLocked },
-                                },
-                            Org = _org,
-                            AppId = _appId,
-                        };
-                        List<DataElementInternal> dataElements =
-                            instance
-                                .Data?.Select(dataElement => dataElement.FromApiModel())
-                                .ToList()
-                            ?? [];
-
-                        return InstanceInternalTestFactory.Create(
-                            instance,
-                            dataElements,
-                            InternalId: 0
+                        return (
+                            new Instance
+                            {
+                                Id = $"555/{instanceGuid}",
+                                InstanceOwner = new() { PartyId = "555" },
+                                Process = new() { CurrentTask = new() { ElementId = "Task_1" } },
+                                Data = !includeDataElements
+                                    ? null
+                                    : new()
+                                    {
+                                        new() { Id = dataGuid.ToString(), Locked = dataLocked },
+                                    },
+                                Org = _org,
+                                AppId = _appId,
+                            },
+                            0
                         );
                     }
                 );
@@ -419,16 +430,18 @@ public class DataLockControllerUnitTests
             instanceRepositoryMock
                 .Setup(ir => ir.GetOne(It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(
-                    (Guid instanceGuid, bool dummy, CancellationToken cancellationToken) => null
+                    (Guid instanceGuid, bool dummy, CancellationToken cancellationToken) =>
+                        (null, 0)
                 );
         }
 
-        HttpContext httpContext = new DefaultHttpContext
-        {
-            User = PrincipalUtil.GetPrincipal(200001, 1337),
-        };
+        Mock<HttpContext> httpContextMock = new();
+        httpContextMock.Setup(c => c.User).Returns(PrincipalUtil.GetPrincipal(200001, 1337));
 
-        ControllerContext controllerContext = new() { HttpContext = httpContext };
+        ControllerContext controllerContext = new ControllerContext()
+        {
+            HttpContext = httpContextMock.Object,
+        };
 
         var sut = new DataLockController(
             instanceRepositoryMock.Object,

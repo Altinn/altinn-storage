@@ -548,6 +548,7 @@ public class InstanceLockControllerTest
 
     private HttpClient GetTestClient(
         IInstanceRepository? instanceRepository = null,
+        IInstanceAndEventsRepository? instanceAndEventsRepository = null,
         IInstanceLockRepository? instanceLockRepository = null,
         bool enableWolverine = false
     )
@@ -600,14 +601,12 @@ public class InstanceLockControllerTest
                                     CancellationToken cancellationToken
                                 ) =>
                                 {
-                                    var instance = await internalInstanceRepositoryMock.GetOne(
+                                    var (instance, _) = await internalInstanceRepositoryMock.GetOne(
                                         _instanceGuid,
                                         false,
                                         cancellationToken
                                     );
-                                    instance?.InternalId = _instanceInternalId;
-
-                                    return instance;
+                                    return (instance, _instanceInternalId);
                                 }
                             );
 
@@ -626,17 +625,27 @@ public class InstanceLockControllerTest
                                     CancellationToken cancellationToken
                                 ) =>
                                 {
-                                    var instance = await internalInstanceRepositoryMock.GetOne(
+                                    var (instance, _) = await internalInstanceRepositoryMock.GetOne(
                                         instanceGuid,
                                         includeElements,
                                         cancellationToken
                                     );
-                                    instance?.InternalId = _instanceInternalId;
-
-                                    return instance;
+                                    return (instance, _instanceInternalId);
                                 }
                             );
                         services.AddSingleton(instanceRepositoryMock.Object);
+                    }
+
+                    if (instanceAndEventsRepository != null)
+                    {
+                        services.AddSingleton(instanceAndEventsRepository);
+                    }
+                    else
+                    {
+                        services.AddSingleton<
+                            IInstanceAndEventsRepository,
+                            InstanceAndEventsRepositoryMock
+                        >();
                     }
 
                     if (instanceLockRepository != null)

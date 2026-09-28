@@ -6,25 +6,17 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Security.Claims;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Web;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
-using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
-using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
-using Altinn.Platform.Storage.Helpers;
-using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
-using Altinn.Platform.Storage.UnitTest.Extensions;
 using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Mocks;
 using Altinn.Platform.Storage.UnitTest.Mocks.Authentication;
@@ -32,21 +24,15 @@ using Altinn.Platform.Storage.UnitTest.Mocks.Clients;
 using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
-using AltinnCore.Authentication.Constants;
 using AltinnCore.Authentication.JwtCookie;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using Wolverine;
 using Xunit;
-using Substatus = Altinn.Platform.Storage.Interface.Models.Substatus;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 
@@ -57,15 +43,6 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 public class InstancesControllerTests(TestApplicationFactory<InstancesController> factory)
     : IClassFixture<TestApplicationFactory<InstancesController>>
 {
-    public enum GuardedInstanceUpdateRoute
-    {
-        Delete,
-        Complete,
-        Substatus,
-        PresentationTexts,
-        DataValues,
-    }
-
     private const string BasePath = "storage/api/v1/instances";
 
     private readonly TestApplicationFactory<InstancesController> _factory = factory;
@@ -513,160 +490,6 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         await _testTelemetry.AssertRequestsWithInvalidScopesCountAsync(invalidScopeRequests);
     }
 
-    [Theory]
-    [InlineData(ProcessStatus.Idle)]
-    [InlineData(ProcessStatus.Processing)]
-    public async Task Post_SupportedProcessStatus_IsAccepted(ProcessStatus processStatus)
-    {
-        string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
-        HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            PrincipalUtil.GetToken(3, 1337, 3)
-        );
-        Instance instance = new()
-        {
-            InstanceOwner = new InstanceOwner { PartyId = "1337" },
-            Process = new ProcessState { Status = processStatus },
-        };
-
-        HttpResponseMessage response = await client.PostAsync(
-            requestUri,
-            JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"))
-        );
-
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        Instance createdInstance = await response.Content.ReadFromJsonAsync<Instance>();
-        Assert.Equal(processStatus, createdInstance.Process.Status);
-    }
-
-    [Theory]
-    [InlineData("IDLE", ProcessStatus.Idle)]
-    [InlineData("Processing", ProcessStatus.Processing)]
-    public async Task Post_ProcessStatusInNonCanonicalCasing_IsNormalized(
-        string suppliedStatus,
-        ProcessStatus expectedStatus
-    )
-    {
-        string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
-        HttpClient client = GetTestClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            PrincipalUtil.GetToken(3, 1337, 3)
-        );
-        StringContent content = new(
-            $$$"""{"instanceOwner":{"partyId":"1337"},"process":{"status":"{{{suppliedStatus}}}"}}""",
-            Encoding.UTF8,
-            "application/json"
-        );
-
-        HttpResponseMessage response = await client.PostAsync(requestUri, content);
-
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        Instance createdInstance = await response.Content.ReadFromJsonAsync<Instance>();
-        Assert.Equal(expectedStatus, createdInstance.Process.Status);
-    }
-
-    /// <summary>
-    /// The status is passed as a raw JSON literal so the numeric forms a string enum would otherwise
-    /// accept can be exercised alongside the undeclared string ones.
-    /// </summary>
-    [Theory]
-    [InlineData("\"future-status\"")]
-    [InlineData("\"archived\"")]
-    [InlineData("0")]
-    [InlineData("99")]
-    [InlineData("\"0\"")]
-    public async Task Post_UnsupportedProcessStatus_ReturnsBadRequestBeforeCreation(
-        string processStatusJson
-    )
-    {
-        string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
-        Mock<IInstanceRepository> repository = new(MockBehavior.Strict);
-        HttpClient client = GetTestClient(repository);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            PrincipalUtil.GetToken(3, 1337, 3)
-        );
-        StringContent content = new(
-            $$$"""{"instanceOwner":{"partyId":"1337"},"process":{"status":{{{processStatusJson}}}}}""",
-            Encoding.UTF8,
-            "application/json"
-        );
-
-        HttpResponseMessage response = await client.PostAsync(requestUri, content);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        repository.VerifyNoOtherCalls();
-    }
-
-    /// <summary>
-    /// Test case: Registering the party with the parties-with-instances client fails after
-    /// the instance is created, hitting the catch-all that deletes the instance again.
-    /// Expected: 500 without success version headers, and the created instance is deleted.
-    /// </summary>
-    [Fact]
-    public async Task Post_SetHasAltinn3InstancesThrows_DeletesInstanceAndOmitsVersionHeaders()
-    {
-        // Arrange
-        string appId = "tdd/endring-av-navn";
-        string requestUri = $"{BasePath}?appId={appId}";
-
-        Mock<IInstanceRepository> repositoryMock = new();
-        repositoryMock
-            .Setup(r =>
-                r.Create(
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<CancellationToken>(),
-                    It.IsAny<int>()
-                )
-            )
-            .ReturnsAsync(
-                (InstanceInternal toCreate, CancellationToken _, int _) =>
-                {
-                    if (toCreate.Id == Guid.Empty)
-                    {
-                        toCreate.Id = Guid.NewGuid();
-                    }
-
-                    toCreate.Versions = new StorageVersions(1, 1);
-                    return toCreate;
-                }
-            );
-        repositoryMock
-            .Setup(r => r.Delete(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-
-        Mock<IPartiesWithInstancesClient> partiesWithInstancesClient = new();
-        partiesWithInstancesClient
-            .Setup(c => c.SetHasAltinn3Instances(It.IsAny<int>()))
-            .ThrowsAsync(new InvalidOperationException("parties registration failed"));
-
-        HttpClient client = GetTestClient(
-            repositoryMock,
-            partiesWithInstancesClient: partiesWithInstancesClient
-        );
-        string token = PrincipalUtil.GetToken(3, 1337, 3);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        Instance instance = new() { InstanceOwner = new InstanceOwner { PartyId = "1337" } };
-
-        // Act
-        HttpResponseMessage response = await client.PostAsync(
-            requestUri,
-            JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"))
-        );
-
-        // Assert
-        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
-        Assert.False(response.Headers.Contains(StorageHeaders.InstanceVersion));
-        Assert.False(response.Headers.Contains(StorageHeaders.ProcessStateVersion));
-        repositoryMock.Verify(
-            r => r.Delete(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
-            Times.Once
-        );
-    }
-
     /// <summary>
     /// Test case: User has to low authentication level.
     /// Expected: Returns status forbidden.
@@ -1014,9 +837,9 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         // Act
         HttpResponseMessage response = await client.GetAsync(requestUri);
         string json = await response.Content.ReadAsStringAsync();
-        QueryResponse<Instance> queryResponse = JsonConvert.DeserializeObject<
-            QueryResponse<Instance>
-        >(json);
+        InstanceQueryResponse queryResponse = JsonConvert.DeserializeObject<InstanceQueryResponse>(
+            json
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -1045,9 +868,9 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         // Act
         HttpResponseMessage response = await client.GetAsync(requestUri);
         string json = await response.Content.ReadAsStringAsync();
-        QueryResponse<Instance> queryResponse = JsonConvert.DeserializeObject<
-            QueryResponse<Instance>
-        >(json);
+        InstanceQueryResponse queryResponse = JsonConvert.DeserializeObject<InstanceQueryResponse>(
+            json
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -1075,9 +898,9 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         // Act
         HttpResponseMessage response = await client.GetAsync(requestUri);
         string json = await response.Content.ReadAsStringAsync();
-        QueryResponse<Instance> queryResponse = JsonConvert.DeserializeObject<
-            QueryResponse<Instance>
-        >(json);
+        InstanceQueryResponse queryResponse = JsonConvert.DeserializeObject<InstanceQueryResponse>(
+            json
+        );
 
         // Assert
         if (scope != string.Empty)
@@ -1167,9 +990,9 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         // Act
         HttpResponseMessage response = await client.GetAsync(requestUri);
         string json = await response.Content.ReadAsStringAsync();
-        QueryResponse<Instance> queryResponse = JsonConvert.DeserializeObject<
-            QueryResponse<Instance>
-        >(json);
+        InstanceQueryResponse queryResponse = JsonConvert.DeserializeObject<InstanceQueryResponse>(
+            json
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -1196,9 +1019,9 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         // Act
         HttpResponseMessage response = await client.GetAsync(requestUri);
         string json = await response.Content.ReadAsStringAsync();
-        QueryResponse<Instance> queryResponse = JsonConvert.DeserializeObject<
-            QueryResponse<Instance>
-        >(json);
+        InstanceQueryResponse queryResponse = JsonConvert.DeserializeObject<InstanceQueryResponse>(
+            json
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -1224,306 +1047,13 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         // Act
         HttpResponseMessage response = await client.GetAsync(requestUri);
         string json = await response.Content.ReadAsStringAsync();
-        QueryResponse<Instance> queryResponse = JsonConvert.DeserializeObject<
-            QueryResponse<Instance>
-        >(json);
+        InstanceQueryResponse queryResponse = JsonConvert.DeserializeObject<InstanceQueryResponse>(
+            json
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(expectedNoInstances, queryResponse.Count);
-    }
-
-    [Fact]
-    public async Task GetMany_DomainQuery_AuthorizesThenMapsAndShapesExactPublicInstanceJson()
-    {
-        Guid instanceId = Guid.NewGuid();
-        Guid visibleDataId = Guid.NewGuid();
-        Guid deletedDataId = Guid.NewGuid();
-        InstanceInternal authorizedInstance = new()
-        {
-            Id = instanceId,
-            InstanceOwner = new InstanceOwner { PartyId = "1337" },
-            AppId = "ttd/domain-query",
-            Org = "ttd",
-            Status = new InstanceStatus(),
-            Created = new DateTime(2026, 7, 11, 10, 30, 0, DateTimeKind.Utc),
-            CreatedBy = "12345",
-            LastChanged = new DateTime(2026, 7, 11, 11, 45, 0, DateTimeKind.Utc),
-            LastChangedBy = "12345",
-            DataValues = new Dictionary<string, string> { ["nested"] = "preserved" },
-            Data =
-            [
-                new DataElementInternal
-                {
-                    Id = visibleDataId,
-                    InstanceGuid = instanceId,
-                    DataType = "model",
-                    Filename = "payload.json",
-                    ContentType = "application/json",
-                    Size = 42,
-                    Tags = ["visible"],
-                    BlobVersionId = "visible-content-version",
-                },
-                new DataElementInternal
-                {
-                    Id = deletedDataId,
-                    InstanceGuid = instanceId,
-                    DataType = "attachment",
-                    DeleteStatus = new DeleteStatus { IsHardDeleted = true },
-                    BlobVersionId = "must-not-leak-either",
-                },
-            ],
-        };
-        InstanceInternal deniedInstance = new()
-        {
-            Id = new Guid("b45ea5db-6dd4-4476-b774-bdb2a09da7ea"),
-            InstanceOwner = new InstanceOwner { PartyId = "1337" },
-            AppId = "ttd/domain-query",
-            Org = "ttd",
-            Status = new InstanceStatus(),
-            Data = [],
-        };
-        Mock<IInstanceRepository> repository = new();
-        repository
-            .Setup(instanceRepository =>
-                instanceRepository.GetInstancesFromQuery(
-                    It.Is<InstanceQueryParameters>(query =>
-                        query.InstanceOwnerPartyId == 1337
-                        && query.IsHardDeleted == false
-                        && query.SortBy == "desc:lastChanged"
-                        && query.MainVersionInclude == 3
-                        && query.Size == 100
-                        && query.ContinuationToken == "current/token"
-                    ),
-                    It.IsAny<CancellationToken>()
-                )
-            )
-            .ReturnsAsync(
-                new InstanceQueryResult
-                {
-                    ContinuationToken = "next/token",
-                    Instances = [authorizedInstance, deniedInstance],
-                }
-            );
-        Mock<IAuthorization> authorization = new();
-        authorization
-            .Setup(service => service.UserHasRequiredScope(It.IsAny<string>()))
-            .Returns(false);
-        authorization
-            .Setup(service => service.AuthorizeInstances(It.IsAny<List<InstanceInternal>>()))
-            .ReturnsAsync([authorizedInstance]);
-        HttpClient client = GetTestClient(repository, authorizationService: authorization);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            PrincipalUtil.GetToken(3, 1337)
-        );
-
-        HttpResponseMessage response = await client.GetAsync(
-            $"{BasePath}?instanceOwner.partyId=1337&continuationToken=current%2Ftoken"
-        );
-        JObject json = JObject.Parse(await response.Content.ReadAsStringAsync());
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(1, json.Value<int>("count"));
-        Assert.Contains("continuationToken=current%2Ftoken", json.Value<string>("self"));
-        Assert.Equal(
-            "next/token",
-            HttpUtility.UrlDecode(
-                HttpUtility.ParseQueryString(new Uri(json.Value<string>("next")).Query)[
-                    "continuationToken"
-                ]
-            )
-        );
-        JToken publicInstance = Assert.Single((JArray)json["instances"]);
-        Instance expected = new()
-        {
-            Id = $"1337/{instanceId}",
-            InstanceOwner = authorizedInstance.InstanceOwner,
-            AppId = "ttd/domain-query",
-            Org = "ttd",
-            Status = authorizedInstance.Status,
-            Created = authorizedInstance.Created,
-            CreatedBy = "12345",
-            LastChanged = authorizedInstance.LastChanged,
-            LastChangedBy = "12345",
-            DataValues = new Dictionary<string, string> { ["nested"] = "preserved" },
-            Data =
-            [
-                new DataElement
-                {
-                    Id = visibleDataId.ToString(),
-                    InstanceGuid = instanceId.ToString(),
-                    DataType = "model",
-                    Filename = "payload.json",
-                    ContentType = "application/json",
-                    Size = 42,
-                    BlobVersionId = "visible-content-version",
-                    Tags = ["visible"],
-                },
-            ],
-        };
-        expected.SetPlatformSelfLinks("at22.altinn.cloud/storage/api/v1/");
-        Assert.True(
-            JToken.DeepEquals(JToken.Parse(JsonConvert.SerializeObject(expected)), publicInstance)
-        );
-        Assert.Equal($"1337/{instanceId}", publicInstance.Value<string>("id"));
-        Assert.Equal("preserved", publicInstance["dataValues"].Value<string>("nested"));
-        Assert.DoesNotContain(
-            "must-not-leak-either",
-            publicInstance.ToString(),
-            StringComparison.Ordinal
-        );
-        Assert.Equal(2, authorizedInstance.Data.Count);
-        repository.VerifyAll();
-        authorization.Verify(
-            service => service.AuthorizeInstances(It.IsAny<List<InstanceInternal>>()),
-            Times.Once
-        );
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task GetMany_AuthorizationBypass_PreservesHardDeletedDataInPublicResponse(
-        bool syncAdapter
-    )
-    {
-        Guid instanceId = Guid.NewGuid();
-        Guid hardDeletedDataId = Guid.NewGuid();
-        InstanceInternal instance = new()
-        {
-            Id = instanceId,
-            InstanceOwner = new InstanceOwner { PartyId = "1337" },
-            AppId = "ttd/domain-query",
-            Org = "ttd",
-            Status = new InstanceStatus(),
-            Data =
-            [
-                new DataElementInternal
-                {
-                    Id = hardDeletedDataId,
-                    InstanceGuid = instanceId,
-                    DataType = "attachment",
-                    DeleteStatus = new DeleteStatus
-                    {
-                        IsHardDeleted = true,
-                        HardDeleted = new DateTime(2026, 7, 11, 12, 0, 0, DateTimeKind.Utc),
-                    },
-                },
-            ],
-        };
-        Mock<IInstanceRepository> repository = new();
-        repository
-            .Setup(instanceRepository =>
-                instanceRepository.GetInstancesFromQuery(
-                    It.Is<InstanceQueryParameters>(query => query.AppId == "ttd/domain-query"),
-                    It.IsAny<CancellationToken>()
-                )
-            )
-            .ReturnsAsync(new InstanceQueryResult { Instances = [instance] });
-        Mock<IAuthorization> authorization = new(MockBehavior.Strict);
-        authorization
-            .Setup(service => service.UserHasRequiredScope("altinn:storage/instances.syncadapter"))
-            .Returns(syncAdapter);
-
-        HttpClient client = GetTestClient(repository, authorizationService: authorization);
-        string token = syncAdapter
-            ? PrincipalUtil.GetOrgToken("digdir", scope: "altinn:storage/instances.syncadapter")
-            : PrincipalUtil.GetToken(3, 1337, scopes: ["altinn:serviceowner/instances.read"]);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        string requestUri = syncAdapter
-            ? $"{BasePath}?appId=ttd/domain-query"
-            : $"{BasePath}?appId=ttd/domain-query&instanceOwner.partyId=1337";
-        HttpResponseMessage response = await client.GetAsync(requestUri);
-        string responseContent = await response.Content.ReadAsStringAsync();
-
-        Assert.True(response.StatusCode == HttpStatusCode.OK, responseContent);
-        JObject json = JObject.Parse(responseContent);
-        JToken responseInstance = Assert.Single((JArray)json["instances"]);
-        JToken responseData = Assert.Single((JArray)responseInstance["data"]);
-        Assert.Equal($"1337/{instanceId}", responseInstance.Value<string>("id"));
-        Assert.Equal(hardDeletedDataId.ToString(), responseData.Value<string>("id"));
-        Assert.True(responseData["deleteStatus"].Value<bool>("isHardDeleted"));
-        Assert.NotNull(responseData["selfLinks"].Value<string>("platform"));
-        authorization.Verify(
-            service => service.AuthorizeInstances(It.IsAny<List<InstanceInternal>>()),
-            Times.Never
-        );
-        repository.VerifyAll();
-    }
-
-    [Fact]
-    public async Task GetMany_DomainQueryRepositoryError_PreservesInternalServerError()
-    {
-        Mock<IInstanceRepository> repository = new();
-        repository
-            .Setup(instanceRepository =>
-                instanceRepository.GetInstancesFromQuery(
-                    It.IsAny<InstanceQueryParameters>(),
-                    It.IsAny<CancellationToken>()
-                )
-            )
-            .ReturnsAsync(new InstanceQueryResult { Exception = "query failed" });
-        HttpClient client = GetTestClient(repository);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            PrincipalUtil.GetToken(3, 1337)
-        );
-
-        HttpResponseMessage response = await client.GetAsync(
-            $"{BasePath}?instanceOwner.partyId=1337"
-        );
-
-        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
-        Assert.Contains("query failed", await response.Content.ReadAsStringAsync());
-    }
-
-    [Fact]
-    public async Task GetMany_DomainQueryCanceledResult_Preserves499Status()
-    {
-        using CancellationTokenSource cancellationSource = new();
-        cancellationSource.Cancel();
-        Mock<IInstanceRepository> repository = new();
-        repository
-            .Setup(instanceRepository =>
-                instanceRepository.GetInstancesFromQuery(
-                    It.IsAny<InstanceQueryParameters>(),
-                    cancellationSource.Token
-                )
-            )
-            .ReturnsAsync(new InstanceQueryResult { Exception = "request cancelled" });
-        Mock<IAuthorization> authorization = new();
-        authorization
-            .Setup(service => service.UserHasRequiredScope(It.IsAny<string>()))
-            .Returns(false);
-        InstancesController controller = new(
-            repository.Object,
-            Mock.Of<IPartiesWithInstancesClient>(),
-            Mock.Of<ILogger<InstancesController>>(),
-            authorization.Object,
-            Mock.Of<IInstanceEventService>(),
-            Mock.Of<IRegisterService>(),
-            Mock.Of<IApplicationService>(),
-            Options.Create(new Altinn.Platform.Storage.Configuration.GeneralSettings()),
-            Mock.Of<IProcessAuthorizer>()
-        )
-        {
-            ControllerContext = new ControllerContext
-            {
-                HttpContext = new DefaultHttpContext { User = PrincipalUtil.GetPrincipal(3, 1337) },
-            },
-        };
-
-        ActionResult<QueryResponse<Instance>> action = await controller.GetInstances(
-            new InstanceQueryParameters { InstanceOwnerPartyId = 1337 },
-            cancellationSource.Token
-        );
-
-        ObjectResult result = Assert.IsType<ObjectResult>(action.Result);
-        Assert.Equal(499, result.StatusCode);
-        Assert.Equal("request cancelled", result.Value);
-        repository.VerifyAll();
     }
 
     /// <summary>
@@ -1765,9 +1295,9 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         // Act
         HttpResponseMessage response = await client.GetAsync(requestUri);
         string responseMessage = await response.Content.ReadAsStringAsync();
-        QueryResponse<Instance> queryResponse = JsonConvert.DeserializeObject<
-            QueryResponse<Instance>
-        >(responseMessage);
+        InstanceQueryResponse queryResponse = JsonConvert.DeserializeObject<InstanceQueryResponse>(
+            responseMessage
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -1789,7 +1319,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                     It.IsAny<CancellationToken>()
                 )
             )
-            .ReturnsAsync(new InstanceQueryResult { Instances = [] });
+            .ReturnsAsync(new InstanceQueryResponse { Instances = new() });
 
         string requestUri = $"{BasePath}?instanceOwner.partyId=1337";
 
@@ -1800,7 +1330,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         // Act
         HttpResponseMessage response = await client.GetAsync(requestUri);
         string responseMessage = await response.Content.ReadAsStringAsync();
-        JsonConvert.DeserializeObject<QueryResponse<Instance>>(responseMessage);
+        JsonConvert.DeserializeObject<InstanceQueryResponse>(responseMessage);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -1824,7 +1354,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                     It.IsAny<CancellationToken>()
                 )
             )
-            .ReturnsAsync(new InstanceQueryResult { Instances = [] });
+            .ReturnsAsync(new InstanceQueryResponse { Instances = new() });
 
         string requestUri = $"{BasePath}?instanceOwner.partyId=1337&dataValues.A2ArchRef=123456";
 
@@ -1857,7 +1387,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                     It.IsAny<CancellationToken>()
                 )
             )
-            .ReturnsAsync(new InstanceQueryResult { Instances = [] });
+            .ReturnsAsync(new InstanceQueryResponse { Instances = new() });
 
         string requestUri = $"{BasePath}?instanceOwner.partyId=1337&A3Ref=b7fe18ccff30";
 
@@ -1917,7 +1447,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                     It.IsAny<CancellationToken>()
                 )
             )
-            .ReturnsAsync(new InstanceQueryResult { Instances = [] });
+            .ReturnsAsync(new InstanceQueryResponse { Instances = new() });
 
         string requestUri =
             $"{BasePath}?instanceOwner.partyId=1337&continuationToken=thisIsTheFirstToken";
@@ -1929,9 +1459,9 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         // Act
         HttpResponseMessage response = await client.GetAsync(requestUri);
         string responseMessage = await response.Content.ReadAsStringAsync();
-        QueryResponse<Instance> queryResponse = JsonConvert.DeserializeObject<
-            QueryResponse<Instance>
-        >(responseMessage);
+        InstanceQueryResponse queryResponse = JsonConvert.DeserializeObject<InstanceQueryResponse>(
+            responseMessage
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -2011,9 +1541,9 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         // Act
         HttpResponseMessage response = await client.GetAsync(requestUri);
         string json = await response.Content.ReadAsStringAsync();
-        QueryResponse<Instance> queryResponse = JsonConvert.DeserializeObject<
-            QueryResponse<Instance>
-        >(json);
+        InstanceQueryResponse queryResponse = JsonConvert.DeserializeObject<InstanceQueryResponse>(
+            json
+        );
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -2582,7 +2112,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// Scenario:
     /// Add presentation fields to an instance that doesn't have any existing presentation fields
     /// Result:
-    /// Presentation fields are successfully added and the updated instance returned.
+    /// Presentation fields are succesfully added and the updated instance returned.
     /// </summary>
     [Fact]
     public async Task UpdatePresentationFields_NoPreviousFieldsSet_ReturnsUpdatedInstance()
@@ -2626,7 +2156,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// Scenario:
     /// Update an existing presentation field
     /// Result:
-    /// Presentation field are successfully updated, other fields are untouched and the updated instance returned.
+    /// Presentation field are succesfully updated, other fields are untouched and the updated instance returned.
     /// </summary>
     [Fact]
     public async Task UpdatePresentationFields_UpdateAnExistingPresentationField_ReturnsUpdatedInstance()
@@ -2671,7 +2201,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// Scenario:
     /// Delete an existing presentation field
     /// Result:
-    /// Presentation field is successfully removed, other fields are untouched and the updated instance returned.
+    /// Presentation field is succesfully removed, other fields are untouched and the updated instance returned.
     /// </summary>
     [Fact]
     public async Task UpdatePresentationFields_RemoveAnExistingPresentationField_ReturnsUpdatedInstance()
@@ -2718,7 +2248,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// Scenario:
     /// Add a new presentation field to an already existing collection of presentation fields
     /// Result:
-    /// Presentation field is successfully added to existing collection and the updated instance returned.
+    /// Presentation field is succesfully added to existing collection and the updated instance returned.
     /// </summary>
     [Fact]
     public async Task UpdatePresentationFields_AddNewPresentationFieldToExistingCollection_ReturnsUpdatedInstance()
@@ -2805,12 +2335,12 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
     /// <summary>
     /// Scenario:
-    /// Send a data values patch through the HTTP endpoint.
+    /// Add the value of a data field to an instance that doesn't have any existing data values
     /// Result:
-    /// Data values are successfully added and the updated instance returned.
+    /// Data values are succesfully added and the updated instance returned.
     /// </summary>
     [Fact]
-    public async Task UpdateDataValues_ReturnsUpdatedInstance()
+    public async Task UpdateDataValues_NoPreviousValuesSet_ReturnsUpdatedInstance()
     {
         // Arrange
         var dataValues = new DataValues
@@ -2839,10 +2369,132 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Dictionary<string, string> actual = updatedInstance.DataValues;
 
         // Assert
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(2, actual.Count);
-        Assert.Equal("value1", actual["key1"]);
-        Assert.Equal("value2", actual["key2"]);
+        Assert.NotNull(actual);
+        Assert.Equal(2, actual.Keys.Count);
+    }
+
+    /// <summary>
+    /// Scenario:
+    /// Update an existing data value
+    /// Result:
+    /// Data values are succesfully updated, other values are untouched and the updated instance returned.
+    /// </summary>
+    [Fact]
+    public async Task UpdateDataValues_UpdateAnExistingDataValue_ReturnsUpdatedInstance()
+    {
+        // Arrange
+        var dataValues = new DataValues
+        {
+            Values = new Dictionary<string, string> { { "key1", "updatedvalue1" } },
+        };
+
+        int instanceOwnerPartyId = 1337;
+        string instanceGuid = "20a1353e-91cf-44d6-8ff7-f68993638ffe";
+        string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/datavalues";
+
+        HttpClient client = GetTestClient();
+
+        string token = PrincipalUtil.GetToken(3, 1337);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Put, requestUri)
+        {
+            Content = JsonContent.Create(dataValues, new MediaTypeHeaderValue("application/json")),
+        };
+
+        // Act
+        HttpResponseMessage response = await client.SendAsync(httpRequestMessage);
+
+        string json = await response.Content.ReadAsStringAsync();
+        Instance updatedInstance = JsonConvert.DeserializeObject<Instance>(json);
+        Dictionary<string, string> actual = updatedInstance.DataValues;
+
+        // Assert
+        Assert.Equal(2, actual.Keys.Count);
+        Assert.True(actual.ContainsKey("key2"));
+        Assert.Equal("updatedvalue1", actual["key1"]);
+    }
+
+    /// <summary>
+    /// Scenario:
+    /// Delete an existing data value
+    /// Result:
+    /// Data value is succesfully removed, other fields are untouched and the updated instance returned.
+    /// </summary>
+    [Fact]
+    public async Task UpdateDataValues_RemoveAnExistingDataValue_ReturnsUpdatedInstance()
+    {
+        // Arrange
+        const string removedKey = "key1";
+
+        var dataValues = new DataValues
+        {
+            Values = new Dictionary<string, string> { { removedKey, string.Empty } },
+        };
+
+        int instanceOwnerPartyId = 1337;
+        string instanceGuid = "20a1353e-91cf-44d6-8ff7-f68993638ffe";
+        string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/datavalues";
+
+        HttpClient client = GetTestClient();
+
+        string token = PrincipalUtil.GetToken(3, 1337);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Put, requestUri)
+        {
+            Content = JsonContent.Create(dataValues, new MediaTypeHeaderValue("application/json")),
+        };
+
+        // Act
+        HttpResponseMessage response = await client.SendAsync(httpRequestMessage);
+
+        string json = await response.Content.ReadAsStringAsync();
+        Instance updatedInstance = JsonConvert.DeserializeObject<Instance>(json);
+        Dictionary<string, string> actual = updatedInstance.DataValues;
+
+        // Assert
+        Assert.Single(actual.Keys);
+        Assert.True(actual.ContainsKey("key2"));
+        Assert.False(actual.ContainsKey(removedKey));
+    }
+
+    /// <summary>
+    /// Scenario:
+    /// Add a new data value to an already existing collection of data values
+    /// Result:
+    /// Data value is succesfully added to existing collection and the updated instance returned.
+    /// </summary>
+    [Fact]
+    public async Task UpdateDataValues_AddNewDataValueToExistingCollection_ReturnsUpdatedInstance()
+    {
+        // Arrange
+        var dataValues = new DataValues
+        {
+            Values = new Dictionary<string, string> { { "key3", "value3" } },
+        };
+
+        int instanceOwnerPartyId = 1337;
+        string instanceGuid = "20a1353e-91cf-44d6-8ff7-f68993638ffe";
+        string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/datavalues";
+
+        HttpClient client = GetTestClient();
+
+        string token = PrincipalUtil.GetToken(3, 1337);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        HttpRequestMessage httpRequestMessage = new HttpRequestMessage(HttpMethod.Put, requestUri)
+        {
+            Content = JsonContent.Create(dataValues, new MediaTypeHeaderValue("application/json")),
+        };
+
+        // Act
+        HttpResponseMessage response = await client.SendAsync(httpRequestMessage);
+
+        string json = await response.Content.ReadAsStringAsync();
+        Instance updatedInstance = JsonConvert.DeserializeObject<Instance>(json);
+        Dictionary<string, string> actual = updatedInstance.DataValues;
+
+        // Assert
+        Assert.Equal(3, actual.Keys.Count);
+        Assert.Equal("value3", actual["key3"]);
     }
 
     /// <summary>
@@ -2851,58 +2503,6 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// Result:
     /// The existing collection is left as is, and a 400 Bad request is returned
     /// </summary>
-    [Fact]
-    public async Task UpdateDataValues_NullAndEmptyValuesInBody_ReachRepositoryUnchanged()
-    {
-        Guid instanceGuid = Guid.Parse("20a1353e-91cf-44d6-8ff7-f68993638ffe");
-        InstanceInternal instance = await new InstanceRepositoryMock().GetOne(
-            instanceGuid,
-            true,
-            CancellationToken.None
-        );
-        Mock<IInstanceRepository> repository = new(MockBehavior.Strict);
-        repository
-            .Setup(repo => repo.GetOne(instanceGuid, true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(instance);
-        Dictionary<string, string> received = null;
-        repository
-            .Setup(repo =>
-                repo.UpdateDataValues(
-                    instanceGuid,
-                    It.IsAny<Dictionary<string, string>>(),
-                    null,
-                    null,
-                    It.IsAny<CancellationToken>()
-                )
-            )
-            .Callback<Guid, Dictionary<string, string>, int?, int?, CancellationToken>(
-                (_, values, _, _, _) => received = values
-            )
-            .ReturnsAsync(instance);
-        HttpClient client = GetTestClient(repository);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            PrincipalUtil.GetToken(3, 1337)
-        );
-        StringContent content = new(
-            """{"values":{"replace":"new","remove-null":null,"remove-empty":""}}""",
-            Encoding.UTF8,
-            "application/json"
-        );
-
-        HttpResponseMessage response = await client.PutAsync(
-            $"{BasePath}/1337/{instanceGuid}/datavalues",
-            content
-        );
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(3, received.Count);
-        Assert.Equal("new", received["replace"]);
-        Assert.Null(received["remove-null"]);
-        Assert.Equal(string.Empty, received["remove-empty"]);
-        repository.VerifyAll();
-    }
-
     [Theory]
     [MemberData(nameof(GetDataValuesData))]
     public async Task UpdateDataValues_PassingNullAsDataValues_Returns400(DataValues dataValues)
@@ -2935,7 +2535,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// Scenario:
     /// Add the value of a data field to an instance using the sync adapter scope should succeed
     /// Result:
-    /// Data values are successfully added and the updated instance returned.
+    /// Data values are succesfully added and the updated instance returned.
     /// </summary>
     [Fact]
     public async Task UpdateDataValues_NoPreviousValuesSet_WithSyncAdapterScope_ReturnsUpdatedInstance()
@@ -2974,319 +2574,10 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Assert.Equal(2, actual.Keys.Count);
     }
 
-    [Fact]
-    public async Task UpdateDataValues_ForwardsOnlySuppliedKeys_AndReturnsStorageSnapshot()
-    {
-        InstanceInternal instance = CreateInstanceForDataValuesUpdate();
-        var repository = new Mock<IInstanceRepository>(MockBehavior.Strict);
-        InstancesController controller = CreateControllerForDataValuesUpdate(repository, instance);
-        var patch = new Dictionary<string, string>
-        {
-            ["dialog.id"] = "dialog-1",
-            ["remove"] = null,
-        };
-        InstanceInternal updated = CreateInstanceForDataValuesUpdate();
-        updated.DataValues = new() { ["other"] = "latest", ["dialog.id"] = "dialog-1" };
-        updated.Versions = new StorageVersions(8, 12);
-        repository
-            .Setup(repo =>
-                repo.UpdateDataValues(
-                    instance.Id,
-                    It.Is<Dictionary<string, string>>(values =>
-                        values.Count == 2
-                        && values.ContainsKey("dialog.id")
-                        && values["dialog.id"] == "dialog-1"
-                        && values.ContainsKey("remove")
-                        && values["remove"] == null
-                    ),
-                    null,
-                    null,
-                    It.IsAny<CancellationToken>()
-                )
-            )
-            .ReturnsAsync(updated);
-
-        ActionResult<Instance> response = await controller.UpdateDataValues(
-            1337,
-            instance.Id,
-            new DataValues { Values = patch },
-            CancellationToken.None
-        );
-
-        Instance body = Assert.IsType<Instance>(
-            Assert.IsType<OkObjectResult>(response.Result).Value
-        );
-        Assert.Equal("latest", body.DataValues["other"]);
-        Assert.Equal("dialog-1", body.DataValues["dialog.id"]);
-        Assert.Equal("8", controller.Response.Headers[StorageHeaders.InstanceVersion]);
-        Assert.Equal("12", controller.Response.Headers[StorageHeaders.ProcessStateVersion]);
-        repository.VerifyAll();
-    }
-
-    [Fact]
-    public async Task UpdateDataValues_ForwardsPreconditions_AndReturns412WithCurrentVersionsOnMismatch()
-    {
-        InstanceInternal instance = CreateInstanceForDataValuesUpdate();
-        var repository = new Mock<IInstanceRepository>(MockBehavior.Strict);
-        InstancesController controller = CreateControllerForDataValuesUpdate(repository, instance);
-        repository
-            .Setup(repo =>
-                repo.UpdateDataValues(
-                    instance.Id,
-                    It.IsAny<Dictionary<string, string>>(),
-                    7,
-                    11,
-                    It.IsAny<CancellationToken>()
-                )
-            )
-            .ThrowsAsync(new InstanceVersionMismatchException(8, 12));
-
-        ActionResult<Instance> response = await controller.UpdateDataValues(
-            1337,
-            instance.Id,
-            new DataValues { Values = new() { ["dialog.id"] = "dialog-1" } },
-            CancellationToken.None,
-            "7",
-            "11"
-        );
-
-        Assert.Equal(
-            StatusCodes.Status412PreconditionFailed,
-            Assert.IsType<ObjectResult>(response.Result).StatusCode
-        );
-        Assert.Equal("8", controller.Response.Headers[StorageHeaders.InstanceVersion]);
-        Assert.Equal("12", controller.Response.Headers[StorageHeaders.ProcessStateVersion]);
-        repository.VerifyAll();
-    }
-
-    private static InstanceInternal CreateInstanceForDataValuesUpdate() =>
-        new()
-        {
-            Id = Guid.Parse("4a2c62bf-b1ad-47b7-95cc-22592453311c"),
-            InternalId = 42,
-            InstanceOwner = new InstanceOwner { PartyId = "1337" },
-            AppId = "ttd/test",
-            Org = "ttd",
-            Process = new ProcessState { Status = ProcessStatus.Processing },
-            DataValues = new() { ["other"] = "stale" },
-            Data = [],
-            Versions = new StorageVersions(7, 11),
-        };
-
-    private static InstancesController CreateControllerForDataValuesUpdate(
-        Mock<IInstanceRepository> repository,
-        InstanceInternal instance
-    )
-    {
-        repository
-            .Setup(repo => repo.GetOne(instance.Id, true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(instance);
-        var authorizer = new Mock<IProcessAuthorizer>();
-        authorizer.Setup(auth => auth.AuthorizeDataValuesUpdate(instance)).ReturnsAsync(true);
-        return new InstancesController(
-            repository.Object,
-            Mock.Of<IPartiesWithInstancesClient>(),
-            NullLogger<InstancesController>.Instance,
-            Mock.Of<IAuthorization>(),
-            Mock.Of<IInstanceEventService>(),
-            Mock.Of<IRegisterService>(),
-            Mock.Of<IApplicationService>(),
-            Options.Create(new GeneralSettings()),
-            authorizer.Object
-        )
-        {
-            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
-        };
-    }
-
     public static IEnumerable<object[]> GetDataValuesData()
     {
         yield return new object[] { new DataValues() { Values = null } };
         yield return new object[] { null };
-    }
-
-    [Theory]
-    [InlineData(GuardedInstanceUpdateRoute.Delete)]
-    [InlineData(GuardedInstanceUpdateRoute.Complete)]
-    [InlineData(GuardedInstanceUpdateRoute.Substatus)]
-    [InlineData(GuardedInstanceUpdateRoute.PresentationTexts)]
-    public async Task VersionBumpingInstanceUpdate_ProcessStatusConflict_ReturnsConflictWithoutEvent(
-        GuardedInstanceUpdateRoute route
-    )
-    {
-        const ProcessStatus currentStatus = ProcessStatus.Processing;
-
-        (ActionResult<Instance> result, Mock<IInstanceEventService> instanceEventService) =
-            await InvokeGuardedInstanceUpdate(
-                route,
-                new ProcessStatusConflictException(currentStatus)
-            );
-
-        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
-        Assert.Contains(
-            currentStatus.ToString().ToLowerInvariant(),
-            Assert.IsType<string>(conflict.Value),
-            StringComparison.Ordinal
-        );
-        instanceEventService.VerifyNoOtherCalls();
-    }
-
-    [Theory]
-    [InlineData(GuardedInstanceUpdateRoute.Delete)]
-    [InlineData(GuardedInstanceUpdateRoute.Complete)]
-    [InlineData(GuardedInstanceUpdateRoute.Substatus)]
-    [InlineData(GuardedInstanceUpdateRoute.PresentationTexts)]
-    [InlineData(GuardedInstanceUpdateRoute.DataValues)]
-    public async Task InstanceUpdate_InstanceGone_ReturnsNotFoundWithoutEvent(
-        GuardedInstanceUpdateRoute route
-    )
-    {
-        const string message = "Instance was not found.";
-
-        (ActionResult<Instance> result, Mock<IInstanceEventService> instanceEventService) =
-            await InvokeGuardedInstanceUpdate(
-                route,
-                new RepositoryException(message, HttpStatusCode.NotFound)
-            );
-
-        ObjectResult notFound = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status404NotFound, notFound.StatusCode);
-        Assert.Equal(message, notFound.Value);
-        instanceEventService.VerifyNoOtherCalls();
-    }
-
-    private static async Task<(
-        ActionResult<Instance> Result,
-        Mock<IInstanceEventService> InstanceEventService
-    )> InvokeGuardedInstanceUpdate(GuardedInstanceUpdateRoute route, Exception updateFailure)
-    {
-        const int partyId = 1337;
-        Guid instanceGuid = Guid.NewGuid();
-        Instance instance = TestData.Instance_1_1.Clone();
-        instance.Id = $"{partyId}/{instanceGuid}";
-        instance.Org = "tdd";
-        instance.AppId = "tdd/test-app";
-        instance.Status ??= new InstanceStatus();
-        instance.CompleteConfirmations = [];
-        InstanceInternal internalInstance = InstanceInternalTestFactory.Create(
-            instance,
-            [],
-            InternalId: 42,
-            versions: new StorageVersions(7, 11)
-        );
-        Mock<IInstanceRepository> repository = new();
-        repository
-            .Setup(instanceRepository =>
-                instanceRepository.GetOne(
-                    instanceGuid,
-                    It.IsAny<bool>(),
-                    It.IsAny<CancellationToken>()
-                )
-            )
-            .ReturnsAsync(internalInstance);
-        repository
-            .Setup(instanceRepository =>
-                instanceRepository.Update(
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<List<string>>(),
-                    It.IsAny<int?>(),
-                    It.IsAny<int?>(),
-                    It.IsAny<CancellationToken>()
-                )
-            )
-            .ThrowsAsync(updateFailure);
-        repository
-            .Setup(instanceRepository =>
-                instanceRepository.UpdateDataValues(
-                    instanceGuid,
-                    It.IsAny<Dictionary<string, string>>(),
-                    It.IsAny<int?>(),
-                    It.IsAny<int?>(),
-                    It.IsAny<CancellationToken>()
-                )
-            )
-            .ThrowsAsync(updateFailure);
-        Mock<IInstanceEventService> instanceEventService = new(MockBehavior.Strict);
-        Mock<IApplicationService> applicationService = new();
-        applicationService
-            .Setup(service => service.GetApplicationOrErrorAsync(internalInstance.AppId))
-            .ReturnsAsync((new Application { Id = internalInstance.AppId }, null));
-        Mock<IProcessAuthorizer> processAuthorizer = new();
-        processAuthorizer
-            .Setup(authorizer => authorizer.AuthorizePresentationTextsUpdate(internalInstance))
-            .ReturnsAsync(true);
-        processAuthorizer
-            .Setup(authorizer => authorizer.AuthorizeDataValuesUpdate(internalInstance))
-            .ReturnsAsync(true);
-        DefaultHttpContext httpContext = new()
-        {
-            User = new ClaimsPrincipal(
-                new ClaimsIdentity(
-                    [
-                        new Claim(AltinnCoreClaimTypes.Org, internalInstance.Org),
-                        new Claim(AltinnCoreClaimTypes.OrgNumber, "111111111"),
-                    ],
-                    "test"
-                )
-            ),
-        };
-        InstancesController controller = new(
-            repository.Object,
-            Mock.Of<IPartiesWithInstancesClient>(),
-            NullLogger<InstancesController>.Instance,
-            Mock.Of<IAuthorization>(),
-            instanceEventService.Object,
-            Mock.Of<IRegisterService>(),
-            applicationService.Object,
-            Options.Create(new GeneralSettings { Hostname = "https://storage.test" }),
-            processAuthorizer.Object
-        )
-        {
-            ControllerContext = new ControllerContext { HttpContext = httpContext },
-        };
-
-        ActionResult<Instance> result = route switch
-        {
-            GuardedInstanceUpdateRoute.Delete => await controller.Delete(
-                partyId,
-                instanceGuid,
-                hard: false,
-                CancellationToken.None
-            ),
-            GuardedInstanceUpdateRoute.Complete => await controller.AddCompleteConfirmation(
-                partyId,
-                instanceGuid,
-                CancellationToken.None
-            ),
-            GuardedInstanceUpdateRoute.Substatus => await controller.UpdateSubstatus(
-                partyId,
-                instanceGuid,
-                new Substatus { Label = "blocked" },
-                CancellationToken.None
-            ),
-            GuardedInstanceUpdateRoute.PresentationTexts =>
-                await controller.UpdatePresentationTexts(
-                    partyId,
-                    instanceGuid,
-                    new PresentationTexts
-                    {
-                        Texts = new Dictionary<string, string> { ["blocked"] = "value" },
-                    },
-                    CancellationToken.None
-                ),
-            GuardedInstanceUpdateRoute.DataValues => await controller.UpdateDataValues(
-                partyId,
-                instanceGuid,
-                new DataValues
-                {
-                    Values = new Dictionary<string, string> { ["blocked"] = "value" },
-                },
-                CancellationToken.None
-            ),
-            _ => throw new ArgumentOutOfRangeException(nameof(route), route, null),
-        };
-
-        return (result, instanceEventService);
     }
 
     private TestTelemetry _testTelemetry;
@@ -3295,8 +2586,6 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Mock<IInstanceRepository> repositoryMock = null,
         Mock<IRegisterService> registerService = null,
         Mock<IApplicationService> applicationService = null,
-        Mock<IAuthorization> authorizationService = null,
-        Mock<IPartiesWithInstancesClient> partiesWithInstancesClient = null,
         Mock<IPDP> pdpMock = null,
         Mock<ILogger<InstancesController>> loggerMock = null
     )
@@ -3326,22 +2615,12 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                     services.AddSingleton(applicationService.Object);
                 }
 
-                if (authorizationService != null)
-                {
-                    services.AddSingleton(authorizationService.Object);
-                }
-
                 services.AddSingleton(keyVaultWrapper.Object);
 
                 services.AddSingleton<
                     IPartiesWithInstancesClient,
                     PartiesWithInstancesClientMock
                 >();
-
-                if (partiesWithInstancesClient != null)
-                {
-                    services.AddSingleton(partiesWithInstancesClient.Object);
-                }
                 services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
 
                 if (pdpMock != null)

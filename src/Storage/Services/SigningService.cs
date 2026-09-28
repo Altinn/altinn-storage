@@ -28,7 +28,6 @@ public class SigningService : ISigningService
     private readonly IDataService _dataService;
     private readonly IApplicationService _applicationService;
     private readonly IInstanceEventService _instanceEventService;
-    private readonly IInstanceMutationRepository _instanceMutationRepository;
     private static readonly JsonSerializerOptions _jsonSerializerOptions = new(
         JsonSerializerOptions.Web
     )
@@ -44,7 +43,6 @@ public class SigningService : ISigningService
         IDataService dataService,
         IApplicationService applicationService,
         IInstanceEventService instanceEventService,
-        IInstanceMutationRepository instanceMutationRepository,
         IApplicationRepository applicationRepository,
         IBlobRepository blobRepository,
         ILogger<SigningService> logger
@@ -54,23 +52,20 @@ public class SigningService : ISigningService
         _dataService = dataService;
         _applicationService = applicationService;
         _instanceEventService = instanceEventService;
-        _instanceMutationRepository = instanceMutationRepository;
         _applicationRepository = applicationRepository;
         _blobRepository = blobRepository;
         _logger = logger;
     }
 
     /// <inheritdoc/>
-    public async Task<SignDocumentCreateResult> CreateSignDocument(
+    public async Task<(bool Created, ServiceError ServiceError)> CreateSignDocument(
         Guid instanceGuid,
         SignRequest signRequest,
         string performedBy,
-        int? expectedInstanceVersion,
-        int? expectedProcessStateVersion,
         CancellationToken cancellationToken
     )
     {
-        InstanceInternal instance = await _instanceRepository.GetOne(
+        (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
@@ -78,33 +73,8 @@ public class SigningService : ISigningService
 
         if (instance == null)
         {
-            return SignDocumentCreateResult.Failure(new ServiceError(404, "Instance not found"));
+            return (false, new ServiceError(404, "Instance not found"));
         }
-
-        StorageVersions currentVersions = instance.Versions;
-        if (
-            expectedInstanceVersion is not null
-            && expectedInstanceVersion != currentVersions.InstanceVersion
-        )
-        {
-            throw new InstanceVersionMismatchException(
-                currentVersions.InstanceVersion,
-                currentVersions.ProcessStateVersion
-            );
-        }
-
-        if (
-            expectedProcessStateVersion is not null
-            && expectedProcessStateVersion != currentVersions.ProcessStateVersion
-        )
-        {
-            throw new ProcessStateVersionMismatchException(
-                currentVersions.InstanceVersion,
-                currentVersions.ProcessStateVersion
-            );
-        }
-
-        ProcessStatusHelper.EnsureExpectedStatus(instance);
 
         Application app = await _applicationRepository.FindOne(
             instance.AppId,
@@ -121,7 +91,7 @@ public class SigningService : ISigningService
             );
         if (!validDataType)
         {
-            return SignDocumentCreateResult.Failure(serviceError, currentVersions);
+            return (false, serviceError);
         }
 
         SignDocument signDocument = CreateSignDocument(instanceGuid, signRequest);
@@ -138,7 +108,7 @@ public class SigningService : ISigningService
             );
             if (string.IsNullOrEmpty(base64Sha256Hash))
             {
-                return SignDocumentCreateResult.Failure(serviceError, currentVersions);
+                return (false, serviceError);
             }
 
             signDocument.DataElementSignatures.Add(
@@ -151,19 +121,28 @@ public class SigningService : ISigningService
             );
         }
 
-        Guid signDocumentDataElementId = Guid.NewGuid();
-        signDocument.Id = signDocumentDataElementId.ToString();
+        DataElement dataElement = DataElementHelper.CreateDataElement(
+            signRequest.SignatureDocumentDataType,
+            null,
+            instance,
+            signDocument.SignedTime,
+            "application/json",
+            $"{signRequest.SignatureDocumentDataType}.json",
+            0,
+            performedBy,
+            signRequest.GeneratedFromTask
+        );
 
-        IReadOnlyList<SignDocDownloadResult> existingSignDocuments =
-            await FindExistingSignDocumentsForSignee(
-                instance,
-                app,
-                signRequest.SignatureDocumentDataType,
-                signDocument.SigneeInfo,
-                cancellationToken
-            );
+        dataElement.Locked = true; // Lock the data element to prevent changes after signing
+        signDocument.Id = dataElement.Id;
 
-        StagedDataElementBlob stagedDataElement;
+        await DeleteExistingSignDocumentForSignee(
+            instance,
+            signRequest.SignatureDocumentDataType,
+            signDocument.SigneeInfo,
+            cancellationToken
+        );
+
         using (var fileStream = new MemoryStream())
         {
             await JsonSerializer.SerializeAsync(
@@ -174,119 +153,32 @@ public class SigningService : ISigningService
             );
 
             fileStream.Position = 0;
-            stagedDataElement = await _dataService.StageDataElementBlob(
-                instance,
+            await _dataService.UploadDataAndCreateDataElement(
+                instance.Org,
                 fileStream,
-                new DataElementCreateOptions
-                {
-                    DataElementId = signDocumentDataElementId,
-                    DataType = signRequest.SignatureDocumentDataType,
-                    ContentType = "application/json",
-                    Filename = $"{signRequest.SignatureDocumentDataType}.json",
-                    Created = signDocument.SignedTime,
-                    CreatedBy = performedBy,
-                    GeneratedFromTask = signRequest.GeneratedFromTask,
-                    Locked = true,
-                },
-                app.StorageAccountNumber,
-                cancellationToken
-            );
-        }
-
-        bool applyAttempted = false;
-        InstanceMutationApplyResult applyResult;
-        try
-        {
-            List<InstanceEvent> instanceEvents =
-            [
-                _instanceEventService.BuildInstanceEvent(InstanceEventType.Signed, instance),
-            ];
-            foreach (SignDocDownloadResult existingSignDocument in existingSignDocuments)
-            {
-                instanceEvents.Add(
-                    _instanceEventService.BuildInstanceEvent(
-                        InstanceEventType.Deleted,
-                        instance,
-                        existingSignDocument.DataElement
-                    )
-                );
-            }
-
-            InstanceMutationCommit mutation = new(
-                [stagedDataElement.DataElement],
-                [],
-                [
-                    .. existingSignDocuments.Select(
-                        existingSignDocument => new InstanceMutationDataElementDelete(
-                            existingSignDocument.DataElement,
-                            IgnoreLock: true
-                        )
-                    ),
-                ],
-                instance,
-                [],
-                expectedInstanceVersion,
-                currentVersions.ProcessStateVersion,
-                instanceEvents,
-                LastChanged: signDocument.SignedTime,
-                LastChangedBy: performedBy
-            );
-
-            applyAttempted = true;
-            applyResult = await _instanceMutationRepository.Apply(
-                instanceGuid,
-                instance.InternalId,
-                mutation,
-                cancellationToken
-            );
-        }
-        catch (StorageVersionMismatchException)
-        {
-            await _dataService.DeleteStagedDataElementBlob(
-                instance,
-                stagedDataElement.DataElement,
+                dataElement,
+                instanceInternalId,
                 app.StorageAccountNumber
             );
-            throw;
-        }
-        catch (Exception exception)
-        {
-            if (!applyAttempted || DataService.IndicatesDefiniteRollback(exception))
-            {
-                await _dataService.DeleteStagedDataElementBlob(
-                    instance,
-                    stagedDataElement.DataElement,
-                    app.StorageAccountNumber
-                );
-            }
-
-            throw;
         }
 
-        InstanceInternal updatedInstance = applyResult.Instance;
-
-        foreach (SignDocDownloadResult existingSignDocument in existingSignDocuments)
-        {
-            await _dataService.CleanupDeletedDataElementBlobs(
-                updatedInstance,
-                existingSignDocument.DataElement,
-                app.StorageAccountNumber,
-                CancellationToken.None
-            );
-        }
-
-        return SignDocumentCreateResult.Success(updatedInstance.Versions);
+        await _instanceEventService.DispatchEvent(InstanceEventType.Signed, instance);
+        return (true, null);
     }
 
-    private async Task<IReadOnlyList<SignDocDownloadResult>> FindExistingSignDocumentsForSignee(
-        InstanceInternal instance,
-        Application application,
+    private async Task DeleteExistingSignDocumentForSignee(
+        Instance instance,
         string signDocDataType,
         Signee signee,
         CancellationToken cancellationToken
     )
     {
-        List<DataElementInternal> signingDocDataElements =
+        Application application = await _applicationRepository.FindOne(
+            instance.AppId,
+            instance.Org,
+            cancellationToken
+        );
+        List<DataElement> signingDocDataElements =
             instance.Data?.Where(x => x.DataType == signDocDataType).ToList() ?? [];
 
         List<Task<SignDocDownloadResult>> downloadAndDeserializeSignDocumentTasks =
@@ -327,26 +219,24 @@ public class SigningService : ISigningService
             downloadAndDeserializeSignDocumentTasks
         );
 
-        List<SignDocDownloadResult> existingSignDocuments = [];
         foreach (SignDocDownloadResult result in results)
         {
-            if (
-                result?.SignDocument is null
-                || !SigneesAreEqual(result.SignDocument.SigneeInfo, signee)
-            )
+            if (result is null || !SigneesAreEqual(result.SignDocument.SigneeInfo, signee))
             {
                 continue;
             }
 
             _logger.LogInformation(
-                "Sign document already exists for this signee and will be replaced. Data element id: {DataElementId}",
+                "Sign document already exists for this signee. Deleting existing sign document. Data element id: {DataElementId}",
                 result.DataElement.Id
             );
 
-            existingSignDocuments.Add(result);
+            await _dataService.DeleteImmediately(
+                instance,
+                result.DataElement,
+                application.StorageAccountNumber
+            );
         }
-
-        return existingSignDocuments;
     }
 
     private static SignDocument CreateSignDocument(Guid instanceGuid, SignRequest signRequest)
@@ -374,11 +264,13 @@ public class SigningService : ISigningService
         && signee1.SystemUserId == signee2.SystemUserId
         && signee1.PersonNumber == signee2.PersonNumber
         && signee1.OrganisationNumber == signee2.OrganisationNumber;
-
-    private sealed record SignDocDownloadResult
-    {
-        public DataElementInternal DataElement { get; init; }
-
-        public SignDocument SignDocument { get; init; }
-    }
 }
+
+#pragma warning disable SA1600 // Elements should be documented
+file sealed record SignDocDownloadResult
+{
+    public DataElement DataElement { get; init; }
+
+    public SignDocument SignDocument { get; init; }
+}
+#pragma warning restore SA1600
