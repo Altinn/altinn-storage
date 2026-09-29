@@ -53,7 +53,7 @@ public class DataLockController : ControllerBase
     /// </summary>
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
-    /// <param name="dataGuid">The id of the data element to delete.</param>
+    /// <param name="dataGuid">The id of the data element to lock.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>DataElement that was locked</returns>
     [Authorize]
@@ -128,7 +128,7 @@ public class DataLockController : ControllerBase
     /// </summary>
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
-    /// <param name="dataGuid">The id of the data element to delete.</param>
+    /// <param name="dataGuid">The id of the data element to unlock.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>DataElement that was unlocked</returns>
     [Authorize]

@@ -953,7 +953,7 @@
           {
             "name": "dataGuid",
             "in": "path",
-            "description": "The id of the data element to delete.",
+            "description": "The id of the data element to lock.",
             "required": true,
             "schema": {
               "type": "string",
@@ -1053,7 +1053,7 @@
           {
             "name": "dataGuid",
             "in": "path",
-            "description": "The id of the data element to delete.",
+            "description": "The id of the data element to unlock.",
             "required": true,
             "schema": {
               "type": "string",
