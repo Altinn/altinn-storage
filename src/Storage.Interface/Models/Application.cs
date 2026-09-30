@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using Altinn.Platform.Storage.Interface.Enums;
 using Newtonsoft.Json;
 
 namespace Altinn.Platform.Storage.Interface.Models;
@@ -175,7 +176,7 @@ public class Application : ChangableElement
     /// Status of the application.
     /// </summary>
     [JsonProperty(PropertyName = "status")]
-    public string Status { get; set; }
+    public DistributionStatus Status { get; set; }
 
     /// <inheritdoc/>
     public override string ToString()
