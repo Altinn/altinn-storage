@@ -1818,6 +1818,102 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(2, versionCount);
         Assert.Equal(_frozenTime, await ReadBlobVersionDetachedAt(firstVersion));
         Assert.Equal(_frozenTime, await ReadBlobVersionDetachedAt(secondVersion));
+        DataElementBlobVersion version = await dataElementFixture.DataRepo.ReadBlobVersion(
+            instanceGuid,
+            dataElementId,
+            firstVersion
+        );
+        Assert.NotNull(version);
+        Assert.Null(version.DataType);
+    }
+
+    [Theory]
+    [InlineData(false, null)]
+    [InlineData(true, 42)]
+    public async Task ReadBlobVersion_AfterAggregateDelete_PreservesStorageContextAndDetachTime(
+        bool superseded,
+        int? storageAccountNumber
+    )
+    {
+        // Arrange
+        DataElement element = TestDataUtil.GetDataElement(_dataElement1);
+        element.InstanceGuid = _instanceGuid.ToString();
+        (DataElement dataElement, string blobVersionId) = await CreateVersionedDataElement(
+            element,
+            storageAccountNumber
+        );
+        Guid dataElementId = Guid.Parse(dataElement.Id);
+        if (superseded)
+        {
+            string replacementVersion = await CreateBlobVersionId(_instanceGuid, dataElement.Id);
+            await UpdateDataElement(
+                _instanceGuid,
+                dataElementId,
+                new Dictionary<string, object> { ["/currentBlobVersion"] = replacementVersion },
+                new DataElementUpdateContext { ExpectedCurrentBlobVersion = blobVersionId }
+            );
+        }
+
+        DataElementBlobVersion originalVersion = await dataElementFixture.DataRepo.ReadBlobVersion(
+            _instanceGuid,
+            dataElementId,
+            blobVersionId
+        );
+        Assert.Equal(_instance.AppId, originalVersion.AppId);
+        Assert.Equal(_instance.Org, originalVersion.BlobStorageOrg);
+        Assert.Equal(storageAccountNumber, originalVersion.StorageAccountNumber);
+        Assert.Equal(dataElement.DataType, originalVersion.DataType);
+        Assert.Equal(superseded ? (DateTimeOffset?)_frozenTime : null, originalVersion.DetachedAt);
+        DateTime deletedAt = _frozenTime.AddDays(1);
+        await PostgresUtil.FreezeTime(deletedAt);
+        InstanceMutationCommit mutation = CreateDeleteMutation(
+            dataElement,
+            await ReadInstanceVersion(_instanceGuid),
+            Guid.NewGuid()
+        );
+
+        // Act
+        await dataElementFixture.InstanceMutationRepo.Apply(
+            _instanceGuid,
+            _instanceInternalId,
+            mutation
+        );
+        DataElementBlobVersion retainedVersion = await dataElementFixture.DataRepo.ReadBlobVersion(
+            _instanceGuid,
+            dataElementId,
+            blobVersionId
+        );
+
+        // Assert
+        Assert.Null(await dataElementFixture.DataRepo.Read(_instanceGuid, dataElementId));
+        Assert.Equal(
+            originalVersion with
+            {
+                DetachedAt = superseded ? _frozenTime : deletedAt,
+            },
+            retainedVersion
+        );
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ReadBlobVersion_ForAnotherInstanceOrElement_ReturnsNull(bool otherInstance)
+    {
+        // Arrange
+        DataElement element = TestDataUtil.GetDataElement(_dataElement1);
+        element.InstanceGuid = _instanceGuid.ToString();
+        (DataElement dataElement, string blobVersionId) = await CreateVersionedDataElement(element);
+
+        // Act
+        DataElementBlobVersion version = await dataElementFixture.DataRepo.ReadBlobVersion(
+            otherInstance ? Guid.NewGuid() : _instanceGuid,
+            otherInstance ? Guid.Parse(dataElement.Id) : Guid.NewGuid(),
+            blobVersionId
+        );
+
+        // Assert
+        Assert.Null(version);
     }
 
     [Fact]
@@ -1857,6 +1953,16 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(1, await CountDetachedBlobVersionRows(supersededBlobVersion));
         Assert.Equal(1, await CountAttachedBlobVersionRowsForDataElement(createdDataElement.Id));
         Assert.Equal(_frozenTime, await ReadBlobVersionDetachedAt(supersededBlobVersion));
+        Assert.Equal(
+            dataElement.DataType,
+            (
+                await dataElementFixture.DataRepo.ReadBlobVersion(
+                    instanceGuid,
+                    Guid.Parse(createdDataElement.Id),
+                    replacementBlobVersion
+                )
+            ).DataType
+        );
     }
 
     [Fact]
@@ -2325,6 +2431,26 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(updateVersion, updatedExisting.BlobVersionId);
         Assert.Equal("stored", updatedInternal.DataValues["data-value"]);
         Assert.Equal("shown", updatedInternal.PresentationTexts["presentation"]);
+        Assert.Equal(
+            toCreate.DataType,
+            (
+                await dataElementFixture.DataRepo.ReadBlobVersion(
+                    instanceGuid,
+                    toCreate.Id,
+                    toCreate.BlobVersionId
+                )
+            ).DataType
+        );
+        Assert.Equal(
+            existing.DataType,
+            (
+                await dataElementFixture.DataRepo.ReadBlobVersion(
+                    instanceGuid,
+                    Guid.Parse(existing.Id),
+                    updateVersion
+                )
+            ).DataType
+        );
     }
 
     [Fact]
@@ -5870,6 +5996,15 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
         Assert.False(await dataElementFixture.DataRepo.Exists(toCreate.Id));
         Assert.Equal(0, await CountAttachedBlobVersionRows(toCreate.BlobVersionId));
+        Assert.Null(
+            (
+                await dataElementFixture.DataRepo.ReadBlobVersion(
+                    instanceGuid,
+                    toCreate.Id,
+                    toCreate.BlobVersionId
+                )
+            ).DataType
+        );
         Assert.Equal(previousInstanceVersion, await ReadInstanceVersion(instanceGuid));
     }
 
@@ -8064,12 +8199,14 @@ public class DataTests(DataElementFixture dataElementFixture)
     }
 
     private async Task<(DataElement DataElement, string BlobVersionId)> CreateVersionedDataElement(
-        DataElement dataElement
+        DataElement dataElement,
+        int? storageAccountNumber = null
     )
     {
         string blobVersionId = await CreateBlobVersionId(
             Guid.Parse(dataElement.InstanceGuid),
-            dataElement.Id
+            dataElement.Id,
+            storageAccountNumber
         );
         dataElement.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
             _instance.AppId,
@@ -8105,14 +8242,18 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
     }
 
-    private Task<string> CreateBlobVersionId(Guid instanceGuid, string dataElementId = null)
+    private Task<string> CreateBlobVersionId(
+        Guid instanceGuid,
+        string dataElementId = null,
+        int? storageAccountNumber = null
+    )
     {
         return dataElementFixture.DataRepo.CreateBlobVersionId(
             instanceGuid,
             string.IsNullOrEmpty(dataElementId) ? Guid.NewGuid() : Guid.Parse(dataElementId),
             _instance.AppId,
             _instance.Org,
-            null
+            storageAccountNumber
         );
     }
 

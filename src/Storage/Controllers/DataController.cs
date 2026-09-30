@@ -442,6 +442,112 @@ public class DataController : ControllerBase
     }
 
     /// <summary>
+    /// Gets the content of one blob version of a data element, for the instance's own service owner.
+    /// </summary>
+    /// <remarks>
+    /// The version may be current, superseded, or belong to a deleted element. Availability is bounded by
+    /// blob retention: detached versions remain readable until orphan cleanup removes them. Reading a version
+    /// requires the same access to its data type as reading the element, using the application's current metadata.
+    /// </remarks>
+    /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
+    /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
+    /// <param name="dataGuid">The id of the data element.</param>
+    /// <param name="blobVersionId">The blob version to retrieve.</param>
+    /// <param name="cancellationToken">CancellationToken</param>
+    /// <returns>The content of the blob version.</returns>
+    [Authorize]
+    [HttpGet("data/{dataGuid:guid}/versions/{blobVersionId}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> GetBlobVersion(
+        int instanceOwnerPartyId,
+        Guid instanceGuid,
+        Guid dataGuid,
+        string blobVersionId,
+        CancellationToken cancellationToken
+    )
+    {
+        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
+            instanceGuid,
+            instanceOwnerPartyId,
+            false,
+            cancellationToken
+        );
+        if (instance is null)
+        {
+            return instanceError;
+        }
+
+        if (
+            User.GetOrg() != instance.Org
+            || await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read")
+                is false
+        )
+        {
+            return Forbid();
+        }
+
+        DataElementBlobVersion blobVersion = await _dataRepository.ReadBlobVersion(
+            instanceGuid,
+            dataGuid,
+            blobVersionId,
+            cancellationToken
+        );
+        if (blobVersion is null)
+        {
+            return NotFound(
+                $"Unable to find blob version {blobVersionId} of data element {dataGuid}."
+            );
+        }
+
+        // Versions attached before the data type column existed have none recorded. They are authorized by
+        // their element's data type, which is gone once the element is deleted.
+        string dataTypeId = blobVersion.DataType;
+        if (dataTypeId is null)
+        {
+            (DataElementInternal dataElement, ActionResult dataElementError) =
+                await GetDataElementAsync(instanceGuid, dataGuid, cancellationToken);
+            if (dataElement is null)
+            {
+                return dataElementError;
+            }
+
+            dataTypeId = dataElement.DataType;
+        }
+
+        (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(
+            instance,
+            dataTypeId,
+            cancellationToken: cancellationToken
+        );
+        if (dataTypeDefinition is null)
+        {
+            return dataTypeError;
+        }
+
+        if (await dataTypeDefinition.CanRead(_authorizationService, instance) is not true)
+        {
+            return Forbid();
+        }
+
+        Stream dataStream = await _blobRepository.ReadBlob(
+            blobVersion.BlobStorageOrg,
+            DataElementHelper.GetVersionedBlobPath(blobVersion.AppId, instanceGuid, blobVersionId),
+            blobVersion.StorageAccountNumber,
+            cancellationToken
+        );
+        if (dataStream is null)
+        {
+            return NotFound(
+                $"Unable to read blob version {blobVersionId} of data element {dataGuid}."
+            );
+        }
+
+        return File(dataStream, "application/octet-stream");
+    }
+
+    /// <summary>
     /// Returns a list of data elements of an instance.
     /// </summary>
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
