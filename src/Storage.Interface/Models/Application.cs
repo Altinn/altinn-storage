@@ -171,6 +171,12 @@ public class Application : ChangableElement
     [JsonProperty(PropertyName = "contactPoints")]
     public List<AppMetadataContactPoint> ContactPoints { get; set; }
 
+    /// <summary>
+    /// Status of the application.
+    /// </summary>
+    [JsonProperty(PropertyName = "status")]
+    public string Status { get; set; }
+
     /// <inheritdoc/>
     public override string ToString()
     {
