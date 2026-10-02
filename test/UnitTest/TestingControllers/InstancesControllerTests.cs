@@ -340,6 +340,34 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     }
 
     /// <summary>
+    /// Test case: Reading the instance from the repository fails.
+    /// Expected: Returns status internal server error, not not found.
+    /// </summary>
+    [Theory]
+    [InlineData("1337/23d6aa98-df3b-4982-8d8a-8fe67a53b828")]
+    [InlineData("23d6aa98-df3b-4982-8d8a-8fe67a53b828")]
+    public async Task Get_RepositoryThrows_ReturnsInternalServerError(string instancePath)
+    {
+        // Arrange
+        string requestUri = $"{BasePath}/{instancePath}";
+
+        Mock<IInstanceRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(r => r.GetOne(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database unavailable"));
+
+        HttpClient client = GetTestClient(repositoryMock);
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+    }
+
+    /// <summary>
     /// Test case: Response is deny.
     /// Expected: Returns status forbidden.
     /// </summary>
