@@ -40,6 +40,53 @@ public class InstanceMutationsControllerUnitTests
     private readonly string _dataType = "attachment";
 
     [Fact]
+    public async Task CommitMutation_ApplicationNotFound_ReturnsNotFound()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        Instance instance = new()
+        {
+            Id = $"555/{instanceGuid}",
+            InstanceOwner = new InstanceOwner { PartyId = "555" },
+            Org = _org,
+            AppId = _appId,
+            Data = [],
+        };
+        InstanceInternal instanceInternal = InstanceInternalTestFactory.Create(
+            instance,
+            [],
+            InternalId: 123L
+        );
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            instanceInternal,
+            application: null,
+            mutationJson: null
+        );
+        SetJsonMutationRequest(
+            fixture.HttpContext,
+            """
+            {
+              "dataValues": {
+                "setData": "new-data"
+              }
+            }
+            """
+        );
+
+        // Act
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        // Assert
+        NotFoundObjectResult notFound = Assert.IsType<NotFoundObjectResult>(result.Result);
+        Assert.Equal($"Cannot find application {_appId} in storage", notFound.Value);
+    }
+
+    [Fact]
     public async Task CommitMutation_EmptyDataValuesAndPresentationTexts_NormalizesToNullRemovals()
     {
         // Arrange
