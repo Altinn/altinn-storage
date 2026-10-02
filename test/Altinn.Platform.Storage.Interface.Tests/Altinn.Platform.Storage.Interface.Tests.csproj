@@ -41,6 +41,11 @@
     <EmbeddedResource Include="ShadowFields\applicationMetadata_afterChange.json" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="CopyInstanceSettings\applicationMetadata_beforeChange.json" />
+    <EmbeddedResource Include="CopyInstanceSettings\applicationMetadata_afterChange.json" />
+  </ItemGroup>
+
   <PropertyGroup>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>

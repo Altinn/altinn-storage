@@ -1,0 +1,23 @@
+{
+  "id": "ttd/copy-instance",
+  "org": "ttd",
+  "title": {
+    "nb": "copy-instance"
+  },
+  "dataTypes": [],
+  "partyTypesAllowed": {
+    "bankruptcyEstate": false,
+    "organisation": true,
+    "person": true,
+    "subUnit": false
+  },
+  "copyInstanceSettings": {
+    "enabled": true,
+    "excludedDataTypes": [ "vedlegg" ],
+    "excludedDataFields": [ "group1.felt2" ],
+    "includeAttachments": true,
+    "includeDueBefore": true,
+    "includedDataValues": [ "appVersion", "customerId" ],
+    "includedPresentationTexts": [ "name" ]
+  }
+}
