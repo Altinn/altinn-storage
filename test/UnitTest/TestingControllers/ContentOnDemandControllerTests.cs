@@ -144,6 +144,101 @@ public class ContentOnDemandControllerTests
         );
     }
 
+    [Fact]
+    public async Task GetSignatureAsHtml_RendersTheSignatureView()
+    {
+        // Arrange
+        HttpClient client = GetRenderedViewTestClient(
+            "signature-data",
+            """[{"SignedByUserName":"Ola Nordmann","SignatureText":"Signert"}]"""
+        );
+        string requestUri = GetRequestUri("signature");
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        string html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Signeringsinformasjon", html);
+        Assert.Contains("Ola Nordmann", html);
+    }
+
+    [Fact]
+    public async Task GetPaymentAsHtml_RendersThePaymentView()
+    {
+        // Arrange
+        HttpClient client = GetRenderedViewTestClient(
+            "payment-data",
+            """{"OrderId":"order-1","Description":"Gebyr","PaymentSum":12300}"""
+        );
+        string requestUri = GetRequestUri("payment");
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        string html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Betalingsinformasjon", html);
+        Assert.Contains("order-1", html);
+        Assert.Contains("Gebyr", html);
+    }
+
+    private HttpClient GetRenderedViewTestClient(string dataType, string blobContent)
+    {
+        InstanceInternal instance = new()
+        {
+            Id = _instanceGuid,
+            AppId = $"{_org}/{_app}",
+            Org = _org,
+            InstanceOwner = new InstanceOwner { PartyId = _instanceOwnerPartyId.ToString() },
+            Data =
+            [
+                new DataElementInternal
+                {
+                    Id = _htmlDataGuid,
+                    DataType = dataType,
+                    BlobStoragePath = $"{_org}/{_app}/{_instanceGuid}/data/{_htmlDataGuid}",
+                },
+            ],
+        };
+
+        Mock<IInstanceRepository> instanceRepositoryMock = new();
+        instanceRepositoryMock
+            .Setup(ir => ir.GetOne(_instanceGuid, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => instance);
+
+        Mock<IApplicationRepository> applicationRepositoryMock = new();
+        applicationRepositoryMock
+            .Setup(ar => ar.FindOne($"{_org}/{_app}", _org, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Application { Id = $"{_org}/{_app}", Org = _org });
+
+        Mock<IBlobRepository> blobRepositoryMock = new();
+        blobRepositoryMock
+            .Setup(br =>
+                br.ReadBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(() => new MemoryStream(Encoding.UTF8.GetBytes(blobContent)));
+
+        return _factory
+            .WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureTestServices(services =>
+                {
+                    services.AddSingleton(instanceRepositoryMock.Object);
+                    services.AddSingleton(applicationRepositoryMock.Object);
+                    services.AddSingleton(blobRepositoryMock.Object);
+                });
+            })
+            .CreateClient();
+    }
+
     private static InstanceInternal GetInstance(string xmlBlobStoragePath = null)
     {
         return new InstanceInternal
