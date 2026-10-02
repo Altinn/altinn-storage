@@ -72,13 +72,13 @@ public class SimpleDataElement
     public DateTimeOffset? LastChangedAt { get; set; }
 
     /// <summary>
-    /// Converts a <see cref="DataElementInternal"/> into a <see cref="SimpleDataElement"/>.
+    /// Converts a <see cref="DataElement"/> into a <see cref="SimpleDataElement"/>.
     /// </summary>
-    public static SimpleDataElement FromDataElement(DataElementInternal dataElement)
+    public static SimpleDataElement FromDataElement(DataElement dataElement)
     {
         return new SimpleDataElement()
         {
-            Id = dataElement.Id.ToString(),
+            Id = dataElement.Id,
             DataType = dataElement.DataType,
             ContentType = dataElement.ContentType,
             Size = dataElement.Size,

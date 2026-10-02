@@ -3,7 +3,6 @@
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
-using Altinn.Platform.Storage.Models;
 
 namespace Altinn.Platform.Storage.Services;
 
@@ -18,27 +17,14 @@ public interface IInstanceEventService
     /// <param name="eventType">Event type</param>
     /// <param name="instance">Instance</param>
     /// <returns></returns>
-    public InstanceEvent BuildInstanceEvent(InstanceEventType eventType, InstanceInternal instance);
-
-    /// <summary>
-    /// Construct an instance event related to a data element.
-    /// </summary>
-    /// <param name="eventType">Event type</param>
-    /// <param name="instance">Instance</param>
-    /// <param name="dataElement">Data element</param>
-    /// <returns></returns>
-    public InstanceEvent BuildInstanceEvent(
-        InstanceEventType eventType,
-        InstanceInternal instance,
-        DataElementInternal dataElement
-    );
+    public InstanceEvent BuildInstanceEvent(InstanceEventType eventType, Instance instance);
 
     /// <summary>
     /// Dispatch an instance event to the repository
     /// </summary>
     /// <param name="eventType">The event type</param>
     /// <param name="instance">The instance the event is related to</param>
-    public Task DispatchEvent(InstanceEventType eventType, InstanceInternal instance);
+    public Task DispatchEvent(InstanceEventType eventType, Instance instance);
 
     /// <summary>
     /// Dispatch an instance event with an explicitly provided actor and additional info,
@@ -50,7 +36,7 @@ public interface IInstanceEventService
     /// <param name="additionalInfo">Free text describing the event</param>
     public Task DispatchEvent(
         InstanceEventType eventType,
-        InstanceInternal instance,
+        Instance instance,
         PlatformUser user,
         string additionalInfo = null
     );
@@ -63,7 +49,7 @@ public interface IInstanceEventService
     /// <param name="dataElement">The data element the event is related to</param>
     public Task DispatchEvent(
         InstanceEventType eventType,
-        InstanceInternal instance,
-        DataElementInternal dataElement
+        Instance instance,
+        DataElement dataElement
     );
 }

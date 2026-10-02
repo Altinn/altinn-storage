@@ -10,7 +10,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Interface.Models;
-using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Fixture;
@@ -144,26 +143,26 @@ public class ContentOnDemandControllerTests
         );
     }
 
-    private static InstanceInternal GetInstance(string xmlBlobStoragePath = null)
+    private static Instance GetInstance(string xmlBlobStoragePath = null)
     {
-        return new InstanceInternal
+        return new Instance
         {
-            Id = _instanceGuid,
+            Id = $"{_instanceOwnerPartyId}/{_instanceGuid}",
             AppId = $"{_org}/{_app}",
             Org = _org,
             InstanceOwner = new InstanceOwner { PartyId = _instanceOwnerPartyId.ToString() },
             Data =
             [
-                new DataElementInternal
+                new DataElement
                 {
-                    Id = _htmlDataGuid,
+                    Id = _htmlDataGuid.ToString(),
                     DataType = "ref-data-as-html",
                     BlobStoragePath = "ondemand/formdatahtml",
                     Metadata = [new KeyValueEntry { Key = "formid", Value = "1000" }],
                 },
-                new DataElementInternal
+                new DataElement
                 {
-                    Id = _xmlDataGuid,
+                    Id = _xmlDataGuid.ToString(),
                     DataType = "a2-xml",
                     BlobStoragePath =
                         xmlBlobStoragePath ?? $"{_org}/{_app}/{_instanceGuid}/data/{_xmlDataGuid}",
@@ -185,7 +184,7 @@ public class ContentOnDemandControllerTests
         Mock<IInstanceRepository> instanceRepositoryMock = new();
         instanceRepositoryMock
             .Setup(ir => ir.GetOne(_instanceGuid, true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => GetInstance(xmlBlobStoragePath));
+            .ReturnsAsync(() => (GetInstance(xmlBlobStoragePath), 1L));
 
         Mock<IApplicationRepository> applicationRepositoryMock = new();
         applicationRepositoryMock
