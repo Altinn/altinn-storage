@@ -249,7 +249,9 @@ public class InstancesController : ControllerBase
     [Authorize]
     [HttpGet("{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> Get(
         int instanceOwnerPartyId,
@@ -257,53 +259,43 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        InstanceInternal instance;
         try
         {
-            InstanceInternal instance = await _instanceRepository.GetOne(
-                instanceGuid,
-                true,
-                cancellationToken
-            );
-
-            if (instance is null)
-            {
-                return NotFound($"Unable to find instance {instanceGuid}");
-            }
-
-            if (
-                _authorizationService.UserHasRequiredScope([
-                    _generalSettings.InstanceSyncAdapterScope,
-                ])
-            )
-            {
-                Instance responseInstance = instance.ToApiModel();
-                responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
-                VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
-                return Ok(responseInstance);
-            }
-
-            if (
-                await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read")
-                is false
-            )
-            {
-                return Forbid();
-            }
-
-            Instance mappedInstance = instance.ToApiModel();
-            if (User.GetOrg() != instance.Org)
-            {
-                FilterOutDeletedDataElements(mappedInstance);
-            }
-
-            mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
-            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
-            return Ok(mappedInstance);
+            instance = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
         }
         catch (Exception e)
         {
             return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}: {e}");
         }
+
+        if (instance is null)
+        {
+            return NotFound($"Unable to find instance {instanceGuid}");
+        }
+
+        if (_authorizationService.UserHasRequiredScope([_generalSettings.InstanceSyncAdapterScope]))
+        {
+            Instance responseInstance = instance.ToApiModel();
+            responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
+            return Ok(responseInstance);
+        }
+
+        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read") is false)
+        {
+            return Forbid();
+        }
+
+        Instance mappedInstance = instance.ToApiModel();
+        if (User.GetOrg() != instance.Org)
+        {
+            FilterOutDeletedDataElements(mappedInstance);
+        }
+
+        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
+        return Ok(mappedInstance);
     }
 
     /// <summary>
@@ -316,60 +308,52 @@ public class InstancesController : ControllerBase
     [Authorize]
     [HttpGet("{instanceGuid:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> GetByGuid(
         Guid instanceGuid,
         CancellationToken cancellationToken
     )
     {
+        InstanceInternal instance;
         try
         {
-            InstanceInternal instance = await _instanceRepository.GetOne(
-                instanceGuid,
-                true,
-                cancellationToken
-            );
-
-            if (instance is null)
-            {
-                return NotFound($"Unable to find instance {instanceGuid}");
-            }
-
-            if (
-                _authorizationService.UserHasRequiredScope([
-                    _generalSettings.InstanceSyncAdapterScope,
-                ])
-            )
-            {
-                Instance responseInstance = instance.ToApiModel();
-                responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
-                VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
-                return Ok(responseInstance);
-            }
-
-            if (
-                await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read")
-                is false
-            )
-            {
-                return Forbid();
-            }
-
-            Instance mappedInstance = instance.ToApiModel();
-            if (User.GetOrg() != instance.Org)
-            {
-                FilterOutDeletedDataElements(mappedInstance);
-            }
-
-            mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
-            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
-            return Ok(mappedInstance);
+            instance = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
         }
         catch (Exception e)
         {
             return NotFound($"Unable to find instance {instanceGuid}: {e}");
         }
+
+        if (instance is null)
+        {
+            return NotFound($"Unable to find instance {instanceGuid}");
+        }
+
+        if (_authorizationService.UserHasRequiredScope([_generalSettings.InstanceSyncAdapterScope]))
+        {
+            Instance responseInstance = instance.ToApiModel();
+            responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
+            return Ok(responseInstance);
+        }
+
+        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read") is false)
+        {
+            return Forbid();
+        }
+
+        Instance mappedInstance = instance.ToApiModel();
+        if (User.GetOrg() != instance.Org)
+        {
+            FilterOutDeletedDataElements(mappedInstance);
+        }
+
+        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
+        return Ok(mappedInstance);
     }
 
     /// <summary>

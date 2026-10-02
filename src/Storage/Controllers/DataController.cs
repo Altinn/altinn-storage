@@ -269,8 +269,10 @@ public class DataController : ControllerBase
     [RequestSizeLimit(RequestSizeLimit)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status412PreconditionFailed)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
     [Produces("application/json")]
     public async Task<ActionResult> Get(
         int instanceOwnerPartyId,
@@ -452,6 +454,9 @@ public class DataController : ControllerBase
     [HttpGet("dataelements")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
     [Produces("application/json")]
     public async Task<ActionResult<DataElementList>> GetMany(
         int instanceOwnerPartyId,
