@@ -4783,6 +4783,23 @@
           },
           "includeAttachments": {
             "type": "boolean"
+          },
+          "includeDueBefore": {
+            "type": "boolean"
+          },
+          "includedDataValues": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "includedPresentationTexts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -5040,7 +5057,9 @@
             "nullable": true
           },
           "enablePdfCreation": {
-            "type": "boolean"
+            "type": "boolean",
+            "nullable": true,
+            "deprecated": true
           },
           "enableFileScan": {
             "type": "boolean"
