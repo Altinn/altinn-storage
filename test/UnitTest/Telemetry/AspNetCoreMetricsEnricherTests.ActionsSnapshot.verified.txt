@@ -149,6 +149,7 @@
     Altinn.Platform.Storage.Controllers.ApplicationsController.IsValidAppId (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.ApplicationsController.Post (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.ApplicationsController.Put (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.CleanupController.CleanupDataElement (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.CleanupController.CleanupDataelements (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.CleanupController.CleanupInstanceMutationIdempotency (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.CleanupController.CleanupInstances (Altinn.Platform.Storage),

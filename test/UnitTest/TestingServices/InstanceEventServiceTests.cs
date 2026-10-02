@@ -105,6 +105,54 @@ public class InstanceEventServiceTests
     }
 
     [Fact]
+    public void BuildInstanceEvent_ForDataElement_WithExplicitUser_DoesNotResolveFromClaims()
+    {
+        // Arrange
+        const InstanceEventType eventType = InstanceEventType.Deleted;
+        Mock<IInstanceEventRepository> instanceEventRepositoryMock = new();
+        Mock<IHttpContextAccessor> contextAccessorMock = new();
+
+        // No claims at all, so resolving the actor from the request would throw.
+        HttpContext context = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity()),
+        };
+        contextAccessorMock.Setup(accessor => accessor.HttpContext).Returns(context);
+
+        InstanceEventService target = new(
+            instanceEventRepositoryMock.Object,
+            contextAccessorMock.Object
+        );
+        InstanceInternal instance = new()
+        {
+            Id = Guid.NewGuid(),
+            InstanceOwner = new InstanceOwner { PartyId = "someId" },
+            Process = new ProcessState(),
+        };
+        DataElementInternal dataElement = new() { Id = Guid.NewGuid() };
+        PlatformUser actor = new() { OrgId = "ttd", AuthenticationLevel = 0 };
+
+        // Act
+        InstanceEvent result = target.BuildInstanceEvent(
+            eventType,
+            instance,
+            dataElement,
+            actor,
+            "why it happened"
+        );
+
+        // Assert
+        Assert.Same(actor, result.User);
+        Assert.Equal("why it happened", result.AdditionalInfo);
+        Assert.Equal(InstanceEventType.Deleted.ToString(), result.EventType);
+        Assert.Equal(dataElement.Id.ToString(), result.DataId);
+        instanceEventRepositoryMock.Verify(
+            r => r.InsertInstanceEvent(It.IsAny<InstanceEvent>(), It.IsAny<InstanceInternal>()),
+            Times.Never
+        );
+    }
+
+    [Fact]
     public async Task DispatchEvent_ThrowsExceptionWhenNoUserIsProvided()
     {
         // Arrange
