@@ -1,0 +1,120 @@
+﻿{
+  "Id": "1337/8a9d6f4e-0f1e-4c2b-9a7d-2f3e4d5c6b7a",
+  "InstanceOwner": {
+    "PartyId": "1337",
+    "PersonNumber": "01010112345",
+    "OrganisationNumber": "991825827",
+    "Username": "user-1337",
+    "ExternalIdentifier": "ext:1337"
+  },
+  "AppId": "ttd/contract-app",
+  "Org": "ttd",
+  "SelfLinks": {
+    "Apps": "https://ttd.apps.altinn.no/ttd/contract-app/instances/1337/x",
+    "Platform": "https://platform.altinn.no/storage/api/v1/instances/1337/x"
+  },
+  "DueBefore": "2026-10-25T10:15:30.123Z",
+  "VisibleAfter": "2026-09-25T08:15:30.123Z",
+  "Process": {
+    "Status": "processing",
+    "Started": "2026-09-25T08:15:30.123Z",
+    "StartEvent": "StartEvent_1",
+    "CurrentTask": {
+      "Flow": 2,
+      "Started": "2026-09-25T08:15:30.123Z",
+      "ElementId": "Task_1",
+      "Name": "Utfylling",
+      "AltinnTaskType": "data",
+      "Ended": "2026-09-25T10:15:30.123Z",
+      "Validated": {
+        "Timestamp": "2026-09-25T10:15:30.123Z",
+        "CanCompleteTask": true
+      },
+      "FlowType": "CompleteCurrentMoveToNext"
+    },
+    "Ended": "2026-09-25T10:15:30.123Z",
+    "EndEvent": "EndEvent_1"
+  },
+  "Status": {
+    "IsArchived": true,
+    "Archived": "2026-09-25T10:15:30.123Z",
+    "IsSoftDeleted": true,
+    "SoftDeleted": "2026-09-25T10:15:30.123Z",
+    "IsHardDeleted": true,
+    "HardDeleted": "2026-09-25T10:15:30.123Z",
+    "ReadStatus": 2,
+    "Substatus": {
+      "Label": "substatus.label",
+      "Description": "substatus.desc"
+    }
+  },
+  "CompleteConfirmations": [
+    {
+      "StakeholderId": "ttd",
+      "ConfirmedOn": "2026-09-25T10:15:30.123Z"
+    }
+  ],
+  "Data": [
+    {
+      "Id": "d1c2b3a4-5f6e-4d7c-8b9a-0e1f2a3b4c5d",
+      "InstanceGuid": "8a9d6f4e-0f1e-4c2b-9a7d-2f3e4d5c6b7a",
+      "DataType": "model",
+      "Filename": "skjema.xml",
+      "ContentType": "application/xml",
+      "BlobStoragePath": "ttd/contract-app/8a9d6f4e-0f1e-4c2b-9a7d-2f3e4d5c6b7a/data/d1c2b3a4-5f6e-4d7c-8b9a-0e1f2a3b4c5d",
+      "SelfLinks": {
+        "Apps": "https://ttd.apps.altinn.no/ttd/contract-app/instances/1337/x/data/y",
+        "Platform": "https://platform.altinn.no/storage/api/v1/instances/1337/x/data/y"
+      },
+      "Size": 2048,
+      "ContentHash": "sha256:abc",
+      "BlobVersionId": "2026-09-25T08:15:30.1230000Z",
+      "Locked": true,
+      "Refs": [
+        "0f1e2d3c-4b5a-4968-8776-655443322110"
+      ],
+      "IsRead": false,
+      "Tags": [
+        "signed"
+      ],
+      "UserDefinedMetadata": [
+        {
+          "Key": "user",
+          "Value": "meta"
+        }
+      ],
+      "Metadata": [
+        {
+          "Key": "system",
+          "Value": "meta"
+        }
+      ],
+      "DeleteStatus": {
+        "IsHardDeleted": true,
+        "HardDeleted": "2026-09-25T10:15:30.123Z"
+      },
+      "FileScanResult": "Clean",
+      "References": [
+        {
+          "Value": "0f1e2d3c-4b5a-4968-8776-655443322110",
+          "Relation": "GeneratedFrom",
+          "ValueType": "DataElement"
+        }
+      ],
+      "Created": "2026-09-25T08:15:30.123Z",
+      "CreatedBy": "1337",
+      "LastChanged": "2026-09-25T10:15:30.123Z",
+      "LastChangedBy": "1338"
+    }
+  ],
+  "PresentationTexts": {
+    "title": "Contract"
+  },
+  "DataValues": {
+    "caseNumber": "42"
+  },
+  "Created": "2026-09-25T08:15:30.123Z",
+  "CreatedBy": "1337",
+  "LastChanged": "2026-09-25T10:15:30.123Z",
+  "LastChangedBy": "1338"
+}

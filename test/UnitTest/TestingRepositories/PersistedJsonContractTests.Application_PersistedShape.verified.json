@@ -1,0 +1,179 @@
+﻿{
+  "Id": "ttd/contract-app",
+  "VersionId": "v1",
+  "Org": "ttd",
+  "Title": {
+    "nb": "Kontrakt"
+  },
+  "ValidFrom": "2026-09-25T08:15:30.123Z",
+  "ValidTo": "2027-09-25T10:15:30.123Z",
+  "ProcessId": "process",
+  "DataTypes": [
+    {
+      "Id": "model",
+      "Description": {
+        "nb": "Skjema"
+      },
+      "AllowedContentTypes": [
+        "application/xml"
+      ],
+      "AllowedContributers": [
+        "org:ttd"
+      ],
+      "AllowedContributors": [
+        "org:ttd"
+      ],
+      "ActionRequiredToRead": "read",
+      "ActionRequiredToWrite": "write",
+      "AppLogic": {
+        "AutoCreate": true,
+        "ClassRef": "Altinn.App.Models.Skjema",
+        "SchemaRef": "App/models/Skjema.xsd",
+        "AllowAnonymousOnStateless": true,
+        "AutoDeleteOnProcessEnd": true,
+        "DisallowUserCreate": true,
+        "DisallowUserDelete": true,
+        "ShadowFields": {
+          "Prefix": "AltinnSF_",
+          "SaveToDataType": "clean"
+        }
+      },
+      "TaskId": "Task_1",
+      "MaxSize": 1024,
+      "MaxCount": 2,
+      "MinCount": 1,
+      "Grouping": "group",
+      "EnablePdfCreation": false,
+      "EnableFileScan": true,
+      "ValidationErrorOnPendingFileScan": true,
+      "EnabledFileAnalysers": [
+        "mimeTypeAnalyser"
+      ],
+      "EnabledFileValidators": [
+        "mimeTypeValidator"
+      ],
+      "AllowedKeysForUserDefinedMetadata": [
+        "user"
+      ]
+    }
+  ],
+  "PartyTypesAllowed": {
+    "BankruptcyEstate": true,
+    "Organisation": true,
+    "Person": true,
+    "SubUnit": true
+  },
+  "AutoDeleteOnProcessEnd": true,
+  "PreventInstanceDeletionForDays": 30,
+  "PresentationFields": [
+    {
+      "id": "title",
+      "path": "Skjema.Tittel",
+      "dataTypeId": "model"
+    }
+  ],
+  "DataFields": [
+    {
+      "id": "caseNumber",
+      "path": "Skjema.Sak",
+      "dataTypeId": "model"
+    }
+  ],
+  "EFormidling": {
+    "ServiceId": "DPF",
+    "DPFShipmentType": "altinn3.skjema",
+    "Receiver": "991825827",
+    "SendAfterTaskId": "Task_1",
+    "Process": "urn:no:difi:profile:arkivmelding:administrasjon:ver1.0",
+    "Standard": "urn:no:difi:arkivmelding:xsd::arkivmelding",
+    "TypeVersion": "2.0",
+    "Type": "arkivmelding",
+    "SecurityLevel": 3,
+    "DataTypes": [
+      "model"
+    ]
+  },
+  "OnEntry": {
+    "Show": "select-instance"
+  },
+  "MessageBoxConfig": {
+    "HideSettings": {
+      "HideAlways": true,
+      "HideOnTask": [
+        "Task_1"
+      ]
+    },
+    "SyncAdapterSettings": {
+      "DisableSync": true,
+      "EnableUserSuppliedDialogId": true,
+      "DisableCreate": true,
+      "DisableDelete": true,
+      "DisableAddActivities": true,
+      "DisableAddTransmissions": true,
+      "DisableSyncDueAt": true,
+      "DisableSyncStatus": true,
+      "DisableMarkCompletedWhenConfirmed": true,
+      "DisableSyncContentTitle": true,
+      "DisableSyncContentSummary": true,
+      "DisableSyncContentAdditionalInformation": true,
+      "DisableSyncContentExtendedStatus": true,
+      "DisableSyncAttachments": true,
+      "DisableSyncApiActions": true,
+      "DisableSyncGuiActions": true
+    }
+  },
+  "CopyInstanceSettings": {
+    "Enabled": true,
+    "ExcludedDataTypes": [
+      "attachment"
+    ],
+    "ExcludedDataFields": [
+      "Skjema.Sak"
+    ],
+    "IncludeAttachments": true
+  },
+  "ApiScopes": {
+    "Users": {
+      "Read": "altinn:instances.read",
+      "Write": "altinn:instances.write",
+      "ErrorMessageTextResourceKey": "scopes.users"
+    },
+    "ServiceOwners": {
+      "Read": "altinn:serviceowner/instances.read",
+      "Write": "altinn:serviceowner/instances.write",
+      "ErrorMessageTextResourceKey": "scopes.serviceowners"
+    },
+    "ErrorMessageTextResourceKey": "scopes"
+  },
+  "StorageAccountNumber": 2,
+  "DisallowUserInstantiation": true,
+  "Homepage": "https://ttd.apps.altinn.no/ttd/contract-app",
+  "Keywords": [
+    {
+      "Word": "kontrakt",
+      "Language": "nb"
+    }
+  ],
+  "Description": {
+    "nb": "Beskrivelse"
+  },
+  "Access": {
+    "RightDescription": {
+      "nb": "Rettighet"
+    },
+    "Delegable": true,
+    "Visible": true
+  },
+  "ContactPoints": [
+    {
+      "Category": "support",
+      "Email": "support@ttd.no",
+      "Telephone": "\u002B4700000000",
+      "ContactPage": "https://ttd.no/kontakt"
+    }
+  ],
+  "Created": "2026-09-25T08:15:30.123Z",
+  "CreatedBy": "ttd",
+  "LastChanged": "2026-09-25T10:15:30.123Z",
+  "LastChangedBy": "ttd"
+}
