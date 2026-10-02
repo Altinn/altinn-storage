@@ -58,6 +58,8 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     private readonly string _deleteOrphanBlobVersionsSql =
         "select * from storage.deleteorphanblobversions($1)";
     private readonly string _readBlobVersionsSql = "select * from storage.readblobversions($1, $2)";
+    private readonly string _readBlobVersionSql =
+        "select * from storage.readblobversion($1, $2, $3)";
     private readonly string _readDetachedBlobVersionsSql =
         "select * from storage.readdetachedblobversions($1)";
     private readonly string _existsSql = "select * from storage.readdataelementexists($1)";
@@ -681,6 +683,62 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         }
 
         return blobVersions;
+    }
+
+    /// <inheritdoc/>
+    public async Task<DataElementBlobVersion> ReadBlobVersion(
+        Guid instanceGuid,
+        Guid dataElementId,
+        string blobVersionId,
+        CancellationToken cancellationToken = default
+    )
+    {
+        if (!BlobVersionId.TryDecode(blobVersionId, out Guid blobVersion))
+        {
+            return null;
+        }
+
+        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_readBlobVersionSql);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, blobVersion);
+
+        await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        int storageAccountOrdinal = reader.GetOrdinal("storageaccountnumber");
+        int detachedAtOrdinal = reader.GetOrdinal("detachedat");
+        int dataTypeOrdinal = reader.GetOrdinal("datatype");
+        return new DataElementBlobVersion
+        {
+            Id = blobVersion,
+            InstanceGuid = instanceGuid,
+            DataElementId = dataElementId,
+            AppId = await reader.GetFieldValueAsync<string>("appid", cancellationToken),
+            BlobStorageOrg = await reader.GetFieldValueAsync<string>(
+                "blobstorageorg",
+                cancellationToken
+            ),
+            StorageAccountNumber = await reader.IsDBNullAsync(
+                storageAccountOrdinal,
+                cancellationToken
+            )
+                ? null
+                : await reader.GetFieldValueAsync<int>(storageAccountOrdinal, cancellationToken),
+            Created = await reader.GetFieldValueAsync<DateTimeOffset>("created", cancellationToken),
+            DetachedAt = await reader.IsDBNullAsync(detachedAtOrdinal, cancellationToken)
+                ? null
+                : await reader.GetFieldValueAsync<DateTimeOffset>(
+                    detachedAtOrdinal,
+                    cancellationToken
+                ),
+            DataType = await reader.IsDBNullAsync(dataTypeOrdinal, cancellationToken)
+                ? null
+                : await reader.GetFieldValueAsync<string>(dataTypeOrdinal, cancellationToken),
+        };
     }
 
     /// <inheritdoc/>

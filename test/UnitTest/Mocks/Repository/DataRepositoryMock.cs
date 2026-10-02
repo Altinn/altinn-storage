@@ -20,7 +20,7 @@ public class DataRepositoryMock : IDataRepository
 {
     private readonly Lock _stateLock = new();
     private readonly Dictionary<string, StoredDataElement> _tempRepository = [];
-    private readonly Dictionary<string, List<BlobVersionEntry>> _blobVersions = [];
+    private readonly Dictionary<string, List<DataElementBlobVersion>> _blobVersions = [];
     private int _instanceVersion = 1;
     private readonly int _processStateVersion = 1;
     private static readonly JsonSerializerOptions _options = new()
@@ -56,7 +56,7 @@ public class DataRepositoryMock : IDataRepository
                 );
             }
 
-            BlobVersionEntry blobVersion = FindBlobVersionToAttachLocked(
+            DataElementBlobVersion blobVersion = FindBlobVersionToAttachLocked(
                 dataElementId,
                 blobVersionId,
                 instanceGuid
@@ -71,6 +71,7 @@ public class DataRepositoryMock : IDataRepository
 
             string serializedDataElement = JsonSerializer.Serialize(stagedElement, _options);
             blobVersion?.DetachedAt = null;
+            blobVersion?.DataType = stagedElement.DataType;
 
             _tempRepository.Add(
                 dataElementId,
@@ -174,7 +175,7 @@ public class DataRepositoryMock : IDataRepository
                 normalizedBlobVersionId ?? storedDataElement.CurrentBlobVersion;
             stagedElement.BlobVersionId = currentBlobVersion;
 
-            BlobVersionEntry blobVersion = FindBlobVersionToAttachLocked(
+            DataElementBlobVersion blobVersion = FindBlobVersionToAttachLocked(
                 dataElementKey,
                 normalizedBlobVersionId,
                 instanceGuid
@@ -192,6 +193,7 @@ public class DataRepositoryMock : IDataRepository
             {
                 SupersedeAttachedBlobVersionsLocked(dataElementKey);
                 blobVersion.DetachedAt = null;
+                blobVersion.DataType = stagedElement.DataType;
             }
 
             _tempRepository[dataElementKey] = new StoredDataElement(
@@ -285,19 +287,21 @@ public class DataRepositoryMock : IDataRepository
     )
     {
         string blobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        DateTimeOffset created = DateTimeOffset.UtcNow;
         lock (_stateLock)
         {
             AddBlobVersionLocked(
                 dataElementId.ToString(),
-                new BlobVersionEntry(
-                    blobVersionId,
-                    instanceGuid,
-                    appId,
-                    blobStorageOrg,
-                    storageAccountNumber
-                )
+                new DataElementBlobVersion
                 {
-                    DetachedAt = DateTimeOffset.UtcNow,
+                    Id = BlobVersionId.Decode(blobVersionId),
+                    InstanceGuid = instanceGuid,
+                    DataElementId = dataElementId,
+                    AppId = appId,
+                    BlobStorageOrg = blobStorageOrg,
+                    StorageAccountNumber = storageAccountNumber,
+                    Created = created,
+                    DetachedAt = created,
                 }
             );
         }
@@ -338,11 +342,13 @@ public class DataRepositoryMock : IDataRepository
         lock (_stateLock)
         {
             int deleteCount = 0;
-            if (_blobVersions.TryGetValue(dataElementKey, out List<BlobVersionEntry> versions))
+            if (
+                _blobVersions.TryGetValue(dataElementKey, out List<DataElementBlobVersion> versions)
+            )
             {
                 deleteCount = versions.RemoveAll(version =>
                     version.DetachedAt is not null
-                    && normalizedBlobVersionIds.Contains(version.BlobVersionId)
+                    && normalizedBlobVersionIds.Contains(BlobVersionId.Encode(version.Id))
                 );
                 if (versions.Count == 0)
                 {
@@ -364,12 +370,15 @@ public class DataRepositoryMock : IDataRepository
         {
             int deleteCount = 0;
             foreach (
-                (string dataElementId, List<BlobVersionEntry> versions) in _blobVersions.ToArray()
+                (
+                    string dataElementId,
+                    List<DataElementBlobVersion> versions
+                ) in _blobVersions.ToArray()
             )
             {
                 deleteCount += versions.RemoveAll(version =>
                     version.DetachedAt is not null
-                    && normalizedBlobVersionIds.Contains(version.BlobVersionId)
+                    && normalizedBlobVersionIds.Contains(BlobVersionId.Encode(version.Id))
                 );
                 if (versions.Count == 0)
                 {
@@ -393,15 +402,15 @@ public class DataRepositoryMock : IDataRepository
 
     private Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadBlobVersions(
         Guid dataElementId,
-        Func<BlobVersionEntry, bool> filter
+        Func<DataElementBlobVersion, bool> filter
     )
     {
-        BlobVersionEntry[] snapshot;
+        DataElementBlobVersion[] snapshot;
         lock (_stateLock)
         {
             snapshot = _blobVersions.TryGetValue(
                 dataElementId.ToString(),
-                out List<BlobVersionEntry> versions
+                out List<DataElementBlobVersion> versions
             )
                 ? [.. versions.Where(filter)]
                 : [];
@@ -423,11 +432,33 @@ public class DataRepositoryMock : IDataRepository
                     group.Key.AppId,
                     group.Key.BlobStorageOrg,
                     group.Key.StorageAccountNumber,
-                    [.. group.Select(version => version.BlobVersionId)]
+                    [.. group.Select(version => BlobVersionId.Encode(version.Id))]
                 )),
         ];
 
         return Task.FromResult(blobVersions);
+    }
+
+    public Task<DataElementBlobVersion> ReadBlobVersion(
+        Guid instanceGuid,
+        Guid dataElementId,
+        string blobVersionId,
+        CancellationToken cancellationToken = default
+    )
+    {
+        lock (_stateLock)
+        {
+            DataElementBlobVersion blobVersion = _blobVersions.TryGetValue(
+                dataElementId.ToString(),
+                out var versions
+            )
+                ? versions.Find(version =>
+                    version.InstanceGuid == instanceGuid
+                    && BlobVersionId.Encode(version.Id) == blobVersionId
+                )
+                : null;
+            return Task.FromResult(blobVersion is null ? null : blobVersion with { });
+        }
     }
 
     public Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadDetachedBlobVersions(
@@ -557,7 +588,7 @@ public class DataRepositoryMock : IDataRepository
         return requestedBlobVersionId;
     }
 
-    private BlobVersionEntry FindBlobVersionToAttachLocked(
+    private DataElementBlobVersion FindBlobVersionToAttachLocked(
         string dataElementId,
         string blobVersionId,
         Guid instanceGuid
@@ -565,7 +596,7 @@ public class DataRepositoryMock : IDataRepository
     {
         if (
             blobVersionId is null
-            || !_blobVersions.TryGetValue(dataElementId, out List<BlobVersionEntry> versions)
+            || !_blobVersions.TryGetValue(dataElementId, out List<DataElementBlobVersion> versions)
         )
         {
             return null;
@@ -574,45 +605,43 @@ public class DataRepositoryMock : IDataRepository
         return versions.Find(version =>
             version.DetachedAt is not null
             && version.InstanceGuid == instanceGuid
-            && string.Equals(version.BlobVersionId, blobVersionId, StringComparison.Ordinal)
+            && string.Equals(
+                BlobVersionId.Encode(version.Id),
+                blobVersionId,
+                StringComparison.Ordinal
+            )
         );
     }
 
     private void SupersedeAttachedBlobVersionsLocked(string dataElementId)
     {
-        if (!_blobVersions.TryGetValue(dataElementId, out List<BlobVersionEntry> versions))
+        if (!_blobVersions.TryGetValue(dataElementId, out List<DataElementBlobVersion> versions))
         {
             return;
         }
 
-        foreach (BlobVersionEntry version in versions.Where(version => version.DetachedAt is null))
+        foreach (
+            DataElementBlobVersion version in versions.Where(version => version.DetachedAt is null)
+        )
         {
             version.DetachedAt = DateTimeOffset.UtcNow;
         }
     }
 
-    private void AddBlobVersionLocked(string dataElementId, BlobVersionEntry blobVersion)
+    private void AddBlobVersionLocked(string dataElementId, DataElementBlobVersion blobVersion)
     {
         if (string.IsNullOrEmpty(dataElementId))
         {
             return;
         }
 
-        if (!_blobVersions.TryGetValue(dataElementId, out List<BlobVersionEntry> versions))
+        if (!_blobVersions.TryGetValue(dataElementId, out List<DataElementBlobVersion> versions))
         {
             versions = [];
             _blobVersions[dataElementId] = versions;
         }
 
-        if (
-            !versions.Exists(version =>
-                string.Equals(
-                    version.BlobVersionId,
-                    blobVersion.BlobVersionId,
-                    StringComparison.Ordinal
-                )
-            )
-        )
+        if (!versions.Exists(version => version.Id == blobVersion.Id))
         {
             versions.Add(blobVersion);
         }
@@ -620,14 +649,18 @@ public class DataRepositoryMock : IDataRepository
 
     private bool RemoveDetachedBlobVersionLocked(string dataElementId, string blobVersionId)
     {
-        if (!_blobVersions.TryGetValue(dataElementId, out List<BlobVersionEntry> versions))
+        if (!_blobVersions.TryGetValue(dataElementId, out List<DataElementBlobVersion> versions))
         {
             return false;
         }
 
         int versionIndex = versions.FindIndex(version =>
             version.DetachedAt is not null
-            && string.Equals(version.BlobVersionId, blobVersionId, StringComparison.Ordinal)
+            && string.Equals(
+                BlobVersionId.Encode(version.Id),
+                blobVersionId,
+                StringComparison.Ordinal
+            )
         );
         if (versionIndex < 0)
         {
@@ -779,15 +812,4 @@ public class DataRepositoryMock : IDataRepository
         string CurrentBlobVersion,
         Guid InstanceGuid
     );
-
-    private sealed record BlobVersionEntry(
-        string BlobVersionId,
-        Guid InstanceGuid,
-        string AppId,
-        string BlobStorageOrg,
-        int? StorageAccountNumber
-    )
-    {
-        public DateTimeOffset? DetachedAt { get; set; }
-    }
 }

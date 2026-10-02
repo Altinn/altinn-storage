@@ -3,6 +3,7 @@
     Altinn.Platform.Storage.Controllers.DataController.CreateAndUploadData (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.DataController.Delete (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.DataController.Get (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.DataController.GetBlobVersion (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.DataController.GetMany (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.DataController.OverwriteData (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.DataController.Update (Altinn.Platform.Storage),
@@ -36,6 +37,11 @@
       altinn:serviceowner/instances.write
     ],
     Altinn.Platform.Storage.Controllers.DataController.Get (Altinn.Platform.Storage): [
+      altinn:instances.read,
+      altinn:portal/enduser,
+      altinn:serviceowner/instances.read
+    ],
+    Altinn.Platform.Storage.Controllers.DataController.GetBlobVersion (Altinn.Platform.Storage): [
       altinn:instances.read,
       altinn:portal/enduser,
       altinn:serviceowner/instances.read

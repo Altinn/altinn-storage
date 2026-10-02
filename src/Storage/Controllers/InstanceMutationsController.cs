@@ -903,15 +903,15 @@ public class InstanceMutationsController(
             );
         }
 
+        // Preserve versioned blobs for workflow retries; orphan cleanup reclaims them after its grace period.
         foreach (
             DataElementInternal dataElementInternal in preparedWork.PostCommitBlobCleanupDataElements
         )
         {
-            await dataService.CleanupDeletedDataElementBlobs(
+            await dataService.DeleteLegacyDataElementBlob(
                 updatedInstanceInternal,
                 dataElementInternal,
-                application.StorageAccountNumber,
-                CancellationToken.None
+                application.StorageAccountNumber
             );
         }
     }
