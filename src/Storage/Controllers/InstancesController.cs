@@ -257,53 +257,39 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        try
+        InstanceInternal instance = await _instanceRepository.GetOne(
+            instanceGuid,
+            true,
+            cancellationToken
+        );
+
+        if (instance is null)
         {
-            InstanceInternal instance = await _instanceRepository.GetOne(
-                instanceGuid,
-                true,
-                cancellationToken
-            );
+            return NotFound($"Unable to find instance {instanceGuid}");
+        }
 
-            if (instance is null)
-            {
-                return NotFound($"Unable to find instance {instanceGuid}");
-            }
-
-            if (
-                _authorizationService.UserHasRequiredScope([
-                    _generalSettings.InstanceSyncAdapterScope,
-                ])
-            )
-            {
-                Instance responseInstance = instance.ToApiModel();
-                responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
-                VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
-                return Ok(responseInstance);
-            }
-
-            if (
-                await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read")
-                is false
-            )
-            {
-                return Forbid();
-            }
-
-            Instance mappedInstance = instance.ToApiModel();
-            if (User.GetOrg() != instance.Org)
-            {
-                FilterOutDeletedDataElements(mappedInstance);
-            }
-
-            mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        if (_authorizationService.UserHasRequiredScope([_generalSettings.InstanceSyncAdapterScope]))
+        {
+            Instance responseInstance = instance.ToApiModel();
+            responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
             VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
-            return Ok(mappedInstance);
+            return Ok(responseInstance);
         }
-        catch (Exception e)
+
+        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read") is false)
         {
-            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}: {e}");
+            return Forbid();
         }
+
+        Instance mappedInstance = instance.ToApiModel();
+        if (User.GetOrg() != instance.Org)
+        {
+            FilterOutDeletedDataElements(mappedInstance);
+        }
+
+        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
+        return Ok(mappedInstance);
     }
 
     /// <summary>
@@ -323,53 +309,39 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        try
+        InstanceInternal instance = await _instanceRepository.GetOne(
+            instanceGuid,
+            true,
+            cancellationToken
+        );
+
+        if (instance is null)
         {
-            InstanceInternal instance = await _instanceRepository.GetOne(
-                instanceGuid,
-                true,
-                cancellationToken
-            );
+            return NotFound($"Unable to find instance {instanceGuid}");
+        }
 
-            if (instance is null)
-            {
-                return NotFound($"Unable to find instance {instanceGuid}");
-            }
-
-            if (
-                _authorizationService.UserHasRequiredScope([
-                    _generalSettings.InstanceSyncAdapterScope,
-                ])
-            )
-            {
-                Instance responseInstance = instance.ToApiModel();
-                responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
-                VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
-                return Ok(responseInstance);
-            }
-
-            if (
-                await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read")
-                is false
-            )
-            {
-                return Forbid();
-            }
-
-            Instance mappedInstance = instance.ToApiModel();
-            if (User.GetOrg() != instance.Org)
-            {
-                FilterOutDeletedDataElements(mappedInstance);
-            }
-
-            mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        if (_authorizationService.UserHasRequiredScope([_generalSettings.InstanceSyncAdapterScope]))
+        {
+            Instance responseInstance = instance.ToApiModel();
+            responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
             VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
-            return Ok(mappedInstance);
+            return Ok(responseInstance);
         }
-        catch (Exception e)
+
+        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read") is false)
         {
-            return NotFound($"Unable to find instance {instanceGuid}: {e}");
+            return Forbid();
         }
+
+        Instance mappedInstance = instance.ToApiModel();
+        if (User.GetOrg() != instance.Org)
+        {
+            FilterOutDeletedDataElements(mappedInstance);
+        }
+
+        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
+        return Ok(mappedInstance);
     }
 
     /// <summary>
