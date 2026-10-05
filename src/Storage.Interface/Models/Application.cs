@@ -176,7 +176,7 @@ public class Application : ChangableElement
     /// Status of the application.
     /// </summary>
     [JsonProperty(PropertyName = "status")]
-    public DistributionStatus Status { get; set; }
+    public AppStatus Status { get; set; }
 
     /// <inheritdoc/>
     public override string ToString()
