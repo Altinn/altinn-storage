@@ -281,15 +281,12 @@ public class PersistedJsonContractTests
             Process = BuildProcessState(),
             Status = BuildInstanceStatus(),
             CompleteConfirmations = [BuildCompleteConfirmation()],
-            Data = [BuildDataElementInternal()],
             PresentationTexts = new Dictionary<string, string> { ["title"] = "Contract" },
             DataValues = new Dictionary<string, string> { ["caseNumber"] = "42" },
             Created = _created,
             CreatedBy = "1337",
             LastChanged = _changed,
             LastChangedBy = "1338",
-            Versions = new StorageVersions(7, 3),
-            InternalId = 99,
         };
 
     private static InstanceOwner BuildInstanceOwner() =>
@@ -418,7 +415,6 @@ public class PersistedJsonContractTests
             CreatedBy = "1337",
             LastChanged = _changed,
             LastChangedBy = "1338",
-            BlobVersionId = "2026-09-25T08:15:30.1230000Z",
         };
 
     private static InstanceEvent BuildInstanceEvent() =>
