@@ -340,6 +340,34 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     }
 
     /// <summary>
+    /// Test case: Reading the instance from the repository fails.
+    /// Expected: Returns status internal server error, not not found.
+    /// </summary>
+    [Theory]
+    [InlineData("1337/23d6aa98-df3b-4982-8d8a-8fe67a53b828")]
+    [InlineData("23d6aa98-df3b-4982-8d8a-8fe67a53b828")]
+    public async Task Get_RepositoryThrows_ReturnsInternalServerError(string instancePath)
+    {
+        // Arrange
+        string requestUri = $"{BasePath}/{instancePath}";
+
+        Mock<IInstanceRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(r => r.GetOne(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database unavailable"));
+
+        HttpClient client = GetTestClient(repositoryMock);
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+    }
+
+    /// <summary>
     /// Test case: Response is deny.
     /// Expected: Returns status forbidden.
     /// </summary>
@@ -565,6 +593,59 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         Instance createdInstance = await response.Content.ReadFromJsonAsync<Instance>();
         Assert.Equal(expectedStatus, createdInstance.Process.Status);
+    }
+
+    [Fact]
+    public async Task Post_WithPresentationTexts_StoresNonEmptyTexts()
+    {
+        string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
+        InstanceInternal createdInstance = null;
+        Mock<IInstanceRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(r =>
+                r.Create(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<int>()
+                )
+            )
+            .ReturnsAsync(
+                (InstanceInternal toCreate, CancellationToken _, int _) =>
+                {
+                    toCreate.Id = Guid.NewGuid();
+                    toCreate.Versions = new StorageVersions(1, 1);
+                    createdInstance = toCreate;
+                    return toCreate;
+                }
+            );
+        HttpClient client = GetTestClient(repositoryMock);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
+        Instance instance = new()
+        {
+            InstanceOwner = new InstanceOwner { PartyId = "1337" },
+            PresentationTexts = new Dictionary<string, string>
+            {
+                ["name"] = "Ola Olsen",
+                ["empty"] = string.Empty,
+                ["missing"] = null,
+            },
+        };
+
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"))
+        );
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Dictionary<string, string> expected = new() { ["name"] = "Ola Olsen" };
+        Assert.Equal(expected, createdInstance.PresentationTexts);
+        Instance responseInstance = JsonConvert.DeserializeObject<Instance>(
+            await response.Content.ReadAsStringAsync()
+        );
+        Assert.Equal(expected, responseInstance.PresentationTexts);
     }
 
     /// <summary>

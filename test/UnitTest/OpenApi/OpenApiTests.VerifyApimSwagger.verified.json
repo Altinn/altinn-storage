@@ -953,7 +953,7 @@
           {
             "name": "dataGuid",
             "in": "path",
-            "description": "The id of the data element to delete.",
+            "description": "The id of the data element to lock.",
             "required": true,
             "schema": {
               "type": "string",
@@ -1053,7 +1053,7 @@
           {
             "name": "dataGuid",
             "in": "path",
-            "description": "The id of the data element to delete.",
+            "description": "The id of the data element to unlock.",
             "required": true,
             "schema": {
               "type": "string",
@@ -4774,6 +4774,23 @@
           },
           "includeAttachments": {
             "type": "boolean"
+          },
+          "includeDueBefore": {
+            "type": "boolean"
+          },
+          "includedDataValues": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "includedPresentationTexts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -5031,7 +5048,9 @@
             "nullable": true
           },
           "enablePdfCreation": {
-            "type": "boolean"
+            "type": "boolean",
+            "nullable": true,
+            "deprecated": true
           },
           "enableFileScan": {
             "type": "boolean"

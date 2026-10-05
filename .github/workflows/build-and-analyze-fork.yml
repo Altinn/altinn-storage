@@ -52,6 +52,9 @@ jobs:
       - name: Restart database to enable config changes
         run: |
           docker restart $(docker ps -q)
+      - name: Start Azurite
+        run: |
+          docker compose up -d --wait --wait-timeout 60 altinn_platform_storage_azurite
       - name: Build & Test
         run: |
           dotnet build Altinn.Platform.Storage.slnx -v q
