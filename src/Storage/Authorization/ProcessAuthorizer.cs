@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Microsoft.Extensions.Options;
@@ -14,6 +15,7 @@ namespace Altinn.Platform.Storage.Authorization;
 public class ProcessAuthorizer : IProcessAuthorizer
 {
     private readonly IAuthorization _authorizationService;
+    private readonly IClaimsPrincipalProvider _claimsPrincipalProvider;
     private readonly GeneralSettings _generalSettings;
 
     /// <summary>
@@ -21,10 +23,12 @@ public class ProcessAuthorizer : IProcessAuthorizer
     /// </summary>
     public ProcessAuthorizer(
         IAuthorization authorizationService,
+        IClaimsPrincipalProvider claimsPrincipalProvider,
         IOptions<GeneralSettings> settings
     )
     {
         _authorizationService = authorizationService;
+        _claimsPrincipalProvider = claimsPrincipalProvider;
         _generalSettings = settings.Value;
     }
 
@@ -128,6 +132,13 @@ public class ProcessAuthorizer : IProcessAuthorizer
 
         List<string> actions = GetActionsThatAllowProcessNextForTaskType(altinnTaskType);
 
+        // The app owner moves the process on its own behalf, after the app has authorized the end user
+        // for the task-specific action. Its own policy still has to grant it write on the task.
+        if (IsAppOwner(instance) && !actions.Contains("write"))
+        {
+            actions.Add("write");
+        }
+
         foreach (string action in actions)
         {
             if (await _authorizationService.AuthorizeInstanceAction(instance, action, taskId))
@@ -138,4 +149,7 @@ public class ProcessAuthorizer : IProcessAuthorizer
 
         return false;
     }
+
+    private bool IsAppOwner(InstanceInternal instance) =>
+        _claimsPrincipalProvider.GetUser().GetOrg() is { } org && org == instance.Org;
 }

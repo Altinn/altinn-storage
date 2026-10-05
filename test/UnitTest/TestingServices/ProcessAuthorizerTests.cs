@@ -1,9 +1,11 @@
 using System;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
+using AltinnCore.Authentication.Constants;
 using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
@@ -12,13 +14,22 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices;
 
 public class ProcessAuthorizerTests
 {
+    private const string AppOwner = "ttd";
+
     private readonly Mock<IAuthorization> _authorizationMock = new();
+    private readonly Mock<IClaimsPrincipalProvider> _claimsPrincipalProviderMock = new();
+
+    public ProcessAuthorizerTests()
+    {
+        _claimsPrincipalProviderMock.Setup(p => p.GetUser()).Returns(new ClaimsPrincipal());
+    }
 
     private static readonly IOptions<GeneralSettings> _settings = Options.Create(
         new GeneralSettings { InstanceSyncAdapterScope = "altinn:storage/instances.syncadapter" }
     );
 
-    private ProcessAuthorizer CreateSut() => new(_authorizationMock.Object, _settings);
+    private ProcessAuthorizer CreateSut() =>
+        new(_authorizationMock.Object, _claimsPrincipalProviderMock.Object, _settings);
 
     private static InstanceInternal CreateInstance(
         string taskId = "Task_1",
@@ -27,6 +38,7 @@ public class ProcessAuthorizerTests
         new()
         {
             Id = Guid.NewGuid(),
+            Org = AppOwner,
             Process = new ProcessState
             {
                 CurrentTask = new ProcessElementInfo
@@ -36,6 +48,13 @@ public class ProcessAuthorizerTests
                 },
             },
         };
+
+    private void SetupCallerOrg(string org) =>
+        _claimsPrincipalProviderMock
+            .Setup(p => p.GetUser())
+            .Returns(
+                new ClaimsPrincipal(new ClaimsIdentity([new Claim(AltinnCoreClaimTypes.Org, org)]))
+            );
 
     private void SetupAuthorizeAction(string action, string taskId, bool returns) =>
         _authorizationMock
@@ -150,6 +169,75 @@ public class ProcessAuthorizerTests
         SetupAuthorizeAction("sign", "Task_1", true);
 
         Assert.True(await CreateSut().AuthorizeProcessNext(instance, nextState));
+    }
+
+    [Theory]
+    [InlineData("confirmation")]
+    [InlineData("customServiceTask")]
+    public async Task AuthorizeProcessNext_AppOwnerHasWrite_ReturnsTrue(string taskType)
+    {
+        var instance = CreateInstance(altinnTaskType: taskType);
+        SetupCallerOrg(AppOwner);
+        SetupAuthorizeAction("write", "Task_1", true);
+
+        Assert.True(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
+    }
+
+    [Fact]
+    public async Task AuthorizeProcessNext_AppOwnerHasTaskTypeActionOnly_ReturnsTrue()
+    {
+        var instance = CreateInstance(altinnTaskType: "confirmation");
+        SetupCallerOrg(AppOwner);
+        SetupAuthorizeAction("confirm", "Task_1", true);
+
+        Assert.True(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
+    }
+
+    [Theory]
+    [InlineData("confirmation")]
+    [InlineData("customServiceTask")]
+    public async Task AuthorizeProcessNext_OtherOrgHasWrite_ReturnsFalse(string taskType)
+    {
+        var instance = CreateInstance(altinnTaskType: taskType);
+        SetupCallerOrg("other-org");
+        SetupAuthorizeAction("write", "Task_1", true);
+
+        Assert.False(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
+    }
+
+    [Theory]
+    [InlineData("confirmation")]
+    [InlineData("customServiceTask")]
+    public async Task AuthorizeProcessNext_UserHasWrite_ReturnsFalse(string taskType)
+    {
+        var instance = CreateInstance(altinnTaskType: taskType);
+        SetupAuthorizeAction("write", "Task_1", true);
+
+        Assert.False(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
+    }
+
+    [Fact]
+    public async Task AuthorizeProcessNext_AppOwnerAbandonFlow_OnlyChecksReject()
+    {
+        var instance = CreateInstance(altinnTaskType: "confirmation");
+        var nextState = new ProcessState
+        {
+            CurrentTask = new ProcessElementInfo { FlowType = "AbandonCurrentMoveToNext" },
+        };
+        SetupCallerOrg(AppOwner);
+        SetupAuthorizeAction("write", "Task_1", true);
+
+        Assert.False(await CreateSut().AuthorizeProcessNext(instance, nextState));
+    }
+
+    [Fact]
+    public async Task AuthorizeLock_AppOwnerHasWrite_UsesTaskTypeActions()
+    {
+        var instance = CreateInstance(altinnTaskType: "confirmation");
+        SetupCallerOrg(AppOwner);
+        SetupAuthorizeAction("write", "Task_1", true);
+
+        Assert.False(await CreateSut().AuthorizeInstanceLock(instance));
     }
 
     #endregion
