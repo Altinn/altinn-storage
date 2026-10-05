@@ -2,6 +2,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
@@ -100,8 +104,14 @@ public class PersistedJsonContractTests
     /// <summary>
     /// Serializes with the persistence options, snapshots the result, and checks that reading the
     /// document back with the same options reproduces it, which is what the row round trip relies on.
+    /// When the snapshot does not match, the failure message starts with the property paths that were
+    /// added, removed or changed type, so the change to the persisted contract can be read directly.
     /// </summary>
-    private static async Task VerifyPersistedShape<T>(T document)
+    private static async Task VerifyPersistedShape<T>(
+        T document,
+        [CallerMemberName] string testName = "",
+        [CallerFilePath] string sourceFile = ""
+    )
     {
         string json = JsonSerializer.Serialize(document, PersistedJson.Options);
 
@@ -115,7 +125,94 @@ public class PersistedJsonContractTests
         VerifySettings settings = new();
         settings.DontScrubDateTimes();
         settings.DontScrubGuids();
-        await Verifier.Verify(indented, extension: "json", settings: settings);
+        try
+        {
+            await Verifier.Verify(indented, extension: "json", settings: settings);
+        }
+        catch (Exception exception) when (exception.GetType().Name == "VerifyException")
+        {
+            string verifiedPath = Path.Combine(
+                Path.GetDirectoryName(sourceFile),
+                $"{nameof(PersistedJsonContractTests)}.{testName}.verified.json"
+            );
+            if (!File.Exists(verifiedPath))
+            {
+                throw;
+            }
+
+            Assert.Fail(
+                DescribeShapeChange(typeof(T).Name, File.ReadAllText(verifiedPath), indented)
+                    + Environment.NewLine
+                    + exception.Message
+            );
+        }
+    }
+
+    private static string DescribeShapeChange(string typeName, string verified, string received)
+    {
+        Dictionary<string, JsonValueKind> before = FlattenPaths(JsonNode.Parse(verified));
+        Dictionary<string, JsonValueKind> after = FlattenPaths(JsonNode.Parse(received));
+
+        StringBuilder message = new();
+        message.AppendLine($"Persisted shape of {typeName} changed.");
+        AppendPaths(message, "Added", after.Keys.Except(before.Keys));
+        AppendPaths(message, "Removed", before.Keys.Except(after.Keys));
+        AppendPaths(
+            message,
+            "Changed type",
+            before
+                .Keys.Intersect(after.Keys)
+                .Where(path => before[path] != after[path])
+                .Select(path => $"{path} ({before[path]} -> {after[path]})")
+        );
+        return message.ToString();
+    }
+
+    private static void AppendPaths(StringBuilder message, string label, IEnumerable<string> paths)
+    {
+        List<string> list = paths.Order(StringComparer.Ordinal).ToList();
+        message.AppendLine($"  {label}: {(list.Count == 0 ? "(none)" : string.Join(", ", list))}");
+    }
+
+    /// <summary>
+    /// Maps every value in the document to its JSON path, with booleans folded into one kind so a
+    /// flipped flag is not reported as a type change.
+    /// </summary>
+    private static Dictionary<string, JsonValueKind> FlattenPaths(JsonNode root)
+    {
+        Dictionary<string, JsonValueKind> paths = new();
+        Visit(root, "$");
+        return paths;
+
+        void Visit(JsonNode node, string path)
+        {
+            switch (node)
+            {
+                case JsonObject obj:
+                    paths[path] = JsonValueKind.Object;
+                    foreach (KeyValuePair<string, JsonNode> property in obj)
+                    {
+                        Visit(property.Value, $"{path}.{property.Key}");
+                    }
+
+                    break;
+                case JsonArray array:
+                    paths[path] = JsonValueKind.Array;
+                    for (int i = 0; i < array.Count; i++)
+                    {
+                        Visit(array[i], $"{path}[{i}]");
+                    }
+
+                    break;
+                case null:
+                    paths[path] = JsonValueKind.Null;
+                    break;
+                default:
+                    JsonValueKind kind = node.GetValueKind();
+                    paths[path] = kind == JsonValueKind.False ? JsonValueKind.True : kind;
+                    break;
+            }
+        }
     }
 
     private static Instance BuildInstance() =>
