@@ -14,7 +14,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices;
 
 public class ProcessAuthorizerTests
 {
-    private const string AppOwner = "ttd";
+    private const string ServiceOwner = "ttd";
 
     private readonly Mock<IAuthorization> _authorizationMock = new();
     private readonly Mock<IClaimsPrincipalProvider> _claimsPrincipalProviderMock = new();
@@ -38,7 +38,7 @@ public class ProcessAuthorizerTests
         new()
         {
             Id = Guid.NewGuid(),
-            Org = AppOwner,
+            Org = ServiceOwner,
             Process = new ProcessState
             {
                 CurrentTask = new ProcessElementInfo
@@ -55,6 +55,17 @@ public class ProcessAuthorizerTests
             .Returns(
                 new ClaimsPrincipal(new ClaimsIdentity([new Claim(AltinnCoreClaimTypes.Org, org)]))
             );
+
+    private void VerifyPdpNeverAsked() =>
+        _authorizationMock.Verify(
+            a =>
+                a.AuthorizeInstanceAction(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>()
+                ),
+            Times.Never
+        );
 
     private void SetupAuthorizeAction(string action, string taskId, bool returns) =>
         _authorizationMock
@@ -174,40 +185,6 @@ public class ProcessAuthorizerTests
     [Theory]
     [InlineData("confirmation")]
     [InlineData("customServiceTask")]
-    public async Task AuthorizeProcessNext_AppOwnerHasWrite_ReturnsTrue(string taskType)
-    {
-        var instance = CreateInstance(altinnTaskType: taskType);
-        SetupCallerOrg(AppOwner);
-        SetupAuthorizeAction("write", "Task_1", true);
-
-        Assert.True(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
-    }
-
-    [Fact]
-    public async Task AuthorizeProcessNext_AppOwnerHasTaskTypeActionOnly_ReturnsTrue()
-    {
-        var instance = CreateInstance(altinnTaskType: "confirmation");
-        SetupCallerOrg(AppOwner);
-        SetupAuthorizeAction("confirm", "Task_1", true);
-
-        Assert.True(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
-    }
-
-    [Theory]
-    [InlineData("confirmation")]
-    [InlineData("customServiceTask")]
-    public async Task AuthorizeProcessNext_OtherOrgHasWrite_ReturnsFalse(string taskType)
-    {
-        var instance = CreateInstance(altinnTaskType: taskType);
-        SetupCallerOrg("other-org");
-        SetupAuthorizeAction("write", "Task_1", true);
-
-        Assert.False(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
-    }
-
-    [Theory]
-    [InlineData("confirmation")]
-    [InlineData("customServiceTask")]
     public async Task AuthorizeProcessNext_UserHasWrite_ReturnsFalse(string taskType)
     {
         var instance = CreateInstance(altinnTaskType: taskType);
@@ -216,28 +193,92 @@ public class ProcessAuthorizerTests
         Assert.False(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
     }
 
-    [Fact]
-    public async Task AuthorizeProcessNext_AppOwnerAbandonFlow_OnlyChecksReject()
+    #endregion
+
+    #region Service owner
+
+    [Theory]
+    [InlineData("data")]
+    [InlineData("confirmation")]
+    [InlineData("customServiceTask")]
+    public async Task AuthorizeProcessNext_ServiceOwner_ReturnsTrueWithoutAskingThePdp(
+        string taskType
+    )
     {
-        var instance = CreateInstance(altinnTaskType: "confirmation");
+        var instance = CreateInstance(altinnTaskType: taskType);
+        SetupCallerOrg(ServiceOwner);
+
+        Assert.True(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
+        VerifyPdpNeverAsked();
+    }
+
+    [Fact]
+    public async Task AuthorizeProcessNext_ServiceOwnerAbandonFlow_ReturnsTrueWithoutAskingThePdp()
+    {
+        var instance = CreateInstance(altinnTaskType: "data");
         var nextState = new ProcessState
         {
             CurrentTask = new ProcessElementInfo { FlowType = "AbandonCurrentMoveToNext" },
         };
-        SetupCallerOrg(AppOwner);
-        SetupAuthorizeAction("write", "Task_1", true);
+        SetupCallerOrg(ServiceOwner);
 
-        Assert.False(await CreateSut().AuthorizeProcessNext(instance, nextState));
+        Assert.True(await CreateSut().AuthorizeProcessNext(instance, nextState));
+        VerifyPdpNeverAsked();
     }
 
     [Fact]
-    public async Task AuthorizeLock_AppOwnerHasWrite_UsesTaskTypeActions()
+    public async Task AuthorizeProcessNext_ServiceOwnerNoCurrentTask_ReturnsFalse()
     {
-        var instance = CreateInstance(altinnTaskType: "confirmation");
-        SetupCallerOrg(AppOwner);
-        SetupAuthorizeAction("write", "Task_1", true);
+        var instance = new InstanceInternal
+        {
+            Org = ServiceOwner,
+            Process = new ProcessState { CurrentTask = null },
+        };
+        SetupCallerOrg(ServiceOwner);
 
-        Assert.False(await CreateSut().AuthorizeInstanceLock(instance));
+        Assert.False(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
+    }
+
+    [Theory]
+    [InlineData("confirmation")]
+    [InlineData("customServiceTask")]
+    [InlineData(null)]
+    public async Task AuthorizeLockAndUpdate_ServiceOwner_ReturnsTrueWithoutAskingThePdp(
+        string? taskType
+    )
+    {
+        var instance = taskType is null
+            ? new InstanceInternal
+            {
+                Org = ServiceOwner,
+                Process = new ProcessState { CurrentTask = null },
+            }
+            : CreateInstance(altinnTaskType: taskType);
+        SetupCallerOrg(ServiceOwner);
+        var sut = CreateSut();
+
+        Assert.True(await sut.AuthorizeInstanceLock(instance));
+        Assert.True(await sut.AuthorizeDataElementLock(instance));
+        Assert.True(await sut.AuthorizePresentationTextsUpdate(instance));
+        Assert.True(await sut.AuthorizeDataValuesUpdate(instance));
+        VerifyPdpNeverAsked();
+    }
+
+    [Theory]
+    [InlineData("data")]
+    [InlineData("confirmation")]
+    [InlineData("customServiceTask")]
+    public async Task AllChecks_OtherOrgWithoutGrants_ReturnFalse(string taskType)
+    {
+        var instance = CreateInstance(altinnTaskType: taskType);
+        SetupCallerOrg("other-org");
+        var sut = CreateSut();
+
+        Assert.False(await sut.AuthorizeProcessNext(instance, new ProcessState()));
+        Assert.False(await sut.AuthorizeInstanceLock(instance));
+        Assert.False(await sut.AuthorizeDataElementLock(instance));
+        Assert.False(await sut.AuthorizePresentationTextsUpdate(instance));
+        Assert.False(await sut.AuthorizeDataValuesUpdate(instance));
     }
 
     #endregion

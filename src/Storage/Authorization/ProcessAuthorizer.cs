@@ -10,7 +10,8 @@ using Microsoft.Extensions.Options;
 namespace Altinn.Platform.Storage.Authorization;
 
 /// <summary>
-/// Authorizer for process operations.
+/// Authorizer for process operations. The service owner is always allowed: it commits process
+/// transitions and their data on behalf of a user the app has already authorized.
 /// </summary>
 public class ProcessAuthorizer : IProcessAuthorizer
 {
@@ -85,6 +86,11 @@ public class ProcessAuthorizer : IProcessAuthorizer
 
     private async Task<bool> Authorize(InstanceInternal instance)
     {
+        if (IsServiceOwner(instance))
+        {
+            return true;
+        }
+
         string? taskId = instance.Process?.CurrentTask?.ElementId;
         string? altinnTaskType = instance.Process?.CurrentTask?.AltinnTaskType;
 
@@ -113,6 +119,11 @@ public class ProcessAuthorizer : IProcessAuthorizer
             return false;
         }
 
+        if (IsServiceOwner(instance))
+        {
+            return true;
+        }
+
         string? taskId = instance.Process.CurrentTask.ElementId;
         string? altinnTaskType = instance.Process.CurrentTask.AltinnTaskType;
 
@@ -132,13 +143,6 @@ public class ProcessAuthorizer : IProcessAuthorizer
 
         List<string> actions = GetActionsThatAllowProcessNextForTaskType(altinnTaskType);
 
-        // The app owner moves the process on its own behalf, after the app has authorized the end user
-        // for the task-specific action. Its own policy still has to grant it write on the task.
-        if (IsAppOwner(instance) && !actions.Contains("write"))
-        {
-            actions.Add("write");
-        }
-
         foreach (string action in actions)
         {
             if (await _authorizationService.AuthorizeInstanceAction(instance, action, taskId))
@@ -150,6 +154,6 @@ public class ProcessAuthorizer : IProcessAuthorizer
         return false;
     }
 
-    private bool IsAppOwner(InstanceInternal instance) =>
+    private bool IsServiceOwner(InstanceInternal instance) =>
         _claimsPrincipalProvider.GetUser().GetOrg() is { } org && org == instance.Org;
 }
