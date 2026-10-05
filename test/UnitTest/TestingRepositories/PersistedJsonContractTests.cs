@@ -562,6 +562,8 @@ public class PersistedJsonContractTests
                 ExcludedDataTypes = ["attachment"],
                 ExcludedDataFields = ["Skjema.Sak"],
                 IncludeAttachments = true,
+                IncludedPresentationTexts = ["name"],
+                IncludedDataValues = ["appVersion", "customerId"],
             },
             ApiScopes = new ApiScopesConfiguration
             {

@@ -130,7 +130,15 @@
     "ExcludedDataFields": [
       "Skjema.Sak"
     ],
-    "IncludeAttachments": true
+    "IncludeAttachments": true,
+    "IncludeDueBefore": false,
+    "IncludedDataValues": [
+      "appVersion",
+      "customerId"
+    ],
+    "IncludedPresentationTexts": [
+      "name"
+    ]
   },
   "ApiScopes": {
     "Users": {
