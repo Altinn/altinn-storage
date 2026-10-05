@@ -104,8 +104,11 @@ public class PersistedJsonContractTests
     /// <summary>
     /// Serializes with the persistence options, snapshots the result, and checks that reading the
     /// document back with the same options reproduces it, which is what the row round trip relies on.
-    /// When the snapshot does not match, the failure message starts with the property paths that were
-    /// added, removed or changed type, so the change to the persisted contract can be read directly.
+    /// The document must be fully populated, with no null values and no empty collections, so the
+    /// snapshot pins the stored format of every leaf and the element shape of every collection; a
+    /// property added to a model but not to its builder fails here with its path. When the snapshot
+    /// does not match, the failure message starts with the property paths that were added, removed or
+    /// changed type, so the change to the persisted contract can be read directly.
     /// </summary>
     private static async Task VerifyPersistedShape<T>(
         T document,
@@ -118,9 +121,9 @@ public class PersistedJsonContractTests
         T roundTripped = JsonSerializer.Deserialize<T>(json, PersistedJson.Options);
         Assert.Equal(json, JsonSerializer.Serialize(roundTripped, PersistedJson.Options));
 
-        string indented = JsonNode
-            .Parse(json)
-            .ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+        JsonNode node = JsonNode.Parse(json);
+        AssertFullyPopulated(typeof(T).Name, node);
+        string indented = node.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
 
         VerifySettings settings = new();
         settings.DontScrubDateTimes();
@@ -146,6 +149,30 @@ public class PersistedJsonContractTests
                     + exception.Message
             );
         }
+    }
+
+    private static void AssertFullyPopulated(string typeName, JsonNode document)
+    {
+        List<string> gaps = FlattenPaths(document)
+            .Where(entry => entry.Value is JsonValueKind.Null or JsonValueKind.Undefined)
+            .Select(entry => entry.Key)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+        if (gaps.Count == 0)
+        {
+            return;
+        }
+
+        StringBuilder message = new();
+        message.AppendLine($"Persisted shape of {typeName} is not fully populated.");
+        foreach (string path in gaps)
+        {
+            message.AppendLine(
+                $"  {path} is null or empty. Set it in the builder so the snapshot pins its shape."
+            );
+        }
+
+        Assert.Fail(message.ToString());
     }
 
     private static string DescribeShapeChange(string typeName, string verified, string received)
@@ -175,8 +202,9 @@ public class PersistedJsonContractTests
     }
 
     /// <summary>
-    /// Maps every value in the document to its JSON path, with booleans folded into one kind so a
-    /// flipped flag is not reported as a type change.
+    /// Maps every value in the document to its JSON path. Booleans are folded into one kind so a
+    /// flipped flag is not reported as a type change, and empty objects and arrays are reported as
+    /// <see cref="JsonValueKind.Undefined"/> because they pin nothing about their contents.
     /// </summary>
     private static Dictionary<string, JsonValueKind> FlattenPaths(JsonNode root)
     {
@@ -189,7 +217,7 @@ public class PersistedJsonContractTests
             switch (node)
             {
                 case JsonObject obj:
-                    paths[path] = JsonValueKind.Object;
+                    paths[path] = obj.Count == 0 ? JsonValueKind.Undefined : JsonValueKind.Object;
                     foreach (KeyValuePair<string, JsonNode> property in obj)
                     {
                         Visit(property.Value, $"{path}.{property.Key}");
@@ -197,7 +225,7 @@ public class PersistedJsonContractTests
 
                     break;
                 case JsonArray array:
-                    paths[path] = JsonValueKind.Array;
+                    paths[path] = array.Count == 0 ? JsonValueKind.Undefined : JsonValueKind.Array;
                     for (int i = 0; i < array.Count; i++)
                     {
                         Visit(array[i], $"{path}[{i}]");
