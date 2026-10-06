@@ -85,11 +85,18 @@ public class AppStatusTests
     [Fact]
     public void SerializedApplication_CarriesStatusAsString()
     {
-        Application application = new() { Id = "ttd/app-status", Status = Enums.AppStatus.Withdrawn };
+        Application application = new()
+        {
+            Id = "ttd/app-status",
+            Status = Enums.AppStatus.Withdrawn,
+        };
 
         string json = JsonConvert.SerializeObject(application);
 
         Assert.Contains("\"status\":\"Withdrawn\"", json);
-        Assert.Equal(Enums.AppStatus.Withdrawn, JsonConvert.DeserializeObject<Application>(json)!.Status);
+        Assert.Equal(
+            Enums.AppStatus.Withdrawn,
+            JsonConvert.DeserializeObject<Application>(json)!.Status
+        );
     }
 }
