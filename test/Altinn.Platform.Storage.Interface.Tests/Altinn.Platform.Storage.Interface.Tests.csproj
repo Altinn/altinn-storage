@@ -31,8 +31,6 @@
     <EmbeddedResource Include="AllowUserActions\applicationMetadata_afterChange.json" />
     <EmbeddedResource Include="AppStatus\applicationMetadata_beforeChange.json" />
     <EmbeddedResource Include="AppStatus\applicationMetadata_afterChange.json" />
-    <EmbeddedResource Include="CopyInstanceSettings\applicationMetadata_beforeChange.json" />
-    <EmbeddedResource Include="CopyInstanceSettings\applicationMetadata_afterChange.json" />
     <EmbeddedResource Include="ShadowFields\applicationMetadata_beforeChange.json" />
     <EmbeddedResource Include="ShadowFields\applicationMetadata_afterChange.json" />
     <EmbeddedResource Include="SystemUser\platformUser_beforeChange.json" />
