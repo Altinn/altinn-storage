@@ -27,18 +27,16 @@
   <ItemGroup>
     <EmbeddedResource Include="AllowAnonymousOnStateless\applicationMetadata_beforeChange.json" />
     <EmbeddedResource Include="AllowAnonymousOnStateless\applicationMetadata_afterChange.json" />
-    <EmbeddedResource Include="AllowUserActions\applicationMetadata_afterChange.json" />
     <EmbeddedResource Include="AllowUserActions\applicationMetadata_beforeChange.json" />
-    <EmbeddedResource Include="SystemUser\platformUser_afterChange.json" />
-    <EmbeddedResource Include="SystemUser\platformUser_beforeChange.json" />
-  </ItemGroup>
-
-  <ItemGroup>
+    <EmbeddedResource Include="AllowUserActions\applicationMetadata_afterChange.json" />
+    <EmbeddedResource Include="AppStatus\applicationMetadata_beforeChange.json" />
+    <EmbeddedResource Include="AppStatus\applicationMetadata_afterChange.json" />
+    <EmbeddedResource Include="CopyInstanceSettings\applicationMetadata_beforeChange.json" />
+    <EmbeddedResource Include="CopyInstanceSettings\applicationMetadata_afterChange.json" />
     <EmbeddedResource Include="ShadowFields\applicationMetadata_beforeChange.json" />
-  </ItemGroup>
-
-  <ItemGroup>
     <EmbeddedResource Include="ShadowFields\applicationMetadata_afterChange.json" />
+    <EmbeddedResource Include="SystemUser\platformUser_beforeChange.json" />
+    <EmbeddedResource Include="SystemUser\platformUser_afterChange.json" />
   </ItemGroup>
 
   <ItemGroup>
