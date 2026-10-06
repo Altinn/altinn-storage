@@ -264,6 +264,21 @@ public class ProcessAuthorizerTests
         VerifyPdpNeverAsked();
     }
 
+    [Fact]
+    public async Task AllChecks_OtherOrgWithWrite_AreAskedOfThePdp()
+    {
+        var instance = CreateInstance(altinnTaskType: "data");
+        SetupCallerOrg("other-org");
+        SetupAuthorizeAction("write", "Task_1", true);
+        var sut = CreateSut();
+
+        Assert.True(await sut.AuthorizeProcessNext(instance, new ProcessState()));
+        Assert.True(await sut.AuthorizeInstanceLock(instance));
+        Assert.True(await sut.AuthorizeDataElementLock(instance));
+        Assert.True(await sut.AuthorizePresentationTextsUpdate(instance));
+        Assert.True(await sut.AuthorizeDataValuesUpdate(instance));
+    }
+
     [Theory]
     [InlineData("data")]
     [InlineData("confirmation")]
