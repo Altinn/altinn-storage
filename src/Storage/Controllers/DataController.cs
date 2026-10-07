@@ -354,6 +354,7 @@ public class DataController : ControllerBase
                 return NotFound();
             }
 
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
             SetInlineContentDisposition(dataElement.Filename);
             return File(dataStream, dataElement.ContentType);
         }
