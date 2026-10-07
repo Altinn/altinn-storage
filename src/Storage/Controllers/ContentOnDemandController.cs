@@ -45,7 +45,7 @@ public class ContentOnDemandController(IOnDemandContentService onDemandContentSe
             cancellationToken
         );
 
-        return html is null ? NotFound() : File(html, "text/html");
+        return html is null ? NotFound() : File(html, "text/html; charset=utf-8");
     }
 
     /// <summary>
@@ -73,7 +73,7 @@ public class ContentOnDemandController(IOnDemandContentService onDemandContentSe
             cancellationToken
         );
 
-        return html is null ? NotFound() : File(html, "text/html");
+        return html is null ? NotFound() : File(html, "text/html; charset=utf-8");
     }
 
     /// <summary>
