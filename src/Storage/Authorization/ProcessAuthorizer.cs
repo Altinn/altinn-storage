@@ -54,6 +54,10 @@ public class ProcessAuthorizer : IProcessAuthorizer
     public Task<bool> AuthorizeDataValuesUpdate(InstanceInternal instance) =>
         AuthorizeWithSyncAdapterBypass(instance);
 
+    /// <inheritdoc/>
+    public bool IsServiceOwner(InstanceInternal instance) =>
+        _claimsPrincipalProvider.GetUser().GetOrg() is { } org && org == instance.Org;
+
     /// <summary>
     /// Get all actions that allow process next for the given task type.
     /// </summary>
@@ -153,7 +157,4 @@ public class ProcessAuthorizer : IProcessAuthorizer
 
         return false;
     }
-
-    private bool IsServiceOwner(InstanceInternal instance) =>
-        _claimsPrincipalProvider.GetUser().GetOrg() is { } org && org == instance.Org;
 }

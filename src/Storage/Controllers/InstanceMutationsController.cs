@@ -248,11 +248,14 @@ public class InstanceMutationsController(
         if (
             mutationRequest.ProcessState?.State is not null
             && instance.Process?.CurrentTask is null
+            && !processAuthorizer.IsServiceOwner(instance)
         )
         {
             // AuthorizeProcessNext rejects every caller when the instance has no current task
-            // (ended or not-started process). Checked after replay admission so idempotent
-            // retries of a process-ending mutation still replay.
+            // (ended or not-started process), so only the service owner may write its process
+            // state, e.g. the workflow releasing the processing status after the process ended.
+            // Checked after replay admission so idempotent retries of a process-ending mutation
+            // still replay.
             return Forbid();
         }
 

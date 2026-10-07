@@ -43,4 +43,10 @@ public interface IProcessAuthorizer
     /// Checks the task-type actions plus "reject", since the flow type is not known at update time.
     /// </summary>
     Task<bool> AuthorizeDataValuesUpdate(InstanceInternal instance);
+
+    /// <summary>
+    /// Determines if the user is the service owner of the instance, i.e. holds a token for the org
+    /// that owns the app.
+    /// </summary>
+    bool IsServiceOwner(InstanceInternal instance);
 }

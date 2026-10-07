@@ -3325,6 +3325,10 @@ public class InstanceMutationsControllerUnitTests
 
         Assert.IsType<ForbidResult>(result.Result);
         fixture.ProcessAuthorizer.Verify(
+            authorizer => authorizer.IsServiceOwner(fixture.InstanceInternal),
+            Times.Once
+        );
+        fixture.ProcessAuthorizer.Verify(
             authorizer =>
                 authorizer.AuthorizeProcessNext(
                     It.IsAny<InstanceInternal>(),
@@ -3333,6 +3337,192 @@ public class InstanceMutationsControllerUnitTests
             Times.Never
         );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+    }
+
+    [Fact]
+    public async Task CommitMutation_ServiceOwnerProcessStateOnNotStartedInstance_AppliesWithoutProcessNextAuthorization()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, []),
+            CreateAggregateApplication(),
+            """
+            {
+              "processState": {
+                "state": {
+                  "started": "2025-06-01T12:00:00Z",
+                  "startEvent": "StartEvent_1",
+                  "currentTask": {
+                    "elementId": "Task_1",
+                    "altinnTaskType": "data"
+                  }
+                }
+              }
+            }
+            """
+        );
+        fixture
+            .ProcessAuthorizer.Setup(authorizer =>
+                authorizer.IsServiceOwner(fixture.InstanceInternal)
+            )
+            .Returns(true);
+        InstanceMutationCommit capturedMutation = null;
+        SetupCapturingMutationRepository(
+            fixture,
+            instanceGuid,
+            mutation => capturedMutation = mutation
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.Equal("Task_1", capturedMutation.InstanceUpdates.Process.CurrentTask.ElementId);
+        fixture.ProcessAuthorizer.Verify(
+            authorizer =>
+                authorizer.AuthorizeProcessNext(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<ProcessState>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task CommitMutation_ServiceOwnerReleasesEndedProcessWithHardDelete_AppliesTerminalMutation()
+    {
+        const int instanceVersion = 12;
+        const int processStateVersion = 8;
+        Guid instanceGuid = Guid.NewGuid();
+        Guid dataElementId = Guid.NewGuid();
+        DateTime processStarted = new(2026, 6, 7, 8, 0, 0, DateTimeKind.Utc);
+        DateTime processEnded = new(2026, 6, 7, 8, 9, 10, DateTimeKind.Utc);
+        DataElementInternal dataElement = new DataElement
+        {
+            Id = dataElementId.ToString(),
+            InstanceGuid = instanceGuid.ToString(),
+            DataType = _dataType,
+            Locked = true,
+        }.FromApiModel(null);
+        InstanceInternal instanceInternal = CreateAggregateInstanceInternal(
+            instanceGuid,
+            [dataElement],
+            new StorageVersions(instanceVersion, processStateVersion)
+        );
+        instanceInternal.Process = new ProcessState
+        {
+            Status = ProcessStatus.Processing,
+            Started = processStarted,
+            StartEvent = "StartEvent_1",
+            Ended = processEnded,
+            EndEvent = "EndEvent_1",
+        };
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            instanceInternal,
+            CreateAggregateApplication(),
+            $$"""
+            {
+              "expectedProcessStatus": "processing",
+              "processState": {
+                "state": {
+                  "status": "idle",
+                  "started": "{{processStarted:O}}",
+                  "startEvent": "StartEvent_1",
+                  "ended": "{{processEnded:O}}",
+                  "endEvent": "EndEvent_1"
+                },
+                "events": []
+              },
+              "deleteDataElements": [
+                {
+                  "dataElementId": "{{dataElementId}}",
+                  "ignoreLock": true
+                }
+              ],
+              "deleteInstance": {
+                "hard": true
+              }
+            }
+            """
+        );
+        fixture.HttpContext.User = CreateOrgPrincipal(_org);
+        fixture
+            .ProcessAuthorizer.Setup(authorizer => authorizer.IsServiceOwner(instanceInternal))
+            .Returns(true);
+        fixture
+            .InstanceEventService.Setup(service =>
+                service.BuildInstanceEvent(InstanceEventType.Deleted, It.IsAny<InstanceInternal>())
+            )
+            .Returns(
+                (InstanceEventType eventType, InstanceInternal instance) =>
+                    new InstanceEvent { EventType = eventType.ToString() }
+            );
+        fixture
+            .InstanceEventService.Setup(service =>
+                service.BuildInstanceEvent(
+                    InstanceEventType.Deleted,
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<DataElementInternal>()
+                )
+            )
+            .Returns(
+                (
+                    InstanceEventType eventType,
+                    InstanceInternal instance,
+                    DataElementInternal element
+                ) => BuildDataElementEvent(eventType, instance, element)
+            );
+        InstanceMutationCommit capturedMutation = null;
+        SetupCapturingMutationRepository(
+            fixture,
+            instanceGuid,
+            mutation => capturedMutation = mutation
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None,
+            ifInstanceVersionMatch: instanceVersion.ToString(
+                System.Globalization.CultureInfo.InvariantCulture
+            ),
+            ifProcessStateVersionMatch: processStateVersion.ToString(
+                System.Globalization.CultureInfo.InvariantCulture
+            ),
+            idempotencyKeyHeader: Guid.NewGuid().ToString()
+        );
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.NotNull(capturedMutation);
+        Assert.Equal(ProcessStatus.Idle, capturedMutation.InstanceUpdates.Process.Status);
+        Assert.Equal(processEnded, capturedMutation.InstanceUpdates.Process.Ended);
+        Assert.True(capturedMutation.InstanceUpdates.Status.IsHardDeleted);
+        Assert.DoesNotContain(
+            nameof(InstanceStatus.IsArchived),
+            capturedMutation.InstanceUpdateProperties
+        );
+        InstanceMutationDataElementDelete deletedElement = Assert.Single(
+            capturedMutation.DeleteDataElements
+        );
+        Assert.Equal(dataElementId, deletedElement.DataElement.Id);
+        Assert.True(deletedElement.IgnoreLock);
+        Assert.Equal(
+            ["Deleted", "Deleted"],
+            capturedMutation.InstanceEvents.Select(instanceEvent => instanceEvent.EventType)
+        );
+        fixture.ProcessAuthorizer.Verify(
+            authorizer =>
+                authorizer.AuthorizeProcessNext(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<ProcessState>()
+                ),
+            Times.Never
+        );
     }
 
     [Fact]
