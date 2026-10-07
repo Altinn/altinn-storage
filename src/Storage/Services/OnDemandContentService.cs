@@ -267,7 +267,7 @@ public class OnDemandContentService : IOnDemandContentService
                 return null;
             }
 
-            Stream pdfPages = await _pdfGeneratorClient.GeneratePdf(
+            await using Stream pdfPages = await _pdfGeneratorClient.GeneratePdf(
                 html,
                 view.IsPortrait,
                 GetScale(updatedViews[0])
@@ -282,7 +282,7 @@ public class OnDemandContentService : IOnDemandContentService
             }
         }
 
-        MemoryStream pdfStream = new();
+        using MemoryStream pdfStream = new();
         await mergedDoc.SaveAsync(pdfStream);
 
         DateTime created;
