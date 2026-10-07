@@ -403,12 +403,12 @@ public class DataController : ControllerBase
                 contentDispositionHeader.ToString()
             );
 
-            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
             if (onDemandStream is null)
             {
                 return NotFound();
             }
 
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
             return File(onDemandStream, dataElement.ContentType);
         }
 
