@@ -60,7 +60,7 @@ public class DataController : ControllerBase
     /// <param name="dataService">A data service with data element related business logic.</param>
     /// <param name="instanceEventService">An instance event service with event related business logic.</param>
     /// <param name="generalSettings">the general settings.</param>
-    /// <param name="dataElementContentService">resolves and opens the content of a data element</param>
+    /// <param name="dataElementContentService">opens the content of a data element</param>
     /// <param name="authorizationService">The authorization service</param>
     public DataController(
         IDataRepository dataRepository,
@@ -281,20 +281,54 @@ public class DataController : ControllerBase
             return BadRequest("Missing parameter value: instanceOwnerPartyId can not be empty");
         }
 
-        (DataElementReadContext context, ServiceError resolveError) =
-            await _dataElementContentService.ResolveForRead(
-                instanceOwnerPartyId,
-                instanceGuid,
-                dataGuid,
-                cancellationToken
-            );
-        if (resolveError is not null)
+        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
+            instanceGuid,
+            instanceOwnerPartyId,
+            false,
+            cancellationToken
+        );
+        if (instance == null)
         {
-            return ErrorResult(resolveError);
+            return instanceError;
         }
 
-        InstanceInternal instance = context.Instance;
-        DataElementInternal dataElement = context.DataElement;
+        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read") is false)
+        {
+            return Forbid();
+        }
+
+        (DataElementInternal dataElement, ActionResult dataElementError) =
+            await GetDataElementAsync(instanceGuid, dataGuid, cancellationToken);
+        if (dataElement == null)
+        {
+            return dataElementError;
+        }
+
+        (Application application, ActionResult applicationError) = await GetApplicationAsync(
+            instance.AppId,
+            instance.Org,
+            cancellationToken
+        );
+        if (application == null)
+        {
+            return applicationError;
+        }
+
+        (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(
+            instance,
+            dataElement.DataType,
+            application,
+            cancellationToken
+        );
+        if (dataTypeDefinition == null)
+        {
+            return dataTypeError;
+        }
+
+        if (await dataTypeDefinition.CanRead(_authorizationService, instance) is not true)
+        {
+            return Forbid();
+        }
 
         bool appOwnerRequestingElement = User.GetOrg() == instance.Org;
 
@@ -342,12 +376,14 @@ public class DataController : ControllerBase
         }
 
         Stream dataStream = await _dataElementContentService.OpenContent(
-            context,
+            instance,
+            dataElement,
+            application,
             LanguageHelper.GetCurrentUserLanguage(Request),
             cancellationToken
         );
 
-        if (context.IsOnDemandContent)
+        if (DataElementHelper.IsOnDemandContent(dataElement))
         {
             if (dataStream is null)
             {
@@ -1270,15 +1306,6 @@ public class DataController : ControllerBase
 
         return (blobVersionId, null);
     }
-
-    private ActionResult ErrorResult(ServiceError serviceError) =>
-        serviceError.ErrorCode switch
-        {
-            400 => BadRequest(serviceError.ErrorMessage),
-            403 => Forbid(),
-            404 => NotFound(serviceError.ErrorMessage),
-            _ => StatusCode(serviceError.ErrorCode, serviceError.ErrorMessage),
-        };
 
     private void SetInlineContentDisposition(string filename)
     {

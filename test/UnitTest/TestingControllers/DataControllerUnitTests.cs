@@ -2804,11 +2804,7 @@ public class DataControllerUnitTests
         }
 
         DataElementContentService dataElementContentService = new(
-            instanceRepositoryMock.Object,
-            dataRepositoryMock.Object,
-            applicationRepositoryMock.Object,
             blobRepositoryMock.Object,
-            authorizationServiceMock.Object,
             onDemandContentService,
             generalSettings
         );

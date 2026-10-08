@@ -18,6 +18,21 @@ namespace Altinn.Platform.Storage.Helpers;
 /// </summary>
 public static class DataElementHelper
 {
+    private const string OnDemandBlobStoragePathPrefix = "ondemand";
+
+    /// <summary>
+    /// Tells if the system generates the content for each request. If this value is false, the
+    /// system reads the content from blob storage. The blob storage path identifies migrated
+    /// Altinn 2 elements.
+    /// </summary>
+    internal static bool IsOnDemandContent(DataElementInternal dataElement)
+    {
+        return dataElement.BlobStoragePath.StartsWith(
+            OnDemandBlobStoragePathPrefix,
+            StringComparison.Ordinal
+        );
+    }
+
     /// <summary>
     /// Formats a filename for blob storage.
     /// </summary>
