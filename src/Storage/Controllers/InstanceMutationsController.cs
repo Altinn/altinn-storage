@@ -85,10 +85,11 @@ public class InstanceMutationsController(
     /// returned by replay admission. For non-replays, operation-specific authorization is evaluated
     /// against the controller's instance snapshot; data-element update and delete references missing
     /// from that snapshot are rejected by later plan validation. Process-state authorization admits a
-    /// mutation on an instance without a current task only from the instance's service owner.
-    /// Delete-instance mutations the application prevents from deletion are rejected after replay
-    /// admission. Delete-instance mutations check instance existence before delete authorization, so
-    /// a missing instance returns 404 before a possible delete-policy 403.
+    /// mutation on an instance without a current task only from the instance's service owner. A
+    /// delete-instance mutation returns 403 while the application's
+    /// <c>PreventInstanceDeletionForDays</c> period, counted from when the instance was archived, has
+    /// not passed. A delete-instance mutation checks instance existence before delete authorization,
+    /// so a missing instance returns 404 before a possible delete-policy 403.
     /// </remarks>
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance that should be mutated.</param>
