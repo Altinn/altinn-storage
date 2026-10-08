@@ -227,7 +227,7 @@ public class ProcessAuthorizerTests
     }
 
     [Fact]
-    public async Task AuthorizeProcessNext_ServiceOwnerNoCurrentTask_ReturnsFalse()
+    public async Task AuthorizeProcessNext_ServiceOwnerNoCurrentTask_ReturnsTrueWithoutAskingThePdp()
     {
         var instance = new InstanceInternal
         {
@@ -236,7 +236,8 @@ public class ProcessAuthorizerTests
         };
         SetupCallerOrg(ServiceOwner);
 
-        Assert.False(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
+        Assert.True(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
+        VerifyPdpNeverAsked();
     }
 
     [Theory]

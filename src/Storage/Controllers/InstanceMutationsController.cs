@@ -407,13 +407,12 @@ public class InstanceMutationsController(
             return completeConfirmationAuthorizationError;
         }
 
-        ActionResult processStateAuthorizationError = await AuthorizeProcessStateMutation(
-            mutationRequest,
-            instance
-        );
-        if (processStateAuthorizationError is not null)
+        if (
+            mutationRequest.ProcessState?.State is { } nextProcessState
+            && !await processAuthorizer.AuthorizeProcessNext(instance, nextProcessState)
+        )
         {
-            return processStateAuthorizationError;
+            return Forbid();
         }
 
         if (
@@ -1663,29 +1662,6 @@ public class InstanceMutationsController(
         );
 
         return authorizationResult.Succeeded ? null : Forbid();
-    }
-
-    private async Task<ActionResult> AuthorizeProcessStateMutation(
-        InstanceMutationRequest request,
-        InstanceInternal instance
-    )
-    {
-        if (request.ProcessState?.State is not { } nextProcessState)
-        {
-            return null;
-        }
-
-        // AuthorizeProcessNext rejects every caller when the instance has no current task (an
-        // ended or not-started process), so only the service owner may write its process state,
-        // e.g. the workflow releasing the processing status after the process ended.
-        if (instance.Process?.CurrentTask is null)
-        {
-            return processAuthorizer.IsServiceOwner(instance) ? null : Forbid();
-        }
-
-        return await processAuthorizer.AuthorizeProcessNext(instance, nextProcessState)
-            ? null
-            : Forbid();
     }
 
     private static InstanceStatus BuildHardDeleteStatus(InstanceStatus status, DateTime now)

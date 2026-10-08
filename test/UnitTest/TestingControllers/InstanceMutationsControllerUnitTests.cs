@@ -3299,7 +3299,7 @@ public class InstanceMutationsControllerUnitTests
     }
 
     [Fact]
-    public async Task CommitMutation_ProcessStateOnInstanceWithoutCurrentTask_ReturnsForbidden()
+    public async Task CommitMutation_ProcessStateOnInstanceWithoutCurrentTask_RefusedByProcessAuthorizer_ReturnsForbidden()
     {
         Guid instanceGuid = Guid.NewGuid();
         AggregateMutationFixture fixture = CreateAggregateMutationFixture(
@@ -3316,6 +3316,14 @@ public class InstanceMutationsControllerUnitTests
             }
             """
         );
+        fixture
+            .ProcessAuthorizer.Setup(authorizer =>
+                authorizer.AuthorizeProcessNext(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<ProcessState>()
+                )
+            )
+            .ReturnsAsync(false);
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
@@ -3325,22 +3333,15 @@ public class InstanceMutationsControllerUnitTests
 
         Assert.IsType<ForbidResult>(result.Result);
         fixture.ProcessAuthorizer.Verify(
-            authorizer => authorizer.IsServiceOwner(fixture.InstanceInternal),
-            Times.Once
-        );
-        fixture.ProcessAuthorizer.Verify(
             authorizer =>
-                authorizer.AuthorizeProcessNext(
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<ProcessState>()
-                ),
-            Times.Never
+                authorizer.AuthorizeProcessNext(fixture.InstanceInternal, It.IsAny<ProcessState>()),
+            Times.Once
         );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
 
     [Fact]
-    public async Task CommitMutation_ServiceOwnerProcessStateOnNotStartedInstance_AppliesWithoutProcessNextAuthorization()
+    public async Task CommitMutation_ProcessStateOnNotStartedInstance_AuthorizedByProcessAuthorizer_Applies()
     {
         Guid instanceGuid = Guid.NewGuid();
         AggregateMutationFixture fixture = CreateAggregateMutationFixture(
@@ -3362,11 +3363,6 @@ public class InstanceMutationsControllerUnitTests
             }
             """
         );
-        fixture
-            .ProcessAuthorizer.Setup(authorizer =>
-                authorizer.IsServiceOwner(fixture.InstanceInternal)
-            )
-            .Returns(true);
         InstanceMutationCommit capturedMutation = null;
         SetupCapturingMutationRepository(
             fixture,
@@ -3384,11 +3380,8 @@ public class InstanceMutationsControllerUnitTests
         Assert.Equal("Task_1", capturedMutation.InstanceUpdates.Process.CurrentTask.ElementId);
         fixture.ProcessAuthorizer.Verify(
             authorizer =>
-                authorizer.AuthorizeProcessNext(
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<ProcessState>()
-                ),
-            Times.Never
+                authorizer.AuthorizeProcessNext(fixture.InstanceInternal, It.IsAny<ProcessState>()),
+            Times.Once
         );
     }
 
@@ -3452,9 +3445,6 @@ public class InstanceMutationsControllerUnitTests
         );
         fixture.HttpContext.User = CreateOrgPrincipal(_org);
         fixture
-            .ProcessAuthorizer.Setup(authorizer => authorizer.IsServiceOwner(instanceInternal))
-            .Returns(true);
-        fixture
             .InstanceEventService.Setup(service =>
                 service.BuildInstanceEvent(InstanceEventType.Deleted, It.IsAny<InstanceInternal>())
             )
@@ -3517,11 +3507,8 @@ public class InstanceMutationsControllerUnitTests
         );
         fixture.ProcessAuthorizer.Verify(
             authorizer =>
-                authorizer.AuthorizeProcessNext(
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<ProcessState>()
-                ),
-            Times.Never
+                authorizer.AuthorizeProcessNext(instanceInternal, It.IsAny<ProcessState>()),
+            Times.Once
         );
     }
 
