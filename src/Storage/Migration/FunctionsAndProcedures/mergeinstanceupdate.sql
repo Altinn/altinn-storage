@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION storage.mergeinstanceupdate(
+CREATE OR REPLACE FUNCTION storage.mergeinstanceupdate_v2(
     _instance JSONB,
     _instanceupdate JSONB)
     RETURNS JSONB
@@ -10,7 +10,7 @@ AS $BODY$
                 jsonb_build_object(
                     'DataValues',
                     jsonb_strip_nulls(
-                        COALESCE(_instance -> 'DataValues', '{}'::JSONB)
+                        COALESCE(NULLIF(_instance -> 'DataValues', 'null'::JSONB), '{}'::JSONB)
                             || updateparts.datavalues
                     )
                 )
@@ -22,7 +22,7 @@ AS $BODY$
                 jsonb_build_object(
                     'PresentationTexts',
                     jsonb_strip_nulls(
-                        COALESCE(_instance -> 'PresentationTexts', '{}'::JSONB)
+                        COALESCE(NULLIF(_instance -> 'PresentationTexts', 'null'::JSONB), '{}'::JSONB)
                             || updateparts.presentationtexts
                     )
                 )
@@ -33,15 +33,16 @@ AS $BODY$
             WHEN updateparts.completeconfirmations IS NOT NULL THEN
                 jsonb_build_object(
                     'CompleteConfirmations',
-                    COALESCE(_instance -> 'CompleteConfirmations', '[]'::JSONB)
+                    COALESCE(NULLIF(_instance -> 'CompleteConfirmations', 'null'::JSONB), '[]'::JSONB)
                         || (
-                            SELECT COALESCE(jsonb_agg(incoming.value), '[]'::JSONB)
-                            FROM jsonb_array_elements(updateparts.completeconfirmations) AS incoming
+                            SELECT COALESCE(jsonb_agg(incoming.value ORDER BY incoming.ordinality), '[]'::JSONB)
+                            FROM jsonb_array_elements(updateparts.completeconfirmations)
+                                WITH ORDINALITY incoming(value, ordinality)
                             WHERE NOT EXISTS (
                                 SELECT 1
                                 FROM jsonb_array_elements(
-                                    COALESCE(_instance -> 'CompleteConfirmations', '[]'::JSONB)
-                                ) AS existing
+                                    COALESCE(NULLIF(_instance -> 'CompleteConfirmations', 'null'::JSONB), '[]'::JSONB)
+                                ) existing(value)
                                 WHERE existing.value ->> 'StakeholderId'
                                     = incoming.value ->> 'StakeholderId'
                             )
@@ -57,13 +58,14 @@ AS $BODY$
                     CASE
                         WHEN updateparts.substatus IS NOT NULL THEN
                             jsonb_set(
-                                COALESCE(_instance -> 'Status', '{}'::JSONB)
+                                COALESCE(NULLIF(_instance -> 'Status', 'null'::JSONB), '{}'::JSONB)
                                     || COALESCE(updateparts.status, '{}'::JSONB),
                                 '{Substatus}',
                                 jsonb_strip_nulls(updateparts.substatus)
                             )
                         ELSE
-                            COALESCE(_instance -> 'Status', '{}'::JSONB) || updateparts.status
+                            COALESCE(NULLIF(_instance -> 'Status', 'null'::JSONB), '{}'::JSONB)
+                                || updateparts.status
                     END
                 )
             ELSE
@@ -77,17 +79,16 @@ AS $BODY$
         END
     FROM (
         SELECT
-            COALESCE(NULLIF(_instanceupdate -> 'toplevelsimpleprops', 'null'::JSONB), '{}'::JSONB)
-                - 'DataValues'
-                - 'PresentationTexts'
-                - 'CompleteConfirmations'
-                - 'Status'
-                - 'Process' AS toplevelsimpleprops,
-            NULLIF(_instanceupdate -> 'datavalues', 'null'::JSONB) AS datavalues,
-            NULLIF(_instanceupdate -> 'presentationtexts', 'null'::JSONB) AS presentationtexts,
-            NULLIF(_instanceupdate -> 'completeconfirmations', 'null'::JSONB) AS completeconfirmations,
-            NULLIF(_instanceupdate -> 'status', 'null'::JSONB) AS status,
-            NULLIF(_instanceupdate -> 'substatus', 'null'::JSONB) AS substatus,
-            NULLIF(_instanceupdate -> 'process', 'null'::JSONB) AS process
+            COALESCE((
+                SELECT jsonb_object_agg(property.key, property.value)
+                FROM jsonb_each(COALESCE(NULLIF(_instanceupdate, 'null'::JSONB), '{}'::JSONB)) property
+                WHERE property.key IN ('Created', 'CreatedBy', 'DueBefore', 'VisibleAfter')
+            ), '{}'::JSONB) AS toplevelsimpleprops,
+            NULLIF(_instanceupdate -> 'DataValues', 'null'::JSONB) AS datavalues,
+            NULLIF(_instanceupdate -> 'PresentationTexts', 'null'::JSONB) AS presentationtexts,
+            NULLIF(_instanceupdate -> 'CompleteConfirmations', 'null'::JSONB) AS completeconfirmations,
+            NULLIF(_instanceupdate -> 'Status', 'null'::JSONB) - 'Substatus' AS status,
+            NULLIF(_instanceupdate -> 'Status' -> 'Substatus', 'null'::JSONB) AS substatus,
+            NULLIF(_instanceupdate -> 'Process', 'null'::JSONB) AS process
     ) updateparts;
 $BODY$;

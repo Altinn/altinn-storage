@@ -317,6 +317,7 @@ public class ProcessController : ControllerBase
                 return BadRequest("Instance ID in InstanceEvent does not match the Instance ID");
             }
 
+            instanceEvent.Id ??= Guid.NewGuid();
             instanceEvent.Created ??= DateTime.UtcNow;
         }
 
@@ -342,53 +343,64 @@ public class ProcessController : ControllerBase
         }
 
         processStateUpdate.Events ??= [];
-        UpdateInstance(existingInstance, processState, out var updateProperties);
-        if (processState?.CurrentTask?.AltinnTaskType == "signing")
+        InstanceMutationStamp stamp = new(DateTime.UtcNow, User.GetUserOrOrgNo());
+        InstanceMutationChanges instanceChanges = new()
+        {
+            Process = processState,
+            Confirmed =
+                existingInstance.CompleteConfirmations?.Any(confirmation =>
+                    confirmation.StakeholderId == existingInstance.Org
+                ) == true
+                    ? true
+                    : null,
+            Status =
+                existingInstance.Process?.Ended is null && processState.Ended is not null
+                    ? new InstanceMutationStatusChanges
+                    {
+                        IsArchived = true,
+                        Archived = Change<DateTime?>.Set(processState.Ended),
+                    }
+                    : null,
+        };
+        if (processState.CurrentTask?.AltinnTaskType == "signing")
         {
             InstanceEvent instanceEvent = _instanceEventService.BuildInstanceEvent(
                 InstanceEventType.SentToSign,
                 existingInstance
             );
+            instanceEvent.ProcessInfo = processState;
             processStateUpdate.Events.Add(instanceEvent);
         }
 
         foreach (DataElementInternal dataElement in generatedDataElementsToDelete)
         {
-            processStateUpdate.Events.Add(
-                _instanceEventService.BuildInstanceEvent(
-                    InstanceEventType.Deleted,
-                    existingInstance,
-                    dataElement
-                )
+            InstanceEvent deletedEvent = _instanceEventService.BuildInstanceEvent(
+                InstanceEventType.Deleted,
+                existingInstance,
+                dataElement
             );
+            deletedEvent.ProcessInfo = processState;
+            processStateUpdate.Events.Add(deletedEvent);
         }
 
         InstanceMutationApplyResult applyResult;
         try
         {
-            string lastChangedBy = User.GetUserOrOrgNo() ?? string.Empty;
-            foreach (DataElementInternal dataElement in generatedDataElementsToDelete)
+            InstanceMutationCommit mutation = new()
             {
-                dataElement.LastChangedBy = lastChangedBy;
-            }
-
-            InstanceMutationCommit mutation = new(
-                [],
-                [],
+                Stamp = stamp,
+                InstanceChanges = instanceChanges,
+                DeleteDataElements =
                 [
-                    .. generatedDataElementsToDelete.Select(
-                        dataElement => new InstanceMutationDataElementDelete(
-                            dataElement,
-                            IgnoreLock: true
-                        )
-                    ),
+                    .. generatedDataElementsToDelete.Select(dataElement => new DataElementDeletion(
+                        dataElement.Id,
+                        IgnoreLock: true
+                    )),
                 ],
-                existingInstance,
-                updateProperties,
-                preconditions.InstanceVersion,
-                currentVersions.ProcessStateVersion,
-                processStateUpdate.Events
-            );
+                ExpectedInstanceVersion = preconditions.InstanceVersion,
+                ExpectedProcessStateVersion = currentVersions.ProcessStateVersion,
+                InstanceEvents = processStateUpdate.Events,
+            };
 
             applyResult = await _instanceMutationRepository.Apply(
                 instanceGuid,

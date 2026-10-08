@@ -1,4 +1,4 @@
-CREATE OR REPLACE PROCEDURE storage.diagnoseinstancemutationdeletefailure(
+CREATE OR REPLACE PROCEDURE storage.diagnoseinstancemutationdeletefailure_v2(
     _deleteelements JSONB,
     _instanceguid UUID,
     _currentinstanceversion INT,
@@ -15,8 +15,8 @@ BEGIN
         FROM (
             SELECT
                 deleteelement.ordinality,
-                (deleteelement.value ->> 'elementId')::UUID AS dataelementid,
-                COALESCE((deleteelement.value ->> 'ignoreLock')::BOOL, false) AS ignorelock
+                (deleteelement.value ->> 'DataElementId')::UUID AS dataelementid,
+                COALESCE((deleteelement.value ->> 'IgnoreLock')::BOOL, false) AS ignorelock
             FROM jsonb_array_elements(_deleteelements) WITH ORDINALITY deleteelement(value, ordinality)
         ) deleteelements
         WHERE NOT COALESCE(

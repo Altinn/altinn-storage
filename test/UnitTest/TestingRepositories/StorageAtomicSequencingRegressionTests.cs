@@ -486,6 +486,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
                 (InstanceEventType eventType, InstanceInternal targetInstance) =>
                     new InstanceEvent
                     {
+                        Id = Guid.NewGuid(),
                         EventType = eventType.ToString(),
                         InstanceId = $"{targetInstance.InstanceOwner.PartyId}/{targetInstance.Id}",
                         User = new PlatformUser { UserId = 1337 },
@@ -507,6 +508,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
                 ) =>
                     new InstanceEvent
                     {
+                        Id = Guid.NewGuid(),
                         EventType = eventType.ToString(),
                         InstanceId = $"{targetInstance.InstanceOwner.PartyId}/{targetInstance.Id}",
                         DataId = dataElement.Id.ToString(),

@@ -1,8 +1,10 @@
 #nullable disable
 
 using System;
+using System.Collections.Generic;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Enums;
+using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Messages;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
@@ -28,25 +30,44 @@ public sealed class OutboxInsertRowFactory(
             return null;
         }
 
-        // The created event is used both in the data controller and the instance controller. The first one gives an "instance create" event
-        bool isInstanceCreate =
-            command.EventType == InstanceEventType.Created
+        return new OutboxInsertRow(
+            Guid.Parse(command.InstanceId),
+            command.AppId,
+            long.Parse(command.PartyId),
+            GetEventDelaySecs(command.EventType, IsInstanceCreate(command.EventType)),
+            command.InstanceCreatedAt,
+            command.IsMigration,
+            command.EventType
+        );
+    }
+
+    internal InstanceMutationOutboxDelivery TryBuildMutationDelivery(
+        IReadOnlyList<InstanceEvent> events
+    )
+    {
+        if (!_wolverineSettings.EnableSending || events.Count == 0)
+        {
+            return null;
+        }
+
+        InstanceEventType eventType = OutboxEventSyncPolicy.SelectEventTypeForInstanceMutation(
+            events
+        );
+        return new InstanceMutationOutboxDelivery(
+            GetEventDelaySecs(eventType, IsInstanceCreate(eventType)),
+            eventType
+        );
+    }
+
+    private bool IsInstanceCreate(InstanceEventType eventType)
+    {
+        return eventType == InstanceEventType.Created
             && !(
                 contextAccessor?.HttpContext?.Request.Path.Value?.EndsWith(
                     "/data",
                     StringComparison.OrdinalIgnoreCase
                 ) ?? true
             );
-
-        return new OutboxInsertRow(
-            Guid.Parse(command.InstanceId),
-            command.AppId,
-            long.Parse(command.PartyId),
-            GetEventDelaySecs(command.EventType, isInstanceCreate),
-            command.InstanceCreatedAt,
-            command.IsMigration,
-            command.EventType
-        );
     }
 
     private int GetEventDelaySecs(InstanceEventType eventType, bool instanceCreate) =>
