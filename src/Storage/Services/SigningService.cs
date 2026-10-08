@@ -212,25 +212,27 @@ public class SigningService : ISigningService
                 );
             }
 
-            InstanceMutationCommit mutation = new(
-                [stagedDataElement.DataElement],
-                [],
+            InstanceMutationCommit mutation = new()
+            {
+                Stamp = new InstanceMutationStamp(signDocument.SignedTime, performedBy),
+                CreateDataElements =
                 [
-                    .. existingSignDocuments.Select(
-                        existingSignDocument => new InstanceMutationDataElementDelete(
-                            existingSignDocument.DataElement,
-                            IgnoreLock: true
-                        )
+                    new DataElementCreation(
+                        stagedDataElement.DataElement,
+                        BlobVersionId.Decode(stagedDataElement.DataElement.BlobVersionId)
                     ),
                 ],
-                instance,
-                [],
-                expectedInstanceVersion,
-                currentVersions.ProcessStateVersion,
-                instanceEvents,
-                LastChanged: signDocument.SignedTime,
-                LastChangedBy: performedBy
-            );
+                DeleteDataElements =
+                [
+                    .. existingSignDocuments.Select(existingSignDocument => new DataElementDeletion(
+                        existingSignDocument.DataElement.Id,
+                        IgnoreLock: true
+                    )),
+                ],
+                ExpectedInstanceVersion = expectedInstanceVersion,
+                ExpectedProcessStateVersion = currentVersions.ProcessStateVersion,
+                InstanceEvents = instanceEvents,
+            };
 
             applyAttempted = true;
             applyResult = await _instanceMutationRepository.Apply(

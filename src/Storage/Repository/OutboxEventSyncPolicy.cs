@@ -24,7 +24,11 @@ internal static class OutboxEventSyncPolicy
         return instanceEvents
             .Select(e => new { Event = e, EventType = ParseEventType(e.EventType) })
             .OrderBy(e => GetPriority(e.EventType, instanceCreate: false))
-            .ThenByDescending(e => e.Event.Created)
+            .ThenByDescending(e =>
+                e.Event.Created is { } created
+                    ? MutationTimestamp.NormalizeForPostgres(created)
+                    : (DateTime?)null
+            )
             .First()
             .EventType;
     }

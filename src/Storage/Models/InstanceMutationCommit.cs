@@ -5,18 +5,52 @@ using Altinn.Platform.Storage.Interface.Models;
 namespace Altinn.Platform.Storage.Models;
 
 /// <summary>
-/// Internal aggregate mutation prepared by the controller after blob staging.
+/// Aggregate mutation prepared after blob staging.
 /// </summary>
-public sealed record InstanceMutationCommit(
-    IReadOnlyList<DataElementInternal> CreateDataElements,
-    IReadOnlyList<InstanceMutationDataElementUpdate> UpdateDataElements,
-    IReadOnlyList<InstanceMutationDataElementDelete> DeleteDataElements,
-    InstanceInternal InstanceUpdates,
-    IReadOnlyList<string> InstanceUpdateProperties,
-    int? ExpectedInstanceVersion,
-    int? ExpectedProcessStateVersion,
-    IReadOnlyList<InstanceEvent> InstanceEvents,
-    Guid? IdempotencyKey = null,
-    DateTime? LastChanged = null,
-    string? LastChangedBy = null
-);
+public sealed record InstanceMutationCommit
+{
+    /// <summary>
+    /// Gets the shared timestamp and actor of the mutation.
+    /// </summary>
+    public required InstanceMutationStamp Stamp { get; init; }
+
+    /// <summary>
+    /// Gets the elements to create, in request order.
+    /// </summary>
+    public IReadOnlyList<DataElementCreation> CreateDataElements { get; init; } = [];
+
+    /// <summary>
+    /// Gets the changes to existing data elements.
+    /// </summary>
+    public IReadOnlyList<DataElementUpdate> UpdateDataElements { get; init; } = [];
+
+    /// <summary>
+    /// Gets the elements to delete.
+    /// </summary>
+    public IReadOnlyList<DataElementDeletion> DeleteDataElements { get; init; } = [];
+
+    /// <summary>
+    /// Gets the instance changes. Null omits the instance update; an empty change still counts as an update.
+    /// </summary>
+    public InstanceMutationChanges? InstanceChanges { get; init; }
+
+    /// <summary>
+    /// Gets the expected instance version, when fenced.
+    /// </summary>
+    public int? ExpectedInstanceVersion { get; init; }
+
+    /// <summary>
+    /// Gets the expected process state version, when fenced.
+    /// </summary>
+    public int? ExpectedProcessStateVersion { get; init; }
+
+    /// <summary>
+    /// Gets the instance events in persistence order.
+    /// </summary>
+    public IReadOnlyList<InstanceEvent> InstanceEvents { get; init; } = [];
+
+    /// <summary>
+    /// Gets the optional idempotency key.
+    /// </summary>
+    public Guid? IdempotencyKey { get; init; }
+}

@@ -215,18 +215,14 @@ public class DataController : ControllerBase
                 instance,
                 dataElement
             );
-            InstanceMutationCommit mutation = new(
-                [],
-                [],
-                [new InstanceMutationDataElementDelete(dataElement, IgnoreLock: true)],
-                instance,
-                [],
-                preconditions.InstanceVersion,
-                preconditions.ProcessStateVersion,
-                InstanceEvents: [deletedEvent],
-                LastChanged: deletedTime,
-                LastChangedBy: dataElement.LastChangedBy
-            );
+            InstanceMutationCommit mutation = new()
+            {
+                Stamp = new InstanceMutationStamp(deletedTime, dataElement.LastChangedBy),
+                DeleteDataElements = [new DataElementDeletion(dataElement.Id, IgnoreLock: true)],
+                ExpectedInstanceVersion = preconditions.InstanceVersion,
+                ExpectedProcessStateVersion = preconditions.ProcessStateVersion,
+                InstanceEvents = [deletedEvent],
+            };
 
             InstanceMutationApplyResult applyResult = await _instanceMutationRepository.Apply(
                 instanceGuid,
@@ -1224,25 +1220,25 @@ public class DataController : ControllerBase
                 instance,
                 dataElement
             );
-            InstanceMutationCommit mutation = new(
-                [],
+            InstanceMutationCommit mutation = new()
+            {
+                Stamp = new InstanceMutationStamp(deletedTime, dataElement.LastChangedBy),
+                UpdateDataElements =
                 [
-                    new InstanceMutationDataElementUpdate(
+                    new DataElementUpdate(
                         dataElement.Id,
-                        new Dictionary<string, object> { ["/deleteStatus"] = deleteStatus },
+                        new InstanceMutationDataElementChanges
+                        {
+                            DeleteStatus = Change<DeleteStatus>.Set(deleteStatus),
+                        },
                         null,
                         IgnoreLock: true
                     ),
                 ],
-                [],
-                instance,
-                [],
-                preconditions.InstanceVersion,
-                preconditions.ProcessStateVersion,
-                InstanceEvents: [deletedEvent],
-                LastChanged: deletedTime,
-                LastChangedBy: dataElement.LastChangedBy
-            );
+                ExpectedInstanceVersion = preconditions.InstanceVersion,
+                ExpectedProcessStateVersion = preconditions.ProcessStateVersion,
+                InstanceEvents = [deletedEvent],
+            };
 
             applyResult = await _instanceMutationRepository.Apply(
                 instance.Id,
