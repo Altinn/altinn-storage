@@ -18,6 +18,21 @@ namespace Altinn.Platform.Storage.Helpers;
 /// </summary>
 public static class DataElementHelper
 {
+    private const string OnDemandBlobStoragePathPrefix = "ondemand";
+
+    /// <summary>
+    /// Tells if the system generates the content for each request. If this value is false, the
+    /// system reads the content from blob storage. The blob storage path identifies migrated
+    /// Altinn 2 elements.
+    /// </summary>
+    internal static bool IsOnDemandContent(DataElementInternal dataElement)
+    {
+        return dataElement.BlobStoragePath.StartsWith(
+            OnDemandBlobStoragePathPrefix,
+            StringComparison.Ordinal
+        );
+    }
+
     /// <summary>
     /// Formats a filename for blob storage.
     /// </summary>
@@ -58,6 +73,26 @@ public static class DataElementHelper
         {
             throw new InvalidOperationException(
                 $"Blob storage path of data element {dataElement.Id} was unexpected for instance {instanceGuid}."
+            );
+        }
+    }
+
+    /// <summary>
+    /// Makes sure that the blob storage path agrees with the requested instance and data element
+    /// ids. Two paths are correct: the legacy path without a version, and the path of the current
+    /// blob version of the element. Throws an exception for all other paths.
+    /// </summary>
+    internal static void EnsureBlobStoragePathMatchesRequest(
+        DataElementInternal dataElement,
+        string appId,
+        Guid instanceGuid,
+        Guid dataGuid
+    )
+    {
+        if (!BlobStoragePathMatchesRequest(dataElement, appId, instanceGuid, dataGuid))
+        {
+            throw new InvalidOperationException(
+                $"Blob storage path of data element {dataGuid} was unexpected for instance {instanceGuid}."
             );
         }
     }
@@ -157,6 +192,35 @@ public static class DataElementHelper
         ReadOnlySpan<char> blobVersionId = blobStoragePath.AsSpan(versionedPathPrefix.Length);
 
         return blobVersionId.ContainsAnyExcept('.') && !blobVersionId.Contains('/');
+    }
+
+    private static bool BlobStoragePathMatchesRequest(
+        DataElementInternal dataElement,
+        string appId,
+        Guid instanceGuid,
+        Guid dataGuid
+    )
+    {
+        string blobStoragePath = dataElement.BlobStoragePath;
+        if (string.IsNullOrEmpty(blobStoragePath))
+        {
+            return false;
+        }
+
+        string legacyBlobStoragePath = DataFileName(appId, instanceGuid, dataGuid);
+        if (string.Equals(blobStoragePath, legacyBlobStoragePath, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        string blobVersionId = dataElement.BlobVersionId;
+        if (string.IsNullOrEmpty(blobVersionId))
+        {
+            return false;
+        }
+
+        string versionedBlobStoragePath = GetVersionedBlobPath(appId, instanceGuid, blobVersionId);
+        return string.Equals(blobStoragePath, versionedBlobStoragePath, StringComparison.Ordinal);
     }
 
     private static string VersionedBlobPathPrefix(string appId, Guid instanceGuid)
