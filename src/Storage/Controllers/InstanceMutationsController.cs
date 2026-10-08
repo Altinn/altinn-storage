@@ -84,10 +84,11 @@ public class InstanceMutationsController(
     /// the remaining operations commit either way. An admitted replay is a no-op and uses the snapshot
     /// returned by replay admission. For non-replays, operation-specific authorization is evaluated
     /// against the controller's instance snapshot; data-element update and delete references missing
-    /// from that snapshot are rejected by later plan validation. Process-state mutations on instances
-    /// without a current task, and delete-instance mutations the application prevents from deletion,
-    /// are rejected after replay admission. Delete-instance mutations check instance existence before
-    /// delete authorization, so a missing instance returns 404 before a possible delete-policy 403.
+    /// from that snapshot are rejected by later plan validation. Process-state authorization admits a
+    /// mutation on an instance without a current task only from the instance's service owner.
+    /// Delete-instance mutations the application prevents from deletion are rejected after replay
+    /// admission. Delete-instance mutations check instance existence before delete authorization, so
+    /// a missing instance returns 404 before a possible delete-policy 403.
     /// </remarks>
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance that should be mutated.</param>
@@ -243,20 +244,6 @@ public class InstanceMutationsController(
                     snapshotVersions.ProcessStateVersion
                 )
             );
-        }
-
-        if (
-            mutationRequest.ProcessState?.State is not null
-            && instance.Process?.CurrentTask is null
-            && !processAuthorizer.IsServiceOwner(instance)
-        )
-        {
-            // AuthorizeProcessNext rejects every caller when the instance has no current task
-            // (ended or not-started process), so only the service owner may write its process
-            // state, e.g. the workflow releasing the processing status after the process ended.
-            // Checked after replay admission so idempotent retries of a process-ending mutation
-            // still replay.
-            return Forbid();
         }
 
         ActionResult authorizationError = await AuthorizeMutationRequest(
@@ -419,16 +406,13 @@ public class InstanceMutationsController(
             return completeConfirmationAuthorizationError;
         }
 
-        if (
-            mutationRequest.ProcessState?.State is not null
-            && instance.Process?.CurrentTask is not null
-            && !await processAuthorizer.AuthorizeProcessNext(
-                instance,
-                mutationRequest.ProcessState.State
-            )
-        )
+        ActionResult processStateAuthorizationError = await AuthorizeProcessStateMutation(
+            mutationRequest,
+            instance
+        );
+        if (processStateAuthorizationError is not null)
         {
-            return Forbid();
+            return processStateAuthorizationError;
         }
 
         if (
@@ -1678,6 +1662,29 @@ public class InstanceMutationsController(
         );
 
         return authorizationResult.Succeeded ? null : Forbid();
+    }
+
+    private async Task<ActionResult> AuthorizeProcessStateMutation(
+        InstanceMutationRequest request,
+        InstanceInternal instance
+    )
+    {
+        if (request.ProcessState?.State is not { } nextProcessState)
+        {
+            return null;
+        }
+
+        // AuthorizeProcessNext rejects every caller when the instance has no current task (an
+        // ended or not-started process), so only the service owner may write its process state,
+        // e.g. the workflow releasing the processing status after the process ended.
+        if (instance.Process?.CurrentTask is null)
+        {
+            return processAuthorizer.IsServiceOwner(instance) ? null : Forbid();
+        }
+
+        return await processAuthorizer.AuthorizeProcessNext(instance, nextProcessState)
+            ? null
+            : Forbid();
     }
 
     private static InstanceStatus BuildHardDeleteStatus(InstanceStatus status, DateTime now)
