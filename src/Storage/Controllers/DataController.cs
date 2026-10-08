@@ -375,7 +375,7 @@ public class DataController : ControllerBase
             }
         }
 
-        Stream dataStream = await _dataElementContentService.OpenContent(
+        Stream dataStream = await _dataElementContentService.GetContent(
             instance,
             dataElement,
             application,

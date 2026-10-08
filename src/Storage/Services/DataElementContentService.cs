@@ -37,7 +37,7 @@ public class DataElementContentService : IDataElementContentService
     }
 
     /// <inheritdoc/>
-    public async Task<Stream> OpenContent(
+    public async Task<Stream> GetContent(
         InstanceInternal instance,
         DataElementInternal dataElement,
         Application application,
