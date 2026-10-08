@@ -27,7 +27,7 @@ public class DataElementContentServiceTests
         string blobStoragePath = $"{AppId}/{fixture.Instance.Id}/data/{fixture.DataElement.Id}";
         fixture.DataElement.BlobStoragePath = blobStoragePath;
 
-        Stream content = await fixture.OpenContent("nb");
+        Stream content = await fixture.GetContent("nb");
 
         Assert.NotNull(content);
         fixture.BlobRepository.Verify(
@@ -49,7 +49,7 @@ public class DataElementContentServiceTests
         Fixture fixture = new();
         fixture.DataElement.BlobStoragePath = $"{AppId}/{Guid.NewGuid()}/data/{Guid.NewGuid()}";
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.OpenContent("nb"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.GetContent("nb"));
 
         fixture.BlobRepository.Verify(
             repository =>
@@ -69,7 +69,7 @@ public class DataElementContentServiceTests
         Fixture fixture = new();
         fixture.DataElement.BlobStoragePath = "ondemand/formdatapdf";
 
-        await fixture.OpenContent("nn");
+        await fixture.GetContent("nn");
 
         fixture.OnDemandContentService.Verify(
             service =>
@@ -111,7 +111,7 @@ public class DataElementContentServiceTests
         fixture.DataElement.BlobStoragePath =
             $"{appId}/{fixture.Instance.Id}/data/{fixture.DataElement.Id}";
 
-        await fixture.OpenContent("nb");
+        await fixture.GetContent("nb");
 
         fixture.BlobRepository.Verify(
             repository =>
@@ -147,7 +147,7 @@ public class DataElementContentServiceTests
 
         public bool A2UseTtdAsServiceOwner { get; init; }
 
-        public Task<Stream> OpenContent(string language)
+        public Task<Stream> GetContent(string language)
         {
             BlobRepository
                 .Setup(repository =>
@@ -168,7 +168,7 @@ public class DataElementContentServiceTests
                 )
             );
 
-            return target.OpenContent(
+            return target.GetContent(
                 Instance,
                 DataElement,
                 Application,
