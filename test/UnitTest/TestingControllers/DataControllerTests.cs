@@ -939,15 +939,12 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         );
         Assert.Empty(capturedMutation.CreateDataElements);
         Assert.Empty(capturedMutation.DeleteDataElements);
-        InstanceMutationDataElementUpdate capturedUpdate = Assert.Single(
-            capturedMutation.UpdateDataElements
-        );
+        DataElementUpdate capturedUpdate = Assert.Single(capturedMutation.UpdateDataElements);
         Assert.Equal(de.Id, capturedUpdate.DataElementId.ToString());
         Assert.True(capturedUpdate.IgnoreLock);
         Assert.Null(capturedUpdate.ExpectedCurrentBlobVersion);
-        KeyValuePair<string, object> capturedProperty = Assert.Single(capturedUpdate.Properties);
-        Assert.Equal("/deleteStatus", capturedProperty.Key);
-        DeleteStatus capturedDeleteStatus = Assert.IsType<DeleteStatus>(capturedProperty.Value);
+        Assert.True(capturedUpdate.Changes.DeleteStatus.IsSpecified);
+        DeleteStatus capturedDeleteStatus = capturedUpdate.Changes.DeleteStatus.Value;
         Assert.True(capturedDeleteStatus.IsHardDeleted);
         Assert.NotNull(capturedDeleteStatus.HardDeleted);
         InstanceEvent deletedEvent = Assert.Single(capturedMutation.InstanceEvents);
@@ -1044,7 +1041,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         );
         Assert.Contains(
             capturedMutation.DeleteDataElements,
-            delete => delete.DataElement.Id.ToString() == de.Id && delete.IgnoreLock
+            delete => delete.DataElementId.ToString() == de.Id && delete.IgnoreLock
         );
         InstanceEvent deletedEvent = Assert.Single(capturedMutation.InstanceEvents);
         Assert.Equal(InstanceEventType.Deleted.ToString(), deletedEvent.EventType);

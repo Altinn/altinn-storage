@@ -39,6 +39,120 @@ public class InstanceMutationsControllerUnitTests
     private readonly string _appId = "ttd/apps-test";
     private readonly string _dataType = "attachment";
 
+    [Theory]
+    [InlineData("create")]
+    [InlineData("update")]
+    [InlineData("delete")]
+    public async Task CommitMutation_UndeclaredDataType_ReturnsBadRequestBeforeStaging(
+        string operation
+    )
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        Guid dataElementId = Guid.NewGuid();
+        DataElementInternal existingDataElement = new()
+        {
+            Id = dataElementId,
+            InstanceGuid = instanceGuid,
+            DataType = "undeclared",
+        };
+        string mutationJson = operation switch
+        {
+            "create" => """
+                {
+                  "createDataElements": [
+                    {
+                      "dataType": "undeclared",
+                      "contentPartName": "file"
+                    }
+                  ]
+                }
+                """,
+            "update" => $$"""
+                {
+                  "updateDataElements": [
+                    {
+                      "dataElementId": "{{dataElementId}}",
+                      "contentPartName": "file"
+                    }
+                  ]
+                }
+                """,
+            "delete" => $$"""
+                {
+                  "deleteDataElements": [
+                    {
+                      "dataElementId": "{{dataElementId}}"
+                    }
+                  ]
+                }
+                """,
+            _ => throw new ArgumentOutOfRangeException(nameof(operation)),
+        };
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, [existingDataElement]),
+            CreateAggregateApplication(),
+            mutationJson,
+            CreateFormFile("file")
+        );
+
+        // Act
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        // Assert
+        BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Equal(
+            "Requested element type is not declared in application metadata",
+            badRequest.Value
+        );
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+        fixture.DataRepository.VerifyNoOtherCalls();
+        fixture.BlobRepository.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData("update")]
+    [InlineData("delete")]
+    public async Task CommitMutation_RepeatedEmptyDataElementIds_ReturnsRequiredIdError(
+        string operation
+    )
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, []),
+            CreateAggregateApplication(),
+            $$"""
+            {
+              "{{operation}}DataElements": [
+                { "dataElementId": "{{Guid.Empty}}" },
+                { "dataElementId": "{{Guid.Empty}}" }
+              ]
+            }
+            """
+        );
+
+        // Act
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        // Assert
+        BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Equal($"{operation}DataElements[].dataElementId is required.", badRequest.Value);
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+        fixture.DataRepository.VerifyNoOtherCalls();
+        fixture.BlobRepository.VerifyNoOtherCalls();
+    }
+
     [Fact]
     public async Task CommitMutation_EmptyDataValuesAndPresentationTexts_NormalizesToNullRemovals()
     {
@@ -98,10 +212,10 @@ public class InstanceMutationsControllerUnitTests
         // Assert
         Assert.IsType<OkObjectResult>(result.Result);
         Assert.NotNull(capturedMutation);
-        Assert.Null(capturedMutation.InstanceUpdates.DataValues["removeData"]);
-        Assert.Equal("new-data", capturedMutation.InstanceUpdates.DataValues["setData"]);
-        Assert.Null(capturedMutation.InstanceUpdates.PresentationTexts["removeText"]);
-        Assert.Equal("new-text", capturedMutation.InstanceUpdates.PresentationTexts["setText"]);
+        Assert.Null(capturedMutation.InstanceChanges.DataValues["removeData"]);
+        Assert.Equal("new-data", capturedMutation.InstanceChanges.DataValues["setData"]);
+        Assert.Null(capturedMutation.InstanceChanges.PresentationTexts["removeText"]);
+        Assert.Equal("new-text", capturedMutation.InstanceChanges.PresentationTexts["setText"]);
     }
 
     [Fact]
@@ -146,7 +260,7 @@ public class InstanceMutationsControllerUnitTests
         );
         fixture
             .MutationRepository.Setup(repository =>
-                repository.TryReplayAdmission(
+                repository.GetReplayResult(
                     instanceGuid,
                     12,
                     13,
@@ -200,7 +314,7 @@ public class InstanceMutationsControllerUnitTests
     }
 
     [Fact]
-    public async Task CommitMutation_IdempotencyKeyWithMatchingVersion_SkipsReplayAdmissionAndUsesApplySnapshot()
+    public async Task CommitMutation_IdempotencyKeyWithMatchingVersion_SkipsGetReplayResultAndUsesApplySnapshot()
     {
         Guid instanceGuid = Guid.NewGuid();
         Guid idempotencyKey = Guid.NewGuid();
@@ -242,7 +356,7 @@ public class InstanceMutationsControllerUnitTests
         Assert.Equal(idempotencyKey, capturedMutation.IdempotencyKey);
         fixture.MutationRepository.Verify(
             repository =>
-                repository.TryReplayAdmission(
+                repository.GetReplayResult(
                     It.IsAny<Guid>(),
                     It.IsAny<int>(),
                     It.IsAny<int>(),
@@ -380,7 +494,7 @@ public class InstanceMutationsControllerUnitTests
 
         Assert.IsType<OkObjectResult>(result.Result);
         Assert.NotNull(capturedMutation);
-        Assert.Equal(payloadProcessStatus, capturedMutation.InstanceUpdates.Process.Status);
+        Assert.Equal(payloadProcessStatus, capturedMutation.InstanceChanges.Process.Status);
         Assert.Equal(3, capturedMutation.ExpectedProcessStateVersion);
     }
 
@@ -488,7 +602,7 @@ public class InstanceMutationsControllerUnitTests
         Assert.Equal("4", fixture.HttpContext.Response.Headers[StorageHeaders.ProcessStateVersion]);
         Assert.NotNull(capturedMutation);
         Assert.Equal(3, capturedMutation.ExpectedProcessStateVersion);
-        Assert.Equal(ProcessStatus.Processing, capturedMutation.InstanceUpdates.Process.Status);
+        Assert.Equal(ProcessStatus.Processing, capturedMutation.InstanceChanges.Process.Status);
     }
 
     [Fact]
@@ -1482,43 +1596,25 @@ public class InstanceMutationsControllerUnitTests
         Assert.NotNull(capturedApplyResult);
         if (hasCurrentStatus)
         {
-            Assert.Same(originalStatus, capturedMutation.InstanceUpdates.Status);
-            Assert.Same(originalStatus, capturedApplyResult.Instance.Status);
-            Assert.Same(originalStatus, response.Instance.Status);
+            Assert.Same(originalStatus, instanceInternal.Status);
+            Assert.False(originalStatus.IsHardDeleted);
+            Assert.Null(originalStatus.HardDeleted);
+            Assert.NotSame(originalStatus, capturedApplyResult.Instance.Status);
             Assert.True(response.Instance.Status.IsArchived);
             Assert.Equal(archived, response.Instance.Status.Archived);
             Assert.Equal(ReadStatus.UpdatedSinceLastReview, response.Instance.Status.ReadStatus);
-            Assert.Same(substatus, response.Instance.Status.Substatus);
+            Assert.Equal(substatus.Label, response.Instance.Status.Substatus.Label);
             Assert.Equal("preserved-label", response.Instance.Status.Substatus.Label);
             Assert.Equal("preserved-description", response.Instance.Status.Substatus.Description);
             Assert.Equal(previousSoftDeleted, response.Instance.Status.SoftDeleted);
         }
 
-        Assert.Contains(nameof(InstanceInternal.Status), capturedMutation.InstanceUpdateProperties);
-        Assert.Contains(
-            nameof(InstanceStatus.IsHardDeleted),
-            capturedMutation.InstanceUpdateProperties
-        );
-        Assert.Contains(
-            nameof(InstanceStatus.HardDeleted),
-            capturedMutation.InstanceUpdateProperties
-        );
-        Assert.DoesNotContain(
-            nameof(InstanceInternal.LastChanged),
-            capturedMutation.InstanceUpdateProperties
-        );
-        Assert.DoesNotContain(
-            nameof(InstanceInternal.LastChangedBy),
-            capturedMutation.InstanceUpdateProperties
-        );
-        Assert.NotNull(capturedMutation.LastChanged);
-        Assert.Equal(capturedMutation.InstanceUpdates.LastChanged, capturedMutation.LastChanged);
-        Assert.Equal(
-            capturedMutation.InstanceUpdates.LastChangedBy,
-            capturedMutation.LastChangedBy
-        );
-        Assert.True(capturedMutation.InstanceUpdates.Status.IsHardDeleted);
-        Assert.True(capturedMutation.InstanceUpdates.Status.IsSoftDeleted);
+        Assert.NotNull(capturedMutation.InstanceChanges.Status);
+        Assert.True(capturedMutation.InstanceChanges.Status.HardDeleted.IsSpecified);
+        Assert.Equal(DateTimeKind.Utc, capturedMutation.Stamp.LastChanged.Kind);
+        Assert.Equal("200001", capturedMutation.Stamp.LastChangedBy);
+        Assert.True(capturedMutation.InstanceChanges.Status.IsHardDeleted);
+        Assert.True(capturedMutation.InstanceChanges.Status.IsSoftDeleted);
         InstanceEvent deletedEvent = Assert.Single(capturedMutation.InstanceEvents);
         Assert.Equal(InstanceEventType.Deleted.ToString(), deletedEvent.EventType);
         Assert.Empty(capturedMutation.CreateDataElements);
@@ -1746,16 +1842,11 @@ public class InstanceMutationsControllerUnitTests
         Assert.Equal(instanceVersion, capturedMutation.ExpectedInstanceVersion);
         Assert.Equal(processStateVersion, capturedMutation.ExpectedProcessStateVersion);
         Assert.Equal(idempotencyKey, capturedMutation.IdempotencyKey);
-        Assert.Equal(ProcessStatus.Idle, capturedMutation.InstanceUpdates.Process.Status);
-        Assert.Equal(processEnded, capturedMutation.InstanceUpdates.Process.Ended);
-        Assert.Equal("EndEvent_1", capturedMutation.InstanceUpdates.Process.EndEvent);
-        Assert.Null(capturedMutation.InstanceUpdates.Process.CurrentTask);
-        Assert.True(capturedMutation.InstanceUpdates.Status.IsHardDeleted);
-        Assert.Contains(
-            nameof(InstanceInternal.Process),
-            capturedMutation.InstanceUpdateProperties
-        );
-        Assert.Contains(nameof(InstanceInternal.Status), capturedMutation.InstanceUpdateProperties);
+        Assert.Equal(ProcessStatus.Idle, capturedMutation.InstanceChanges.Process.Status);
+        Assert.Equal(processEnded, capturedMutation.InstanceChanges.Process.Ended);
+        Assert.Equal("EndEvent_1", capturedMutation.InstanceChanges.Process.EndEvent);
+        Assert.Null(capturedMutation.InstanceChanges.Process.CurrentTask);
+        Assert.True(capturedMutation.InstanceChanges.Status.IsHardDeleted);
         Assert.Contains(
             capturedMutation.InstanceEvents,
             instanceEvent =>
@@ -2234,7 +2325,7 @@ public class InstanceMutationsControllerUnitTests
         );
         fixture
             .MutationRepository.Setup(repository =>
-                repository.TryReplayAdmission(
+                repository.GetReplayResult(
                     instanceGuid,
                     12,
                     13,
@@ -2262,7 +2353,7 @@ public class InstanceMutationsControllerUnitTests
         Assert.Equal("EndEvent_1", response.Instance.Process.EndEvent);
         fixture.MutationRepository.Verify(
             repository =>
-                repository.TryReplayAdmission(
+                repository.GetReplayResult(
                     instanceGuid,
                     12,
                     13,
@@ -2347,15 +2438,12 @@ public class InstanceMutationsControllerUnitTests
 
         Assert.IsType<OkObjectResult>(result.Result);
         Assert.NotNull(capturedMutation);
-        Assert.Contains(
-            nameof(InstanceInternal.CompleteConfirmations),
-            capturedMutation.InstanceUpdateProperties
-        );
+        Assert.NotNull(capturedMutation.InstanceChanges.CompleteConfirmations);
         CompleteConfirmation addedConfirmation = Assert.Single(
-            capturedMutation.InstanceUpdates.CompleteConfirmations
+            capturedMutation.InstanceChanges.CompleteConfirmations
         );
         Assert.Equal(_org, addedConfirmation.StakeholderId);
-        Assert.Equal(capturedMutation.LastChanged, addedConfirmation.ConfirmedOn);
+        Assert.Equal(capturedMutation.Stamp.LastChanged, addedConfirmation.ConfirmedOn);
         Assert.Single(
             capturedMutation.InstanceEvents,
             instanceEvent =>
@@ -2405,20 +2493,14 @@ public class InstanceMutationsControllerUnitTests
 
         Assert.IsType<OkObjectResult>(result.Result);
         Assert.NotNull(capturedMutation);
-        Assert.Contains(
-            nameof(InstanceInternal.DataValues),
-            capturedMutation.InstanceUpdateProperties
-        );
+        Assert.NotNull(capturedMutation.InstanceChanges.DataValues);
 
         // The snapshot is read before the instance row is locked, so the controller does not filter
         // on it. mergeinstanceupdate drops a confirmation the stakeholder already has, which is what
         // settles two callers confirming at once.
-        Assert.Contains(
-            nameof(InstanceInternal.CompleteConfirmations),
-            capturedMutation.InstanceUpdateProperties
-        );
+        Assert.NotNull(capturedMutation.InstanceChanges.CompleteConfirmations);
         CompleteConfirmation sentConfirmation = Assert.Single(
-            capturedMutation.InstanceUpdates.CompleteConfirmations
+            capturedMutation.InstanceChanges.CompleteConfirmations
         );
         Assert.Equal(_org, sentConfirmation.StakeholderId);
     }
@@ -2542,7 +2624,9 @@ public class InstanceMutationsControllerUnitTests
 
         Assert.IsType<OkObjectResult>(result.Result);
         InstanceEvent createdEvent = Assert.Single(capturedMutation.InstanceEvents);
-        DataElementInternal createdDataElement = Assert.Single(capturedMutation.CreateDataElements);
+        DataElementCreation create = Assert.Single(capturedMutation.CreateDataElements);
+        DataElementInternal createdDataElement = create.Element;
+        Assert.Equal(BlobVersionId.Decode(createdDataElement.BlobVersionId), create.BlobVersion);
         Assert.Equal(InstanceEventType.Created.ToString(), createdEvent.EventType);
         Assert.Equal(createdDataElement.Id.ToString(), createdEvent.DataId);
         Assert.NotEqual(Guid.Empty, createdDataElement.Id);
@@ -2597,7 +2681,9 @@ public class InstanceMutationsControllerUnitTests
         );
 
         Assert.IsType<OkObjectResult>(result.Result);
-        DataElementInternal createdDataElement = Assert.Single(capturedMutation.CreateDataElements);
+        DataElementInternal createdDataElement = Assert
+            .Single(capturedMutation.CreateDataElements)
+            .Element;
         Assert.NotEqual(callerSuppliedDataElementId, createdDataElement.Id);
         Assert.NotEqual(Guid.Empty, createdDataElement.Id);
         Assert.True(createdDataElement.Locked);
@@ -2649,7 +2735,7 @@ public class InstanceMutationsControllerUnitTests
                 capturedMutation = mutation;
                 updatedInstanceInternal = CreateAggregateInstanceInternal(
                     instanceGuid,
-                    [.. mutation.CreateDataElements],
+                    [.. mutation.CreateDataElements.Select(create => create.Element)],
                     new StorageVersions(2, 1)
                 );
             },
@@ -2667,7 +2753,7 @@ public class InstanceMutationsControllerUnitTests
         InstanceMutationResponse response = Assert.IsType<InstanceMutationResponse>(ok.Value);
         List<string> createdIds =
         [
-            .. capturedMutation.CreateDataElements.Select(dataElement => dataElement.Id.ToString()),
+            .. capturedMutation.CreateDataElements.Select(create => create.Element.Id.ToString()),
         ];
         Assert.Equal(createdIds, response.CreatedDataElementIds);
         Assert.False(response.Replayed);
@@ -2676,7 +2762,7 @@ public class InstanceMutationsControllerUnitTests
         Assert.Equal(2, createdIds.Select(Guid.Parse).Distinct().Count());
         Assert.All(
             capturedMutation.CreateDataElements,
-            dataElement => Assert.Equal(instanceGuid, dataElement.InstanceGuid)
+            create => Assert.Equal(instanceGuid, create.Element.InstanceGuid)
         );
         fixture.MutationRepository.Verify(
             repository =>
@@ -2697,10 +2783,10 @@ public class InstanceMutationsControllerUnitTests
             capturedMutation.CreateDataElements,
             createdDataElement =>
                 Assert.Equal(
-                    createdDataElement.BlobVersionId,
+                    createdDataElement.Element.BlobVersionId,
                     response
                         .Instance.Data.Single(dataElement =>
-                            dataElement.Id == createdDataElement.Id.ToString()
+                            dataElement.Id == createdDataElement.Element.Id.ToString()
                         )
                         .BlobVersionId
                 )
@@ -2731,6 +2817,16 @@ public class InstanceMutationsControllerUnitTests
             Size = 3,
             LastChanged = originalLastChanged,
             LastChangedBy = "previous-user",
+            Refs = [Guid.NewGuid()],
+            References =
+            [
+                new Reference
+                {
+                    Value = "Task_Previous",
+                    Relation = RelationType.GeneratedFrom,
+                    ValueType = ReferenceType.Task,
+                },
+            ],
         };
         Application application = CreateAggregateApplication();
         application.DataTypes[0].EnableFileScan = true;
@@ -2740,6 +2836,8 @@ public class InstanceMutationsControllerUnitTests
             application,
             $$"""
             {
+              "dataValues": {},
+              "presentationTexts": {},
               "updateDataElements": [
                 {
                   "dataElementId": "{{dataElementId}}",
@@ -2781,11 +2879,19 @@ public class InstanceMutationsControllerUnitTests
         InstanceEvent savedEvent = Assert.Single(capturedMutation.InstanceEvents);
         Assert.Equal(InstanceEventType.Saved.ToString(), savedEvent.EventType);
         Assert.Equal(dataElementId.ToString(), savedEvent.DataId);
-        InstanceMutationDataElementUpdate updatedDataElement = Assert.Single(
-            capturedMutation.UpdateDataElements
-        );
-        Assert.False(updatedDataElement.Properties.ContainsKey("/lastChanged"));
-        Assert.False(updatedDataElement.Properties.ContainsKey("/lastChangedBy"));
+        DataElementUpdate updatedDataElement = Assert.Single(capturedMutation.UpdateDataElements);
+        Assert.Null(capturedMutation.InstanceChanges);
+        Assert.NotNull(updatedDataElement.NewBlobVersion);
+        Assert.NotEqual(Guid.Empty, updatedDataElement.NewBlobVersion.Value);
+        Assert.True(updatedDataElement.Changes.Refs.IsSpecified);
+        Assert.Null(updatedDataElement.Changes.Refs.Value);
+        Assert.True(updatedDataElement.Changes.References.IsSpecified);
+        Assert.Empty(updatedDataElement.Changes.References.Value);
+        DataElementInternal originalElement = Assert.Single(fixture.InstanceInternal.Data);
+        Assert.Equal(originalLastChanged, originalElement.LastChanged);
+        Assert.Equal("previous-user", originalElement.LastChangedBy);
+        Assert.Equal(dataElement.Refs, originalElement.Refs);
+        Assert.Equal("Task_Previous", Assert.Single(originalElement.References).Value);
         fixture.DataService.Verify(
             service =>
                 service.StartFileScan(
@@ -2884,7 +2990,9 @@ public class InstanceMutationsControllerUnitTests
         {
             Assert.IsType<OkObjectResult>(result.Result);
             Assert.Equal(
-                expectedNormalizedBlobVersion,
+                expectedNormalizedBlobVersion is null
+                    ? (Guid?)null
+                    : BlobVersionId.Decode(expectedNormalizedBlobVersion),
                 Assert.Single(capturedMutation.UpdateDataElements).ExpectedCurrentBlobVersion
             );
             fixture.MutationRepository.Verify(
@@ -2958,7 +3066,7 @@ public class InstanceMutationsControllerUnitTests
             .ReturnsAsync(false);
         fixture
             .MutationRepository.Setup(repository =>
-                repository.TryReplayAdmission(
+                repository.GetReplayResult(
                     instanceGuid,
                     12,
                     13,
@@ -2983,7 +3091,7 @@ public class InstanceMutationsControllerUnitTests
         Assert.True(response.Replayed);
         fixture.MutationRepository.Verify(
             repository =>
-                repository.TryReplayAdmission(
+                repository.GetReplayResult(
                     instanceGuid,
                     12,
                     13,
@@ -3356,7 +3464,7 @@ public class InstanceMutationsControllerUnitTests
         );
         fixture
             .MutationRepository.Setup(repository =>
-                repository.TryReplayAdmission(
+                repository.GetReplayResult(
                     instanceGuid,
                     12,
                     13,
@@ -3464,6 +3572,104 @@ public class InstanceMutationsControllerUnitTests
         );
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData(""", "contentPartName":" ", "tags":null, "locked":null""")]
+    public async Task CommitMutation_UpdateDataElementWithoutChanges_ReturnsBadRequest(
+        string suppliedFields
+    )
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        Guid dataElementId = Guid.NewGuid();
+        DataElement existingDataElement = new()
+        {
+            Id = dataElementId.ToString(),
+            InstanceGuid = instanceGuid.ToString(),
+            DataType = _dataType,
+        };
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, [existingDataElement.FromApiModel(null)]),
+            CreateAggregateApplication(),
+            $$"""
+            {
+              "updateDataElements": [
+                {
+                  "dataElementId": "{{dataElementId}}"{{suppliedFields}}
+                }
+              ]
+            }
+            """
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Equal(
+            $"No metadata or content changes were supplied for data element {dataElementId}.",
+            badRequest.Value
+        );
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+    }
+
+    [Fact]
+    public async Task CommitMutation_UpdateDataElementEmptyGeneratedFromTask_ClearsReferences()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        Guid dataElementId = Guid.NewGuid();
+        InstanceMutationCommit capturedMutation = null;
+        DataElement existingDataElement = new()
+        {
+            Id = dataElementId.ToString(),
+            InstanceGuid = instanceGuid.ToString(),
+            DataType = _dataType,
+            References =
+            [
+                new Reference
+                {
+                    Value = "Task_Previous",
+                    Relation = RelationType.GeneratedFrom,
+                    ValueType = ReferenceType.Task,
+                },
+            ],
+        };
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, [existingDataElement.FromApiModel(null)]),
+            CreateAggregateApplication(),
+            $$"""
+            {
+              "updateDataElements": [
+                {
+                  "dataElementId": "{{dataElementId}}",
+                  "generatedFromTask": ""
+                }
+              ]
+            }
+            """
+        );
+        SetupCapturingMutationRepository(
+            fixture,
+            instanceGuid,
+            mutation => capturedMutation = mutation
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        DataElementUpdate capturedUpdate = Assert.Single(capturedMutation.UpdateDataElements);
+        Assert.True(capturedUpdate.Changes.References.IsSpecified);
+        Assert.Empty(capturedUpdate.Changes.References.Value);
+    }
+
     [Fact]
     public async Task CommitMutation_UpdateDataElementUnlockMetadataOnly_IgnoresLockInAggregateMutation()
     {
@@ -3505,11 +3711,9 @@ public class InstanceMutationsControllerUnitTests
         );
 
         Assert.IsType<OkObjectResult>(result.Result);
-        InstanceMutationDataElementUpdate capturedUpdate = Assert.Single(
-            capturedMutation.UpdateDataElements
-        );
+        DataElementUpdate capturedUpdate = Assert.Single(capturedMutation.UpdateDataElements);
         Assert.True(capturedUpdate.IgnoreLock);
-        Assert.Equal(false, capturedUpdate.Properties["/locked"]);
+        Assert.Equal(false, capturedUpdate.Changes.Locked);
     }
 
     [Fact]
@@ -3533,7 +3737,11 @@ public class InstanceMutationsControllerUnitTests
               "updateDataElements": [
                 {
                   "dataElementId": "{{dataElementId}}",
-                  "tags": ["metadata-change"]
+                  "tags": ["metadata-change"],
+                  "refs": null,
+                  "generatedFromTask": null,
+                  "metadata": null,
+                  "userDefinedMetadata": null
                 }
               ]
             }
@@ -3552,10 +3760,15 @@ public class InstanceMutationsControllerUnitTests
         );
 
         Assert.IsType<OkObjectResult>(result.Result);
-        InstanceMutationDataElementUpdate capturedUpdate = Assert.Single(
-            capturedMutation.UpdateDataElements
-        );
+        DataElementUpdate capturedUpdate = Assert.Single(capturedMutation.UpdateDataElements);
         Assert.False(capturedUpdate.IgnoreLock);
+        Assert.True(capturedUpdate.Changes.Tags.IsSpecified);
+        Assert.Equal(["metadata-change"], capturedUpdate.Changes.Tags.Value);
+        Assert.False(capturedUpdate.Changes.Refs.IsSpecified);
+        Assert.False(capturedUpdate.Changes.References.IsSpecified);
+        Assert.False(capturedUpdate.Changes.Metadata.IsSpecified);
+        Assert.False(capturedUpdate.Changes.UserDefinedMetadata.IsSpecified);
+        Assert.Null(capturedUpdate.Changes.Locked);
     }
 
     [Fact]
@@ -3601,11 +3814,9 @@ public class InstanceMutationsControllerUnitTests
         );
 
         Assert.IsType<OkObjectResult>(result.Result);
-        InstanceMutationDataElementUpdate capturedUpdate = Assert.Single(
-            capturedMutation.UpdateDataElements
-        );
+        DataElementUpdate capturedUpdate = Assert.Single(capturedMutation.UpdateDataElements);
         Assert.False(capturedUpdate.IgnoreLock);
-        Assert.Equal(false, capturedUpdate.Properties["/locked"]);
+        Assert.Equal(false, capturedUpdate.Changes.Locked);
     }
 
     [Fact]
@@ -3649,19 +3860,20 @@ public class InstanceMutationsControllerUnitTests
             mutation => capturedMutation = mutation,
             mutation =>
             {
-                InstanceMutationDataElementUpdate update = Assert.Single(
-                    mutation.UpdateDataElements
-                );
+                DataElementUpdate update = Assert.Single(mutation.UpdateDataElements);
                 DataElement stampedDataElement = new()
                 {
                     Id = dataElementId.ToString(),
                     InstanceGuid = instanceGuid.ToString(),
                     DataType = _dataType,
-                    Metadata = (List<KeyValueEntry>)update.Properties["/metadata"],
-                    LastChanged = mutation.LastChanged,
-                    LastChangedBy = mutation.LastChangedBy,
+                    Metadata = [.. update.Changes.Metadata.Value],
+                    LastChanged = mutation.Stamp.LastChanged,
+                    LastChangedBy = mutation.Stamp.LastChangedBy,
                 };
-                InstanceInternal stampedInstance = fixture.InstanceInternal;
+                InstanceInternal stampedInstance = InstanceMutationTestFactory.ApplyInstanceChanges(
+                    fixture.InstanceInternal,
+                    mutation
+                );
                 stampedInstance.Data = [stampedDataElement.FromApiModel(null)];
                 return new InstanceMutationApplyResult(false, [], stampedInstance);
             }
@@ -3675,22 +3887,31 @@ public class InstanceMutationsControllerUnitTests
 
         OkObjectResult ok = Assert.IsType<OkObjectResult>(result.Result);
         InstanceMutationResponse response = Assert.IsType<InstanceMutationResponse>(ok.Value);
-        InstanceMutationDataElementUpdate updatedDataElement = Assert.Single(
-            capturedMutation.UpdateDataElements
-        );
+        DataElementUpdate updatedDataElement = Assert.Single(capturedMutation.UpdateDataElements);
         List<KeyValueEntry> metadata = Assert.IsType<List<KeyValueEntry>>(
-            updatedDataElement.Properties["/metadata"]
+            updatedDataElement.Changes.Metadata.Value
         );
         KeyValueEntry entry = Assert.Single(metadata);
         Assert.Equal("changed", entry.Key);
         Assert.Equal("metadata", entry.Value);
-        Assert.False(updatedDataElement.Properties.ContainsKey("/lastChanged"));
-        Assert.False(updatedDataElement.Properties.ContainsKey("/lastChangedBy"));
-        Assert.NotNull(capturedMutation.LastChanged);
-        Assert.Equal("200001", capturedMutation.LastChangedBy);
+        Assert.Equal(DateTimeKind.Utc, capturedMutation.Stamp.LastChanged.Kind);
+        Assert.Equal("200001", capturedMutation.Stamp.LastChangedBy);
+        Assert.Empty(capturedMutation.InstanceEvents);
+        fixture.DataService.Verify(
+            service =>
+                service.StartFileScan(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<DataType>(),
+                    It.IsAny<DataElementInternal>(),
+                    It.IsAny<DateTimeOffset>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
         DataElement responseDataElement = Assert.Single(response.Instance.Data);
-        Assert.Equal(capturedMutation.LastChanged, responseDataElement.LastChanged);
-        Assert.Equal(capturedMutation.LastChangedBy, responseDataElement.LastChangedBy);
+        Assert.Equal(capturedMutation.Stamp.LastChanged, responseDataElement.LastChanged);
+        Assert.Equal(capturedMutation.Stamp.LastChangedBy, responseDataElement.LastChangedBy);
     }
 
     [Fact]
@@ -3786,7 +4007,12 @@ public class InstanceMutationsControllerUnitTests
         Assert.IsType<OkObjectResult>(result.Result);
         string createdDataElementId = Assert
             .Single(capturedMutation.CreateDataElements)
-            .Id.ToString();
+            .Element.Id.ToString();
+        InstanceEvent processEvent = capturedMutation.InstanceEvents[0];
+        Assert.NotNull(processEvent.Id);
+        Assert.NotEqual(Guid.Empty, processEvent.Id.Value);
+        Assert.Equal($"555/{instanceGuid}", processEvent.InstanceId);
+        Assert.NotNull(processEvent.Created);
         Assert.Equal(
             [
                 (InstanceEventType.process_StartTask.ToString(), "process-event"),
@@ -3844,12 +4070,8 @@ public class InstanceMutationsControllerUnitTests
                 AltinnTaskType = "confirmation",
             },
         };
-        List<(
-            InstanceEventType EventType,
-            string DataId,
-            string CurrentTaskId,
-            string CurrentTaskType
-        )> capturedEventContexts = [];
+        ProcessState snapshotProcess = instanceInternal.Process;
+        InstanceMutationCommit capturedMutation = null;
         AggregateMutationFixture fixture = CreateAggregateMutationFixture(
             instanceGuid,
             instanceInternal,
@@ -3889,17 +4111,6 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<DataElementInternal>()
                 )
             )
-            .Callback<InstanceEventType, InstanceInternal, DataElementInternal>(
-                (eventType, eventInstance, dataElement) =>
-                    capturedEventContexts.Add(
-                        (
-                            eventType,
-                            dataElement.Id.ToString(),
-                            eventInstance.Process?.CurrentTask?.ElementId,
-                            eventInstance.Process?.CurrentTask?.AltinnTaskType
-                        )
-                    )
-            )
             .Returns(
                 (
                     InstanceEventType eventType,
@@ -3908,6 +4119,12 @@ public class InstanceMutationsControllerUnitTests
                 ) => BuildDataElementEvent(eventType, instance, dataElement)
             );
 
+        SetupCapturingMutationRepository(
+            fixture,
+            instanceGuid,
+            mutation => capturedMutation = mutation
+        );
+
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
             instanceGuid,
@@ -3915,26 +4132,23 @@ public class InstanceMutationsControllerUnitTests
         );
 
         Assert.IsType<OkObjectResult>(result.Result);
+        Assert.Same(snapshotProcess, instanceInternal.Process);
+        Assert.Equal("Task_Old", snapshotProcess.CurrentTask.ElementId);
         Assert.Collection(
-            capturedEventContexts,
+            capturedMutation.InstanceEvents,
             created =>
             {
-                Assert.Equal(InstanceEventType.Created, created.EventType);
+                Assert.Equal(InstanceEventType.Created.ToString(), created.EventType);
                 Assert.NotEqual(Guid.Empty, Guid.Parse(created.DataId));
-                Assert.Equal("Task_Updated", created.CurrentTaskId);
-                Assert.Equal("data", created.CurrentTaskType);
+                Assert.Equal("Task_Updated", created.ProcessInfo.CurrentTask.ElementId);
+                Assert.Equal("data", created.ProcessInfo.CurrentTask.AltinnTaskType);
             },
             saved =>
             {
-                Assert.Equal(
-                    (
-                        InstanceEventType.Saved,
-                        updateDataElementId.ToString(),
-                        "Task_Updated",
-                        "data"
-                    ),
-                    saved
-                );
+                Assert.Equal(InstanceEventType.Saved.ToString(), saved.EventType);
+                Assert.Equal(updateDataElementId.ToString(), saved.DataId);
+                Assert.Equal("Task_Updated", saved.ProcessInfo.CurrentTask.ElementId);
+                Assert.Equal("data", saved.ProcessInfo.CurrentTask.AltinnTaskType);
             }
         );
     }
@@ -4878,10 +5092,8 @@ public class InstanceMutationsControllerUnitTests
         );
 
         Assert.IsType<OkObjectResult>(result.Result);
-        InstanceMutationDataElementDelete capturedDelete = Assert.Single(
-            capturedMutation.DeleteDataElements
-        );
-        Assert.Equal(dataElementId, capturedDelete.DataElement.Id);
+        DataElementDeletion capturedDelete = Assert.Single(capturedMutation.DeleteDataElements);
+        Assert.Equal(dataElementId, capturedDelete.DataElementId);
         Assert.False(capturedDelete.IgnoreLock);
         bool hasTransactionalDeletedEvent =
             capturedMutation?.InstanceEvents?.Any(e =>
@@ -4971,10 +5183,8 @@ public class InstanceMutationsControllerUnitTests
         );
 
         Assert.IsType<OkObjectResult>(result.Result);
-        InstanceMutationDataElementDelete capturedDelete = Assert.Single(
-            capturedMutation.DeleteDataElements
-        );
-        Assert.Equal(dataElementId, capturedDelete.DataElement.Id);
+        DataElementDeletion capturedDelete = Assert.Single(capturedMutation.DeleteDataElements);
+        Assert.Equal(dataElementId, capturedDelete.DataElementId);
         Assert.True(capturedDelete.IgnoreLock);
     }
 
@@ -5086,6 +5296,41 @@ public class InstanceMutationsControllerUnitTests
         Mock<IAuthorization> authorizationServiceMock = new();
         Mock<IAuthorizationService> policyAuthorizationServiceMock = new();
         Mock<IProcessAuthorizer> processAuthorizerMock = new();
+
+        instanceEventServiceMock
+            .Setup(service =>
+                service.BuildInstanceEvent(
+                    It.IsAny<InstanceEventType>(),
+                    It.IsAny<InstanceInternal>()
+                )
+            )
+            .Returns(
+                (InstanceEventType eventType, InstanceInternal instance) =>
+                    new InstanceEvent
+                    {
+                        Id = Guid.NewGuid(),
+                        EventType = eventType.ToString(),
+                        InstanceId = $"{instance.InstanceOwner.PartyId}/{instance.Id}",
+                        InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
+                        ProcessInfo = instance.Process,
+                        Created = DateTime.UtcNow,
+                    }
+            );
+        instanceEventServiceMock
+            .Setup(service =>
+                service.BuildInstanceEvent(
+                    It.IsAny<InstanceEventType>(),
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<DataElementInternal>()
+                )
+            )
+            .Returns(
+                (
+                    InstanceEventType eventType,
+                    InstanceInternal instance,
+                    DataElementInternal dataElement
+                ) => BuildDataElementEvent(eventType, instance, dataElement)
+            );
 
         dataRepositoryMock
             .Setup(repository =>
@@ -5254,6 +5499,7 @@ public class InstanceMutationsControllerUnitTests
     ) =>
         new()
         {
+            Id = Guid.NewGuid(),
             EventType = eventType.ToString(),
             InstanceId = $"{instance.InstanceOwner.PartyId}/{instance.Id}",
             DataId = dataElement.Id.ToString(),
@@ -5328,56 +5574,23 @@ public class InstanceMutationsControllerUnitTests
     )
     {
         List<DataElementInternal> dataElements = [.. instance.Data];
-        foreach (
-            InstanceMutationDataElementDelete deleteDataElement in mutation.DeleteDataElements ?? []
-        )
+        foreach (DataElementDeletion deleteDataElement in mutation.DeleteDataElements ?? [])
         {
             dataElements.RemoveAll(dataElement =>
-                dataElement.Id == deleteDataElement.DataElement.Id
+                dataElement.Id == deleteDataElement.DataElementId
             );
         }
 
-        dataElements.AddRange(mutation.CreateDataElements ?? []);
+        dataElements.AddRange(mutation.CreateDataElements.Select(create => create.Element));
 
-        if (mutation.InstanceUpdates?.Status is not null)
-        {
-            instance.Status = mutation.InstanceUpdates.Status;
-        }
-
-        if (mutation.InstanceUpdates?.Process is not null)
-        {
-            instance.Process = mutation.InstanceUpdates.Process;
-        }
-
-        if (mutation.InstanceUpdates?.DataValues is not null)
-        {
-            instance.DataValues = mutation.InstanceUpdates.DataValues;
-        }
-
-        if (mutation.InstanceUpdates?.PresentationTexts is not null)
-        {
-            instance.PresentationTexts = mutation.InstanceUpdates.PresentationTexts;
-        }
-
-        if (mutation.InstanceUpdates?.CompleteConfirmations is not null)
-        {
-            instance.CompleteConfirmations =
-            [
-                .. instance.CompleteConfirmations ?? [],
-                .. mutation.InstanceUpdates.CompleteConfirmations,
-            ];
-        }
+        instance = InstanceMutationTestFactory.ApplyInstanceChanges(instance, mutation);
 
         instance.Data = dataElements;
         instance.Versions = versions ?? instance.Versions;
 
         return new InstanceMutationApplyResult(
             false,
-            [
-                .. (mutation.CreateDataElements ?? []).Select(dataElement =>
-                    dataElement.Id.ToString()
-                ),
-            ],
+            [.. mutation.CreateDataElements.Select(create => create.Element.Id.ToString())],
             instance
         );
     }

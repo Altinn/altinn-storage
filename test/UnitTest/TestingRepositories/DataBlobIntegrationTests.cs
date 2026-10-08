@@ -119,23 +119,25 @@ public class DataBlobIntegrationTests
 
         // Act delete
         Guid instanceGuid = createdDataElement.InstanceGuid;
-        InstanceMutationCommit mutation = new(
-            [],
-            [],
-            [new InstanceMutationDataElementDelete(createdDataElement, IgnoreLock: false)],
-            _instanceInternal,
-            [],
-            null,
-            null,
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            DeleteDataElements =
+            [
+                new DataElementDeletion(createdDataElement.Id, IgnoreLock: false),
+            ],
+            InstanceEvents =
             [
                 new InstanceEvent
                 {
+                    Id = Guid.NewGuid(),
+                    InstanceId = _instanceInternal.ToApiModel().Id,
                     EventType = InstanceEventType.Deleted.ToString(),
                     DataId = dataElementId.ToString(),
                     Created = DateTime.UtcNow,
                 },
-            ]
-        );
+            ],
+        };
         await _dataElementFixture.InstanceMutationRepo.Apply(
             instanceGuid,
             _instanceInternalId,

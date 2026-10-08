@@ -166,7 +166,7 @@ public class InstanceMutationsController(
             return deleteInstanceRequestError;
         }
 
-        BadRequestObjectResult instanceEventError = ValidateMutationInstanceEvents(
+        BadRequestObjectResult instanceEventError = ValidateAndInitializeInstanceEvents(
             mutationRequest,
             instanceOwnerPartyId,
             instanceGuid
@@ -204,14 +204,13 @@ public class InstanceMutationsController(
             e => e
         );
 
-        ActionResult<InstanceMutationResponse> replayResponse =
-            await TryBuildReplayMutationResponse(
-                instanceGuid,
-                snapshotVersions,
-                preconditions,
-                idempotencyKey,
-                cancellationToken
-            );
+        ActionResult<InstanceMutationResponse> replayResponse = await TryReplayMutation(
+            instanceGuid,
+            snapshotVersions,
+            preconditions,
+            idempotencyKey,
+            cancellationToken
+        );
         if (replayResponse is not null)
         {
             return replayResponse;
@@ -269,8 +268,12 @@ public class InstanceMutationsController(
 
         if (mutationRequest.DeleteInstance is not null)
         {
-            instance.Status ??= new InstanceStatus();
-            if (InstanceHelper.IsPreventedFromDeletion(instance.Status, application))
+            if (
+                InstanceHelper.IsPreventedFromDeletion(
+                    instance.Status ?? new InstanceStatus(),
+                    application
+                )
+            )
             {
                 return StatusCode(
                     403,
@@ -279,30 +282,29 @@ public class InstanceMutationsController(
             }
         }
 
-        (AppliedMutationWork appliedMutation, ActionResult mutationError) =
-            await PrepareAndApplyMutation(
-                mutationRequest,
-                multipartReader,
-                instance,
-                existingDataElementsById,
-                application,
-                preconditions,
-                snapshotVersions.ProcessStateVersion,
-                idempotencyKey,
-                cancellationToken
-            );
+        (AppliedMutation appliedMutation, ActionResult mutationError) = await ApplyMutation(
+            mutationRequest,
+            multipartReader,
+            instance,
+            existingDataElementsById,
+            application,
+            preconditions,
+            snapshotVersions.ProcessStateVersion,
+            idempotencyKey,
+            cancellationToken
+        );
         if (mutationError is not null)
         {
             return mutationError;
         }
 
-        PreparedMutationWork preparedWork = appliedMutation.PreparedWork;
+        PreparedMutation preparedMutation = appliedMutation.PreparedMutation;
         InstanceMutationApplyResult applyResult = appliedMutation.ApplyResult;
         InstanceInternal updatedInstanceInternal = applyResult.Instance;
 
         await RunCommittedMutationSideEffects(
             applyResult,
-            preparedWork,
+            preparedMutation,
             updatedInstanceInternal,
             application
         );
@@ -314,7 +316,7 @@ public class InstanceMutationsController(
         );
     }
 
-    private async Task<ActionResult<InstanceMutationResponse>> TryBuildReplayMutationResponse(
+    private async Task<ActionResult<InstanceMutationResponse>> TryReplayMutation(
         Guid instanceGuid,
         StorageVersions currentVersions,
         VersionPreconditions preconditions,
@@ -333,8 +335,8 @@ public class InstanceMutationsController(
 
         try
         {
-            InstanceMutationApplyResult replayAdmission =
-                await instanceMutationRepository.TryReplayAdmission(
+            InstanceMutationApplyResult replayResult =
+                await instanceMutationRepository.GetReplayResult(
                     instanceGuid,
                     preconditions.InstanceVersion.Value,
                     currentVersions.InstanceVersion,
@@ -344,8 +346,8 @@ public class InstanceMutationsController(
                 );
 
             return BuildMutationResponse(
-                replayAdmission.Instance,
-                replayAdmission.CreatedDataElementIds,
+                replayResult.Instance,
+                replayResult.CreatedDataElementIds,
                 replayed: true
             );
         }
@@ -359,7 +361,7 @@ public class InstanceMutationsController(
         }
     }
 
-    private BadRequestObjectResult ValidateMutationInstanceEvents(
+    private BadRequestObjectResult ValidateAndInitializeInstanceEvents(
         InstanceMutationRequest mutationRequest,
         int instanceOwnerPartyId,
         Guid instanceGuid
@@ -388,6 +390,8 @@ public class InstanceMutationsController(
                 return BadRequest("Instance ID in InstanceEvent does not match the Instance ID");
             }
 
+            instanceEvent.Id ??= Guid.NewGuid();
+            instanceEvent.InstanceId ??= $"{instanceOwnerPartyId}/{instanceGuid}";
             instanceEvent.Created ??= DateTime.UtcNow;
         }
 
@@ -521,7 +525,7 @@ public class InstanceMutationsController(
         }
     }
 
-    private async Task<(AppliedMutationWork Result, ActionResult Error)> PrepareAndApplyMutation(
+    private async Task<(AppliedMutation Result, ActionResult Error)> ApplyMutation(
         InstanceMutationRequest mutationRequest,
         MultipartReader multipartReader,
         InstanceInternal instance,
@@ -533,8 +537,7 @@ public class InstanceMutationsController(
         CancellationToken cancellationToken
     )
     {
-        ValidatedMutationPlan plan = new();
-        BlobStagingScope blobStaging = new();
+        List<StagedBlob> stagedBlobs = [];
         bool applyAttempted = false;
 
         try
@@ -544,23 +547,26 @@ public class InstanceMutationsController(
                 mutationRequest.ExpectedProcessStatus
             );
 
-            ActionResult validationError = await ValidateMutationPlan(
-                mutationRequest,
-                multipartReader,
-                existingDataElementsById,
-                instance,
-                application,
-                plan,
-                cancellationToken
-            );
+            (DataElementMutationPlan plan, ActionResult validationError) =
+                BuildDataElementMutationPlan(
+                    mutationRequest,
+                    multipartReader,
+                    existingDataElementsById,
+                    application
+                );
             if (validationError is not null)
             {
                 return (null, validationError);
             }
 
-            MutationInstanceUpdates mutationUpdates = BuildMutationInstanceUpdates(
+            NormalizeEmptyValuesAsRemovals(mutationRequest.PresentationTexts);
+            NormalizeEmptyValuesAsRemovals(mutationRequest.DataValues);
+
+            InstanceMutationStamp stamp = new(DateTime.UtcNow, User.GetUserOrOrgNo());
+            InstanceChangesAndEvents instanceChangesAndEvents = BuildInstanceChangesAndEvents(
                 mutationRequest,
-                instance
+                instance,
+                stamp
             );
 
             Dictionary<string, StagedFileContent> stagedByPartName = new(StringComparer.Ordinal);
@@ -572,20 +578,21 @@ public class InstanceMutationsController(
                     plan,
                     instance,
                     application,
-                    blobStaging,
+                    stagedBlobs,
                     cancellationToken
                 );
                 if (streamingError is not null)
                 {
-                    await CleanupStagedBlobs(blobStaging);
+                    await CleanupStagedBlobs(stagedBlobs);
                     return (null, streamingError);
                 }
             }
 
-            PreparedMutationWork preparedWork = PrepareMutationWork(
+            PreparedMutation preparedMutation = AssembleMutation(
                 plan,
                 instance,
-                mutationUpdates,
+                instanceChangesAndEvents,
+                stamp,
                 preconditions,
                 snapshotProcessStateVersion,
                 idempotencyKey,
@@ -596,25 +603,25 @@ public class InstanceMutationsController(
             InstanceMutationApplyResult applyResult = await instanceMutationRepository.Apply(
                 instance.Id,
                 instance.InternalId,
-                preparedWork.Commit,
+                preparedMutation.Commit,
                 cancellationToken
             );
 
             if (applyResult.Replayed)
             {
-                await CleanupStagedBlobs(blobStaging);
+                await CleanupStagedBlobs(stagedBlobs);
             }
 
-            return (new AppliedMutationWork(preparedWork, applyResult), null);
+            return (new AppliedMutation(preparedMutation, applyResult), null);
         }
         catch (StorageVersionMismatchException exception)
         {
-            await CleanupStagedBlobs(blobStaging);
+            await CleanupStagedBlobs(stagedBlobs);
             return (null, VersionPreconditionHelper.VersionMismatch(Response, exception));
         }
         catch (DataElementBlobVersionMismatchException exception)
         {
-            await CleanupStagedBlobs(blobStaging);
+            await CleanupStagedBlobs(stagedBlobs);
             VersionPreconditionHelper.WriteVersionResponseHeaders(
                 Response,
                 exception.CurrentInstanceVersion,
@@ -625,7 +632,7 @@ public class InstanceMutationsController(
         }
         catch (ProcessStatusConflictException exception)
         {
-            await CleanupStagedBlobs(blobStaging);
+            await CleanupStagedBlobs(stagedBlobs);
             return (
                 null,
                 new JsonResult(
@@ -645,113 +652,84 @@ public class InstanceMutationsController(
         }
         catch (RepositoryException exception) when (exception.StatusCodeSuggestion.HasValue)
         {
-            await CleanupStagedBlobs(blobStaging);
+            await CleanupStagedBlobs(stagedBlobs);
             return (null, StatusCode((int)exception.StatusCodeSuggestion.Value, exception.Message));
         }
         catch (Exception exception)
         {
             if (!applyAttempted || DataService.IndicatesDefiniteRollback(exception))
             {
-                await CleanupStagedBlobs(blobStaging);
+                await CleanupStagedBlobs(stagedBlobs);
             }
 
             throw;
         }
     }
 
-    private async Task<ActionResult> ValidateMutationPlan(
+    private (DataElementMutationPlan Plan, ActionResult Error) BuildDataElementMutationPlan(
         InstanceMutationRequest mutationRequest,
         MultipartReader multipartReader,
         Dictionary<Guid, DataElementInternal> existingDataElementsById,
-        InstanceInternal instance,
-        Application application,
-        ValidatedMutationPlan plan,
-        CancellationToken cancellationToken
+        Application application
     )
     {
-        BadRequestObjectResult duplicateDataElementIdError =
-            ValidateDuplicateDataElementMutationIds(mutationRequest);
+        DataElementMutationPlan plan = new();
+        BadRequestObjectResult duplicateDataElementIdError = ValidateUniqueDataElementIds(
+            mutationRequest
+        );
         if (duplicateDataElementIdError is not null)
         {
-            return duplicateDataElementIdError;
+            return (null, duplicateDataElementIdError);
         }
 
-        ActionResult validationError = await ValidateCreateDataElements(
-            mutationRequest,
-            instance,
-            application,
-            plan,
-            cancellationToken
-        );
+        ActionResult validationError = PlanDataElementCreations(mutationRequest, application, plan);
         if (validationError is not null)
         {
-            return validationError;
+            return (null, validationError);
         }
 
-        validationError = await ValidateUpdateDataElements(
+        validationError = PlanDataElementUpdates(
             mutationRequest,
             existingDataElementsById,
-            instance,
             application,
-            plan,
-            cancellationToken
+            plan
         );
         if (validationError is not null)
         {
-            return validationError;
+            return (null, validationError);
         }
 
         if (multipartReader is null && plan.ExpectedFileParts.Count > 0)
         {
-            return BadRequest("File parts require a multipart/form-data request.");
+            return (null, BadRequest("File parts require a multipart/form-data request."));
         }
 
-        validationError = await ValidateDeleteDataElements(
+        validationError = PlanDataElementDeletions(
             mutationRequest,
             existingDataElementsById,
-            instance,
             application,
-            plan,
-            cancellationToken
+            plan
         );
         if (validationError is not null)
         {
-            return validationError;
+            return (null, validationError);
         }
 
-        return null;
+        return (plan, null);
     }
 
-    private BadRequestObjectResult ValidateDuplicateDataElementMutationIds(
+    private BadRequestObjectResult ValidateUniqueDataElementIds(
         InstanceMutationRequest mutationRequest
     )
     {
-        if (
-            TryFindDuplicateDataElementId(
-                (
-                    mutationRequest.UpdateDataElements?.Select(update => update.DataElementId) ?? []
-                ).Concat(
-                    mutationRequest.DeleteDataElements?.Select(delete => delete.DataElementId) ?? []
-                ),
-                out Guid duplicateDataElementId
+        HashSet<Guid> seen = [];
+        foreach (
+            Guid dataElementId in (
+                mutationRequest.UpdateDataElements?.Select(update => update.DataElementId) ?? []
+            ).Concat(
+                mutationRequest.DeleteDataElements?.Select(delete => delete.DataElementId) ?? []
             )
         )
-        {
-            return BadRequest(
-                $"dataElementId '{duplicateDataElementId}' is referenced by more than one operation."
-            );
-        }
-
-        return null;
-    }
-
-    private static bool TryFindDuplicateDataElementId(
-        IEnumerable<Guid> dataElementIds,
-        out Guid duplicateDataElementId
-    )
-    {
-        HashSet<Guid> seen = [];
-        foreach (Guid dataElementId in dataElementIds ?? [])
         {
             if (dataElementId == Guid.Empty)
             {
@@ -760,67 +738,46 @@ public class InstanceMutationsController(
 
             if (!seen.Add(dataElementId))
             {
-                duplicateDataElementId = dataElementId;
-                return true;
+                return BadRequest(
+                    $"dataElementId '{dataElementId}' is referenced by more than one operation."
+                );
             }
         }
 
-        duplicateDataElementId = Guid.Empty;
-        return false;
+        return null;
     }
 
-    private MutationInstanceUpdates BuildMutationInstanceUpdates(
+    private InstanceChangesAndEvents BuildInstanceChangesAndEvents(
         InstanceMutationRequest mutationRequest,
-        InstanceInternal instance
+        InstanceInternal instance,
+        InstanceMutationStamp stamp
     )
     {
-        NormalizeEmptyValuesAsRemovals(mutationRequest.PresentationTexts);
-        NormalizeEmptyValuesAsRemovals(mutationRequest.DataValues);
-
-        List<string> instanceUpdateProperties = [];
-        if (mutationRequest.PresentationTexts?.Count > 0)
-        {
-            instanceUpdateProperties.Add(nameof(InstanceInternal.PresentationTexts));
-        }
-
-        if (mutationRequest.DataValues?.Count > 0)
-        {
-            instanceUpdateProperties.Add(nameof(InstanceInternal.DataValues));
-        }
-
         ProcessState processState = mutationRequest.ProcessState?.State;
+        ProcessState processStateForEvents = processState ?? instance.Process;
         List<InstanceEvent> instanceEvents = [.. mutationRequest.ProcessState?.Events ?? []];
-        if (processState is not null)
-        {
-            instanceUpdateProperties.Add(nameof(InstanceInternal.Process));
-        }
 
-        InstanceStatus instanceStatus = null;
-        DateTime lastChanged = DateTime.UtcNow;
-        string lastChangedBy = User.GetUserOrOrgNo();
+        InstanceMutationStatusChanges statusChanges = null;
         if (mutationRequest.DeleteInstance is not null)
         {
-            instanceStatus = BuildHardDeleteStatus(instance.Status, lastChanged);
-            instanceUpdateProperties.Add(nameof(InstanceInternal.Status));
-            instanceUpdateProperties.Add(nameof(InstanceStatus.IsSoftDeleted));
-            instanceUpdateProperties.Add(nameof(InstanceStatus.SoftDeleted));
-            instanceUpdateProperties.Add(nameof(InstanceStatus.IsHardDeleted));
-            instanceUpdateProperties.Add(nameof(InstanceStatus.HardDeleted));
+            statusChanges = new InstanceMutationStatusChanges
+            {
+                IsHardDeleted = true,
+                IsSoftDeleted = true,
+                HardDeleted = Change<DateTime?>.Set(stamp.LastChanged),
+                SoftDeleted = Change<DateTime?>.Set(
+                    instance.Status?.SoftDeleted ?? stamp.LastChanged
+                ),
+            };
         }
 
-        // Archiving instance if process was ended
         if (instance.Process?.Ended is null && processState?.Ended is not null)
         {
-            instanceStatus ??= instance.Status ?? new InstanceStatus();
-            instanceStatus.IsArchived = true;
-            instanceStatus.Archived = processState.Ended;
-            if (!instanceUpdateProperties.Contains(nameof(InstanceInternal.Status)))
+            statusChanges = (statusChanges ?? new InstanceMutationStatusChanges()) with
             {
-                instanceUpdateProperties.Add(nameof(InstanceInternal.Status));
-            }
-
-            instanceUpdateProperties.Add(nameof(InstanceStatus.IsArchived));
-            instanceUpdateProperties.Add(nameof(InstanceStatus.Archived));
+                IsArchived = true,
+                Archived = Change<DateTime?>.Set(processState.Ended),
+            };
         }
 
         List<CompleteConfirmation> addedCompleteConfirmations = null;
@@ -831,57 +788,60 @@ public class InstanceMutationsController(
                 new CompleteConfirmation
                 {
                     StakeholderId = User.GetOrg(),
-                    ConfirmedOn = lastChanged,
+                    ConfirmedOn = stamp.LastChanged,
                 },
             ];
-            instanceUpdateProperties.Add(nameof(InstanceInternal.CompleteConfirmations));
         }
 
-        InstanceInternal instanceUpdates = new()
+        InstanceMutationChanges changes = null;
+        if (
+            processState is not null
+            || statusChanges is not null
+            || addedCompleteConfirmations is not null
+            || mutationRequest.PresentationTexts?.Count > 0
+            || mutationRequest.DataValues?.Count > 0
+        )
         {
-            Id = instance.Id,
-            InstanceOwner = instance.InstanceOwner,
-            Org = instance.Org,
-            AppId = instance.AppId,
-            Created = instance.Created,
-            Process = processState ?? instance.Process,
-            Status = instanceStatus,
-            CompleteConfirmations = addedCompleteConfirmations,
-            LastChanged = lastChanged,
-            LastChangedBy = lastChangedBy,
-            PresentationTexts = mutationRequest.PresentationTexts,
-            DataValues = mutationRequest.DataValues,
-        };
+            changes = new InstanceMutationChanges
+            {
+                Process = processState,
+                Status = statusChanges,
+                CompleteConfirmations = addedCompleteConfirmations,
+                PresentationTexts =
+                    mutationRequest.PresentationTexts?.Count > 0
+                        ? mutationRequest.PresentationTexts
+                        : null,
+                DataValues =
+                    mutationRequest.DataValues?.Count > 0 ? mutationRequest.DataValues : null,
+            };
+        }
 
         if (mutationRequest.DeleteInstance is not null)
         {
-            instanceEvents.Add(
-                instanceEventService.BuildInstanceEvent(InstanceEventType.Deleted, instanceUpdates)
+            InstanceEvent deletedEvent = instanceEventService.BuildInstanceEvent(
+                InstanceEventType.Deleted,
+                instance
             );
+            deletedEvent.ProcessInfo = processStateForEvents;
+            instanceEvents.Add(deletedEvent);
         }
 
         if (addedCompleteConfirmations is not null)
         {
-            instanceEvents.Add(
-                instanceEventService.BuildInstanceEvent(
-                    InstanceEventType.ConfirmedComplete,
-                    instanceUpdates
-                )
+            InstanceEvent confirmedEvent = instanceEventService.BuildInstanceEvent(
+                InstanceEventType.ConfirmedComplete,
+                instance
             );
+            confirmedEvent.ProcessInfo = processStateForEvents;
+            instanceEvents.Add(confirmedEvent);
         }
 
-        return new MutationInstanceUpdates(
-            instanceUpdates,
-            instanceUpdateProperties,
-            lastChanged,
-            lastChangedBy,
-            instanceEvents
-        );
+        return new InstanceChangesAndEvents(changes, processStateForEvents, instanceEvents);
     }
 
     private async Task RunCommittedMutationSideEffects(
         InstanceMutationApplyResult applyResult,
-        PreparedMutationWork preparedWork,
+        PreparedMutation preparedMutation,
         InstanceInternal updatedInstanceInternal,
         Application application
     )
@@ -891,7 +851,7 @@ public class InstanceMutationsController(
             return;
         }
 
-        foreach (FileScanCandidate fileScanCandidate in preparedWork.FileScanCandidates)
+        foreach (FileScanCandidate fileScanCandidate in preparedMutation.FileScanCandidates)
         {
             await dataService.StartFileScan(
                 updatedInstanceInternal,
@@ -904,7 +864,7 @@ public class InstanceMutationsController(
         }
 
         foreach (
-            DataElementInternal dataElementInternal in preparedWork.PostCommitBlobCleanupDataElements
+            DataElementInternal dataElementInternal in preparedMutation.DataElementsForBlobCleanup
         )
         {
             await dataService.CleanupDeletedDataElementBlobs(
@@ -916,12 +876,10 @@ public class InstanceMutationsController(
         }
     }
 
-    private async Task<ActionResult> ValidateCreateDataElements(
+    private ActionResult PlanDataElementCreations(
         InstanceMutationRequest mutationRequest,
-        InstanceInternal instance,
         Application application,
-        ValidatedMutationPlan plan,
-        CancellationToken cancellationToken
+        DataElementMutationPlan plan
     )
     {
         foreach (
@@ -951,11 +909,9 @@ public class InstanceMutationsController(
                 );
             }
 
-            (DataType dataType, ActionResult dataTypeError) = await GetDataTypeAsync(
-                instance,
-                create.DataType,
+            (DataType dataType, ActionResult dataTypeError) = GetDataType(
                 application,
-                cancellationToken
+                create.DataType
             );
             if (dataType is null)
             {
@@ -963,72 +919,18 @@ public class InstanceMutationsController(
             }
 
             plan.CreateDataElements.Add(
-                new PlannedCreateDataElement(create, dataElementId, dataType)
+                new PlannedDataElementCreation(create, dataElementId, dataType)
             );
         }
 
         return null;
     }
 
-    private void BuildCreatedDataElements(
-        ValidatedMutationPlan plan,
-        IReadOnlyDictionary<string, StagedFileContent> stagedByPartName,
-        InstanceInternal instance,
-        DateTime lastChanged,
-        string lastChangedBy,
-        PreparedMutationWorkBuilder work
-    )
-    {
-        if (plan.CreateDataElements.Count == 0)
-        {
-            return;
-        }
-
-        foreach (PlannedCreateDataElement plannedCreate in plan.CreateDataElements)
-        {
-            InstanceMutationCreateDataElement create = plannedCreate.Create;
-            if (!stagedByPartName.TryGetValue(create.ContentPartName, out StagedFileContent staged))
-            {
-                throw new InvalidOperationException(
-                    $"Invariant violation: expected staged content for part '{create.ContentPartName}' but none was found."
-                );
-            }
-
-            DataElementInternal dataElement = new()
-            {
-                Id = plannedCreate.DataElementId,
-                InstanceGuid = instance.Id,
-                DataType = create.DataType,
-                ContentType = FirstNonEmpty(create.ContentType, staged.ContentType),
-                CreatedBy = lastChangedBy,
-                Created = lastChanged,
-                Filename = FirstNonEmpty(create.Filename, staged.FileName),
-                Size = staged.Size,
-                Refs = create.Refs,
-                BlobStoragePath = staged.BlobStoragePath,
-                FileScanResult = plannedCreate.DataType.EnableFileScan
-                    ? FileScanResult.Pending
-                    : FileScanResult.NotApplicable,
-                Locked = create.Locked ?? false,
-                IsRead = User.GetOrg() != instance.Org,
-                References = CreateGeneratedFromTaskReferences(create.GeneratedFromTask),
-                Metadata = create.Metadata,
-                UserDefinedMetadata = create.UserDefinedMetadata,
-                Tags = create.Tags,
-                BlobVersionId = staged.BlobVersionId,
-            };
-
-            work.AddCreatedDataElement(dataElement, plannedCreate.DataType, staged.BlobTimestamp);
-        }
-    }
-
-    private async Task<ActionResult> ValidateUpdateDataElements(
+    private ActionResult PlanDataElementUpdates(
         InstanceMutationRequest mutationRequest,
         Dictionary<Guid, DataElementInternal> existingDataElements,
-        InstanceInternal instance,
         Application application,
-        ValidatedMutationPlan plan,
-        CancellationToken cancellationToken
+        DataElementMutationPlan plan
     )
     {
         foreach (
@@ -1052,32 +954,31 @@ public class InstanceMutationsController(
                 );
             }
 
-            (string expectedCurrentBlobVersion, ActionResult blobVersionError) =
-                TryNormalizeExpectedCurrentBlobVersion(update.ExpectedCurrentBlobVersion);
+            (Guid? expectedCurrentBlobVersion, ActionResult blobVersionError) =
+                TryParseExpectedBlobVersion(update.ExpectedCurrentBlobVersion);
             if (blobVersionError is not null)
             {
                 return blobVersionError;
             }
 
-            (DataType dataType, ActionResult dataTypeError) = await GetDataTypeAsync(
-                instance,
-                dataElement.DataType,
+            (DataType dataType, ActionResult dataTypeError) = GetDataType(
                 application,
-                cancellationToken
+                dataElement.DataType
             );
             if (dataType is null)
             {
                 return dataTypeError;
             }
 
-            Dictionary<string, object> propertyList = BuildMetadataPropertyList(update);
+            InstanceMutationDataElementChanges changes = BuildMetadataChanges(update);
             bool hasContentUpdate = !string.IsNullOrWhiteSpace(update.ContentPartName);
             if (hasContentUpdate)
             {
-                ConflictObjectResult contentError = PlanUpdateContent(update, dataElement);
-                if (contentError is not null)
+                if (dataElement.Locked)
                 {
-                    return contentError;
+                    return new ConflictObjectResult(
+                        $"Data element {update.DataElementId} is locked and cannot be updated"
+                    );
                 }
 
                 if (
@@ -1093,7 +994,7 @@ public class InstanceMutationsController(
                 }
             }
 
-            if (propertyList.Count == 0 && !hasContentUpdate)
+            if (!hasContentUpdate && changes.IsEmpty)
             {
                 return BadRequest(
                     $"No metadata or content changes were supplied for data element {update.DataElementId}."
@@ -1101,11 +1002,11 @@ public class InstanceMutationsController(
             }
 
             plan.UpdateDataElements.Add(
-                new PlannedUpdateDataElement(
+                new PlannedDataElementUpdate(
                     update,
                     dataElement,
                     dataType,
-                    propertyList,
+                    changes,
                     expectedCurrentBlobVersion,
                     hasContentUpdate
                 )
@@ -1115,52 +1016,11 @@ public class InstanceMutationsController(
         return null;
     }
 
-    private static ConflictObjectResult PlanUpdateContent(
-        InstanceMutationUpdateDataElement update,
-        DataElementInternal dataElement
-    )
-    {
-        if (dataElement.Locked)
-        {
-            return new ConflictObjectResult(
-                $"Data element {update.DataElementId} is locked and cannot be updated"
-            );
-        }
-
-        return null;
-    }
-
-    private void BuildUpdatedDataElements(
-        ValidatedMutationPlan plan,
-        InstanceInternal instance,
-        IReadOnlyDictionary<string, StagedFileContent> stagedByPartName,
-        PreparedMutationWorkBuilder work
-    )
-    {
-        foreach (PlannedUpdateDataElement plannedUpdate in plan.UpdateDataElements)
-        {
-            if (plannedUpdate.HasContentUpdate)
-            {
-                BuildUpdatedContent(plannedUpdate, stagedByPartName, instance, work);
-            }
-
-            work.AddUpdatedDataElement(
-                new InstanceMutationDataElementUpdate(
-                    plannedUpdate.Update.DataElementId,
-                    plannedUpdate.PropertyList,
-                    plannedUpdate.ExpectedCurrentBlobVersion,
-                    IgnoreLock: !plannedUpdate.HasContentUpdate
-                        && plannedUpdate.Update.Locked == false
-                )
-            );
-        }
-    }
-
-    private void BuildUpdatedContent(
-        PlannedUpdateDataElement plannedUpdate,
+    private void AddDataElementContentUpdate(
+        PlannedDataElementUpdate plannedUpdate,
         IReadOnlyDictionary<string, StagedFileContent> stagedByPartName,
         InstanceInternal instance,
-        PreparedMutationWorkBuilder work
+        PreparedMutationBuilder builder
     )
     {
         InstanceMutationUpdateDataElement update = plannedUpdate.Update;
@@ -1172,39 +1032,50 @@ public class InstanceMutationsController(
             );
         }
 
-        Dictionary<string, object> propertyList = plannedUpdate.PropertyList;
-        propertyList["/contentType"] = FirstNonEmpty(update.ContentType, staged.ContentType);
-        propertyList["/filename"] = FirstNonEmpty(update.Filename, staged.FileName);
-        propertyList["/refs"] = update.Refs;
-        propertyList["/references"] = CreateGeneratedFromTaskReferences(update.GeneratedFromTask);
-        propertyList["/size"] = staged.Size;
-        propertyList["/blobStoragePath"] = staged.BlobStoragePath;
-        propertyList["/currentBlobVersion"] = staged.BlobVersionId;
-        propertyList["/fileScanResult"] = plannedUpdate.DataType.EnableFileScan
+        string contentType = FirstNonEmpty(update.ContentType, staged.ContentType);
+        string filename = FirstNonEmpty(update.Filename, staged.FileName);
+        FileScanResult fileScanResult = plannedUpdate.DataType.EnableFileScan
             ? FileScanResult.Pending
             : FileScanResult.NotApplicable;
-
-        if (User.GetOrg() == instance.Org)
+        InstanceMutationDataElementChanges changes = plannedUpdate.Changes with
         {
-            propertyList["/isRead"] = false;
-        }
+            ContentType = Change<string>.Set(contentType),
+            Filename = Change<string>.Set(filename),
+            Refs = Change<IReadOnlyList<Guid>>.Set(update.Refs),
+            References = Change<IReadOnlyList<Reference>>.Set(
+                CreateGeneratedFromTaskReferences(update.GeneratedFromTask)
+            ),
+            Size = staged.Size,
+            BlobStoragePath = Change<string>.Set(staged.BlobStoragePath),
+            FileScanResult = fileScanResult,
+            IsRead = User.GetOrg() == instance.Org ? false : null,
+        };
 
         DataElementInternal scanElement = CloneDataElementForScan(
             dataElement,
-            propertyList,
-            staged.BlobStoragePath
+            staged,
+            contentType,
+            filename,
+            fileScanResult
         );
-        scanElement.BlobVersionId = staged.BlobVersionId;
-        work.AddUpdatedContent(scanElement, plannedUpdate.DataType, staged.BlobTimestamp);
+        builder.AddDataElementContentUpdate(
+            new DataElementUpdate(
+                update.DataElementId,
+                changes,
+                plannedUpdate.ExpectedCurrentBlobVersion,
+                NewBlobVersion: BlobVersionId.Decode(staged.BlobVersionId)
+            ),
+            scanElement,
+            plannedUpdate.DataType,
+            staged.BlobTimestamp
+        );
     }
 
-    private async Task<ActionResult> ValidateDeleteDataElements(
+    private ActionResult PlanDataElementDeletions(
         InstanceMutationRequest mutationRequest,
         Dictionary<Guid, DataElementInternal> existingDataElements,
-        InstanceInternal instance,
         Application application,
-        ValidatedMutationPlan plan,
-        CancellationToken cancellationToken
+        DataElementMutationPlan plan
     )
     {
         foreach (
@@ -1228,11 +1099,9 @@ public class InstanceMutationsController(
                 );
             }
 
-            (DataType dataType, ActionResult dataTypeError) = await GetDataTypeAsync(
-                instance,
-                dataElement.DataType,
+            (DataType dataType, ActionResult dataTypeError) = GetDataType(
                 application,
-                cancellationToken
+                dataElement.DataType
             );
             if (dataType is null)
             {
@@ -1240,55 +1109,111 @@ public class InstanceMutationsController(
             }
 
             plan.DeleteDataElements.Add(
-                new PlannedDeleteDataElement(dataElement, delete.IgnoreLock)
+                new PlannedDataElementDeletion(dataElement, delete.IgnoreLock)
             );
         }
 
         return null;
     }
 
-    private PreparedMutationWork PrepareMutationWork(
-        ValidatedMutationPlan plan,
+    private PreparedMutation AssembleMutation(
+        DataElementMutationPlan plan,
         InstanceInternal instance,
-        MutationInstanceUpdates mutationUpdates,
+        InstanceChangesAndEvents instanceChangesAndEvents,
+        InstanceMutationStamp stamp,
         VersionPreconditions preconditions,
         int snapshotProcessStateVersion,
         Guid? idempotencyKey,
         IReadOnlyDictionary<string, StagedFileContent> stagedByPartName
     )
     {
-        PreparedMutationWorkBuilder work = new();
-
-        BuildCreatedDataElements(
-            plan,
-            stagedByPartName,
-            instance,
-            mutationUpdates.LastChanged,
-            mutationUpdates.LastChangedBy,
-            work
-        );
-        BuildUpdatedDataElements(plan, instance, stagedByPartName, work);
-
-        foreach (PlannedDeleteDataElement plannedDelete in plan.DeleteDataElements)
-        {
-            DataElementInternal dataElement = plannedDelete.ExistingDataElement;
-            dataElement.LastChanged = mutationUpdates.LastChanged;
-            dataElement.LastChangedBy = mutationUpdates.LastChangedBy;
-            work.AddDeletedDataElement(plannedDelete.ExistingDataElement, plannedDelete.IgnoreLock);
-        }
-
-        return work.Build(
-            mutationUpdates,
+        PreparedMutationBuilder builder = new(
+            instanceChangesAndEvents,
+            stamp,
             preconditions,
             snapshotProcessStateVersion,
             idempotencyKey,
             (eventType, dataElement) =>
-                instanceEventService.BuildInstanceEvent(
+            {
+                InstanceEvent instanceEvent = instanceEventService.BuildInstanceEvent(
                     eventType,
-                    mutationUpdates.InstanceUpdates,
+                    instance,
                     dataElement
-                )
+                );
+                instanceEvent.ProcessInfo = instanceChangesAndEvents.ProcessStateForEvents;
+                return instanceEvent;
+            }
         );
+
+        foreach (PlannedDataElementCreation plannedCreate in plan.CreateDataElements)
+        {
+            InstanceMutationCreateDataElement create = plannedCreate.Create;
+            if (!stagedByPartName.TryGetValue(create.ContentPartName, out StagedFileContent staged))
+            {
+                throw new InvalidOperationException(
+                    $"Invariant violation: expected staged content for part '{create.ContentPartName}' but none was found."
+                );
+            }
+
+            DataElementInternal dataElement = new()
+            {
+                Id = plannedCreate.DataElementId,
+                InstanceGuid = instance.Id,
+                DataType = create.DataType,
+                ContentType = FirstNonEmpty(create.ContentType, staged.ContentType),
+                CreatedBy = stamp.LastChangedBy,
+                Created = stamp.LastChanged,
+                Filename = FirstNonEmpty(create.Filename, staged.FileName),
+                Size = staged.Size,
+                Refs = create.Refs,
+                BlobStoragePath = staged.BlobStoragePath,
+                FileScanResult = plannedCreate.DataType.EnableFileScan
+                    ? FileScanResult.Pending
+                    : FileScanResult.NotApplicable,
+                Locked = create.Locked ?? false,
+                IsRead = User.GetOrg() != instance.Org,
+                References = CreateGeneratedFromTaskReferences(create.GeneratedFromTask),
+                Metadata = create.Metadata,
+                UserDefinedMetadata = create.UserDefinedMetadata,
+                Tags = create.Tags,
+                BlobVersionId = staged.BlobVersionId,
+            };
+
+            builder.AddDataElementCreation(
+                dataElement,
+                plannedCreate.DataType,
+                staged.BlobTimestamp
+            );
+        }
+
+        foreach (PlannedDataElementUpdate plannedUpdate in plan.UpdateDataElements)
+        {
+            if (plannedUpdate.HasContentUpdate)
+            {
+                AddDataElementContentUpdate(plannedUpdate, stagedByPartName, instance, builder);
+            }
+            else
+            {
+                builder.AddDataElementMetadataUpdate(
+                    new DataElementUpdate(
+                        plannedUpdate.Update.DataElementId,
+                        plannedUpdate.Changes,
+                        plannedUpdate.ExpectedCurrentBlobVersion,
+                        IgnoreLock: plannedUpdate.Update.Locked == false
+                    )
+                );
+            }
+        }
+
+        foreach (PlannedDataElementDeletion plannedDelete in plan.DeleteDataElements)
+        {
+            builder.AddDataElementDeletion(
+                plannedDelete.ExistingDataElement,
+                plannedDelete.IgnoreLock
+            );
+        }
+
+        return builder.Build();
     }
 
     private ActionResult<InstanceMutationResponse> BuildMutationResponse(
@@ -1449,10 +1374,10 @@ public class InstanceMutationsController(
         ActionResult Error
     )> StreamFilePartsAndStageBlobs(
         MultipartReader reader,
-        ValidatedMutationPlan plan,
+        DataElementMutationPlan plan,
         InstanceInternal instance,
         Application application,
-        BlobStagingScope blobStaging,
+        List<StagedBlob> stagedBlobs,
         CancellationToken cancellationToken
     )
     {
@@ -1521,7 +1446,7 @@ public class InstanceMutationsController(
                     application,
                     expected.TargetDataElementId,
                     section.Body,
-                    blobStaging,
+                    stagedBlobs,
                     cancellationToken
                 );
                 if (stageError is not null)
@@ -1677,15 +1602,6 @@ public class InstanceMutationsController(
         return authorizationResult.Succeeded ? null : Forbid();
     }
 
-    private static InstanceStatus BuildHardDeleteStatus(InstanceStatus status, DateTime now)
-    {
-        status.IsHardDeleted = true;
-        status.IsSoftDeleted = true;
-        status.HardDeleted = now;
-        status.SoftDeleted ??= now;
-        return status;
-    }
-
     private (Guid? IdempotencyKey, ActionResult Error) TryReadMutationIdempotencyKey(
         string idempotencyKeyHeader,
         VersionPreconditions preconditions
@@ -1732,10 +1648,11 @@ public class InstanceMutationsController(
         }
     }
 
-    private async Task CleanupStagedBlobs(BlobStagingScope blobStaging)
+    private async Task CleanupStagedBlobs(List<StagedBlob> stagedBlobs)
     {
-        await blobStaging.Cleanup(stagedBlob =>
-            DataService.DeleteAllocatedBlobVersion(
+        foreach (StagedBlob stagedBlob in stagedBlobs)
+        {
+            await DataService.DeleteAllocatedBlobVersion(
                 blobRepository,
                 dataRepository,
                 stagedBlob.Org,
@@ -1743,8 +1660,8 @@ public class InstanceMutationsController(
                 stagedBlob.BlobStoragePath,
                 stagedBlob.BlobVersionId,
                 stagedBlob.StorageAccountNumber
-            )
-        );
+            );
+        }
     }
 
     private async Task<(
@@ -1758,7 +1675,7 @@ public class InstanceMutationsController(
         Application application,
         Guid dataElementId,
         Stream content,
-        BlobStagingScope blobStaging,
+        List<StagedBlob> stagedBlobs,
         CancellationToken cancellationToken
     )
     {
@@ -1805,7 +1722,7 @@ public class InstanceMutationsController(
                 );
             }
 
-            blobStaging.Track(
+            stagedBlobs.Add(
                 new StagedBlob(
                     instance.Org,
                     dataElementId,
@@ -1831,58 +1748,34 @@ public class InstanceMutationsController(
         }
     }
 
-    private static Dictionary<string, object> BuildMetadataPropertyList(
+    private static InstanceMutationDataElementChanges BuildMetadataChanges(
         InstanceMutationUpdateDataElement update
     )
     {
-        Dictionary<string, object> propertyList = [];
-
-        if (update.ContentType is not null)
+        return new InstanceMutationDataElementChanges
         {
-            propertyList["/contentType"] = update.ContentType;
-        }
-
-        if (update.Filename is not null)
-        {
-            propertyList["/filename"] = update.Filename;
-        }
-
-        if (update.Refs is not null)
-        {
-            propertyList["/refs"] = update.Refs;
-        }
-
-        if (update.GeneratedFromTask is not null)
-        {
-            propertyList["/references"] = CreateGeneratedFromTaskReferences(
-                update.GeneratedFromTask
-            );
-        }
-
-        if (update.Metadata is not null)
-        {
-            propertyList["/metadata"] = update.Metadata;
-        }
-
-        if (update.UserDefinedMetadata is not null)
-        {
-            propertyList["/userDefinedMetadata"] = update.UserDefinedMetadata;
-        }
-
-        if (update.Tags is not null)
-        {
-            propertyList["/tags"] = update.Tags;
-        }
-
-        if (update.Locked.HasValue)
-        {
-            propertyList["/locked"] = update.Locked.Value;
-        }
-
-        return propertyList;
+            ContentType = update.ContentType is null
+                ? default
+                : Change<string>.Set(update.ContentType),
+            Filename = update.Filename is null ? default : Change<string>.Set(update.Filename),
+            Refs = update.Refs is null ? default : Change<IReadOnlyList<Guid>>.Set(update.Refs),
+            References = update.GeneratedFromTask is null
+                ? default
+                : Change<IReadOnlyList<Reference>>.Set(
+                    CreateGeneratedFromTaskReferences(update.GeneratedFromTask)
+                ),
+            Metadata = update.Metadata is null
+                ? default
+                : Change<IReadOnlyList<KeyValueEntry>>.Set(update.Metadata),
+            UserDefinedMetadata = update.UserDefinedMetadata is null
+                ? default
+                : Change<IReadOnlyList<KeyValueEntry>>.Set(update.UserDefinedMetadata),
+            Tags = update.Tags is null ? default : Change<IReadOnlyList<string>>.Set(update.Tags),
+            Locked = update.Locked,
+        };
     }
 
-    private (string BlobVersionId, ActionResult Error) TryNormalizeExpectedCurrentBlobVersion(
+    private (Guid? BlobVersion, ActionResult Error) TryParseExpectedBlobVersion(
         string expectedCurrentBlobVersion
     )
     {
@@ -1892,7 +1785,7 @@ public class InstanceMutationsController(
         }
 
         string blobVersionId = expectedCurrentBlobVersion.Trim();
-        if (!BlobVersionId.TryDecode(blobVersionId, out _))
+        if (!BlobVersionId.TryDecode(blobVersionId, out Guid blobVersion))
         {
             return (
                 null,
@@ -1900,41 +1793,27 @@ public class InstanceMutationsController(
             );
         }
 
-        return (blobVersionId, null);
+        return (blobVersion, null);
     }
 
     private static DataElementInternal CloneDataElementForScan(
         DataElementInternal dataElement,
-        Dictionary<string, object> propertyList,
-        string blobStoragePath
+        StagedFileContent staged,
+        string contentType,
+        string filename,
+        FileScanResult fileScanResult
     )
     {
         DataElementInternal clone =
             System.Text.Json.JsonSerializer.Deserialize<DataElementInternal>(
                 System.Text.Json.JsonSerializer.Serialize(dataElement)
             );
-        clone.BlobStoragePath = blobStoragePath;
-
-        if (propertyList.TryGetValue("/contentType", out object contentType))
-        {
-            clone.ContentType = (string)contentType;
-        }
-
-        if (propertyList.TryGetValue("/filename", out object filename))
-        {
-            clone.Filename = (string)filename;
-        }
-
-        if (propertyList.TryGetValue("/size", out object size))
-        {
-            clone.Size = (long)size;
-        }
-
-        if (propertyList.TryGetValue("/fileScanResult", out object fileScanResult))
-        {
-            clone.FileScanResult = (FileScanResult)fileScanResult;
-        }
-
+        clone.BlobStoragePath = staged.BlobStoragePath;
+        clone.BlobVersionId = staged.BlobVersionId;
+        clone.ContentType = contentType;
+        clone.Filename = filename;
+        clone.Size = staged.Size;
+        clone.FileScanResult = fileScanResult;
         return clone;
     }
 
@@ -1999,26 +1878,11 @@ public class InstanceMutationsController(
             : (instance, null);
     }
 
-    private async Task<(DataType DataType, ActionResult ErrorMessage)> GetDataTypeAsync(
-        InstanceInternal instance,
-        string dataTypeId,
-        Application application = null,
-        CancellationToken cancellationToken = default
+    private (DataType DataType, ActionResult ErrorMessage) GetDataType(
+        Application application,
+        string dataTypeId
     )
     {
-        if (application is null)
-        {
-            (application, ActionResult applicationError) = await GetApplicationAsync(
-                instance.AppId,
-                instance.Org,
-                cancellationToken
-            );
-            if (application is null)
-            {
-                return (null, applicationError);
-            }
-        }
-
         DataType dataTypeDefinition = application.DataTypes.FirstOrDefault(e => e.Id == dataTypeId);
 
         return dataTypeDefinition is null
@@ -2034,45 +1898,30 @@ public class InstanceMutationsController(
         int? StorageAccountNumber
     );
 
-    private sealed class BlobStagingScope
-    {
-        private readonly List<StagedBlob> _stagedBlobs = [];
-
-        public void Track(StagedBlob stagedBlob) => _stagedBlobs.Add(stagedBlob);
-
-        public async Task Cleanup(Func<StagedBlob, Task> cleanup)
-        {
-            foreach (StagedBlob stagedBlob in _stagedBlobs)
-            {
-                await cleanup(stagedBlob);
-            }
-        }
-    }
-
-    private sealed class ValidatedMutationPlan
+    private sealed class DataElementMutationPlan
     {
         public Dictionary<string, ExpectedFilePart> ExpectedFileParts { get; } =
             new(StringComparer.Ordinal);
 
-        public List<PlannedCreateDataElement> CreateDataElements { get; } = [];
+        public List<PlannedDataElementCreation> CreateDataElements { get; } = [];
 
-        public List<PlannedUpdateDataElement> UpdateDataElements { get; } = [];
+        public List<PlannedDataElementUpdate> UpdateDataElements { get; } = [];
 
-        public List<PlannedDeleteDataElement> DeleteDataElements { get; } = [];
+        public List<PlannedDataElementDeletion> DeleteDataElements { get; } = [];
     }
 
-    private sealed record PlannedCreateDataElement(
+    private sealed record PlannedDataElementCreation(
         InstanceMutationCreateDataElement Create,
         Guid DataElementId,
         DataType DataType
     );
 
-    private sealed record PlannedUpdateDataElement(
+    private sealed record PlannedDataElementUpdate(
         InstanceMutationUpdateDataElement Update,
         DataElementInternal ExistingDataElement,
         DataType DataType,
-        Dictionary<string, object> PropertyList,
-        string ExpectedCurrentBlobVersion,
+        InstanceMutationDataElementChanges Changes,
+        Guid? ExpectedCurrentBlobVersion,
         bool HasContentUpdate
     );
 
@@ -2087,117 +1936,122 @@ public class InstanceMutationsController(
         string FileName
     );
 
-    private sealed record PlannedDeleteDataElement(
+    private sealed record PlannedDataElementDeletion(
         DataElementInternal ExistingDataElement,
         bool IgnoreLock
     );
 
-    private sealed record PreparedMutationWork(
+    private sealed record PreparedMutation(
         InstanceMutationCommit Commit,
         IReadOnlyList<FileScanCandidate> FileScanCandidates,
-        IReadOnlyList<DataElementInternal> PostCommitBlobCleanupDataElements
+        IReadOnlyList<DataElementInternal> DataElementsForBlobCleanup
     );
 
-    private sealed record AppliedMutationWork(
-        PreparedMutationWork PreparedWork,
+    private sealed record AppliedMutation(
+        PreparedMutation PreparedMutation,
         InstanceMutationApplyResult ApplyResult
     );
 
-    private sealed record MutationInstanceUpdates(
-        InstanceInternal InstanceUpdates,
-        List<string> InstanceUpdateProperties,
-        DateTime LastChanged,
-        string LastChangedBy,
+    private sealed record InstanceChangesAndEvents(
+        InstanceMutationChanges Changes,
+        ProcessState ProcessStateForEvents,
         List<InstanceEvent> InstanceEvents
     );
 
-    private sealed class PreparedMutationWorkBuilder
+    private sealed class PreparedMutationBuilder(
+        InstanceChangesAndEvents instanceChangesAndEvents,
+        InstanceMutationStamp stamp,
+        VersionPreconditions preconditions,
+        int snapshotProcessStateVersion,
+        Guid? idempotencyKey,
+        Func<InstanceEventType, DataElementInternal, InstanceEvent> buildInstanceEvent
+    )
     {
-        private readonly List<DataElementInternal> _createDataElements = [];
+        private readonly List<DataElementCreation> _createDataElements = [];
 
-        private readonly List<InstanceMutationDataElementUpdate> _updateDataElements = [];
+        private readonly List<DataElementUpdate> _updateDataElements = [];
 
-        private readonly List<InstanceMutationDataElementDelete> _deleteDataElements = [];
+        private readonly List<DataElementDeletion> _deleteDataElements = [];
 
         private readonly List<FileScanCandidate> _fileScanCandidates = [];
 
         private readonly List<(
             InstanceEventType EventType,
             DataElementInternal DataElement
-        )> _transactionalEvents = [];
+        )> _pendingDataElementEvents = [];
 
-        private readonly List<DataElementInternal> _postCommitBlobCleanupDataElements = [];
+        private readonly List<DataElementInternal> _dataElementsForBlobCleanup = [];
 
-        public void AddCreatedDataElement(
+        public void AddDataElementCreation(
             DataElementInternal dataElement,
             DataType dataType,
             DateTimeOffset blobTimestamp
         )
         {
-            _createDataElements.Add(dataElement);
+            _createDataElements.Add(
+                new DataElementCreation(
+                    dataElement,
+                    BlobVersionId.Decode(dataElement.BlobVersionId)
+                )
+            );
             _fileScanCandidates.Add(new FileScanCandidate(dataElement, dataType, blobTimestamp));
-            _transactionalEvents.Add((InstanceEventType.Created, dataElement));
+            _pendingDataElementEvents.Add((InstanceEventType.Created, dataElement));
         }
 
-        public void AddUpdatedDataElement(InstanceMutationDataElementUpdate update) =>
+        public void AddDataElementMetadataUpdate(DataElementUpdate update) =>
             _updateDataElements.Add(update);
 
-        public void AddUpdatedContent(
+        public void AddDataElementContentUpdate(
+            DataElementUpdate update,
             DataElementInternal dataElement,
             DataType dataType,
             DateTimeOffset blobTimestamp
         )
         {
+            _updateDataElements.Add(update);
             _fileScanCandidates.Add(new FileScanCandidate(dataElement, dataType, blobTimestamp));
-            _transactionalEvents.Add((InstanceEventType.Saved, dataElement));
+            _pendingDataElementEvents.Add((InstanceEventType.Saved, dataElement));
         }
 
-        public void AddDeletedDataElement(DataElementInternal dataElement, bool ignoreLock)
+        public void AddDataElementDeletion(DataElementInternal dataElement, bool ignoreLock)
         {
             _deleteDataElements.Add(
-                new InstanceMutationDataElementDelete(dataElement, IgnoreLock: ignoreLock)
+                new DataElementDeletion(dataElement.Id, IgnoreLock: ignoreLock)
             );
-            _transactionalEvents.Add((InstanceEventType.Deleted, dataElement));
-            _postCommitBlobCleanupDataElements.Add(dataElement);
+            _pendingDataElementEvents.Add((InstanceEventType.Deleted, dataElement));
+            _dataElementsForBlobCleanup.Add(dataElement);
         }
 
-        public PreparedMutationWork Build(
-            MutationInstanceUpdates mutationUpdates,
-            VersionPreconditions preconditions,
-            int snapshotProcessStateVersion,
-            Guid? idempotencyKey,
-            Func<InstanceEventType, DataElementInternal, InstanceEvent> buildInstanceEvent
-        )
+        public PreparedMutation Build()
         {
-            List<InstanceEvent> instanceEvents = [.. mutationUpdates.InstanceEvents];
+            List<InstanceEvent> instanceEvents = [.. instanceChangesAndEvents.InstanceEvents];
             foreach (
                 (
                     InstanceEventType eventType,
                     DataElementInternal dataElement
-                ) in _transactionalEvents
+                ) in _pendingDataElementEvents
             )
             {
                 instanceEvents.Add(buildInstanceEvent(eventType, dataElement));
             }
 
-            InstanceMutationCommit commit = new(
-                _createDataElements,
-                _updateDataElements,
-                _deleteDataElements,
-                mutationUpdates.InstanceUpdates,
-                mutationUpdates.InstanceUpdateProperties,
-                preconditions.InstanceVersion,
-                snapshotProcessStateVersion,
-                instanceEvents,
-                idempotencyKey,
-                mutationUpdates.LastChanged,
-                mutationUpdates.LastChangedBy
-            );
+            InstanceMutationCommit commit = new()
+            {
+                Stamp = stamp,
+                CreateDataElements = _createDataElements,
+                UpdateDataElements = _updateDataElements,
+                DeleteDataElements = _deleteDataElements,
+                InstanceChanges = instanceChangesAndEvents.Changes,
+                ExpectedInstanceVersion = preconditions.InstanceVersion,
+                ExpectedProcessStateVersion = snapshotProcessStateVersion,
+                InstanceEvents = instanceEvents,
+                IdempotencyKey = idempotencyKey,
+            };
 
-            return new PreparedMutationWork(
+            return new PreparedMutation(
                 commit,
                 [.. _fileScanCandidates],
-                [.. _postCommitBlobCleanupDataElements]
+                [.. _dataElementsForBlobCleanup]
             );
         }
     }

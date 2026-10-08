@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION storage.applyinstancemutation(
+CREATE OR REPLACE FUNCTION storage.applyinstancemutation_v2(
     _instanceguid UUID,
     _instanceinternalid BIGINT,
     _expectedinstanceversion INT,
@@ -39,6 +39,10 @@ DECLARE
     _newinstanceversion INT;
     _newprocessstateversion INT;
     _composedinstance JSONB;
+    _appid TEXT;
+    _partyid BIGINT;
+    _created TIMESTAMPTZ;
+    _org TEXT;
 BEGIN
     -- Refusals are ordered, and the first one that matches ends the mutation through
     -- storage.raiseinstancemutationerror:
@@ -54,8 +58,13 @@ BEGIN
     SELECT
         i.instance,
         i.instance_version,
-        i.process_state_version
-    INTO _composedinstance, _currentinstanceversion, _currentprocessstateversion
+        i.process_state_version,
+        i.appid,
+        i.partyid,
+        i.created,
+        i.org
+    INTO _composedinstance, _currentinstanceversion, _currentprocessstateversion,
+        _appid, _partyid, _created, _org
     FROM storage.instances i
     WHERE i.id = _instanceinternalid
     FOR UPDATE;
@@ -70,6 +79,7 @@ BEGIN
 
     _currentprocessstatus := COALESCE(_composedinstance -> 'Process' ->> 'Status', 'idle');
 
+    _instanceupdate := NULLIF(_instanceupdate, 'null'::JSONB);
     _createelements := COALESCE(_createelements, '[]'::JSONB);
     _updateelements := COALESCE(_updateelements, '[]'::JSONB);
     _deleteelements := COALESCE(_deleteelements, '[]'::JSONB);
@@ -84,12 +94,12 @@ BEGIN
     END;
 
     _newprocessstateversion := CASE
-        WHEN NULLIF(_instanceupdate -> 'process', 'null'::JSONB) IS NOT NULL
+        WHEN NULLIF(_instanceupdate -> 'Process', 'null'::JSONB) IS NOT NULL
             THEN _currentprocessstateversion + 1
         ELSE _currentprocessstateversion
     END;
 
-    SELECT COALESCE(array_agg(createelement.value ->> 'elementId' ORDER BY createelement.ordinality), ARRAY[]::TEXT[])
+    SELECT COALESCE(array_agg(createelement.value -> 'Element' ->> 'Id' ORDER BY createelement.ordinality), ARRAY[]::TEXT[])
     INTO _committedcreateddataelementids
     FROM jsonb_array_elements(_createelements) WITH ORDINALITY createelement(value, ordinality);
 
@@ -168,9 +178,9 @@ BEGIN
         FROM (
             SELECT
                 createelement.ordinality,
-                (createelement.value ->> 'elementId')::UUID AS dataelementid,
-                createelement.value -> 'element' AS element,
-                (createelement.value ->> 'blobVersion')::UUID AS blobversion
+                (createelement.value -> 'Element' ->> 'Id')::UUID AS dataelementid,
+                createelement.value -> 'Element' AS element,
+                (createelement.value ->> 'BlobVersion')::UUID AS blobversion
             FROM jsonb_array_elements(_createelements) WITH ORDINALITY createelement(value, ordinality)
         ) createelement
         ORDER BY createelement.ordinality;
@@ -179,10 +189,10 @@ BEGIN
         SET detachedat = NULL
         FROM (
             SELECT
-                (createelement.value ->> 'elementId')::UUID AS dataelementid,
-                (createelement.value ->> 'blobVersion')::UUID AS blobversion
+                (createelement.value -> 'Element' ->> 'Id')::UUID AS dataelementid,
+                (createelement.value ->> 'BlobVersion')::UUID AS blobversion
             FROM jsonb_array_elements(_createelements) createelement(value)
-            WHERE createelement.value ->> 'blobVersion' IS NOT NULL
+            WHERE createelement.value ->> 'BlobVersion' IS NOT NULL
         ) createelement
         WHERE dataelementblobversion.id = createelement.blobversion
             AND dataelementblobversion.instanceguid = _instanceguid
@@ -198,11 +208,11 @@ BEGIN
         WITH updateelements AS (
             SELECT
                 updateelement.ordinality,
-                (updateelement.value ->> 'elementId')::UUID AS dataelementid,
-                (updateelement.value ->> 'expectedBlobVersion')::UUID AS expectedblobversion,
-                (updateelement.value ->> 'newBlobVersion')::UUID AS newblobversion,
-                COALESCE((updateelement.value ->> 'ignoreLock')::BOOL, false) AS ignorelock,
-                COALESCE(NULLIF(updateelement.value -> 'elementChanges', 'null'::JSONB), '{}'::JSONB) AS elementchanges
+                (updateelement.value ->> 'DataElementId')::UUID AS dataelementid,
+                (updateelement.value ->> 'ExpectedCurrentBlobVersion')::UUID AS expectedblobversion,
+                (updateelement.value ->> 'NewBlobVersion')::UUID AS newblobversion,
+                COALESCE((updateelement.value ->> 'IgnoreLock')::BOOL, false) AS ignorelock,
+                COALESCE(NULLIF(updateelement.value -> 'Changes', 'null'::JSONB), '{}'::JSONB) AS elementchanges
             FROM jsonb_array_elements(_updateelements) WITH ORDINALITY updateelement(value, ordinality)
         ),
         updated AS (
@@ -240,7 +250,7 @@ BEGIN
 
         IF cardinality(_updatedids) < jsonb_array_length(_updateelements)
         THEN
-            CALL storage.diagnoseinstancemutationupdatefailure(
+            CALL storage.diagnoseinstancemutationupdatefailure_v2(
                 _updateelements,
                 _instanceguid,
                 _currentinstanceversion,
@@ -253,9 +263,9 @@ BEGIN
         UPDATE storage.dataelementblobversions superseded
         SET detachedat = NOW()
         FROM (
-            SELECT (updateelement.value ->> 'elementId')::UUID AS dataelementid
+            SELECT (updateelement.value ->> 'DataElementId')::UUID AS dataelementid
             FROM jsonb_array_elements(_updateelements) updateelement(value)
-            WHERE updateelement.value ->> 'newBlobVersion' IS NOT NULL
+            WHERE updateelement.value ->> 'NewBlobVersion' IS NOT NULL
         ) updateelement
         WHERE superseded.instanceguid = _instanceguid
             AND superseded.dataelementid = updateelement.dataelementid
@@ -265,10 +275,10 @@ BEGIN
         SET detachedat = NULL
         FROM (
             SELECT
-                (updateelement.value ->> 'elementId')::UUID AS dataelementid,
-                (updateelement.value ->> 'newBlobVersion')::UUID AS newblobversion
+                (updateelement.value ->> 'DataElementId')::UUID AS dataelementid,
+                (updateelement.value ->> 'NewBlobVersion')::UUID AS newblobversion
             FROM jsonb_array_elements(_updateelements) updateelement(value)
-            WHERE updateelement.value ->> 'newBlobVersion' IS NOT NULL
+            WHERE updateelement.value ->> 'NewBlobVersion' IS NOT NULL
         ) updateelement
         WHERE dataelementblobversion.id = updateelement.newblobversion
             AND dataelementblobversion.instanceguid = _instanceguid
@@ -280,8 +290,8 @@ BEGIN
     THEN
         WITH deleteelements AS (
             SELECT
-                (deleteelement.value ->> 'elementId')::UUID AS dataelementid,
-                COALESCE((deleteelement.value ->> 'ignoreLock')::BOOL, false) AS ignorelock
+                (deleteelement.value ->> 'DataElementId')::UUID AS dataelementid,
+                COALESCE((deleteelement.value ->> 'IgnoreLock')::BOOL, false) AS ignorelock
             FROM jsonb_array_elements(_deleteelements) deleteelement(value)
         ),
         deleted AS (
@@ -301,7 +311,7 @@ BEGIN
 
         IF cardinality(_deletedids) < jsonb_array_length(_deleteelements)
         THEN
-            CALL storage.diagnoseinstancemutationdeletefailure(
+            CALL storage.diagnoseinstancemutationdeletefailure_v2(
                 _deleteelements,
                 _instanceguid,
                 _currentinstanceversion,
@@ -312,7 +322,7 @@ BEGIN
         UPDATE storage.dataelementblobversions dataelementblobversion
         SET detachedat = NOW()
         FROM (
-            SELECT (deleteelement.value ->> 'elementId')::UUID AS dataelementid
+            SELECT (deleteelement.value ->> 'DataElementId')::UUID AS dataelementid
             FROM jsonb_array_elements(_deleteelements) deleteelement(value)
         ) deleteelement
         WHERE dataelementblobversion.instanceguid = _instanceguid
@@ -328,7 +338,7 @@ BEGIN
             IF EXISTS (
                 SELECT 1
                 FROM jsonb_array_elements(_createelements) createelement(value)
-                WHERE createelement.value -> 'element' ->> 'IsRead' = 'false'
+                WHERE createelement.value -> 'Element' ->> 'IsRead' = 'false'
             )
             THEN
                 _composedinstance := jsonb_set(_composedinstance, '{Status, ReadStatus}', '2');
@@ -337,7 +347,7 @@ BEGIN
                     OR EXISTS (
                         SELECT 1
                         FROM jsonb_array_elements(_updateelements) updateelement(value)
-                        WHERE updateelement.value -> 'elementChanges' ->> 'IsRead' = 'false'
+                        WHERE updateelement.value -> 'Changes' ->> 'IsRead' = 'false'
                     )
                 )
                 AND NOT EXISTS (
@@ -353,7 +363,7 @@ BEGIN
 
         IF _instanceupdate IS NOT NULL
         THEN
-            _composedinstance := storage.mergeinstanceupdate(_composedinstance, _instanceupdate);
+            _composedinstance := storage.mergeinstanceupdate_v2(_composedinstance, _instanceupdate);
         END IF;
 
         _composedinstance := _composedinstance
@@ -365,9 +375,18 @@ BEGIN
             lastchanged = _lastchanged,
             instance_version = _newinstanceversion,
             process_state_version = _newprocessstateversion,
-            confirmed = COALESCE((_instanceupdate ->> 'confirmed')::BOOLEAN, i.confirmed),
+            confirmed = COALESCE(
+                (_instanceupdate ->> 'Confirmed')::BOOLEAN,
+                CASE WHEN EXISTS (
+                    SELECT 1
+                    FROM jsonb_array_elements(
+                        COALESCE(NULLIF(_instanceupdate -> 'CompleteConfirmations', 'null'::JSONB), '[]'::JSONB)
+                    ) confirmation(value)
+                    WHERE confirmation.value ->> 'StakeholderId' = _org
+                ) THEN true END,
+                i.confirmed),
             taskid = CASE
-                WHEN NULLIF(_instanceupdate -> 'process', 'null'::JSONB) IS NOT NULL THEN _instanceupdate ->> 'taskid'
+                WHEN NULLIF(_instanceupdate -> 'Process', 'null'::JSONB) IS NOT NULL THEN _instanceupdate -> 'Process' -> 'CurrentTask' ->> 'ElementId'
                 ELSE i.taskid
             END
         WHERE i.id = _instanceinternalid;
@@ -385,12 +404,12 @@ BEGIN
         VALUES
             (
                 _instanceguid,
-                _outbox ->> 'appid',
-                (_outbox ->> 'partyid')::BIGINT,
-                clock_timestamp() + make_interval(secs => COALESCE((_outbox ->> 'delaySeconds')::DOUBLE PRECISION, 0)),
-                (_outbox ->> 'instancecreated')::TIMESTAMPTZ,
-                (_outbox ->> 'ismigration')::BOOLEAN,
-                (_outbox ->> 'instanceeventtype')::SMALLINT
+                _appid,
+                _partyid,
+                clock_timestamp() + make_interval(secs => COALESCE((_outbox ->> 'DelaySeconds')::DOUBLE PRECISION, 0)),
+                _created,
+                false,
+                (_outbox ->> 'EventType')::SMALLINT
             )
         ON CONFLICT (instanceid) DO UPDATE SET
             validfrom = excluded.validfrom
