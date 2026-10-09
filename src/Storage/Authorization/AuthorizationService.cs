@@ -237,7 +237,7 @@ public class AuthorizationService(
         bool allowSyncAdapterBypass = true
     )
     {
-        if (allowSyncAdapterBypass && IsValidSyncAdapterRequest(action))
+        if (allowSyncAdapterBypass && IsSyncAdapterBypassRequest(action))
         {
             return true;
         }
@@ -833,7 +833,7 @@ public class AuthorizationService(
         return subjectKey.ToString() + actionKey.ToString() + resourceKey.ToString();
     }
 
-    private bool IsValidSyncAdapterRequest(string action)
+    private bool IsSyncAdapterBypassRequest(string action)
     {
         if (
             action != AuthorizationActions.Read
