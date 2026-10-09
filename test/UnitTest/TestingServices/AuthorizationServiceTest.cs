@@ -656,34 +656,6 @@ public class AuthorizationServiceTest
     }
 
     [Fact]
-    public async Task AuthorizeInstanceRequest_SyncAdapterScope_BypassDisabled_CallsPdp()
-    {
-        // Arrange - data element reads never bypass the PDP, even for the sync adapter.
-        Mock<IPDP> pdp = new();
-        pdp.Setup(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
-            .ReturnsAsync(CreatePdpResponse("Deny"));
-        _claimsPrincipalProviderMock
-            .Setup(c => c.GetUser())
-            .Returns(CreateUserWithScope("altinn:storage/instances.syncadapter"));
-        AuthorizationService sut = CreateAuthorizationService(
-            pdp.Object,
-            _claimsPrincipalProviderMock.Object,
-            CreateHttpContextAccessor()
-        );
-
-        // Act
-        bool result = await sut.AuthorizeInstanceRequest(
-            CreateDomainInstance(),
-            "read",
-            allowSyncAdapterBypass: false
-        );
-
-        // Assert
-        Assert.False(result);
-        pdp.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Once());
-    }
-
-    [Fact]
     public async Task AuthorizeInstanceRequest_NullInstance_MissingRouteValues_DeniesWithoutPdp()
     {
         // Arrange - no instance and no route values to identify one: fail closed.

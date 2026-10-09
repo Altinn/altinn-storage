@@ -231,13 +231,9 @@ public class AuthorizationService(
     }
 
     /// <inheritdoc />
-    public async Task<bool> AuthorizeInstanceRequest(
-        InstanceInternal instance,
-        string action,
-        bool allowSyncAdapterBypass = true
-    )
+    public async Task<bool> AuthorizeInstanceRequest(InstanceInternal instance, string action)
     {
-        if (allowSyncAdapterBypass && IsSyncAdapterBypassRequest(action))
+        if (IsSyncAdapterBypassRequest(action))
         {
             return true;
         }

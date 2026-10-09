@@ -2697,11 +2697,7 @@ public class DataControllerUnitTests
 
         authorizationServiceMock
             .Setup(a =>
-                a.AuthorizeInstanceRequest(
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<string>(),
-                    It.IsAny<bool>()
-                )
+                a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
             )
             .ReturnsAsync(authorized);
 
@@ -2846,11 +2842,7 @@ public class DataControllerUnitTests
 
         authorizationServiceMock
             .Setup(service =>
-                service.AuthorizeInstanceRequest(
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<string>(),
-                    It.IsAny<bool>()
-                )
+                service.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
             )
             .ReturnsAsync(true);
         dataRepositoryMock

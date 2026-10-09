@@ -275,8 +275,7 @@ public class InstancesController : ControllerBase
             !isSyncAdapter
             && await _authorizationService.AuthorizeInstanceRequest(
                 instance,
-                AuthorizationActions.Read,
-                allowSyncAdapterBypass: false
+                AuthorizationActions.Read
             )
                 is false
         )
@@ -330,8 +329,7 @@ public class InstancesController : ControllerBase
             !isSyncAdapter
             && await _authorizationService.AuthorizeInstanceRequest(
                 instance,
-                AuthorizationActions.Read,
-                allowSyncAdapterBypass: false
+                AuthorizationActions.Read
             )
                 is false
         )

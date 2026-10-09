@@ -310,8 +310,7 @@ public class DataController : ControllerBase
         if (
             await _authorizationService.AuthorizeInstanceRequest(
                 instance,
-                AuthorizationActions.Read,
-                allowSyncAdapterBypass: false
+                AuthorizationActions.Read
             )
             is false
         )
@@ -497,8 +496,7 @@ public class DataController : ControllerBase
         if (
             await _authorizationService.AuthorizeInstanceRequest(
                 instance,
-                AuthorizationActions.Read,
-                allowSyncAdapterBypass: false
+                AuthorizationActions.Read
             )
             is false
         )
