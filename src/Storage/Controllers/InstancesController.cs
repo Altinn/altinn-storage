@@ -265,7 +265,7 @@ public class InstancesController : ControllerBase
 
         if (instance is null)
         {
-            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}");
+            return NotFound($"Unable to find instance {instanceGuid}");
         }
 
         if (
