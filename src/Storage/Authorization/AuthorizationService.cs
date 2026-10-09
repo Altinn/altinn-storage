@@ -231,9 +231,13 @@ public class AuthorizationService(
     }
 
     /// <inheritdoc />
-    public async Task<bool> AuthorizeInstanceRequest(InstanceInternal instance, string action)
+    public async Task<bool> AuthorizeInstanceRequest(
+        InstanceInternal instance,
+        string action,
+        bool allowSyncAdapterBypass = true
+    )
     {
-        if (IsValidSyncAdapterRequest(action))
+        if (allowSyncAdapterBypass && IsValidSyncAdapterRequest(action))
         {
             return true;
         }
@@ -262,13 +266,25 @@ public class AuthorizationService(
         {
             // No instance to derive the resource from (e.g. it does not exist): build the request
             // from the route values instead. org/app are included when the route provides them and
-            // are null otherwise; a request lacking the resource context is denied by the PDP.
+            // are null otherwise. Without an instance owner and instance id there is nothing to
+            // authorize against, so the request is denied without consulting the PDP.
             RouteData routeData = _httpContextAccessor.HttpContext?.GetRouteData();
-            int.TryParse(
-                routeData?.Values["instanceOwnerPartyId"] as string,
-                out var instanceOwnerPartyId
-            );
-            Guid.TryParse(routeData?.Values["instanceGuid"] as string, out var instanceGuid);
+            if (
+                !int.TryParse(
+                    routeData?.Values["instanceOwnerPartyId"] as string,
+                    out int instanceOwnerPartyId
+                )
+                || !Guid.TryParse(
+                    routeData?.Values["instanceGuid"] as string,
+                    out Guid instanceGuid
+                )
+            )
+            {
+                _logger.LogInformation(
+                    "// Authorization Helper // AuthorizeInstanceRequest denied: no instance and no instanceOwnerPartyId/instanceGuid route values."
+                );
+                return false;
+            }
 
             request = DecisionHelper.CreateDecisionRequest(
                 routeData?.Values["org"] as string,

@@ -74,7 +74,8 @@ public class InstanceMutationsController(
     /// Unknown, duplicate, or missing file parts are rejected with 400 Bad Request.
     /// </summary>
     /// <remarks>
-    /// After the caller is authorized to <c>write</c> to the instance, idempotent replay
+    /// The caller is authorized to <c>write</c> to the instance before the request is validated.
+    /// After that, idempotent replay
     /// is checked before process-state, presentation-text, data-value, per-data-type write,
     /// complete-confirmation, and delete-instance authorization. A complete confirmation
     /// additionally requires the <c>complete</c> action and is recorded for the calling
@@ -118,6 +119,23 @@ public class InstanceMutationsController(
         [FromHeader(Name = StorageHeaders.IdempotencyKey)] string idempotencyKeyHeader = null
     )
     {
+        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
+            instanceGuid,
+            instanceOwnerPartyId,
+            true,
+            cancellationToken
+        );
+
+        if (
+            !await authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Write
+            )
+        )
+        {
+            return Forbid();
+        }
+
         (VersionPreconditions preconditions, ActionResult preconditionError) =
             VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
@@ -172,23 +190,6 @@ public class InstanceMutationsController(
         if (instanceEventError is not null)
         {
             return instanceEventError;
-        }
-
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            true,
-            cancellationToken
-        );
-
-        if (
-            !await authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Write
-            )
-        )
-        {
-            return Forbid();
         }
 
         if (instanceError is not null)

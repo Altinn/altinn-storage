@@ -69,13 +69,6 @@ public class SignController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (VersionPreconditions preconditions, ActionResult preconditionError) =
-            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
-        if (preconditionError is not null)
-        {
-            return preconditionError;
-        }
-
         InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
@@ -90,6 +83,13 @@ public class SignController : ControllerBase
         )
         {
             return Forbid();
+        }
+
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
         }
 
         if (

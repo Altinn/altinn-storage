@@ -119,13 +119,6 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (VersionPreconditions preconditions, ActionResult preconditionError) =
-            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
-        if (preconditionError is not null)
-        {
-            return preconditionError;
-        }
-
         (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
             instanceGuid,
             instanceOwnerPartyId,
@@ -142,6 +135,13 @@ public class DataController : ControllerBase
         )
         {
             return Forbid();
+        }
+
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
         }
 
         if (instance == null)
@@ -310,7 +310,8 @@ public class DataController : ControllerBase
         if (
             await _authorizationService.AuthorizeInstanceRequest(
                 instance,
-                AuthorizationActions.Read
+                AuthorizationActions.Read,
+                allowSyncAdapterBypass: false
             )
             is false
         )
@@ -496,7 +497,8 @@ public class DataController : ControllerBase
         if (
             await _authorizationService.AuthorizeInstanceRequest(
                 instance,
-                AuthorizationActions.Read
+                AuthorizationActions.Read,
+                allowSyncAdapterBypass: false
             )
             is false
         )
@@ -552,20 +554,6 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (VersionPreconditions preconditions, ActionResult preconditionError) =
-            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
-        if (preconditionError is not null)
-        {
-            return preconditionError;
-        }
-
-        if (instanceOwnerPartyId == 0 || string.IsNullOrEmpty(dataType) || Request.Body == null)
-        {
-            return BadRequest(
-                "Missing parameter values: instanceId, elementType or attached file content cannot be null"
-            );
-        }
-
         (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
             instanceGuid,
             instanceOwnerPartyId,
@@ -582,6 +570,20 @@ public class DataController : ControllerBase
         )
         {
             return Forbid();
+        }
+
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
+        if (instanceOwnerPartyId == 0 || string.IsNullOrEmpty(dataType) || Request.Body == null)
+        {
+            return BadRequest(
+                "Missing parameter values: instanceId, elementType or attached file content cannot be null"
+            );
         }
 
         if (instance == null)
@@ -729,6 +731,24 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
+        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
+            instanceGuid,
+            instanceOwnerPartyId,
+            false,
+            cancellationToken
+        );
+
+        if (
+            await _authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Write
+            )
+            is false
+        )
+        {
+            return Forbid();
+        }
+
         (VersionPreconditions preconditions, ActionResult preconditionError) =
             VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
@@ -743,22 +763,6 @@ public class DataController : ControllerBase
             );
         }
 
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-        if (
-            await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Write
-            )
-            is false
-        )
-        {
-            return Forbid();
-        }
         if (instance == null)
         {
             return instanceError;
@@ -1044,6 +1048,24 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
+        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
+            instanceGuid,
+            instanceOwnerPartyId,
+            false,
+            cancellationToken
+        );
+
+        if (
+            await _authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Write
+            )
+            is false
+        )
+        {
+            return Forbid();
+        }
+
         (VersionPreconditions preconditions, ActionResult preconditionError) =
             VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
@@ -1059,22 +1081,6 @@ public class DataController : ControllerBase
             return BadRequest("Mismatch between path and dataElement content");
         }
 
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-        if (
-            await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Write
-            )
-            is false
-        )
-        {
-            return Forbid();
-        }
         if (instance == null)
         {
             return instanceError;

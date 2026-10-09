@@ -418,7 +418,7 @@ public class InstanceMutationsControllerUnitTests
     [Theory]
     [InlineData("""{"expectedProcessStatus":"future","dataValues":{"value":"update"}}""")]
     [InlineData("""{"processState":{"state":{"status":"future"}}}""")]
-    public async Task CommitMutation_UnsupportedTransitionStatus_ReturnsBadRequestBeforeReads(
+    public async Task CommitMutation_UnsupportedTransitionStatus_ReturnsBadRequestBeforeMutationReads(
         string mutationJson
     )
     {
@@ -445,7 +445,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<bool>(),
                     It.IsAny<CancellationToken>()
                 ),
-            Times.Never
+            Times.Once
         );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
@@ -523,7 +523,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<bool>(),
                     It.IsAny<CancellationToken>()
                 ),
-            Times.Never
+            Times.Once
         );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
@@ -1110,7 +1110,7 @@ public class InstanceMutationsControllerUnitTests
     }
 
     [Fact]
-    public async Task CommitMutation_WhenPrincipalHasNoUserOrOrg_ReturnsForbidBeforeWork()
+    public async Task CommitMutation_WhenPrincipalHasNoUserOrOrg_ReturnsForbidBeforeMutationWork()
     {
         Guid instanceGuid = Guid.NewGuid();
         AggregateMutationFixture fixture = CreateAggregateMutationFixture(
@@ -1141,7 +1141,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<bool>(),
                     It.IsAny<CancellationToken>()
                 ),
-            Times.Never
+            Times.Once
         );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
@@ -1349,7 +1349,7 @@ public class InstanceMutationsControllerUnitTests
     }
 
     [Fact]
-    public async Task CommitMutation_DeleteInstanceTerminalWorkflowCommit_WhenHardIsFalse_ReturnsBadRequestBeforeInstanceFetch()
+    public async Task CommitMutation_DeleteInstanceTerminalWorkflowCommit_WhenHardIsFalse_ReturnsBadRequestBeforeMutationWork()
     {
         Guid instanceGuid = Guid.NewGuid();
         AggregateMutationFixture fixture = CreateAggregateMutationFixture(
@@ -1390,7 +1390,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<bool>(),
                     It.IsAny<CancellationToken>()
                 ),
-            Times.Never
+            Times.Once
         );
         fixture.MutationRepository.Verify(
             repository =>
@@ -1601,7 +1601,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<bool>(),
                     It.IsAny<CancellationToken>()
                 ),
-            Times.Never
+            Times.Once
         );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
@@ -3412,7 +3412,7 @@ public class InstanceMutationsControllerUnitTests
     }
 
     [Fact]
-    public async Task CommitMutation_InstanceEventWithInvalidUser_ReturnsBadRequestBeforeInstanceFetch()
+    public async Task CommitMutation_InstanceEventWithInvalidUser_ReturnsBadRequestBeforeMutationWork()
     {
         Guid instanceGuid = Guid.NewGuid();
         AggregateMutationFixture fixture = CreateAggregateMutationFixture(
@@ -3446,7 +3446,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<bool>(),
                     It.IsAny<CancellationToken>()
                 ),
-            Times.Never
+            Times.Once
         );
     }
 

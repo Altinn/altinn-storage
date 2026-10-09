@@ -540,13 +540,6 @@ public class InstancesController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (VersionPreconditions preconditions, ActionResult preconditionError) =
-            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
-        if (preconditionError is not null)
-        {
-            return preconditionError;
-        }
-
         InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
             false,
@@ -562,6 +555,13 @@ public class InstancesController : ControllerBase
         )
         {
             return Forbid();
+        }
+
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
         }
 
         if (instance == null)
@@ -690,23 +690,11 @@ public class InstancesController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (VersionPreconditions preconditions, ActionResult preconditionError) =
-            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
-        if (preconditionError is not null)
-        {
-            return preconditionError;
-        }
-
-        List<string> updateProperties = [];
         InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
-        if (instance is null)
-        {
-            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
-        }
 
         if (
             !await _authorizationService.AuthorizeInstanceRequest(
@@ -716,6 +704,19 @@ public class InstancesController : ControllerBase
         )
         {
             return Forbid();
+        }
+
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
+        List<string> updateProperties = [];
+        if (instance is null)
+        {
+            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
         }
 
         string org = User.GetOrg();
@@ -805,22 +806,11 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        if (!Enum.TryParse(status, true, out ReadStatus newStatus))
-        {
-            return BadRequest(
-                $"Invalid read status: {status}. Accepted types include: {string.Join(", ", Enum.GetNames<ReadStatus>())}"
-            );
-        }
-
         InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
         );
-        if (instance is null)
-        {
-            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
-        }
 
         if (
             !await _authorizationService.AuthorizeInstanceRequest(
@@ -830,6 +820,18 @@ public class InstancesController : ControllerBase
         )
         {
             return Forbid();
+        }
+
+        if (!Enum.TryParse(status, true, out ReadStatus newStatus))
+        {
+            return BadRequest(
+                $"Invalid read status: {status}. Accepted types include: {string.Join(", ", Enum.GetNames<ReadStatus>())}"
+            );
+        }
+
+        if (instance is null)
+        {
+            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
         }
 
         InstanceInternal updatedInstance;

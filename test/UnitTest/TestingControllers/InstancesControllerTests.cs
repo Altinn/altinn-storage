@@ -2366,12 +2366,12 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// <summary>
     /// Scenario:
     ///   A stakeholder calls the complete operation to indicate that they consider the instance as completed, but
-    ///   the instance does not exist.
+    ///   the attempt to get the instance from the document database fails in an exception.
     /// Result:
-    ///   The response has status code 404.
+    ///   The response has status code 500.
     /// </summary>
     [Fact]
-    public async Task AddCompleteConfirmation_CompleteNonExistentInstance_RespondsWithNotFound()
+    public async Task AddCompleteConfirmation_CompleteNonExistentInstance_ExceptionDuringAuthorization_RespondsWithInternalServerError()
     {
         // Arrange
         string org = "tdd";
@@ -2391,7 +2391,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         );
 
         // Assert
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
     }
 
     /// <summary>
