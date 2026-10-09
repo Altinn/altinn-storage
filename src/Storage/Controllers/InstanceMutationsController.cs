@@ -84,10 +84,12 @@ public class InstanceMutationsController(
     /// the remaining operations commit either way. An admitted replay is a no-op and uses the snapshot
     /// returned by replay admission. For non-replays, operation-specific authorization is evaluated
     /// against the controller's instance snapshot; data-element update and delete references missing
-    /// from that snapshot are rejected by later plan validation. Process-state mutations on instances
-    /// without a current task, and delete-instance mutations the application prevents from deletion,
-    /// are rejected after replay admission. Delete-instance mutations check instance existence before
-    /// delete authorization, so a missing instance returns 404 before a possible delete-policy 403.
+    /// from that snapshot are rejected by later plan validation. Process-state authorization admits a
+    /// mutation on an instance without a current task only from the instance's service owner. A
+    /// delete-instance mutation returns 403 while the application's
+    /// <c>PreventInstanceDeletionForDays</c> period, counted from when the instance was archived, has
+    /// not passed. A delete-instance mutation checks instance existence before delete authorization,
+    /// so a missing instance returns 404 before a possible delete-policy 403.
     /// </remarks>
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance that should be mutated.</param>
@@ -243,17 +245,6 @@ public class InstanceMutationsController(
                     snapshotVersions.ProcessStateVersion
                 )
             );
-        }
-
-        if (
-            mutationRequest.ProcessState?.State is not null
-            && instance.Process?.CurrentTask is null
-        )
-        {
-            // AuthorizeProcessNext rejects every caller when the instance has no current task
-            // (ended or not-started process). Checked after replay admission so idempotent
-            // retries of a process-ending mutation still replay.
-            return Forbid();
         }
 
         ActionResult authorizationError = await AuthorizeMutationRequest(
@@ -417,12 +408,8 @@ public class InstanceMutationsController(
         }
 
         if (
-            mutationRequest.ProcessState?.State is not null
-            && instance.Process?.CurrentTask is not null
-            && !await processAuthorizer.AuthorizeProcessNext(
-                instance,
-                mutationRequest.ProcessState.State
-            )
+            mutationRequest.ProcessState?.State is { } nextProcessState
+            && !await processAuthorizer.AuthorizeProcessNext(instance, nextProcessState)
         )
         {
             return Forbid();

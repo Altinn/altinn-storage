@@ -14,6 +14,7 @@ using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Controllers;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -409,28 +410,18 @@ public class InstanceMutationsControllerTests(
     }
 
     [Fact]
-    public async Task CommitMutation_AlreadyEndedStoredProcess_ReturnsForbidden()
+    public async Task CommitMutation_ServiceOwnerReleasesEndedProcess_StoresIdleStatus()
     {
         // Arrange
         DateTime storedEnded = new(2026, 7, 10, 8, 30, 0, DateTimeKind.Utc);
         DateTime storedArchived = new(2026, 7, 10, 8, 31, 0, DateTimeKind.Utc);
-        DateTime incomingEnded = new(2026, 7, 10, 9, 0, 0, DateTimeKind.Utc);
         InstanceStatus initialStatus = new()
         {
             IsArchived = true,
             Archived = storedArchived,
             ReadStatus = ReadStatus.Read,
         };
-        InstanceInternal storedInstance = CreateMutationInstance(
-            new ProcessState
-            {
-                Started = new DateTime(2026, 7, 10, 8, 0, 0, DateTimeKind.Utc),
-                StartEvent = "StartEvent_1",
-                Ended = storedEnded,
-                EndEvent = "EndEvent_1",
-            },
-            initialStatus
-        );
+        InstanceInternal storedInstance = CreateEndedMutationInstance(storedEnded, initialStatus);
         Mock<IInstanceRepository> instanceRepositoryMock = CreateMutationInstanceRepository(
             storedInstance
         );
@@ -445,34 +436,59 @@ public class InstanceMutationsControllerTests(
             mutationRepositoryMock: mutationRepositoryMock,
             instanceRepositoryMock: instanceRepositoryMock
         );
-        InstanceMutationRequest request = new()
-        {
-            ProcessState = new ProcessStateUpdate
-            {
-                State = new ProcessState
-                {
-                    Started = storedInstance.Process.Started,
-                    StartEvent = storedInstance.Process.StartEvent,
-                    Ended = incomingEnded,
-                    EndEvent = "EndEvent_2",
-                },
-            },
-        };
 
         // Act
-        HttpResponseMessage response = await client.PostAsync(
-            $"{SensitiveDataApp.GetInstanceUrl()}/mutations",
-            JsonContent.Create(request, options: _serializerOptions)
+        HttpResponseMessage response = await client.SendAsync(
+            CreateReleaseRequest(storedInstance.Process)
         );
 
         // Assert
-        // An ended process has no current task, so process-state mutations are rejected
-        // (parity with the process controller); the stored instance stays untouched.
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        Assert.Same(initialStatus, storedInstance.Status);
-        Assert.True(storedInstance.Status.IsArchived);
-        Assert.Equal(storedArchived, storedInstance.Status.Archived);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(ProcessStatus.Idle, storedInstance.Process.Status);
         Assert.Equal(storedEnded, storedInstance.Process.Ended);
+        Assert.Null(storedInstance.Process.CurrentTask);
+        Assert.Same(initialStatus, storedInstance.Status);
+        Assert.Equal(storedArchived, storedInstance.Status.Archived);
+        Assert.NotNull(capturedMutation);
+        Assert.Empty(capturedMutation.InstanceEvents);
+    }
+
+    [Fact]
+    public async Task CommitMutation_EndUserReleasesEndedProcess_ReturnsForbidden()
+    {
+        // Arrange
+        DateTime storedEnded = new(2026, 7, 10, 8, 30, 0, DateTimeKind.Utc);
+        InstanceStatus initialStatus = new()
+        {
+            IsArchived = true,
+            Archived = storedEnded,
+            ReadStatus = ReadStatus.Read,
+        };
+        InstanceInternal storedInstance = CreateEndedMutationInstance(storedEnded, initialStatus);
+        Mock<IInstanceRepository> instanceRepositoryMock = CreateMutationInstanceRepository(
+            storedInstance
+        );
+        InstanceMutationCommit capturedMutation = null;
+        Mock<IInstanceMutationRepository> mutationRepositoryMock =
+            CreatePersistingMutationRepository(
+                storedInstance,
+                mutation => capturedMutation = mutation
+            );
+        HttpClient client = GetTestClient(
+            bearerAuthToken: PrincipalUtil.GetToken(1337, 1337, 3),
+            mutationRepositoryMock: mutationRepositoryMock,
+            instanceRepositoryMock: instanceRepositoryMock
+        );
+
+        // Act
+        HttpResponseMessage response = await client.SendAsync(
+            CreateReleaseRequest(storedInstance.Process)
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(ProcessStatus.Processing, storedInstance.Process.Status);
+        Assert.Same(initialStatus, storedInstance.Status);
         Assert.Null(capturedMutation);
     }
 
@@ -570,6 +586,53 @@ public class InstanceMutationsControllerTests(
         };
 
         return InstanceInternalTestFactory.Create(instance, [], InternalId: 1);
+    }
+
+    private static InstanceInternal CreateEndedMutationInstance(
+        DateTime ended,
+        InstanceStatus status
+    ) =>
+        CreateMutationInstance(
+            new ProcessState
+            {
+                Status = ProcessStatus.Processing,
+                Started = new DateTime(2026, 7, 10, 8, 0, 0, DateTimeKind.Utc),
+                StartEvent = "StartEvent_1",
+                Ended = ended,
+                EndEvent = "EndEvent_1",
+            },
+            status
+        );
+
+    private static HttpRequestMessage CreateReleaseRequest(ProcessState storedProcess)
+    {
+        InstanceMutationRequest request = new()
+        {
+            ExpectedProcessStatus = ProcessStatus.Processing,
+            ProcessState = new ProcessStateUpdate
+            {
+                State = new ProcessState
+                {
+                    Status = ProcessStatus.Idle,
+                    Started = storedProcess.Started,
+                    StartEvent = storedProcess.StartEvent,
+                    Ended = storedProcess.Ended,
+                    EndEvent = storedProcess.EndEvent,
+                },
+                Events = [],
+            },
+        };
+        HttpRequestMessage message = new(
+            HttpMethod.Post,
+            $"{SensitiveDataApp.GetInstanceUrl()}/mutations"
+        )
+        {
+            Content = JsonContent.Create(request, options: _serializerOptions),
+        };
+        message.Headers.Add(StorageHeaders.IfInstanceVersionMatch, "1");
+        message.Headers.Add(StorageHeaders.IfProcessStateVersionMatch, "1");
+        message.Headers.Add(StorageHeaders.IdempotencyKey, Guid.NewGuid().ToString());
+        return message;
     }
 
     private static Mock<IInstanceRepository> CreateMutationInstanceRepository(
