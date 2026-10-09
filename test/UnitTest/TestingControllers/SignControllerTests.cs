@@ -96,7 +96,7 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
         instanceServiceMock
             .Setup(ism =>
                 ism.CreateSignDocument(
-                    It.IsAny<Guid>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
                     It.IsAny<int?>(),
@@ -199,7 +199,7 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
         instanceServiceMock
             .Setup(ism =>
                 ism.CreateSignDocument(
-                    It.IsAny<Guid>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
                     It.IsAny<int?>(),
@@ -253,7 +253,7 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
         signingService
             .Setup(service =>
                 service.CreateSignDocument(
-                    It.IsAny<Guid>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
                     It.IsAny<int?>(),
@@ -306,7 +306,7 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
         signingService
             .Setup(service =>
                 service.CreateSignDocument(
-                    It.IsAny<Guid>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
                     It.IsAny<int?>(),
@@ -359,7 +359,7 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
         signingService
             .Setup(service =>
                 service.CreateSignDocument(
-                    It.IsAny<Guid>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
                     It.IsAny<int?>(),
@@ -398,7 +398,7 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
         signingService.Verify(
             service =>
                 service.CreateSignDocument(
-                    Guid.Parse(instanceGuid),
+                    It.Is<InstanceInternal>(instance => instance.Id == Guid.Parse(instanceGuid)),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
                     It.IsAny<int?>(),

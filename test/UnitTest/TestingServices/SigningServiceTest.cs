@@ -48,7 +48,7 @@ public class SigningServiceTest
         SigningFixture fixture = CreateSigningFixture(signee);
 
         SignDocumentCreateResult result = await fixture.Sut.CreateSignDocument(
-            fixture.InstanceGuid,
+            fixture.Instance,
             fixture.SignRequest,
             GetPerformedBy(signee),
             7,
@@ -66,11 +66,6 @@ public class SigningServiceTest
         Assert.Equal(11, fixture.CapturedMutation.ExpectedProcessStateVersion);
         InstanceEvent signedEvent = Assert.Single(fixture.CapturedMutation.InstanceEvents);
         Assert.Equal(InstanceEventType.Signed.ToString(), signedEvent.EventType);
-        fixture.InstanceRepository.Verify(
-            repository =>
-                repository.GetOne(fixture.InstanceGuid, true, It.IsAny<CancellationToken>()),
-            Times.Once
-        );
         fixture.DataService.Verify(
             service =>
                 service.StageDataElementBlob(
@@ -94,7 +89,7 @@ public class SigningServiceTest
         string performedBy = GetPerformedBy(signee);
 
         await fixture.Sut.CreateSignDocument(
-            fixture.InstanceGuid,
+            fixture.Instance,
             fixture.SignRequest,
             performedBy,
             7,
@@ -121,7 +116,7 @@ public class SigningServiceTest
         SigningFixture fixture = CreateSigningFixture();
 
         SignDocumentCreateResult result = await fixture.Sut.CreateSignDocument(
-            fixture.InstanceGuid,
+            fixture.Instance,
             fixture.SignRequest,
             "1337",
             expectedInstanceVersion,
@@ -161,7 +156,7 @@ public class SigningServiceTest
             );
 
         SignDocumentCreateResult result = await fixture.Sut.CreateSignDocument(
-            fixture.InstanceGuid,
+            fixture.Instance,
             fixture.SignRequest,
             "1337",
             7,
@@ -182,7 +177,7 @@ public class SigningServiceTest
         SigningFixture fixture = CreateSigningFixture(signee, existingSignatureCount: 1);
 
         SignDocumentCreateResult result = await fixture.Sut.CreateSignDocument(
-            fixture.InstanceGuid,
+            fixture.Instance,
             fixture.SignRequest,
             GetPerformedBy(signee),
             7,
@@ -235,7 +230,7 @@ public class SigningServiceTest
         SigningFixture fixture = CreateSigningFixture(existingSignatureCount: 3);
 
         SignDocumentCreateResult result = await fixture.Sut.CreateSignDocument(
-            fixture.InstanceGuid,
+            fixture.Instance,
             fixture.SignRequest,
             "1337",
             7,
@@ -282,14 +277,9 @@ public class SigningServiceTest
     public async Task CreateSignDocument_SigningFailed_InstanceNotExists()
     {
         SigningFixture fixture = CreateSigningFixture();
-        fixture
-            .InstanceRepository.Setup(repository =>
-                repository.GetOne(fixture.InstanceGuid, true, It.IsAny<CancellationToken>())
-            )
-            .ReturnsAsync((InstanceInternal)null);
 
         SignDocumentCreateResult result = await fixture.Sut.CreateSignDocument(
-            fixture.InstanceGuid,
+            null,
             fixture.SignRequest,
             "1337",
             null,
@@ -322,7 +312,7 @@ public class SigningServiceTest
         StorageVersionMismatchException exception =
             await Assert.ThrowsAnyAsync<StorageVersionMismatchException>(() =>
                 fixture.Sut.CreateSignDocument(
-                    fixture.InstanceGuid,
+                    fixture.Instance,
                     fixture.SignRequest,
                     "1337",
                     instanceVersionMismatch ? 6 : 7,
@@ -364,7 +354,7 @@ public class SigningServiceTest
         ProcessStatusConflictException exception =
             await Assert.ThrowsAsync<ProcessStatusConflictException>(() =>
                 fixture.Sut.CreateSignDocument(
-                    fixture.InstanceGuid,
+                    fixture.Instance,
                     fixture.SignRequest,
                     "1337",
                     7,
@@ -413,7 +403,7 @@ public class SigningServiceTest
             .ReturnsAsync((false, new ServiceError(404, "Cannot find application in storage")));
 
         SignDocumentCreateResult result = await fixture.Sut.CreateSignDocument(
-            fixture.InstanceGuid,
+            fixture.Instance,
             fixture.SignRequest,
             "1337",
             null,
@@ -452,7 +442,7 @@ public class SigningServiceTest
             .ReturnsAsync((null, new ServiceError(404, "DataElement not found")));
 
         SignDocumentCreateResult result = await fixture.Sut.CreateSignDocument(
-            fixture.InstanceGuid,
+            fixture.Instance,
             fixture.SignRequest,
             GetPerformedBy(signee),
             null,
@@ -494,7 +484,7 @@ public class SigningServiceTest
         InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () =>
                 fixture.Sut.CreateSignDocument(
-                    fixture.InstanceGuid,
+                    fixture.Instance,
                     fixture.SignRequest,
                     "1337",
                     null,
@@ -533,7 +523,7 @@ public class SigningServiceTest
 
         RepositoryException exception = await Assert.ThrowsAsync<RepositoryException>(() =>
             fixture.Sut.CreateSignDocument(
-                fixture.InstanceGuid,
+                fixture.Instance,
                 fixture.SignRequest,
                 "1337",
                 null,
@@ -564,7 +554,7 @@ public class SigningServiceTest
 
         TimeoutException exception = await Assert.ThrowsAsync<TimeoutException>(() =>
             fixture.Sut.CreateSignDocument(
-                fixture.InstanceGuid,
+                fixture.Instance,
                 fixture.SignRequest,
                 "1337",
                 null,
@@ -629,7 +619,7 @@ public class SigningServiceTest
         StorageVersionMismatchException exception =
             await Assert.ThrowsAnyAsync<StorageVersionMismatchException>(() =>
                 fixture.Sut.CreateSignDocument(
-                    fixture.InstanceGuid,
+                    fixture.Instance,
                     fixture.SignRequest,
                     "1337",
                     7,
@@ -782,7 +772,6 @@ public class SigningServiceTest
             Signee = signee,
         };
 
-        Mock<IInstanceRepository> instanceRepository = new();
         Mock<IDataService> dataService = new();
         Mock<IApplicationService> applicationService = new();
         Mock<IInstanceEventService> instanceEventService = new();
@@ -790,11 +779,6 @@ public class SigningServiceTest
         Mock<IApplicationRepository> applicationRepository = new();
         Mock<IBlobRepository> blobRepository = new();
 
-        instanceRepository
-            .Setup(repository =>
-                repository.GetOne(instanceGuid, true, It.IsAny<CancellationToken>())
-            )
-            .ReturnsAsync(instance);
         applicationRepository
             .Setup(repository =>
                 repository.FindOne("org/app", "org", It.IsAny<CancellationToken>())
@@ -821,7 +805,6 @@ public class SigningServiceTest
             oldSignatureDataElements,
             stagedDataElement,
             signRequest,
-            instanceRepository,
             dataService,
             applicationService,
             instanceEventService,
@@ -906,7 +889,6 @@ public class SigningServiceTest
         }
 
         fixture.Sut = new SigningService(
-            instanceRepository.Object,
             dataService.Object,
             applicationService.Object,
             instanceEventService.Object,
@@ -924,7 +906,6 @@ public class SigningServiceTest
         IReadOnlyList<DataElementInternal> oldSignatureDataElements,
         DataElementInternal stagedDataElement,
         SignRequest signRequest,
-        Mock<IInstanceRepository> instanceRepository,
         Mock<IDataService> dataService,
         Mock<IApplicationService> applicationService,
         Mock<IInstanceEventService> instanceEventService,
@@ -943,8 +924,6 @@ public class SigningServiceTest
         public DataElementInternal StagedDataElement { get; } = stagedDataElement;
 
         public SignRequest SignRequest { get; } = signRequest;
-
-        public Mock<IInstanceRepository> InstanceRepository { get; } = instanceRepository;
 
         public Mock<IDataService> DataService { get; } = dataService;
 

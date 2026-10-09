@@ -39,7 +39,6 @@ namespace Altinn.Platform.Storage.Controllers;
 /// <param name="instanceEventService">An instance event service with event related business logic.</param>
 /// <param name="generalSettings">the general settings.</param>
 /// <param name="authorizationService">The authorization service</param>
-/// <param name="policyAuthorizationService">The ASP.NET Core policy authorization service.</param>
 /// <param name="processAuthorizer">The process-state authorizer.</param>
 [Route("storage/api/v1/instances/{instanceOwnerPartyId:int}/{instanceGuid:guid}/mutations")]
 [ApiController]
@@ -53,7 +52,6 @@ public class InstanceMutationsController(
     IInstanceEventService instanceEventService,
     IOptions<GeneralSettings> generalSettings,
     IAuthorization authorizationService,
-    IAuthorizationService policyAuthorizationService,
     IProcessAuthorizer processAuthorizer
 ) : ControllerBase
 {
@@ -76,10 +74,11 @@ public class InstanceMutationsController(
     /// Unknown, duplicate, or missing file parts are rejected with 400 Bad Request.
     /// </summary>
     /// <remarks>
-    /// After the endpoint's outer <c>InstanceWrite</c> policy admits the request, idempotent replay
+    /// The caller is authorized to <c>write</c> to the instance before the request is validated.
+    /// After that, idempotent replay
     /// is checked before process-state, presentation-text, data-value, per-data-type write,
-    /// complete-confirmation, and delete-instance authorization. A complete confirmation is
-    /// additionally subject to the <c>InstanceComplete</c> policy and is recorded for the calling
+    /// complete-confirmation, and delete-instance authorization. A complete confirmation
+    /// additionally requires the <c>complete</c> action and is recorded for the calling
     /// organisation only; an organisation that already has a confirmation keeps the one it has, and
     /// the remaining operations commit either way. An admitted replay is a no-op and uses the snapshot
     /// returned by replay admission. For non-replays, operation-specific authorization is evaluated
@@ -87,7 +86,7 @@ public class InstanceMutationsController(
     /// from that snapshot are rejected by later plan validation. Process-state mutations on instances
     /// without a current task, and delete-instance mutations the application prevents from deletion,
     /// are rejected after replay admission. Delete-instance mutations check instance existence before
-    /// delete authorization, so a missing instance returns 404 before a possible delete-policy 403.
+    /// delete authorization, so a missing instance returns 404 before a possible delete 403.
     /// </remarks>
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance that should be mutated.</param>
@@ -96,7 +95,7 @@ public class InstanceMutationsController(
     /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <param name="idempotencyKeyHeader">Optional idempotency key. Requires an expected instance version.</param>
     /// <returns>The updated instance, including current blob version ids on its data elements.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
+    [Authorize]
     [HttpPost]
     [DisableFormValueModelBinding]
     [RequestSizeLimit(_requestSizeLimit)]
@@ -120,6 +119,23 @@ public class InstanceMutationsController(
         [FromHeader(Name = StorageHeaders.IdempotencyKey)] string idempotencyKeyHeader = null
     )
     {
+        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
+            instanceGuid,
+            instanceOwnerPartyId,
+            true,
+            cancellationToken
+        );
+
+        if (
+            !await authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Write
+            )
+        )
+        {
+            return Forbid();
+        }
+
         (VersionPreconditions preconditions, ActionResult preconditionError) =
             VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
@@ -176,12 +192,6 @@ public class InstanceMutationsController(
             return instanceEventError;
         }
 
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            true,
-            cancellationToken
-        );
         if (instanceError is not null)
         {
             return instanceError;
@@ -402,7 +412,8 @@ public class InstanceMutationsController(
     )
     {
         ActionResult deleteInstanceAuthorizationError = await AuthorizeDeleteInstanceMutation(
-            mutationRequest
+            mutationRequest,
+            instance
         );
         if (deleteInstanceAuthorizationError is not null)
         {
@@ -410,7 +421,7 @@ public class InstanceMutationsController(
         }
 
         ActionResult completeConfirmationAuthorizationError =
-            await AuthorizeCompleteConfirmationMutation(mutationRequest);
+            await AuthorizeCompleteConfirmationMutation(mutationRequest, instance);
         if (completeConfirmationAuthorizationError is not null)
         {
             return completeConfirmationAuthorizationError;
@@ -1637,7 +1648,8 @@ public class InstanceMutationsController(
     }
 
     private async Task<ActionResult> AuthorizeDeleteInstanceMutation(
-        InstanceMutationRequest request
+        InstanceMutationRequest request,
+        InstanceInternal instance
     )
     {
         if (request.DeleteInstance is null)
@@ -1645,17 +1657,17 @@ public class InstanceMutationsController(
             return null;
         }
 
-        AuthorizationResult authorizationResult = await policyAuthorizationService.AuthorizeAsync(
-            User,
-            resource: null,
-            policyName: AuthzConstants.POLICY_INSTANCE_DELETE
+        bool authorized = await authorizationService.AuthorizeInstanceRequest(
+            instance,
+            AuthorizationActions.Delete
         );
 
-        return authorizationResult.Succeeded ? null : Forbid();
+        return authorized ? null : Forbid();
     }
 
     private async Task<ActionResult> AuthorizeCompleteConfirmationMutation(
-        InstanceMutationRequest request
+        InstanceMutationRequest request,
+        InstanceInternal instance
     )
     {
         if (!request.AddCompleteConfirmation)
@@ -1668,13 +1680,12 @@ public class InstanceMutationsController(
             return Forbid();
         }
 
-        AuthorizationResult authorizationResult = await policyAuthorizationService.AuthorizeAsync(
-            User,
-            resource: null,
-            policyName: AuthzConstants.POLICY_INSTANCE_COMPLETE
+        bool authorized = await authorizationService.AuthorizeInstanceRequest(
+            instance,
+            AuthorizationActions.Complete
         );
 
-        return authorizationResult.Succeeded ? null : Forbid();
+        return authorized ? null : Forbid();
     }
 
     private static InstanceStatus BuildHardDeleteStatus(InstanceStatus status, DateTime now)

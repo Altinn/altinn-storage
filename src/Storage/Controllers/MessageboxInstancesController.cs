@@ -236,13 +236,29 @@ public class MessageBoxInstancesController : ControllerBase
     /// <param name="instanceOwnerPartyId">the instance owner id</param>
     /// <param name="instanceGuid">the instance guid</param>
     /// <returns>list of instances</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
+    [Authorize]
     [HttpGet("{instanceOwnerPartyId:int}/{instanceGuid:guid}/events")]
     public async Task<ActionResult> GetMessageBoxInstanceEvents(
         [FromRoute] int instanceOwnerPartyId,
         [FromRoute] Guid instanceGuid
     )
     {
+        InstanceInternal instance = await _instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            CancellationToken.None
+        );
+
+        if (
+            !await _authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Read
+            )
+        )
+        {
+            return Forbid();
+        }
+
         string[] eventTypes =
         {
             InstanceEventType.Created.ToString(),
@@ -284,7 +300,7 @@ public class MessageBoxInstancesController : ControllerBase
     /// <param name="instanceGuid">instance id</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>True if the instance was restored.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_DELETE)]
+    [Authorize]
     [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/undelete")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult> Undelete(
@@ -298,6 +314,17 @@ public class MessageBoxInstancesController : ControllerBase
             false,
             cancellationToken
         );
+
+        if (
+            await _authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Delete
+            )
+            is false
+        )
+        {
+            return Forbid();
+        }
 
         if (instance == null)
         {
@@ -368,7 +395,7 @@ public class MessageBoxInstancesController : ControllerBase
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>true if instance was successfully deleted</returns>
     /// DELETE /instances/{instanceId}?instanceOwnerPartyId={instanceOwnerPartyId}?hard={bool}
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_DELETE)]
+    [Authorize]
     [HttpDelete("{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult> Delete(
@@ -385,6 +412,18 @@ public class MessageBoxInstancesController : ControllerBase
             false,
             cancellationToken
         );
+
+        if (
+            await _authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Delete
+            )
+            is false
+        )
+        {
+            return Forbid();
+        }
+
         if (instance == null)
         {
             return NotFound(
