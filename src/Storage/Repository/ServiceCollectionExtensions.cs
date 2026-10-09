@@ -40,6 +40,7 @@ public static class ServiceCollectionExtensions
                 builder =>
                     builder
                         .EnableParameterLogging(logParameters)
+                        .ConfigureJsonOptions(PersistedJson.Options)
                         .EnableDynamicJson()
                         .ConfigureTracing(o =>
                             o.ConfigureCommandSpanNameProvider(cmd => cmd.CommandText)
