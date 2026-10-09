@@ -14,7 +14,7 @@ using Altinn.Common.PEP.Helpers;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
-using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Caching.Memory;
@@ -65,7 +65,7 @@ public class AuthorizationService(
 
     /// <inheritdoc />
     public async Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(
-        List<Instance> instances,
+        List<InstanceInternal> instances,
         bool keyAccessMode
     )
     {
@@ -74,7 +74,7 @@ public class AuthorizationService(
             return [];
         }
 
-        SortedList<string, MessageBoxInstance> authorizedInstanceList = [];
+        SortedList<Guid, MessageBoxInstance> authorizedInstanceList = [];
         List<string> actionTypes = [AuthorizationActions.Read];
         if (_settings.AuthorizeA2ListInstancesWrite || keyAccessMode)
         {
@@ -139,12 +139,12 @@ public class AuthorizationService(
                     }
                 }
 
-                Instance authorizedInstance = instances.First(i => i.Id == instanceId);
+                Guid instanceGuid = Guid.Parse(instanceId.Split('/')[1]);
+                InstanceInternal authorizedInstance = instances.First(i => i.Id == instanceGuid);
 
-                string id = authorizedInstance.Id.Split("/")[1];
                 if (
                     !authorizedInstanceList.TryGetValue(
-                        id,
+                        authorizedInstance.Id,
                         out MessageBoxInstance authorizedMessageBoxInstance
                     )
                 )
@@ -152,7 +152,7 @@ public class AuthorizationService(
                     authorizedMessageBoxInstance = InstanceHelper.ConvertToMessageBoxInstance(
                         authorizedInstance
                     );
-                    authorizedInstanceList[id] = authorizedMessageBoxInstance;
+                    authorizedInstanceList[authorizedInstance.Id] = authorizedMessageBoxInstance;
                 }
 
                 switch (actiontype)
@@ -180,7 +180,7 @@ public class AuthorizationService(
 
     /// <inheritdoc />
     public async Task<bool> AuthorizeInstanceAction(
-        Instance instance,
+        InstanceInternal instance,
         string action,
         string task = null
     )
@@ -191,7 +191,7 @@ public class AuthorizationService(
         XacmlJsonRequestRoot request;
 
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
-        if (instance.Id == null)
+        if (instance.Id == Guid.Empty)
         {
             request = DecisionHelper.CreateDecisionRequest(
                 org,
@@ -204,14 +204,13 @@ public class AuthorizationService(
         }
         else
         {
-            Guid instanceGuid = Guid.Parse(instance.Id.Split('/')[1]);
             request = DecisionHelper.CreateDecisionRequest(
                 org,
                 app,
                 user,
                 action,
                 instanceOwnerPartyId,
-                instanceGuid,
+                instance.Id,
                 task
             );
         }
@@ -232,7 +231,7 @@ public class AuthorizationService(
     }
 
     /// <inheritdoc />
-    public async Task<bool> AuthorizeInstanceRequest(Instance instance, string action)
+    public async Task<bool> AuthorizeInstanceRequest(InstanceInternal instance, string action)
     {
         if (IsValidSyncAdapterRequest(action))
         {
@@ -254,7 +253,7 @@ public class AuthorizationService(
                 user,
                 action,
                 int.Parse(instance.InstanceOwner.PartyId),
-                Guid.Parse(instance.Id.Split('/')[1])
+                instance.Id
             );
             EnrichXacmlJsonRequest(request, instance);
             response = await GetDecisionForRequestWithCache(request);
@@ -295,7 +294,10 @@ public class AuthorizationService(
     }
 
     /// <inheritdoc />
-    public async Task<bool> AuthorizeAnyOfInstanceActions(Instance instance, List<string> actions)
+    public async Task<bool> AuthorizeAnyOfInstanceActions(
+        InstanceInternal instance,
+        List<string> actions
+    )
     {
         if (actions.Count == 0)
         {
@@ -303,11 +305,7 @@ public class AuthorizationService(
         }
 
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
-        XacmlJsonRequestRoot request = CreateMultiDecisionRequest(
-            user,
-            new List<Instance>() { instance },
-            actions
-        );
+        XacmlJsonRequestRoot request = CreateMultiDecisionRequest(user, [instance], actions);
 
         _logger.LogDebug(
             "// Authorization Helper // AuthorizeAnyOfInstanceActions // request: {Request}",
@@ -334,14 +332,14 @@ public class AuthorizationService(
     }
 
     /// <inheritdoc />
-    public async Task<List<Instance>> AuthorizeInstances(List<Instance> instances)
+    public async Task<List<InstanceInternal>> AuthorizeInstances(List<InstanceInternal> instances)
     {
         if (instances.Count <= 0)
         {
             return instances;
         }
 
-        List<Instance> authorizedInstanceList = new();
+        List<InstanceInternal> authorizedInstanceList = [];
         List<string> actionTypes = new() { AuthorizationActions.Read };
 
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
@@ -373,7 +371,8 @@ public class AuthorizationService(
                 }
             }
 
-            Instance instance = instances.Find(i => i.Id == instanceId);
+            Guid instanceGuid = Guid.Parse(instanceId.Split('/')[1]);
+            InstanceInternal instance = instances.Find(i => i.Id == instanceGuid);
             authorizedInstanceList.Add(instance);
         }
 
@@ -457,7 +456,7 @@ public class AuthorizationService(
     /// </summary>
     public static XacmlJsonRequestRoot CreateMultiDecisionRequest(
         ClaimsPrincipal user,
-        List<Instance> instances,
+        List<InstanceInternal> instances,
         List<string> actionTypes
     )
     {
@@ -484,7 +483,10 @@ public class AuthorizationService(
     /// </summary>
     /// <param name="jsonRequest">The JSON Request</param>
     /// <param name="instance">The instance</param>
-    public static void EnrichXacmlJsonRequest(XacmlJsonRequestRoot jsonRequest, Instance instance)
+    public static void EnrichXacmlJsonRequest(
+        XacmlJsonRequestRoot jsonRequest,
+        InstanceInternal instance
+    )
     {
         XacmlJsonCategory resourceCategory = new() { Attribute = new List<XacmlJsonAttribute>() };
 
@@ -577,15 +579,16 @@ public class AuthorizationService(
 
     private static (
         string InstanceId,
-        string InstanceGuid,
+        Guid InstanceGuid,
         string Task,
         string InstanceOwnerPartyId,
         string Org,
         string App
-    ) GetInstanceProperties(Instance instance)
+    ) GetInstanceProperties(InstanceInternal instance)
     {
-        string instanceId = instance.Id.Contains('/') ? instance.Id : null;
-        string instanceGuid = instance.Id.Contains('/') ? instance.Id.Split("/")[1] : instance.Id;
+        string instanceId =
+            instance.Id == Guid.Empty ? null : $"{instance.InstanceOwner.PartyId}/{instance.Id}";
+        Guid instanceGuid = instance.Id;
         string task = instance.Process?.CurrentTask?.ElementId;
         string instanceOwnerPartyId = instance.InstanceOwner.PartyId;
         string org = instance.Org;
@@ -619,12 +622,14 @@ public class AuthorizationService(
         return actionCategories;
     }
 
-    private static List<XacmlJsonCategory> CreateMultipleResourceCategory(List<Instance> instances)
+    private static List<XacmlJsonCategory> CreateMultipleResourceCategory(
+        List<InstanceInternal> instances
+    )
     {
         List<XacmlJsonCategory> resourcesCategories = new();
         int counter = 1;
 
-        foreach (Instance instance in instances)
+        foreach (InstanceInternal instance in instances)
         {
             XacmlJsonCategory resourceCategory = new()
             {
@@ -686,7 +691,7 @@ public class AuthorizationService(
                     )
                 );
             }
-            else if (!string.IsNullOrEmpty(instanceProps.InstanceGuid))
+            else if (instanceProps.InstanceGuid != Guid.Empty)
             {
                 resourceCategory.Attribute.Add(
                     DecisionHelper.CreateXacmlJsonAttribute(

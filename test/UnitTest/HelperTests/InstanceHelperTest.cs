@@ -2,8 +2,10 @@
 
 using System;
 using System.Collections.Generic;
+using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.UnitTest.Extensions;
 using Xunit;
 
@@ -24,16 +26,15 @@ public class InstanceHelperTest
     public void ConvertToMessageBoxInstance_TC01()
     {
         // Arrange
-        string instanceOwner = "instanceOwner";
-        string instanceGuid = Guid.NewGuid().ToString();
-        Instance instance = TestData.Instance_1_1.Clone();
-        instance.Id = $"{instanceOwner}/{instanceGuid}";
+        Guid instanceGuid = Guid.NewGuid();
+        InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
+        instance.Id = instanceGuid;
 
         // Act
         MessageBoxInstance actual = InstanceHelper.ConvertToMessageBoxInstance(instance);
 
         // Assert
-        Assert.Equal(instanceGuid, actual.Id);
+        Assert.Equal(instanceGuid.ToString(), actual.Id);
         Assert.Equal(2, actual.DataValues.Count);
     }
 
@@ -47,7 +48,7 @@ public class InstanceHelperTest
     {
         // Arrange
         string lastChangedBy = "20000000";
-        Instance instance = TestData.Instance_1_1.Clone();
+        InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
 
         // Act
         MessageBoxInstance actual = InstanceHelper.ConvertToMessageBoxInstance(instance);
@@ -66,15 +67,15 @@ public class InstanceHelperTest
     {
         // Arrange
         string lastChangedBy = TestData.UserId_1;
-        Instance instance = TestData.Instance_1_1.Clone();
-        instance.Data = new List<DataElement>()
-        {
-            new DataElement()
+        InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
+        instance.Data =
+        [
+            new()
             {
                 LastChanged = Convert.ToDateTime("2019-08-21T19:19:22.2135489Z"),
                 LastChangedBy = lastChangedBy,
             },
-        };
+        ];
 
         // Act
         MessageBoxInstance actual = InstanceHelper.ConvertToMessageBoxInstance(instance);
@@ -92,7 +93,7 @@ public class InstanceHelperTest
     [Fact]
     public void GetSBLStatusForCurrentTask_data_IsConvertedToFormFilling()
     {
-        Instance instance = TestData.Instance_1_Status_1;
+        InstanceInternal instance = TestData.Instance_1_Status_1.FromApiModel();
         string sblStatus = InstanceHelper.GetSBLStatusForCurrentTask(instance);
         Assert.Equal("FormFilling", sblStatus);
     }
@@ -106,7 +107,7 @@ public class InstanceHelperTest
     [Fact]
     public void GetSBLStatusForCurrentTask_EndedNotArchived_IsConvertedToSubmit()
     {
-        Instance instance = TestData.Instance_1_Status_2;
+        InstanceInternal instance = TestData.Instance_1_Status_2.FromApiModel();
         string sblStatus = InstanceHelper.GetSBLStatusForCurrentTask(instance);
         Assert.Equal("Submit", sblStatus);
     }
@@ -120,7 +121,7 @@ public class InstanceHelperTest
     [Fact]
     public void GetSBLStatusForCurrentTask_EndedAndArchived_IsConvertedToArchived()
     {
-        Instance instance = TestData.Instance_1_Status_3;
+        InstanceInternal instance = TestData.Instance_1_Status_3.FromApiModel();
         string sblStatus = InstanceHelper.GetSBLStatusForCurrentTask(instance);
         Assert.Equal("Archived", sblStatus);
     }
@@ -134,7 +135,7 @@ public class InstanceHelperTest
     [Fact]
     public void GetSBLStatusForCurrentTask_MissingProcessState_IsConvertedToDefault()
     {
-        Instance instance = TestData.Instance_1_Status_4;
+        InstanceInternal instance = TestData.Instance_1_Status_4.FromApiModel();
         string sblStatus = InstanceHelper.GetSBLStatusForCurrentTask(instance);
         Assert.Equal("default", sblStatus);
     }
@@ -147,7 +148,7 @@ public class InstanceHelperTest
     [Fact]
     public void GetSBLStatusForCurrentTask_Confirmation()
     {
-        Instance instance = new Instance
+        InstanceInternal instance = new()
         {
             Process = new ProcessState
             {
@@ -176,7 +177,7 @@ public class InstanceHelperTest
     [Fact]
     public void GetSBLStatusForCurrentTask_Feedback()
     {
-        Instance instance = new Instance
+        InstanceInternal instance = new()
         {
             Process = new ProcessState
             {
@@ -205,7 +206,7 @@ public class InstanceHelperTest
     [Fact]
     public void GetSBLStatusForCurrentTask_Signing()
     {
-        Instance instance = new Instance
+        InstanceInternal instance = new()
         {
             Process = new ProcessState
             {
@@ -235,7 +236,7 @@ public class InstanceHelperTest
     public void FindLastChangedBy_TC01()
     {
         // Arrange
-        Instance instance = TestData.Instance_2_2;
+        InstanceInternal instance = TestData.Instance_2_2.FromApiModel();
         string expectedlastChangedBy = "20000000";
         DateTime expectedlastChanged = Convert.ToDateTime("2019-08-20T19:19:22.2135489Z");
 
@@ -256,7 +257,7 @@ public class InstanceHelperTest
     public void FindLastChangedBy_TC02()
     {
         // Arrange
-        Instance instance = TestData.Instance_1_2;
+        InstanceInternal instance = TestData.Instance_1_2.FromApiModel();
         string expectedlastChangedBy = "20000001";
         DateTime expectedlastChanged = Convert.ToDateTime("2019-09-20T21:19:22.2135489Z");
 
@@ -277,7 +278,7 @@ public class InstanceHelperTest
     public void FindLastChangedBy_TC03()
     {
         // Arrange
-        Instance instance = TestData.Instance_2_1;
+        InstanceInternal instance = TestData.Instance_2_1.FromApiModel();
         string expectedlastChangedBy = "20000001";
         DateTime expectedlastChanged = Convert
             .ToDateTime("2019-10-20T21:19:22.2135489Z")
@@ -313,9 +314,9 @@ public class InstanceHelperTest
             }
         );
 
-        Instance i1 = new Instance { AppId = "ttd/no-hideSettings" };
+        InstanceInternal i1 = new() { AppId = "ttd/no-hideSettings" };
 
-        Instance i2 = new Instance
+        InstanceInternal i2 = new()
         {
             AppId = "ttd/hide-task-1",
             Process = new ProcessState
@@ -324,7 +325,7 @@ public class InstanceHelperTest
             },
         };
 
-        List<Instance> instances = new() { i1, i2 };
+        List<InstanceInternal> instances = [i1, i2];
 
         // Act
         InstanceHelper.RemoveHiddenInstances(apps, instances);
@@ -355,9 +356,9 @@ public class InstanceHelperTest
             }
         );
 
-        Instance i1 = new Instance { AppId = "ttd/no-hideSettings" };
+        InstanceInternal i1 = new() { AppId = "ttd/no-hideSettings" };
 
-        Instance i2 = new Instance
+        InstanceInternal i2 = new()
         {
             AppId = "ttd/hide-task-1",
             Process = new ProcessState
@@ -366,7 +367,7 @@ public class InstanceHelperTest
             },
         };
 
-        List<Instance> instances = new() { i1, i2 };
+        List<InstanceInternal> instances = [i1, i2];
 
         // Act
         InstanceHelper.RemoveHiddenInstances(apps, instances);
@@ -395,13 +396,13 @@ public class InstanceHelperTest
             }
         );
 
-        Instance i1 = new Instance { AppId = "ttd/hideAlwayshideSettings" };
+        InstanceInternal i1 = new() { AppId = "ttd/hideAlwayshideSettings" };
 
-        Instance i2 = new Instance { AppId = "ttd/hideAlwayshideSettings" };
+        InstanceInternal i2 = new() { AppId = "ttd/hideAlwayshideSettings" };
 
-        Instance i3 = new Instance { AppId = "ttd/hideAlwayshideSettings" };
+        InstanceInternal i3 = new() { AppId = "ttd/hideAlwayshideSettings" };
 
-        List<Instance> instances = new() { i1, i2, i3 };
+        List<InstanceInternal> instances = [i1, i2, i3];
 
         // Act
         InstanceHelper.RemoveHiddenInstances(apps, instances);

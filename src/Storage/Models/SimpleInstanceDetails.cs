@@ -17,9 +17,9 @@ public class SimpleInstanceDetails : SimpleInstance
     public List<SimpleDataElement>? Data { get; set; }
 
     /// <summary>
-    /// Converts an <see cref="Instance"/> into a <see cref="SimpleInstanceDetails"/>.
+    /// Converts an <see cref="InstanceInternal"/> into a <see cref="SimpleInstanceDetails"/>.
     /// </summary>
-    public static new SimpleInstanceDetails FromInstance(Instance instance)
+    public static new SimpleInstanceDetails FromInstance(InstanceInternal instance)
     {
         var simpleInstance = SimpleInstance.FromInstance(instance);
         var data = instance.Data?.Select(SimpleDataElement.FromDataElement).ToList();

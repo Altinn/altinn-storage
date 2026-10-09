@@ -24,7 +24,6 @@ using Altinn.Platform.Storage.Wrappers;
 using AltinnCore.Authentication.JwtCookie;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -549,7 +548,6 @@ public class InstanceLockControllerTest
 
     private HttpClient GetTestClient(
         IInstanceRepository? instanceRepository = null,
-        IInstanceAndEventsRepository? instanceAndEventsRepository = null,
         IInstanceLockRepository? instanceLockRepository = null,
         bool enableWolverine = false
     )
@@ -561,16 +559,6 @@ public class InstanceLockControllerTest
         HttpClient client = _factory
             .WithWebHostBuilder(builder =>
             {
-                IConfiguration configuration = new ConfigurationBuilder()
-                    .AddJsonFile(ServiceUtil.GetAppsettingsPath())
-                    .Build();
-                builder.ConfigureAppConfiguration(
-                    (hostingContext, config) =>
-                    {
-                        config.AddConfiguration(configuration);
-                    }
-                );
-
                 builder.ConfigureTestServices(services =>
                 {
                     services.AddMockRepositories();
@@ -612,12 +600,14 @@ public class InstanceLockControllerTest
                                     CancellationToken cancellationToken
                                 ) =>
                                 {
-                                    var (instance, _) = await internalInstanceRepositoryMock.GetOne(
+                                    var instance = await internalInstanceRepositoryMock.GetOne(
                                         _instanceGuid,
                                         false,
                                         cancellationToken
                                     );
-                                    return (instance, _instanceInternalId);
+                                    instance?.InternalId = _instanceInternalId;
+
+                                    return instance;
                                 }
                             );
 
@@ -636,27 +626,17 @@ public class InstanceLockControllerTest
                                     CancellationToken cancellationToken
                                 ) =>
                                 {
-                                    var (instance, _) = await internalInstanceRepositoryMock.GetOne(
+                                    var instance = await internalInstanceRepositoryMock.GetOne(
                                         instanceGuid,
                                         includeElements,
                                         cancellationToken
                                     );
-                                    return (instance, _instanceInternalId);
+                                    instance?.InternalId = _instanceInternalId;
+
+                                    return instance;
                                 }
                             );
                         services.AddSingleton(instanceRepositoryMock.Object);
-                    }
-
-                    if (instanceAndEventsRepository != null)
-                    {
-                        services.AddSingleton(instanceAndEventsRepository);
-                    }
-                    else
-                    {
-                        services.AddSingleton<
-                            IInstanceAndEventsRepository,
-                            InstanceAndEventsRepositoryMock
-                        >();
                     }
 
                     if (instanceLockRepository != null)

@@ -4,16 +4,19 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Microsoft.Extensions.Options;
 
 namespace Altinn.Platform.Storage.Authorization;
 
 /// <summary>
-/// Authorizer for process operations.
+/// Authorizer for process operations. The service owner is always allowed: it commits process
+/// transitions and their data on behalf of a user the app has already authorized.
 /// </summary>
 public class ProcessAuthorizer : IProcessAuthorizer
 {
     private readonly IAuthorization _authorizationService;
+    private readonly IClaimsPrincipalProvider _claimsPrincipalProvider;
     private readonly GeneralSettings _generalSettings;
 
     /// <summary>
@@ -21,31 +24,34 @@ public class ProcessAuthorizer : IProcessAuthorizer
     /// </summary>
     public ProcessAuthorizer(
         IAuthorization authorizationService,
+        IClaimsPrincipalProvider claimsPrincipalProvider,
         IOptions<GeneralSettings> settings
     )
     {
         _authorizationService = authorizationService;
+        _claimsPrincipalProvider = claimsPrincipalProvider;
         _generalSettings = settings.Value;
     }
 
     /// <inheritdoc/>
-    public Task<bool> AuthorizeProcessNext(Instance instance, ProcessState nextProcessState)
+    public Task<bool> AuthorizeProcessNext(InstanceInternal instance, ProcessState nextProcessState)
     {
         ArgumentNullException.ThrowIfNull(nextProcessState);
         return Authorize(instance, nextProcessState);
     }
 
     /// <inheritdoc/>
-    public Task<bool> AuthorizeInstanceLock(Instance instance) => Authorize(instance);
+    public Task<bool> AuthorizeInstanceLock(InstanceInternal instance) => Authorize(instance);
 
     /// <inheritdoc/>
-    public Task<bool> AuthorizeDataElementLock(Instance instance) => Authorize(instance);
+    public Task<bool> AuthorizeDataElementLock(InstanceInternal instance) => Authorize(instance);
 
     /// <inheritdoc/>
-    public Task<bool> AuthorizePresentationTextsUpdate(Instance instance) => Authorize(instance);
+    public Task<bool> AuthorizePresentationTextsUpdate(InstanceInternal instance) =>
+        Authorize(instance);
 
     /// <inheritdoc/>
-    public Task<bool> AuthorizeDataValuesUpdate(Instance instance) =>
+    public Task<bool> AuthorizeDataValuesUpdate(InstanceInternal instance) =>
         AuthorizeWithSyncAdapterBypass(instance);
 
     /// <summary>
@@ -68,7 +74,7 @@ public class ProcessAuthorizer : IProcessAuthorizer
         };
     }
 
-    private Task<bool> AuthorizeWithSyncAdapterBypass(Instance instance)
+    private Task<bool> AuthorizeWithSyncAdapterBypass(InstanceInternal instance)
     {
         if (_authorizationService.UserHasRequiredScope(_generalSettings.InstanceSyncAdapterScope))
         {
@@ -78,8 +84,13 @@ public class ProcessAuthorizer : IProcessAuthorizer
         return Authorize(instance);
     }
 
-    private async Task<bool> Authorize(Instance instance)
+    private async Task<bool> Authorize(InstanceInternal instance)
     {
+        if (IsServiceOwner(instance))
+        {
+            return true;
+        }
+
         string? taskId = instance.Process?.CurrentTask?.ElementId;
         string? altinnTaskType = instance.Process?.CurrentTask?.AltinnTaskType;
 
@@ -101,11 +112,16 @@ public class ProcessAuthorizer : IProcessAuthorizer
         return false;
     }
 
-    private async Task<bool> Authorize(Instance instance, ProcessState nextProcessState)
+    private async Task<bool> Authorize(InstanceInternal instance, ProcessState nextProcessState)
     {
         if (instance.Process?.CurrentTask is null)
         {
             return false;
+        }
+
+        if (IsServiceOwner(instance))
+        {
+            return true;
         }
 
         string? taskId = instance.Process.CurrentTask.ElementId;
@@ -141,4 +157,7 @@ public class ProcessAuthorizer : IProcessAuthorizer
 
         return false;
     }
+
+    private bool IsServiceOwner(InstanceInternal instance) =>
+        _claimsPrincipalProvider.GetUser().GetOrg() is { } org && org == instance.Org;
 }

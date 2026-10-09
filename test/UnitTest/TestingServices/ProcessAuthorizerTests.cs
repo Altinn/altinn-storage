@@ -1,7 +1,11 @@
+using System;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
+using AltinnCore.Authentication.Constants;
 using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
@@ -10,21 +14,31 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices;
 
 public class ProcessAuthorizerTests
 {
+    private const string ServiceOwner = "ttd";
+
     private readonly Mock<IAuthorization> _authorizationMock = new();
+    private readonly Mock<IClaimsPrincipalProvider> _claimsPrincipalProviderMock = new();
+
+    public ProcessAuthorizerTests()
+    {
+        _claimsPrincipalProviderMock.Setup(p => p.GetUser()).Returns(new ClaimsPrincipal());
+    }
 
     private static readonly IOptions<GeneralSettings> _settings = Options.Create(
         new GeneralSettings { InstanceSyncAdapterScope = "altinn:storage/instances.syncadapter" }
     );
 
-    private ProcessAuthorizer CreateSut() => new(_authorizationMock.Object, _settings);
+    private ProcessAuthorizer CreateSut() =>
+        new(_authorizationMock.Object, _claimsPrincipalProviderMock.Object, _settings);
 
-    private static Instance CreateInstance(
+    private static InstanceInternal CreateInstance(
         string taskId = "Task_1",
         string altinnTaskType = "data"
     ) =>
         new()
         {
-            Id = "500/guid",
+            Id = Guid.NewGuid(),
+            Org = ServiceOwner,
             Process = new ProcessState
             {
                 CurrentTask = new ProcessElementInfo
@@ -35,9 +49,27 @@ public class ProcessAuthorizerTests
             },
         };
 
+    private void SetupCallerOrg(string org) =>
+        _claimsPrincipalProviderMock
+            .Setup(p => p.GetUser())
+            .Returns(
+                new ClaimsPrincipal(new ClaimsIdentity([new Claim(AltinnCoreClaimTypes.Org, org)]))
+            );
+
+    private void VerifyPdpNeverAsked() =>
+        _authorizationMock.Verify(
+            a =>
+                a.AuthorizeInstanceAction(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>()
+                ),
+            Times.Never
+        );
+
     private void SetupAuthorizeAction(string action, string taskId, bool returns) =>
         _authorizationMock
-            .Setup(a => a.AuthorizeInstanceAction(It.IsAny<Instance>(), action, taskId))
+            .Setup(a => a.AuthorizeInstanceAction(It.IsAny<InstanceInternal>(), action, taskId))
             .ReturnsAsync(returns);
 
     #region AuthorizeProcessNext
@@ -79,7 +111,7 @@ public class ProcessAuthorizerTests
     [Fact]
     public async Task AuthorizeProcessNext_NoCurrentTask_ReturnsFalse()
     {
-        var instance = new Instance { Process = new ProcessState { CurrentTask = null } };
+        var instance = new InstanceInternal { Process = new ProcessState { CurrentTask = null } };
 
         Assert.False(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
     }
@@ -87,7 +119,7 @@ public class ProcessAuthorizerTests
     [Fact]
     public async Task AuthorizeProcessNext_NullProcess_ReturnsFalse()
     {
-        var instance = new Instance { Process = null };
+        var instance = new InstanceInternal { Process = null };
 
         Assert.False(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
     }
@@ -104,7 +136,12 @@ public class ProcessAuthorizerTests
 
         Assert.True(await CreateSut().AuthorizeProcessNext(instance, nextState));
         _authorizationMock.Verify(
-            a => a.AuthorizeInstanceAction(It.IsAny<Instance>(), "write", It.IsAny<string>()),
+            a =>
+                a.AuthorizeInstanceAction(
+                    It.IsAny<InstanceInternal>(),
+                    "write",
+                    It.IsAny<string>()
+                ),
             Times.Never
         );
     }
@@ -145,6 +182,120 @@ public class ProcessAuthorizerTests
         Assert.True(await CreateSut().AuthorizeProcessNext(instance, nextState));
     }
 
+    [Theory]
+    [InlineData("confirmation")]
+    [InlineData("customServiceTask")]
+    public async Task AuthorizeProcessNext_UserHasWrite_ReturnsFalse(string taskType)
+    {
+        var instance = CreateInstance(altinnTaskType: taskType);
+        SetupAuthorizeAction("write", "Task_1", true);
+
+        Assert.False(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
+    }
+
+    #endregion
+
+    #region Service owner
+
+    [Theory]
+    [InlineData("data")]
+    [InlineData("confirmation")]
+    [InlineData("customServiceTask")]
+    public async Task AuthorizeProcessNext_ServiceOwner_ReturnsTrueWithoutAskingThePdp(
+        string taskType
+    )
+    {
+        var instance = CreateInstance(altinnTaskType: taskType);
+        SetupCallerOrg(ServiceOwner);
+
+        Assert.True(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
+        VerifyPdpNeverAsked();
+    }
+
+    [Fact]
+    public async Task AuthorizeProcessNext_ServiceOwnerAbandonFlow_ReturnsTrueWithoutAskingThePdp()
+    {
+        var instance = CreateInstance(altinnTaskType: "data");
+        var nextState = new ProcessState
+        {
+            CurrentTask = new ProcessElementInfo { FlowType = "AbandonCurrentMoveToNext" },
+        };
+        SetupCallerOrg(ServiceOwner);
+
+        Assert.True(await CreateSut().AuthorizeProcessNext(instance, nextState));
+        VerifyPdpNeverAsked();
+    }
+
+    [Fact]
+    public async Task AuthorizeProcessNext_ServiceOwnerNoCurrentTask_ReturnsFalse()
+    {
+        var instance = new InstanceInternal
+        {
+            Org = ServiceOwner,
+            Process = new ProcessState { CurrentTask = null },
+        };
+        SetupCallerOrg(ServiceOwner);
+
+        Assert.False(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
+    }
+
+    [Theory]
+    [InlineData("confirmation")]
+    [InlineData("customServiceTask")]
+    [InlineData(null)]
+    public async Task AuthorizeLockAndUpdate_ServiceOwner_ReturnsTrueWithoutAskingThePdp(
+        string? taskType
+    )
+    {
+        var instance = taskType is null
+            ? new InstanceInternal
+            {
+                Org = ServiceOwner,
+                Process = new ProcessState { CurrentTask = null },
+            }
+            : CreateInstance(altinnTaskType: taskType);
+        SetupCallerOrg(ServiceOwner);
+        var sut = CreateSut();
+
+        Assert.True(await sut.AuthorizeInstanceLock(instance));
+        Assert.True(await sut.AuthorizeDataElementLock(instance));
+        Assert.True(await sut.AuthorizePresentationTextsUpdate(instance));
+        Assert.True(await sut.AuthorizeDataValuesUpdate(instance));
+        VerifyPdpNeverAsked();
+    }
+
+    [Fact]
+    public async Task AllChecks_OtherOrgWithWrite_AreAskedOfThePdp()
+    {
+        var instance = CreateInstance(altinnTaskType: "data");
+        SetupCallerOrg("other-org");
+        SetupAuthorizeAction("write", "Task_1", true);
+        var sut = CreateSut();
+
+        Assert.True(await sut.AuthorizeProcessNext(instance, new ProcessState()));
+        Assert.True(await sut.AuthorizeInstanceLock(instance));
+        Assert.True(await sut.AuthorizeDataElementLock(instance));
+        Assert.True(await sut.AuthorizePresentationTextsUpdate(instance));
+        Assert.True(await sut.AuthorizeDataValuesUpdate(instance));
+    }
+
+    [Theory]
+    [InlineData("data")]
+    [InlineData("confirmation")]
+    [InlineData("customServiceTask")]
+    public async Task AllChecks_OtherOrgWithoutGrants_ReturnFalse(string taskType)
+    {
+        var instance = CreateInstance(altinnTaskType: taskType);
+        SetupCallerOrg("other-org");
+        var sut = CreateSut();
+
+        Assert.False(await sut.AuthorizeProcessNext(instance, new ProcessState()));
+        Assert.False(await sut.AuthorizeInstanceLock(instance));
+        Assert.False(await sut.AuthorizeDataElementLock(instance));
+        Assert.False(await sut.AuthorizePresentationTextsUpdate(instance));
+        Assert.False(await sut.AuthorizeDataValuesUpdate(instance));
+    }
+
     #endregion
 
     #region AuthorizeLock
@@ -183,7 +334,7 @@ public class ProcessAuthorizerTests
     [Fact]
     public async Task AuthorizeLock_NoCurrentTask_ReturnsFalse()
     {
-        var instance = new Instance { Process = new ProcessState { CurrentTask = null } };
+        var instance = new InstanceInternal { Process = new ProcessState { CurrentTask = null } };
 
         Assert.False(await CreateSut().AuthorizeDataElementLock(instance));
         Assert.False(await CreateSut().AuthorizeInstanceLock(instance));
@@ -192,7 +343,7 @@ public class ProcessAuthorizerTests
     [Fact]
     public async Task AuthorizeLock_NoCurrentTask_UserHasWriteAccess_ReturnsTrue()
     {
-        var instance = new Instance { Process = new ProcessState { CurrentTask = null } };
+        var instance = new InstanceInternal { Process = new ProcessState { CurrentTask = null } };
         _authorizationMock
             .Setup(a => a.AuthorizeInstanceAction(instance, "write", null))
             .ReturnsAsync(true);
@@ -206,7 +357,7 @@ public class ProcessAuthorizerTests
     [Fact]
     public async Task AuthorizeLock_NoProcess_ReturnsFalse()
     {
-        var instance = new Instance { Process = null };
+        var instance = new InstanceInternal { Process = null };
 
         Assert.False(await CreateSut().AuthorizeDataElementLock(instance));
         Assert.False(await CreateSut().AuthorizeInstanceLock(instance));
@@ -250,7 +401,7 @@ public class ProcessAuthorizerTests
     [Fact]
     public async Task AuthorizeUpdate_NoCurrentTask_ReturnsFalse()
     {
-        var instance = new Instance { Process = new ProcessState { CurrentTask = null } };
+        var instance = new InstanceInternal { Process = new ProcessState { CurrentTask = null } };
 
         Assert.False(await CreateSut().AuthorizePresentationTextsUpdate(instance));
         Assert.False(await CreateSut().AuthorizeDataValuesUpdate(instance));
@@ -259,7 +410,7 @@ public class ProcessAuthorizerTests
     [Fact]
     public async Task AuthorizeDataValuesUpdate_SyncAdapterScope_ReturnsTrue()
     {
-        var instance = new Instance { Process = new ProcessState { CurrentTask = null } };
+        var instance = new InstanceInternal { Process = new ProcessState { CurrentTask = null } };
         _authorizationMock
             .Setup(a => a.UserHasRequiredScope("altinn:storage/instances.syncadapter"))
             .Returns(true);
@@ -270,7 +421,7 @@ public class ProcessAuthorizerTests
     [Fact]
     public async Task AuthorizePresentationTextsUpdate_SyncAdapterScope_ReturnsFalse()
     {
-        var instance = new Instance { Process = new ProcessState { CurrentTask = null } };
+        var instance = new InstanceInternal { Process = new ProcessState { CurrentTask = null } };
         _authorizationMock
             .Setup(a => a.UserHasRequiredScope("altinn:storage/instances.syncadapter"))
             .Returns(true);

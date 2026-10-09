@@ -13,6 +13,7 @@ using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Mocks;
 using AltinnCore.Authentication.Constants;
@@ -216,7 +217,7 @@ public class AuthorizationServiceTest
     {
         // Arrange
         List<string> actionTypes = new List<string> { "read", "write" };
-        List<Instance> instances = CreateInstances();
+        List<InstanceInternal> instances = CreateInstances();
 
         // Act
         XacmlJsonRequestRoot requestRoot = AuthorizationService.CreateMultiDecisionRequest(
@@ -248,7 +249,7 @@ public class AuthorizationServiceTest
     {
         // Arrange
         List<string> actionTypes = new List<string> { "read", "write" };
-        List<Instance> instances = CreateInstances();
+        List<InstanceInternal> instances = CreateInstances();
 
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
@@ -265,8 +266,8 @@ public class AuthorizationServiceTest
     {
         // Arrange
         List<string> actionTypes = new List<string> { "read", "write" };
-        List<Instance> instances = CreateInstances();
-        foreach (Instance instance in instances)
+        List<InstanceInternal> instances = CreateInstances();
+        foreach (InstanceInternal instance in instances)
         {
             // Add data values to the instances
             instance.DataValues = new() { { "A2ArchRef", "test" } };
@@ -298,8 +299,8 @@ public class AuthorizationServiceTest
     {
         // Arrange
         List<string> actionTypes = new List<string> { "read", "write" };
-        List<Instance> instances = CreateInstances();
-        foreach (Instance instance in instances)
+        List<InstanceInternal> instances = CreateInstances();
+        foreach (InstanceInternal instance in instances)
         {
             // Add data values to the instances
             instance.DataValues = new() { { "A1ArchRef", "test" } };
@@ -331,8 +332,8 @@ public class AuthorizationServiceTest
     {
         // Arrange
         List<string> actionTypes = new List<string> { "read", "write" };
-        List<Instance> instances = CreateInstances();
-        foreach (Instance instance in instances)
+        List<InstanceInternal> instances = CreateInstances();
+        foreach (InstanceInternal instance in instances)
         {
             // Add data values to the instances
             instance.DataValues = new() { { "SomeValue", "test" } };
@@ -364,7 +365,7 @@ public class AuthorizationServiceTest
     {
         // Arrange
         List<MessageBoxInstance> expected = new List<MessageBoxInstance>();
-        List<Instance> instances = new List<Instance>();
+        List<InstanceInternal> instances = [];
         _claimsPrincipalProviderMock.Setup(c => c.GetUser()).Returns(CreateUserClaims(3));
 
         // Act
@@ -375,6 +376,228 @@ public class AuthorizationServiceTest
 
         // Assert
         Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public async Task AuthorizeMessageBoxInstances_DomainBatch_UsesCompositeIdsAndSortedPermitResults()
+    {
+        InstanceInternal second = CreateMessageBoxDomainInstance(
+            new Guid("B45EA5DB-6DD4-4476-B774-BDB2A09DA7EA")
+        );
+        InstanceInternal first = CreateMessageBoxDomainInstance(
+            new Guid("A45EA5DB-6DD4-4476-B774-BDB2A09DA7EA")
+        );
+        InstanceInternal denied = CreateMessageBoxDomainInstance(
+            new Guid("C45EA5DB-6DD4-4476-B774-BDB2A09DA7EA")
+        );
+        XacmlJsonResponse response = new()
+        {
+            Response =
+            [
+                CreateInstanceDecision($"1000/{second.Id}", "Permit"),
+                CreateInstanceDecision($"1000/{denied.Id}", "Deny"),
+                CreateInstanceDecision($"1000/{first.Id}", "Permit"),
+            ],
+        };
+        List<XacmlJsonRequestRoot> requests = [];
+        AuthorizationService service = CreateRequestCapturingService(requests, response: response);
+
+        List<MessageBoxInstance> authorized = await service.AuthorizeMesseageBoxInstances(
+            [second, first, denied],
+            false
+        );
+
+        XacmlJsonRequestRoot request = Assert.Single(requests);
+        Assert.Equal(3, request.Request.Resource.Count);
+        Assert.Equal(6, request.Request.MultiRequests.RequestReference.Count);
+        Assert.Equal(
+            [$"1000/{second.Id}", $"1000/{first.Id}", $"1000/{denied.Id}"],
+            request
+                .Request.Resource.SelectMany(category => category.Attribute)
+                .Where(attribute => attribute.AttributeId == "urn:altinn:instance-id")
+                .Select(attribute => attribute.Value)
+        );
+        Assert.Equal(
+            [first.Id.ToString(), second.Id.ToString()],
+            authorized.Select(instance => instance.Id)
+        );
+        Assert.DoesNotContain(authorized, instance => instance.Id == denied.Id.ToString());
+    }
+
+    [Fact]
+    public async Task AuthorizeInstances_DomainInput_UsesCompositeInstanceId()
+    {
+        Guid storageId = new("a45ea5db-6dd4-4476-b774-bdb2a09da7ea");
+        InstanceInternal instance = CreateDomainInstance(storageId);
+        List<XacmlJsonRequestRoot> requests = [];
+
+        await CreateRequestCapturingService(requests).AuthorizeInstances([instance]);
+
+        Assert.Contains(
+            requests[0].Request.Resource.SelectMany(category => category.Attribute),
+            attribute =>
+                attribute.AttributeId == "urn:altinn:instance-id"
+                && attribute.Value == $"1000/{storageId}"
+        );
+    }
+
+    [Fact]
+    public async Task AuthorizeInstances_DomainList_ReturnsOnlyPermittedInstancesInDecisionOrder()
+    {
+        InstanceInternal first = CreateDomainInstance(
+            new Guid("045ea5db-6dd4-4476-b774-bdb2a09da7ea")
+        );
+        InstanceInternal second = CreateDomainInstance(
+            new Guid("145ea5db-6dd4-4476-b774-bdb2a09da7ea")
+        );
+        InstanceInternal denied = CreateDomainInstance(
+            new Guid("245ea5db-6dd4-4476-b774-bdb2a09da7ea")
+        );
+        InstanceInternal omitted = CreateDomainInstance(
+            new Guid("345ea5db-6dd4-4476-b774-bdb2a09da7ea")
+        );
+        XacmlJsonResponse response = new()
+        {
+            Response =
+            [
+                CreateInstanceDecision("1000/145ea5db-6dd4-4476-b774-bdb2a09da7ea", "Permit"),
+                CreateInstanceDecision("1000/245ea5db-6dd4-4476-b774-bdb2a09da7ea", "Deny"),
+                CreateInstanceDecision("1000/045ea5db-6dd4-4476-b774-bdb2a09da7ea", "Permit"),
+            ],
+        };
+        AuthorizationService service = CreateRequestCapturingService([], response: response);
+
+        List<InstanceInternal> authorized = await service.AuthorizeInstances([
+            first,
+            second,
+            denied,
+            omitted,
+        ]);
+
+        Assert.Equal([second, first], authorized);
+        Assert.DoesNotContain(omitted, authorized);
+    }
+
+    [Fact]
+    public async Task AuthorizeInstanceAction_DomainInput_IncludesExplicitTask()
+    {
+        InstanceInternal instance = CreateDomainInstance();
+        List<XacmlJsonRequestRoot> requests = [];
+        AuthorizationService service = CreateRequestCapturingService(requests);
+
+        await service.AuthorizeInstanceAction(instance, "read", "Task_Override");
+
+        Assert.Contains(
+            requests[0].Request.Resource.SelectMany(category => category.Attribute),
+            attribute => attribute.AttributeId == "urn:altinn:task"
+        );
+    }
+
+    [Fact]
+    public async Task AuthorizeInstanceAction_UnsetId_OmitsTask()
+    {
+        InstanceInternal instance = CreateDomainInstance();
+        instance.Id = Guid.Empty;
+        List<XacmlJsonRequestRoot> requests = [];
+
+        await CreateRequestCapturingService(requests)
+            .AuthorizeInstanceAction(instance, "read", "Task_Must_Not_Be_Included");
+
+        Assert.DoesNotContain(
+            requests[0].Request.Resource.SelectMany(category => category.Attribute),
+            attribute => attribute.AttributeId == "urn:altinn:task"
+        );
+    }
+
+    [Fact]
+    public async Task AuthorizeInstanceRequest_ProcessEnd_IncludesEndEvent()
+    {
+        InstanceInternal instance = CreateDomainInstance();
+        instance.Process.CurrentTask = null;
+        instance.Process.EndEvent = "EndEvent_1";
+        List<XacmlJsonRequestRoot> requests = [];
+
+        await CreateRequestCapturingService(requests).AuthorizeInstanceRequest(instance, "read");
+
+        Assert.Contains(
+            requests[0].Request.Resource.SelectMany(category => category.Attribute),
+            attribute =>
+                attribute.AttributeId == "urn:altinn:end-event" && attribute.Value == "EndEvent_1"
+        );
+    }
+
+    [Fact]
+    public async Task AuthorizeInstanceRequest_MigratedDataValues_PreservesApprovedRequestShape()
+    {
+        InstanceInternal instance = CreateDomainInstance();
+        instance.Process = null;
+        instance.DataValues = new Dictionary<string, string> { ["A2ArchRef"] = "12345" };
+        List<XacmlJsonRequestRoot> requests = [];
+
+        await CreateRequestCapturingService(requests).AuthorizeInstanceRequest(instance, "read");
+
+        Assert.DoesNotContain(
+            requests[0].Request.Resource.SelectMany(category => category.Attribute),
+            attribute =>
+                attribute.AttributeId == "urn:altinn:end-event" && attribute.Value == "MigratedA1A2"
+        );
+    }
+
+    [Fact]
+    public async Task AuthorizeInstanceRequest_EquivalentInputsShareCacheEntry()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        InstanceInternal first = CreateDomainInstance(instanceGuid);
+        InstanceInternal second = CreateDomainInstance(instanceGuid);
+        List<XacmlJsonRequestRoot> requests = [];
+        Mock<IPDP> pdp = new();
+        using MemoryCache cache = new(new MemoryCacheOptions());
+        AuthorizationService service = CreateRequestCapturingService(requests, pdp, cache);
+
+        await service.AuthorizeInstanceRequest(first, "read");
+        await service.AuthorizeInstanceRequest(second, "read");
+
+        Assert.Single(requests);
+        pdp.Verify(
+            instance => instance.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task AuthorizeAnyOfInstanceActions_MigratedDataValues_PreservesApprovedRequestShape()
+    {
+        InstanceInternal instance = CreateDomainInstance();
+        instance.Process = null;
+        instance.DataValues = new Dictionary<string, string> { ["A2ArchRef"] = "12345" };
+        List<XacmlJsonRequestRoot> requests = [];
+
+        await CreateRequestCapturingService(requests)
+            .AuthorizeAnyOfInstanceActions(instance, ["read", "write"]);
+
+        Assert.Equal(2, requests[0].Request.Action.Count);
+        Assert.Contains(
+            requests[0].Request.Resource.SelectMany(category => category.Attribute),
+            attribute =>
+                attribute.AttributeId == "urn:altinn:end-event" && attribute.Value == "MigratedA1A2"
+        );
+    }
+
+    [Fact]
+    public async Task AuthorizeAnyOfInstanceActions_EmptyActionsAndNullInstance_ReturnsFalseWithoutPdp()
+    {
+        List<XacmlJsonRequestRoot> requests = [];
+        Mock<IPDP> pdp = new();
+        AuthorizationService service = CreateRequestCapturingService(requests, pdp);
+
+        bool decision = await service.AuthorizeAnyOfInstanceActions((InstanceInternal)null, []);
+
+        Assert.False(decision);
+        Assert.Empty(requests);
+        pdp.Verify(
+            instance => instance.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()),
+            Times.Never
+        );
     }
 
     [Theory]
@@ -397,7 +620,7 @@ public class AuthorizationServiceTest
         );
 
         // Act
-        bool result = await sut.AuthorizeInstanceRequest(CreateInstance(), action);
+        bool result = await sut.AuthorizeInstanceRequest(CreateDomainInstance(), action);
 
         // Assert - the sync adapter bypasses the PDP entirely
         Assert.True(result);
@@ -426,7 +649,7 @@ public class AuthorizationServiceTest
         );
 
         // Act
-        bool result = await sut.AuthorizeInstanceRequest(CreateInstance(), action);
+        bool result = await sut.AuthorizeInstanceRequest(CreateDomainInstance(), action);
 
         // Assert
         Assert.False(result);
@@ -451,7 +674,7 @@ public class AuthorizationServiceTest
         );
 
         // Act
-        bool result = await sut.AuthorizeInstanceRequest(CreateInstance(), "write");
+        bool result = await sut.AuthorizeInstanceRequest(CreateDomainInstance(), "write");
 
         // Assert
         Assert.True(result);
@@ -475,7 +698,7 @@ public class AuthorizationServiceTest
         );
 
         // Act
-        bool result = await sut.AuthorizeInstanceRequest(CreateInstance(), "read");
+        bool result = await sut.AuthorizeInstanceRequest(CreateDomainInstance(), "read");
 
         // Assert
         Assert.False(result);
@@ -498,7 +721,7 @@ public class AuthorizationServiceTest
         );
 
         // Act
-        bool result = await sut.AuthorizeInstanceRequest(CreateInstance(), "read");
+        bool result = await sut.AuthorizeInstanceRequest(CreateDomainInstance(), "read");
 
         // Assert
         Assert.False(result);
@@ -648,24 +871,84 @@ public class AuthorizationServiceTest
         );
     }
 
-    private static Instance CreateInstance()
+    private sealed class TestRoutingFeature : IRoutingFeature
     {
-        return new Instance
+        public RouteData RouteData { get; set; }
+    }
+
+    private AuthorizationService CreateRequestCapturingService(
+        List<XacmlJsonRequestRoot> requests,
+        Mock<IPDP> pdp = null,
+        IMemoryCache memoryCache = null,
+        XacmlJsonResponse response = null
+    )
+    {
+        pdp ??= new Mock<IPDP>();
+        pdp.Setup(instance => instance.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .Callback<XacmlJsonRequestRoot>(requests.Add)
+            .ReturnsAsync(response ?? new XacmlJsonResponse { Response = [] });
+        _claimsPrincipalProviderMock
+            .Setup(provider => provider.GetUser())
+            .Returns(CreateUserClaims(1));
+
+        return new AuthorizationService(
+            Mock.Of<IHttpContextAccessor>(),
+            pdp.Object,
+            _claimsPrincipalProviderMock.Object,
+            Mock.Of<ILogger<AuthorizationService>>(),
+            Options.Create(new GeneralSettings()),
+            memoryCache ?? new MemoryCache(new MemoryCacheOptions()),
+            Options.Create(new PepSettings { PdpDecisionCachingTimeout = 5 })
+        );
+    }
+
+    private static InstanceInternal CreateDomainInstance(Guid? instanceGuid = null)
+    {
+        return new InstanceInternal
         {
-            Id = "1000/" + Guid.NewGuid(),
+            Id = instanceGuid ?? Guid.NewGuid(),
             InstanceOwner = new InstanceOwner { PartyId = "1000" },
-            AppId = Org + "/" + App,
+            AppId = $"{Org}/{App}",
             Org = Org,
             Process = new ProcessState
             {
                 CurrentTask = new ProcessElementInfo { ElementId = "Task_1" },
             },
+            DataValues = new Dictionary<string, string> { ["case"] = "value" },
         };
     }
 
-    private sealed class TestRoutingFeature : IRoutingFeature
+    private static InstanceInternal CreateMessageBoxDomainInstance(Guid instanceGuid)
     {
-        public RouteData RouteData { get; set; }
+        InstanceInternal instance = CreateDomainInstance(instanceGuid);
+        instance.Status = new InstanceStatus();
+        instance.Created = new DateTime(2026, 7, 11, 10, 0, 0, DateTimeKind.Utc);
+        instance.LastChanged = instance.Created;
+        instance.LastChangedBy = "1000";
+        instance.Data = [];
+        return instance;
+    }
+
+    private static XacmlJsonResult CreateInstanceDecision(string instanceId, string decision)
+    {
+        return new XacmlJsonResult
+        {
+            Decision = decision,
+            Category =
+            [
+                new XacmlJsonCategory
+                {
+                    Attribute =
+                    [
+                        new XacmlJsonAttribute
+                        {
+                            AttributeId = "urn:altinn:instance-id",
+                            Value = instanceId,
+                        },
+                    ],
+                },
+            ],
+        };
     }
 
     private static ClaimsPrincipal CreateUserClaims(int userId)
@@ -684,13 +967,13 @@ public class AuthorizationServiceTest
         return user;
     }
 
-    private static List<Instance> CreateInstances()
+    private static List<InstanceInternal> CreateInstances()
     {
-        List<Instance> instances = new List<Instance>
-        {
-            new Instance
+        List<InstanceInternal> instances =
+        [
+            new()
             {
-                Id = "1000/" + Guid.NewGuid(),
+                Id = Guid.NewGuid(),
                 Process = new ProcessState
                 {
                     CurrentTask = new ProcessElementInfo { Name = "test_task" },
@@ -700,23 +983,23 @@ public class AuthorizationServiceTest
                 Org = Org,
                 Created = DateTime.UtcNow,
             },
-            new Instance
+            new()
             {
-                Id = "1002/" + Guid.NewGuid(),
+                Id = Guid.NewGuid(),
                 InstanceOwner = new InstanceOwner { PartyId = "1002" },
                 AppId = Org + "/" + App,
                 Org = Org,
                 Created = DateTime.UtcNow,
             },
-            new Instance
+            new()
             {
-                Id = "1000/" + Guid.NewGuid(),
+                Id = Guid.NewGuid(),
                 InstanceOwner = new InstanceOwner { PartyId = "1000" },
                 AppId = Org + "/" + App,
                 Org = Org,
                 Created = DateTime.UtcNow,
             },
-        };
+        ];
 
         return instances;
     }

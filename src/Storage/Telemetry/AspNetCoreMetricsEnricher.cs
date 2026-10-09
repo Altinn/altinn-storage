@@ -208,6 +208,9 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
             [
                 "Altinn.Platform.Storage.Controllers.InstanceEventsController.Get (Altinn.Platform.Storage)"
             ] = RequiredScope.Read,
+            [
+                "Altinn.Platform.Storage.Controllers.InstanceMutationsController.CommitMutation (Altinn.Platform.Storage)"
+            ] = RequiredScope.Write,
             ["Altinn.Platform.Storage.Controllers.DataController.Get (Altinn.Platform.Storage)"] =
                 RequiredScope.Read,
             [

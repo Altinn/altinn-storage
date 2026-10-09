@@ -1,6 +1,7 @@
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 
 namespace Altinn.Platform.Storage.Extensions;
 
@@ -10,12 +11,12 @@ namespace Altinn.Platform.Storage.Extensions;
 internal static class DataTypeExtensions
 {
     /// <summary>
-    /// Checks if the user has permission to read data of this type for the given instance.
+    /// Checks if the user has permission to read data of this type for the given storage instance.
     /// </summary>
     public static async Task<bool> CanRead(
         this DataType dataType,
         IAuthorization authorizationService,
-        Instance instance,
+        InstanceInternal instance,
         string? task = null
     )
     {
@@ -32,12 +33,12 @@ internal static class DataTypeExtensions
     }
 
     /// <summary>
-    /// Checks if the user has permission to write data of this type for the given instance.
+    /// Checks if the user has permission to write data of this type for the given storage instance.
     /// </summary>
     public static async Task<bool> CanWrite(
         this DataType dataType,
         IAuthorization authorizationService,
-        Instance instance,
+        InstanceInternal instance,
         string? task = null
     )
     {

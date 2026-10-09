@@ -22,6 +22,7 @@ using Altinn.Platform.Storage.Filters;
 using Altinn.Platform.Storage.Health;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Messages;
+using Altinn.Platform.Storage.OpenApi;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.Telemetry;
@@ -50,8 +51,6 @@ using Yuniql.AspNetCore;
 using Yuniql.PostgreSql;
 
 ILogger logger;
-
-string vaultApplicationInsightsKey = "ApplicationInsights--InstrumentationKey";
 
 string applicationInsightsConnectionString = string.Empty;
 
@@ -101,20 +100,27 @@ async Task SetConfigurationProviders(ConfigurationManager config, bool isDevelop
 {
     string basePath = Directory.GetParent(Directory.GetCurrentDirectory()).FullName;
 
+    // A watching provider holds an open file system watcher for the lifetime of the host.
+    bool reloadOnChange = config.GetValue("ReloadConfigurationOnChange", true);
+
     config.SetBasePath(basePath);
-    config.AddJsonFile(basePath + @"altinn-appsettings/altinn-dbsettings-secret.json", true, true);
+    config.AddJsonFile(
+        basePath + @"altinn-appsettings/altinn-dbsettings-secret.json",
+        true,
+        reloadOnChange
+    );
 
     if (basePath == "/")
     {
         // In a pod/container where the app is located in an app folder on the root of the filesystem.
         string filePath = basePath + @"app/appsettings.json";
-        config.AddJsonFile(filePath, false, true);
+        config.AddJsonFile(filePath, false, reloadOnChange);
     }
     else
     {
         // Running on development machine.
         string filePath = Directory.GetCurrentDirectory() + @"/appsettings.json";
-        config.AddJsonFile(filePath, false, true);
+        config.AddJsonFile(filePath, false, reloadOnChange);
     }
 
     config.AddEnvironmentVariables();
@@ -146,12 +152,9 @@ async Task ConnectToKeyVaultAndSetApplicationInsights(ConfigurationManager confi
         try
         {
             KeyVaultSecret keyVaultSecret = await client.GetSecretAsync(
-                vaultApplicationInsightsKey
+                "ApplicationInsights--ConnectionString"
             );
-            applicationInsightsConnectionString = string.Format(
-                "InstrumentationKey={0}",
-                keyVaultSecret.Value
-            );
+            applicationInsightsConnectionString = keyVaultSecret.Value;
         }
         catch (Exception vaultException)
         {
@@ -249,6 +252,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.Configure<QueueStorageSettings>(config.GetSection("QueueStorageSettings"));
     services.Configure<AccessTokenSettings>(config.GetSection("AccessTokenSettings"));
     services.Configure<PostgreSqlSettings>(config.GetSection("PostgreSqlSettings"));
+    services.Configure<StorageCleanupSettings>(config.GetSection("StorageCleanupSettings"));
     services.Configure<WolverineSettings>(config.GetSection("WolverineSettings"));
 
     services.AddSingleton<IAuthorizationHandler, AccessTokenHandler>();
@@ -353,42 +357,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     );
 
     // Add Swagger support (Swashbuckle)
-    services.AddSwaggerGen(c =>
-    {
-        c.SwaggerDoc("v1", new OpenApiInfo { Title = "Altinn Platform Storage", Version = "v1" });
-        c.AddSecurityDefinition(
-            JwtCookieDefaults.AuthenticationScheme,
-            new OpenApiSecurityScheme
-            {
-                Description =
-                    "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\". Remember to add \"Bearer\" to the input below before your token.",
-                Name = "Authorization",
-                In = ParameterLocation.Header,
-                Type = SecuritySchemeType.ApiKey,
-            }
-        );
-        c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
-        {
-            {
-                new OpenApiSecuritySchemeReference(
-                    JwtCookieDefaults.AuthenticationScheme,
-                    document
-                ),
-                []
-            },
-        });
-        try
-        {
-            c.IncludeXmlComments(GetXmlCommentsPathForControllers());
-
-            // hardcoded since nuget restore does not export the xml file.
-            c.IncludeXmlComments("Altinn.Platform.Storage.Interface.xml");
-        }
-        catch
-        {
-            // catch swashbuckle exception if it doesn't find the generated xml documentation file
-        }
-    });
+    services.AddSwaggerGen(SwaggerExtensions.StorageSwaggerGen);
     services.AddSwaggerGenNewtonsoftSupport();
 
     builder.Services.AddHostedService<OutboxService>();
@@ -445,15 +414,6 @@ void ConfigureWolverine(IServiceCollection services, IConfiguration config)
     });
 }
 
-static string GetXmlCommentsPathForControllers()
-{
-    // locate the xml file being generated by .NET
-    string xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    string xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-
-    return xmlPath;
-}
-
 void Configure(IConfiguration config)
 {
     if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
@@ -489,7 +449,7 @@ void Configure(IConfiguration config)
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();
-        app.UseSwaggerUI();
+        app.UseSwaggerUI(SwaggerExtensions.ConfigureSwaggerUI);
     }
 
     app.UseRouting();

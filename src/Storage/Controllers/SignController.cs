@@ -50,19 +50,33 @@ public class SignController : ControllerBase
     /// <param name="instanceGuid">The guid of the instance.</param>
     /// <param name="signRequest">Sign request containing data element ids and sign status.</param>
     /// <param name="cancellationToken">CancellationToken</param>
+    /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
+    /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     [Authorize]
     [HttpPost("{instanceOwnerPartyId:int}/{instanceGuid:guid}/sign")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
     public async Task<ActionResult> Sign(
         [FromRoute] int instanceOwnerPartyId,
         [FromRoute] Guid instanceGuid,
         [FromBody] SignRequest signRequest,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        [FromHeader(Name = StorageHeaders.IfInstanceVersionMatch)]
+            string ifInstanceVersionMatch = null,
+        [FromHeader(Name = StorageHeaders.IfProcessStateVersionMatch)]
+            string ifProcessStateVersionMatch = null
     )
     {
-        (Instance instance, long instanceInternalId) = await _instanceRepository.GetOne(
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
+        if (preconditionError is not null)
+        {
+            return preconditionError;
+        }
+
+        InstanceInternal instance = await _instanceRepository.GetOne(
             instanceGuid,
             true,
             cancellationToken
@@ -96,19 +110,38 @@ public class SignController : ControllerBase
             return Unauthorized();
         }
 
-        (bool created, ServiceError serviceError) = await _signingService.CreateSignDocument(
-            instance,
-            instanceInternalId,
-            signRequest,
-            performedBy,
-            cancellationToken
-        );
-
-        if (created)
+        SignDocumentCreateResult result;
+        try
         {
+            result = await _signingService.CreateSignDocument(
+                instance,
+                signRequest,
+                performedBy,
+                preconditions.InstanceVersion,
+                preconditions.ProcessStateVersion,
+                cancellationToken
+            );
+        }
+        catch (StorageVersionMismatchException exception)
+        {
+            return VersionPreconditionHelper.VersionMismatch(Response, exception);
+        }
+        catch (ProcessStatusConflictException exception)
+        {
+            return Conflict(exception.Message);
+        }
+        catch (RepositoryException exception) when (exception.StatusCodeSuggestion.HasValue)
+        {
+            return StatusCode((int)exception.StatusCodeSuggestion.Value, exception.Message);
+        }
+
+        if (result.Created)
+        {
+            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, result.Versions);
             return StatusCode(201, "SignDocument is created");
         }
 
+        ServiceError serviceError = result.ServiceError;
         return Problem(serviceError.ErrorMessage, null, serviceError.ErrorCode);
     }
 }

@@ -89,9 +89,9 @@ public class SimpleInstance
     public DateTimeOffset? LastChangedAt { get; set; }
 
     /// <summary>
-    /// Converts an <see cref="Instance"/> into a <see cref="SimpleInstance"/>.
+    /// Converts an <see cref="InstanceInternal"/> into a <see cref="SimpleInstance"/>.
     /// </summary>
-    public static SimpleInstance FromInstance(Instance instance)
+    public static SimpleInstance FromInstance(InstanceInternal instance)
     {
         if (instance.InstanceOwner?.PartyId is null)
         {
@@ -105,15 +105,7 @@ public class SimpleInstance
             throw new InvalidOperationException($"Instance {instance.Id} is missing Org/AppId.");
         }
 
-        var partyIdPrefix = $"{instance.InstanceOwner.PartyId}/";
         var orgPrefix = $"{instance.Org}/";
-
-        if (!instance.Id.StartsWith(partyIdPrefix))
-        {
-            throw new InvalidOperationException(
-                $"Instance id {instance.Id} has an unexpected format, expected '{{instanceOwnerPartyId}}/{{instanceId}}'."
-            );
-        }
 
         if (!instance.AppId.StartsWith(orgPrefix))
         {
@@ -124,7 +116,7 @@ public class SimpleInstance
 
         return new SimpleInstance()
         {
-            Id = instance.Id.Substring(partyIdPrefix.Length),
+            Id = instance.Id.ToString(),
             Org = instance.Org,
             App = instance.AppId.Substring(orgPrefix.Length),
             IsRead =

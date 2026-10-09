@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Platform.Storage.Helpers;
-using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
 
 namespace Altinn.Platform.Storage.Authorization;
 
@@ -17,15 +17,18 @@ public interface IAuthorization
     /// Authorize instances, and returns a list of MesseageBoxInstances with information about read and write rights of each instance.
     /// </summary>
     public Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(
-        List<Instance> instances,
+        List<InstanceInternal> instances,
         bool keyAccessMode
     );
 
     /// <summary>
-    /// Authorizes a given action on an instance.
+    /// Authorizes a given action on a storage instance.
     /// </summary>
-    /// <returns>true if the user is authorized.</returns>
-    public Task<bool> AuthorizeInstanceAction(Instance instance, string action, string task = null);
+    public Task<bool> AuthorizeInstanceAction(
+        InstanceInternal instance,
+        string action,
+        string task = null
+    );
 
     /// <summary>
     /// Authorizes the current HTTP request to perform <paramref name="action"/> on the instance
@@ -37,18 +40,20 @@ public interface IAuthorization
     /// <param name="instance">The instance to authorize against, or null when no instance exist.</param>
     /// <param name="action">The action to authorize, e.g. "read", "write" or "delete".</param>
     /// <returns>true if the user is authorized.</returns>
-    public Task<bool> AuthorizeInstanceRequest(Instance instance, string action);
+    public Task<bool> AuthorizeInstanceRequest(InstanceInternal instance, string action);
 
     /// <summary>
-    /// Authorizes that the user has one or more of the actions on an instance.
+    /// Authorizes that the user has one or more of the actions on a storage instance.
     /// </summary>
-    /// <returns>true if the user is authorized.</returns>
-    public Task<bool> AuthorizeAnyOfInstanceActions(Instance instance, List<string> actions);
+    public Task<bool> AuthorizeAnyOfInstanceActions(
+        InstanceInternal instance,
+        List<string> actions
+    );
 
     /// <summary>
-    /// Authorize instances, and returns a list of instances that the user has the right to read.
+    /// Authorize storage instances, and returns the instances that the user has the right to read.
     /// </summary>
-    public Task<List<Instance>> AuthorizeInstances(List<Instance> instances);
+    public Task<List<InstanceInternal>> AuthorizeInstances(List<InstanceInternal> instances);
 
     /// <summary>
     /// Verifies that the user has at least one of the supplied scopes.

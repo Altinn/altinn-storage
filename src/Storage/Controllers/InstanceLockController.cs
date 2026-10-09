@@ -77,7 +77,7 @@ public class InstanceLockController(
             );
         }
 
-        (Instance instance, long instanceInternalId) = await instanceRepository.GetOne(
+        InstanceInternal instance = await instanceRepository.GetOne(
             instanceGuid,
             false,
             cancellationToken
@@ -100,7 +100,7 @@ public class InstanceLockController(
         }
 
         var (result, lockToken) = await instanceLockRepository.TryAcquireLock(
-            instanceInternalId,
+            instance.InternalId,
             request.TtlSeconds,
             userOrOrgNo,
             cancellationToken
@@ -167,7 +167,7 @@ public class InstanceLockController(
             );
         }
 
-        (Instance instance, long instanceInternalId) = await instanceRepository.GetOne(
+        InstanceInternal instance = await instanceRepository.GetOne(
             instanceGuid,
             false,
             cancellationToken
@@ -183,7 +183,7 @@ public class InstanceLockController(
 
         var result = await instanceLockRepository.TryUpdateLockExpiration(
             lockToken,
-            instanceInternalId,
+            instance.InternalId,
             request.TtlSeconds,
             cancellationToken
         );
