@@ -263,11 +263,6 @@ public class InstancesController : ControllerBase
             cancellationToken
         );
 
-        if (instance is null)
-        {
-            return NotFound($"Unable to find instance {instanceGuid}");
-        }
-
         bool isSyncAdapter = _authorizationService.UserHasRequiredScope([
             _generalSettings.InstanceSyncAdapterScope,
         ]);
@@ -281,6 +276,11 @@ public class InstancesController : ControllerBase
         )
         {
             return Forbid();
+        }
+
+        if (instance is null)
+        {
+            return NotFound($"Unable to find instance {instanceGuid}");
         }
 
         Instance mappedInstance = instance.ToApiModel();
@@ -317,11 +317,6 @@ public class InstancesController : ControllerBase
             cancellationToken
         );
 
-        if (instance is null)
-        {
-            return NotFound($"Unable to find instance {instanceGuid}");
-        }
-
         bool isSyncAdapter = _authorizationService.UserHasRequiredScope([
             _generalSettings.InstanceSyncAdapterScope,
         ]);
@@ -335,6 +330,11 @@ public class InstancesController : ControllerBase
         )
         {
             return Forbid();
+        }
+
+        if (instance is null)
+        {
+            return NotFound($"Unable to find instance {instanceGuid}");
         }
 
         Instance mappedInstance = instance.ToApiModel();
