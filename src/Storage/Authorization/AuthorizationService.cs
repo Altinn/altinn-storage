@@ -266,8 +266,7 @@ public class AuthorizationService(
         {
             // No instance to derive the resource from (e.g. it does not exist): build the request
             // from the route values instead. org/app are included when the route provides them and
-            // are null otherwise. Without an instance owner and instance id there is nothing to
-            // authorize against, so the request is denied without consulting the PDP.
+            // are null otherwise.
             RouteData routeData = _httpContextAccessor.HttpContext?.GetRouteData();
             if (
                 !int.TryParse(
