@@ -1777,12 +1777,7 @@ public class InstanceMutationsControllerUnitTests
         );
         fixture.DataService.Verify(
             service =>
-                service.CleanupDeletedDataElementBlobs(
-                    It.IsAny<InstanceInternal>(),
-                    dataElement,
-                    7,
-                    It.IsAny<CancellationToken>()
-                ),
+                service.DeleteLegacyDataElementBlob(It.IsAny<InstanceInternal>(), dataElement, 7),
             deleteDataElement ? Times.Once() : Times.Never()
         );
     }
@@ -4849,11 +4844,10 @@ public class InstanceMutationsControllerUnitTests
             .Returns(Task.CompletedTask);
         fixture
             .DataService.Setup(service =>
-                service.CleanupDeletedDataElementBlobs(
+                service.DeleteLegacyDataElementBlob(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<DataElementInternal>(),
-                    It.IsAny<int?>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<int?>()
                 )
             )
             .Callback(() => postCommitBlobCleanupRan = true)
@@ -5058,11 +5052,10 @@ public class InstanceMutationsControllerUnitTests
         );
         fixture.DataService.Verify(
             service =>
-                service.CleanupDeletedDataElementBlobs(
+                service.DeleteLegacyDataElementBlob(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<DataElementInternal>(),
-                    It.IsAny<int?>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<int?>()
                 ),
             Times.Never
         );
@@ -5145,11 +5138,10 @@ public class InstanceMutationsControllerUnitTests
             .Returns(Task.CompletedTask);
         dataServiceMock
             .Setup(service =>
-                service.CleanupDeletedDataElementBlobs(
+                service.DeleteLegacyDataElementBlob(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<DataElementInternal>(),
-                    It.IsAny<int?>(),
-                    It.IsAny<CancellationToken>()
+                    It.IsAny<int?>()
                 )
             )
             .Returns(Task.CompletedTask);

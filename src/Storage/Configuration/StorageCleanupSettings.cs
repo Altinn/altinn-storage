@@ -17,6 +17,11 @@ public class StorageCleanupSettings
     /// Gets or sets how long aggregate mutation idempotency records are retained before cleanup.
     /// Values below <see cref="MinimumInstanceMutationIdempotencyRetentionHours"/> are clamped.
     /// </summary>
+    /// <remarks>
+    /// Workflow retries may also need the original blob versions. storage.readorphanblobversionsforcleanup
+    /// retains detached versions for a set period. Both retention periods must outlast the workflow retry
+    /// window.
+    /// </remarks>
     public int InstanceMutationIdempotencyRetentionHours { get; set; } =
         MinimumInstanceMutationIdempotencyRetentionHours;
 }

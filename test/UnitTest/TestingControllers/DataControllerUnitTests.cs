@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -22,6 +23,7 @@ using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Utils;
+using AltinnCore.Authentication.Constants;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -578,6 +580,313 @@ public class DataControllerUnitTests
             $"\"{currentBlobVersionId}\"",
             testController.Response.Headers[HeaderNames.ETag]
         );
+    }
+
+    [Fact]
+    public async Task GetBlobVersion_ForServiceOwner_ReadsThatVersionFromItsStorageContext()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        Guid dataGuid = Guid.NewGuid();
+        DataElementBlobVersion blobVersion = CreateBlobVersion(
+            instanceGuid,
+            dataGuid,
+            _dataType
+        ) with
+        {
+            AppId = "previous-org/previous-app",
+            BlobStorageOrg = "blob-org",
+            StorageAccountNumber = 3,
+        };
+        string blobVersionId = BlobVersionId.Encode(blobVersion.Id);
+        BlobVersionReadFixture fixture = CreateBlobVersionReadFixture(instanceGuid, blobVersion);
+
+        using MemoryStream content = new(Encoding.UTF8.GetBytes("version content"));
+        string blobPath = DataElementHelper.GetVersionedBlobPath(
+            blobVersion.AppId,
+            instanceGuid,
+            blobVersionId
+        );
+        fixture
+            .BlobRepository.Setup(b =>
+                b.ReadBlob("blob-org", blobPath, 3, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(content);
+
+        // Act
+        ActionResult result = await fixture.Sut.GetBlobVersion(
+            12345,
+            instanceGuid,
+            dataGuid,
+            blobVersionId,
+            CancellationToken.None
+        );
+
+        // Assert
+        FileStreamResult file = Assert.IsType<FileStreamResult>(result);
+        Assert.Equal("application/octet-stream", file.ContentType);
+        Assert.Same(content, file.FileStream);
+        fixture.BlobRepository.Verify(
+            b => b.ReadBlob("blob-org", blobPath, 3, It.IsAny<CancellationToken>()),
+            Times.Once
+        );
+        fixture.DataRepository.Verify(
+            d => d.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+    }
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    public async Task GetBlobVersion_WhenDataTypeRequiresReadAction_AuthorizesRecordedOrFallbackDataType(
+        bool recordedOnVersion,
+        bool authorized
+    )
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        Guid dataGuid = Guid.NewGuid();
+        DataElementBlobVersion blobVersion = CreateBlobVersion(
+            instanceGuid,
+            dataGuid,
+            recordedOnVersion ? _dataType : null
+        );
+        string blobVersionId = BlobVersionId.Encode(blobVersion.Id);
+        BlobVersionReadFixture fixture = CreateBlobVersionReadFixture(instanceGuid, blobVersion);
+        fixture.Application.DataTypes.Single().ActionRequiredToRead = "sign";
+        fixture
+            .Authorization.Setup(a =>
+                a.AuthorizeInstanceAction(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>()
+                )
+            )
+            .ReturnsAsync(true);
+        fixture
+            .Authorization.Setup(a =>
+                a.AuthorizeInstanceAction(
+                    It.Is<InstanceInternal>(instance => instance.Id == instanceGuid),
+                    "sign",
+                    It.IsAny<string>()
+                )
+            )
+            .ReturnsAsync(authorized);
+        fixture
+            .DataRepository.Setup(d =>
+                d.Read(instanceGuid, dataGuid, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(
+                new DataElementInternal
+                {
+                    Id = dataGuid,
+                    InstanceGuid = instanceGuid,
+                    DataType = _dataType,
+                }
+            );
+
+        using MemoryStream content = new(Encoding.UTF8.GetBytes("version content"));
+        string blobPath = DataElementHelper.GetVersionedBlobPath(
+            "ttd/apps-test",
+            instanceGuid,
+            blobVersionId
+        );
+        fixture
+            .BlobRepository.Setup(b =>
+                b.ReadBlob("ttd", blobPath, null, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(content);
+
+        // Act
+        ActionResult result = await fixture.Sut.GetBlobVersion(
+            12345,
+            instanceGuid,
+            dataGuid,
+            blobVersionId,
+            CancellationToken.None
+        );
+
+        // Assert
+        fixture.Authorization.Verify(
+            a =>
+                a.AuthorizeInstanceAction(
+                    It.Is<InstanceInternal>(instance => instance.Id == instanceGuid),
+                    "sign",
+                    It.IsAny<string>()
+                ),
+            Times.Once
+        );
+        fixture.DataRepository.Verify(
+            d => d.Read(instanceGuid, dataGuid, It.IsAny<CancellationToken>()),
+            recordedOnVersion ? Times.Never() : Times.Once()
+        );
+        if (authorized)
+        {
+            FileStreamResult file = Assert.IsType<FileStreamResult>(result);
+            Assert.Same(content, file.FileStream);
+        }
+        else
+        {
+            Assert.IsType<ForbidResult>(result);
+            VerifyNoContentReadSideEffects(fixture.DataRepository, fixture.BlobRepository);
+        }
+    }
+
+    [Fact]
+    public async Task GetBlobVersion_WithoutRecordedDataTypeOfDeletedElement_ReturnsNotFoundBeforeReadingBlob()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        Guid dataGuid = Guid.NewGuid();
+        DataElementBlobVersion blobVersion = CreateBlobVersion(instanceGuid, dataGuid, null);
+        string blobVersionId = BlobVersionId.Encode(blobVersion.Id);
+        BlobVersionReadFixture fixture = CreateBlobVersionReadFixture(instanceGuid, blobVersion);
+        fixture
+            .DataRepository.Setup(d =>
+                d.Read(instanceGuid, dataGuid, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync((DataElementInternal)null);
+
+        // Act
+        ActionResult result = await fixture.Sut.GetBlobVersion(
+            12345,
+            instanceGuid,
+            dataGuid,
+            blobVersionId,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.IsType<NotFoundObjectResult>(result);
+        VerifyNoContentReadSideEffects(fixture.DataRepository, fixture.BlobRepository);
+    }
+
+    [Fact]
+    public async Task GetBlobVersion_WhenVersionIsMissing_ReturnsNotFoundBeforeReadingBlob()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        Guid dataGuid = Guid.NewGuid();
+        BlobVersionReadFixture fixture = CreateBlobVersionReadFixture(instanceGuid);
+        fixture
+            .DataRepository.Setup(d =>
+                d.ReadBlobVersion(
+                    instanceGuid,
+                    dataGuid,
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync((DataElementBlobVersion)null);
+
+        // Act
+        ActionResult result = await fixture.Sut.GetBlobVersion(
+            12345,
+            instanceGuid,
+            dataGuid,
+            BlobVersionId.Encode(Guid.CreateVersion7()),
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.IsType<NotFoundObjectResult>(result);
+        VerifyNoContentReadSideEffects(fixture.DataRepository, fixture.BlobRepository);
+        fixture.DataRepository.Verify(
+            d => d.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task GetBlobVersion_WhenDataTypeIsUnknown_ReturnsBadRequestBeforeReadingBlob(
+        bool recordedOnVersion
+    )
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        Guid dataGuid = Guid.NewGuid();
+        DataElementBlobVersion blobVersion = CreateBlobVersion(
+            instanceGuid,
+            dataGuid,
+            recordedOnVersion ? "unknown-data-type" : null
+        );
+        string blobVersionId = BlobVersionId.Encode(blobVersion.Id);
+        BlobVersionReadFixture fixture = CreateBlobVersionReadFixture(instanceGuid, blobVersion);
+        fixture
+            .DataRepository.Setup(d =>
+                d.Read(instanceGuid, dataGuid, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(
+                new DataElementInternal
+                {
+                    Id = dataGuid,
+                    InstanceGuid = instanceGuid,
+                    DataType = "unknown-data-type",
+                }
+            );
+
+        // Act
+        ActionResult result = await fixture.Sut.GetBlobVersion(
+            12345,
+            instanceGuid,
+            dataGuid,
+            blobVersionId,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.IsType<BadRequestObjectResult>(result);
+        VerifyNoContentReadSideEffects(fixture.DataRepository, fixture.BlobRepository);
+    }
+
+    [Theory]
+    [InlineData("other-org", true)]
+    [InlineData(null, true)]
+    [InlineData("ttd", false)]
+    public async Task GetBlobVersion_ForAnyoneButAuthorizedServiceOwner_ReturnsForbiddenBeforeReadingBlob(
+        string org,
+        bool authorized
+    )
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        BlobVersionReadFixture fixture = CreateBlobVersionReadFixture(instanceGuid);
+        fixture.HttpContext.User = org is null
+            ? PrincipalUtil.GetPrincipal(200001, 1337)
+            : CreateOrgPrincipal(org);
+        fixture
+            .Authorization.Setup(a =>
+                a.AuthorizeEnrichedInstanceAction(It.IsAny<InstanceInternal>(), "read")
+            )
+            .ReturnsAsync(authorized);
+
+        // Act
+        ActionResult result = await fixture.Sut.GetBlobVersion(
+            12345,
+            instanceGuid,
+            Guid.NewGuid(),
+            BlobVersionId.Encode(Guid.CreateVersion7()),
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.IsType<ForbidResult>(result);
+        fixture.DataRepository.Verify(
+            d =>
+                d.ReadBlobVersion(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+        VerifyNoContentReadSideEffects(fixture.DataRepository, fixture.BlobRepository);
     }
 
     [Fact]
@@ -2335,6 +2644,9 @@ public class DataControllerUnitTests
         );
     }
 
+    private static ClaimsPrincipal CreateOrgPrincipal(string org) =>
+        new(new ClaimsIdentity([new Claim(AltinnCoreClaimTypes.Org, org)], "test"));
+
     private static void VerifyNoContentReadSideEffects(
         Mock<IDataRepository> dataRepositoryMock,
         Mock<IBlobRepository> blobRepositoryMock
@@ -2802,6 +3114,102 @@ public class DataControllerUnitTests
 
         return (sut, dataRepositoryMock, blobRepositoryMock);
     }
+
+    private DataElementBlobVersion CreateBlobVersion(
+        Guid instanceGuid,
+        Guid dataElementId,
+        string dataType
+    ) =>
+        new()
+        {
+            Id = Guid.CreateVersion7(),
+            InstanceGuid = instanceGuid,
+            DataElementId = dataElementId,
+            AppId = _appId,
+            BlobStorageOrg = _org,
+            DataType = dataType,
+        };
+
+    private BlobVersionReadFixture CreateBlobVersionReadFixture(
+        Guid instanceGuid,
+        DataElementBlobVersion blobVersion = null
+    )
+    {
+        InstanceInternal instance = CreateInstanceInternal(instanceGuid, false);
+        Application application = new()
+        {
+            Id = _appId,
+            Org = _org,
+            DataTypes = [new DataType { Id = _dataType }],
+        };
+        Mock<IDataRepository> dataRepository = new();
+        Mock<IBlobRepository> blobRepository = new();
+        Mock<IInstanceRepository> instanceRepository = new();
+        Mock<IApplicationRepository> applicationRepository = new();
+        Mock<IAuthorization> authorization = new();
+
+        if (blobVersion is not null)
+        {
+            string blobVersionId = BlobVersionId.Encode(blobVersion.Id);
+            dataRepository
+                .Setup(repository =>
+                    repository.ReadBlobVersion(
+                        instanceGuid,
+                        blobVersion.DataElementId,
+                        blobVersionId,
+                        It.IsAny<CancellationToken>()
+                    )
+                )
+                .ReturnsAsync(blobVersion);
+        }
+
+        instanceRepository
+            .Setup(repository =>
+                repository.GetOne(instanceGuid, false, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(instance);
+        applicationRepository
+            .Setup(repository => repository.FindOne(_appId, _org, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+        authorization
+            .Setup(a => a.AuthorizeEnrichedInstanceAction(instance, "read"))
+            .ReturnsAsync(true);
+
+        DefaultHttpContext httpContext = new() { User = CreateOrgPrincipal(_org) };
+        DataController sut = new(
+            dataRepository.Object,
+            blobRepository.Object,
+            instanceRepository.Object,
+            Mock.Of<IInstanceMutationRepository>(),
+            applicationRepository.Object,
+            Mock.Of<IDataService>(),
+            Mock.Of<IInstanceEventService>(),
+            Options.Create(new GeneralSettings { Hostname = "https://altinn.no/" }),
+            null,
+            authorization.Object
+        )
+        {
+            ControllerContext = new ControllerContext { HttpContext = httpContext },
+        };
+
+        return new BlobVersionReadFixture(
+            sut,
+            httpContext,
+            application,
+            dataRepository,
+            blobRepository,
+            authorization
+        );
+    }
+
+    private sealed record BlobVersionReadFixture(
+        DataController Sut,
+        DefaultHttpContext HttpContext,
+        Application Application,
+        Mock<IDataRepository> DataRepository,
+        Mock<IBlobRepository> BlobRepository,
+        Mock<IAuthorization> Authorization
+    );
 
     private ImmediateDeleteFixture CreateImmediateDeleteFixture()
     {

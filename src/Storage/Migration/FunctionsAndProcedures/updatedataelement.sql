@@ -21,6 +21,7 @@ DECLARE
     _newInstanceVersion INT;
     _dataElementIsLocked BOOL;
     _dataElementCurrentBlobVersion UUID;
+    _dataElementDataType TEXT;
 BEGIN
     SELECT
         i.instance_version,
@@ -50,8 +51,9 @@ BEGIN
     END IF;
 
     SELECT COALESCE((d.element ->> 'Locked')::BOOLEAN, FALSE),
-        d.currentblobversion
-        INTO _dataElementIsLocked, _dataElementCurrentBlobVersion
+        d.currentblobversion,
+        d.element ->> 'DataType'
+        INTO _dataElementIsLocked, _dataElementCurrentBlobVersion, _dataElementDataType
         FROM storage.dataelements d
         WHERE d.alternateid = _dataelementGuid AND d.instanceguid = _instanceGuid
         FOR UPDATE;
@@ -98,7 +100,8 @@ BEGIN
                 AND detachedat IS NULL;
 
         UPDATE storage.dataelementblobversions
-            SET detachedat = NULL
+            SET detachedat = NULL,
+                datatype = _dataElementDataType
             WHERE id = _newcurrentblobversion
                 AND instanceguid = _instanceGuid
                 AND dataelementid = _dataelementGuid
