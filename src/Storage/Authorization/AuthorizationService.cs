@@ -264,31 +264,29 @@ public class AuthorizationService(
             // from the route values instead. org/app are included when the route provides them and
             // are null otherwise.
             RouteData routeData = _httpContextAccessor.HttpContext?.GetRouteData();
-            if (
-                !int.TryParse(
-                    routeData?.Values["instanceOwnerPartyId"] as string,
-                    out int instanceOwnerPartyId
-                )
-                || !Guid.TryParse(
-                    routeData?.Values["instanceGuid"] as string,
-                    out Guid instanceGuid
-                )
-            )
+            if (!Guid.TryParse(routeData?.Values["instanceGuid"] as string, out Guid instanceGuid))
             {
                 _logger.LogInformation(
-                    "// Authorization Helper // AuthorizeInstanceRequest denied: no instance and no instanceOwnerPartyId/instanceGuid route values."
+                    "// Authorization Helper // AuthorizeInstanceRequest denied: no instance and no instanceGuid route value."
                 );
                 return false;
             }
 
-            request = DecisionHelper.CreateDecisionRequest(
-                routeData?.Values["org"] as string,
-                routeData?.Values["app"] as string,
-                user,
-                action,
-                instanceOwnerPartyId,
-                instanceGuid
-            );
+            string org = routeData.Values["org"] as string;
+            string app = routeData.Values["app"] as string;
+            request = int.TryParse(
+                routeData.Values["instanceOwnerPartyId"] as string,
+                out int instanceOwnerPartyId
+            )
+                ? DecisionHelper.CreateDecisionRequest(
+                    org,
+                    app,
+                    user,
+                    action,
+                    instanceOwnerPartyId,
+                    instanceGuid
+                )
+                : DecisionHelper.CreateDecisionRequest(org, app, user, action);
             response = await _pdp.GetDecisionForRequest(request);
         }
 

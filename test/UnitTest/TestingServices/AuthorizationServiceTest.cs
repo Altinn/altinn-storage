@@ -656,9 +656,9 @@ public class AuthorizationServiceTest
     }
 
     [Fact]
-    public async Task AuthorizeInstanceRequest_NullInstance_MissingRouteValues_DeniesWithoutPdp()
+    public async Task AuthorizeInstanceRequest_NullInstance_MissingInstanceGuid_DeniesWithoutPdp()
     {
-        // Arrange - no instance and no route values to identify one: fail closed.
+        // Arrange - no instance and no instance guid in the route: fail closed.
         Mock<IPDP> pdp = new();
         _claimsPrincipalProviderMock
             .Setup(c => c.GetUser())
@@ -675,6 +675,38 @@ public class AuthorizationServiceTest
         // Assert
         Assert.False(result);
         pdp.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Never());
+    }
+
+    [Fact]
+    public async Task AuthorizeInstanceRequest_NullInstance_MissingPartyId_CallsPdpWithoutInstanceAttributes()
+    {
+        // Arrange - a guid-only route still asks the PDP, with no party or instance-id attribute.
+        Mock<IPDP> pdp = new();
+        XacmlJsonRequestRoot captured = null;
+        pdp.Setup(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .Callback<XacmlJsonRequestRoot>(request => captured = request)
+            .ReturnsAsync(CreatePdpResponse("Deny"));
+        _claimsPrincipalProviderMock
+            .Setup(c => c.GetUser())
+            .Returns(CreateUserWithScope("altinn:some.other.scope"));
+        AuthorizationService sut = CreateAuthorizationService(
+            pdp.Object,
+            _claimsPrincipalProviderMock.Object,
+            CreateHttpContextAccessor(instanceOwnerPartyId: null)
+        );
+
+        // Act
+        bool result = await sut.AuthorizeInstanceRequest(null, "read");
+
+        // Assert
+        Assert.False(result);
+        pdp.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Once());
+        Assert.DoesNotContain(
+            captured.Request.Resource.SelectMany(category => category.Attribute),
+            attribute =>
+                attribute.AttributeId == "urn:altinn:partyid"
+                || attribute.AttributeId == "urn:altinn:instance-id"
+        );
     }
 
     [Fact]
