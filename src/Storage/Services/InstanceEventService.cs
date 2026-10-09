@@ -60,8 +60,34 @@ public class InstanceEventService : IInstanceEventService
     public InstanceEvent BuildInstanceEvent(
         InstanceEventType eventType,
         InstanceInternal instance,
-        DataElementInternal dataElement
+        DataElementInternal dataElement,
+        PlatformUser? user = null,
+        string? additionalInfo = null
     )
+    {
+        InstanceEvent instanceEvent = new()
+        {
+            EventType = eventType.ToString(),
+            InstanceId = $"{instance.InstanceOwner.PartyId}/{instance.Id}",
+            DataId = dataElement.Id.ToString(),
+            InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
+            User = user ?? ResolveUserFromRequest(),
+            AdditionalInfo = additionalInfo,
+            ProcessInfo = instance.Process,
+            Created = DateTime.UtcNow,
+        };
+
+        return instanceEvent;
+    }
+
+    /// <summary>
+    /// Builds the actor for an event from the claims of the current request.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the request carries no claims identifying an actor. Callers acting outside a
+    /// user request must supply the actor explicitly.
+    /// </exception>
+    private PlatformUser ResolveUserFromRequest()
     {
         ClaimsPrincipal user = _contextAccessor.HttpContext!.User;
 
@@ -84,25 +110,14 @@ public class InstanceEventService : IInstanceEventService
             );
         }
 
-        InstanceEvent instanceEvent = new()
+        return new PlatformUser
         {
-            EventType = eventType.ToString(),
-            InstanceId = $"{instance.InstanceOwner.PartyId}/{instance.Id}",
-            DataId = dataElement.Id.ToString(),
-            InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
-            User = new PlatformUser
-            {
-                AuthenticationLevel = authenticationLevel,
-                UserId = userId,
-                OrgId = orgId,
-                SystemUserId = systemUserId,
-                SystemUserOwnerOrgNo = systemUserOwnerOrgNo,
-            },
-            ProcessInfo = instance.Process,
-            Created = DateTime.UtcNow,
+            AuthenticationLevel = authenticationLevel,
+            UserId = userId,
+            OrgId = orgId,
+            SystemUserId = systemUserId,
+            SystemUserOwnerOrgNo = systemUserOwnerOrgNo,
         };
-
-        return instanceEvent;
     }
 
     /// <inheritdoc/>
