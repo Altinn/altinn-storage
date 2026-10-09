@@ -268,24 +268,24 @@ public class InstancesController : ControllerBase
             return NotFound($"Unable to find instance {instanceGuid}");
         }
 
+        bool isSyncAdapter = _authorizationService.UserHasRequiredScope([
+            _generalSettings.InstanceSyncAdapterScope,
+        ]);
         if (
-            await _authorizationService.AuthorizeInstanceRequest(
+            !isSyncAdapter
+            && await _authorizationService.AuthorizeInstanceRequest(
                 instance,
-                AuthorizationActions.Read
+                AuthorizationActions.Read,
+                allowSyncAdapterBypass: false
             )
-            is false
+                is false
         )
         {
             return Forbid();
         }
 
         Instance mappedInstance = instance.ToApiModel();
-        if (
-            User.GetOrg() != instance.Org
-            && !_authorizationService.UserHasRequiredScope([
-                _generalSettings.InstanceSyncAdapterScope,
-            ])
-        )
+        if (User.GetOrg() != instance.Org && !isSyncAdapter)
         {
             FilterOutDeletedDataElements(mappedInstance);
         }
@@ -323,24 +323,24 @@ public class InstancesController : ControllerBase
             return NotFound($"Unable to find instance {instanceGuid}");
         }
 
+        bool isSyncAdapter = _authorizationService.UserHasRequiredScope([
+            _generalSettings.InstanceSyncAdapterScope,
+        ]);
         if (
-            await _authorizationService.AuthorizeInstanceRequest(
+            !isSyncAdapter
+            && await _authorizationService.AuthorizeInstanceRequest(
                 instance,
-                AuthorizationActions.Read
+                AuthorizationActions.Read,
+                allowSyncAdapterBypass: false
             )
-            is false
+                is false
         )
         {
             return Forbid();
         }
 
         Instance mappedInstance = instance.ToApiModel();
-        if (
-            User.GetOrg() != instance.Org
-            && !_authorizationService.UserHasRequiredScope([
-                _generalSettings.InstanceSyncAdapterScope,
-            ])
-        )
+        if (User.GetOrg() != instance.Org && !isSyncAdapter)
         {
             FilterOutDeletedDataElements(mappedInstance);
         }
@@ -1322,7 +1322,7 @@ public class InstancesController : ControllerBase
             queryParameters.Org,
             appId,
             HttpContext.User,
-            "read"
+            AuthorizationActions.Read
         );
         XacmlJsonResponse response;
         try

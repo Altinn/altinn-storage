@@ -1728,7 +1728,7 @@ public class MessageBoxInstancesControllerTests(
             null,
             null,
             Mock.Of<IAuthorization>(a =>
-                a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
+                a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), AuthorizationActions.Read)
                 == Task.FromResult(true)
             ),
             null,
@@ -1791,7 +1791,7 @@ public class MessageBoxInstancesControllerTests(
             null,
             null,
             Mock.Of<IAuthorization>(a =>
-                a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
+                a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), AuthorizationActions.Read)
                 == Task.FromResult(true)
             ),
             null,
@@ -1848,7 +1848,7 @@ public class MessageBoxInstancesControllerTests(
             null,
             null,
             Mock.Of<IAuthorization>(a =>
-                a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
+                a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), AuthorizationActions.Read)
                 == Task.FromResult(true)
             ),
             null,
@@ -1912,8 +1912,10 @@ public class MessageBoxInstancesControllerTests(
             Mock.Of<ITextRepository>(),
             Mock.Of<IApplicationRepository>(),
             Mock.Of<IAuthorization>(a =>
-                a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
-                == Task.FromResult(true)
+                a.AuthorizeInstanceRequest(
+                    It.IsAny<InstanceInternal>(),
+                    AuthorizationActions.Delete
+                ) == Task.FromResult(true)
             ),
             applicationService.Object,
             NullLogger<MessageBoxInstancesController>.Instance

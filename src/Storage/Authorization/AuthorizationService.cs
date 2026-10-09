@@ -444,8 +444,10 @@ public class AuthorizationService(
         return await _pdp.GetDecisionForRequest(xacmlJsonRequest);
     }
 
-    /// <inheritdoc />
-    public async Task<XacmlJsonResponse> GetDecisionForRequestWithCache(
+    /// <summary>
+    /// Gets the decision from the cache when present, otherwise asks the PDP and caches a non-null response.
+    /// </summary>
+    private async Task<XacmlJsonResponse> GetDecisionForRequestWithCache(
         XacmlJsonRequestRoot request
     )
     {

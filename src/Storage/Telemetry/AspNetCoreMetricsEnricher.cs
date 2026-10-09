@@ -241,16 +241,6 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
                 RequiredScope.Write,
         }.ToFrozenDictionary();
 
-    private static readonly FrozenSet<string> _manuallyExcludeActions = FrozenSet.Create<string>(
-        StringComparer.Ordinal,
-        "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstance (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.SearchMessageBoxInstances (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.Delete (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.GetMessageBoxInstanceEvents (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.MessageBoxInstancesController.Undelete (Altinn.Platform.Storage)",
-        "Altinn.Platform.Storage.Controllers.MetricsController.GetDailyInstanceStatistics (Altinn.Platform.Storage)"
-    );
-
     /// <summary>
     /// Not used
     /// </summary>
@@ -268,15 +258,6 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
 
         foreach (var action in context.Results.OfType<ControllerActionDescriptor>())
         {
-            var isManuallyExcluded = _manuallyExcludeActions.Contains(
-                action.DisplayName ?? string.Empty
-            );
-            if (isManuallyExcluded)
-            {
-                _actionsNotValidated.Add(action);
-                continue;
-            }
-
             if (
                 _manuallyIncludeActions.TryGetValue(
                     action.DisplayName ?? string.Empty,

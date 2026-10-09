@@ -7,7 +7,6 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Configuration;
-using Altinn.Common.PEP.Helpers;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Configuration;
@@ -803,46 +802,25 @@ public class AuthorizationServiceTest
     }
 
     [Fact]
-    public async Task GetDecisionForRequestWithCache_CacheMiss_CallsPdpOnceAndReusesResult()
+    public async Task AuthorizeInstanceRequest_NullPdpResponse_IsNotCached()
     {
-        // Arrange
-        Mock<IPDP> pdp = new();
-        pdp.Setup(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
-            .ReturnsAsync(CreatePdpResponse("Permit"));
-        AuthorizationService sut = CreateAuthorizationService(
-            pdp.Object,
-            _claimsPrincipalProviderMock.Object,
-            Mock.Of<IHttpContextAccessor>()
-        );
-        XacmlJsonRequestRoot request = CreateSampleRequest();
-
-        // Act - two calls with the same request
-        XacmlJsonResponse first = await sut.GetDecisionForRequestWithCache(request);
-        XacmlJsonResponse second = await sut.GetDecisionForRequestWithCache(request);
-
-        // Assert - the PDP is hit once and the cached response is reused
-        Assert.NotNull(first);
-        Assert.Same(first, second);
-        pdp.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Once());
-    }
-
-    [Fact]
-    public async Task GetDecisionForRequestWithCache_NullResponse_IsNotCached()
-    {
-        // Arrange - a null response must not poison the cache (regression guard).
+        // Arrange - a null response must not poison the cache.
         Mock<IPDP> pdp = new();
         pdp.Setup(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
             .ReturnsAsync((XacmlJsonResponse)null);
+        _claimsPrincipalProviderMock
+            .Setup(c => c.GetUser())
+            .Returns(CreateUserWithScope("altinn:some.other.scope"));
         AuthorizationService sut = CreateAuthorizationService(
             pdp.Object,
             _claimsPrincipalProviderMock.Object,
-            Mock.Of<IHttpContextAccessor>()
+            CreateHttpContextAccessor()
         );
-        XacmlJsonRequestRoot request = CreateSampleRequest();
+        InstanceInternal instance = CreateDomainInstance();
 
         // Act
-        await sut.GetDecisionForRequestWithCache(request);
-        await sut.GetDecisionForRequestWithCache(request);
+        await sut.AuthorizeInstanceRequest(instance, "read");
+        await sut.AuthorizeInstanceRequest(instance, "read");
 
         // Assert - not cached, so the PDP is hit on every call
         pdp.Verify(
@@ -907,18 +885,6 @@ public class AuthorizationServiceTest
         {
             Response = new List<XacmlJsonResult> { new() { Decision = decision } },
         };
-    }
-
-    private static XacmlJsonRequestRoot CreateSampleRequest()
-    {
-        return DecisionHelper.CreateDecisionRequest(
-            Org,
-            App,
-            CreateUserClaims(1),
-            "read",
-            1000,
-            Guid.NewGuid()
-        );
     }
 
     private sealed class TestRoutingFeature : IRoutingFeature
