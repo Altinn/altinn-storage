@@ -240,28 +240,22 @@ public class AuthorizationService(
 
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
 
-        XacmlJsonRequestRoot request;
+        // The subject and action come from the caller; the resource is set below from the instance
+        // when it exists, otherwise from the route values.
+        XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
+            null,
+            null,
+            user,
+            action
+        );
         XacmlJsonResponse response;
         if (instance is not null)
         {
-            // Derive the resource (org/app/party/instance) from the instance itself.
-            // EnrichXacmlJsonRequest replaces Request.Resource, but building it correctly
-            // here keeps the request valid independently of enrichment.
-            request = DecisionHelper.CreateDecisionRequest(
-                instance.Org,
-                instance.AppId.Split('/')[1],
-                user,
-                action,
-                int.Parse(instance.InstanceOwner.PartyId),
-                instance.Id
-            );
             EnrichXacmlJsonRequest(request, instance);
             response = await GetDecisionForRequestWithCache(request);
         }
         else
         {
-            // No instance to derive the resource from (e.g. it does not exist): build the request
-            // from the route values instead.
             RouteData routeData = _httpContextAccessor.HttpContext?.GetRouteData();
             string instanceGuid = routeData?.Values["instanceGuid"] as string;
             if (string.IsNullOrWhiteSpace(instanceGuid))
@@ -272,7 +266,6 @@ public class AuthorizationService(
                 return false;
             }
 
-            request = DecisionHelper.CreateDecisionRequest(null, null, user, action);
             SetRouteResource(request, routeData, instanceGuid);
             response = await _pdp.GetDecisionForRequest(request);
         }
