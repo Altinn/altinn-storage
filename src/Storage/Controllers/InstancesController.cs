@@ -257,41 +257,7 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        InstanceInternal instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            true,
-            cancellationToken
-        );
-
-        bool isSyncAdapter = _authorizationService.UserHasRequiredScope([
-            _generalSettings.InstanceSyncAdapterScope,
-        ]);
-        if (
-            !isSyncAdapter
-            && await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Read
-            )
-                is false
-        )
-        {
-            return Forbid();
-        }
-
-        if (instance is null)
-        {
-            return NotFound($"Unable to find instance {instanceGuid}");
-        }
-
-        Instance mappedInstance = instance.ToApiModel();
-        if (User.GetOrg() != instance.Org && !isSyncAdapter)
-        {
-            FilterOutDeletedDataElements(mappedInstance);
-        }
-
-        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
-        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
-        return Ok(mappedInstance);
+        return await GetInstanceResponseAsync(instanceGuid, cancellationToken);
     }
 
     /// <summary>
@@ -311,41 +277,7 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        InstanceInternal instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            true,
-            cancellationToken
-        );
-
-        bool isSyncAdapter = _authorizationService.UserHasRequiredScope([
-            _generalSettings.InstanceSyncAdapterScope,
-        ]);
-        if (
-            !isSyncAdapter
-            && await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Read
-            )
-                is false
-        )
-        {
-            return Forbid();
-        }
-
-        if (instance is null)
-        {
-            return NotFound($"Unable to find instance {instanceGuid}");
-        }
-
-        Instance mappedInstance = instance.ToApiModel();
-        if (User.GetOrg() != instance.Org && !isSyncAdapter)
-        {
-            FilterOutDeletedDataElements(mappedInstance);
-        }
-
-        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
-        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
-        return Ok(mappedInstance);
+        return await GetInstanceResponseAsync(instanceGuid, cancellationToken);
     }
 
     /// <summary>
@@ -1483,6 +1415,52 @@ public class InstancesController : ControllerBase
         queryParameters.Size ??= 100;
 
         return queryParameters;
+    }
+
+    /// <summary>
+    /// Shared implementation of the instance read endpoints: authorizes the read, then returns the
+    /// instance as seen by the caller.
+    /// </summary>
+    private async Task<ActionResult<Instance>> GetInstanceResponseAsync(
+        Guid instanceGuid,
+        CancellationToken cancellationToken
+    )
+    {
+        InstanceInternal instance = await _instanceRepository.GetOne(
+            instanceGuid,
+            true,
+            cancellationToken
+        );
+
+        bool isSyncAdapter = _authorizationService.UserHasRequiredScope([
+            _generalSettings.InstanceSyncAdapterScope,
+        ]);
+        if (
+            !isSyncAdapter
+            && await _authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Read
+            )
+                is false
+        )
+        {
+            return Forbid();
+        }
+
+        if (instance is null)
+        {
+            return NotFound($"Unable to find instance {instanceGuid}");
+        }
+
+        Instance mappedInstance = instance.ToApiModel();
+        if (User.GetOrg() != instance.Org && !isSyncAdapter)
+        {
+            FilterOutDeletedDataElements(mappedInstance);
+        }
+
+        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
+        return Ok(mappedInstance);
     }
 
     private static void FilterOutDeletedDataElements(Instance instance)

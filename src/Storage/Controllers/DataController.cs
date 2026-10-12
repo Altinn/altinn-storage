@@ -119,22 +119,17 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-
-        if (
-            await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Write
-            )
-            is false
-        )
+        (InstanceInternal instance, ActionResult instanceError, ActionResult forbidden) =
+            await GetAuthorizedInstanceAsync(
+                instanceGuid,
+                instanceOwnerPartyId,
+                false,
+                AuthorizationActions.Write,
+                cancellationToken
+            );
+        if (forbidden is not null)
         {
-            return Forbid();
+            return forbidden;
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -291,22 +286,17 @@ public class DataController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-
-        if (
-            await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Read
-            )
-            is false
-        )
+        (InstanceInternal instance, ActionResult instanceError, ActionResult forbidden) =
+            await GetAuthorizedInstanceAsync(
+                instanceGuid,
+                instanceOwnerPartyId,
+                false,
+                AuthorizationActions.Read,
+                cancellationToken
+            );
+        if (forbidden is not null)
         {
-            return Forbid();
+            return forbidden;
         }
 
         if (instanceOwnerPartyId == 0)
@@ -478,22 +468,17 @@ public class DataController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            true,
-            cancellationToken
-        );
-
-        if (
-            await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Read
-            )
-            is false
-        )
+        (InstanceInternal instance, ActionResult instanceError, ActionResult forbidden) =
+            await GetAuthorizedInstanceAsync(
+                instanceGuid,
+                instanceOwnerPartyId,
+                true,
+                AuthorizationActions.Read,
+                cancellationToken
+            );
+        if (forbidden is not null)
         {
-            return Forbid();
+            return forbidden;
         }
 
         if (instanceOwnerPartyId == 0)
@@ -554,22 +539,17 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-
-        if (
-            await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Write
-            )
-            is false
-        )
+        (InstanceInternal instance, ActionResult instanceError, ActionResult forbidden) =
+            await GetAuthorizedInstanceAsync(
+                instanceGuid,
+                instanceOwnerPartyId,
+                false,
+                AuthorizationActions.Write,
+                cancellationToken
+            );
+        if (forbidden is not null)
         {
-            return Forbid();
+            return forbidden;
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -731,22 +711,17 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-
-        if (
-            await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Write
-            )
-            is false
-        )
+        (InstanceInternal instance, ActionResult instanceError, ActionResult forbidden) =
+            await GetAuthorizedInstanceAsync(
+                instanceGuid,
+                instanceOwnerPartyId,
+                false,
+                AuthorizationActions.Write,
+                cancellationToken
+            );
+        if (forbidden is not null)
         {
-            return Forbid();
+            return forbidden;
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -1048,22 +1023,17 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-
-        if (
-            await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Write
-            )
-            is false
-        )
+        (InstanceInternal instance, ActionResult instanceError, ActionResult forbidden) =
+            await GetAuthorizedInstanceAsync(
+                instanceGuid,
+                instanceOwnerPartyId,
+                false,
+                AuthorizationActions.Write,
+                cancellationToken
+            );
+        if (forbidden is not null)
         {
-            return Forbid();
+            return forbidden;
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -1221,6 +1191,36 @@ public class DataController : ControllerBase
         return application is null
             ? (null, NotFound($"Cannot find application {appId} in storage"))
             : (application, null);
+    }
+
+    /// <summary>
+    /// Loads the instance and checks that the caller may perform <paramref name="action"/> on it.
+    /// </summary>
+    /// <returns>
+    /// The instance (null when it does not exist) together with the matching 404 result, and a 403
+    /// result when the caller is not authorized. Callers return the 403 immediately and the 404 once
+    /// the rest of the request has been validated.
+    /// </returns>
+    private async Task<(
+        InstanceInternal Instance,
+        ActionResult InstanceError,
+        ActionResult Forbidden
+    )> GetAuthorizedInstanceAsync(
+        Guid instanceGuid,
+        int instanceOwnerPartyId,
+        bool includeDataelements,
+        string action,
+        CancellationToken cancellationToken
+    )
+    {
+        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
+            instanceGuid,
+            instanceOwnerPartyId,
+            includeDataelements,
+            cancellationToken
+        );
+        bool authorized = await _authorizationService.AuthorizeInstanceRequest(instance, action);
+        return (instance, instanceError, authorized ? null : Forbid());
     }
 
     private async Task<(InstanceInternal Instance, ActionResult ErrorMessage)> GetInstanceAsync(
