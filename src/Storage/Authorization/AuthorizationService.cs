@@ -470,82 +470,36 @@ public class AuthorizationService(
     }
 
     /// <summary>
-    /// Replaces Resource attributes with data from instance. Add all relevant values so PDP have it all
+    /// Replaces the resource attributes with the instance's identity and process context so the PDP has it all.
     /// </summary>
-    /// <param name="jsonRequest">The JSON Request</param>
-    /// <param name="instance">The instance</param>
-    public static void EnrichXacmlJsonRequest(
+    private static void EnrichXacmlJsonRequest(
         XacmlJsonRequestRoot jsonRequest,
         InstanceInternal instance
     )
     {
-        XacmlJsonCategory resourceCategory = new() { Attribute = new List<XacmlJsonAttribute>() };
-
         var instanceProps = GetInstanceProperties(instance);
 
+        XacmlJsonCategory resource = new() { Attribute = [] };
         if (instanceProps.Task != null)
         {
-            resourceCategory.Attribute.Add(
-                DecisionHelper.CreateXacmlJsonAttribute(
-                    XacmlResourceTaskId,
-                    instanceProps.Task,
-                    DefaultType,
-                    DefaultIssuer
-                )
-            );
+            AddResourceAttribute(resource, XacmlResourceTaskId, instanceProps.Task);
         }
-        else if (instance.Process?.EndEvent != null)
+        else
         {
-            resourceCategory.Attribute.Add(
-                DecisionHelper.CreateXacmlJsonAttribute(
-                    XacmlResourceEndId,
-                    instance.Process.EndEvent,
-                    DefaultType,
-                    DefaultIssuer
-                )
-            );
+            AddResourceAttribute(resource, XacmlResourceEndId, instance.Process?.EndEvent);
         }
 
-        if (!string.IsNullOrWhiteSpace(instanceProps.InstanceId))
-        {
-            resourceCategory.Attribute.Add(
-                DecisionHelper.CreateXacmlJsonAttribute(
-                    AltinnXacmlUrns.InstanceId,
-                    instanceProps.InstanceId,
-                    DefaultType,
-                    DefaultIssuer,
-                    true
-                )
-            );
-        }
+        AddResourceAttribute(
+            resource,
+            AltinnXacmlUrns.InstanceId,
+            instanceProps.InstanceId,
+            includeResult: true
+        );
+        AddResourceAttribute(resource, AltinnXacmlUrns.PartyId, instanceProps.InstanceOwnerPartyId);
+        AddResourceAttribute(resource, AltinnXacmlUrns.OrgId, instanceProps.Org);
+        AddResourceAttribute(resource, AltinnXacmlUrns.AppId, instanceProps.App);
 
-        resourceCategory.Attribute.Add(
-            DecisionHelper.CreateXacmlJsonAttribute(
-                AltinnXacmlUrns.PartyId,
-                instanceProps.InstanceOwnerPartyId,
-                DefaultType,
-                DefaultIssuer
-            )
-        );
-        resourceCategory.Attribute.Add(
-            DecisionHelper.CreateXacmlJsonAttribute(
-                AltinnXacmlUrns.OrgId,
-                instanceProps.Org,
-                DefaultType,
-                DefaultIssuer
-            )
-        );
-        resourceCategory.Attribute.Add(
-            DecisionHelper.CreateXacmlJsonAttribute(
-                AltinnXacmlUrns.AppId,
-                instanceProps.App,
-                DefaultType,
-                DefaultIssuer
-            )
-        );
-
-        // Replaces the current Resource attributes
-        jsonRequest.Request.Resource = new List<XacmlJsonCategory> { resourceCategory };
+        jsonRequest.Request.Resource = [resource];
     }
 
     /// <summary>
@@ -571,52 +525,47 @@ public class AuthorizationService(
             app = appId.Split('/')[1];
         }
 
-        XacmlJsonCategory resourceCategory = new() { Attribute = [] };
+        XacmlJsonCategory resource = new() { Attribute = [] };
+        AddResourceAttribute(resource, AltinnXacmlUrns.PartyId, instanceOwnerPartyId);
         if (!string.IsNullOrWhiteSpace(instanceOwnerPartyId))
         {
-            resourceCategory.Attribute.Add(
-                DecisionHelper.CreateXacmlJsonAttribute(
-                    AltinnXacmlUrns.PartyId,
-                    instanceOwnerPartyId,
-                    DefaultType,
-                    DefaultIssuer
-                )
-            );
-            resourceCategory.Attribute.Add(
-                DecisionHelper.CreateXacmlJsonAttribute(
-                    AltinnXacmlUrns.InstanceId,
-                    $"{instanceOwnerPartyId}/{instanceGuid}",
-                    DefaultType,
-                    DefaultIssuer
-                )
+            AddResourceAttribute(
+                resource,
+                AltinnXacmlUrns.InstanceId,
+                $"{instanceOwnerPartyId}/{instanceGuid}"
             );
         }
 
-        if (!string.IsNullOrWhiteSpace(org))
+        AddResourceAttribute(resource, AltinnXacmlUrns.OrgId, org);
+        AddResourceAttribute(resource, AltinnXacmlUrns.AppId, app);
+
+        request.Request.Resource = [resource];
+    }
+
+    /// <summary>
+    /// Adds a resource attribute unless the value is empty.
+    /// </summary>
+    private static void AddResourceAttribute(
+        XacmlJsonCategory resource,
+        string attributeId,
+        string value,
+        bool includeResult = false
+    )
+    {
+        if (string.IsNullOrWhiteSpace(value))
         {
-            resourceCategory.Attribute.Add(
-                DecisionHelper.CreateXacmlJsonAttribute(
-                    AltinnXacmlUrns.OrgId,
-                    org,
-                    DefaultType,
-                    DefaultIssuer
-                )
-            );
+            return;
         }
 
-        if (!string.IsNullOrWhiteSpace(app))
-        {
-            resourceCategory.Attribute.Add(
-                DecisionHelper.CreateXacmlJsonAttribute(
-                    AltinnXacmlUrns.AppId,
-                    app,
-                    DefaultType,
-                    DefaultIssuer
-                )
-            );
-        }
-
-        request.Request.Resource = [resourceCategory];
+        resource.Attribute.Add(
+            DecisionHelper.CreateXacmlJsonAttribute(
+                attributeId,
+                value,
+                DefaultType,
+                DefaultIssuer,
+                includeResult
+            )
+        );
     }
 
     private string GetContextScope()
