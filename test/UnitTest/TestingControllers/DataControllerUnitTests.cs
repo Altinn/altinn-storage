@@ -791,6 +791,38 @@ public class DataControllerUnitTests
         );
     }
 
+    [Fact]
+    public async Task GetBlobVersion_WhenBlobIsMissing_ReturnsNotFound()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        Guid dataGuid = Guid.NewGuid();
+        DataElementBlobVersion blobVersion = CreateBlobVersion(instanceGuid, dataGuid, _dataType);
+        BlobVersionReadFixture fixture = CreateBlobVersionReadFixture(instanceGuid, blobVersion);
+        fixture
+            .BlobRepository.Setup(b =>
+                b.ReadBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync((Stream)null);
+
+        // Act
+        ActionResult result = await fixture.Sut.GetBlobVersion(
+            12345,
+            instanceGuid,
+            dataGuid,
+            BlobVersionId.Encode(blobVersion.Id),
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.IsType<NotFoundObjectResult>(result);
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]

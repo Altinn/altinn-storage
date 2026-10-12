@@ -1917,6 +1917,18 @@ public class DataTests(DataElementFixture dataElementFixture)
     }
 
     [Fact]
+    public async Task ReadBlobVersion_WithMalformedVersionId_ReturnsNull()
+    {
+        DataElementBlobVersion version = await dataElementFixture.DataRepo.ReadBlobVersion(
+            _instanceGuid,
+            Guid.NewGuid(),
+            "not-a-blob-version-id"
+        );
+
+        Assert.Null(version);
+    }
+
+    [Fact]
     public async Task DataElement_Update_NewBlobVersion_DetachesTheSupersededVersion()
     {
         // Arrange
@@ -1970,6 +1982,23 @@ public class DataTests(DataElementFixture dataElementFixture)
     {
         // Arrange
         Guid instanceGuid = _instance.Id;
+        await PostgresUtil.FreezeTime(_frozenTime.AddDays(-9));
+        DataElement expiredDeletion = TestDataUtil.GetDataElement(_dataElement1);
+        expiredDeletion.Id = Guid.NewGuid().ToString();
+        expiredDeletion.InstanceGuid = instanceGuid.ToString();
+        (expiredDeletion, string expiredDeletedBlobVersion) = await CreateVersionedDataElement(
+            expiredDeletion
+        );
+        await dataElementFixture.InstanceMutationRepo.Apply(
+            instanceGuid,
+            _instanceInternalId,
+            CreateDeleteMutation(
+                expiredDeletion,
+                await ReadInstanceVersion(instanceGuid),
+                Guid.NewGuid()
+            )
+        );
+
         await PostgresUtil.FreezeTime(_frozenTime.AddDays(-8));
         DataElement dataElement = TestDataUtil.GetDataElement(_dataElement1);
         dataElement.Id = Guid.NewGuid().ToString();
@@ -1977,6 +2006,10 @@ public class DataTests(DataElementFixture dataElementFixture)
         (DataElement createdDataElement, string supersededBlobVersion) =
             await CreateVersionedDataElement(dataElement);
         string abandonedBlobVersion = await CreateBlobVersionId(instanceGuid);
+        DataElement recentDeletion = TestDataUtil.GetDataElement(_dataElement1);
+        recentDeletion.Id = Guid.NewGuid().ToString();
+        recentDeletion.InstanceGuid = instanceGuid.ToString();
+        (recentDeletion, _) = await CreateVersionedDataElement(recentDeletion);
 
         await PostgresUtil.FreezeTime(_frozenTime);
         string replacementBlobVersion = await CreateBlobVersionId(
@@ -1989,6 +2022,15 @@ public class DataTests(DataElementFixture dataElementFixture)
             new Dictionary<string, object> { ["/currentBlobVersion"] = replacementBlobVersion },
             new DataElementUpdateContext { ExpectedCurrentBlobVersion = supersededBlobVersion }
         );
+        await dataElementFixture.InstanceMutationRepo.Apply(
+            instanceGuid,
+            _instanceInternalId,
+            CreateDeleteMutation(
+                recentDeletion,
+                await ReadInstanceVersion(instanceGuid),
+                Guid.NewGuid()
+            )
+        );
 
         // Act
         List<BlobVersionReferencesInternal> orphanBlobVersions =
@@ -1998,7 +2040,7 @@ public class DataTests(DataElementFixture dataElementFixture)
 
         // Assert
         BlobVersionReferencesInternal orphanGroup = Assert.Single(orphanBlobVersions);
-        Assert.Equal([abandonedBlobVersion], orphanGroup.BlobVersionIds);
+        Assert.Equal([expiredDeletedBlobVersion, abandonedBlobVersion], orphanGroup.BlobVersionIds);
     }
 
     [Fact]

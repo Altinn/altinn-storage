@@ -1780,6 +1780,16 @@ public class InstanceMutationsControllerUnitTests
                 service.DeleteLegacyDataElementBlob(It.IsAny<InstanceInternal>(), dataElement, 7),
             deleteDataElement ? Times.Once() : Times.Never()
         );
+        fixture.DataService.Verify(
+            service =>
+                service.CleanupDeletedDataElementBlobs(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<DataElementInternal>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
     }
 
 #pragma warning disable xUnit1026 // operationName provides a stable display label for each theory row.
