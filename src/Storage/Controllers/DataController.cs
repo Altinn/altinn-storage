@@ -119,24 +119,21 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (InstanceInternal instance, ActionResult instanceError, ActionResult forbidden) =
-            await GetAuthorizedInstanceAsync(
-                instanceGuid,
-                instanceOwnerPartyId,
-                false,
-                AuthorizationActions.Write,
-                cancellationToken
-            );
-        if (forbidden is not null)
+        (
+            InstanceInternal instance,
+            VersionPreconditions preconditions,
+            ActionResult instanceError,
+            ActionResult error
+        ) = await GetAuthorizedInstanceForWriteAsync(
+            instanceGuid,
+            instanceOwnerPartyId,
+            ifInstanceVersionMatch,
+            ifProcessStateVersionMatch,
+            cancellationToken
+        );
+        if (error is not null)
         {
-            return forbidden;
-        }
-
-        (VersionPreconditions preconditions, ActionResult preconditionError) =
-            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
-        if (preconditionError is not null)
-        {
-            return preconditionError;
+            return error;
         }
 
         if (instance == null)
@@ -539,24 +536,21 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (InstanceInternal instance, ActionResult instanceError, ActionResult forbidden) =
-            await GetAuthorizedInstanceAsync(
-                instanceGuid,
-                instanceOwnerPartyId,
-                false,
-                AuthorizationActions.Write,
-                cancellationToken
-            );
-        if (forbidden is not null)
+        (
+            InstanceInternal instance,
+            VersionPreconditions preconditions,
+            ActionResult instanceError,
+            ActionResult error
+        ) = await GetAuthorizedInstanceForWriteAsync(
+            instanceGuid,
+            instanceOwnerPartyId,
+            ifInstanceVersionMatch,
+            ifProcessStateVersionMatch,
+            cancellationToken
+        );
+        if (error is not null)
         {
-            return forbidden;
-        }
-
-        (VersionPreconditions preconditions, ActionResult preconditionError) =
-            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
-        if (preconditionError is not null)
-        {
-            return preconditionError;
+            return error;
         }
 
         if (instanceOwnerPartyId == 0 || string.IsNullOrEmpty(dataType) || Request.Body == null)
@@ -711,24 +705,21 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (InstanceInternal instance, ActionResult instanceError, ActionResult forbidden) =
-            await GetAuthorizedInstanceAsync(
-                instanceGuid,
-                instanceOwnerPartyId,
-                false,
-                AuthorizationActions.Write,
-                cancellationToken
-            );
-        if (forbidden is not null)
+        (
+            InstanceInternal instance,
+            VersionPreconditions preconditions,
+            ActionResult instanceError,
+            ActionResult error
+        ) = await GetAuthorizedInstanceForWriteAsync(
+            instanceGuid,
+            instanceOwnerPartyId,
+            ifInstanceVersionMatch,
+            ifProcessStateVersionMatch,
+            cancellationToken
+        );
+        if (error is not null)
         {
-            return forbidden;
-        }
-
-        (VersionPreconditions preconditions, ActionResult preconditionError) =
-            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
-        if (preconditionError is not null)
-        {
-            return preconditionError;
+            return error;
         }
 
         if (instanceOwnerPartyId == 0 || Request.Body == null)
@@ -1023,24 +1014,21 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (InstanceInternal instance, ActionResult instanceError, ActionResult forbidden) =
-            await GetAuthorizedInstanceAsync(
-                instanceGuid,
-                instanceOwnerPartyId,
-                false,
-                AuthorizationActions.Write,
-                cancellationToken
-            );
-        if (forbidden is not null)
+        (
+            InstanceInternal instance,
+            VersionPreconditions preconditions,
+            ActionResult instanceError,
+            ActionResult error
+        ) = await GetAuthorizedInstanceForWriteAsync(
+            instanceGuid,
+            instanceOwnerPartyId,
+            ifInstanceVersionMatch,
+            ifProcessStateVersionMatch,
+            cancellationToken
+        );
+        if (error is not null)
         {
-            return forbidden;
-        }
-
-        (VersionPreconditions preconditions, ActionResult preconditionError) =
-            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
-        if (preconditionError is not null)
-        {
-            return preconditionError;
+            return error;
         }
 
         if (
@@ -1221,6 +1209,45 @@ public class DataController : ControllerBase
         );
         bool authorized = await _authorizationService.AuthorizeInstanceRequest(instance, action);
         return (instance, instanceError, authorized ? null : Forbid());
+    }
+
+    /// <summary>
+    /// Loads the instance, checks that the caller may write to it and parses the version preconditions.
+    /// </summary>
+    /// <returns>
+    /// The instance (null when it does not exist) with the matching 404 result, the parsed
+    /// preconditions, and a 403 or 400 result in <c>Error</c> to return immediately. Callers return
+    /// the 404 once the rest of the request has been validated.
+    /// </returns>
+    private async Task<(
+        InstanceInternal Instance,
+        VersionPreconditions Preconditions,
+        ActionResult InstanceError,
+        ActionResult Error
+    )> GetAuthorizedInstanceForWriteAsync(
+        Guid instanceGuid,
+        int instanceOwnerPartyId,
+        string ifInstanceVersionMatch,
+        string ifProcessStateVersionMatch,
+        CancellationToken cancellationToken
+    )
+    {
+        (InstanceInternal instance, ActionResult instanceError, ActionResult forbidden) =
+            await GetAuthorizedInstanceAsync(
+                instanceGuid,
+                instanceOwnerPartyId,
+                false,
+                AuthorizationActions.Write,
+                cancellationToken
+            );
+        if (forbidden is not null)
+        {
+            return (instance, null, instanceError, forbidden);
+        }
+
+        (VersionPreconditions preconditions, ActionResult preconditionError) =
+            VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
+        return (instance, preconditions, instanceError, preconditionError);
     }
 
     private async Task<(InstanceInternal Instance, ActionResult ErrorMessage)> GetInstanceAsync(
