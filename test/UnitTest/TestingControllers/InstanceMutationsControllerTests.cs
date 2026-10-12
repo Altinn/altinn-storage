@@ -410,7 +410,7 @@ public class InstanceMutationsControllerTests(
     }
 
     [Fact]
-    public async Task CommitMutation_ServiceOwnerReleasesEndedProcess_StoresIdleStatus()
+    public async Task CommitMutation_AppReleasesEndedProcess_StoresIdleStatus()
     {
         // Arrange
         DateTime storedEnded = new(2026, 7, 10, 8, 30, 0, DateTimeKind.Utc);

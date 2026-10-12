@@ -3386,7 +3386,7 @@ public class InstanceMutationsControllerUnitTests
     }
 
     [Fact]
-    public async Task CommitMutation_ServiceOwnerReleasesEndedProcessWithHardDelete_AppliesTerminalMutation()
+    public async Task CommitMutation_AppReleasesEndedProcessWithHardDelete_AppliesTerminalMutation()
     {
         const int instanceVersion = 12;
         const int processStateVersion = 8;
