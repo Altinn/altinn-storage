@@ -261,10 +261,10 @@ public class AuthorizationService(
         else
         {
             // No instance to derive the resource from (e.g. it does not exist): build the request
-            // from the route values instead. org/app are included when the route provides them and
-            // are null otherwise.
+            // from the route values instead.
             RouteData routeData = _httpContextAccessor.HttpContext?.GetRouteData();
-            if (!Guid.TryParse(routeData?.Values["instanceGuid"] as string, out Guid instanceGuid))
+            string instanceGuid = routeData?.Values["instanceGuid"] as string;
+            if (string.IsNullOrWhiteSpace(instanceGuid))
             {
                 _logger.LogInformation(
                     "// Authorization Helper // AuthorizeInstanceRequest denied: no instance and no instanceGuid route value."
@@ -272,21 +272,8 @@ public class AuthorizationService(
                 return false;
             }
 
-            string org = routeData.Values["org"] as string;
-            string app = routeData.Values["app"] as string;
-            request = int.TryParse(
-                routeData.Values["instanceOwnerPartyId"] as string,
-                out int instanceOwnerPartyId
-            )
-                ? DecisionHelper.CreateDecisionRequest(
-                    org,
-                    app,
-                    user,
-                    action,
-                    instanceOwnerPartyId,
-                    instanceGuid
-                )
-                : DecisionHelper.CreateDecisionRequest(org, app, user, action);
+            request = DecisionHelper.CreateDecisionRequest(null, null, user, action);
+            SetRouteResource(request, routeData, instanceGuid);
             response = await _pdp.GetDecisionForRequest(request);
         }
 
@@ -566,6 +553,77 @@ public class AuthorizationService(
 
         // Replaces the current Resource attributes
         jsonRequest.Request.Resource = new List<XacmlJsonCategory> { resourceCategory };
+    }
+
+    /// <summary>
+    /// Replaces the resource attributes with the ones the route identifies: the instance owner and
+    /// instance id when the route has an owner, and org/app when the route has them.
+    /// </summary>
+    private static void SetRouteResource(
+        XacmlJsonRequestRoot request,
+        RouteData routeData,
+        string instanceGuid
+    )
+    {
+        string instanceOwnerPartyId = routeData.Values["instanceOwnerPartyId"] as string;
+        string org = routeData.Values["org"] as string;
+        string app = routeData.Values["app"] as string;
+        if (
+            string.IsNullOrWhiteSpace(org)
+            && string.IsNullOrWhiteSpace(app)
+            && routeData.Values["appId"] is string appId
+        )
+        {
+            org = appId.Split('/')[0];
+            app = appId.Split('/')[1];
+        }
+
+        XacmlJsonCategory resourceCategory = new() { Attribute = [] };
+        if (!string.IsNullOrWhiteSpace(instanceOwnerPartyId))
+        {
+            resourceCategory.Attribute.Add(
+                DecisionHelper.CreateXacmlJsonAttribute(
+                    AltinnXacmlUrns.PartyId,
+                    instanceOwnerPartyId,
+                    DefaultType,
+                    DefaultIssuer
+                )
+            );
+            resourceCategory.Attribute.Add(
+                DecisionHelper.CreateXacmlJsonAttribute(
+                    AltinnXacmlUrns.InstanceId,
+                    $"{instanceOwnerPartyId}/{instanceGuid}",
+                    DefaultType,
+                    DefaultIssuer
+                )
+            );
+        }
+
+        if (!string.IsNullOrWhiteSpace(org))
+        {
+            resourceCategory.Attribute.Add(
+                DecisionHelper.CreateXacmlJsonAttribute(
+                    AltinnXacmlUrns.OrgId,
+                    org,
+                    DefaultType,
+                    DefaultIssuer
+                )
+            );
+        }
+
+        if (!string.IsNullOrWhiteSpace(app))
+        {
+            resourceCategory.Attribute.Add(
+                DecisionHelper.CreateXacmlJsonAttribute(
+                    AltinnXacmlUrns.AppId,
+                    app,
+                    DefaultType,
+                    DefaultIssuer
+                )
+            );
+        }
+
+        request.Request.Resource = [resourceCategory];
     }
 
     private string GetContextScope()

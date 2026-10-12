@@ -781,20 +781,23 @@ public class AuthorizationServiceTest
     }
 
     [Fact]
-    public async Task AuthorizeInstanceRequest_NullInstance_CallsPdpDirectly()
+    public async Task AuthorizeInstanceRequest_NullInstance_CallsPdpWithRouteResource()
     {
         // Arrange - endpoints such as InstanceEvents pass a null instance, which
-        // skips enrichment/caching and goes straight to the PDP.
+        // skips enrichment/caching and sends the route-identified resource to the PDP.
         Mock<IPDP> pdp = new();
+        XacmlJsonRequestRoot captured = null;
         pdp.Setup(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .Callback<XacmlJsonRequestRoot>(request => captured = request)
             .ReturnsAsync(CreatePdpResponse("Permit"));
         _claimsPrincipalProviderMock
             .Setup(c => c.GetUser())
             .Returns(CreateUserWithScope("altinn:some.other.scope"));
+        string instanceGuid = Guid.NewGuid().ToString();
         AuthorizationService sut = CreateAuthorizationService(
             pdp.Object,
             _claimsPrincipalProviderMock.Object,
-            CreateHttpContextAccessor()
+            CreateHttpContextAccessor("1000", instanceGuid)
         );
 
         // Act
@@ -803,6 +806,11 @@ public class AuthorizationServiceTest
         // Assert
         Assert.True(result);
         pdp.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Once());
+        XacmlJsonCategory resource = Assert.Single(captured.Request.Resource);
+        Assert.Equal(
+            [("urn:altinn:partyid", "1000"), ("urn:altinn:instance-id", $"1000/{instanceGuid}")],
+            resource.Attribute.Select(attribute => (attribute.AttributeId, attribute.Value))
+        );
     }
 
     [Fact]
