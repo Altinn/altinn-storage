@@ -251,7 +251,7 @@ public class AuthorizationService(
         XacmlJsonResponse response;
         if (instance is not null)
         {
-            EnrichXacmlJsonRequest(request, instance);
+            SetResourceFromInstance(request, instance);
             response = await GetDecisionForRequestWithCache(request);
         }
         else
@@ -266,7 +266,7 @@ public class AuthorizationService(
                 return false;
             }
 
-            SetRouteResource(request, routeData, instanceGuid);
+            SetResourceFromRoute(request, routeData, instanceGuid);
             response = await _pdp.GetDecisionForRequest(request);
         }
 
@@ -472,7 +472,7 @@ public class AuthorizationService(
     /// <summary>
     /// Replaces the resource attributes with the instance's identity and process context so the PDP has it all.
     /// </summary>
-    private static void EnrichXacmlJsonRequest(
+    private static void SetResourceFromInstance(
         XacmlJsonRequestRoot jsonRequest,
         InstanceInternal instance
     )
@@ -506,7 +506,7 @@ public class AuthorizationService(
     /// Replaces the resource attributes with the ones the route identifies: the instance owner and
     /// instance id when the route has an owner, and org/app when the route has them.
     /// </summary>
-    private static void SetRouteResource(
+    private static void SetResourceFromRoute(
         XacmlJsonRequestRoot request,
         RouteData routeData,
         string instanceGuid
