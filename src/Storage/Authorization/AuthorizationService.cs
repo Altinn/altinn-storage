@@ -473,7 +473,7 @@ public class AuthorizationService(
     /// Replaces the resource attributes with the instance's identity and process context so the PDP has it all.
     /// </summary>
     private static void SetResourceFromInstance(
-        XacmlJsonRequestRoot jsonRequest,
+        XacmlJsonRequestRoot request,
         InstanceInternal instance
     )
     {
@@ -499,7 +499,7 @@ public class AuthorizationService(
         AddResourceAttribute(resource, AltinnXacmlUrns.OrgId, instanceProps.Org);
         AddResourceAttribute(resource, AltinnXacmlUrns.AppId, instanceProps.App);
 
-        jsonRequest.Request.Resource = [resource];
+        request.Request.Resource = [resource];
     }
 
     /// <summary>
