@@ -14,7 +14,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices;
 
 public class ProcessAuthorizerTests
 {
-    private const string ServiceOwner = "ttd";
+    private const string AppOrg = "ttd";
 
     private readonly Mock<IAuthorization> _authorizationMock = new();
     private readonly Mock<IClaimsPrincipalProvider> _claimsPrincipalProviderMock = new();
@@ -38,7 +38,7 @@ public class ProcessAuthorizerTests
         new()
         {
             Id = Guid.NewGuid(),
-            Org = ServiceOwner,
+            Org = AppOrg,
             Process = new ProcessState
             {
                 CurrentTask = new ProcessElementInfo
@@ -195,66 +195,63 @@ public class ProcessAuthorizerTests
 
     #endregion
 
-    #region Service owner
+    #region App
 
     [Theory]
     [InlineData("data")]
     [InlineData("confirmation")]
     [InlineData("customServiceTask")]
-    public async Task AuthorizeProcessNext_ServiceOwner_ReturnsTrueWithoutAskingThePdp(
-        string taskType
-    )
+    public async Task AuthorizeProcessNext_App_ReturnsTrueWithoutAskingThePdp(string taskType)
     {
         var instance = CreateInstance(altinnTaskType: taskType);
-        SetupCallerOrg(ServiceOwner);
+        SetupCallerOrg(AppOrg);
 
         Assert.True(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
         VerifyPdpNeverAsked();
     }
 
     [Fact]
-    public async Task AuthorizeProcessNext_ServiceOwnerAbandonFlow_ReturnsTrueWithoutAskingThePdp()
+    public async Task AuthorizeProcessNext_AppAbandonFlow_ReturnsTrueWithoutAskingThePdp()
     {
         var instance = CreateInstance(altinnTaskType: "data");
         var nextState = new ProcessState
         {
             CurrentTask = new ProcessElementInfo { FlowType = "AbandonCurrentMoveToNext" },
         };
-        SetupCallerOrg(ServiceOwner);
+        SetupCallerOrg(AppOrg);
 
         Assert.True(await CreateSut().AuthorizeProcessNext(instance, nextState));
         VerifyPdpNeverAsked();
     }
 
     [Fact]
-    public async Task AuthorizeProcessNext_ServiceOwnerNoCurrentTask_ReturnsFalse()
+    public async Task AuthorizeProcessNext_AppNoCurrentTask_ReturnsTrueWithoutAskingThePdp()
     {
         var instance = new InstanceInternal
         {
-            Org = ServiceOwner,
+            Org = AppOrg,
             Process = new ProcessState { CurrentTask = null },
         };
-        SetupCallerOrg(ServiceOwner);
+        SetupCallerOrg(AppOrg);
 
-        Assert.False(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
+        Assert.True(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
+        VerifyPdpNeverAsked();
     }
 
     [Theory]
     [InlineData("confirmation")]
     [InlineData("customServiceTask")]
     [InlineData(null)]
-    public async Task AuthorizeLockAndUpdate_ServiceOwner_ReturnsTrueWithoutAskingThePdp(
-        string? taskType
-    )
+    public async Task AuthorizeLockAndUpdate_App_ReturnsTrueWithoutAskingThePdp(string? taskType)
     {
         var instance = taskType is null
             ? new InstanceInternal
             {
-                Org = ServiceOwner,
+                Org = AppOrg,
                 Process = new ProcessState { CurrentTask = null },
             }
             : CreateInstance(altinnTaskType: taskType);
-        SetupCallerOrg(ServiceOwner);
+        SetupCallerOrg(AppOrg);
         var sut = CreateSut();
 
         Assert.True(await sut.AuthorizeInstanceLock(instance));
