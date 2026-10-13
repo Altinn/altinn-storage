@@ -436,7 +436,9 @@ public class AuthorizationService(
                 .SetPriority(CacheItemPriority.High)
                 .SetAbsoluteExpiration(new TimeSpan(0, _pepSettings.PdpDecisionCachingTimeout, 0));
             if (response?.Response is not null)
+            {
                 _memoryCache.Set(cacheKey, response, cacheEntryOptions);
+            }
         }
 
         return response;
