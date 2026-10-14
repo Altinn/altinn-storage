@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
@@ -21,6 +22,7 @@ namespace Altinn.Platform.Storage.Controllers;
 [ApiController]
 public class InstanceEventsController : ControllerBase
 {
+    private readonly IAuthorization _authorizationService;
     private readonly IInstanceRepository _instanceRepository;
     private readonly IInstanceEventRepository _repository;
     private readonly WolverineSettings _wolverineSettings;
@@ -28,15 +30,18 @@ public class InstanceEventsController : ControllerBase
     /// <summary>
     /// Initializes a new instance of the <see cref="InstanceEventsController"/> class
     /// </summary>
+    /// <param name="authorizationService">the authorization service</param>
     /// <param name="instanceRepository">the instance repository handler</param>
     /// <param name="instanceEventRepository">the instance event repository handler</param>
     /// <param name="wolverineSettings">Wolverine settings</param>
     public InstanceEventsController(
+        IAuthorization authorizationService,
         IInstanceRepository instanceRepository,
         IInstanceEventRepository instanceEventRepository,
         IOptions<WolverineSettings> wolverineSettings
     )
     {
+        _authorizationService = authorizationService;
         _instanceRepository = instanceRepository;
         _repository = instanceEventRepository;
         _wolverineSettings = wolverineSettings.Value;
@@ -49,7 +54,7 @@ public class InstanceEventsController : ControllerBase
     /// <param name="instanceGuid">The id of the instance that the event is associated with.</param>
     /// <param name="instanceEvent">The instance event object to be inserted</param>
     /// <returns>The stored instance event.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
+    [Authorize]
     [HttpPost]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status201Created)]
@@ -61,6 +66,22 @@ public class InstanceEventsController : ControllerBase
         [FromBody] InstanceEvent instanceEvent
     )
     {
+        InstanceInternal? instance = await _instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            CancellationToken.None
+        );
+
+        if (
+            !await _authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Read
+            )
+        )
+        {
+            return Forbid();
+        }
+
         if (instanceEvent?.InstanceId == null)
         {
             return BadRequest(
@@ -70,17 +91,10 @@ public class InstanceEventsController : ControllerBase
 
         instanceEvent.Created = instanceEvent.Created?.ToUniversalTime() ?? DateTime.UtcNow;
 
-        InstanceInternal? instance = null;
-        if (_wolverineSettings.EnableSending)
-        {
-            instance = await _instanceRepository.GetOne(
-                instanceGuid,
-                false,
-                CancellationToken.None
-            );
-        }
-
-        InstanceEvent result = await _repository.InsertInstanceEvent(instanceEvent, instance);
+        InstanceEvent result = await _repository.InsertInstanceEvent(
+            instanceEvent,
+            _wolverineSettings.EnableSending ? instance : null
+        );
         if (result == null)
         {
             return BadRequest("Unable to write new instance event to database");
@@ -96,7 +110,7 @@ public class InstanceEventsController : ControllerBase
     /// <param name="instanceGuid">The id of the instance that the event is associated with.</param>
     /// <param name="eventGuid">The unique id of the specific event to retrieve.</param>
     /// <returns>Information about the specified event.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
+    [Authorize]
     [HttpGet("{eventGuid:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -107,6 +121,21 @@ public class InstanceEventsController : ControllerBase
         Guid eventGuid
     )
     {
+        InstanceInternal? instance = await _instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            CancellationToken.None
+        );
+        if (
+            !await _authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Read
+            )
+        )
+        {
+            return Forbid();
+        }
+
         InstanceEvent theEvent = await _repository.GetOneEvent(instanceGuid, eventGuid);
         if (theEvent != null)
         {
@@ -133,7 +162,7 @@ public class InstanceEventsController : ControllerBase
     /// GET  storage/api/v1/instances/{instanceId}/events?from=2019-05-03T11:55:23&to=2019-05-03T12:55:23
     /// GET  storage/api/v1/instances/{instanceId}/events?from=2019-05-03T11:55:23&to=2019-05-03T12:55:23&eventTypes=deleted,submited
     /// -->
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
+    [Authorize]
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -146,6 +175,21 @@ public class InstanceEventsController : ControllerBase
         [FromQuery] string? to
     )
     {
+        InstanceInternal? instance = await _instanceRepository.GetOne(
+            instanceGuid,
+            false,
+            CancellationToken.None
+        );
+        if (
+            !await _authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Read
+            )
+        )
+        {
+            return Forbid();
+        }
+
         DateTime? fromDateTime = null,
             toDateTime = null;
 

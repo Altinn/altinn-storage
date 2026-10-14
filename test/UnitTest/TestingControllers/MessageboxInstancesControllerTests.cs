@@ -1698,7 +1698,7 @@ public class MessageBoxInstancesControllerTests(
     public async Task GetMessageBoxInstanceEvents_AllEventTypesIncludedInSearch()
     {
         // Arrange
-        string[] extepctedEventTypes =
+        string[] expectedEventTypes =
         {
             "Created",
             "Deleted",
@@ -1715,7 +1715,7 @@ public class MessageBoxInstancesControllerTests(
             .Setup(rm =>
                 rm.ListInstanceEvents(
                     It.IsAny<Guid>(),
-                    It.Is<string[]>(eventTypes => !extepctedEventTypes.Except(eventTypes).Any()),
+                    It.Is<string[]>(eventTypes => !expectedEventTypes.Except(eventTypes).Any()),
                     It.IsAny<DateTime?>(),
                     It.IsAny<DateTime?>()
                 )
@@ -1723,11 +1723,14 @@ public class MessageBoxInstancesControllerTests(
             .ReturnsAsync(new List<InstanceEvent>());
 
         var sut = new MessageBoxInstancesController(
-            null,
+            Mock.Of<IInstanceRepository>(),
             repoMock.Object,
             null,
             null,
-            null,
+            Mock.Of<IAuthorization>(a =>
+                a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), AuthorizationActions.Read)
+                == Task.FromResult(true)
+            ),
             null,
             null
         );
@@ -1783,11 +1786,14 @@ public class MessageBoxInstancesControllerTests(
             .ReturnsAsync(eventList);
 
         var sut = new MessageBoxInstancesController(
-            null,
+            Mock.Of<IInstanceRepository>(),
             repoMock.Object,
             null,
             null,
-            null,
+            Mock.Of<IAuthorization>(a =>
+                a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), AuthorizationActions.Read)
+                == Task.FromResult(true)
+            ),
             null,
             null
         );
@@ -1837,11 +1843,14 @@ public class MessageBoxInstancesControllerTests(
             .ReturnsAsync(largeNumberOfEvents);
 
         var sut = new MessageBoxInstancesController(
-            null,
+            Mock.Of<IInstanceRepository>(),
             repoMock.Object,
             null,
             null,
-            null,
+            Mock.Of<IAuthorization>(a =>
+                a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), AuthorizationActions.Read)
+                == Task.FromResult(true)
+            ),
             null,
             null
         );
@@ -1902,7 +1911,12 @@ public class MessageBoxInstancesControllerTests(
             instanceEventRepository.Object,
             Mock.Of<ITextRepository>(),
             Mock.Of<IApplicationRepository>(),
-            Mock.Of<IAuthorization>(),
+            Mock.Of<IAuthorization>(a =>
+                a.AuthorizeInstanceRequest(
+                    It.IsAny<InstanceInternal>(),
+                    AuthorizationActions.Delete
+                ) == Task.FromResult(true)
+            ),
             applicationService.Object,
             NullLogger<MessageBoxInstancesController>.Instance
         )

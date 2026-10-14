@@ -31,9 +31,17 @@ public interface IAuthorization
     );
 
     /// <summary>
-    /// Authorizes a read action on a storage instance with full process context.
+    /// Authorizes the current HTTP request to perform <paramref name="action"/> on the instance
+    /// identified by the request's route values. Callers with the sync adapter scope are authorized
+    /// directly for read/write/delete without contacting the PDP. When <paramref name="instance"/>
+    /// is provided the XACML request is enriched with the instance's process context (current task
+    /// or end event) and the decision is cached. Without an instance the request is denied unless
+    /// the route carries an instance guid.
     /// </summary>
-    public Task<bool> AuthorizeEnrichedInstanceAction(InstanceInternal instance, string action);
+    /// <param name="instance">The instance to authorize against, or null when no instance exist.</param>
+    /// <param name="action">The action to authorize, e.g. "read", "write" or "delete".</param>
+    /// <returns>true if the user is authorized.</returns>
+    public Task<bool> AuthorizeInstanceRequest(InstanceInternal instance, string action);
 
     /// <summary>
     /// Authorizes that the user has one or more of the actions on a storage instance.

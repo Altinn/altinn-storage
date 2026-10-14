@@ -15,6 +15,8 @@ using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Models;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -27,6 +29,7 @@ namespace Altinn.Platform.Storage.Authorization;
 /// <remarks>
 /// Initializes a new instance of the <see cref="AuthorizationService"/> class.
 /// </remarks>
+/// <param name="httpContextAccessor">Accessor for the current <see cref="Microsoft.AspNetCore.Http.HttpContext"/>.</param>
 /// <param name="pdp">Policy decision point</param>
 /// <param name="claimsPrincipalProvider">A service providing access to the current <see cref="ClaimsPrincipal"/>.</param>
 /// <param name="logger">The logger</param>
@@ -34,6 +37,7 @@ namespace Altinn.Platform.Storage.Authorization;
 /// <param name="memoryCache">The memory cache</param>
 /// <param name="pepSettings">The settings for pep</param>
 public class AuthorizationService(
+    IHttpContextAccessor httpContextAccessor,
     IPDP pdp,
     IClaimsPrincipalProvider claimsPrincipalProvider,
     ILogger<AuthorizationService> logger,
@@ -42,6 +46,7 @@ public class AuthorizationService(
     IOptions<PepSettings> pepSettings
 ) : IAuthorization
 {
+    private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
     private readonly IPDP _pdp = pdp;
     private readonly IClaimsPrincipalProvider _claimsPrincipalProvider = claimsPrincipalProvider;
     private readonly ILogger<AuthorizationService> _logger = logger;
@@ -70,20 +75,20 @@ public class AuthorizationService(
         }
 
         SortedList<Guid, MessageBoxInstance> authorizedInstanceList = [];
-        List<string> actionTypes = ["read"];
+        List<string> actionTypes = [AuthorizationActions.Read];
         if (_settings.AuthorizeA2ListInstancesWrite || keyAccessMode)
         {
-            actionTypes.Add("write");
+            actionTypes.Add(AuthorizationActions.Write);
         }
 
         if (_settings.AuthorizeA2ListInstancesDelete || keyAccessMode)
         {
-            actionTypes.Add("delete");
+            actionTypes.Add(AuthorizationActions.Delete);
         }
 
         if (keyAccessMode)
         {
-            actionTypes.Add("instantiate");
+            actionTypes.Add(AuthorizationActions.Instantiate);
         }
 
         if (
@@ -96,7 +101,7 @@ public class AuthorizationService(
             )
         )
         {
-            actionTypes.Add("sign");
+            actionTypes.Add(AuthorizationActions.Sign);
         }
 
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
@@ -152,19 +157,19 @@ public class AuthorizationService(
 
                 switch (actiontype)
                 {
-                    case "write":
+                    case AuthorizationActions.Write:
                         authorizedMessageBoxInstance.AuthorizedForWrite = true;
                         break;
-                    case "delete":
+                    case AuthorizationActions.Delete:
                         authorizedMessageBoxInstance.AllowDelete = true;
                         break;
-                    case "instantiate":
+                    case AuthorizationActions.Instantiate:
                         authorizedMessageBoxInstance.AllowNewCopy = true;
                         break;
-                    case "sign":
+                    case AuthorizationActions.Sign:
                         authorizedMessageBoxInstance.AuthorizedForSign = true;
                         break;
-                    case "read":
+                    case AuthorizationActions.Read:
                         break;
                 }
             }
@@ -226,50 +231,49 @@ public class AuthorizationService(
     }
 
     /// <inheritdoc />
-    public async Task<bool> AuthorizeEnrichedInstanceAction(
-        InstanceInternal instance,
-        string action
-    )
+    public async Task<bool> AuthorizeInstanceRequest(InstanceInternal instance, string action)
     {
-        string org = instance.Org;
-        string app = instance.AppId.Split('/')[1];
-        int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
-
-        ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
-        XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
-            org,
-            app,
-            user,
-            action,
-            instanceOwnerPartyId,
-            instance.Id
-        );
-
-        EnrichXacmlJsonRequest(request, instance);
-
-        string cacheKey = GetCacheKeyForDecisionRequest(request);
-        if (!_memoryCache.TryGetValue(cacheKey, out XacmlJsonResponse response))
+        if (IsSyncAdapterBypassRequest(action))
         {
-            response = await _pdp.GetDecisionForRequest(request);
-
-            if (response?.Response is not null)
-            {
-                _memoryCache.Set(
-                    cacheKey,
-                    response,
-                    new MemoryCacheEntryOptions()
-                        .SetPriority(CacheItemPriority.High)
-                        .SetAbsoluteExpiration(
-                            new TimeSpan(0, _pepSettings.PdpDecisionCachingTimeout, 0)
-                        )
-                );
-            }
+            return true;
         }
 
-        if (response?.Response == null)
+        ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
+
+        // The subject and action come from the caller; the resource is set below from the instance
+        // when it exists, otherwise from the route values.
+        XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
+            null,
+            null,
+            user,
+            action
+        );
+        XacmlJsonResponse response;
+        if (instance is not null)
+        {
+            SetResourceFromInstance(request, instance);
+            response = await GetDecisionForRequestWithCache(request);
+        }
+        else
+        {
+            RouteData routeData = _httpContextAccessor.HttpContext?.GetRouteData();
+            string instanceGuid = routeData?.Values["instanceGuid"] as string;
+            if (string.IsNullOrWhiteSpace(instanceGuid))
+            {
+                _logger.LogInformation(
+                    "// Authorization Helper // AuthorizeInstanceRequest denied: no instance and no instanceGuid route value."
+                );
+                return false;
+            }
+
+            SetResourceFromRoute(request, routeData, instanceGuid);
+            response = await _pdp.GetDecisionForRequest(request);
+        }
+
+        if (response?.Response is null)
         {
             _logger.LogInformation(
-                "// Authorization Helper // AuthorizeEnrichedInstanceAction failed for request: {request}.",
+                "// Authorization Helper // AuthorizeInstanceRequest failed for request: {request}.",
                 JsonSerializer.Serialize(request)
             );
             return false;
@@ -325,7 +329,7 @@ public class AuthorizationService(
         }
 
         List<InstanceInternal> authorizedInstanceList = [];
-        List<string> actionTypes = new() { "read" };
+        List<string> actionTypes = new() { AuthorizationActions.Read };
 
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
         XacmlJsonRequestRoot xacmlJsonRequest = CreateMultiDecisionRequest(
@@ -371,8 +375,11 @@ public class AuthorizationService(
 
         if (!string.IsNullOrWhiteSpace(contextScope))
         {
+            // A null or empty required scope must never match: null would throw in Contains and
+            // empty would match any scope, silently granting access on a misconfiguration.
             return requiredScope.Exists(scope =>
-                contextScope.Contains(scope, StringComparison.InvariantCultureIgnoreCase)
+                !string.IsNullOrEmpty(scope)
+                && contextScope.Contains(scope, StringComparison.InvariantCultureIgnoreCase)
             );
         }
 
@@ -382,6 +389,13 @@ public class AuthorizationService(
     /// <inheritdoc />
     public bool UserHasRequiredScope(string requiredScope)
     {
+        // A null or empty required scope must never match: null would throw in Contains and
+        // empty would match any scope, silently granting access on a misconfiguration.
+        if (string.IsNullOrEmpty(requiredScope))
+        {
+            return false;
+        }
+
         var contextScope = GetContextScope();
 
         if (!string.IsNullOrWhiteSpace(contextScope))
@@ -401,6 +415,33 @@ public class AuthorizationService(
     )
     {
         return await _pdp.GetDecisionForRequest(xacmlJsonRequest);
+    }
+
+    /// <summary>
+    /// Gets the decision from the cache when present, otherwise asks the PDP and caches a non-null response.
+    /// </summary>
+    private async Task<XacmlJsonResponse> GetDecisionForRequestWithCache(
+        XacmlJsonRequestRoot request
+    )
+    {
+        string cacheKey = GetCacheKeyForDecisionRequest(request);
+
+        if (!_memoryCache.TryGetValue(cacheKey, out XacmlJsonResponse response))
+        {
+            // Key not in cache, so get decision from PDP.
+            response = await _pdp.GetDecisionForRequest(request);
+
+            // Set the cache options
+            MemoryCacheEntryOptions cacheEntryOptions = new MemoryCacheEntryOptions()
+                .SetPriority(CacheItemPriority.High)
+                .SetAbsoluteExpiration(new TimeSpan(0, _pepSettings.PdpDecisionCachingTimeout, 0));
+            if (response?.Response is not null)
+            {
+                _memoryCache.Set(cacheKey, response, cacheEntryOptions);
+            }
+        }
+
+        return response;
     }
 
     /// <summary>
@@ -431,82 +472,102 @@ public class AuthorizationService(
     }
 
     /// <summary>
-    /// Replaces Resource attributes with data from instance. Add all relevant values so PDP have it all
+    /// Replaces the resource attributes with the instance's identity and process context so the PDP has it all.
     /// </summary>
-    /// <param name="jsonRequest">The JSON Request</param>
-    /// <param name="instance">The instance</param>
-    public static void EnrichXacmlJsonRequest(
-        XacmlJsonRequestRoot jsonRequest,
+    private static void SetResourceFromInstance(
+        XacmlJsonRequestRoot request,
         InstanceInternal instance
     )
     {
-        XacmlJsonCategory resourceCategory = new() { Attribute = new List<XacmlJsonAttribute>() };
-
         var instanceProps = GetInstanceProperties(instance);
 
+        XacmlJsonCategory resource = new() { Attribute = [] };
         if (instanceProps.Task != null)
         {
-            resourceCategory.Attribute.Add(
-                DecisionHelper.CreateXacmlJsonAttribute(
-                    XacmlResourceTaskId,
-                    instanceProps.Task,
-                    DefaultType,
-                    DefaultIssuer
-                )
-            );
+            AddResourceAttribute(resource, XacmlResourceTaskId, instanceProps.Task);
         }
-        else if (instance.Process?.EndEvent != null)
+        else
         {
-            resourceCategory.Attribute.Add(
-                DecisionHelper.CreateXacmlJsonAttribute(
-                    XacmlResourceEndId,
-                    instance.Process.EndEvent,
-                    DefaultType,
-                    DefaultIssuer
-                )
-            );
+            AddResourceAttribute(resource, XacmlResourceEndId, instance.Process?.EndEvent);
         }
 
-        if (!string.IsNullOrWhiteSpace(instanceProps.InstanceId))
+        AddResourceAttribute(
+            resource,
+            AltinnXacmlUrns.InstanceId,
+            instanceProps.InstanceId,
+            includeResult: true
+        );
+        AddResourceAttribute(resource, AltinnXacmlUrns.PartyId, instanceProps.InstanceOwnerPartyId);
+        AddResourceAttribute(resource, AltinnXacmlUrns.OrgId, instanceProps.Org);
+        AddResourceAttribute(resource, AltinnXacmlUrns.AppId, instanceProps.App);
+
+        request.Request.Resource = [resource];
+    }
+
+    /// <summary>
+    /// Replaces the resource attributes with the ones the route identifies: the instance owner and
+    /// instance id when the route has an owner, and org/app when the route has them.
+    /// </summary>
+    private static void SetResourceFromRoute(
+        XacmlJsonRequestRoot request,
+        RouteData routeData,
+        string instanceGuid
+    )
+    {
+        string instanceOwnerPartyId = routeData.Values["instanceOwnerPartyId"] as string;
+        string org = routeData.Values["org"] as string;
+        string app = routeData.Values["app"] as string;
+        if (
+            string.IsNullOrWhiteSpace(org)
+            && string.IsNullOrWhiteSpace(app)
+            && routeData.Values["appId"] is string appId
+        )
         {
-            resourceCategory.Attribute.Add(
-                DecisionHelper.CreateXacmlJsonAttribute(
-                    AltinnXacmlUrns.InstanceId,
-                    instanceProps.InstanceId,
-                    DefaultType,
-                    DefaultIssuer,
-                    true
-                )
+            org = appId.Split('/')[0];
+            app = appId.Split('/')[1];
+        }
+
+        XacmlJsonCategory resource = new() { Attribute = [] };
+        AddResourceAttribute(resource, AltinnXacmlUrns.PartyId, instanceOwnerPartyId);
+        if (!string.IsNullOrWhiteSpace(instanceOwnerPartyId))
+        {
+            AddResourceAttribute(
+                resource,
+                AltinnXacmlUrns.InstanceId,
+                $"{instanceOwnerPartyId}/{instanceGuid}"
             );
         }
 
-        resourceCategory.Attribute.Add(
-            DecisionHelper.CreateXacmlJsonAttribute(
-                AltinnXacmlUrns.PartyId,
-                instanceProps.InstanceOwnerPartyId,
-                DefaultType,
-                DefaultIssuer
-            )
-        );
-        resourceCategory.Attribute.Add(
-            DecisionHelper.CreateXacmlJsonAttribute(
-                AltinnXacmlUrns.OrgId,
-                instanceProps.Org,
-                DefaultType,
-                DefaultIssuer
-            )
-        );
-        resourceCategory.Attribute.Add(
-            DecisionHelper.CreateXacmlJsonAttribute(
-                AltinnXacmlUrns.AppId,
-                instanceProps.App,
-                DefaultType,
-                DefaultIssuer
-            )
-        );
+        AddResourceAttribute(resource, AltinnXacmlUrns.OrgId, org);
+        AddResourceAttribute(resource, AltinnXacmlUrns.AppId, app);
 
-        // Replaces the current Resource attributes
-        jsonRequest.Request.Resource = new List<XacmlJsonCategory> { resourceCategory };
+        request.Request.Resource = [resource];
+    }
+
+    /// <summary>
+    /// Adds a resource attribute unless the value is empty.
+    /// </summary>
+    private static void AddResourceAttribute(
+        XacmlJsonCategory resource,
+        string attributeId,
+        string value,
+        bool includeResult = false
+    )
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        resource.Attribute.Add(
+            DecisionHelper.CreateXacmlJsonAttribute(
+                attributeId,
+                value,
+                DefaultType,
+                DefaultIssuer,
+                includeResult
+            )
+        );
     }
 
     private string GetContextScope()
@@ -766,5 +827,19 @@ public class AuthorizationService(
         }
 
         return subjectKey.ToString() + actionKey.ToString() + resourceKey.ToString();
+    }
+
+    private bool IsSyncAdapterBypassRequest(string action)
+    {
+        if (
+            action != AuthorizationActions.Read
+            && action != AuthorizationActions.Write
+            && action != AuthorizationActions.Delete
+        )
+        {
+            return false;
+        }
+
+        return UserHasRequiredScope([_settings.InstanceSyncAdapterScope]);
     }
 }
