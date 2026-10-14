@@ -242,7 +242,9 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddHealthChecks().AddCheck<HealthCheck>("storage_health_check");
 
     services.AddHttpClient<AuthorizationApiClient>();
-    services.AddHttpClient<IRegisterService, RegisterService>();
+    services.AddHttpClient<IRegisterService, RegisterService>(client =>
+        client.Timeout = TimeSpan.FromSeconds(10)
+    );
 
     services.AddAspNetCoreMetricsEnricher();
 

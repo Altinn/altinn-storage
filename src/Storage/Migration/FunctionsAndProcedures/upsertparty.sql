@@ -8,8 +8,8 @@ CREATE OR REPLACE PROCEDURE storage.upsertparty(
     LANGUAGE 'plpgsql'
 AS $BODY$
 BEGIN
-    INSERT INTO storage.parties AS p (partyid, partyuuid, personnumber, organisationnumber, username, externalidentifier)
-        VALUES (_partyid, _partyuuid, _personnumber, _organisationnumber, _username, _externalidentifier)
+    INSERT INTO storage.parties AS p (partyid, partyuuid, personnumber, organisationnumber, username, externalidentifier, updated)
+        VALUES (_partyid, _partyuuid, _personnumber, _organisationnumber, _username, _externalidentifier, now())
     ON CONFLICT (partyid) DO UPDATE SET
         partyuuid = EXCLUDED.partyuuid,
         personnumber = EXCLUDED.personnumber,

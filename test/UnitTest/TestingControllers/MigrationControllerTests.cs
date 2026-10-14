@@ -77,6 +77,8 @@ public class MigrationControllerTests : IClassFixture<InstanceFixture>
         };
         incoming.Process.Status = processStatus;
         incoming.Process.CurrentTask.Name = "migration-process-preserved";
+        incoming.InstanceOwner.PartyUuid = Guid.NewGuid();
+        incoming.InstanceOwner.PersonNumber = "25871999336";
         Mock<IA2Repository> a2Repository = new();
         a2Repository
             .Setup(repository => repository.GetA2MigrationInstanceId(_a2ArchiveReference))
@@ -113,6 +115,9 @@ public class MigrationControllerTests : IClassFixture<InstanceFixture>
         Assert.Equal(expectedStorageId, persisted.Id.ToString());
         Assert.Equal(processStatus, persisted.Process.Status);
         Assert.Equal("migration-process-preserved", persisted.Process.CurrentTask.Name);
+        Assert.Null(persisted.InstanceOwner.PartyUuid);
+        Assert.Equal("25871999336", persisted.InstanceOwner.PersonNumber);
+        Assert.Equal(0, await PostgresUtil.RunCountQuery("select count(*) from storage.parties"));
         Assert.Equal(
             expectedStoredStatus,
             await PostgresUtil.RunQuery<string>(

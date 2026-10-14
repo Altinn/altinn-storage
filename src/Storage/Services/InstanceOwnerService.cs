@@ -79,7 +79,9 @@ public class InstanceOwnerService : IInstanceOwnerService
             instance.InstanceOwner = instanceOwner;
             await _instanceRepository.UpsertInstanceOwner(instanceOwner, cancellationToken);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex)
+            when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested
+            )
         {
             _logger.LogError(
                 ex,

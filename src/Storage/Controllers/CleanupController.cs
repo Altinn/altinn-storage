@@ -86,7 +86,18 @@ public class CleanupController(
                 instances.Count,
                 stopwatch.Elapsed.TotalSeconds
             );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "CleanupController error");
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                "CleanupController error: " + ex.Message
+            );
+        }
 
+        try
+        {
             int deletedInstanceOwners = await instanceRepository.DeleteOrphanedInstanceOwners(
                 cancellationToken
             );
@@ -95,12 +106,11 @@ public class CleanupController(
                 deletedInstanceOwners
             );
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogError(ex, "CleanupController error");
-            return StatusCode(
-                StatusCodes.Status500InternalServerError,
-                "CleanupController error: " + ex.Message
+            _logger.LogError(
+                ex,
+                "CleanupController// CleanupInstances // Deleting instance owners without instances failed"
             );
         }
 

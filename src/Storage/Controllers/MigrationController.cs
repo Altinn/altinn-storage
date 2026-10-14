@@ -172,6 +172,12 @@ public class MigrationController : ControllerBase
                 await _a2Repository.CreateA2MigrationState(a2ArchiveReference);
             }
 
+            // Only owners resolved from Register by Storage may be stored as the owner of all instances of the party.
+            if (instance.InstanceOwner is not null)
+            {
+                instance.InstanceOwner.PartyUuid = null;
+            }
+
             storedInstance = await _instanceRepository.Create(
                 instance.FromApiModel(),
                 cancellationToken,

@@ -1629,7 +1629,7 @@ BEGIN
     RETURN QUERY
     WITH filteredInstances AS
     (
-        SELECT i.id, i.instance, i.partyid, i.lastchanged, i.instance_version, i.process_state_version FROM storage.instances i
+        SELECT i.id, storage.withinstanceowner(i.instance, i.partyid) AS instance, i.lastchanged, i.instance_version, i.process_state_version FROM storage.instances i
         WHERE 1 = 1
             AND (_a3_reference IS NULL OR right(i.alternateid::text, 12) = lower(_a3_reference))
             AND (_confirmed IS NULL OR _confirmed = confirmed)
@@ -1689,7 +1689,7 @@ BEGIN
             i.id
         FETCH FIRST _size ROWS ONLY
     )
-        SELECT filteredInstances.id, storage.withinstanceowner(filteredInstances.instance, filteredInstances.partyid), filteredInstances.instance_version, filteredInstances.process_state_version, d.element, d.currentblobversion FROM filteredInstances
+        SELECT filteredInstances.id, filteredInstances.instance, filteredInstances.instance_version, filteredInstances.process_state_version, d.element, d.currentblobversion FROM filteredInstances
             LEFT JOIN storage.dataelements d ON filteredInstances.id = d.instanceInternalId AND _includeElements = TRUE
         ORDER BY
             (CASE WHEN _sort_ascending = true  THEN filteredInstances.lastChanged END) ASC,
@@ -2489,8 +2489,8 @@ CREATE OR REPLACE PROCEDURE storage.upsertparty(
     LANGUAGE 'plpgsql'
 AS $BODY$
 BEGIN
-    INSERT INTO storage.parties AS p (partyid, partyuuid, personnumber, organisationnumber, username, externalidentifier)
-        VALUES (_partyid, _partyuuid, _personnumber, _organisationnumber, _username, _externalidentifier)
+    INSERT INTO storage.parties AS p (partyid, partyuuid, personnumber, organisationnumber, username, externalidentifier, updated)
+        VALUES (_partyid, _partyuuid, _personnumber, _organisationnumber, _username, _externalidentifier, now())
     ON CONFLICT (partyid) DO UPDATE SET
         partyuuid = EXCLUDED.partyuuid,
         personnumber = EXCLUDED.personnumber,

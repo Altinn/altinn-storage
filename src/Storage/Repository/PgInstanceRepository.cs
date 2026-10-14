@@ -380,6 +380,7 @@ public class PgInstanceRepository : IInstanceRepository
             await using NpgsqlCommand pgcom = _dataSource.CreateCommand(
                 _deleteOrphanedInstanceOwnersSql
             );
+            pgcom.CommandTimeout = 600; // 10 minutes
             pgcom.Parameters.AddWithValue(
                 NpgsqlDbType.Integer,
                 _deleteOrphanedInstanceOwnersBatchSize
