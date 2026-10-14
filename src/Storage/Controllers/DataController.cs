@@ -396,17 +396,17 @@ public class DataController : ControllerBase
                 cancellationToken
             );
 
+            if (onDemandStream is null)
+            {
+                return NotFound();
+            }
+
             var contentDispositionHeader = new ContentDispositionHeaderValue("inline");
             contentDispositionHeader.SetHttpFileName(dataElement.Filename);
             Response.Headers.Append(
                 HeaderNames.ContentDisposition,
                 contentDispositionHeader.ToString()
             );
-
-            if (onDemandStream is null)
-            {
-                return NotFound();
-            }
 
             VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
             return File(onDemandStream, dataElement.ContentType);
