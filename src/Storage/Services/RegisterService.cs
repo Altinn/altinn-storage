@@ -48,12 +48,8 @@ public class RegisterService : IRegisterService
     }
 
     /// <inheritdoc/>
-    public Task<Party?> GetParty(int partyId, CancellationToken cancellationToken) =>
-        QuerySingleParty(
-            PartyUrn.PartyId.Create((uint)partyId),
-            InstanceOwnerFields,
-            cancellationToken
-        );
+    public Task<Party?> GetParty(PartyUrn identifier, CancellationToken cancellationToken) =>
+        QuerySingleParty(identifier, InstanceOwnerFields, cancellationToken);
 
     /// <inheritdoc/>
     public async Task<int?> LookupPartyId(PartyUrn identifier, CancellationToken cancellationToken)

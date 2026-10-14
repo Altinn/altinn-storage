@@ -2,6 +2,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
+using Altinn.Register.Contracts;
 
 namespace Altinn.Platform.Storage.Services;
 
@@ -11,12 +12,12 @@ namespace Altinn.Platform.Storage.Services;
 public interface IInstanceOwnerService
 {
     /// <summary>
-    /// Gets the instance owner for the given party from Register.
+    /// Gets the instance owner for the party identified by the given party URN from Register.
     /// </summary>
-    /// <param name="partyId">The party id of the instance owner</param>
+    /// <param name="identifier">Any party URN supported by Register, such as a party id or person number</param>
     /// <param name="cancellationToken">The cancellation token</param>
-    /// <returns>The instance owner, or <c>null</c> if Register has no party with the given id</returns>
-    Task<InstanceOwner?> GetInstanceOwner(int partyId, CancellationToken cancellationToken);
+    /// <returns>The instance owner, or <c>null</c> if Register has no matching party</returns>
+    Task<InstanceOwner?> GetInstanceOwner(PartyUrn identifier, CancellationToken cancellationToken);
 
     /// <summary>
     /// Populates the owner of an instance whose owner has not been populated from Register, and stores

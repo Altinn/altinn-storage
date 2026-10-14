@@ -15,8 +15,10 @@ public class RegisterServiceMock : IRegisterService
 {
     public const string PersonNumber = "25871999336";
 
-    public Task<Party?> GetParty(int partyId, CancellationToken cancellationToken) =>
-        Task.FromResult<Party?>(CreatePerson(partyId));
+    public Task<Party?> GetParty(PartyUrn identifier, CancellationToken cancellationToken) =>
+        Task.FromResult<Party?>(
+            identifier is PartyUrn.PartyId partyId ? CreatePerson((int)partyId.Value) : null
+        );
 
     public Task<int?> LookupPartyId(PartyUrn identifier, CancellationToken cancellationToken) =>
         Task.FromResult<int?>(null);

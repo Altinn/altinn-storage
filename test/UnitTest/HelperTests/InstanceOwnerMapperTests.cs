@@ -2,6 +2,7 @@ using System;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.UnitTest.Mocks.Clients;
+using Altinn.Register.Contracts;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.HelperTests;
@@ -203,5 +204,154 @@ public class InstanceOwnerMapperTests
         Assert.Equal(organisationNumber, owner.OrganisationNumber);
         Assert.Equal(username, owner.Username);
         Assert.Equal(externalIdentifier, owner.ExternalIdentifier);
+    }
+
+    [Theory]
+    [InlineData("1337", null, null, null, null, "urn:altinn:party:id:1337")]
+    [InlineData(
+        "1337",
+        "urn:altinn:party:uuid:4c3b4909-eb17-45d5-bde1-256e065e196a",
+        "25871999336",
+        "974760673",
+        "jdoe@example.com",
+        "urn:altinn:party:id:1337"
+    )]
+    [InlineData(
+        null,
+        "urn:altinn:party:uuid:4c3b4909-eb17-45d5-bde1-256e065e196a",
+        "25871999336",
+        "974760673",
+        "jdoe@example.com",
+        "urn:altinn:party:uuid:4c3b4909-eb17-45d5-bde1-256e065e196a"
+    )]
+    [InlineData(
+        "",
+        null,
+        "25871999336",
+        "974760673",
+        "jdoe@example.com",
+        "urn:altinn:person:identifier-no:25871999336"
+    )]
+    [InlineData(
+        null,
+        null,
+        null,
+        "974760673",
+        "jdoe@example.com",
+        "urn:altinn:organization:identifier-no:974760673"
+    )]
+    [InlineData(
+        null,
+        null,
+        null,
+        null,
+        "jdoe@example.com",
+        "urn:altinn:person:idporten-email:jdoe@example.com"
+    )]
+    [InlineData(
+        null,
+        null,
+        null,
+        null,
+        "epost:jdoe@example.com",
+        "urn:altinn:person:idporten-email:jdoe@example.com"
+    )]
+    [InlineData(
+        null,
+        null,
+        null,
+        null,
+        "EPOST:jdoe@example.com",
+        "urn:altinn:person:idporten-email:jdoe@example.com"
+    )]
+    [InlineData(
+        null,
+        "urn:altinn:person:legacy-selfidentified:jdoe",
+        null,
+        null,
+        null,
+        "urn:altinn:person:legacy-selfidentified:jdoe"
+    )]
+    public void ToPartyUrn_ValidIdentifier_UsesFirstIdentifierInAppOrder(
+        string? partyId,
+        string? externalIdentifier,
+        string? personNumber,
+        string? organisationNumber,
+        string? username,
+        string expectedUrn
+    )
+    {
+        // Arrange
+        InstanceOwner owner = new()
+        {
+            PartyId = partyId,
+            ExternalIdentifier = externalIdentifier,
+            PersonNumber = personNumber,
+            OrganisationNumber = organisationNumber,
+            Username = username,
+        };
+
+        // Act
+        PartyUrn? result = InstanceOwnerMapper.ToPartyUrn(owner, out string? errorMessage);
+
+        // Assert
+        Assert.Equal(expectedUrn, result?.ToString());
+        Assert.Null(errorMessage);
+    }
+
+    [Theory]
+    [InlineData("abc", null, null, null, "Invalid instanceOwner.PartyId.")]
+    [InlineData("-1337", null, null, null, "Invalid instanceOwner.PartyId.")]
+    [InlineData("99999999999", null, null, null, "Invalid instanceOwner.PartyId.")]
+    [InlineData(
+        null,
+        "person:25871999336",
+        null,
+        null,
+        "Invalid instanceOwner.ExternalIdentifier."
+    )]
+    [InlineData(null, null, "12345678901", null, "Invalid instanceOwner.PersonNumber.")]
+    [InlineData(null, null, null, "123456789", "Invalid instanceOwner.OrganisationNumber.")]
+    [InlineData(
+        null,
+        null,
+        null,
+        null,
+        "Cannot create an instance without an instanceOwner.PartyId, ExternalIdentifier, PersonNumber, OrganisationNumber or Username."
+    )]
+    public void ToPartyUrn_InvalidIdentifier_ReturnsNullWithErrorMessage(
+        string? partyId,
+        string? externalIdentifier,
+        string? personNumber,
+        string? organisationNumber,
+        string expectedErrorMessage
+    )
+    {
+        // Arrange
+        InstanceOwner owner = new()
+        {
+            PartyId = partyId,
+            ExternalIdentifier = externalIdentifier,
+            PersonNumber = personNumber,
+            OrganisationNumber = organisationNumber,
+        };
+
+        // Act
+        PartyUrn? result = InstanceOwnerMapper.ToPartyUrn(owner, out string? errorMessage);
+
+        // Assert
+        Assert.Null(result);
+        Assert.Equal(expectedErrorMessage, errorMessage);
+    }
+
+    [Fact]
+    public void ToPartyUrn_NoOwner_ReturnsNullWithErrorMessage()
+    {
+        // Act
+        PartyUrn? result = InstanceOwnerMapper.ToPartyUrn(null, out string? errorMessage);
+
+        // Assert
+        Assert.Null(result);
+        Assert.StartsWith("Cannot create an instance without", errorMessage);
     }
 }

@@ -378,21 +378,13 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        if (string.IsNullOrWhiteSpace(instance.InstanceOwner?.PartyId))
+        PartyUrn instanceOwnerIdentifier = InstanceOwnerMapper.ToPartyUrn(
+            instance.InstanceOwner,
+            out string instanceOwnerError
+        );
+        if (instanceOwnerIdentifier is null)
         {
-            return BadRequest("Cannot create an instance without an instanceOwner.PartyId.");
-        }
-
-        if (
-            !int.TryParse(
-                instance.InstanceOwner.PartyId,
-                NumberStyles.None,
-                CultureInfo.InvariantCulture,
-                out int instanceOwnerPartyId
-            )
-        )
-        {
-            return BadRequest("Invalid instanceOwner.PartyId.");
+            return BadRequest(instanceOwnerError);
         }
 
         appId = ValidateAppId(appId);
@@ -407,6 +399,29 @@ public class InstancesController : ControllerBase
                 404 => NotFound(appInfoError.ErrorMessage),
                 _ => StatusCode(appInfoError.ErrorCode, appInfoError.ErrorMessage),
             };
+        }
+
+        // An owner given by another identifier than the party id must be resolved before authorization.
+        // An unknown party is forbidden like an unauthorized one, so the response doesn't reveal which
+        // person and organisation numbers exist.
+        InstanceOwner instanceOwner = null;
+        int instanceOwnerPartyId;
+        if (instanceOwnerIdentifier is PartyUrn.PartyId partyIdUrn)
+        {
+            instanceOwnerPartyId = (int)partyIdUrn.Value;
+        }
+        else
+        {
+            instanceOwner = await _instanceOwnerService.GetInstanceOwner(
+                instanceOwnerIdentifier,
+                cancellationToken
+            );
+            if (instanceOwner is null)
+            {
+                return Forbid();
+            }
+
+            instanceOwnerPartyId = int.Parse(instanceOwner.PartyId, CultureInfo.InvariantCulture);
         }
 
         // Checking that user is authorized to instantiate.
@@ -479,8 +494,8 @@ public class InstancesController : ControllerBase
             return Forbid();
         }
 
-        InstanceOwner instanceOwner = await _instanceOwnerService.GetInstanceOwner(
-            instanceOwnerPartyId,
+        instanceOwner ??= await _instanceOwnerService.GetInstanceOwner(
+            instanceOwnerIdentifier,
             cancellationToken
         );
         if (instanceOwner is null)

@@ -36,11 +36,11 @@ public class InstanceOwnerService : IInstanceOwnerService
 
     /// <inheritdoc/>
     public async Task<InstanceOwner?> GetInstanceOwner(
-        int partyId,
+        PartyUrn identifier,
         CancellationToken cancellationToken
     )
     {
-        Party? party = await _registerService.GetParty(partyId, cancellationToken);
+        Party? party = await _registerService.GetParty(identifier, cancellationToken);
         return party is null ? null : InstanceOwnerMapper.FromParty(party);
     }
 
@@ -65,7 +65,10 @@ public class InstanceOwnerService : IInstanceOwnerService
 
         try
         {
-            InstanceOwner? instanceOwner = await GetInstanceOwner(partyId, cancellationToken);
+            InstanceOwner? instanceOwner = await GetInstanceOwner(
+                PartyUrn.PartyId.Create((uint)partyId),
+                cancellationToken
+            );
             if (instanceOwner is null)
             {
                 _logger.LogWarning(

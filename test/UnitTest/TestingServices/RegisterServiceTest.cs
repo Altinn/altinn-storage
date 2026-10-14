@@ -33,7 +33,7 @@ public class RegisterServiceTest
         );
 
         // Act
-        await target.GetParty(1337, CancellationToken.None);
+        await target.GetParty(PartyUrn.PartyId.Create(1337), CancellationToken.None);
 
         // Assert
         (HttpRequestMessage request, string body) = Assert.Single(_requests);
@@ -57,7 +57,7 @@ public class RegisterServiceTest
         );
 
         // Act
-        Party? party = await target.GetParty(1337, CancellationToken.None);
+        Party? party = await target.GetParty(PartyUrn.PartyId.Create(1337), CancellationToken.None);
 
         // Assert
         Person person = Assert.IsType<Person>(party);
@@ -74,7 +74,7 @@ public class RegisterServiceTest
         RegisterService target = CreateTarget(statusCode, "{\"data\":[]}");
 
         // Act
-        Party? party = await target.GetParty(1337, CancellationToken.None);
+        Party? party = await target.GetParty(PartyUrn.PartyId.Create(1337), CancellationToken.None);
 
         // Assert
         Assert.Null(party);
@@ -93,7 +93,7 @@ public class RegisterServiceTest
 
         // Act
         PlatformHttpException exception = await Assert.ThrowsAsync<PlatformHttpException>(() =>
-            target.GetParty(1337, CancellationToken.None)
+            target.GetParty(PartyUrn.PartyId.Create(1337), CancellationToken.None)
         );
 
         // Assert

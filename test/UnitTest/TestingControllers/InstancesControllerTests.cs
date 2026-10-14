@@ -594,7 +594,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
         Mock<IRegisterService> registerService = new();
         registerService
-            .Setup(r => r.GetParty(1337, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetParty(PartyUrn.PartyId.Create(1337), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Party)null);
         HttpClient client = GetTestClient(registerService: registerService);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
@@ -624,7 +624,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
         Mock<IRegisterService> registerService = new();
         registerService
-            .Setup(r => r.GetParty(1337, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetParty(PartyUrn.PartyId.Create(1337), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new HttpRequestException("Register unavailable"));
         HttpClient client = GetTestClient(registerService: registerService);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
@@ -670,6 +670,129 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
             "Invalid instanceOwner.PartyId.",
             await response.Content.ReadAsStringAsync()
         );
+    }
+
+    [Fact]
+    public async Task Post_OwnerGivenByPersonNumber_CreatesInstanceForPartyFromRegister()
+    {
+        // Arrange
+        string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
+        Mock<IRegisterService> registerService = new(MockBehavior.Strict);
+        registerService
+            .Setup(r =>
+                r.GetParty(
+                    PartyUrn.PersonId.Create(
+                        PersonIdentifier.Parse(RegisterServiceMock.PersonNumber)
+                    ),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(RegisterServiceMock.CreatePerson(1337));
+        HttpClient client = GetTestClient(registerService: registerService);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
+        Instance instance = new()
+        {
+            InstanceOwner = new InstanceOwner { PersonNumber = RegisterServiceMock.PersonNumber },
+        };
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"))
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Instance createdInstance = JsonConvert.DeserializeObject<Instance>(
+            await response.Content.ReadAsStringAsync()
+        );
+        Assert.Equal("1337", createdInstance.InstanceOwner.PartyId);
+        Assert.Equal(
+            RegisterServiceMock.GetPartyUuid(1337),
+            createdInstance.InstanceOwner.PartyUuid
+        );
+        Assert.Equal(RegisterServiceMock.PersonNumber, createdInstance.InstanceOwner.PersonNumber);
+        registerService.Verify(
+            r => r.GetParty(It.IsAny<PartyUrn>(), It.IsAny<CancellationToken>()),
+            Times.Once
+        );
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(9999)]
+    public async Task Post_OwnerGivenByPersonNumberUnknownOrUnauthorized_ReturnsForbidden(
+        int? registerPartyId
+    )
+    {
+        // Arrange
+        string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
+        Mock<IRegisterService> registerService = new();
+        registerService
+            .Setup(r => r.GetParty(It.IsAny<PartyUrn>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                registerPartyId is { } partyId ? RegisterServiceMock.CreatePerson(partyId) : null
+            );
+        Mock<IInstanceRepository> repository = new(MockBehavior.Strict);
+        HttpClient client = GetTestClient(
+            repositoryMock: repository,
+            registerService: registerService
+        );
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
+        Instance instance = new()
+        {
+            InstanceOwner = new InstanceOwner { PersonNumber = RegisterServiceMock.PersonNumber },
+        };
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"))
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(
+        null,
+        "Cannot create an instance without an instanceOwner.PartyId, ExternalIdentifier, PersonNumber, OrganisationNumber or Username."
+    )]
+    [InlineData("12345678901", "Invalid instanceOwner.PersonNumber.")]
+    public async Task Post_OwnerWithoutValidIdentifier_ReturnsBadRequest(
+        string personNumber,
+        string expectedErrorMessage
+    )
+    {
+        // Arrange
+        string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
+        Mock<IRegisterService> registerService = new(MockBehavior.Strict);
+        HttpClient client = GetTestClient(registerService: registerService);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
+        Instance instance = new()
+        {
+            InstanceOwner = new InstanceOwner { PersonNumber = personNumber },
+        };
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"))
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(expectedErrorMessage, await response.Content.ReadAsStringAsync());
     }
 
     [Theory]
@@ -762,7 +885,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
             .ReturnsAsync(stored);
         Mock<IRegisterService> registerService = new();
         registerService
-            .Setup(r => r.GetParty(1337, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetParty(PartyUrn.PartyId.Create(1337), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new HttpRequestException("Register unavailable"));
         HttpClient client = GetSyncAdapterClient(repository, registerService);
 

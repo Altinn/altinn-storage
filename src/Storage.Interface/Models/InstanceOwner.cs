@@ -9,8 +9,10 @@ namespace Altinn.Platform.Storage.Interface.Models;
 /// Represents information to identify the owner of an instance.
 /// </summary>
 /// <remarks>
-/// Storage only reads <see cref="PartyId"/> when an instance is created.
-/// The other properties are populated by Storage from Altinn Register.
+/// When an instance is created, Storage identifies the owner by the first of <see cref="PartyId"/>,
+/// <see cref="ExternalIdentifier"/>, <see cref="PersonNumber"/>, <see cref="OrganisationNumber"/> and
+/// <see cref="Username"/> that has a value.
+/// All properties are then populated by Storage from Altinn Register.
 /// </remarks>
 [JsonObject(ItemNullValueHandling = NullValueHandling.Ignore)]
 public class InstanceOwner
