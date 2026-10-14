@@ -492,7 +492,8 @@ public class OnDemandContentService : IOnDemandContentService
         DataElementInternal htmlElement = instance.Data.First(d => d.Id == dataGuid);
         string htmlFormId = htmlElement.Metadata.First(m => m.Key == "formid").Value;
         DataElementInternal xmlElement = instance.Data.First(d =>
-            d.Metadata?.First(m => m.Key == "formid").Value == htmlFormId && d.Id != htmlElement.Id
+            d.Metadata?.FirstOrDefault(m => m.Key == "formid")?.Value == htmlFormId
+            && d.Id != htmlElement.Id
         );
         DataElementHelper.EnsureExpectedBlobStoragePath(xmlElement, instanceGuid, instance.AppId);
         string visiblePagesString = xmlElement
