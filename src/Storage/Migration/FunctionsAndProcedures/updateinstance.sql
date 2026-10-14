@@ -74,7 +74,7 @@ BEGIN
                 instance_version = instance_version + 1,
                 confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END
             WHERE _alternateid = alternateid
-            RETURNING instance, storage.instances.instance_version, storage.instances.process_state_version, _currentProcessStatus, 'ok'::TEXT;
+            RETURNING storage.withinstanceowner(instance, partyid), storage.instances.instance_version, storage.instances.process_state_version, _currentProcessStatus, 'ok'::TEXT;
     ELSIF _presentationtexts IS NOT NULL THEN
         RETURN QUERY
             UPDATE storage.instances SET
@@ -94,7 +94,7 @@ BEGIN
                 instance_version = instance_version + 1,
                 confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END
             WHERE _alternateid = alternateid
-            RETURNING instance, storage.instances.instance_version, storage.instances.process_state_version, _currentProcessStatus, 'ok'::TEXT;
+            RETURNING storage.withinstanceowner(instance, partyid), storage.instances.instance_version, storage.instances.process_state_version, _currentProcessStatus, 'ok'::TEXT;
     ELSIF _completeconfirmations IS NOT NULL THEN
         RETURN QUERY
             UPDATE storage.instances SET
@@ -112,7 +112,7 @@ BEGIN
                 instance_version = instance_version + 1,
                 confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END
             WHERE _alternateid = alternateid
-            RETURNING instance, storage.instances.instance_version, storage.instances.process_state_version, _currentProcessStatus, 'ok'::TEXT;
+            RETURNING storage.withinstanceowner(instance, partyid), storage.instances.instance_version, storage.instances.process_state_version, _currentProcessStatus, 'ok'::TEXT;
     ELSIF _status IS NOT NULL AND _process IS NULL THEN
         RETURN QUERY
             UPDATE storage.instances SET
@@ -130,7 +130,7 @@ BEGIN
                 instance_version = instance_version + 1,
                 confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END
             WHERE _alternateid = alternateid
-            RETURNING instance, storage.instances.instance_version, storage.instances.process_state_version, _currentProcessStatus, 'ok'::TEXT;
+            RETURNING storage.withinstanceowner(instance, partyid), storage.instances.instance_version, storage.instances.process_state_version, _currentProcessStatus, 'ok'::TEXT;
     ELSIF _substatus IS NOT NULL THEN
         RETURN QUERY
             UPDATE storage.instances SET
@@ -144,7 +144,7 @@ BEGIN
                 instance_version = instance_version + 1,
                 confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END
             WHERE _alternateid = alternateid
-            RETURNING instance, storage.instances.instance_version, storage.instances.process_state_version, _currentProcessStatus, 'ok'::TEXT;
+            RETURNING storage.withinstanceowner(instance, partyid), storage.instances.instance_version, storage.instances.process_state_version, _currentProcessStatus, 'ok'::TEXT;
     ELSIF _process IS NOT NULL AND _status IS NOT NULL THEN
         RETURN QUERY
             UPDATE storage.instances SET
@@ -169,7 +169,7 @@ BEGIN
                 confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END,
                 taskid = _taskid
             WHERE _alternateid = alternateid
-            RETURNING instance, storage.instances.instance_version, storage.instances.process_state_version, _currentProcessStatus, 'ok'::TEXT;
+            RETURNING storage.withinstanceowner(instance, partyid), storage.instances.instance_version, storage.instances.process_state_version, _currentProcessStatus, 'ok'::TEXT;
     ELSIF _process IS NOT NULL THEN
         RETURN QUERY
             UPDATE storage.instances SET
@@ -185,7 +185,7 @@ BEGIN
                 confirmed = CASE WHEN _confirmed IS NULL THEN confirmed ELSE _confirmed END,
                 taskid = _taskid
             WHERE _alternateid = alternateid
-            RETURNING instance, storage.instances.instance_version, storage.instances.process_state_version, _currentProcessStatus, 'ok'::TEXT;
+            RETURNING storage.withinstanceowner(instance, partyid), storage.instances.instance_version, storage.instances.process_state_version, _currentProcessStatus, 'ok'::TEXT;
     ELSE
         RAISE EXCEPTION 'Unexpected parameters to update instance';
     END IF;

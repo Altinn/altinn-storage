@@ -366,6 +366,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddTransient<IDataService, DataService>();
     services.AddTransient<ISigningService, SigningService>();
     services.AddTransient<IInstanceEventService, InstanceEventService>();
+    services.AddTransient<IInstanceOwnerService, InstanceOwnerService>();
     services.AddTransient<IProcessDataCleanupService, ProcessDataCleanupService>();
     services.AddTransient<IOrganisationService, OrganisationService>();
     services.AddTransient<IMetricsService, MetricsService>();

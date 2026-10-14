@@ -57,7 +57,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     public async Task InitializeAsync()
     {
         string sql =
-            "delete from storage.instance_mutation_idempotency; delete from storage.instanceevents; delete from storage.dataelementblobversions; delete from storage.instances; delete from storage.dataelements;";
+            "delete from storage.instance_mutation_idempotency; delete from storage.instanceevents; delete from storage.dataelementblobversions; delete from storage.instances; delete from storage.parties; delete from storage.dataelements;";
 
         await PostgresUtil.RunSql(sql);
         await PostgresUtil.FreezeTime(_frozenTime);

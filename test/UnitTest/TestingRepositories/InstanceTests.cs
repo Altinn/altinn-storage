@@ -48,7 +48,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         _instanceFixture = instanceFixture;
 
         string sql =
-            "delete from storage.dataelementblobversions; delete from storage.instances; delete from storage.dataelements;";
+            "delete from storage.dataelementblobversions; delete from storage.instances; delete from storage.parties; delete from storage.dataelements;";
         _ = PostgresUtil.RunSql(sql).Result;
     }
 

@@ -595,6 +595,7 @@ public class DomainModelContractTests
             "Id",
             "InstanceOwner",
             "PartyId",
+            "PartyUuid",
             "PersonNumber",
             "OrganisationNumber",
             "Username",

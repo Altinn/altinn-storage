@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Helpers;
+using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Microsoft.Extensions.Logging;
 using Npgsql;
@@ -28,7 +29,7 @@ public class PgInstanceRepository : IInstanceRepository
         "select * from storage.readinstancefromquery_v9 (";
     private readonly string _deleteSql = "select * from storage.deleteinstance ($1)";
     private readonly string _insertSql =
-        "call storage.insertinstance_v3 (@_partyid, @_alternateid, @_instance, @_created, @_lastchanged,"
+        "call storage.insertinstance_v4 (@_partyid, @_alternateid, @_instance, @_created, @_lastchanged,"
         + " @_org, @_appid, @_taskid, @_altinnmainversion, @_confirmed)";
 
     /// <summary>
@@ -54,6 +55,11 @@ public class PgInstanceRepository : IInstanceRepository
         "select * from storage.readorphanblobversionsforcleanup ()";
     private readonly string _readSqlNoElements =
         "select * from storage.readinstancenoelements_v2 ($1)";
+    private const string _upsertInstanceOwnerSql =
+        "call storage.upsertparty (@_partyid, @_partyuuid, @_personnumber, @_organisationnumber, @_username, @_externalidentifier)";
+    private const string _deleteOrphanedInstanceOwnersSql =
+        "select storage.deleteorphanedparties ($1)";
+    private const int _deleteOrphanedInstanceOwnersBatchSize = 1000;
 
     private readonly ILogger<PgInstanceRepository> _logger;
     private readonly NpgsqlDataSource _dataSource;
@@ -317,6 +323,72 @@ public class PgInstanceRepository : IInstanceRepository
         }
 
         return orphanBlobVersions;
+    }
+
+    /// <inheritdoc/>
+    public async Task UpsertInstanceOwner(
+        InstanceOwner instanceOwner,
+        CancellationToken cancellationToken
+    )
+    {
+        await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_upsertInstanceOwnerSql);
+        pgcom.Parameters.AddWithValue(
+            "_partyid",
+            NpgsqlDbType.Bigint,
+            long.Parse(instanceOwner.PartyId, CultureInfo.InvariantCulture)
+        );
+        pgcom.Parameters.AddWithValue(
+            "_partyuuid",
+            NpgsqlDbType.Uuid,
+            instanceOwner.PartyUuid
+                ?? throw new ArgumentException(
+                    "An instance owner must have a PartyUuid to be stored.",
+                    nameof(instanceOwner)
+                )
+        );
+        pgcom.Parameters.AddWithValue(
+            "_personnumber",
+            NpgsqlDbType.Text,
+            (object)instanceOwner.PersonNumber ?? DBNull.Value
+        );
+        pgcom.Parameters.AddWithValue(
+            "_organisationnumber",
+            NpgsqlDbType.Text,
+            (object)instanceOwner.OrganisationNumber ?? DBNull.Value
+        );
+        pgcom.Parameters.AddWithValue(
+            "_username",
+            NpgsqlDbType.Text,
+            (object)instanceOwner.Username ?? DBNull.Value
+        );
+        pgcom.Parameters.AddWithValue(
+            "_externalidentifier",
+            NpgsqlDbType.Text,
+            (object)instanceOwner.ExternalIdentifier ?? DBNull.Value
+        );
+
+        await pgcom.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<int> DeleteOrphanedInstanceOwners(CancellationToken cancellationToken)
+    {
+        int totalDeleted = 0;
+        int deleted;
+        do
+        {
+            await using NpgsqlCommand pgcom = _dataSource.CreateCommand(
+                _deleteOrphanedInstanceOwnersSql
+            );
+            pgcom.Parameters.AddWithValue(
+                NpgsqlDbType.Integer,
+                _deleteOrphanedInstanceOwnersBatchSize
+            );
+            deleted = (int)await pgcom.ExecuteScalarAsync(cancellationToken);
+            totalDeleted += deleted;
+        } while (deleted == _deleteOrphanedInstanceOwnersBatchSize);
+
+        return totalDeleted;
     }
 
     /// <inheritdoc/>

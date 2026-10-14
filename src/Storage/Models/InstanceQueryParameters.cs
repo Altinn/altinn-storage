@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using Altinn.Platform.Storage.Helpers;
+using Altinn.Register.Contracts;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
 
@@ -479,70 +480,95 @@ public class InstanceQueryParameters
     }
 
     /// <summary>
-    /// Parses and validates the <see cref="InstanceOwnerIdentifier"/> into a person or organisation number.
+    /// Parses and validates the <see cref="InstanceOwnerIdentifier"/> into a Register party URN.
     /// </summary>
+    /// <remarks>
+    /// Accepts any party URN understood by Register (for example <c>urn:altinn:party:uuid:{guid}</c>
+    /// or <c>urn:altinn:person:idporten-email:{email}</c>), and the short forms
+    /// <c>person:{11 digits}</c> and <c>organisation:{9 digits}</c>.
+    /// </remarks>
     /// <returns>
-    /// A result indicating whether the identifier is valid. When valid, exactly one of
-    /// <see cref="InstanceOwnerIdentifierParseResult.Person"/> or
-    /// <see cref="InstanceOwnerIdentifierParseResult.OrgNo"/> may be set (both may be null for
-    /// party types that are neither person nor organisation). When invalid,
+    /// A result indicating whether the identifier is valid. A valid result has a
+    /// <see cref="InstanceOwnerIdentifierParseResult.Identifier"/> unless the identifier is well-formed
+    /// but cannot belong to any party, such as a number with an invalid check digit. When invalid,
     /// <see cref="InstanceOwnerIdentifierParseResult.ErrorMessage"/> describes the problem.
     /// </returns>
     public InstanceOwnerIdentifierParseResult ParseInstanceOwnerIdentifier()
     {
-        (string instanceOwnerIdType, string instanceOwnerIdValue) =
-            InstanceHelper.GetIdentifierFromInstanceOwnerIdentifier(InstanceOwnerIdentifier);
+        string identifier = InstanceOwnerIdentifier?.Trim();
 
-        if (string.IsNullOrEmpty(instanceOwnerIdType) || string.IsNullOrEmpty(instanceOwnerIdValue))
+        if (identifier?.StartsWith("urn:", StringComparison.Ordinal) == true)
+        {
+            return PartyUrn.TryParse(identifier, null, out PartyUrn partyUrn)
+                ? new InstanceOwnerIdentifierParseResult(true, partyUrn, null)
+                : new InstanceOwnerIdentifierParseResult(
+                    false,
+                    null,
+                    "Invalid InstanceOwnerIdentifier."
+                );
+        }
+
+        (string instanceOwnerIdType, string instanceOwnerIdValue) =
+            InstanceHelper.GetIdentifierFromInstanceOwnerIdentifier(identifier);
+
+        if (
+            string.IsNullOrEmpty(instanceOwnerIdValue)
+            || !Enum.TryParse(instanceOwnerIdType, true, out PartyType partyType)
+        )
         {
             return new InstanceOwnerIdentifierParseResult(
                 false,
-                null,
                 null,
                 "Invalid InstanceOwnerIdentifier."
             );
         }
 
-        string orgNo = null;
-        string person = null;
-
-        if (Enum.TryParse(instanceOwnerIdType, true, out PartyType partyType))
+        switch (partyType)
         {
-            switch (partyType)
-            {
-                case PartyType.Person:
-                    if (
-                        !InstanceOwnerIdRegExHelper.ElevenDigitRegex().IsMatch(instanceOwnerIdValue)
+            case PartyType.Person:
+                if (!InstanceOwnerIdRegExHelper.ElevenDigitRegex().IsMatch(instanceOwnerIdValue))
+                {
+                    return new InstanceOwnerIdentifierParseResult(
+                        false,
+                        null,
+                        "Person number needs to be exactly 11 digits."
+                    );
+                }
+
+                return new InstanceOwnerIdentifierParseResult(
+                    true,
+                    PersonIdentifier.TryParse(
+                        instanceOwnerIdValue,
+                        null,
+                        out PersonIdentifier person
                     )
-                    {
-                        return new InstanceOwnerIdentifierParseResult(
-                            false,
-                            null,
-                            null,
-                            "Person number needs to be exactly 11 digits."
-                        );
-                    }
+                        ? PartyUrn.PersonId.Create(person)
+                        : null,
+                    null
+                );
 
-                    person = instanceOwnerIdValue;
-                    break;
+            default:
+                if (!InstanceOwnerIdRegExHelper.NineDigitRegex().IsMatch(instanceOwnerIdValue))
+                {
+                    return new InstanceOwnerIdentifierParseResult(
+                        false,
+                        null,
+                        "Organization number needs to be exactly 9 digits."
+                    );
+                }
 
-                case PartyType.Organisation:
-                    if (!InstanceOwnerIdRegExHelper.NineDigitRegex().IsMatch(instanceOwnerIdValue))
-                    {
-                        return new InstanceOwnerIdentifierParseResult(
-                            false,
-                            null,
-                            null,
-                            "Organization number needs to be exactly 9 digits."
-                        );
-                    }
-
-                    orgNo = instanceOwnerIdValue;
-                    break;
-            }
+                return new InstanceOwnerIdentifierParseResult(
+                    true,
+                    OrganizationIdentifier.TryParse(
+                        instanceOwnerIdValue,
+                        null,
+                        out OrganizationIdentifier organization
+                    )
+                        ? PartyUrn.OrganizationId.Create(organization)
+                        : null,
+                    null
+                );
         }
-
-        return new InstanceOwnerIdentifierParseResult(true, person, orgNo, null);
     }
 }
 
@@ -550,12 +576,13 @@ public class InstanceQueryParameters
 /// The result of parsing an <see cref="InstanceQueryParameters.InstanceOwnerIdentifier"/> value.
 /// </summary>
 /// <param name="IsValid">Whether the identifier was valid.</param>
-/// <param name="Person">The person number, when the identifier refers to a person; otherwise null.</param>
-/// <param name="OrgNo">The organisation number, when the identifier refers to an organisation; otherwise null.</param>
+/// <param name="Identifier">
+/// The Register party URN the identifier refers to; null when the identifier is invalid, or valid but
+/// unable to match any party.
+/// </param>
 /// <param name="ErrorMessage">A description of the validation failure, when <paramref name="IsValid"/> is false; otherwise null.</param>
 public readonly record struct InstanceOwnerIdentifierParseResult(
     bool IsValid,
-    string Person,
-    string OrgNo,
+    PartyUrn Identifier,
     string ErrorMessage
 );

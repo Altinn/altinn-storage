@@ -46,7 +46,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
     {
         _fixture = fixture;
         string sql =
-            "delete from storage.dataelementblobversions; delete from storage.instanceevents; delete from storage.instances; delete from storage.dataelements;";
+            "delete from storage.dataelementblobversions; delete from storage.instanceevents; delete from storage.instances; delete from storage.parties; delete from storage.dataelements;";
         _ = PostgresUtil.RunSql(sql).Result;
     }
 

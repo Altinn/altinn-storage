@@ -18,6 +18,7 @@ public static class DomainModelContractTestData
           "Id": "045ea5db-6dd4-4476-b774-bdb2a09da7ea",
           "InstanceOwner": {
             "PartyId": "1337",
+            "PartyUuid": "4c3b4909-eb17-45d5-bde1-256e065e196a",
             "PersonNumber": "01010112345",
             "OrganisationNumber": "999888777",
             "Username": "contract-user",
@@ -235,6 +236,7 @@ public static class DomainModelContractTestData
           "id": "1337/045ea5db-6dd4-4476-b774-bdb2a09da7ea",
           "instanceOwner": {
             "partyId": "1337",
+            "partyUuid": "4c3b4909-eb17-45d5-bde1-256e065e196a",
             "personNumber": "01010112345",
             "organisationNumber": "999888777",
             "username": "contract-user",
@@ -503,6 +505,7 @@ public static class DomainModelContractTestData
         new()
         {
             PartyId = "1337",
+            PartyUuid = Guid.Parse("4c3b4909-eb17-45d5-bde1-256e065e196a"),
             PersonNumber = "01010112345",
             OrganisationNumber = "999888777",
             Username = "contract-user",

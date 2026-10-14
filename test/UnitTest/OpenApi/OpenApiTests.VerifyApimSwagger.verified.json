@@ -4479,18 +4479,22 @@
         "properties": {
           "read": {
             "type": "string",
+            "description": "Gets or sets the read scope for the app.\nCan use '[app]' as placeholders for the app name that will be substituted when validating the token.\nExample: \"<your-IDporten-org>:[app]/instances.read\"",
             "nullable": true
           },
           "write": {
             "type": "string",
+            "description": "Gets or sets the write scope for the app.\nCan use '[app]' as placeholders for the app name that will be substituted when validating the token.\nExample: \"<your-IDporten-org>:[app]/instances.write\"",
             "nullable": true
           },
           "errorMessageTextResourceKey": {
             "type": "string",
+            "description": "Text resource key for a custom error message to show when a user tries to access the app API without having the required scopes\nWill apply if set (takes precedence over the one in 'apiScopesConfiguration')",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Custom scopes for an app"
       },
       "ApiScopesConfiguration": {
         "type": "object",
@@ -4503,10 +4507,12 @@
           },
           "errorMessageTextResourceKey": {
             "type": "string",
+            "description": "Text resource key for a custom error message to show when a user tries to access the app API without having the required scopes\nWill apply for both service owners and users if specified (has lower precedence than the one in 'users' and 'serviceOwners')",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Custom API scopes configuration for an app"
       },
       "AppMetadataAccess": {
         "type": "object",
@@ -4517,52 +4523,74 @@
               "type": "string",
               "nullable": true
             },
+            "description": "Description used to describe delegation of rights",
             "nullable": true
           },
           "delegable": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Whether the application supports delegation of rights to other users or not"
           },
           "visible": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Whether the application is visible to users or not when delegating"
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Access related metadata"
       },
       "AppMetadataContactPoint": {
         "type": "object",
         "properties": {
           "category": {
             "type": "string",
+            "description": "The category of the contact point.",
             "nullable": true
           },
           "email": {
             "type": "string",
+            "description": "The email address of the contact point.",
             "nullable": true
           },
           "telephone": {
             "type": "string",
+            "description": "The telephone number of the contact point.",
             "nullable": true
           },
           "contactPage": {
             "type": "string",
+            "description": "The contact page of the contact point.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Contact points for an application"
+      },
+      "AppStatus": {
+        "enum": [
+          "Completed",
+          "Deprecated",
+          "UnderDevelopment",
+          "Withdrawn"
+        ],
+        "type": "string",
+        "description": "Values from EU’s controlled vocabulary public service status\nhttp://purl.org/adms/status/"
       },
       "Application": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
+            "description": "Gets or sets the unique id of the application, e.g. test/app-34",
             "nullable": true
           },
           "versionId": {
             "type": "string",
+            "description": "Gets or sets the application version id.",
             "nullable": true
           },
           "org": {
             "type": "string",
+            "description": "Gets or sets the short code representing the owner of the service. E.g. nav",
             "nullable": true
           },
           "title": {
@@ -4571,20 +4599,24 @@
               "type": "string",
               "nullable": true
             },
+            "description": "Gets or sets the title of the application with language codes.",
             "nullable": true
           },
           "validFrom": {
             "type": "string",
+            "description": "Gets or sets the date and time from when the application is valid/can be used.",
             "format": "date-time",
             "nullable": true
           },
           "validTo": {
             "type": "string",
+            "description": "Gets or sets the date and time at when the application is no longer valid/can no longer be used.",
             "format": "date-time",
             "nullable": true
           },
           "processId": {
             "type": "string",
+            "description": "Gets or sets an identifier of the process model that is used by the application.",
             "nullable": true
           },
           "dataTypes": {
@@ -4592,16 +4624,19 @@
             "items": {
               "$ref": "#/components/schemas/DataType"
             },
+            "description": "Gets or sets a list of data types that are allowed on an instance of this application.",
             "nullable": true
           },
           "partyTypesAllowed": {
             "$ref": "#/components/schemas/PartyTypesAllowed"
           },
           "autoDeleteOnProcessEnd": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Gets or sets a property indicating if application instance should be automatically marked for hard deletion on process end."
           },
           "preventInstanceDeletionForDays": {
             "type": "integer",
+            "description": "Prevents the deletion of an instance for the specified number of days.\nThis property takes precedence over the Altinn.Platform.Storage.Interface.Models.Application.AutoDeleteOnProcessEnd property.",
             "format": "int32",
             "nullable": true
           },
@@ -4610,6 +4645,7 @@
             "items": {
               "$ref": "#/components/schemas/DataField"
             },
+            "description": "Gets or sets the presentation fields of the application.",
             "nullable": true
           },
           "dataFields": {
@@ -4617,6 +4653,7 @@
             "items": {
               "$ref": "#/components/schemas/DataField"
             },
+            "description": "Gets or sets the data fields of the application.\nThe data for fields specified here will automatically be copied and populated on the Altinn.Platform.Storage.Interface.Models.Instance model as data values,\nmaking them easily available for routing or other needs without having to load the entire data set.",
             "nullable": true
           },
           "eFormidling": {
@@ -4636,14 +4673,17 @@
           },
           "storageAccountNumber": {
             "type": "integer",
+            "description": "Gets or sets an optional account number to use a different storage account than the default.",
             "format": "int32",
             "nullable": true
           },
           "disallowUserInstantiation": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Gets or sets a boolean value indicating if users (user tokens) are disallowed from instantiating.\nDefault value is `false`."
           },
           "homepage": {
             "type": "string",
+            "description": "Homepage of the application.",
             "nullable": true
           },
           "keywords": {
@@ -4651,6 +4691,7 @@
             "items": {
               "$ref": "#/components/schemas/Keyword"
             },
+            "description": "Keywords/tags for the application.",
             "nullable": true
           },
           "description": {
@@ -4659,6 +4700,7 @@
               "type": "string",
               "nullable": true
             },
+            "description": "Description of the application.",
             "nullable": true
           },
           "access": {
@@ -4669,28 +4711,37 @@
             "items": {
               "$ref": "#/components/schemas/AppMetadataContactPoint"
             },
+            "description": "Contact points for the application.",
             "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/AppStatus"
           },
           "created": {
             "type": "string",
+            "description": "Gets or sets the date and time for when the element was created.",
             "format": "date-time",
             "nullable": true
           },
           "createdBy": {
             "type": "string",
+            "description": "Gets or sets the id of the user who created this element.",
             "nullable": true
           },
           "lastChanged": {
             "type": "string",
+            "description": "Gets or sets the date and time for when the element was last edited.",
             "format": "date-time",
             "nullable": true
           },
           "lastChangedBy": {
             "type": "string",
+            "description": "Gets or sets the id of the user who last changed this element.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents an application by providing information about it."
       },
       "ApplicationList": {
         "type": "object",
@@ -4700,69 +4751,84 @@
             "items": {
               "$ref": "#/components/schemas/Application"
             },
+            "description": "The actual list of applications.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents a container object with a list of applications."
       },
       "ApplicationLogic": {
         "type": "object",
         "properties": {
           "autoCreate": {
             "type": "boolean",
+            "description": "Gets or sets a value indicating whether the app-backend will attempt to automatically create (or prefill)\nthis data type when the task referred by taskId starts.",
             "nullable": true
           },
           "classRef": {
             "type": "string",
+            "description": "Gets or sets the class type to instantiate when creating an instance of this data type.",
             "nullable": true
           },
           "schemaRef": {
             "type": "string",
+            "description": "Gets or sets the name and path to the data type schema.",
             "nullable": true
           },
           "allowAnonymousOnStateless": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Specifies whether anonymous access is allowed in stateless mode or not for this particular data type.\nDefaults to false if not specified."
           },
           "autoDeleteOnProcessEnd": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Gets or sets a property indicating if data type should be automatically marked for hard deletion on process end."
           },
           "disallowUserCreate": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Specifies whether users should be unable to create data of this type.\nDefaults to false if not specified."
           },
           "disallowUserDelete": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Specifies whether users should be unable to delete data of this type.\nDefaults to false if not specified."
           },
           "shadowFields": {
             "$ref": "#/components/schemas/ShadowFields"
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents an object with information about how the data type is handled by the application logic."
       },
       "CompleteConfirmation": {
         "type": "object",
         "properties": {
           "stakeholderId": {
             "type": "string",
+            "description": "Gets or sets a unique identifier for a stakeholder.",
             "nullable": true
           },
           "confirmedOn": {
             "type": "string",
+            "description": "Gets or sets the date and time for when the complete confirmation was created.",
             "format": "date-time"
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents information about when a given stakeholder informed Altinn that they consider their own process as complete\nin regards to the instance. A typical stakeholder is the application owner."
       },
       "CopyInstanceSettings": {
         "type": "object",
         "properties": {
           "enabled": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Gets or sets a boolean indicating if copy instance is enabled."
           },
           "excludedDataTypes": {
             "type": "array",
             "items": {
               "type": "string"
             },
+            "description": "Gets or sets a list of excluded data types.",
             "nullable": true
           },
           "excludedDataFields": {
@@ -4770,19 +4836,23 @@
             "items": {
               "type": "string"
             },
+            "description": "Gets or sets a list of excluded datafields.",
             "nullable": true
           },
           "includeAttachments": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Gets or sets a boolean indicating if copying of attachments is enabled."
           },
           "includeDueBefore": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Gets or sets a boolean indicating if the due date (dueBefore) should be copied from the source instance."
           },
           "includedDataValues": {
             "type": "array",
             "items": {
               "type": "string"
             },
+            "description": "Gets or sets the keys of the data values that should be copied from the source instance.",
             "nullable": true
           },
           "includedPresentationTexts": {
@@ -4790,10 +4860,12 @@
             "items": {
               "type": "string"
             },
+            "description": "Gets or sets the keys of the presentation texts that should be copied from the source instance.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "A class holding copy instance settings."
       },
       "CorrespondenceEventSync": {
         "type": "object",
@@ -4827,26 +4899,32 @@
         "properties": {
           "id": {
             "type": "string",
+            "description": "Gets or sets the unique id, a guid.",
             "nullable": true
           },
           "instanceGuid": {
             "type": "string",
+            "description": "Gets or sets the id of the instance which the data element belongs to.\nThis field is normally not populated if data element is part of instance metadata.",
             "nullable": true
           },
           "dataType": {
             "type": "string",
+            "description": "Gets or sets the data type, must be equal to the ones defined in application data types.",
             "nullable": true
           },
           "filename": {
             "type": "string",
+            "description": "Gets or sets the name of the data element (file)",
             "nullable": true
           },
           "contentType": {
             "type": "string",
+            "description": "Gets or sets the content type in the stored data element (file).",
             "nullable": true
           },
           "blobStoragePath": {
             "type": "string",
+            "description": "Gets or sets the current path to blob storage. Might be nullified in export.",
             "nullable": true
           },
           "selfLinks": {
@@ -4854,18 +4932,22 @@
           },
           "size": {
             "type": "integer",
+            "description": "Gets or sets the size of file in bytes",
             "format": "int64"
           },
           "contentHash": {
             "type": "string",
+            "description": "Gets or sets the computed MD5 hash value of the blob. (Base64 encoded string, not the more common hex encoding)",
             "nullable": true
           },
           "blobVersionId": {
             "type": "string",
+            "description": "Gets or sets the blob version id identifying the current data element content.",
             "nullable": true
           },
           "locked": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Gets or sets a value indicating whether the element can be updated."
           },
           "refs": {
             "type": "array",
@@ -4873,16 +4955,19 @@
               "type": "string",
               "format": "uuid"
             },
+            "description": "Gets or sets an optional array of data element references.",
             "nullable": true
           },
           "isRead": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Gets or sets a value indicating whether the element has been read."
           },
           "tags": {
             "type": "array",
             "items": {
               "type": "string"
             },
+            "description": "Gets or sets a collection of tags associated with the data element.",
             "nullable": true
           },
           "userDefinedMetadata": {
@@ -4890,6 +4975,7 @@
             "items": {
               "$ref": "#/components/schemas/KeyValueEntry"
             },
+            "description": "Gets or sets user-defined metadata associated with the data element.",
             "nullable": true
           },
           "metadata": {
@@ -4897,6 +4983,7 @@
             "items": {
               "$ref": "#/components/schemas/KeyValueEntry"
             },
+            "description": "Gets or sets application-defined metadata associated with the data element.",
             "nullable": true
           },
           "deleteStatus": {
@@ -4910,28 +4997,34 @@
             "items": {
               "$ref": "#/components/schemas/Reference"
             },
+            "description": "Gets or sets the list of references to other objects.",
             "nullable": true
           },
           "created": {
             "type": "string",
+            "description": "Gets or sets the date and time for when the element was created.",
             "format": "date-time",
             "nullable": true
           },
           "createdBy": {
             "type": "string",
+            "description": "Gets or sets the id of the user who created this element.",
             "nullable": true
           },
           "lastChanged": {
             "type": "string",
+            "description": "Gets or sets the date and time for when the element was last edited.",
             "format": "date-time",
             "nullable": true
           },
           "lastChangedBy": {
             "type": "string",
+            "description": "Gets or sets the id of the user who last changed this element.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents metadata about a data element."
       },
       "DataElementList": {
         "type": "object",
@@ -4941,47 +5034,57 @@
             "items": {
               "$ref": "#/components/schemas/DataElement"
             },
+            "description": "The actual list of data elements.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents a container object with a list of data elements."
       },
       "DataElementSignature": {
         "type": "object",
         "properties": {
           "dataElementId": {
             "type": "string",
+            "description": "Id of the dataElement.",
             "nullable": true
           },
           "signed": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Signing status for dataElement."
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "The DataElementSignature"
       },
       "DataField": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
+            "description": "Gets or sets the id of the presentation field",
             "nullable": true
           },
           "path": {
             "type": "string",
+            "description": "Gets or sets the path of the presentation field",
             "nullable": true
           },
           "dataTypeId": {
             "type": "string",
+            "description": "Gets or sets the data type where the presentation field is defined.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Holds the definition of a data field for an application, ie. a named reference to a form data field."
       },
       "DataType": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
+            "description": "Gets or sets the data type id.\nIt must be unique within the scope of an application. Logical name of the schema of which data elements should be validated against.\nShould be in lower case and can only contain letters, dash and numbers. No space or slashes are allowed.\nExamples are: main, subschema-x, cv, attachment",
             "nullable": true
           },
           "description": {
@@ -4989,6 +5092,7 @@
             "additionalProperties": {
               "type": "string"
             },
+            "description": "Gets or sets a description of the data type with language description.",
             "nullable": true
           },
           "allowedContentTypes": {
@@ -4996,6 +5100,7 @@
             "items": {
               "type": "string"
             },
+            "description": "Gets or sets a list of allowed content types (Mime types). If null or empty all content types are allowed.",
             "nullable": true
           },
           "allowedContributers": {
@@ -5003,6 +5108,7 @@
             "items": {
               "type": "string"
             },
+            "description": "Gets or sets a list of allowed contributers.\nValue should be preceded by an approved key.\nIf null or empty no contributer restrictions are set.",
             "nullable": true,
             "deprecated": true
           },
@@ -5011,14 +5117,17 @@
             "items": {
               "type": "string"
             },
+            "description": "Gets or sets a list of allowed contributors.\nValue should be preceded by an approved key.\nIf null or empty then no contributor restrictions are set.",
             "nullable": true
           },
           "actionRequiredToRead": {
             "type": "string",
+            "description": "When this is set, it overrides what action is required to read the blob of data elements of this data type.",
             "nullable": true
           },
           "actionRequiredToWrite": {
             "type": "string",
+            "description": "When this is set, it overrides what action is required to write to the blob of data elements of this data type.",
             "nullable": true
           },
           "appLogic": {
@@ -5026,43 +5135,52 @@
           },
           "taskId": {
             "type": "string",
+            "description": "Gets or sets a reference to the process element id of the task where this data element should be updated.",
             "nullable": true
           },
           "maxSize": {
             "type": "integer",
+            "description": "Gets or sets the maximum allowed size of the file in mega bytes. If missing there is no limit on file size.",
             "format": "int32",
             "nullable": true
           },
           "maxCount": {
             "type": "integer",
+            "description": "Gets or sets the maximum number of allowed elements of this type on the same application instance. Default is 1.",
             "format": "int32",
             "default": 1
           },
           "minCount": {
             "type": "integer",
+            "description": "Gets or sets the minimum number of required elements of this type on the same application instance. Default is 1.",
             "format": "int32",
             "default": 1
           },
           "grouping": {
             "type": "string",
+            "description": "Gets or sets the grouping for this data type. Can be a a string (\"Photos\") or a text resource key (\"scheme.grouping\") if the grouping name should support multiple languages.",
             "nullable": true
           },
           "enablePdfCreation": {
             "type": "boolean",
+            "description": "Gets or sets a value indicating whether the element should trigger PDF generation",
             "nullable": true,
             "deprecated": true
           },
           "enableFileScan": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Gets or sets a value indicating whether file uploaded to this data type should be scanned for malware. Default value is `false`."
           },
           "validationErrorOnPendingFileScan": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Gets or sets a value indicating wheter a file scan status of pending should trigger a validation error or not. Default is `false`."
           },
           "enabledFileAnalysers": {
             "type": "array",
             "items": {
               "type": "string"
             },
+            "description": "Gets or sets a list of enabled file analysers this data type should be analysed against to extract metadata about the file.\nThis metadata can in turn either be used to validate against or simply to extract metadata to add to the datamodel.\nThe id's provided should match the id's registered with IFileAnalyser implementations registered in the application.",
             "nullable": true
           },
           "enabledFileValidators": {
@@ -5070,6 +5188,7 @@
             "items": {
               "type": "string"
             },
+            "description": "Gets or sets a list of enabled file validators this data type should be validated against.",
             "nullable": true
           },
           "allowedKeysForUserDefinedMetadata": {
@@ -5077,10 +5196,12 @@
             "items": {
               "type": "string"
             },
+            "description": "Gets or sets a list of allowed keys for user defined metadata.\nIf null or empty, all user defined metadata keys are allowed.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents metadata about a type of data element that the application will require when stepping through the process of\nan application while completing an instance."
       },
       "DataValues": {
         "type": "object",
@@ -5091,62 +5212,76 @@
               "type": "string",
               "nullable": true
             },
+            "description": "The actual collection of values to be added to.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents the body of a PUT request against the data values endpoint for Instance."
       },
       "DeleteStatus": {
         "type": "object",
         "properties": {
           "isHardDeleted": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Gets or sets if the element is hard deleted."
           },
           "hardDeleted": {
             "type": "string",
+            "description": "Gets or sets the date the element was marked for hard delete.",
             "format": "date-time",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents metadata about the delete status of an element"
       },
       "EFormidlingContract": {
         "type": "object",
         "properties": {
           "serviceId": {
             "type": "string",
+            "description": "Service identifier for the process",
             "nullable": true
           },
           "dpfShipmentType": {
             "type": "string",
+            "description": "The DPF shipment type used for routing in the receiving system",
             "nullable": true
           },
           "receiver": {
             "type": "string",
+            "description": "Org number for the receiver of the shipment.",
             "nullable": true
           },
           "sendAfterTaskId": {
             "type": "string",
+            "description": "Identifies which task should be completed before the shipment is sent.",
             "nullable": true
           },
           "process": {
             "type": "string",
+            "description": "Process type",
             "nullable": true
           },
           "standard": {
             "type": "string",
+            "description": "The document standard. E.g. urn:no:difi:arkivmelding:xsd::arkivmelding",
             "nullable": true
           },
           "typeVersion": {
             "type": "string",
+            "description": "Version of the document type",
             "nullable": true
           },
           "type": {
             "type": "string",
+            "description": "The document type e.g. \"arkivmelding\"",
             "nullable": true
           },
           "securityLevel": {
             "type": "integer",
+            "description": "The security level to be set for the standard business document",
             "format": "int32"
           },
           "dataTypes": {
@@ -5154,10 +5289,12 @@
             "items": {
               "type": "string"
             },
+            "description": "List of ids for the data types to include in the shipment.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Defines the eFormidling shipment contract related to an application."
       },
       "FileScanResult": {
         "enum": [
@@ -5166,46 +5303,54 @@
           "Clean",
           "Infected"
         ],
-        "type": "string"
+        "type": "string",
+        "description": "Represents different scanning results for when files are being scanned for malware."
       },
       "FileScanStatus": {
         "type": "object",
         "properties": {
           "contentHash": {
             "type": "string",
+            "description": "Gets or sets the MD5 content hash computed by Azure Blob Storage",
             "nullable": true
           },
           "blobVersionId": {
             "type": "string",
+            "description": "Gets or sets the explicit blob version ID that was scanned.",
             "nullable": true
           },
           "fileScanResult": {
             "$ref": "#/components/schemas/FileScanResult"
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents file scan status for a data element"
       },
       "HideSettings": {
         "type": "object",
         "properties": {
           "hideAlways": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Gets or sets the always hide property"
           },
           "hideOnTask": {
             "type": "array",
             "items": {
               "type": "string"
             },
+            "description": "Gets or sets a list of tasks where hide should be applied.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "A class to hold hide settings"
       },
       "Instance": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
+            "description": "Gets or sets the unique id of the instance {instanceOwnerId}/{instanceGuid}.",
             "nullable": true
           },
           "instanceOwner": {
@@ -5213,10 +5358,12 @@
           },
           "appId": {
             "type": "string",
+            "description": "Gets or sets the id of the application this is an instance of, e.g. {org}/{app22}.",
             "nullable": true
           },
           "org": {
             "type": "string",
+            "description": "Gets or sets application owner identifier, usually a abbreviation of organisation name. All in lower case.",
             "nullable": true
           },
           "selfLinks": {
@@ -5224,11 +5371,13 @@
           },
           "dueBefore": {
             "type": "string",
+            "description": "Gets or sets the due date to submit the instance to application owner.",
             "format": "date-time",
             "nullable": true
           },
           "visibleAfter": {
             "type": "string",
+            "description": "Gets or sets date and time for when the instance should first become visible for the instance owner.",
             "format": "date-time",
             "nullable": true
           },
@@ -5243,6 +5392,7 @@
             "items": {
               "$ref": "#/components/schemas/CompleteConfirmation"
             },
+            "description": "Gets or sets a list of Altinn.Platform.Storage.Interface.Models.CompleteConfirmation elements.",
             "nullable": true
           },
           "data": {
@@ -5250,6 +5400,7 @@
             "items": {
               "$ref": "#/components/schemas/DataElement"
             },
+            "description": "Gets or sets a list of data elements associated with the instance",
             "nullable": true
           },
           "presentationTexts": {
@@ -5258,6 +5409,7 @@
               "type": "string",
               "nullable": true
             },
+            "description": "Gets or sets the presentation texts for the instance.",
             "nullable": true
           },
           "dataValues": {
@@ -5266,56 +5418,68 @@
               "type": "string",
               "nullable": true
             },
+            "description": "Gets or sets the data values for the instance.",
             "nullable": true
           },
           "created": {
             "type": "string",
+            "description": "Gets or sets the date and time for when the element was created.",
             "format": "date-time",
             "nullable": true
           },
           "createdBy": {
             "type": "string",
+            "description": "Gets or sets the id of the user who created this element.",
             "nullable": true
           },
           "lastChanged": {
             "type": "string",
+            "description": "Gets or sets the date and time for when the element was last edited.",
             "format": "date-time",
             "nullable": true
           },
           "lastChangedBy": {
             "type": "string",
+            "description": "Gets or sets the id of the user who last changed this element.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents an instance.\nInstances are metadata containers that are used to track the state of one use of an application."
       },
       "InstanceEvent": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
+            "description": "Unique identifier of the event.",
             "format": "uuid",
             "nullable": true
           },
           "instanceId": {
             "type": "string",
+            "description": "The instance the event is referring to {instanceOwnerId}/{instanceGuid}.",
             "nullable": true
           },
           "dataId": {
             "type": "string",
+            "description": "The data element which the event refers to, or null.",
             "nullable": true
           },
           "created": {
             "type": "string",
+            "description": "Event creation date-time",
             "format": "date-time",
             "nullable": true
           },
           "eventType": {
             "type": "string",
+            "description": "The event type, e.g. created, saved, process-change.",
             "nullable": true
           },
           "instanceOwnerPartyId": {
             "type": "string",
+            "description": "The instance owner party id.",
             "nullable": true
           },
           "user": {
@@ -5329,10 +5493,12 @@
           },
           "additionalInfo": {
             "type": "string",
+            "description": "Additional information describing the event",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents the an event related to an instance."
       },
       "InstanceEventList": {
         "type": "object",
@@ -5342,30 +5508,36 @@
             "items": {
               "$ref": "#/components/schemas/InstanceEvent"
             },
+            "description": "The actual list of instance events.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents a container object with a list of events related to instances."
       },
       "InstanceLockRequest": {
         "type": "object",
         "properties": {
           "ttlSeconds": {
             "type": "integer",
+            "description": "Gets or sets the time to live in seconds.",
             "format": "int32"
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents a request to acquire or update an instance lock."
       },
       "InstanceLockResponse": {
         "type": "object",
         "properties": {
           "lockToken": {
             "type": "string",
+            "description": "Gets or sets the lock token.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents a response when acquiring an instance lock."
       },
       "InstanceMutationResponse": {
         "type": "object",
@@ -5378,39 +5550,54 @@
             "items": {
               "type": "string"
             },
+            "description": "Storage-generated ids for created data elements, in createDataElements request order.",
             "nullable": true
           },
           "replayed": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Whether this response was replayed from a previously committed idempotent mutation."
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Response body from an aggregate instance mutation."
       },
       "InstanceOwner": {
         "type": "object",
         "properties": {
           "partyId": {
             "type": "string",
+            "description": "Gets or sets the party id of the instance owner (also called instance owner party id).",
+            "nullable": true
+          },
+          "partyUuid": {
+            "type": "string",
+            "description": "Gets or sets the party uuid of the instance owner.",
+            "format": "uuid",
             "nullable": true
           },
           "personNumber": {
             "type": "string",
+            "description": "Gets or sets person number (national identification number) of the party. Null if the party is not a person.",
             "nullable": true
           },
           "organisationNumber": {
             "type": "string",
+            "description": "Gets or sets the organisation number of the party. Null if the party is not an organisation.",
             "nullable": true
           },
           "username": {
             "type": "string",
+            "description": "Gets or sets the username of the party.\nFor self identifier users.\nLegacy sets this as a username, new id porten email self identification sets this as email on the form \"epost:[email]\"",
             "nullable": true
           },
           "externalIdentifier": {
             "type": "string",
+            "description": "Gets or sets an external identifier for the party.\nThis is used for self identifier users, on the form \"urn:altinn:person:idporten-email:[email]\"\nor \"urn:altinn:person:legacy-selfidentified:[username]\".",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents information to identify the owner of an instance."
       },
       "InstanceQueryResponse": {
         "type": "object",
@@ -5446,26 +5633,32 @@
         "type": "object",
         "properties": {
           "isArchived": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Gets or sets if the instance is archived."
           },
           "archived": {
             "type": "string",
+            "description": "Gets or sets the date the instance was archived.",
             "format": "date-time",
             "nullable": true
           },
           "isSoftDeleted": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Gets or sets if the instance is soft deleted."
           },
           "softDeleted": {
             "type": "string",
+            "description": "Gets or sets the date the instance was deleted.",
             "format": "date-time",
             "nullable": true
           },
           "isHardDeleted": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Gets or sets if the instance is hard deleted."
           },
           "hardDeleted": {
             "type": "string",
+            "description": "Gets or sets the date the instance was marked for hard delete by user.",
             "format": "date-time",
             "nullable": true
           },
@@ -5476,35 +5669,42 @@
             "$ref": "#/components/schemas/Substatus"
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents set of statuses used by the message box to determine\nwhere to show the instance and which icons to use."
       },
       "KeyValueEntry": {
         "type": "object",
         "properties": {
           "key": {
             "type": "string",
+            "description": "The key. Must be unique within the list.",
             "nullable": true
           },
           "value": {
             "type": "string",
+            "description": "The value.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents a key-value pair."
       },
       "Keyword": {
         "type": "object",
         "properties": {
           "word": {
             "type": "string",
+            "description": "The key word",
             "nullable": true
           },
           "language": {
             "type": "string",
+            "description": "Language of the key word",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Keywords/tags for the application"
       },
       "MarginOptions": {
         "type": "object",
@@ -5543,7 +5743,8 @@
             "$ref": "#/components/schemas/SyncAdapterSettings"
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Class that holds the message box configuration for an application."
       },
       "MessageBoxQueryModel": {
         "required": [
@@ -5629,28 +5830,35 @@
         "properties": {
           "show": {
             "type": "string",
+            "description": "Defines what should be shown on entry.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "The on entry configuration"
       },
       "PartyTypesAllowed": {
         "type": "object",
         "properties": {
           "bankruptcyEstate": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Gets or sets a value indicating whether a bankruptcy estate is allowed to be the owner of an instance."
           },
           "organisation": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Gets or sets a value indicating whether an organisation is allowed to be the owner of an instance."
           },
           "person": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Gets or sets a value indicating whether a person is allowed to be the owner of an instance."
           },
           "subUnit": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Gets or sets a value indicating whether a sub unit is allowed to be the owner of an instance."
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents a set of settings where application owner can define what types of parties\nthat are allowed to be owners of an instance in an application."
       },
       "PdfGeneratorRequest": {
         "type": "object",
@@ -5705,41 +5913,50 @@
         "properties": {
           "userId": {
             "type": "integer",
+            "description": "Gets or sets the unique user id as given by Altinn, or null if the user is an organisation user.",
             "format": "int32",
             "nullable": true
           },
           "orgId": {
             "type": "string",
+            "description": "Gets or sets the altinn org identifier of the organisation that were identified by maskinporten.",
             "nullable": true
           },
           "authenticationLevel": {
             "type": "integer",
+            "description": "Gets or sets the authentication level for the user which triggered the event",
             "format": "int32"
           },
           "endUserSystemId": {
             "type": "integer",
+            "description": "Gets or sets the end user system that were used triggered the event.",
             "format": "int32",
             "nullable": true
           },
           "nationalIdentityNumber": {
             "type": "string",
+            "description": "Gets or sets the national identity number of the person that triggered the event.",
             "nullable": true
           },
           "systemUserId": {
             "type": "string",
+            "description": "Gets or sets the ID of the system user that triggered the event.",
             "format": "uuid",
             "nullable": true
           },
           "systemUserOwnerOrgNo": {
             "type": "string",
+            "description": "Gets or sets the organization number of the owner of the system user that triggered the event.",
             "nullable": true
           },
           "systemUserName": {
             "type": "string",
+            "description": "Gets or sets the name of the system user that triggered the event.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Information about the platform user, that is the identity of the client doing the action and his/hers authentication level.\nIt can be a person (UserId) or an organisation (OrgId). And the user can have logged in via an end user system or not."
       },
       "PresentationTexts": {
         "type": "object",
@@ -5750,10 +5967,12 @@
               "type": "string",
               "nullable": true
             },
+            "description": "The actual collection of texts to be added to",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents the body of a PUT request against the presentationtexts endpoint for Instance."
       },
       "ProblemDetails": {
         "type": "object",
@@ -5787,28 +6006,34 @@
         "properties": {
           "flow": {
             "type": "integer",
+            "description": "Gets or sets the sequence number of the various tasks and event elements that have been reached by this process.",
             "format": "int32",
             "nullable": true
           },
           "started": {
             "type": "string",
+            "description": "Gets or sets the date and time for when the current task was started.",
             "format": "date-time",
             "nullable": true
           },
           "elementId": {
             "type": "string",
+            "description": "Gets or sets a reference to the current task/event element id as given in the process definition.",
             "nullable": true
           },
           "name": {
             "type": "string",
+            "description": "Gets or sets the name of the process element",
             "nullable": true
           },
           "altinnTaskType": {
             "type": "string",
+            "description": "Gets or sets an altinn specific task type which specifies the wanted behaviour of the task.",
             "nullable": true
           },
           "ended": {
             "type": "string",
+            "description": "Gets or sets  the date and time when the task was ended (closed/completed)",
             "format": "date-time",
             "nullable": true
           },
@@ -5817,43 +6042,52 @@
           },
           "flowType": {
             "type": "string",
+            "description": "Gets or sets the last flowtype.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents a set of properties with information about the current task/event element in a process"
       },
       "ProcessHistoryItem": {
         "type": "object",
         "properties": {
           "eventType": {
             "type": "string",
+            "description": "The event type",
             "nullable": true
           },
           "elementId": {
             "type": "string",
+            "description": "The element id",
             "nullable": true
           },
           "occured": {
             "type": "string",
+            "description": "The occured",
             "format": "date-time",
             "nullable": true
           },
           "started": {
             "type": "string",
+            "description": "The start time",
             "format": "date-time",
             "nullable": true
           },
           "ended": {
             "type": "string",
+            "description": "The end time for process",
             "format": "date-time",
             "nullable": true
           },
           "performedBy": {
             "type": "string",
+            "description": "An identifier of the entity that performed the action. Organisation number, person identification number or user name.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Model for process history items.\nRepresents a step in an instances' process and holds metadata."
       },
       "ProcessHistoryList": {
         "type": "object",
@@ -5863,10 +6097,12 @@
             "items": {
               "$ref": "#/components/schemas/ProcessHistoryItem"
             },
+            "description": "The actual list of process history items.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents a container object with a list of process history items."
       },
       "ProcessState": {
         "type": "object",
@@ -5876,11 +6112,13 @@
           },
           "started": {
             "type": "string",
+            "description": "Gets or sets the date and time for when the process was started.",
             "format": "date-time",
             "nullable": true
           },
           "startEvent": {
             "type": "string",
+            "description": "Gets or sets the event that was used to start the process.",
             "nullable": true
           },
           "currentTask": {
@@ -5888,15 +6126,18 @@
           },
           "ended": {
             "type": "string",
+            "description": "Gets or sets the date and time for then the process ended/completed.",
             "format": "date-time",
             "nullable": true
           },
           "endEvent": {
             "type": "string",
+            "description": "Gets or sets the end event of the process.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents a status object that holds the process state of an application instance.\nThe process is defined by the application's process specification BPMN file."
       },
       "ProcessStateUpdate": {
         "type": "object",
@@ -5909,17 +6150,20 @@
             "items": {
               "$ref": "#/components/schemas/InstanceEvent"
             },
+            "description": "The instance events produced during process/next",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Process state update including events"
       },
       "ProcessStatus": {
         "enum": [
           "idle",
           "processing"
         ],
-        "type": "string"
+        "type": "string",
+        "description": "Storage-controlled process status values. The wire spelling is the lowercase member name, which\nthe persisted instance and every SQL process-status comparison depend on."
       },
       "ReadStatus": {
         "enum": [
@@ -5927,13 +6171,15 @@
           "Read",
           "UpdatedSinceLastReview"
         ],
-        "type": "string"
+        "type": "string",
+        "description": "The read status"
       },
       "Reference": {
         "type": "object",
         "properties": {
           "value": {
             "type": "string",
+            "description": "Value of the connected reference",
             "nullable": true
           },
           "relation": {
@@ -5943,34 +6189,40 @@
             "$ref": "#/components/schemas/ReferenceType"
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Reference to other objects in storage"
       },
       "ReferenceType": {
         "enum": [
           "DataElement",
           "Task"
         ],
-        "type": "string"
+        "type": "string",
+        "description": "The type of the connected object"
       },
       "RelationType": {
         "enum": [
           "GeneratedFrom"
         ],
-        "type": "string"
+        "type": "string",
+        "description": "The type of relation to the connected object"
       },
       "ResourceLinks": {
         "type": "object",
         "properties": {
           "apps": {
             "type": "string",
+            "description": "Gets or sets the application resource link. It is null if data is fetched from platform storage.",
             "nullable": true
           },
           "platform": {
             "type": "string",
+            "description": "Gets or sets platform resource link.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represent actual links to resources in various endpoints."
       },
       "SblBridgeParty": {
         "type": "object",
@@ -5989,24 +6241,29 @@
         "properties": {
           "prefix": {
             "type": "string",
+            "description": "Gets or sets the prefix to use to filter out shadow fields.",
             "nullable": true
           },
           "saveToDataType": {
             "type": "string",
+            "description": "Gets or sets the data type to save filtered data (without shadow fields) to.\nOptional. If not set, the containing data type will be updated.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents an object with information about how shadow fields are configured for the data type."
       },
       "SignRequest": {
         "type": "object",
         "properties": {
           "signatureDocumentDataType": {
             "type": "string",
+            "description": "The data type to use of the generated signature document",
             "nullable": true
           },
           "generatedFromTask": {
             "type": "string",
+            "description": "The task which should be linked to this signature",
             "nullable": true
           },
           "dataElementSignatures": {
@@ -6014,36 +6271,43 @@
             "items": {
               "$ref": "#/components/schemas/DataElementSignature"
             },
+            "description": "List of dataElementSignatures",
             "nullable": true
           },
           "signee": {
             "$ref": "#/components/schemas/Signee"
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents all dataElements with signing status"
       },
       "Signee": {
         "type": "object",
         "properties": {
           "userId": {
             "type": "string",
+            "description": "The userId representing the signee.",
             "nullable": true
           },
           "systemUserId": {
             "type": "string",
+            "description": "The ID of the systemuser performing the signing",
             "format": "uuid",
             "nullable": true
           },
           "personNumber": {
             "type": "string",
+            "description": "The personNumber representing the signee.",
             "nullable": true
           },
           "organisationNumber": {
             "type": "string",
+            "description": "The organisationNumber representing the signee.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Information about the signee"
       },
       "SimpleDataElement": {
         "required": [
@@ -6318,98 +6582,121 @@
         "properties": {
           "label": {
             "type": "string",
+            "description": "A text key pointing to a short description of the substatus.",
             "nullable": true
           },
           "description": {
             "type": "string",
+            "description": "A text key pointing to a longer description of the substatus.",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "The substatus"
       },
       "SyncAdapterSettings": {
         "type": "object",
         "properties": {
           "disableSync": {
             "type": "boolean",
+            "description": "Gets or sets the flag controlling whether the sync adapter should disable all dialog synchronization.\nThis overrides all other settings.",
             "default": false
           },
           "enableUserSuppliedDialogId": {
             "type": "boolean",
+            "description": "Gets or sets the flag controlling whether the sync adapter should create a dialogId or use user-\nsupplied dialogId. If true, the sync adapter will use the dialogId found in DataValues with key: dialog.id.",
             "default": false
           },
           "disableCreate": {
             "type": "boolean",
+            "description": "Gets or sets the flag controlling whether the sync adapter should disable dialog creation.",
             "default": false
           },
           "disableDelete": {
             "type": "boolean",
+            "description": "Gets or sets the flag controlling whether the sync adapter should disable dialog deletion.",
             "default": false
           },
           "disableAddActivities": {
             "type": "boolean",
+            "description": "Gets or sets the flag controlling whether the sync adapter should disable adding activities.",
             "default": false
           },
           "disableAddTransmissions": {
             "type": "boolean",
+            "description": "Gets or sets the flag controlling whether the sync adapter should disable adding transmissions.",
             "default": false
           },
           "disableSyncDueAt": {
             "type": "boolean",
+            "description": "Gets or sets the flag controlling whether the sync adapter should disable synchronizing (overwrite) the due at date.",
             "default": false
           },
           "disableSyncStatus": {
             "type": "boolean",
+            "description": "Gets or sets the flag controlling whether the sync adapter should disable synchronizing (overwrite) the status.",
             "default": false
           },
           "disableMarkCompletedWhenConfirmed": {
             "type": "boolean",
+            "description": "Gets or sets the flag controlling whether the sync adapter should set status to completed when confirmed.",
             "default": false
           },
           "disableSyncContentTitle": {
             "type": "boolean",
+            "description": "Gets or sets the flag controlling whether the sync adapter should disable synchronizing (overwrite) the title.",
             "default": false
           },
           "disableSyncContentSummary": {
             "type": "boolean",
+            "description": "Gets or sets the flag controlling whether the sync adapter should disable synchronizing (overwrite) the summary.",
             "default": false
           },
           "disableSyncContentAdditionalInformation": {
             "type": "boolean",
+            "description": "Gets or sets the flag controlling whether the sync adapter should disable synchronizing (overwrite) the additional information.",
             "default": false
           },
           "disableSyncContentExtendedStatus": {
             "type": "boolean",
+            "description": "Gets or sets the flag controlling whether the sync adapter should disable synchronizing (overwrite) the extended status.",
             "default": false
           },
           "disableSyncAttachments": {
             "type": "boolean",
+            "description": "Gets or sets the flag controlling whether the sync adapter should disable synchronizing attachments at the dialog level.\nWill only add/remove attachments with recognized id's, which are derived from the URL.",
             "default": false
           },
           "disableSyncApiActions": {
             "type": "boolean",
+            "description": "Gets or sets the flag controlling whether the sync adapter should disable synchronizing API actions.\nWill only add/remove API actions with recognized id's, which are derived from the URL.",
             "default": false
           },
           "disableSyncGuiActions": {
             "type": "boolean",
+            "description": "Gets or sets the flag controlling whether the sync adapter should disable synchronizing GUI actions.\nWill only add/remove GUI actions with recognized id's, which are derived from the URL.",
             "default": false
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "A class to hold sync adapter settings"
       },
       "TextResource": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
+            "description": "Gets or sets the unique id of the text resource, format {org}-{app}-{language} e.g. ttd-demoapp-nb",
             "nullable": true
           },
           "org": {
             "type": "string",
+            "description": "Gets or sets the org, used as a partition key",
             "nullable": true
           },
           "language": {
             "type": "string",
+            "description": "Gets or sets the language. Should be a two letter ISO name.",
             "nullable": true
           },
           "resources": {
@@ -6417,20 +6704,24 @@
             "items": {
               "$ref": "#/components/schemas/TextResourceElement"
             },
+            "description": "Gets or sets a list of text resource elements",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents a set of texts on a specified language."
       },
       "TextResourceElement": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
+            "description": "Gets or sets the id",
             "nullable": true
           },
           "value": {
             "type": "string",
+            "description": "Gets or sets the value",
             "nullable": true
           },
           "variables": {
@@ -6438,42 +6729,51 @@
             "items": {
               "$ref": "#/components/schemas/TextResourceVariable"
             },
+            "description": "Gets or sets the variables",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents the actual texts identified by the key."
       },
       "TextResourceVariable": {
         "type": "object",
         "properties": {
           "key": {
             "type": "string",
+            "description": "Gets or sets the key",
             "nullable": true
           },
           "dataSource": {
             "type": "string",
+            "description": "Gets or sets the dataSource",
             "nullable": true
           },
           "defaultValue": {
             "type": "string",
+            "description": "Gets or sets the defaultValue",
             "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents a replacement variable if any element in the text should be replaced."
       },
       "ValidationStatus": {
         "type": "object",
         "properties": {
           "timestamp": {
             "type": "string",
+            "description": "Gets or sets the date and time of the last validation of task.",
             "format": "date-time",
             "nullable": true
           },
           "canCompleteTask": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Gets or sets a value indicating whether the validation was successful and that the task can be completed."
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Represents the validation status of a data element."
       }
     },
     "securitySchemes": {

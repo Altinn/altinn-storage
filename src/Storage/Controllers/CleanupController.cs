@@ -86,6 +86,14 @@ public class CleanupController(
                 instances.Count,
                 stopwatch.Elapsed.TotalSeconds
             );
+
+            int deletedInstanceOwners = await instanceRepository.DeleteOrphanedInstanceOwners(
+                cancellationToken
+            );
+            _logger.LogInformation(
+                "CleanupController// CleanupInstances // {DeleteCount} instance owners without instances deleted",
+                deletedInstanceOwners
+            );
         }
         catch (Exception ex)
         {

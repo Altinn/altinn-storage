@@ -1,273 +1,214 @@
-#nullable disable
-
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Text;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Common.AccessTokenClient.Services;
-using Altinn.Platform.Register.Enums;
-using Altinn.Platform.Register.Models;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Exceptions;
 using Altinn.Platform.Storage.Services;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
+using Altinn.Platform.Storage.UnitTest.Mocks.Clients;
+using Altinn.Register.Contracts;
 using Microsoft.Extensions.Options;
 using Moq;
-using Moq.Protected;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingServices;
 
 public class RegisterServiceTest
 {
-    private readonly Mock<IOptions<RegisterServiceSettings>> _registerServiceSettings;
-    private readonly Mock<IOptions<GeneralSettings>> _generalSettings;
-    private readonly Mock<HttpMessageHandler> _handlerMock;
-    private readonly Mock<IHttpContextAccessor> _contextAccessor;
-    private readonly Mock<IAccessTokenGenerator> _accessTokenGenerator;
-    private readonly Mock<ILogger<RegisterService>> _loggerRegisterService;
+    private const string _accessToken = "platform-access-token";
 
-    public RegisterServiceTest()
-    {
-        _registerServiceSettings = new Mock<IOptions<RegisterServiceSettings>>();
-        _generalSettings = new Mock<IOptions<GeneralSettings>>();
-        _handlerMock = new Mock<HttpMessageHandler>(MockBehavior.Strict);
-        _contextAccessor = new Mock<IHttpContextAccessor>();
-        _accessTokenGenerator = new Mock<IAccessTokenGenerator>();
-        _loggerRegisterService = new Mock<ILogger<RegisterService>>();
-    }
+    private readonly List<(HttpRequestMessage Request, string Body)> _requests = [];
 
     [Fact]
-    public async Task PartyLookup_MatchFound_IdReturned()
+    public async Task GetParty_QueriesInternalApiByPartyIdWithPlatformAccessToken()
     {
         // Arrange
-        Party party = new Party
-        {
-            PartyId = 500000,
-            OrgNumber = "897069650",
-            PartyTypeName = PartyType.Organisation,
-        };
-        int expected = 500000;
-        HttpResponseMessage httpResponseMessage = new HttpResponseMessage
-        {
-            StatusCode = HttpStatusCode.OK,
-            Content = new StringContent(
-                JsonSerializer.Serialize(party),
-                Encoding.UTF8,
-                "application/json"
-            ),
-        };
-
-        HttpRequestMessage actualRequest = null;
-        void SetRequest(HttpRequestMessage request) => actualRequest = request;
-        InitializeMocks(httpResponseMessage, SetRequest);
-
-        HttpClient httpClient = new HttpClient(_handlerMock.Object);
-
-        RegisterService target = new RegisterService(
-            httpClient,
-            _contextAccessor.Object,
-            _accessTokenGenerator.Object,
-            _generalSettings.Object,
-            _registerServiceSettings.Object,
-            new Mock<ILogger<RegisterService>>().Object
+        RegisterService target = CreateTarget(
+            HttpStatusCode.OK,
+            PartyList(PersonJson(1337, "25871999336"))
         );
 
         // Act
-        int actual = await target.PartyLookup("897069650", null);
+        await target.GetParty(1337, CancellationToken.None);
 
         // Assert
-        Assert.Equal(expected, actual);
+        (HttpRequestMessage request, string body) = Assert.Single(_requests);
+        Assert.Equal(HttpMethod.Post, request.Method);
+        Assert.Equal(
+            "http://localhost:5101/register/api/v2/internal/parties/query?fields=identifiers,type,display-name,user,si",
+            request.RequestUri!.ToString()
+        );
+        Assert.Equal(_accessToken, Assert.Single(request.Headers.GetValues("PlatformAccessToken")));
+        Assert.False(request.Headers.Contains("Authorization"));
+        Assert.Equal("{\"data\":[\"urn:altinn:party:id:1337\"]}", body);
     }
 
     [Fact]
-    public async Task GetParty_SuccessResponse_PartyTypeDeserializedSuccessfully()
+    public async Task GetParty_PartyFound_ReturnsParty()
     {
         // Arrange
-        PartyType expectedPartyType = PartyType.Organisation;
-
-        string repsonseString =
-            "{\"partyId\": 500000,"
-            + "\"partyTypeName\": \"Organisation\","
-            + "\"orgNumber\": \"897069650\","
-            + "\"unitType\": \"AS\","
-            + "\"name\": \"DDG Fitness\","
-            + "\"isDeleted\": false,"
-            + "\"onlyHierarchyElementWithNoAccess\": false,"
-            + "\"organization\": {\"orgNumber\": \"897069650\",\"name\": \"DDG Fitness\",\"unitType\": \"AS\",\"telephoneNumber\": \"12345678\",\"mobileNumber\": \"92010000\",\"faxNumber\": \"92110000\",\"eMailAddress\": \"central@ddgfitness.no\",\"internetAddress\": \"http://ddgfitness.no\",\"mailingAddress\": \"Sofies Gate 1\",\"mailingPostalCode\": \"0170\",\"mailingPostalCity\": \"Oslo\",\"businessAddress\": \"Sofies Gate 1\",\"businessPostalCode\": \"0170\",\"businessPostalCity\": \"By\",\"unitStatus\": null},\"childParties\": null\r\n}";
-
-        HttpResponseMessage httpResponseMessage = new()
-        {
-            StatusCode = HttpStatusCode.OK,
-            Content = new StringContent(repsonseString, Encoding.UTF8, "application/json"),
-        };
-
-        HttpRequestMessage actualRequest = null;
-        void SetRequest(HttpRequestMessage request) => actualRequest = request;
-        InitializeMocks(httpResponseMessage, SetRequest);
-
-        HttpClient httpClient = new HttpClient(_handlerMock.Object);
-
-        RegisterService target = new RegisterService(
-            httpClient,
-            _contextAccessor.Object,
-            _accessTokenGenerator.Object,
-            _generalSettings.Object,
-            _registerServiceSettings.Object,
-            new Mock<ILogger<RegisterService>>().Object
+        RegisterService target = CreateTarget(
+            HttpStatusCode.OK,
+            PartyList(PersonJson(1337, "25871999336"))
         );
 
         // Act
-        Party actual = await target.GetParty(500000);
+        Party? party = await target.GetParty(1337, CancellationToken.None);
 
         // Assert
-        Assert.Equal(expectedPartyType, actual.PartyTypeName);
+        Person person = Assert.IsType<Person>(party);
+        Assert.Equal(1337u, person.PartyId.Value);
+        Assert.Equal("25871999336", person.PersonIdentifier.ToString());
     }
 
-    [Fact]
-    public async Task GetParty_BadRequestResponse_PartyTypeDeserializationFailedWithHttpStatusCode()
+    [Theory]
+    [InlineData(HttpStatusCode.OK)]
+    [InlineData(HttpStatusCode.PartialContent)]
+    public async Task GetParty_PartyMissing_ReturnsNull(HttpStatusCode statusCode)
     {
         // Arrange
-        int partyId = 500000;
-        string loggedMessasge =
-            "// Getting party with partyID 500000 failed with statuscode BadRequest";
-
-        HttpResponseMessage httpResponseMessage = new() { StatusCode = HttpStatusCode.BadRequest };
-
-        HttpRequestMessage actualRequest = null;
-        void SetRequest(HttpRequestMessage request) => actualRequest = request;
-        InitializeMocks(httpResponseMessage, SetRequest);
-
-        HttpClient httpClient = new HttpClient(_handlerMock.Object);
-
-        RegisterService target = new RegisterService(
-            httpClient,
-            _contextAccessor.Object,
-            _accessTokenGenerator.Object,
-            _generalSettings.Object,
-            _registerServiceSettings.Object,
-            _loggerRegisterService.Object
-        );
+        RegisterService target = CreateTarget(statusCode, "{\"data\":[]}");
 
         // Act
-        Party actual = await target.GetParty(partyId);
+        Party? party = await target.GetParty(1337, CancellationToken.None);
 
         // Assert
-        _loggerRegisterService.Verify(
-            x =>
-                x.Log(
-                    LogLevel.Error,
-                    It.IsAny<EventId>(),
-                    It.Is<It.IsAnyType>((o, t) => o.ToString().Equals(loggedMessasge)),
-                    It.IsAny<Exception>(),
-                    It.IsAny<Func<It.IsAnyType, Exception, string>>()
-                ),
-            Times.Once
-        );
+        Assert.Null(party);
     }
 
-    [Fact]
-    public async Task PartyLookup_ResponseIsNotFound_ReturnsMinusOne()
-    {
-        // Arrange
-        HttpResponseMessage httpResponseMessage = new HttpResponseMessage
-        {
-            StatusCode = HttpStatusCode.NotFound,
-            Content = new StringContent(string.Empty),
-        };
-
-        HttpRequestMessage actualRequest = null;
-        void SetRequest(HttpRequestMessage request) => actualRequest = request;
-        InitializeMocks(httpResponseMessage, SetRequest);
-
-        HttpClient httpClient = new HttpClient(_handlerMock.Object);
-
-        RegisterService target = new RegisterService(
-            httpClient,
-            _contextAccessor.Object,
-            _accessTokenGenerator.Object,
-            _generalSettings.Object,
-            _registerServiceSettings.Object,
-            new Mock<ILogger<RegisterService>>().Object
-        );
-
-        // Act
-        int actual = await target.PartyLookup("16069412345", null);
-
-        // Assert
-        Assert.Equal(-1, actual);
-    }
-
-    [Fact]
-    public async Task PartyLookup_ResponseIsNotSuccessful_PlatformHttpException()
-    {
-        // Arrange
-        HttpResponseMessage httpResponseMessage = new HttpResponseMessage
-        {
-            StatusCode = HttpStatusCode.Forbidden,
-            Content = new StringContent(string.Empty),
-        };
-
-        HttpRequestMessage actualRequest = null;
-        void SetRequest(HttpRequestMessage request) => actualRequest = request;
-        InitializeMocks(httpResponseMessage, SetRequest);
-
-        HttpClient httpClient = new HttpClient(_handlerMock.Object);
-
-        RegisterService target = new RegisterService(
-            httpClient,
-            _contextAccessor.Object,
-            _accessTokenGenerator.Object,
-            _generalSettings.Object,
-            _registerServiceSettings.Object,
-            new Mock<ILogger<RegisterService>>().Object
-        );
-
-        // Act & Assert
-        await Assert.ThrowsAsync<PlatformHttpException>(async () =>
-        {
-            await target.PartyLookup("16069412345", null);
-        });
-    }
-
-    private void InitializeMocks(
-        HttpResponseMessage httpResponseMessage,
-        Action<HttpRequestMessage> callback
+    [Theory]
+    [InlineData(HttpStatusCode.BadRequest)]
+    [InlineData(HttpStatusCode.Unauthorized)]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    public async Task GetParty_UnsuccessfulResponse_ThrowsPlatformHttpException(
+        HttpStatusCode statusCode
     )
     {
-        RegisterServiceSettings registerServiceSettings = new RegisterServiceSettings
-        {
-            ApiRegisterEndpoint = "http://localhost:5101/register/api/v1/",
-        };
+        // Arrange
+        RegisterService target = CreateTarget(statusCode, "error");
 
-        _registerServiceSettings.Setup(s => s.Value).Returns(registerServiceSettings);
+        // Act
+        PlatformHttpException exception = await Assert.ThrowsAsync<PlatformHttpException>(() =>
+            target.GetParty(1337, CancellationToken.None)
+        );
 
-        GeneralSettings generalSettings = new GeneralSettings
-        {
-            RuntimeCookieName = "AltinnStudioRuntime",
-        };
+        // Assert
+        Assert.Equal(statusCode, exception.Response.StatusCode);
+    }
 
-        _generalSettings.Setup(s => s.Value).Returns(generalSettings);
+    [Fact]
+    public async Task LookupPartyId_SendsIdentifierAndReturnsPartyId()
+    {
+        // Arrange
+        RegisterService target = CreateTarget(
+            HttpStatusCode.OK,
+            PartyList(PersonJson(500000, "25871999336"))
+        );
+        PartyUrn identifier = PartyUrn.PersonId.Create(PersonIdentifier.Parse("25871999336"));
 
-        _contextAccessor.Setup(s => s.HttpContext).Returns(new DefaultHttpContext());
+        // Act
+        int? partyId = await target.LookupPartyId(identifier, CancellationToken.None);
 
-        _accessTokenGenerator
-            .Setup(s => s.GenerateAccessToken(It.IsAny<string>(), It.IsAny<string>()))
-            .Returns(string.Empty);
+        // Assert
+        Assert.Equal(500000, partyId);
+        (HttpRequestMessage request, string body) = Assert.Single(_requests);
+        Assert.Equal(
+            "http://localhost:5101/register/api/v2/internal/parties/query?fields=id",
+            request.RequestUri!.ToString()
+        );
+        Assert.Equal("{\"data\":[\"urn:altinn:person:identifier-no:25871999336\"]}", body);
+    }
 
-        _handlerMock
-            .Protected()
-            .Setup<Task<HttpResponseMessage>>(
-                "SendAsync",
-                ItExpr.IsAny<HttpRequestMessage>(),
-                ItExpr.IsAny<CancellationToken>()
+    [Fact]
+    public async Task LookupPartyId_PartyMissing_ReturnsNull()
+    {
+        // Arrange
+        RegisterService target = CreateTarget(HttpStatusCode.PartialContent, "{\"data\":[]}");
+        PartyUrn identifier = PartyUrn.PartyUuid.Create(Guid.NewGuid());
+
+        // Act
+        int? partyId = await target.LookupPartyId(identifier, CancellationToken.None);
+
+        // Assert
+        Assert.Null(partyId);
+    }
+
+    [Theory]
+    [InlineData("https://platform.at22.altinn.cloud/register/api/v1/")]
+    [InlineData("https://platform.at22.altinn.cloud/register/api/v1")]
+    public void GetInternalApiEndpoint_ResolvesV2InternalApiNextToV1Api(string v1Endpoint)
+    {
+        // Arrange
+        RegisterServiceSettings settings = new() { ApiRegisterEndpoint = v1Endpoint };
+
+        // Act
+        Uri endpoint = settings.GetInternalApiEndpoint();
+
+        // Assert
+        Assert.Equal(
+            "https://platform.at22.altinn.cloud/register/api/v2/internal/",
+            endpoint.ToString()
+        );
+    }
+
+    private static string PersonJson(int partyId, string personNumber) =>
+        $$"""
+            {
+              "partyType": "person",
+              "partyUuid": "{{RegisterServiceMock.GetPartyUuid(partyId)}}",
+              "versionId": 1,
+              "partyId": {{partyId}},
+              "personIdentifier": "{{personNumber}}"
+            }
+            """;
+
+    private static string PartyList(string partyJson) => $"{{\"data\":[{partyJson}]}}";
+
+    private RegisterService CreateTarget(HttpStatusCode statusCode, string responseBody)
+    {
+        Mock<IAccessTokenGenerator> accessTokenGenerator = new();
+        accessTokenGenerator
+            .Setup(generator => generator.GenerateAccessToken("platform", "storage"))
+            .Returns(_accessToken);
+
+        HttpClient httpClient = new(new RecordingHandler(_requests, statusCode, responseBody));
+
+        return new RegisterService(
+            httpClient,
+            accessTokenGenerator.Object,
+            Options.Create(
+                new RegisterServiceSettings
+                {
+                    ApiRegisterEndpoint = "http://localhost:5101/register/api/v1/",
+                }
             )
-            .Callback<HttpRequestMessage, CancellationToken>((request, _) => callback(request))
-            .ReturnsAsync(httpResponseMessage)
-            .Verifiable();
+        );
+    }
+
+    private sealed class RecordingHandler(
+        List<(HttpRequestMessage Request, string Body)> requests,
+        HttpStatusCode statusCode,
+        string responseBody
+    ) : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken
+        )
+        {
+            string body = request.Content is null
+                ? string.Empty
+                : await request.Content.ReadAsStringAsync(cancellationToken);
+            requests.Add((request, body));
+
+            return new HttpResponseMessage(statusCode)
+            {
+                Content = new StringContent(responseBody, Encoding.UTF8, "application/json"),
+            };
+        }
     }
 }

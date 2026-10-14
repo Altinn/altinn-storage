@@ -14,6 +14,7 @@ using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Services;
+using Altinn.Platform.Storage.UnitTest.Mocks.Clients;
 using Altinn.Platform.Storage.UnitTest.TestingRepositories;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Microsoft.AspNetCore.Http;
@@ -37,7 +38,7 @@ public class InstancesControllerCreationIntegrationTests : IClassFixture<Instanc
         _instanceFixture = instanceFixture;
         _ = PostgresUtil
             .RunSql(
-                "delete from storage.dataelementblobversions; delete from storage.instances; delete from storage.dataelements;"
+                "delete from storage.dataelementblobversions; delete from storage.instances; delete from storage.parties; delete from storage.dataelements;"
             )
             .Result;
     }
@@ -82,6 +83,11 @@ public class InstancesControllerCreationIntegrationTests : IClassFixture<Instanc
             authorization.Object,
             instanceEventService.Object,
             Mock.Of<IRegisterService>(),
+            new InstanceOwnerService(
+                new RegisterServiceMock(),
+                _instanceFixture.InstanceRepo,
+                NullLogger<InstanceOwnerService>.Instance
+            ),
             applicationService.Object,
             Options.Create(new GeneralSettings { Hostname = "https://storage.test" }),
             processAuthorizer.Object
@@ -114,6 +120,18 @@ public class InstancesControllerCreationIntegrationTests : IClassFixture<Instanc
         Assert.Equal(ProcessStatus.Processing, persistedBefore.Process.Status);
         Assert.Equal("value", persistedBefore.DataValues["preserved"]);
         Assert.Equal("\"processing\"", await ReadStoredProcessStatusRepresentation(instanceGuid));
+        Assert.Equal(RegisterServiceMock.GetPartyUuid(_partyId), created.InstanceOwner.PartyUuid);
+        Assert.Equal(
+            RegisterServiceMock.GetPartyUuid(_partyId),
+            persistedBefore.InstanceOwner.PartyUuid
+        );
+        Assert.Equal(RegisterServiceMock.PersonNumber, persistedBefore.InstanceOwner.PersonNumber);
+        Assert.Equal(
+            $"{{\"PartyId\": \"{_partyId}\"}}",
+            await PostgresUtil.RunQuery<string>(
+                $"select (instance -> 'InstanceOwner')::text from storage.instances where alternateid = '{instanceGuid}'"
+            )
+        );
         StorageVersions versionsBefore = persistedBefore.Versions;
         string rawInstanceBefore = await ReadRawInstance(instanceGuid);
 
