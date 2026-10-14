@@ -445,9 +445,10 @@ public class DataController : ControllerBase
     /// Gets the content of one blob version of a data element, for the instance's own service owner.
     /// </summary>
     /// <remarks>
-    /// The version may be current, superseded, or belong to a deleted element. Availability is bounded by
-    /// blob retention: detached versions remain readable until orphan cleanup removes them. Reading a version
-    /// requires the same access to its data type as reading the element, using the application's current metadata.
+    /// The version may be current, superseded, or belong to a deleted element. Detached versions remain readable until
+    /// orphan cleanup. Aggregate mutations keep a deleted element's versions; other deletes remove them immediately.
+    /// Reading a version requires the same access to its data type as reading the element, using the application's
+    /// current metadata.
     /// </remarks>
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>

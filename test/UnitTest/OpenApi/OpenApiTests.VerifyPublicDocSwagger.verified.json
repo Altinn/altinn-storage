@@ -438,7 +438,7 @@
           "Data"
         ],
         "summary": "Gets the content of one blob version of a data element, for the instance's own service owner.",
-        "description": "The version may be current, superseded, or belong to a deleted element. Availability is bounded by\nblob retention: detached versions remain readable until orphan cleanup removes them. Reading a version\nrequires the same access to its data type as reading the element, using the application's current metadata.",
+        "description": "The version may be current, superseded, or belong to a deleted element. Detached versions remain readable until\norphan cleanup. Aggregate mutations keep a deleted element's versions; other deletes remove them immediately.\nReading a version requires the same access to its data type as reading the element, using the application's\ncurrent metadata.",
         "parameters": [
           {
             "name": "instanceOwnerPartyId",
