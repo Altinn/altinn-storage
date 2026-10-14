@@ -28,6 +28,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Newtonsoft.Json;
+using PartyUrn = Altinn.Register.Contracts.PartyUrn;
 using Substatus = Altinn.Platform.Storage.Interface.Models.Substatus;
 
 namespace Altinn.Platform.Storage.Controllers;
@@ -1414,17 +1415,17 @@ public class InstancesController : ControllerBase
             return null;
         }
 
-        InstanceOwnerIdentifierParseResult parseResult =
-            queryParameters.ParseInstanceOwnerIdentifier();
+        PartyUrn identifier = queryParameters.ParseInstanceOwnerIdentifier(out string errorMessage);
 
-        if (!parseResult.IsValid)
+        if (identifier is null)
         {
-            return BadRequest(parseResult.ErrorMessage);
+            return BadRequest(errorMessage);
         }
 
-        queryParameters.InstanceOwnerPartyId = parseResult.Identifier is null
-            ? null
-            : await _registerService.LookupPartyId(parseResult.Identifier, cancellationToken);
+        queryParameters.InstanceOwnerPartyId = await _registerService.LookupPartyId(
+            identifier,
+            cancellationToken
+        );
 
         if (queryParameters.InstanceOwnerPartyId is null)
         {

@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 
 namespace Altinn.Platform.Storage.Configuration;
@@ -13,7 +11,7 @@ public class RegisterServiceSettings
     /// <summary>
     /// Gets or sets the url for the Register API endpoint, e.g. <c>https://platform.altinn.no/register/api/v1/</c>.
     /// </summary>
-    public string ApiRegisterEndpoint { get; set; }
+    public string ApiRegisterEndpoint { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets the url for the internal Register API (v2), resolved relative to <see cref="ApiRegisterEndpoint"/>,

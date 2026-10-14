@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS storage.parties
 (
     partyid BIGINT PRIMARY KEY,
-    partyuuid UUID NOT NULL UNIQUE,
+    partyuuid UUID NOT NULL,
     personnumber TEXT,
     organisationnumber TEXT,
     username TEXT,

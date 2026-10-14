@@ -1,4 +1,5 @@
 using Altinn.Platform.Storage.Models;
+using Altinn.Register.Contracts;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.ModelTests;
@@ -18,12 +19,11 @@ public class InstanceQueryParametersTests
         InstanceQueryParameters parameters = new() { InstanceOwnerIdentifier = identifier };
 
         // Act
-        InstanceOwnerIdentifierParseResult result = parameters.ParseInstanceOwnerIdentifier();
+        PartyUrn? result = parameters.ParseInstanceOwnerIdentifier(out string? errorMessage);
 
         // Assert
-        Assert.True(result.IsValid);
-        Assert.Equal(expectedUrn, result.Identifier?.ToString());
-        Assert.Null(result.ErrorMessage);
+        Assert.Equal(expectedUrn, result?.ToString());
+        Assert.Null(errorMessage);
     }
 
     [Theory]
@@ -39,81 +39,38 @@ public class InstanceQueryParametersTests
         InstanceQueryParameters parameters = new() { InstanceOwnerIdentifier = identifier };
 
         // Act
-        InstanceOwnerIdentifierParseResult result = parameters.ParseInstanceOwnerIdentifier();
+        PartyUrn? result = parameters.ParseInstanceOwnerIdentifier(out string? errorMessage);
 
         // Assert
-        Assert.True(result.IsValid);
-        Assert.Equal(identifier, result.Identifier?.ToString());
-        Assert.Null(result.ErrorMessage);
+        Assert.Equal(identifier, result?.ToString());
+        Assert.Null(errorMessage);
     }
 
     [Theory]
-    [InlineData("Person:33312321321")]
-    [InlineData("Organisation:333123213")]
-    public void ParseInstanceOwnerIdentifier_InvalidCheckDigit_ReturnsValidWithoutIdentifier(
-        string identifier
+    [InlineData("Person:33312", "Person number needs to be exactly 11 digits.")]
+    [InlineData("Organisation:33312", "Organization number needs to be exactly 9 digits.")]
+    [InlineData("Person:33312321321", "Invalid person number.")]
+    [InlineData("Organisation:333123213", "Invalid organisation number.")]
+    [InlineData("something:3312321321", "Invalid InstanceOwnerIdentifier.")]
+    [InlineData("2:974760673", "Invalid InstanceOwnerIdentifier.")]
+    [InlineData("33312321321", "Invalid InstanceOwnerIdentifier.")]
+    [InlineData("", "Invalid InstanceOwnerIdentifier.")]
+    [InlineData("urn:altinn:unknown:1337", "Invalid InstanceOwnerIdentifier.")]
+    [InlineData("urn:altinn:party:uuid:not-a-uuid", "Invalid InstanceOwnerIdentifier.")]
+    [InlineData("urn:altinn:person:identifier-no:33312321321", "Invalid InstanceOwnerIdentifier.")]
+    public void ParseInstanceOwnerIdentifier_Invalid_ReturnsNullWithErrorMessage(
+        string identifier,
+        string expectedErrorMessage
     )
     {
         // Arrange
         InstanceQueryParameters parameters = new() { InstanceOwnerIdentifier = identifier };
 
         // Act
-        InstanceOwnerIdentifierParseResult result = parameters.ParseInstanceOwnerIdentifier();
+        PartyUrn? result = parameters.ParseInstanceOwnerIdentifier(out string? errorMessage);
 
         // Assert
-        Assert.True(result.IsValid);
-        Assert.Null(result.Identifier);
-        Assert.Null(result.ErrorMessage);
-    }
-
-    [Fact]
-    public void ParseInstanceOwnerIdentifier_PersonWrongLength_ReturnsError()
-    {
-        // Arrange
-        InstanceQueryParameters parameters = new() { InstanceOwnerIdentifier = "Person:33312" };
-
-        // Act
-        InstanceOwnerIdentifierParseResult result = parameters.ParseInstanceOwnerIdentifier();
-
-        // Assert
-        Assert.False(result.IsValid);
-        Assert.Equal("Person number needs to be exactly 11 digits.", result.ErrorMessage);
-    }
-
-    [Fact]
-    public void ParseInstanceOwnerIdentifier_OrganisationWrongLength_ReturnsError()
-    {
-        // Arrange
-        InstanceQueryParameters parameters = new()
-        {
-            InstanceOwnerIdentifier = "Organisation:33312",
-        };
-
-        // Act
-        InstanceOwnerIdentifierParseResult result = parameters.ParseInstanceOwnerIdentifier();
-
-        // Assert
-        Assert.False(result.IsValid);
-        Assert.Equal("Organization number needs to be exactly 9 digits.", result.ErrorMessage);
-    }
-
-    [Theory]
-    [InlineData("something:3312321321")]
-    [InlineData("33312321321")]
-    [InlineData("")]
-    [InlineData("urn:altinn:unknown:1337")]
-    [InlineData("urn:altinn:party:uuid:not-a-uuid")]
-    [InlineData("urn:altinn:person:identifier-no:33312321321")]
-    public void ParseInstanceOwnerIdentifier_UnknownOrMalformed_ReturnsInvalid(string identifier)
-    {
-        // Arrange
-        InstanceQueryParameters parameters = new() { InstanceOwnerIdentifier = identifier };
-
-        // Act
-        InstanceOwnerIdentifierParseResult result = parameters.ParseInstanceOwnerIdentifier();
-
-        // Assert
-        Assert.False(result.IsValid);
-        Assert.Equal("Invalid InstanceOwnerIdentifier.", result.ErrorMessage);
+        Assert.Null(result);
+        Assert.Equal(expectedErrorMessage, errorMessage);
     }
 }

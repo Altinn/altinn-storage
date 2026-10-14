@@ -37,6 +37,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -45,6 +46,7 @@ using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Polly;
 using Wolverine;
 using Wolverine.AzureServiceBus;
 using Yuniql.AspNetCore;
@@ -242,9 +244,23 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddHealthChecks().AddCheck<HealthCheck>("storage_health_check");
 
     services.AddHttpClient<AuthorizationApiClient>();
-    services.AddHttpClient<IRegisterService, RegisterService>(client =>
-        client.Timeout = TimeSpan.FromSeconds(10)
-    );
+    services
+        .AddHttpClient<IRegisterService, RegisterService>()
+        .AddResilienceHandler(
+            "register",
+            builder =>
+                builder
+                    .AddCircuitBreaker(
+                        new HttpCircuitBreakerStrategyOptions
+                        {
+                            FailureRatio = 0.5,
+                            MinimumThroughput = 10,
+                            SamplingDuration = TimeSpan.FromSeconds(30),
+                            BreakDuration = TimeSpan.FromSeconds(30),
+                        }
+                    )
+                    .AddTimeout(TimeSpan.FromSeconds(10))
+        );
 
     services.AddAspNetCoreMetricsEnricher();
 

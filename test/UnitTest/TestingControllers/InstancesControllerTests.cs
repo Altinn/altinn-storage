@@ -815,11 +815,11 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     }
 
     [Theory]
-    [InlineData("urn:altinn:party:uuid:not-a-uuid", HttpStatusCode.BadRequest)]
-    [InlineData("Person:33312321321", HttpStatusCode.OK)]
-    public async Task GetMany_IdentifierThatCannotMatchAParty_DoesNotCallRegister(
+    [InlineData("urn:altinn:party:uuid:not-a-uuid", "Invalid InstanceOwnerIdentifier.")]
+    [InlineData("Person:33312321321", "Invalid person number.")]
+    public async Task GetMany_InvalidInstanceOwnerIdentifier_ReturnsBadRequestWithoutCallingRegister(
         string identifier,
-        HttpStatusCode expectedStatusCode
+        string expectedErrorMessage
     )
     {
         // Arrange
@@ -835,14 +835,8 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         HttpResponseMessage response = await client.GetAsync(BasePath);
 
         // Assert
-        Assert.Equal(expectedStatusCode, response.StatusCode);
-        if (expectedStatusCode == HttpStatusCode.OK)
-        {
-            QueryResponse<Instance> result = JsonConvert.DeserializeObject<QueryResponse<Instance>>(
-                await response.Content.ReadAsStringAsync()
-            );
-            Assert.Empty(result.Instances);
-        }
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(expectedErrorMessage, await response.Content.ReadAsStringAsync());
     }
 
     private static InstanceInternal CreateStoredInstance(InstanceOwner owner) =>

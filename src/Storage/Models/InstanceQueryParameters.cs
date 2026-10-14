@@ -1,5 +1,3 @@
-﻿#nullable disable
-
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -57,25 +55,25 @@ public class InstanceQueryParameters
     /// The organization identifier.
     /// </summary>
     [FromQuery(Name = _orgParameterName)]
-    public string Org { get; set; }
+    public string? Org { get; set; }
 
     /// <summary>
     /// The application identifier.
     /// </summary>
     [FromQuery(Name = _appIdParameterName)]
-    public string AppId { get; set; }
+    public string? AppId { get; set; }
 
     /// <summary>
     /// The current task identifier.
     /// </summary>
     [FromQuery(Name = _currentTaskParameterName)]
-    public string ProcessCurrentTask { get; set; }
+    public string? ProcessCurrentTask { get; set; }
 
     /// <summary>
     /// The historical Altinn 2 archive reference stored under the "A2ArchRef" key in the instance's data values.
     /// </summary>
     [FromQuery(Name = _dataValuesA2ArchRefParameterName)]
-    public string DataValuesA2ArchRef { get; set; }
+    public string? DataValuesA2ArchRef { get; set; }
 
     /// <summary>
     /// A value indicating whether the process is completed.
@@ -87,13 +85,13 @@ public class InstanceQueryParameters
     /// The process end state.
     /// </summary>
     [FromQuery(Name = _processEndEventParameterName)]
-    public string ProcessEndEvent { get; set; }
+    public string? ProcessEndEvent { get; set; }
 
     /// <summary>
     /// The process ended value.
     /// </summary>
     [FromQuery(Name = _processEndedParameterName)]
-    public string[] ProcessEnded { get; set; }
+    public string[]? ProcessEnded { get; set; }
 
     /// <summary>
     /// The instance owner party identifier.
@@ -105,31 +103,31 @@ public class InstanceQueryParameters
     /// The last changed date.
     /// </summary>
     [FromQuery(Name = _lastChangedParameterName)]
-    public string[] LastChanged { get; set; }
+    public string[]? LastChanged { get; set; }
 
     /// <summary>
     /// The creation date.
     /// </summary>
     [FromQuery(Name = _creationDateParameterName)]
-    public string[] Created { get; set; }
+    public string[]? Created { get; set; }
 
     /// <summary>
     /// The visible after date time.
     /// </summary>
     [FromQuery(Name = _visibleAfterParameterName)]
-    public string[] VisibleAfter { get; set; }
+    public string[]? VisibleAfter { get; set; }
 
     /// <summary>
     /// The due before date time.
     /// </summary>
     [FromQuery(Name = _dueBeforeParameterName)]
-    public string[] DueBefore { get; set; }
+    public string[]? DueBefore { get; set; }
 
     /// <summary>
     /// A string that will hide instances already confirmed by stakeholder.
     /// </summary>
     [FromQuery(Name = _excludeConfirmedByParameterName)]
-    public string ExcludeConfirmedBy { get; set; }
+    public string? ExcludeConfirmedBy { get; set; }
 
     /// <summary>
     /// Confirmed = false is a compact version of ExcludeConfirmedBy indicating
@@ -160,7 +158,7 @@ public class InstanceQueryParameters
     /// The continuation token.
     /// </summary>
     [FromQuery(Name = _continuationTokenParameterName)]
-    public string ContinuationToken { get; set; }
+    public string? ContinuationToken { get; set; }
 
     /// <summary>
     /// The page size.
@@ -172,7 +170,7 @@ public class InstanceQueryParameters
     /// The instance owner identifier.
     /// </summary>
     [FromHeader(Name = _instanceOwnerIdentifierHeaderName)]
-    public string InstanceOwnerIdentifier { get; set; }
+    public string? InstanceOwnerIdentifier { get; set; }
 
     /// <summary>
     /// The Altinn version to include. E.g. "mainVersionInclude=3" will filter the response to only get the Altinn 3 instances.
@@ -191,13 +189,13 @@ public class InstanceQueryParameters
     /// Gets or sets the search string.
     /// </summary>
     [FromQuery(Name = _searchStringDatabindName)]
-    public string SearchString { get; set; }
+    public string? SearchString { get; set; }
 
     /// <summary>
     /// Gets or sets the value by which the result will be sorted.
     /// </summary>
     [FromQuery(Name = _sortAscendingDatabindName)]
-    public string SortBy { get; set; }
+    public string? SortBy { get; set; }
 
     /// <summary>
     /// Should query include data elements
@@ -210,17 +208,17 @@ public class InstanceQueryParameters
     /// Gets or sets the A3 reference.
     /// </summary>
     [FromQuery(Name = _a3RefParameterName)]
-    public string A3Ref { get; set; }
+    public string? A3Ref { get; set; }
 
     /// <summary>
     /// Gets or sets an array of application identifiers.
     /// </summary>
-    internal string[] AppIds { get; set; }
+    internal string[]? AppIds { get; set; }
 
     /// <summary>
     /// Gets or sets the archive reference.
     /// </summary>
-    internal string ArchiveReference { get; set; }
+    internal string? ArchiveReference { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether the status is active or soft deleted.
@@ -235,12 +233,12 @@ public class InstanceQueryParameters
     /// <summary>
     /// Gets or sets the list of instance owner party IDs.
     /// </summary>
-    internal int?[] InstanceOwnerPartyIds { get; set; }
+    internal int?[]? InstanceOwnerPartyIds { get; set; }
 
     /// <summary>
     /// Gets or sets the message box interval.
     /// </summary>
-    internal string[] MsgBoxInterval { get; set; }
+    internal string[]? MsgBoxInterval { get; set; }
 
     /// <summary>
     /// Generates the PostgreSQL parameters from the query parameters
@@ -357,7 +355,7 @@ public class InstanceQueryParameters
     private static void AddParamIfNotEmpty(
         Dictionary<string, object> postgresParams,
         string paramName,
-        object value
+        object? value
     )
     {
         if (value == null)
@@ -383,7 +381,7 @@ public class InstanceQueryParameters
     private static void AddParamIfNotNull(
         Dictionary<string, object> postgresParams,
         string paramName,
-        object value
+        object? value
     )
     {
         if (value == null)
@@ -413,11 +411,11 @@ public class InstanceQueryParameters
             return;
         }
 
-        foreach (string value in queryValues)
+        foreach (string? value in queryValues)
         {
             try
             {
-                string @operator = value.Split(':')[0];
+                string @operator = value!.Split(':')[0];
                 string dateValue = value[(@operator.Length + 1)..];
                 string postgresParamName = GetPgParamName($"{paramName}_{@operator}");
                 postgresParams.Add(
@@ -456,7 +454,7 @@ public class InstanceQueryParameters
     /// </summary>
     /// <param name="queryValue">The query value containing the stakeholder ID.</param>
     /// <returns>An array of exclude confirmed by values.</returns>
-    private string[] GetExcludeConfirmedBy(string queryValue)
+    private string[]? GetExcludeConfirmedBy(string? queryValue)
     {
         if (
             string.IsNullOrEmpty(queryValue)
@@ -487,25 +485,22 @@ public class InstanceQueryParameters
     /// or <c>urn:altinn:person:idporten-email:{email}</c>), and the short forms
     /// <c>person:{11 digits}</c> and <c>organisation:{9 digits}</c>.
     /// </remarks>
-    /// <returns>
-    /// A result indicating whether the identifier is valid. A valid result has a
-    /// <see cref="InstanceOwnerIdentifierParseResult.Identifier"/> unless the identifier is well-formed
-    /// but cannot belong to any party, such as a number with an invalid check digit. When invalid,
-    /// <see cref="InstanceOwnerIdentifierParseResult.ErrorMessage"/> describes the problem.
-    /// </returns>
-    public InstanceOwnerIdentifierParseResult ParseInstanceOwnerIdentifier()
+    /// <param name="errorMessage">A description of the validation failure when the identifier is invalid; otherwise null.</param>
+    /// <returns>The party URN, or null when the identifier is invalid.</returns>
+    public PartyUrn? ParseInstanceOwnerIdentifier(out string? errorMessage)
     {
-        string identifier = InstanceOwnerIdentifier?.Trim();
+        errorMessage = "Invalid InstanceOwnerIdentifier.";
+        string? identifier = InstanceOwnerIdentifier?.Trim();
 
         if (identifier?.StartsWith("urn:", StringComparison.Ordinal) == true)
         {
-            return PartyUrn.TryParse(identifier, null, out PartyUrn partyUrn)
-                ? new InstanceOwnerIdentifierParseResult(true, partyUrn, null)
-                : new InstanceOwnerIdentifierParseResult(
-                    false,
-                    null,
-                    "Invalid InstanceOwnerIdentifier."
-                );
+            if (!PartyUrn.TryParse(identifier, null, out PartyUrn? partyUrn))
+            {
+                return null;
+            }
+
+            errorMessage = null;
+            return partyUrn;
         }
 
         (string instanceOwnerIdType, string instanceOwnerIdValue) =
@@ -516,11 +511,7 @@ public class InstanceQueryParameters
             || !Enum.TryParse(instanceOwnerIdType, true, out PartyType partyType)
         )
         {
-            return new InstanceOwnerIdentifierParseResult(
-                false,
-                null,
-                "Invalid InstanceOwnerIdentifier."
-            );
+            return null;
         }
 
         switch (partyType)
@@ -528,61 +519,49 @@ public class InstanceQueryParameters
             case PartyType.Person:
                 if (!InstanceOwnerIdRegExHelper.ElevenDigitRegex().IsMatch(instanceOwnerIdValue))
                 {
-                    return new InstanceOwnerIdentifierParseResult(
-                        false,
-                        null,
-                        "Person number needs to be exactly 11 digits."
-                    );
+                    errorMessage = "Person number needs to be exactly 11 digits.";
+                    return null;
                 }
 
-                return new InstanceOwnerIdentifierParseResult(
-                    true,
-                    PersonIdentifier.TryParse(
+                if (
+                    !PersonIdentifier.TryParse(
                         instanceOwnerIdValue,
                         null,
-                        out PersonIdentifier person
+                        out PersonIdentifier? person
                     )
-                        ? PartyUrn.PersonId.Create(person)
-                        : null,
-                    null
-                );
+                )
+                {
+                    errorMessage = "Invalid person number.";
+                    return null;
+                }
 
-            default:
+                errorMessage = null;
+                return PartyUrn.PersonId.Create(person);
+
+            case PartyType.Organisation:
                 if (!InstanceOwnerIdRegExHelper.NineDigitRegex().IsMatch(instanceOwnerIdValue))
                 {
-                    return new InstanceOwnerIdentifierParseResult(
-                        false,
-                        null,
-                        "Organization number needs to be exactly 9 digits."
-                    );
+                    errorMessage = "Organization number needs to be exactly 9 digits.";
+                    return null;
                 }
 
-                return new InstanceOwnerIdentifierParseResult(
-                    true,
-                    OrganizationIdentifier.TryParse(
+                if (
+                    !OrganizationIdentifier.TryParse(
                         instanceOwnerIdValue,
                         null,
-                        out OrganizationIdentifier organization
+                        out OrganizationIdentifier? organization
                     )
-                        ? PartyUrn.OrganizationId.Create(organization)
-                        : null,
-                    null
-                );
+                )
+                {
+                    errorMessage = "Invalid organisation number.";
+                    return null;
+                }
+
+                errorMessage = null;
+                return PartyUrn.OrganizationId.Create(organization);
+
+            default:
+                return null;
         }
     }
 }
-
-/// <summary>
-/// The result of parsing an <see cref="InstanceQueryParameters.InstanceOwnerIdentifier"/> value.
-/// </summary>
-/// <param name="IsValid">Whether the identifier was valid.</param>
-/// <param name="Identifier">
-/// The Register party URN the identifier refers to; null when the identifier is invalid, or valid but
-/// unable to match any party.
-/// </param>
-/// <param name="ErrorMessage">A description of the validation failure, when <paramref name="IsValid"/> is false; otherwise null.</param>
-public readonly record struct InstanceOwnerIdentifierParseResult(
-    bool IsValid,
-    PartyUrn Identifier,
-    string ErrorMessage
-);
